@@ -1,6 +1,5 @@
+import { ActorId, MissionId, ProjectId, TaskId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
-
-import { ActorId, MissionId, ProjectId, TaskId } from "../ids"
 
 /**
  * Cycle de vie d'une tâche :

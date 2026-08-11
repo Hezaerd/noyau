@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
+import { evolve, replay } from "@noyau/domain/task/projector"
 import { TaskAssigned, TaskCompleted, TaskCreated, TaskFailed } from "@noyau/protocol/events"
 
-import { evolve, replay } from "../../src/task/projector"
 import { marion, missionId, taskId } from "./fixtures"
 
 const created = TaskCreated.make({

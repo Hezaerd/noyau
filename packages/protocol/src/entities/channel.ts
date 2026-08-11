@@ -1,6 +1,5 @@
+import { ChannelId, ProjectId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
-
-import { ChannelId, ProjectId } from "../ids"
 
 export class Channel extends Schema.Class<Channel>("@noyau/protocol/entities/Channel")({
   id: ChannelId,

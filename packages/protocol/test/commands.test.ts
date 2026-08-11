@@ -1,8 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
+import { Command } from "@noyau/protocol/commands"
+import { EventEnvelope } from "@noyau/protocol/events"
 import { Schema } from "effect"
-
-import { Command } from "../src/commands"
-import { EventEnvelope } from "../src/events"
 
 const decodeCommand = Schema.decodeUnknownSync(Command)
 const decodeEnvelope = Schema.decodeUnknownSync(EventEnvelope)

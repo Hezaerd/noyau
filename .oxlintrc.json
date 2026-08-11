@@ -18,7 +18,9 @@
     "repos/**"
   ],
   "rules": {
+    "no-underscore-dangle": ["error", { "allow": ["_tag"] }],
     "import/no-cycle": "error",
+    "import/no-relative-parent-imports": "error",
     "typescript/consistent-type-imports": "error",
     "typescript/no-explicit-any": "error"
   }

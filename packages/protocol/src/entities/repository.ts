@@ -1,6 +1,5 @@
+import { ProjectId, RepositoryId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
-
-import { ProjectId, RepositoryId } from "../ids"
 
 export class Repository extends Schema.Class<Repository>("@noyau/protocol/entities/Repository")({
   id: RepositoryId,

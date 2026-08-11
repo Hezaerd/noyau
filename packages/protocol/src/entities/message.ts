@@ -1,5 +1,3 @@
-import { Schema } from "effect"
-
 import {
   ActorId,
   AgentRunId,
@@ -9,7 +7,8 @@ import {
   ProjectId,
   TaskId,
   ThreadId,
-} from "../ids"
+} from "@noyau/protocol/ids"
+import { Schema } from "effect"
 
 export const MessageKind = Schema.Literals(["message", "question", "report", "decision", "alert"])
 export type MessageKind = (typeof MessageKind)["Type"]

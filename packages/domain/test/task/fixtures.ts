@@ -1,3 +1,4 @@
+import type { TaskState } from "@noyau/domain/task/decider"
 import { TaskAssign, TaskComplete, TaskCreate, TaskFail } from "@noyau/protocol/commands"
 import {
   ActorId,
@@ -8,8 +9,6 @@ import {
   TaskId,
 } from "@noyau/protocol/ids"
 import { DateTime } from "effect"
-
-import type { TaskState } from "../../src/task/decider"
 
 export const taskId = TaskId.make("3f8f0d70-1111-4000-8000-000000000010")
 export const missionId = MissionId.make("3f8f0d70-1111-4000-8000-000000000011")

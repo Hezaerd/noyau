@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
+import { decide } from "@noyau/domain/task/decider"
 import { Result } from "effect"
 
-import { decide } from "../../src/task/decider"
 import {
   assignCommand,
   completeCommand,
