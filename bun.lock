@@ -44,6 +44,20 @@
     "packages/config": {
       "name": "@noyau/config",
     },
+    "packages/database": {
+      "name": "@noyau/database",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noyau/domain": "workspace:*",
+        "@noyau/protocol": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@effect/sql-pglite": "catalog:",
+        "@effect/vitest": "catalog:",
+        "vitest": "^4.1.10",
+      },
+    },
     "packages/domain": {
       "name": "@noyau/domain",
       "version": "0.0.0",
@@ -69,6 +83,7 @@
     },
   },
   "catalog": {
+    "@effect/sql-pglite": "4.0.0-beta.107",
     "@effect/vitest": "4.0.0-beta.107",
     "effect": "4.0.0-beta.107",
   },
@@ -133,6 +148,8 @@
 
     "@dotenvx/primitives": ["@dotenvx/primitives@0.8.0", "", {}, "sha512-VYJy0uhFm9zTJ1TxBaW/pA8bjbOM/OttaNMwZ1RHG4JKyRG7DhSdiqD1ipQoAyoD22olUtxbP78W9xY3Wd11bg=="],
 
+    "@effect/sql-pglite": ["@effect/sql-pglite@4.0.0-beta.107", "", { "dependencies": { "@electric-sql/pglite": "^0.5.4" }, "peerDependencies": { "effect": "^4.0.0-beta.107" } }, "sha512-FhPZbhIB86crgHWUE7nybZ8WvSqEZ8tqQYSmQCIMWkOmo1RHfEkXFBtctCix0AEbVhswTOz41bi7V9TZPNmYnw=="],
+
     "@effect/tsgo": ["@effect/tsgo@0.36.4", "", { "optionalDependencies": { "@effect/tsgo-darwin-arm64": "0.36.4", "@effect/tsgo-darwin-x64": "0.36.4", "@effect/tsgo-linux-arm": "0.36.4", "@effect/tsgo-linux-arm64": "0.36.4", "@effect/tsgo-linux-x64": "0.36.4", "@effect/tsgo-win32-arm64": "0.36.4", "@effect/tsgo-win32-x64": "0.36.4" }, "bin": { "effect-tsgo": "dist/effect-tsgo.cjs" } }, "sha512-fNmdUV6FgXnvIcG18AVS1SRXt7z9jsyBh5CKuJYmTsE+DgbLaWF0CevKHx7hQPcidDWRVmdJYfU66Jvc/ZEt6w=="],
 
     "@effect/tsgo-darwin-arm64": ["@effect/tsgo-darwin-arm64@0.36.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-oOcWdKQucNch6G4CvidHEzmfgeKEPMvFcz+DXuKGonBLwVHX+i1VYGbZwccEOoiitOg7eWVl4e8S0qKMXg3/gg=="],
@@ -150,6 +167,8 @@
     "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.36.4", "", { "os": "win32", "cpu": "x64" }, "sha512-q4j1q0ESYxxookjA0ECz/84DEH2MsP51K0aZb3uXKfxagHDASPoWDcVu4BJTcwrK5kdZzvw9QrCPjAXe9WZqng=="],
 
     "@effect/vitest": ["@effect/vitest@4.0.0-beta.107", "", { "peerDependencies": { "effect": "^4.0.0-beta.107", "vitest": ">=4.1.0 <5.0.0" } }, "sha512-n4/qsx4DnT4dEI/wNgMivxyUeJoeiU1TCSz0WnoHWk/dny40Oxjip2P9IXGQDgPb9fsYVnerF0QRA6nPUuExQA=="],
+
+    "@electric-sql/pglite": ["@electric-sql/pglite@0.5.4", "", {}, "sha512-yYZUyyXrHU7tPlCjwZQJ6hIG9DscdCCn7Uk0mYKwC1FeHX286AbcmFveMiRBEak8e9iPupjsoVImN3yJZVed2g=="],
 
     "@floating-ui/core": ["@floating-ui/core@1.8.0", "", { "dependencies": { "@floating-ui/utils": "^0.2.12" } }, "sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ=="],
 
@@ -192,6 +211,8 @@
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
     "@noyau/config": ["@noyau/config@workspace:packages/config"],
+
+    "@noyau/database": ["@noyau/database@workspace:packages/database"],
 
     "@noyau/domain": ["@noyau/domain@workspace:packages/domain"],
 

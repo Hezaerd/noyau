@@ -1,0 +1,26 @@
+{
+  "name": "@noyau/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./migrations": "./src/migrations.ts",
+    "./receipt": "./src/receipt.ts",
+    "./task/store": "./src/task/store.ts"
+  },
+  "scripts": {
+    "lint": "oxlint",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noyau/domain": "workspace:*",
+    "@noyau/protocol": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/sql-pglite": "catalog:",
+    "@effect/vitest": "catalog:",
+    "vitest": "^4.1.10"
+  }
+}
