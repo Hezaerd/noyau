@@ -1,0 +1,36 @@
+# dependencies (bun install)
+node_modules
+
+# build output
+out
+dist
+build
+.output
+*.tgz
+
+# task runner / tooling caches
+.turbo
+.cache
+*.tsbuildinfo
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+*.log
+
+# dotenv environment variable files
+.env
+.env.*
+!.env.example
+
+# editors
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Finder (macOS) folder config
+.DS_Store
