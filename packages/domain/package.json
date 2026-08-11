@@ -1,0 +1,23 @@
+{
+  "name": "@noyau/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./task/decider": "./src/task/decider.ts",
+    "./task/projector": "./src/task/projector.ts"
+  },
+  "scripts": {
+    "lint": "oxlint",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noyau/protocol": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "vitest": "^4.1.10"
+  }
+}

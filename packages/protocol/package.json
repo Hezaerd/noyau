@@ -1,0 +1,30 @@
+{
+  "name": "@noyau/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./ids": "./src/ids.ts",
+    "./entities/project": "./src/entities/project.ts",
+    "./entities/repository": "./src/entities/repository.ts",
+    "./entities/channel": "./src/entities/channel.ts",
+    "./entities/thread": "./src/entities/thread.ts",
+    "./entities/message": "./src/entities/message.ts",
+    "./entities/mission": "./src/entities/mission.ts",
+    "./entities/task": "./src/entities/task.ts",
+    "./commands": "./src/commands.ts",
+    "./events": "./src/events.ts"
+  },
+  "scripts": {
+    "lint": "oxlint",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "vitest": "^4.1.10"
+  }
+}
