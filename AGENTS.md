@@ -5,25 +5,25 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 
 ## Glossaire
 
-| Terme | Sens |
-| --- | --- |
-| **Noyau** | Control plane : état, permissions, commandes, événements, projections. |
-| **Marion** | Cheffe d'orchestre LLM ; planifie et coordonne, ne possède pas l'état. |
-| **Hermes** | Premier adaptateur du port `AgentRuntime` ; exécution isolée en container/worktree. |
-| **Mission** | Regroupement de tâches orienté objectif ; racine du DAG. |
-| **Task** | Unité de travail bornée avec critères d'acceptation et état de cycle de vie. |
-| **Attempt** | Tentative d'exécution d'une tâche ; porte worktree, artefacts et runs. |
-| **AgentRun** | Exécution concrète d'un agent sur une tentative. |
-| **Command** | Entrée typée (`commandId`, `actorId`, `projectId`, `correlationId`) persistée avant effet. |
-| **Event** | Fait immuable produit par un decider pur à partir d'une commande. |
-| **Projection** | Vue dérivée (forum, tâches, runs) reconstruite depuis le journal d'événements. |
-| **Reactor** | Consommateur durable de l'outbox (scheduler, Hermes, Git, n8n). |
-| **Outbox** | File transactionnelle PostgreSQL ; seule source de reprise après crash. |
-| **Lease** | Verrou temporaire avec expiration pour réclamer une tâche entre workers. |
-| **Receipt** | Preuve d'idempotence d'une commande ; réponse stable aux retries. |
-| **ContextPack** | Contexte LLM versionné et ciblé ; jamais l'historique brut du forum. |
-| **Capability grant** | Permission étroite, temporaire, attachée à un run — pas au rôle ni au prompt. |
-| **Approval** | Demande d'approbation humaine persistée (`waiting_human`). |
+| Terme                | Sens                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| **Noyau**            | Control plane : état, permissions, commandes, événements, projections.                     |
+| **Marion**           | Cheffe d'orchestre LLM ; planifie et coordonne, ne possède pas l'état.                     |
+| **Hermes**           | Premier adaptateur du port `AgentRuntime` ; exécution isolée en container/worktree.        |
+| **Mission**          | Regroupement de tâches orienté objectif ; racine du DAG.                                   |
+| **Task**             | Unité de travail bornée avec critères d'acceptation et état de cycle de vie.               |
+| **Attempt**          | Tentative d'exécution d'une tâche ; porte worktree, artefacts et runs.                     |
+| **AgentRun**         | Exécution concrète d'un agent sur une tentative.                                           |
+| **Command**          | Entrée typée (`commandId`, `actorId`, `projectId`, `correlationId`) persistée avant effet. |
+| **Event**            | Fait immuable produit par un decider pur à partir d'une commande.                          |
+| **Projection**       | Vue dérivée (forum, tâches, runs) reconstruite depuis le journal d'événements.             |
+| **Reactor**          | Consommateur durable de l'outbox (scheduler, Hermes, Git, n8n).                            |
+| **Outbox**           | File transactionnelle PostgreSQL ; seule source de reprise après crash.                    |
+| **Lease**            | Verrou temporaire avec expiration pour réclamer une tâche entre workers.                   |
+| **Receipt**          | Preuve d'idempotence d'une commande ; réponse stable aux retries.                          |
+| **ContextPack**      | Contexte LLM versionné et ciblé ; jamais l'historique brut du forum.                       |
+| **Capability grant** | Permission étroite, temporaire, attachée à un run — pas au rôle ni au prompt.              |
+| **Approval**         | Demande d'approbation humaine persistée (`waiting_human`).                                 |
 
 Modèle cible : `Project → Mission → Task → Attempt → AgentRun`. Forum (`Channel/Thread/Message`) séparé.
 
@@ -116,11 +116,11 @@ Ne pas désactiver pour contourner un problème de design :
 
 Pendant le travail, checks ciblés sur les workspaces touchés. Avant commit ou PR, suite complète :
 
-| Commande | Effet |
-| --- | --- |
+| Commande        | Effet                           |
+| --------------- | ------------------------------- |
 | `bun run check` | format:check + lint + typecheck |
-| `bun run test` | tests Turbo sur les workspaces |
-| `bun run build` | build Turbo |
+| `bun run test`  | tests Turbo sur les workspaces  |
+| `bun run build` | build Turbo                     |
 
 Le subtree `repos/effect/` n'a pas besoin d'être typechecké ni testé par la CI Noyau.
 
@@ -128,19 +128,19 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 
 ## Pièges fréquents
 
-| Piège | Choix Noyau |
-| --- | --- |
-| `Queue` / `PubSub` comme source de vérité | PostgreSQL + outbox transactionnelle |
-| Decider qui touche IO ou l'état mutable | Decider pur ; IO dans les reactors |
-| Barrels et imports circulaires | Exports subpath dès `protocol` / `domain` |
-| `fetch` / `crypto.randomUUID` en dur | Services injectés via `Layer` |
-| `Context.Tag` par instance de runtime | Registry singleton + adaptateur en valeur |
-| Effect Atom dans React | Effect aux frontières ; état UI React idiomatique |
-| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements |
-| Métriques avec IDs libres | Labels bornés : `commandType`, `outcome`, `runtime` |
-| Approvals ou états `waiting_*` en mémoire | Entités persistées ; réveil par événement |
-| Autonomie `full-access` par défaut | Niveau 0–1 ; capability grants par run |
-| Package ou workspace sans frontière testée | Attendre une frontière réelle |
+| Piège                                         | Choix Noyau                                         |
+| --------------------------------------------- | --------------------------------------------------- |
+| `Queue` / `PubSub` comme source de vérité     | PostgreSQL + outbox transactionnelle                |
+| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                  |
+| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`           |
+| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                       |
+| `Context.Tag` par instance de runtime         | Registry singleton + adaptateur en valeur           |
+| Effect Atom dans React                        | Effect aux frontières ; état UI React idiomatique   |
+| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements            |
+| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`, `runtime` |
+| Approvals ou états `waiting_*` en mémoire     | Entités persistées ; réveil par événement           |
+| Autonomie `full-access` par défaut            | Niveau 0–1 ; capability grants par run              |
+| Package ou workspace sans frontière testée    | Attendre une frontière réelle                       |
 
 ## Opérations dangereuses
 
