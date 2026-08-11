@@ -49,6 +49,12 @@
       "skillPath": "skills/productivity/wait-what/SKILL.md",
       "computedHash": "9638acdcd76457ca70a007b5a02c4bf44893fb3064692a9158d907e82f200eec"
     },
+    "wayfinder": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/wayfinder/SKILL.md",
+      "computedHash": "f343ecf46157cb645a5494644418308ad95391e9fc696faa47ae5a412bf5f6e4"
+    },
     "wizard": {
       "source": "mattpocock/skills",
       "sourceType": "github",
