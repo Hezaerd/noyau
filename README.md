@@ -13,6 +13,36 @@ vision, les décisions d'architecture et l'ordre de construction.
 bun install
 ```
 
+## Effect
+
+Le catalogue Bun épingle Effect v4 sur `4.0.0-beta.107`. Chaque workspace qui utilise Effect le
+déclare avec `"effect": "catalog:"` afin de conserver une seule version dans tout le monorepo.
+Les versions beta restent épinglées exactement, car elles peuvent introduire des ruptures.
+
+Le language server Effect v4 repose sur `@effect/tsgo` et TypeScript 7. `bun install` applique
+automatiquement ses patches TypeScript et Oxlint. Dans Cursor :
+
+1. installer les extensions recommandées par le workspace ;
+2. recharger la fenêtre ;
+3. vérifier que TypeScript 7 est actif dans un fichier TypeScript.
+
+Les diagnostics Effect sont alors disponibles dans l'éditeur et pendant `bun run typecheck` et
+`bun run lint`.
+
+Le code source correspondant à la version du catalogue est vendored sous `repos/effect/` avec un
+git subtree. Il sert uniquement de référence aux agents : lire d'abord `repos/effect/LLMS.md`, ne
+jamais modifier cette arborescence et ne jamais importer depuis `repos/`.
+
+Pour synchroniser le subtree après avoir mis à jour la version du catalogue :
+
+```bash
+git subtree pull \
+  --prefix=repos/effect \
+  https://github.com/Effect-TS/effect.git \
+  effect@4.0.0-beta.107 \
+  --squash
+```
+
 ## Scripts
 
 | Commande               | Effet                                    |
@@ -28,5 +58,5 @@ bun install
 
 ## Structure
 
-Les workspaces vivent dans `apps/*` et `packages/*`. Aucun n'existe encore : on en ajoute un
-lorsqu'une frontière est réelle et testée.
+Les workspaces vivent dans `apps/*` et `packages/*`. On en ajoute un seulement lorsqu'une frontière
+est réelle et testée.

@@ -1,5 +1,5 @@
 {
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
   "plugins": ["typescript", "unicorn", "oxc", "import", "promise"],
   "categories": {
     "correctness": "error",
@@ -10,7 +10,13 @@
     "builtin": true,
     "es2024": true
   },
-  "ignorePatterns": ["**/dist/**", "**/.turbo/**", "**/coverage/**", "**/routeTree.gen.ts"],
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/.turbo/**",
+    "**/coverage/**",
+    "**/routeTree.gen.ts",
+    "repos/**"
+  ],
   "rules": {
     "import/no-cycle": "error",
     "typescript/consistent-type-imports": "error",
