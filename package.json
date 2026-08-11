@@ -13,8 +13,8 @@
     "check": "bun run format:check && bun run lint && bun run typecheck",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "lint": "oxlint --deny-warnings --no-error-on-unmatched-pattern",
-    "lint:fix": "oxlint --fix",
+    "lint": "oxlint apps packages --deny-warnings --no-error-on-unmatched-pattern",
+    "lint:fix": "oxlint apps packages --fix",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "prepare": "effect-tsgo patch --typescript --oxlint"

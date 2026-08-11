@@ -47,7 +47,7 @@ git subtree pull \
 
 | Commande               | Effet                                    |
 | ---------------------- | ---------------------------------------- |
-| `bun run lint`         | Oxlint sur tout le repo                  |
+| `bun run lint`         | Oxlint sur le code Noyau                 |
 | `bun run lint:fix`     | Oxlint avec corrections automatiques     |
 | `bun run format`       | Oxfmt en écriture                        |
 | `bun run format:check` | Oxfmt en vérification                    |

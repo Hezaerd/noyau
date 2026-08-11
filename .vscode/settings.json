@@ -3,8 +3,7 @@
   "js/ts.tsdk.path": "./node_modules/typescript/bin",
   "js/ts.tsdk.promptToUseWorkspaceVersion": true,
   "js/ts.tsdk.additionalLocations": ["./node_modules/typescript/bin"],
-  "typescript.preferences.autoImportFileExcludePatterns": ["repos/**"],
-  "javascript.preferences.autoImportFileExcludePatterns": ["repos/**"],
+  "js/ts.preferences.autoImportFileExcludePatterns": ["repos/**"],
   "files.exclude": {
     "repos/**": true
   },
