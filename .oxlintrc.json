@@ -10,7 +10,7 @@
     "builtin": true,
     "es2024": true
   },
-  "ignorePatterns": ["**/dist/**", "**/.turbo/**", "**/coverage/**"],
+  "ignorePatterns": ["**/dist/**", "**/.turbo/**", "**/coverage/**", "**/routeTree.gen.ts"],
   "rules": {
     "import/no-cycle": "error",
     "typescript/consistent-type-imports": "error",

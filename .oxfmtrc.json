@@ -6,5 +6,12 @@
   "trailingComma": "all",
   "arrowParens": "always",
   "sortImports": true,
-  "ignorePatterns": ["**/dist/**", "**/.turbo/**", "**/coverage/**", "bun.lock", "docs/**"]
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/.turbo/**",
+    "**/coverage/**",
+    "**/routeTree.gen.ts",
+    "bun.lock",
+    "docs/**"
+  ]
 }

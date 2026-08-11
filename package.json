@@ -7,6 +7,8 @@
   ],
   "type": "module",
   "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@noyau/web",
     "build": "turbo run build",
     "check": "bun run format:check && bun run lint && bun run typecheck",
     "format": "oxfmt",
