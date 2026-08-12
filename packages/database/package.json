@@ -9,9 +9,9 @@
     "./task/store": "./src/task/store.ts"
   },
   "scripts": {
-    "lint": "oxlint",
+    "lint": "vp lint",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vp test run"
   },
   "dependencies": {
     "@noyau/domain": "workspace:*",
@@ -21,6 +21,7 @@
   "devDependencies": {
     "@effect/sql-pglite": "catalog:",
     "@effect/vitest": "catalog:",
-    "vitest": "^4.1.10"
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }
