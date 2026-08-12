@@ -1,7 +1,5 @@
 ## What changed
 
-
-
 ## Why
 
 Closes #<!-- issue number, or remove -->
@@ -27,8 +25,6 @@ Closes #<!-- issue number, or remove -->
 - [ ] No changes under `repos/effect/`
 
 ## UI (if applicable)
-
-
 
 ## Agent context (optional)
 
