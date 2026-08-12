@@ -17,7 +17,7 @@ const activity = [
   {
     actor: "Claude",
     initials: "CL",
-    color: "bg-[#e4d5ff] text-[#442c67]",
+    color: "bg-violet-500/15 text-violet-300",
     icon: GitPullRequest,
     title: "La refonte du moteur de receipts est prête à relire",
     detail: "PR #8 · 4 fichiers modifiés · check et tests passent",
@@ -29,7 +29,7 @@ const activity = [
   {
     actor: "Marion",
     initials: "MA",
-    color: "bg-[#d8ef7e] text-[#28310e]",
+    color: "bg-primary/15 text-primary",
     icon: CircleHelp,
     title: "Une décision bloque la mission « Runtime Hermes »",
     detail: "Faut-il conserver les artefacts des runs échoués pendant 7 ou 30 jours ?",
@@ -41,7 +41,7 @@ const activity = [
   {
     actor: "Reviewer",
     initials: "RV",
-    color: "bg-[#cfe7e2] text-[#193f39]",
+    color: "bg-indigo-500/15 text-indigo-300",
     icon: CheckCircle2,
     title: "Le lot « Event cursor opaque » a passé la revue",
     detail: "Aucun défaut bloquant · 23 tests validés",
@@ -53,7 +53,7 @@ const activity = [
   {
     actor: "Marion",
     initials: "MA",
-    color: "bg-[#d8ef7e] text-[#28310e]",
+    color: "bg-primary/15 text-primary",
     icon: Sparkles,
     title: "Le plan de la mission « Inbox v1 » a été ajusté",
     detail: "2 tâches terminées · 1 tâche ajoutée après analyse du flux",
@@ -79,7 +79,7 @@ export function InboxPage() {
             <div>
               <Badge
                 variant="outline"
-                className="mb-3 rounded-full border-[#cdd5aa] bg-[#edf2db] px-2.5 text-[#56622b]"
+                className="mb-3 rounded-full border-violet-500/25 bg-violet-500/10 px-2.5 text-violet-300"
               >
                 4 nouveautés
               </Badge>
@@ -96,7 +96,7 @@ export function InboxPage() {
             </Button>
           </header>
 
-          <div className="overflow-hidden rounded-2xl border border-border/90 bg-card shadow-[0_18px_60px_rgba(34,35,31,0.06)]">
+          <div className="overflow-hidden rounded-2xl border border-border/90 bg-card shadow-[0_18px_60px_rgba(53,38,122,0.16)]">
             <div className="flex items-center justify-between border-b border-border/70 px-5 py-3.5 sm:px-6">
               <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
                 Depuis ta dernière visite
@@ -109,10 +109,10 @@ export function InboxPage() {
                 key={item.title}
                 className={`group relative grid gap-4 px-5 py-5 transition-colors hover:bg-muted/35 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-6 ${
                   index === activity.length - 1 ? "" : "border-b border-border/65"
-                } ${item.tone === "attention" ? "bg-[#fff8eb]" : ""}`}
+                } ${item.tone === "attention" ? "bg-violet-500/5" : ""}`}
               >
                 {item.tone === "attention" ? (
-                  <span className="absolute inset-y-0 left-0 w-0.5 bg-[#e6a336]" />
+                  <span className="absolute inset-y-0 left-0 w-0.5 bg-violet-400" />
                 ) : null}
                 <Avatar className="size-9 rounded-xl">
                   <AvatarFallback
@@ -171,7 +171,7 @@ export function InboxPage() {
                       </Avatar>
                       <span
                         className={`absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-card ${
-                          agent.status === "active" ? "bg-emerald-500" : "bg-[#d6a438]"
+                          agent.status === "active" ? "bg-violet-400" : "bg-indigo-400"
                         }`}
                       />
                     </div>
@@ -193,7 +193,7 @@ export function InboxPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl bg-[#23251f] p-5 text-[#f6f6ef] shadow-[0_18px_48px_rgba(35,37,31,0.16)]">
+          <section className="rounded-2xl border border-violet-500/15 bg-[#15131d] p-5 text-foreground shadow-[0_18px_48px_rgba(68,48,150,0.2)]">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <p className="text-[0.66rem] font-medium tracking-[0.12em] text-white/45 uppercase">
@@ -201,14 +201,14 @@ export function InboxPage() {
                 </p>
                 <h3 className="mt-2 text-base font-medium">Control plane durable</h3>
               </div>
-              <MessageSquareText className="size-4 text-[#d8ef7e]" />
+              <MessageSquareText className="size-4 text-violet-300" />
             </div>
             <div className="mb-2 flex items-end justify-between">
               <span className="text-3xl font-semibold tracking-[-0.04em]">68%</span>
               <span className="text-[0.68rem] text-white/45">8 / 12 tâches</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full w-[68%] rounded-full bg-[#d8ef7e]" />
+              <div className="h-full w-[68%] rounded-full bg-primary" />
             </div>
           </section>
         </aside>
