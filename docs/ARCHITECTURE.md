@@ -32,7 +32,8 @@ remplaçable.
   épinglés ensemble, configurés dans un `vite.config.ts` racine ;
 - Effect autant que pertinent côté serveur et domaine ;
 - PostgreSQL comme source de vérité ;
-- application web React, framework exact à confirmer ;
+- application web React avec Vite et TanStack Router ;
+- control plane HTTP avec Effect `HttpApi` sur le runtime Bun ;
 - Hermes Agent comme premier runtime d'agents ;
 - n8n comme moteur d'automatisations déterministes ;
 - Mem0 comme couche de mémoire long terme des agents, derrière un port et jamais source de vérité ;
@@ -52,7 +53,7 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
                          | forum, tâches, diffs |
                          +----------+-----------+
                                     |
-                         SSE/WebSocket + HTTP
+                              SSE + HTTP
                                     |
 +--------------+         +----------v-----------+
 | Git provider +-------->|  Noyau Control Plane |
@@ -180,6 +181,11 @@ proposed -> ready -> leased -> running
 Le LLM ne modifie jamais directement cet état ou la base de données. Il appelle une commande typée,
 le control plane vérifie les droits et les invariants, écrit l'événement, puis déclenche la suite.
 
+À la frontière HTTP, le client soumet une `CommandRequest` avec un `commandId`, une commande, son
+payload et éventuellement l'événement qui l'a causée. Le control plane possède et ajoute
+`projectId`, `actorId`, l'horodatage et la version de schéma. Il dérive la corrélation de la causalité
+vérifiée, ou utilise `commandId` comme racine.
+
 Commandes initiales envisagées :
 
 - `task.create`
@@ -211,6 +217,20 @@ Chaque commande et événement doit inclure au minimum :
 
 PostgreSQL est la source de vérité. Utiliser un journal d'événements append-only et un transactional
 outbox pour publier les effets secondaires sans perdre d'événements.
+
+La commande enrichie et sa request canonique sont persistées avec leur scope avant décision, dans la
+même transaction que le receipt et les événements éventuels. Un retry identique rend le receipt
+original ; réutiliser un `commandId` avec un autre contenu, projet ou acteur est un conflit.
+
+Les commandes visant le même agrégat sont sérialisées par un verrou PostgreSQL durable et chaque
+événement porte une version d'agrégat unique. Le flux client est ordonné par une position
+transactionnelle propre au projet : un `bigserial` PostgreSQL ne constitue pas un ordre de commit et
+ne doit pas servir de curseur.
+
+Le client lit d'abord un snapshot cohérent avec son `EventCursor`, puis reprend un flux SSE filtré par
+projet. Le curseur est opaque, versionné et lié au projet. Le flux garantit l'ordre et une livraison
+au moins une fois ; le client déduplique avec `eventId`. Le polling du journal est durable ;
+`LISTEN/NOTIFY` pourra accélérer le réveil sans devenir source de vérité.
 
 Pour un premier déploiement sur un VPS :
 
@@ -468,7 +488,7 @@ Ce scénario doit continuer à fonctionner après le redémarrage du control pla
 1. Configurations monorepo et conventions TypeScript/Effect.
 2. Schémas `Project`, `Repository`, `Channel`, `Message`, `Mission` et `Task`.
 3. PostgreSQL, migrations, event log et outbox.
-4. API de commandes et flux d'événements SSE/WebSocket.
+4. API de commandes et flux d'événements SSE.
 5. Interface projet/channel/tâches minimale.
 6. Port `AgentRuntime` et adaptateur Hermes pour un run isolé.
 7. Worktrees, artefacts, interruption et reprise.
@@ -482,9 +502,6 @@ Ce scénario doit continuer à fonctionner après le redémarrage du control pla
 
 Ces décisions doivent être prises au moment où elles deviennent nécessaires :
 
-- framework web exact : Vite/React, TanStack Start, Next ou autre ;
-- framework HTTP du control plane ;
-- couche SQL/migrations : Effect SQL, Drizzle ou requêtes SQL explicites ;
 - Mem0 auto-hébergé (OSS/OpenMemory) ou plateforme managée, et périmètre exact des mémoires ;
 - stockage objet local/S3-compatible pour les artefacts ;
 - fournisseur Git initial ;

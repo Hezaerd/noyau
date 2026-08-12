@@ -1,10 +1,23 @@
 import type { TaskAssign, TaskComplete, TaskCreate, TaskFail } from "@noyau/protocol/commands"
-import { TaskStatus } from "@noyau/protocol/entities/task"
+import type { TaskStatus } from "@noyau/protocol/entities/task"
 import type { TaskEvent } from "@noyau/protocol/events"
 import { TaskAssigned, TaskCompleted, TaskCreated, TaskFailed } from "@noyau/protocol/events"
 import type { ActorId } from "@noyau/protocol/ids"
-import { TaskId } from "@noyau/protocol/ids"
-import { Result, Schema } from "effect"
+import type { TaskId } from "@noyau/protocol/ids"
+import {
+  InvalidTaskTransition,
+  TaskAlreadyAssigned,
+  TaskAlreadyExists,
+  TaskNotFound,
+} from "@noyau/protocol/task/errors"
+import { Result } from "effect"
+
+export {
+  InvalidTaskTransition,
+  TaskAlreadyAssigned,
+  TaskAlreadyExists,
+  TaskNotFound,
+} from "@noyau/protocol/task/errors"
 
 /** État minimal nécessaire pour décider — pas la projection complète. */
 export interface TaskState {
@@ -15,27 +28,11 @@ export interface TaskState {
 
 export type TaskCommand = TaskCreate | TaskAssign | TaskComplete | TaskFail
 
-export class TaskAlreadyExists extends Schema.TaggedError<TaskAlreadyExists>()(
-  "TaskAlreadyExists",
-  {
-    taskId: TaskId,
-  },
-) {}
-
-export class TaskNotFound extends Schema.TaggedError<TaskNotFound>()("TaskNotFound", {
-  taskId: TaskId,
-}) {}
-
-export class InvalidTaskTransition extends Schema.TaggedError<InvalidTaskTransition>()(
-  "InvalidTaskTransition",
-  {
-    taskId: TaskId,
-    status: TaskStatus,
-    commandTag: Schema.String,
-  },
-) {}
-
-export type TaskDecisionError = TaskAlreadyExists | TaskNotFound | InvalidTaskTransition
+export type TaskDecisionError =
+  | TaskAlreadyExists
+  | TaskNotFound
+  | InvalidTaskTransition
+  | TaskAlreadyAssigned
 
 const assignableFrom: ReadonlyArray<TaskStatus> = ["proposed", "ready"]
 const completableFrom: ReadonlyArray<TaskStatus> = ["running", "verifying"]
@@ -78,12 +75,21 @@ export const decide = (
         return Result.fail(new TaskNotFound({ taskId: command.payload.taskId }))
       }
       return requireTransition(state, assignableFrom, command._tag).pipe(
-        Result.map(() => [
-          TaskAssigned.make({
-            taskId: command.payload.taskId,
-            assigneeId: command.payload.assigneeId,
-          }),
-        ]),
+        Result.flatMap(() =>
+          state.assigneeId === undefined
+            ? Result.succeed([
+                TaskAssigned.make({
+                  taskId: command.payload.taskId,
+                  assigneeId: command.payload.assigneeId,
+                }),
+              ])
+            : Result.fail(
+                new TaskAlreadyAssigned({
+                  taskId: command.payload.taskId,
+                  assigneeId: state.assigneeId,
+                }),
+              ),
+        ),
       )
     }
     case "task.complete": {

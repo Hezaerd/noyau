@@ -1,0 +1,35 @@
+{
+  "name": "@noyau/control-plane",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./config": "./src/config.ts",
+    "./cursor": "./src/cursor.ts",
+    "./identity": "./src/identity.ts",
+    "./handlers": "./src/handlers.ts",
+    "./request-errors": "./src/request-errors.ts",
+    "./server": "./src/server.ts"
+  },
+  "scripts": {
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "build": "bun build src/main.ts --outdir dist --target=bun",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "catalog:",
+    "@effect/sql-pg": "catalog:",
+    "@noyau/database": "workspace:*",
+    "@noyau/domain": "workspace:*",
+    "@noyau/protocol": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@testcontainers/postgresql": "^12.1.0",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

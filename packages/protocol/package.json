@@ -13,7 +13,10 @@
     "./entities/mission": "./src/entities/mission.ts",
     "./entities/task": "./src/entities/task.ts",
     "./commands": "./src/commands.ts",
-    "./events": "./src/events.ts"
+    "./events": "./src/events.ts",
+    "./task/errors": "./src/task/errors.ts",
+    "./receipts": "./src/receipts.ts",
+    "./control-plane": "./src/control-plane.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

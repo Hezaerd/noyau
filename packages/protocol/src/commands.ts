@@ -15,6 +15,42 @@ import {
 } from "./ids"
 
 /**
+ * Métadonnées choisies par le client. Le control plane possède et ajoute le
+ * projet, l'acteur, la corrélation, l'horodatage et la version de schéma.
+ */
+const commandRequestMeta = {
+  commandId: CommandId,
+  causationId: Schema.optionalKey(EventId),
+} as const
+
+export const TaskCreateRequest = Schema.TaggedStruct("task.create", {
+  ...commandRequestMeta,
+  payload: Schema.Struct({
+    taskId: TaskId,
+    missionId: MissionId,
+    title: Schema.NonEmptyString,
+    description: Schema.optionalKey(Schema.String),
+    acceptanceCriteria: Schema.Array(Schema.NonEmptyString),
+  }),
+})
+export type TaskCreateRequest = (typeof TaskCreateRequest)["Type"]
+
+export const TaskAssignRequest = Schema.TaggedStruct("task.assign", {
+  ...commandRequestMeta,
+  payload: Schema.Struct({
+    taskId: TaskId,
+    assigneeId: ActorId,
+  }),
+})
+export type TaskAssignRequest = (typeof TaskAssignRequest)["Type"]
+
+/** Seules les intentions task publiques de la première tranche verticale. */
+export const TaskCommandRequest = Schema.Union([TaskCreateRequest, TaskAssignRequest])
+export type TaskCommandRequest = (typeof TaskCommandRequest)["Type"]
+
+export const decodeTaskCommandRequest = Schema.decodeUnknownEffect(TaskCommandRequest)
+
+/**
  * Enveloppe minimale de toute commande. `causationId` référence l'événement
  * qui a déclenché la commande (réaction d'un reactor), absent pour une
  * commande initiée par un humain ou par Marion.

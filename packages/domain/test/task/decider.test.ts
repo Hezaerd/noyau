@@ -1,12 +1,15 @@
 import { describe, expect, it } from "@effect/vitest"
-import { decide } from "@noyau/domain/task/decider"
+import { decide, TaskAlreadyAssigned } from "@noyau/domain/task/decider"
+import { evolve } from "@noyau/domain/task/projector"
 import { Result } from "effect"
 
 import {
   assignCommand,
+  assignCommandTo,
   completeCommand,
   createCommand,
   failCommand,
+  hermes,
   marion,
   stateWith,
   taskId,
@@ -42,7 +45,7 @@ describe("decide task.create", () => {
 })
 
 describe("decide task.assign", () => {
-  it("assigne une tâche proposée", () => {
+  it("accepte l'assignation initiale d'une tâche proposée", () => {
     const events = expectSuccess(decide(stateWith("proposed"), assignCommand))
     expect(events[0]?._tag).toBe("task.assigned")
     if (events[0]?._tag === "task.assigned") {
@@ -50,13 +53,43 @@ describe("decide task.assign", () => {
     }
   })
 
+  it("rejette une seconde assignation vers le même acteur", () => {
+    const error = expectFailure(decide(stateWith("proposed", marion), assignCommand))
+
+    expect(error).toBeInstanceOf(TaskAlreadyAssigned)
+    expect(error._tag).toBe("TaskAlreadyAssigned")
+    if (error._tag === "TaskAlreadyAssigned") {
+      expect(error.taskId).toBe(taskId)
+      expect(error.assigneeId).toBe(marion)
+    }
+  })
+
+  it("rejette une seconde assignation vers un autre acteur", () => {
+    const error = expectFailure(decide(stateWith("ready", marion), assignCommandTo(hermes)))
+
+    expect(error).toBeInstanceOf(TaskAlreadyAssigned)
+    expect(error._tag).toBe("TaskAlreadyAssigned")
+  })
+
+  it("laisse l'état projeté inchangé après le rejet", () => {
+    const [assigned] = expectSuccess(decide(stateWith("proposed"), assignCommand))
+    if (assigned === undefined) {
+      throw new Error("unreachable")
+    }
+    const state = evolve(stateWith("proposed"), assigned)
+
+    expectFailure(decide(state, assignCommandTo(hermes)))
+
+    expect(state).toEqual({ taskId, status: "proposed", assigneeId: marion })
+  })
+
   it("échoue sur une tâche inconnue", () => {
     const error = expectFailure(decide(undefined, assignCommand))
     expect(error._tag).toBe("TaskNotFound")
   })
 
-  it("refuse d'assigner une tâche en cours", () => {
-    const error = expectFailure(decide(stateWith("running"), assignCommand))
+  it("priorise la transition invalide avant l'assignation existante", () => {
+    const error = expectFailure(decide(stateWith("running", marion), assignCommand))
     expect(error._tag).toBe("InvalidTaskTransition")
     if (error._tag === "InvalidTaskTransition") {
       expect(error.status).toBe("running")
