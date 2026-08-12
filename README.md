@@ -34,7 +34,9 @@ Toute la configuration vit dans [`vite.config.ts`](vite.config.ts) à la racine 
 ou à Vitest. La configuration de lint par workspace passe obligatoirement par `lint.overrides`
 à la racine : un bloc `lint` posé dans le `vite.config.ts` d'un package est ignoré.
 
-Le hook pre-commit est fourni mais pas actif par défaut. Pour l'activer dans un clone :
+Les hooks Git passent par Vite+ (`.vite-hooks/`) : le pre-commit formate les fichiers stagés
+(`vp staged`), le commit-msg valide Conventional Commits (`commitlint`). Pour activer le
+dispatcher dans un clone :
 
 ```bash
 vp hooks enable
