@@ -64,6 +64,24 @@ export default defineConfig({
           "import/no-relative-parent-imports": "off",
         },
       },
+      {
+        // Les primitives shadcn sont du code généré et régénérable. On conserve le
+        // typecheck TypeScript strict, mais pas les règles de style incompatibles
+        // avec les sources officielles du registre.
+        files: ["**/components/ui/**/*.tsx"],
+        plugins: ["react"],
+        rules: {
+          "no-underscore-dangle": "off",
+          "no-shadow": "off",
+          "react/jsx-no-constructed-context-values": "off",
+          "react/no-array-index-key": "off",
+          "react/no-unstable-nested-components": "off",
+          "react/only-export-components": "off",
+          "typescript/no-explicit-any": "off",
+          "typescript/no-unsafe-type-assertion": "off",
+          "typescript/restrict-template-expressions": "off",
+        },
+      },
     ],
     jsPlugins: [
       {
