@@ -55,6 +55,8 @@ _À éviter_ : sequence, offset SQL
   logique sans exposer la séquence SQL interne.
 - **`ActorId` non-UUID** : format libre (`human:hezaerd`, `agent:marion`, `system`) pour rester
   lisible dans le journal et le forum.
+- **GitHub seulement** : `Repository.provider` est le littéral `"github"`. Pas d'autre forge en v1
+  (ADR-0006).
 - **Exports subpath uniquement**, pas de barrel — voir AGENTS.md.
 
 ## Extension
