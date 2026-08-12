@@ -14,8 +14,8 @@
         "vite-plus": "catalog:",
       },
     },
-    "apps/control-plane": {
-      "name": "@noyau/control-plane",
+    "apps/server": {
+      "name": "@noyau/server",
       "version": "0.0.0",
       "dependencies": {
         "@effect/platform-bun": "catalog:",
@@ -303,13 +303,13 @@
 
     "@noyau/config": ["@noyau/config@workspace:packages/config"],
 
-    "@noyau/control-plane": ["@noyau/control-plane@workspace:apps/control-plane"],
-
     "@noyau/database": ["@noyau/database@workspace:packages/database"],
 
     "@noyau/domain": ["@noyau/domain@workspace:packages/domain"],
 
     "@noyau/protocol": ["@noyau/protocol@workspace:packages/protocol"],
+
+    "@noyau/server": ["@noyau/server@workspace:apps/server"],
 
     "@noyau/web": ["@noyau/web@workspace:apps/web"],
 

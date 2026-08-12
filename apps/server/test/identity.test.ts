@@ -1,14 +1,14 @@
 import { assert, describe, it } from "@effect/vitest"
-import { ControlPlaneConfig, type ControlPlaneConfigValue } from "@noyau/control-plane/config"
+import { MissingIdentity } from "@noyau/protocol/control-plane"
+import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
 import {
   decodeDevActorCredential,
   DevIdentityEnvironmentError,
   devIdentityLayer,
-} from "@noyau/control-plane/identity"
-import { MissingIdentity } from "@noyau/protocol/control-plane"
+} from "@noyau/server/identity"
 import { Effect, Layer, Redacted } from "effect"
 
-const config = (environment: ControlPlaneConfigValue["environment"]): ControlPlaneConfigValue => ({
+const config = (environment: ServerConfigValue["environment"]): ServerConfigValue => ({
   environment,
   databaseUrl: Redacted.make("postgresql://unused"),
   host: "127.0.0.1",
@@ -16,8 +16,8 @@ const config = (environment: ControlPlaneConfigValue["environment"]): ControlPla
   eventPollInterval: 1,
 })
 
-const identityLayer = (environment: ControlPlaneConfigValue["environment"]) =>
-  devIdentityLayer.pipe(Layer.provide(Layer.succeed(ControlPlaneConfig)(config(environment))))
+const identityLayer = (environment: ServerConfigValue["environment"]) =>
+  devIdentityLayer.pipe(Layer.provide(Layer.succeed(ServerConfig)(config(environment))))
 
 describe("DevIdentity", () => {
   it.effect("provides a decoded actor id", () =>

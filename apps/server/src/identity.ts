@@ -2,7 +2,7 @@ import { CurrentActor, MissingIdentity, NoyauIdentity } from "@noyau/protocol/co
 import { ActorId } from "@noyau/protocol/ids"
 import { Effect, Layer, Redacted, Schema } from "effect"
 
-import { ControlPlaneConfig } from "./config"
+import { ServerConfig } from "./config"
 
 export class DevIdentityEnvironmentError extends Schema.TaggedError<DevIdentityEnvironmentError>()(
   "DevIdentityEnvironmentError",
@@ -19,7 +19,7 @@ export const decodeDevActorCredential = (credential: Redacted.Redacted) =>
 export const devIdentityLayer = Layer.effect(
   NoyauIdentity,
   Effect.gen(function* () {
-    const config = yield* ControlPlaneConfig
+    const config = yield* ServerConfig
     if (config.environment === "production") {
       return yield* new DevIdentityEnvironmentError({
         environment: "production",

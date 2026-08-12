@@ -35,7 +35,7 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
   `projectId`. Une entité d'un autre projet est invisible à la commande.
 - **Snapshot cohérent** : tâches et position du flux sont lues dans une transaction
   `REPEATABLE READ READ ONLY`, afin que le snapshot et son curseur décrivent le même état logique.
-- **Port générique `SqlClient`** : ce package ne dépend d'aucun driver. `apps/control-plane`
+- **Port générique `SqlClient`** : ce package ne dépend d'aucun driver. `apps/server`
   fournit `@effect/sql-pg` ; les tests rapides utilisent `@effect/sql-pglite` (même dialecte).
 - **Horloge et UUID injectés** : `DateTime.now` (Clock) et `Crypto.randomUUIDv4` — pas de
   `now()` SQL ni de `crypto.randomUUID` en dur ; testable avec TestClock et un Crypto

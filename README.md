@@ -45,13 +45,13 @@ vp hooks enable
 Node est provisionné par `vp` à la version de [`.node-version`](.node-version) ; Bun reste le
 package manager, à la version du champ `packageManager`.
 
-## Control plane local
+## Serveur local
 
 ```bash
 docker compose -f infra/compose/docker-compose.yml up -d postgres
 NOYAU_ENV=development \
 DATABASE_URL=postgresql://noyau:noyau@localhost:5432/noyau \
-bun run dev:control-plane
+bun run dev:server
 ```
 
 L'API écoute par défaut sur `http://127.0.0.1:3001`. Les routes projet exigent
@@ -93,18 +93,18 @@ git subtree pull \
 
 ## Scripts
 
-| Commande                    | Effet                                                         |
-| --------------------------- | ------------------------------------------------------------- |
-| `bun run check`             | `vp check` (format + lint type-aware + type check) puis `tsc` |
-| `bun run lint`              | Oxlint type-aware, règles Effect incluses                     |
-| `bun run lint:fix`          | idem avec corrections automatiques                            |
-| `bun run format`            | Oxfmt en écriture                                             |
-| `bun run format:check`      | Oxfmt en vérification                                         |
-| `bun run typecheck`         | `tsc` par workspace, ordonné et caché par Vite Task           |
-| `bun run test`              | Vitest par workspace, caché par Vite Task                     |
-| `bun run build`             | build par workspace, caché par Vite Task                      |
-| `bun run dev:control-plane` | API locale avec rechargement Bun                              |
-| `bun run dev:web`           | serveur de dev de `apps/web`                                  |
+| Commande               | Effet                                                         |
+| ---------------------- | ------------------------------------------------------------- |
+| `bun run check`        | `vp check` (format + lint type-aware + type check) puis `tsc` |
+| `bun run lint`         | Oxlint type-aware, règles Effect incluses                     |
+| `bun run lint:fix`     | idem avec corrections automatiques                            |
+| `bun run format`       | Oxfmt en écriture                                             |
+| `bun run format:check` | Oxfmt en vérification                                         |
+| `bun run typecheck`    | `tsc` par workspace, ordonné et caché par Vite Task           |
+| `bun run test`         | Vitest par workspace, caché par Vite Task                     |
+| `bun run build`        | build par workspace, caché par Vite Task                      |
+| `bun run dev:server`   | serveur local avec rechargement Bun                           |
+| `bun run dev:web`      | serveur de dev de `apps/web`                                  |
 
 Les tâches passent par Vite Task (`vp run`), qui remplace Turborepo. Il n'y a pas d'`inputs` ni
 d'`outputs` à déclarer : le suivi automatique observe les fichiers réellement lus et écrits par
