@@ -1,3 +1,7 @@
 {
-  "recommendations": ["TypeScriptTeam.native-preview", "effectful-tech.effect-vscode"]
+  "recommendations": [
+    "TypeScriptTeam.native-preview",
+    "effectful-tech.effect-vscode",
+    "VoidZero.vite-plus-extension-pack"
+  ]
 }
