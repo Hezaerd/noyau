@@ -228,6 +228,29 @@ layer(databaseLayer(), { timeout: "120 seconds" })((it) => {
         InvalidRequest,
       )
 
+      const missingAcceptanceCriteria = await handler(
+        new Request(`http://localhost/api/v1/projects/${projectId}/commands`, {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            _tag: "task.create",
+            commandId: "40000000-0000-4000-8000-000000000007",
+            payload: {
+              taskId: "20000000-0000-4000-8000-000000000007",
+              missionId,
+              title: "Unbounded task",
+              acceptanceCriteria: [],
+            },
+          }),
+        }),
+        context,
+      )
+      assert.strictEqual(missingAcceptanceCriteria.status, 400)
+      assert.instanceOf(
+        Schema.decodeUnknownSync(InvalidRequest)(await missingAcceptanceCriteria.json()),
+        InvalidRequest,
+      )
+
       const eventsResponsePromise = handler(
         new Request(
           `http://localhost/api/v1/projects/${projectId}/events?cursor=ignored-invalid-query`,

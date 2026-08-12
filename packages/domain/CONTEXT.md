@@ -5,6 +5,10 @@ fonctions sont appelées par le control plane à l'intérieur d'une transaction 
 
 ## Langage
 
+**Task**:
+Unité de travail bornée par un objectif et au moins un critère d'acceptation non vide.
+_À éviter_ : tâche sans condition de réussite explicite
+
 **Assignation**:
 Première désignation de l'acteur responsable d'une tâche non assignée.
 _À éviter_ : réassignation, dernier assigné gagne

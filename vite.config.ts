@@ -6,7 +6,7 @@ const ignorePatterns = ["**/dist/**", "**/coverage/**", "**/routeTree.gen.ts", "
 
 export default defineConfig({
   test: {
-    projects: ["apps/server", "packages/*"],
+    projects: ["apps/server", "apps/web", "packages/*"],
   },
   staged: {
     "*.{js,ts,tsx,json,md,yml,yaml}": "vp fmt",

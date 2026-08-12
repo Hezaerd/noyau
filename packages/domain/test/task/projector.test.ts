@@ -8,7 +8,7 @@ const created = TaskCreated.make({
   taskId,
   missionId,
   title: "Créer le schéma PostgreSQL",
-  acceptanceCriteria: [],
+  acceptanceCriteria: ["la projection contient la tâche"],
 })
 
 describe("evolve", () => {

@@ -1,6 +1,7 @@
 import { Schema } from "effect"
 
 import { MessageKind } from "./entities/message"
+import { AcceptanceCriteria } from "./entities/task"
 import {
   ActorId,
   CommandId,
@@ -30,7 +31,7 @@ export const TaskCreateRequest = Schema.TaggedStruct("task.create", {
     missionId: MissionId,
     title: Schema.NonEmptyString,
     description: Schema.optionalKey(Schema.String),
-    acceptanceCriteria: Schema.Array(Schema.NonEmptyString),
+    acceptanceCriteria: AcceptanceCriteria,
   }),
 })
 export type TaskCreateRequest = (typeof TaskCreateRequest)["Type"]
@@ -72,7 +73,7 @@ export const TaskCreate = Schema.TaggedStruct("task.create", {
     missionId: MissionId,
     title: Schema.NonEmptyString,
     description: Schema.optionalKey(Schema.String),
-    acceptanceCriteria: Schema.Array(Schema.NonEmptyString),
+    acceptanceCriteria: AcceptanceCriteria,
   }),
 })
 export type TaskCreate = (typeof TaskCreate)["Type"]

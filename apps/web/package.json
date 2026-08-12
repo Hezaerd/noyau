@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
-    "preview": "vp preview"
+    "preview": "vp preview",
+    "test": "vp test run"
   },
   "dependencies": {
+    "@noyau/protocol": "workspace:*",
     "@tanstack/react-router": "^1.170.25",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -29,6 +31,7 @@
     "shadcn": "^4.16.2",
     "tailwindcss": "^4.3.3",
     "vite": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }
