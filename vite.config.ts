@@ -6,7 +6,7 @@ const ignorePatterns = ["**/dist/**", "**/coverage/**", "**/routeTree.gen.ts", "
 
 export default defineConfig({
   test: {
-    projects: ["apps/server", "packages/*"],
+    projects: ["apps/server", "apps/web", "packages/*"],
   },
   staged: {
     "*.{js,ts,tsx,json,md,yml,yaml}": "vp fmt",
@@ -62,6 +62,24 @@ export default defineConfig({
           // Entrée d'application : imports d'effet de bord et remontées vers src/.
           "import/no-unassigned-import": "off",
           "import/no-relative-parent-imports": "off",
+        },
+      },
+      {
+        // Les primitives shadcn sont du code généré et régénérable. On conserve le
+        // typecheck TypeScript strict, mais pas les règles de style incompatibles
+        // avec les sources officielles du registre.
+        files: ["**/components/ui/**/*.tsx"],
+        plugins: ["react"],
+        rules: {
+          "no-underscore-dangle": "off",
+          "no-shadow": "off",
+          "react/jsx-no-constructed-context-values": "off",
+          "react/no-array-index-key": "off",
+          "react/no-unstable-nested-components": "off",
+          "react/only-export-components": "off",
+          "typescript/no-explicit-any": "off",
+          "typescript/no-unsafe-type-assertion": "off",
+          "typescript/restrict-template-expressions": "off",
         },
       },
     ],

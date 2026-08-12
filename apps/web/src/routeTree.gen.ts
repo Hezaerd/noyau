@@ -10,43 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AboutRouteImport } from './routes/about'
+import { Route as ProjectsNoyauChannelRouteImport } from './routes/projects.noyau.channel'
+import { Route as ProjectsNoyauTasksRouteImport } from './routes/projects.noyau.tasks'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const ProjectsNoyauChannelRoute = ProjectsNoyauChannelRouteImport.update({
+  id: '/projects/noyau/channel',
+  path: '/projects/noyau/channel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsNoyauTasksRoute = ProjectsNoyauTasksRouteImport.update({
+  id: '/projects/noyau/tasks',
+  path: '/projects/noyau/tasks',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/projects/noyau/channel': typeof ProjectsNoyauChannelRoute
+  '/projects/noyau/tasks': typeof ProjectsNoyauTasksRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/projects/noyau/channel': typeof ProjectsNoyauChannelRoute
+  '/projects/noyau/tasks': typeof ProjectsNoyauTasksRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/projects/noyau/channel': typeof ProjectsNoyauChannelRoute
+  '/projects/noyau/tasks': typeof ProjectsNoyauTasksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about'
+  fullPaths: '/' | '/projects/noyau/channel' | '/projects/noyau/tasks'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about'
-  id: '__root__' | '/' | '/about'
+  to: '/' | '/projects/noyau/channel' | '/projects/noyau/tasks'
+  id: '__root__' | '/' | '/projects/noyau/channel' | '/projects/noyau/tasks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
+  ProjectsNoyauChannelRoute: typeof ProjectsNoyauChannelRoute
+  ProjectsNoyauTasksRoute: typeof ProjectsNoyauTasksRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,11 +68,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/projects/noyau/channel': {
+      id: '/projects/noyau/channel'
+      path: '/projects/noyau/channel'
+      fullPath: '/projects/noyau/channel'
+      preLoaderRoute: typeof ProjectsNoyauChannelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/noyau/tasks': {
+      id: '/projects/noyau/tasks'
+      path: '/projects/noyau/tasks'
+      fullPath: '/projects/noyau/tasks'
+      preLoaderRoute: typeof ProjectsNoyauTasksRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -70,7 +87,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
+  ProjectsNoyauChannelRoute: ProjectsNoyauChannelRoute,
+  ProjectsNoyauTasksRoute: ProjectsNoyauTasksRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

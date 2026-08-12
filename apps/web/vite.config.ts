@@ -6,6 +6,10 @@ import react from "@vitejs/plugin-react"
 import { defineConfig, lazyPlugins } from "vite-plus"
 
 export default defineConfig({
+  test: {
+    environment: "node",
+    include: ["test/**/*.test.ts"],
+  },
   run: {
     tasks: {
       // Déclaré en tâche plutôt qu'en script : `tsc -b` lit et réécrit son
@@ -33,6 +37,18 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:3001",
+        changeOrigin: true,
+      },
+      "/health": {
+        target: "http://127.0.0.1:3001",
+        changeOrigin: true,
+      },
     },
   },
 })

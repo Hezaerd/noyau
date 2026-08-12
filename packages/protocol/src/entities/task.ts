@@ -1,6 +1,9 @@
 import { ActorId, MissionId, ProjectId, TaskId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
+export const AcceptanceCriteria = Schema.NonEmptyArray(Schema.NonEmptyString)
+export type AcceptanceCriteria = (typeof AcceptanceCriteria)["Type"]
+
 /**
  * Cycle de vie d'une tâche :
  * proposed -> ready -> leased -> running
@@ -29,7 +32,7 @@ export class Task extends Schema.Class<Task>("@noyau/protocol/entities/Task")({
   projectId: ProjectId,
   title: Schema.NonEmptyString,
   description: Schema.optionalKey(Schema.String),
-  acceptanceCriteria: Schema.Array(Schema.NonEmptyString),
+  acceptanceCriteria: AcceptanceCriteria,
   status: TaskStatus,
   assigneeId: Schema.optionalKey(ActorId),
   createdAt: Schema.DateTimeUtcFromString,

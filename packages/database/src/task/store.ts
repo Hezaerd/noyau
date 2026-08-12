@@ -10,7 +10,7 @@ import {
   type TaskCommandRequest as TaskCommandRequestType,
 } from "@noyau/protocol/commands"
 import { CommandIdConflict, InvalidCausation } from "@noyau/protocol/control-plane"
-import { Task, TaskStatus } from "@noyau/protocol/entities/task"
+import { AcceptanceCriteria, Task, TaskStatus } from "@noyau/protocol/entities/task"
 import {
   EventEnvelope,
   TaskAssigned,
@@ -60,7 +60,7 @@ const TaskEventJson = Schema.fromJsonString(TaskEvent)
 const TaskCommandJson = Schema.fromJsonString(TaskCommandSchema)
 const CanonicalTaskRequestJson = Schema.fromJsonString(CanonicalTaskRequest)
 const ReceiptResponseJson = Schema.fromJsonString(ReceiptResponse)
-const CriteriaJson = Schema.fromJsonString(Schema.Array(Schema.NonEmptyString))
+const CriteriaJson = Schema.fromJsonString(AcceptanceCriteria)
 
 const decodeTaskEvent = Schema.decodeUnknownEffect(TaskEvent)
 const decodeReceiptResponse = Schema.decodeUnknownEffect(ReceiptResponse)
@@ -462,7 +462,7 @@ const TaskRow = Schema.Struct({
   project_id: ProjectId,
   title: Schema.NonEmptyString,
   description: Schema.NullOr(Schema.String),
-  acceptance_criteria: Schema.Array(Schema.NonEmptyString),
+  acceptance_criteria: AcceptanceCriteria,
   status: TaskStatus,
   assignee_id: Schema.NullOr(ActorId),
   created_at: Schema.DateTimeUtcFromDate,

@@ -85,6 +85,23 @@ describe("TaskCommandRequest", () => {
       ),
     ).toThrow()
   })
+
+  it("rejette une task.create sans critère d'acceptation", () => {
+    expect(() =>
+      Effect.runSync(
+        decodeTaskCommandRequest({
+          _tag: "task.create",
+          commandId: meta.commandId,
+          payload: {
+            taskId: "3f8f0d70-1111-4000-8000-000000000004",
+            missionId: "3f8f0d70-1111-4000-8000-000000000005",
+            title: "Créer le schéma PostgreSQL",
+            acceptanceCriteria: [],
+          },
+        }),
+      ),
+    ).toThrow()
+  })
 })
 
 describe("Command", () => {
@@ -129,6 +146,21 @@ describe("Command", () => {
       }),
     ).toThrow()
   })
+
+  it("rejette un task.create enrichi sans critère d'acceptation", () => {
+    expect(() =>
+      decodeCommand({
+        _tag: "task.create",
+        ...meta,
+        payload: {
+          taskId: "3f8f0d70-1111-4000-8000-000000000004",
+          missionId: "3f8f0d70-1111-4000-8000-000000000005",
+          title: "Créer le schéma PostgreSQL",
+          acceptanceCriteria: [],
+        },
+      }),
+    ).toThrow()
+  })
 })
 
 describe("EventEnvelope", () => {
@@ -146,7 +178,7 @@ describe("EventEnvelope", () => {
         taskId: "3f8f0d70-1111-4000-8000-000000000004",
         missionId: "3f8f0d70-1111-4000-8000-000000000005",
         title: "Créer le schéma PostgreSQL",
-        acceptanceCriteria: [],
+        acceptanceCriteria: ["migrations reproductibles"],
       },
     })
 
