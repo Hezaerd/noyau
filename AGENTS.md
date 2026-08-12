@@ -98,6 +98,15 @@ Issues et specs dans GitHub Issues ; utiliser `gh`. Voir [`docs/agents/issue-tra
 
 Monorepo multi-contexte : lire `CONTEXT-MAP.md`, le `CONTEXT.md` de l'app ou du package touché, et les ADR applicables. Voir [`docs/agents/domain.md`](docs/agents/domain.md).
 
+### Stacked pull requests
+
+- Qualifier une stack lorsqu'un changement forme au moins deux couches dépendantes, cohésives et indépendamment révisables.
+- Avant de coder, expliciter l'ordre des couches du trunk vers le sommet ; placer les fondations dans les branches basses et leurs dépendants dans les branches hautes.
+- Utiliser [`.agents/skills/gh-stack/SKILL.md`](.agents/skills/gh-stack/SKILL.md) pour les commandes et contraintes CLI.
+- Préférer une PR classique pour un changement atomique, une correction isolée, des travaux indépendants ou des couches artificielles.
+- Ne jamais merger une stack sans demande explicite ; utiliser `gh stack merge`.
+- GitHub stacked PRs est en public preview et ne demande pas d'activation supplémentaire côté repository.
+
 ## Effect — conventions
 
 Conventions détaillées : [`.cursor/rules/effect-v4.mdc`](.cursor/rules/effect-v4.mdc).
