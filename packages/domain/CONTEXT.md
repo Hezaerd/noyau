@@ -3,6 +3,17 @@
 Deciders et projectors purs du control plane. Aucune IO, aucun UUID, aucune horloge : ces
 fonctions sont appelées par le control plane à l'intérieur d'une transaction PostgreSQL.
 
+## Langage
+
+**Assignation**:
+Première désignation de l'acteur responsable d'une tâche non assignée.
+_À éviter_ : réassignation, dernier assigné gagne
+
+**Réassignation**:
+Remplacement explicite de l'acteur déjà responsable d'une tâche ; cette intention exige une
+commande distincte, non encore définie.
+_À éviter_ : seconde assignation
+
 ## Contenu
 
 | Module             | Rôle                                                              |
@@ -21,6 +32,9 @@ fonctions sont appelées par le control plane à l'intérieur d'une transaction 
   `running`/`verifying` ; `task.fail` depuis `leased`/`running`/`waiting_*`/`verifying`. Les
   statuts `leased`/`running` seront atteints par les commandes du scheduler et des workers
   (étapes 3+ de l'ordre d'implémentation) — le decider les accepte déjà en entrée.
+- **Assignation unique** : `task.assign` rejette une tâche qui possède déjà un assignee, même si
+  la seconde commande cite le même acteur. Une future `task.reassign` portera l'intention de
+  remplacement.
 - **Projector total** : un événement sur un état absent est ignoré plutôt que de jeter — le
   journal fait foi.
 

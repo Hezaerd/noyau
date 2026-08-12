@@ -16,9 +16,22 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
 
 - **Une seule transaction** : receipt lookup → replay du journal → decider pur →
   `event + receipt + projection + outbox` dans le même `withTransaction`. Aucun état hors base.
+- **Commande auditée avant décision** : la request canonique, son scope et la commande enrichie
+  sont conservés. Un retry compare request + projet + acteur avant tout nouvel enrichissement ;
+  même `commandId` avec un contenu ou un scope différent est un conflit.
 - **Rejet métier = receipt stable** : un rejet du decider (`InvalidTaskTransition`, …) est
   persisté comme receipt `rejected` et rendu tel quel aux retries — jamais dans le canal
   d'erreur de l'exécution.
+- **Décisions sérialisées par agrégat** : `aggregate_heads` verrouille
+  `(project_id, aggregate_type, aggregate_id)` avant le replay et porte une version durable.
+  Chaque événement reçoit une `aggregate_version` unique dans cet agrégat.
+- **Ordre de commit par projet** : `project_stream_heads` alloue sous verrou une
+  `project_position` transactionnelle. Le `bigserial` de `events` reste interne et ne sert jamais
+  de curseur, car une séquence PostgreSQL n'ordonne pas les commits.
+- **Isolation projet stricte** : verrous, replay, projections et lectures incluent toujours
+  `projectId`. Une entité d'un autre projet est invisible à la commande.
+- **Snapshot cohérent** : tâches et position du flux sont lues dans une transaction
+  `REPEATABLE READ READ ONLY`, afin que le snapshot et son curseur décrivent le même état logique.
 - **Port générique `SqlClient`** : ce package ne dépend d'aucun driver. `@effect/sql-pg`
   arrivera avec `apps/control-plane` ; les tests utilisent `@effect/sql-pglite` (même dialecte).
 - **Horloge et UUID injectés** : `DateTime.now` (Clock) et `Crypto.randomUUIDv4` — pas de
