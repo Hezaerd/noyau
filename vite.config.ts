@@ -2,13 +2,7 @@ import { recommended as effectRecommended } from "@effect/tsgo/oxlint-presets"
 import { defineConfig } from "vite-plus"
 
 // `repos/**` est le subtree Effect en lecture seule : jamais formaté, jamais linté.
-const ignorePatterns = [
-  "**/dist/**",
-  "**/.turbo/**",
-  "**/coverage/**",
-  "**/routeTree.gen.ts",
-  "repos/**",
-]
+const ignorePatterns = ["**/dist/**", "**/coverage/**", "**/routeTree.gen.ts", "repos/**"]
 
 export default defineConfig({
   test: {

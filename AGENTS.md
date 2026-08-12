@@ -58,9 +58,35 @@ docs/
 
 repos/effect/           # Subtree Effect v4 — lecture seule, jamais importé
 .agents/skills/         # Skills Cursor du repo
+
+vite.config.ts          # Config unique fmt / lint / test / staged + tâches Vite Task
 ```
 
-Workspaces Bun : `apps/*`, `packages/*`. Stack : Bun, Turbo, Oxfmt, Oxlint, Effect v4, TypeScript 7.
+Workspaces Bun : `apps/*`, `packages/*`. Stack : Bun, Vite+, Effect v4, TypeScript 7.
+
+## Toolchain Vite+
+
+Un seul paquet, `vite-plus`, fournit Vite, Rolldown, Vitest, Oxlint, Oxfmt, tsdown et Vite Task,
+tous épinglés ensemble. La CLI est `vp` ; sans installation globale, le binaire local est dans
+`node_modules/.bin`.
+
+- Toute la config de lint, de format, de test et de tâches vit dans le `vite.config.ts` racine.
+  Ne pas recréer de `.oxlintrc.json`, `.oxfmtrc.json`, `vitest.config.ts` ni `turbo.json`.
+- La config de lint par workspace passe par `lint.overrides` à la racine. Un bloc `lint` dans le
+  `vite.config.ts` d'un package est **silencieusement ignoré** par `vp lint`.
+- Un nom de tâche ne peut pas exister à la fois dans `run.tasks` et dans les scripts d'un
+  `package.json`.
+- Les tâches tournent dans un environnement propre : seules `PATH`, `HOME`, `CI` passent. Toute
+  variable nécessaire doit être déclarée en `env` (comptée dans l'empreinte de cache) ou en
+  `untrackedEnv`.
+- Ne pas déclarer d'`inputs`/`outputs` par réflexe : le suivi automatique observe les lectures et
+  écritures réelles. N'ajouter un `input` que pour corriger un cas constaté, avec le motif en
+  commentaire.
+- Les diagnostics Effect sont appliqués par Oxlint via le preset `@effect/tsgo`. Ce montage exige
+  que `vite-plus` fournisse exactement l'Oxlint et l'`oxlint-tsgolint` supportés par
+  `@effect/tsgo` : vérifier `vp toolchain` avant tout bump de `vite-plus`.
+- `vp migrate` réécrit les imports dans tout l'arbre, `repos/effect/` compris. Si la commande doit
+  être relancée, faire suivre d'un `git checkout -- repos/`.
 
 ## Agent skills
 
@@ -114,13 +140,20 @@ Ne pas désactiver pour contourner un problème de design :
 
 ## Vérifications
 
-Pendant le travail, checks ciblés sur les workspaces touchés. Avant commit ou PR, suite complète :
+Pendant le travail, `vp check` sur les fichiers touchés. Avant commit ou PR, suite complète :
 
-| Commande        | Effet                           |
-| --------------- | ------------------------------- |
-| `bun run check` | format:check + lint + typecheck |
-| `bun run test`  | tests Turbo sur les workspaces  |
-| `bun run build` | build Turbo                     |
+| Commande        | Effet                                                         |
+| --------------- | ------------------------------------------------------------- |
+| `bun run check` | `vp check` (format + lint type-aware + type check) puis `tsc` |
+| `bun run test`  | Vitest par workspace via Vite Task                            |
+| `bun run build` | build par workspace via Vite Task                             |
+
+`vp check` est la boucle courte : une passe pour le formatage, le lint type-aware, les règles
+Effect et un type check. `--fix` corrige format et lint. Les suggestions du preset Effect sortent
+en `warn` et ne font pas échouer la commande ; les règles de correction sortent en `error`.
+
+Vite Task cache `test`, `typecheck` et `build`. `vp run --last-details` explique chaque hit et
+chaque miss ; `vp cache clean` vide le cache quand un résultat paraît faux.
 
 Le subtree `repos/effect/` n'a pas besoin d'être typechecké ni testé par la CI Noyau.
 
@@ -141,6 +174,8 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 | Approvals ou états `waiting_*` en mémoire     | Entités persistées ; réveil par événement           |
 | Autonomie `full-access` par défaut            | Niveau 0–1 ; capability grants par run              |
 | Package ou workspace sans frontière testée    | Attendre une frontière réelle                       |
+| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                        |
+| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                      |
 
 ## Opérations dangereuses
 
@@ -149,6 +184,9 @@ Ne pas faire sans instruction explicite de l'humain :
 - modifier, committer ou importer depuis `repos/effect/` ;
 - bump Effect sans sync subtree et sans vérifier les breaking changes beta ;
 - désactiver un diagnostic `@effect/tsgo` ou `--no-verify` sur un hook ;
+- bump `vite-plus` sans vérifier `vp toolchain` contre les versions Oxlint supportées par
+  `@effect/tsgo` — un décalage fait sauter les diagnostics Effect en silence ;
+- relancer `vp migrate` sans restaurer `repos/` derrière ;
 - créer un workspace ou un package sans frontière testée ;
 - secrets, tokens ou credentials dans le code ou les commits ;
 - IDs non brandés ou payloads non décodés aux frontières.

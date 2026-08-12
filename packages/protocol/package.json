@@ -16,7 +16,6 @@
     "./events": "./src/events.ts"
   },
   "scripts": {
-    "lint": "vp lint",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vp test run"
   },

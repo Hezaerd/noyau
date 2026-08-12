@@ -9,7 +9,7 @@ build
 *.tgz
 
 # task runner / tooling caches
-.turbo
+.vite-plus
 .cache
 *.tsbuildinfo
 

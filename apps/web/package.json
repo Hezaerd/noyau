@@ -5,10 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
-    "build": "tsc -b && vp build",
-    "lint": "vp lint",
-    "preview": "vp preview",
-    "typecheck": "tsc -b"
+    "preview": "vp preview"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.170.25",

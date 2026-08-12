@@ -27,10 +27,9 @@ remplaçable.
 ## Stack souhaitée
 
 - monorepo TypeScript 7 ;
-- Turborepo ;
 - Bun est actuellement le package manager/runtime initial du dépôt ;
-- Oxfmt pour le formatage ;
-- Oxlint pour le lint ;
+- Vite+ comme toolchain unique : Vite, Rolldown, Vitest, Oxlint, Oxfmt, tsdown et Vite Task
+  épinglés ensemble, configurés dans un `vite.config.ts` racine ;
 - Effect autant que pertinent côté serveur et domaine ;
 - PostgreSQL comme source de vérité ;
 - application web React, framework exact à confirmer ;
