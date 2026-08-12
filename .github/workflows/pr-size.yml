@@ -3,6 +3,15 @@ name: PR Size
 on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
+  # Trusted events that actually run `sync-label-definitions`. Without these,
+  # GitHub only auto-creates a size label when a PR first receives it, with the
+  # default gray color and no description — so unused sizes never appear.
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/pr-size.yml
 
 permissions:
   contents: read
