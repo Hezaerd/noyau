@@ -1,0 +1,170 @@
+name: Issue Labels
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/ISSUE_TEMPLATE/**
+      - .github/workflows/issue-labels.yml
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    name: Sync issue labels
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Ensure managed issue labels exist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const managedLabels = [
+              {
+                name: "task",
+                color: "1d76db",
+                description: "Scoped implementation or refactor work.",
+              },
+              {
+                name: "bug",
+                color: "d73a4a",
+                description: "Something is broken or behaving incorrectly.",
+              },
+              {
+                name: "enhancement",
+                color: "a2eeef",
+                description: "Requested improvement or new capability.",
+              },
+              {
+                name: "research",
+                color: "c5def5",
+                description: "Spike, investigation, or discovery work.",
+              },
+              {
+                name: "adr:candidate",
+                color: "5319e7",
+                description: "Architectural decision to capture in docs/adr/.",
+              },
+              {
+                name: "needs-triage",
+                color: "fbca04",
+                description: "Needs review and initial categorization.",
+              },
+              {
+                name: "ready",
+                color: "0e8a16",
+                description: "Ready to be picked up.",
+              },
+              {
+                name: "blocked",
+                color: "b60205",
+                description: "Blocked by another issue or external dependency.",
+              },
+              {
+                name: "in-progress",
+                color: "1d76db",
+                description: "Actively being worked on.",
+              },
+              {
+                name: "wayfinder:map",
+                color: "006b75",
+                description: "Wayfinder map issue holding notes and child tickets.",
+              },
+              {
+                name: "wayfinder:task",
+                color: "006b75",
+                description: "Wayfinder child ticket for implementation work.",
+              },
+              {
+                name: "wayfinder:research",
+                color: "006b75",
+                description: "Wayfinder child ticket for research or spikes.",
+              },
+              {
+                name: "wayfinder:prototype",
+                color: "006b75",
+                description: "Wayfinder child ticket for prototypes.",
+              },
+              {
+                name: "wayfinder:grilling",
+                color: "006b75",
+                description: "Wayfinder child ticket for plan stress-testing.",
+              },
+              {
+                name: "area:web",
+                color: "ededed",
+                description: "apps/web",
+              },
+              {
+                name: "area:domain",
+                color: "ededed",
+                description: "packages/domain",
+              },
+              {
+                name: "area:protocol",
+                color: "ededed",
+                description: "packages/protocol",
+              },
+              {
+                name: "area:database",
+                color: "ededed",
+                description: "packages/database",
+              },
+              {
+                name: "area:docs",
+                color: "ededed",
+                description: "Documentation or ADRs",
+              },
+              {
+                name: "area:ci",
+                color: "ededed",
+                description: "CI, tooling, or repository automation",
+              },
+              {
+                name: "agent:cursor",
+                color: "7057ff",
+                description: "Opened or driven by a Cursor cloud agent.",
+              },
+              {
+                name: "agent:human",
+                color: "7057ff",
+                description: "Opened or driven by a human contributor.",
+              },
+            ];
+
+            for (const label of managedLabels) {
+              try {
+                const { data: existing } = await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                });
+
+                if (
+                  existing.color !== label.color ||
+                  (existing.description ?? "") !== label.description
+                ) {
+                  await github.rest.issues.updateLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                  });
+                }
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description,
+                });
+              }
+            }
