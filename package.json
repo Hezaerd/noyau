@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp run -r --parallel dev",
-    "dev:control-plane": "bun --cwd apps/control-plane run dev",
+    "dev:server": "bun --cwd apps/server run dev",
     "dev:web": "vp -C apps/web dev",
     "build": "vp run -r --cache build",
     "check": "vp check && vp run -r --cache typecheck",

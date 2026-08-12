@@ -16,7 +16,7 @@ import { Effect, Stream } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { ControlPlaneConfig } from "./config"
+import { ServerConfig } from "./config"
 import { decodeEventCursor, encodeEventCursor } from "./cursor"
 
 const unavailable = (error: unknown) =>
@@ -97,7 +97,7 @@ export const projectHandlersLayer = HttpApiBuilder.group(ControlPlaneApi, "proje
     )
     .handle("getProjectEvents", ({ headers, params, query }) =>
       Effect.gen(function* () {
-        const config = yield* ControlPlaneConfig
+        const config = yield* ServerConfig
         const sql = yield* SqlClient
         const highWater = yield* readProjectEventHighWater(params.projectId).pipe(
           Effect.provideService(SqlClient, sql),

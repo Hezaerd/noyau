@@ -2,7 +2,7 @@ import { Config, Context, Layer, type Redacted } from "effect"
 
 export type NoyauEnvironment = "development" | "test" | "production"
 
-export interface ControlPlaneConfigValue {
+export interface ServerConfigValue {
   readonly environment: NoyauEnvironment
   readonly databaseUrl: Redacted.Redacted
   readonly host: string
@@ -10,12 +10,11 @@ export interface ControlPlaneConfigValue {
   readonly eventPollInterval: number
 }
 
-export class ControlPlaneConfig extends Context.Service<
-  ControlPlaneConfig,
-  ControlPlaneConfigValue
->()("@noyau/control-plane/ControlPlaneConfig") {}
+export class ServerConfig extends Context.Service<ServerConfig, ServerConfigValue>()(
+  "@noyau/server/ServerConfig",
+) {}
 
-export const controlPlaneConfig = Config.all({
+export const serverConfig = Config.all({
   environment: Config.literals(["development", "test", "production"] as const, "NOYAU_ENV"),
   databaseUrl: Config.redacted("DATABASE_URL"),
   host: Config.string("HOST").pipe(Config.withDefault("127.0.0.1")),
@@ -23,4 +22,4 @@ export const controlPlaneConfig = Config.all({
   eventPollInterval: Config.int("EVENT_POLL_INTERVAL_MS").pipe(Config.withDefault(500)),
 })
 
-export const controlPlaneConfigLayer = Layer.effect(ControlPlaneConfig, controlPlaneConfig)
+export const serverConfigLayer = Layer.effect(ServerConfig, serverConfig)

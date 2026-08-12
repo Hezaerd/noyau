@@ -32,8 +32,10 @@ remplaçable.
   épinglés ensemble, configurés dans un `vite.config.ts` racine ;
 - Effect autant que pertinent côté serveur et domaine ;
 - PostgreSQL comme source de vérité ;
-- application web React avec Vite et TanStack Router ;
-- control plane HTTP avec Effect `HttpApi` sur le runtime Bun ;
+- application web React avec Vite et TanStack Router, installable en PWA — elle couvre desktop et
+  mobile pour la v1 ;
+- serveur unique (`apps/server`) sur le runtime Bun ; frontière client en Effect RPC sur WebSocket
+  (ADR-0003) ;
 - Hermes Agent comme premier runtime d'agents ;
 - n8n comme moteur d'automatisations déterministes ;
 - Mem0 comme couche de mémoire long terme des agents, derrière un port et jamais source de vérité ;
@@ -49,14 +51,14 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
 
 ```text
                          +----------------------+
-                         |       Web App        |
+                         |    Web App (PWA)     |
                          | forum, tâches, diffs |
                          +----------+-----------+
                                     |
-                              SSE + HTTP
+                        Effect RPC (WebSocket)
                                     |
 +--------------+         +----------v-----------+
-| Git provider +-------->|  Noyau Control Plane |
+| Git provider +-------->|     Noyau Server     |
 | webhooks     |         | commandes + policies|
 +--------------+         +------+-------+-------+
                                 |       |
@@ -79,8 +81,23 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
           container/worktree    container/worktree
 ```
 
-Commencer par un modular monolith : un control plane, un worker, PostgreSQL, Hermes et n8n. Ne
-pas introduire Kafka, Kubernetes ou une constellation de microservices au début.
+Commencer par un modular monolith : un seul processus serveur — frontière RPC, engine de
+commandes, reactors et scheduler — plus PostgreSQL, Hermes et n8n (ADR-0004). Ne pas introduire
+Kafka, Kubernetes ou une constellation de microservices au début.
+
+## Topologie de déploiement
+
+Le serveur tourne en durable sur un VPS, à côté de PostgreSQL et des runs Hermes. Les clients s'y
+connectent en direct : pas de relay, pas d'app desktop, pas d'app mobile native en v1. La web app
+en PWA couvre desktop et mobile.
+
+Trois pièces sont volontairement différées au scénario « Noyau distribué à d'autres personnes » :
+
+- un relay hébergé (découverte d'instances, credentials courte durée, notifications push) — utile
+  seulement quand des serveurs Noyau tournent sur des machines personnelles derrière NAT ;
+- une app desktop Electron — utile seulement si elle doit bundler et piloter un serveur local ;
+- une app mobile native — utile seulement pour les notifications push natives et les Live
+  Activities.
 
 ## Responsabilités
 
@@ -181,7 +198,7 @@ proposed -> ready -> leased -> running
 Le LLM ne modifie jamais directement cet état ou la base de données. Il appelle une commande typée,
 le control plane vérifie les droits et les invariants, écrit l'événement, puis déclenche la suite.
 
-À la frontière HTTP, le client soumet une `CommandRequest` avec un `commandId`, une commande, son
+À la frontière RPC, le client soumet une `CommandRequest` avec un `commandId`, une commande, son
 payload et éventuellement l'événement qui l'a causée. Le control plane possède et ajoute
 `projectId`, `actorId`, l'horodatage et la version de schéma. Il dérive la corrélation de la causalité
 vérifiée, ou utilise `commandId` comme racine.
@@ -227,10 +244,11 @@ Les commandes visant le même agrégat sont sérialisées par un verrou PostgreS
 transactionnelle propre au projet : un `bigserial` PostgreSQL ne constitue pas un ordre de commit et
 ne doit pas servir de curseur.
 
-Le client lit d'abord un snapshot cohérent avec son `EventCursor`, puis reprend un flux SSE filtré par
-projet. Le curseur est opaque, versionné et lié au projet. Le flux garantit l'ordre et une livraison
-au moins une fois ; le client déduplique avec `eventId`. Le polling du journal est durable ;
-`LISTEN/NOTIFY` pourra accélérer le réveil sans devenir source de vérité.
+Le client lit d'abord un snapshot cohérent avec son `EventCursor`, puis reprend un server stream
+RPC filtré par projet. Le curseur est opaque, versionné et lié au projet. Le flux garantit l'ordre
+et une livraison au moins une fois ; le client déduplique avec `eventId`. Le WebSocket est un
+transport : une reconnexion reprend du dernier curseur, jamais de l'état du socket. Le polling du
+journal est durable ; `LISTEN/NOTIFY` pourra accélérer le réveil sans devenir source de vérité.
 
 Pour un premier déploiement sur un VPS :
 
@@ -438,9 +456,8 @@ Invariants :
 
 ```text
 apps/
-  web/
-  control-plane/
-  worker/
+  web/       # client web PWA
+  server/    # frontière RPC, engine de commandes, reactors, scheduler
 
 packages/
   domain/
@@ -463,8 +480,10 @@ infra/
 ```
 
 Ne pas créer tous les packages dès le premier commit. Introduire un package lorsqu'une frontière est
-réelle et testée. Le premier socle peut se limiter à `web`, `control-plane`, `worker`, `domain` et
-`protocol`.
+réelle et testée. Le premier socle se limite à `web`, `server`, `domain`, `protocol` et `database`.
+
+Réservés au scénario de distribution, jamais créés en v1 : `infra/relay`, `apps/desktop`,
+`apps/mobile` (ADR-0004).
 
 ## Première tranche verticale
 
@@ -481,14 +500,14 @@ Le premier objectif fonctionnel n'est pas « avoir tous les agents ». C'est ce 
 9. faire produire un rapport et un diff ;
 10. proposer une pull request après approbation.
 
-Ce scénario doit continuer à fonctionner après le redémarrage du control plane ou du worker.
+Ce scénario doit continuer à fonctionner après le redémarrage du serveur.
 
 ## Ordre d'implémentation recommandé
 
 1. Configurations monorepo et conventions TypeScript/Effect.
 2. Schémas `Project`, `Repository`, `Channel`, `Message`, `Mission` et `Task`.
 3. PostgreSQL, migrations, event log et outbox.
-4. API de commandes et flux d'événements SSE.
+4. Frontière Effect RPC sur WebSocket : commandes, snapshots et flux d'événements.
 5. Interface projet/channel/tâches minimale.
 6. Port `AgentRuntime` et adaptateur Hermes pour un run isolé.
 7. Worktrees, artefacts, interruption et reprise.

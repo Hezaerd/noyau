@@ -6,7 +6,7 @@ import { Context, Effect, Layer } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiScalar } from "effect/unstable/httpapi"
 
-import { ControlPlaneConfig, controlPlaneConfigLayer } from "./config"
+import { ServerConfig, serverConfigLayer } from "./config"
 import { healthHandlersLayer, projectHandlersLayer } from "./handlers"
 import { devIdentityLayer } from "./identity"
 import { requestSchemaErrorsLayer } from "./request-errors"
@@ -14,14 +14,14 @@ import { requestSchemaErrorsLayer } from "./request-errors"
 export class MigrationsReady extends Context.Service<
   MigrationsReady,
   { readonly completed: true }
->()("@noyau/control-plane/MigrationsReady") {}
+>()("@noyau/server/MigrationsReady") {}
 
 export const postgresLayer = PgClient.layerFrom(
   Effect.gen(function* () {
-    const config = yield* ControlPlaneConfig
+    const config = yield* ServerConfig
     return yield* PgClient.make({
       url: config.databaseUrl,
-      applicationName: "@noyau/control-plane",
+      applicationName: "@noyau/server",
       maxConnections: 10,
     })
   }),
@@ -31,12 +31,12 @@ export const migrationsReadyLayer = Layer.effect(
   MigrationsReady,
   runMigrations.pipe(
     Effect.as(MigrationsReady.of({ completed: true })),
-    Effect.withSpan("control-plane.migrations"),
+    Effect.withSpan("server.migrations"),
   ),
 )
 
 const docsLayer = Layer.unwrap(
-  Effect.map(ControlPlaneConfig, (config) =>
+  Effect.map(ServerConfig, (config) =>
     config.environment === "development" ? HttpApiScalar.layer(ControlPlaneApi) : Layer.empty,
   ),
 )
@@ -48,13 +48,13 @@ const apiLayer = HttpApiBuilder.layer(ControlPlaneApi).pipe(
   Layer.provide(requestSchemaErrorsLayer),
 )
 
-export const controlPlaneRoutesLayer = Layer.mergeAll(apiLayer, docsLayer)
+export const serverRoutesLayer = Layer.mergeAll(apiLayer, docsLayer)
 
 export const bunServerLayer = Layer.mergeAll(
   Layer.effect(
     HttpServer.HttpServer,
     Effect.gen(function* () {
-      const config = yield* ControlPlaneConfig
+      const config = yield* ServerConfig
       yield* MigrationsReady
       return yield* BunHttpServer.make({
         hostname: config.host,
@@ -67,10 +67,10 @@ export const bunServerLayer = Layer.mergeAll(
 )
 
 const infrastructureLayer = migrationsReadyLayer.pipe(
-  Layer.provideMerge(postgresLayer.pipe(Layer.provideMerge(controlPlaneConfigLayer))),
+  Layer.provideMerge(postgresLayer.pipe(Layer.provideMerge(serverConfigLayer))),
 )
 
-export const controlPlaneLayer = HttpRouter.serve(controlPlaneRoutesLayer).pipe(
+export const serverLayer = HttpRouter.serve(serverRoutesLayer).pipe(
   Layer.provide(bunServerLayer),
   Layer.provide(infrastructureLayer),
 )

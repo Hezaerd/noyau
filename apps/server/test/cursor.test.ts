@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
-import { decodeEventCursor, encodeEventCursor } from "@noyau/control-plane/cursor"
 import { InvalidEventCursor } from "@noyau/protocol/control-plane"
 import { ProjectId } from "@noyau/protocol/ids"
+import { decodeEventCursor, encodeEventCursor } from "@noyau/server/cursor"
 import { Effect } from "effect"
 
 const projectId = ProjectId.make("00000000-0000-4000-8000-000000000001")

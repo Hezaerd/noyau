@@ -32,7 +32,7 @@ Modèle cible : `Project → Mission → Task → Attempt → AgentRun`. Forum (
 ```text
 Command (Schema) → Decider pur → Transaction PG (event + receipt + projection + outbox)
   → Reactors durables → Ports runtime (AgentRuntime, WorkflowEngine, MemoryStore, GitRuntime)
-  → Snapshot + deltas (RPC/HTTP typé, flux ordonné)
+  → Snapshot + deltas (Effect RPC sur WebSocket, flux ordonné — ADR-0003)
 ```
 
 PostgreSQL porte la durabilité. Une `Queue` ou un `PubSub` Effect ne remplace jamais l'outbox.
@@ -41,14 +41,14 @@ PostgreSQL porte la durabilité. Une `Queue` ou un `PubSub` Effect ne remplace j
 
 ```text
 apps/
-  web/                  # UI React (TanStack Router, Vite) — pas d'Effect dans l'état local
-  control-plane/        # (à créer) API commandes, SSE/WebSocket
-  worker/               # (à créer) reactors, scheduler, leases
+  web/                  # UI React (TanStack Router, Vite), PWA — pas d'Effect dans l'état local
+  server/               # frontière Effect RPC (WebSocket), engine de commandes, reactors, scheduler
 
 packages/
   config/               # tsconfig.base.json partagé, diagnostics @effect/tsgo
-  domain/               # (à créer) deciders et projectors purs
-  protocol/             # (à créer) Schemas commandes/événements, exports subpath
+  domain/               # deciders et projectors purs
+  protocol/             # Schemas commandes/événements, contrat RPC, exports subpath
+  database/             # event log, receipts, outbox, projections PostgreSQL
   …                     # voir docs/ARCHITECTURE.md — un package seulement si frontière réelle
 
 docs/

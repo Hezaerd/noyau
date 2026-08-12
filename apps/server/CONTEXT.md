@@ -1,7 +1,8 @@
-# Control Plane
+# Server
 
 Frontière de confiance de Noyau : elle transforme les intentions externes en commandes durables et
-expose les projections et événements nécessaires aux clients.
+expose les projections et événements nécessaires aux clients. Le processus héberge aussi, à terme,
+les reactors et le scheduler (ADR-0004).
 
 ## Langage
 
