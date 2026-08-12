@@ -12,7 +12,7 @@ une application web.
 
 Chaque projet doit disposer :
 
-- d'un ou plusieurs dépôts Git associés ;
+- d'un ou plusieurs dépôts GitHub associés ;
 - d'un espace de discussion de type channel/forum ;
 - de missions décomposées en tâches ;
 - d'une cheffe d'orchestre appelée Marion ;
@@ -36,9 +36,10 @@ remplaçable.
   mobile pour la v1 ;
 - serveur unique (`apps/server`) sur le runtime Bun ; frontière client en Effect RPC sur WebSocket
   (ADR-0003) ;
-- Hermes Agent comme premier runtime d'agents ;
+- Hermes Agent comme premier runtime d'agents, instance locale ou joignable par Tailscale
+  (ADR-0007) ;
 - n8n comme moteur d'automatisations déterministes ;
-- Mem0 comme couche de mémoire long terme des agents, derrière un port et jamais source de vérité ;
+- GitHub comme unique forge (ADR-0006) ;
 - OpenTelemetry pour les traces, métriques et corrélations.
 
 Effect doit notamment servir pour les erreurs typées, `Schema`, les services et `Layer`, la
@@ -58,7 +59,7 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
                         Effect RPC (WebSocket)
                                     |
 +--------------+         +----------v-----------+
-| Git provider +-------->|     Noyau Server     |
+|    GitHub    +-------->|     Noyau Server     |
 | webhooks     |         | commandes + policies|
 +--------------+         +------+-------+-------+
                                 |       |
@@ -87,9 +88,10 @@ Kafka, Kubernetes ou une constellation de microservices au début.
 
 ## Topologie de déploiement
 
-Le serveur tourne en durable sur un VPS, à côté de PostgreSQL et des runs Hermes. Les clients s'y
-connectent en direct : pas de relay, pas d'app desktop, pas d'app mobile native en v1. La web app
-en PWA couvre desktop et mobile.
+Le serveur tourne en durable sur un VPS, à côté de PostgreSQL. Hermes tourne sur la même machine
+ou sur un hôte joignable par Tailscale (ADR-0007) — pas de cluster de containers à provisionner.
+Les dépôts projet sont des dépôts GitHub (ADR-0006). Les clients s'y connectent en direct : pas de
+relay, pas d'app desktop, pas d'app mobile native en v1. La web app en PWA couvre desktop et mobile.
 
 Trois pièces sont volontairement différées au scénario « Noyau distribué à d'autres personnes » :
 
@@ -214,7 +216,6 @@ Commandes initiales envisagées :
 - `message.send`
 - `question.ask`
 - `report.submit`
-- `memory.write`
 - `approval.request`
 - `workflow.propose`
 - `workflow.validate`
@@ -294,27 +295,8 @@ pendant une question.
 
 Ne jamais injecter tout l'historique du forum dans un prompt. Construire un `ContextPack` versionné et
 ciblé contenant seulement : objectif, critères d'acceptation, décisions pertinentes, résumé des
-échanges, fichiers utiles et capacités disponibles.
-
-## Mémoire long terme des agents (Mem0)
-
-Mem0 stocke ce qui doit survivre aux missions : préférences, conventions apprises, décisions
-récurrentes, leçons tirées d'échecs. Il complète le `ContextPack`, il ne le remplace pas.
-
-Invariants :
-
-- PostgreSQL reste la source de vérité. Les mémoires sont dérivées des événements et doivent
-  pouvoir être reconstruites ou purgées sans perte d'état ;
-- accès uniquement via un port `MemoryStore` du control plane, jamais d'appel direct par un agent ;
-- écriture via une commande typée (`memory.write`), soumise aux mêmes policies que les autres
-  commandes ;
-- mémoires scopées par projet et par profil d'agent, pas de mémoire globale par défaut ;
-- jamais de secret dans une mémoire ;
-- une mémoire écrite à partir de contenu externe (repo, issue, page web) est un vecteur de
-  persistance de prompt injection : marquer la provenance, la traiter comme non fiable et prévoir
-  révision et expiration ;
-- dans un `ContextPack`, les mémoires récupérées sont citées avec leur identifiant pour rester
-  auditables.
+échanges, fichiers utiles et capacités disponibles. Pas de magasin mémoire externe (Mem0) : le
+`ContextPack` se limite à l'état Noyau (ADR-0005).
 
 ## Intégration Hermes
 
@@ -336,8 +318,11 @@ interface AgentRuntime {
 }
 ```
 
-Utiliser l'API HTTP publique et streamée d'Hermes plutôt que les WebSockets internes de son dashboard.
-Créer un MCP ou plugin Noyau exposant uniquement les commandes autorisées aux agents.
+Noyau adresse une instance Hermes, pas un cluster : soit le processus tourne sur la même machine
+que le serveur, soit il est joignable par Tailscale (ADR-0007). L'isolation du run (container,
+worktree) est du ressort d'Hermes sur cet hôte. Utiliser l'API HTTP publique et streamée d'Hermes
+plutôt que les WebSockets internes de son dashboard. Créer un MCP ou plugin Noyau exposant
+uniquement les commandes autorisées aux agents.
 
 Ne pas baser l'architecture de Noyau sur `delegate_task` : les sous-agents Hermes sont adaptés aux
 sous-tâches temporaires mais pas à la collaboration durable souhaitée. Noyau doit lancer des runs
@@ -345,16 +330,18 @@ Hermes indépendants et considérer Hermes comme remplaçable.
 
 Pour chaque run :
 
-- créer un container isolé ;
-- créer un checkout ou `git worktree` dédié ;
+- exiger un checkout ou `git worktree` dédié sur l'hôte Hermes ;
 - utiliser une branche dédiée ;
 - injecter un profil, un prompt et une liste de capacités versionnés ;
 - limiter CPU, mémoire, durée, tokens et profondeur de délégation ;
-- ne jamais monter le socket Docker ;
+- ne jamais monter le socket Docker dans l'environnement du run ;
 - journaliser les appels d'outils en redigeant les secrets ;
 - détruire ou archiver proprement l'environnement à la fin.
 
 ## Git et artefacts
+
+Les dépôts d'un projet sont des dépôts GitHub (ADR-0006). Webhooks, pull requests et le port
+`GitRuntime` parlent à GitHub ; pas d'autre forge en v1.
 
 Un agent de code ne travaille jamais directement sur la branche principale.
 
@@ -468,7 +455,6 @@ packages/
   agent-hermes/
   git-runtime/
   n8n-gateway/
-  memory/
   policy/
   observability/
   testing/
@@ -489,7 +475,7 @@ Réservés au scénario de distribution, jamais créés en v1 : `infra/relay`, `
 
 Le premier objectif fonctionnel n'est pas « avoir tous les agents ». C'est ce parcours complet :
 
-1. connecter un dépôt à un projet ;
+1. connecter un dépôt GitHub à un projet ;
 2. poster une demande dans son channel ;
 3. faire produire à Marion un plan typé ;
 4. créer deux tâches avec une dépendance ;
@@ -509,7 +495,7 @@ Ce scénario doit continuer à fonctionner après le redémarrage du serveur.
 3. PostgreSQL, migrations, event log et outbox.
 4. Frontière Effect RPC sur WebSocket : commandes, snapshots et flux d'événements.
 5. Interface projet/channel/tâches minimale.
-6. Port `AgentRuntime` et adaptateur Hermes pour un run isolé.
+6. Port `AgentRuntime` et adaptateur Hermes (instance locale ou Tailscale) pour un run isolé.
 7. Worktrees, artefacts, interruption et reprise.
 8. Plan structuré de Marion et scheduler de DAG.
 9. Questions, rapports et approbations.
@@ -521,10 +507,7 @@ Ce scénario doit continuer à fonctionner après le redémarrage du serveur.
 
 Ces décisions doivent être prises au moment où elles deviennent nécessaires :
 
-- Mem0 auto-hébergé (OSS/OpenMemory) ou plateforme managée, et périmètre exact des mémoires ;
 - stockage objet local/S3-compatible pour les artefacts ;
-- fournisseur Git initial ;
-- mode précis de provisionnement des containers Hermes ;
 - système de secrets et credential broker.
 
 Éviter de décider ces points uniquement pour remplir le scaffold. Chaque choix doit être justifié par

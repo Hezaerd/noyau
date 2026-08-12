@@ -9,7 +9,7 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | -------------------- | ------------------------------------------------------------------------------------------ |
 | **Noyau**            | Control plane : état, permissions, commandes, événements, projections.                     |
 | **Marion**           | Cheffe d'orchestre LLM ; planifie et coordonne, ne possède pas l'état.                     |
-| **Hermes**           | Premier adaptateur du port `AgentRuntime` ; exécution isolée en container/worktree.        |
+| **Hermes**           | Premier adaptateur du port `AgentRuntime` ; run isolé, instance locale ou Tailscale.       |
 | **Mission**          | Regroupement de tâches orienté objectif ; racine du DAG.                                   |
 | **Task**             | Unité de travail bornée avec critères d'acceptation et état de cycle de vie.               |
 | **Attempt**          | Tentative d'exécution d'une tâche ; porte worktree, artefacts et runs.                     |
@@ -21,7 +21,7 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | **Outbox**           | File transactionnelle PostgreSQL ; seule source de reprise après crash.                    |
 | **Lease**            | Verrou temporaire avec expiration pour réclamer une tâche entre workers.                   |
 | **Receipt**          | Preuve d'idempotence d'une commande ; réponse stable aux retries.                          |
-| **ContextPack**      | Contexte LLM versionné et ciblé ; jamais l'historique brut du forum.                       |
+| **ContextPack**      | Contexte LLM versionné, tiré des projections Noyau ; jamais l'historique brut du forum.    |
 | **Capability grant** | Permission étroite, temporaire, attachée à un run — pas au rôle ni au prompt.              |
 | **Approval**         | Demande d'approbation humaine persistée (`waiting_human`).                                 |
 
@@ -31,7 +31,7 @@ Modèle cible : `Project → Mission → Task → Attempt → AgentRun`. Forum (
 
 ```text
 Command (Schema) → Decider pur → Transaction PG (event + receipt + projection + outbox)
-  → Reactors durables → Ports runtime (AgentRuntime, WorkflowEngine, MemoryStore, GitRuntime)
+  → Reactors durables → Ports runtime (AgentRuntime, WorkflowEngine, GitRuntime)
   → Snapshot + deltas (Effect RPC sur WebSocket, flux ordonné — ADR-0003)
 ```
 
@@ -161,21 +161,24 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 
 ## Pièges fréquents
 
-| Piège                                         | Choix Noyau                                         |
-| --------------------------------------------- | --------------------------------------------------- |
-| `Queue` / `PubSub` comme source de vérité     | PostgreSQL + outbox transactionnelle                |
-| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                  |
-| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`           |
-| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                       |
-| `Context.Tag` par instance de runtime         | Registry singleton + adaptateur en valeur           |
-| Effect Atom dans React                        | Effect aux frontières ; état UI React idiomatique   |
-| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements            |
-| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`, `runtime` |
-| Approvals ou états `waiting_*` en mémoire     | Entités persistées ; réveil par événement           |
-| Autonomie `full-access` par défaut            | Niveau 0–1 ; capability grants par run              |
-| Package ou workspace sans frontière testée    | Attendre une frontière réelle                       |
-| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                        |
-| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                      |
+| Piège                                         | Choix Noyau                                            |
+| --------------------------------------------- | ------------------------------------------------------ |
+| `Queue` / `PubSub` comme source de vérité     | PostgreSQL + outbox transactionnelle                   |
+| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                     |
+| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`              |
+| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                          |
+| `Context.Tag` par instance de runtime         | Registry singleton + adaptateur en valeur              |
+| Effect Atom dans React                        | Effect aux frontières ; état UI React idiomatique      |
+| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements               |
+| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`, `runtime`    |
+| Approvals ou états `waiting_*` en mémoire     | Entités persistées ; réveil par événement              |
+| Mem0 / port `MemoryStore`                     | Pas en v1 ; ContextPack depuis l'état Noyau (ADR-0005) |
+| Forge Git autre que GitHub                    | GitHub seulement (ADR-0006)                            |
+| Cluster de containers Hermes                  | Instance locale ou Tailscale (ADR-0007)                |
+| Autonomie `full-access` par défaut            | Niveau 0–1 ; capability grants par run                 |
+| Package ou workspace sans frontière testée    | Attendre une frontière réelle                          |
+| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                           |
+| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                         |
 
 ## Opérations dangereuses
 
