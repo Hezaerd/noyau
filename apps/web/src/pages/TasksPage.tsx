@@ -3,18 +3,34 @@ import type { Task, TaskStatus } from "@noyau/protocol/entities/task"
 import type { TaskRejection } from "@noyau/protocol/receipts"
 import {
   AlertCircle,
+  ArrowRight,
+  Check,
   CheckCircle2,
-  ChevronDown,
+  CircleDot,
+  Clock3,
   LoaderCircle,
   Plus,
   RefreshCw,
-  Target,
   UserPlus,
   X,
 } from "lucide-react"
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { Textarea } from "@/components/ui/textarea"
 import { createTask, loadTaskSnapshot, selfAssignTask } from "@/lib/control-plane"
 
 const statusLabels = {
@@ -22,12 +38,25 @@ const statusLabels = {
   ready: "Prête",
   leased: "Réservée",
   running: "En cours",
-  waiting_human: "Attend une réponse",
+  waiting_human: "Décision requise",
   waiting_agent: "Attend un agent",
-  verifying: "En vérification",
+  verifying: "En revue",
   completed: "Terminée",
   failed: "Échouée",
   cancelled: "Annulée",
+} satisfies Record<TaskStatus, string>
+
+const statusStyles = {
+  proposed: "border-slate-200 bg-slate-50 text-slate-600",
+  ready: "border-[#d5ddae] bg-[#f0f4df] text-[#5d682f]",
+  leased: "border-blue-200 bg-blue-50 text-blue-700",
+  running: "border-violet-200 bg-violet-50 text-violet-700",
+  waiting_human: "border-amber-200 bg-amber-50 text-amber-700",
+  waiting_agent: "border-sky-200 bg-sky-50 text-sky-700",
+  verifying: "border-cyan-200 bg-cyan-50 text-cyan-700",
+  completed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  failed: "border-red-200 bg-red-50 text-red-700",
+  cancelled: "border-zinc-200 bg-zinc-50 text-zinc-600",
 } satisfies Record<TaskStatus, string>
 
 const rejectionMessage = (rejection: TaskRejection): string => {
@@ -37,9 +66,9 @@ const rejectionMessage = (rejection: TaskRejection): string => {
     case "TaskAlreadyExists":
       return "Une tâche portant cet identifiant existe déjà."
     case "TaskNotFound":
-      return "Cette tâche n'existe plus dans le snapshot courant."
+      return "Cette tâche n’existe plus dans le snapshot courant."
     case "InvalidTaskTransition":
-      return "Cette action n'est pas permise dans l'état courant de la tâche."
+      return "Cette action n’est pas permise dans l’état courant de la tâche."
   }
 }
 
@@ -55,30 +84,21 @@ interface CriterionField {
 }
 
 interface TaskComposerProps {
+  readonly open: boolean
   readonly disabled: boolean
+  readonly onOpenChange: (open: boolean) => void
   readonly onCreated: (snapshot: ProjectTaskSnapshot) => void
   readonly onFeedback: (feedback: Feedback) => void
 }
 
-function TaskComposer({ disabled, onCreated, onFeedback }: TaskComposerProps) {
+function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: TaskComposerProps) {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [criteria, setCriteria] = useState<ReadonlyArray<CriterionField>>([{ id: 0, value: "" }])
-  const [showDetails, setShowDetails] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const canSubmit =
     title.trim() !== "" && criteria.some((criterion) => criterion.value.trim() !== "")
-
-  const updateCriterion = (id: number, value: string) => {
-    setCriteria((current) =>
-      current.map((criterion) => (criterion.id === id ? { ...criterion, value } : criterion)),
-    )
-  }
-
-  const removeCriterion = (id: number) => {
-    setCriteria((current) => current.filter((criterion) => criterion.id !== id))
-  }
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -87,8 +107,6 @@ function TaskComposer({ disabled, onCreated, onFeedback }: TaskComposerProps) {
     }
 
     setSubmitting(true)
-    onFeedback({ tone: "success", message: "" })
-
     const commandResult = await createTask({
       title,
       description,
@@ -98,7 +116,7 @@ function TaskComposer({ disabled, onCreated, onFeedback }: TaskComposerProps) {
     if (!commandResult.ok) {
       onFeedback({
         tone: "error",
-        message: "La création n'a pas atteint le control plane.",
+        message: "La création n’a pas atteint le control plane.",
         details: commandResult.details,
       })
       setSubmitting(false)
@@ -118,7 +136,7 @@ function TaskComposer({ disabled, onCreated, onFeedback }: TaskComposerProps) {
     if (!snapshotResult.ok) {
       onFeedback({
         tone: "error",
-        message: "La tâche est créée, mais le snapshot n'a pas pu être relu.",
+        message: "La tâche est créée, mais le snapshot n’a pas pu être relu.",
         details: snapshotResult.details,
       })
       setSubmitting(false)
@@ -128,127 +146,115 @@ function TaskComposer({ disabled, onCreated, onFeedback }: TaskComposerProps) {
     setTitle("")
     setDescription("")
     setCriteria([{ id: 0, value: "" }])
-    setShowDetails(false)
     onCreated(snapshotResult.value)
     onFeedback({ tone: "success", message: "Tâche créée et snapshot synchronisé." })
+    onOpenChange(false)
     setSubmitting(false)
   }
 
   return (
-    <form
-      onSubmit={(event) => void submit(event)}
-      className="rounded-2xl border border-border bg-card p-4 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-6"
-    >
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-accent uppercase">
-            Nouvelle tâche
-          </p>
-          <h2 className="mt-1 text-xl font-medium tracking-[-0.02em] text-primary">
-            Définir le prochain résultat
-          </h2>
-        </div>
-        <Target aria-hidden="true" className="size-5 text-muted-foreground" />
-      </div>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+        <form onSubmit={(event) => void submit(event)} className="flex min-h-full flex-col">
+          <SheetHeader className="border-b">
+            <div className="mb-3 grid size-10 place-items-center rounded-xl bg-accent text-accent-foreground">
+              <Plus className="size-4" />
+            </div>
+            <SheetTitle className="text-xl tracking-[-0.025em]">Nouvelle tâche</SheetTitle>
+            <SheetDescription>
+              Définis un résultat borné et les preuves qui permettront de le valider.
+            </SheetDescription>
+          </SheetHeader>
 
-      <div className="grid gap-4">
-        <label className="grid gap-2">
-          <span className="text-sm font-medium text-foreground">Objectif</span>
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Ex. Brancher le snapshot des tâches"
-            className="h-12 rounded-xl border border-input bg-background px-4 text-base text-foreground placeholder:text-muted-foreground/60 focus:border-accent focus:ring-2 focus:ring-accent/20"
-          />
-        </label>
-
-        <div className="grid gap-2">
-          <span className="text-sm font-medium text-foreground">Critère d'acceptation</span>
-          {criteria.map((criterion, index) => (
-            <div key={criterion.id} className="flex gap-2">
-              <input
-                value={criterion.value}
-                onChange={(event) => updateCriterion(criterion.id, event.target.value)}
-                placeholder={
-                  index === 0
-                    ? "Ex. Le snapshot réel est affiché sans donnée fictive"
-                    : "Autre critère"
-                }
-                className="h-12 min-w-0 flex-1 rounded-xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-accent focus:ring-2 focus:ring-accent/20"
+          <div className="flex-1 space-y-6 px-4 py-6">
+            <div className="space-y-2">
+              <Label htmlFor="task-title">Objectif</Label>
+              <Input
+                id="task-title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Ex. Reprendre le flux après reconnexion"
+                autoFocus
               />
-              {criteria.length > 1 ? (
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="task-description">Contexte</Label>
+              <Textarea
+                id="task-description"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Contexte utile à l’agent, sans répéter le résultat attendu."
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Critères d’acceptation</Label>
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
-                  aria-label={`Supprimer le critère ${index + 1}`}
-                  onClick={() => removeCriterion(criterion.id)}
-                  className="h-12 w-12 shrink-0 text-muted-foreground hover:text-primary"
+                  size="xs"
+                  onClick={() =>
+                    setCriteria((current) => [
+                      ...current,
+                      { id: (current.at(-1)?.id ?? -1) + 1, value: "" },
+                    ])
+                  }
                 >
-                  <X aria-hidden="true" className="size-4" />
+                  <Plus />
+                  Ajouter
                 </Button>
-              ) : null}
+              </div>
+              {criteria.map((criterion, index) => (
+                <div key={criterion.id} className="flex items-center gap-2">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-secondary text-[0.65rem] font-medium text-muted-foreground">
+                    {index + 1}
+                  </span>
+                  <Input
+                    value={criterion.value}
+                    onChange={(event) =>
+                      setCriteria((current) =>
+                        current.map((item) =>
+                          item.id === criterion.id ? { ...item, value: event.target.value } : item,
+                        ),
+                      )
+                    }
+                    placeholder="Le comportement attendu est vérifiable"
+                  />
+                  {criteria.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Supprimer le critère ${index + 1}`}
+                      onClick={() =>
+                        setCriteria((current) => current.filter((item) => item.id !== criterion.id))
+                      }
+                    >
+                      <X />
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-
-        {showDetails ? (
-          <div className="grid gap-4 border-t border-border pt-4">
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-foreground">Description optionnelle</span>
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                rows={3}
-                placeholder="Contexte utile, sans répéter le critère de réussite."
-                className="resize-y rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-accent focus:ring-2 focus:ring-accent/20"
-              />
-            </label>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setCriteria((current) => [
-                  ...current,
-                  { id: (current.at(-1)?.id ?? -1) + 1, value: "" },
-                ])
-              }
-              className="w-fit"
-            >
-              <Plus aria-hidden="true" className="size-4" />
-              Ajouter un critère
-            </Button>
           </div>
-        ) : null}
 
-        <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setShowDetails((current) => !current)}
-            className="justify-start text-muted-foreground"
-          >
-            <ChevronDown
-              aria-hidden="true"
-              className={`size-4 transition-transform ${showDetails ? "rotate-180" : ""}`}
-            />
-            {showDetails ? "Masquer les détails" : "Description et autres critères"}
-          </Button>
-          <Button
-            type="submit"
-            disabled={disabled || submitting || !canSubmit}
-            className="h-11 sm:px-5"
-          >
-            {submitting ? (
-              <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
-            ) : (
-              <Plus aria-hidden="true" className="size-4" />
-            )}
-            Créer la tâche
-          </Button>
-        </div>
-      </div>
-    </form>
+          <SheetFooter className="border-t sm:flex-row">
+            <SheetClose asChild>
+              <Button type="button" variant="outline">
+                Annuler
+              </Button>
+            </SheetClose>
+            <Button type="submit" disabled={disabled || submitting || !canSubmit}>
+              {submitting ? <LoaderCircle className="animate-spin" /> : <Plus />}
+              Créer la tâche
+            </Button>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -260,61 +266,83 @@ interface TaskItemProps {
 
 function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
   return (
-    <article className="rounded-2xl border border-border bg-card p-4 transition-colors hover:border-muted-foreground/40 sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
-              {statusLabels[task.status]}
-            </span>
-            <span className="font-mono text-[0.68rem] text-subtle">{task.id.slice(0, 8)}</span>
-          </div>
-          <h3 className="text-lg font-medium tracking-[-0.02em] text-primary">{task.title}</h3>
-          {task.description === undefined ? null : (
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              {task.description}
-            </p>
+    <article className="group rounded-2xl border border-border/85 bg-card px-4 py-4 shadow-xs transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-[0_14px_38px_rgba(34,35,31,0.07)] sm:px-5">
+      <div className="flex items-start gap-3.5">
+        <div
+          className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full border ${
+            task.status === "completed"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+              : "border-border bg-background text-muted-foreground"
+          }`}
+        >
+          {task.status === "completed" ? (
+            <Check className="size-3.5" />
+          ) : (
+            <CircleDot className="size-3" />
           )}
         </div>
 
-        {task.assigneeId === undefined ? (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={assigning}
-            onClick={() => onAssign(task)}
-            className="h-10 shrink-0"
-          >
-            {assigning ? (
-              <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
-            ) : (
-              <UserPlus aria-hidden="true" className="size-4" />
-            )}
-            M'attribuer
-          </Button>
-        ) : (
-          <div className="flex shrink-0 items-center gap-2 rounded-full bg-accent/10 px-3 py-2 text-xs font-medium text-accent">
-            <CheckCircle2 aria-hidden="true" className="size-4" />
-            {task.assigneeId}
-          </div>
-        )}
-      </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={`rounded-full text-[0.62rem] ${statusStyles[task.status]}`}
+                >
+                  {statusLabels[task.status]}
+                </Badge>
+                <span className="font-mono text-[0.62rem] text-muted-foreground/65">
+                  {task.id.slice(0, 8)}
+                </span>
+              </div>
+              <h3 className="text-sm font-semibold tracking-[-0.015em] sm:text-[0.95rem]">
+                {task.title}
+              </h3>
+              {task.description === undefined ? null : (
+                <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  {task.description}
+                </p>
+              )}
+            </div>
 
-      <div className="mt-5 border-t border-border pt-4">
-        <p className="mb-2 text-xs font-semibold tracking-[0.12em] text-subtle uppercase">
-          Critères d'acceptation
-        </p>
-        <ul className="grid gap-2">
-          {task.acceptanceCriteria.map((criterion) => (
-            <li
-              key={criterion}
-              className="flex gap-2 text-sm leading-relaxed text-muted-foreground"
-            >
-              <span className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-accent" />
-              {criterion}
-            </li>
-          ))}
-        </ul>
+            {task.assigneeId === undefined ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={assigning}
+                onClick={() => onAssign(task)}
+                className="w-fit shrink-0 rounded-full text-muted-foreground"
+              >
+                {assigning ? <LoaderCircle className="animate-spin" /> : <UserPlus />}
+                M’attribuer
+              </Button>
+            ) : (
+              <div className="flex w-fit shrink-0 items-center gap-2 rounded-full bg-secondary px-2.5 py-1.5 text-[0.68rem] text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                {task.assigneeId}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-border/60 pt-3">
+            {task.acceptanceCriteria.slice(0, 2).map((criterion) => (
+              <span
+                key={criterion}
+                className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"
+              >
+                <CheckCircle2 className="size-3 text-[#7d8f44]" />
+                {criterion}
+              </span>
+            ))}
+            {task.acceptanceCriteria.length > 2 ? (
+              <span className="text-[0.68rem] text-muted-foreground">
+                +{task.acceptanceCriteria.length - 2}
+              </span>
+            ) : null}
+          </div>
+        </div>
       </div>
     </article>
   )
@@ -324,6 +352,7 @@ export function TasksPage() {
   const [snapshot, setSnapshot] = useState<ProjectTaskSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [composerOpen, setComposerOpen] = useState(false)
   const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
 
@@ -357,13 +386,12 @@ export function TasksPage() {
   const assign = async (task: Task) => {
     setAssigningTaskId(task.id)
     setFeedback(null)
-
     const commandResult = await selfAssignTask(task.id)
 
     if (!commandResult.ok) {
       setFeedback({
         tone: "error",
-        message: "L'assignation n'a pas atteint le control plane.",
+        message: "L’assignation n’a pas atteint le control plane.",
         details: commandResult.details,
       })
       setAssigningTaskId(null)
@@ -382,120 +410,176 @@ export function TasksPage() {
     const snapshotResult = await loadTaskSnapshot()
     if (snapshotResult.ok) {
       setSnapshot(snapshotResult.value)
-      setFeedback({ tone: "success", message: "Assignation enregistrée et snapshot synchronisé." })
+      setFeedback({ tone: "success", message: "Assignation enregistrée." })
     } else {
       setFeedback({
         tone: "error",
-        message: "L'assignation est enregistrée, mais le snapshot n'a pas pu être relu.",
+        message: "L’assignation est enregistrée, mais le snapshot n’a pas pu être relu.",
         details: snapshotResult.details,
       })
     }
     setAssigningTaskId(null)
   }
 
-  const taskCount = snapshot?.tasks.length ?? 0
+  const tasks = snapshot?.tasks ?? []
+  const completedCount = tasks.filter((task) => task.status === "completed").length
+  const progress = tasks.length === 0 ? 0 : Math.round((completedCount / tasks.length) * 100)
 
   return (
-    <section className="mx-auto w-full max-w-5xl py-8 sm:py-12 lg:py-16">
-      <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-bold tracking-[0.16em] text-accent uppercase">
-            Mission sandbox
-          </p>
-          <h1 className="mt-2 text-[clamp(2.25rem,6vw,4.5rem)] leading-[0.94] font-normal tracking-[-0.06em] text-primary">
-            Ce qui doit avancer.
-          </h1>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Une vue réelle du snapshot Noyau. Chaque commande est persistée avant d'apparaître ici.
-          </p>
+    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
+      <header className="mb-8 flex flex-col gap-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="size-2 rounded-full bg-[#d8ef7e] ring-4 ring-[#e9efcf]" />
+              Mission active · Control plane durable
+            </div>
+            <h2 className="text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
+              Le travail qui compte.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              Une vue compacte du snapshot réel. Les commandes restent persistées avant chaque mise
+              à jour de l’interface.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Rafraîchir le snapshot"
+              disabled={loading || refreshing}
+              onClick={() => void refresh()}
+              className="rounded-full bg-card"
+            >
+              <RefreshCw className={refreshing ? "animate-spin" : ""} />
+            </Button>
+            <Button className="rounded-full" onClick={() => setComposerOpen(true)}>
+              <Plus />
+              Nouvelle tâche
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm tabular-nums text-muted-foreground">
-            {taskCount} tâche{taskCount === 1 ? "" : "s"}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Rafraîchir le snapshot"
-            disabled={loading || refreshing}
-            onClick={() => void refresh()}
-            className="size-9"
-          >
-            <RefreshCw
-              aria-hidden="true"
-              className={`size-4 ${refreshing ? "animate-spin" : ""}`}
-            />
-          </Button>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
+            <p className="text-[0.68rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
+              Progression
+            </p>
+            <div className="mt-3 flex items-end justify-between">
+              <span className="text-2xl font-semibold tracking-[-0.04em]">{progress}%</span>
+              <span className="text-xs text-muted-foreground">
+                {completedCount} / {tasks.length}
+              </span>
+            </div>
+            <Progress value={progress} className="mt-3 h-1.5" />
+          </div>
+          <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
+            <p className="text-[0.68rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
+              En mouvement
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Clock3 className="size-4 text-violet-500" />
+              <span className="text-2xl font-semibold tracking-[-0.04em]">
+                {tasks.filter((task) => task.status === "running").length}
+              </span>
+              <span className="text-xs text-muted-foreground">tâches actives</span>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border/80 bg-[#23251f] p-4 text-[#f6f6ef] shadow-sm">
+            <p className="text-[0.68rem] font-medium tracking-[0.1em] text-white/45 uppercase">
+              Prochaine étape
+            </p>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-sm font-medium">Revoir les sorties agents</span>
+              <ArrowRight className="size-4 text-[#d8ef7e]" />
+            </div>
+          </div>
         </div>
       </header>
-
-      <TaskComposer
-        disabled={loading}
-        onCreated={setSnapshot}
-        onFeedback={(nextFeedback) =>
-          setFeedback(nextFeedback.message === "" ? null : nextFeedback)
-        }
-      />
 
       {feedback === null ? null : (
         <div
           role={feedback.tone === "error" ? "alert" : "status"}
-          className={`mt-5 rounded-xl border px-4 py-3 ${
+          className={`mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
             feedback.tone === "error"
-              ? "border-destructive/40 bg-destructive/10 text-foreground"
-              : "border-accent/30 bg-accent/10 text-foreground"
+              ? "border-destructive/25 bg-destructive/5"
+              : "border-emerald-200 bg-emerald-50"
           }`}
         >
-          <div className="flex gap-3">
-            {feedback.tone === "error" ? (
-              <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-destructive" />
-            ) : (
-              <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent" />
+          {feedback.tone === "error" ? (
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+          ) : (
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+          )}
+          <div>
+            <p className="font-medium">{feedback.message}</p>
+            {feedback.details === undefined ? null : (
+              <details className="mt-1 text-xs text-muted-foreground">
+                <summary className="cursor-pointer">Détails techniques</summary>
+                <pre className="mt-2 overflow-auto whitespace-pre-wrap">{feedback.details}</pre>
+              </details>
             )}
-            <div className="min-w-0">
-              <p className="text-sm font-medium">{feedback.message}</p>
-              {feedback.details === undefined ? null : (
-                <details className="mt-2 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer">Détails techniques</summary>
-                  <pre className="mt-2 overflow-auto whitespace-pre-wrap">{feedback.details}</pre>
-                </details>
-              )}
-            </div>
           </div>
         </div>
       )}
 
-      <div className="mt-8">
-        {loading ? (
-          <div className="flex min-h-56 items-center justify-center rounded-2xl border border-dashed border-border">
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <LoaderCircle aria-hidden="true" className="size-4 animate-spin text-accent" />
-              Lecture du snapshot…
-            </div>
-          </div>
-        ) : snapshot?.tasks.length === 0 ? (
-          <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 text-center">
-            <Target aria-hidden="true" className="mb-4 size-6 text-accent" />
-            <h2 className="text-lg font-medium text-primary">Aucune tâche dans cette mission</h2>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-              Définis un résultat et son critère de réussite. Il sera écrit dans le journal
-              d'événements Noyau.
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            {snapshot?.tasks.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                assigning={assigningTaskId === task.id}
-                onAssign={(selectedTask) => void assign(selectedTask)}
-              />
-            ))}
-          </div>
-        )}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
+          <Button variant="secondary" size="xs">
+            Toutes <span className="text-muted-foreground">{tasks.length}</span>
+          </Button>
+          <Button variant="ghost" size="xs" className="text-muted-foreground">
+            Actives
+          </Button>
+          <Button variant="ghost" size="xs" className="text-muted-foreground">
+            Terminées
+          </Button>
+        </div>
       </div>
-    </section>
+
+      {loading ? (
+        <div className="flex min-h-64 items-center justify-center rounded-2xl border border-dashed border-border">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin" />
+            Lecture du snapshot…
+          </div>
+        </div>
+      ) : tasks.length === 0 ? (
+        <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 px-6 text-center">
+          <div className="mb-4 grid size-10 place-items-center rounded-xl bg-accent">
+            <CheckCircle2 className="size-4 text-accent-foreground" />
+          </div>
+          <h3 className="text-sm font-semibold">Aucune tâche dans cette mission</h3>
+          <p className="mt-2 max-w-md text-xs leading-relaxed text-muted-foreground">
+            Crée un résultat borné. Il sera écrit dans le journal d’événements avant d’apparaître
+            ici.
+          </p>
+          <Button size="sm" className="mt-5 rounded-full" onClick={() => setComposerOpen(true)}>
+            <Plus />
+            Créer la première tâche
+          </Button>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {tasks.map((task) => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              assigning={assigningTaskId === task.id}
+              onAssign={(selectedTask) => void assign(selectedTask)}
+            />
+          ))}
+        </div>
+      )}
+
+      <TaskComposer
+        open={composerOpen}
+        disabled={loading}
+        onOpenChange={setComposerOpen}
+        onCreated={setSnapshot}
+        onFeedback={setFeedback}
+      />
+    </main>
   )
 }

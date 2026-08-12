@@ -2,6 +2,8 @@ import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
+import { TooltipProvider } from "@/components/ui/tooltip"
+
 import { routeTree } from "./routeTree.gen"
 
 import "./index.css"
@@ -22,6 +24,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <TooltipProvider>
+      <RouterProvider router={router} />
+    </TooltipProvider>
   </StrictMode>,
 )
