@@ -1,0 +1,77 @@
+name: Task
+description: Standard work item with clear acceptance criteria.
+title: "[Task]: "
+labels:
+  - task
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for scoped implementation work, refactors, or fixes with a clear outcome.
+        Link a parent issue or wayfinder map when this ticket is part of a larger effort.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the monorepo does this touch?
+      options:
+        - apps/web
+        - packages/domain
+        - packages/protocol
+        - packages/database
+        - packages/config
+        - docs / ADR
+        - CI / tooling
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or outcome
+      description: What should be true when this is done?
+      placeholder: |
+        The task projector should emit a delta when a task moves to `waiting_human`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Testable checklist for humans and agents.
+      placeholder: |
+        - [ ] Decider stays pure (no IO)
+        - [ ] Projector updated and covered by tests
+        - [ ] `bun run check` passes
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context pointers
+      description: Links to parent issues, CONTEXT.md paths, ADRs, or prior decisions.
+      placeholder: |
+        Part of #12
+        packages/domain/CONTEXT.md
+        docs/adr/0001-event-sourcing.md
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: Boundaries, non-goals, or operations to avoid.
+      placeholder: |
+        - No new workspace/package
+        - Do not modify `repos/effect/`
+        - No Effect catalogue bump
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Open questions, rollout notes, or follow-ups.
