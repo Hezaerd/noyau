@@ -9,7 +9,7 @@ export default defineConfig({
     projects: ["apps/control-plane", "packages/*"],
   },
   staged: {
-    "*": "vp fmt",
+    "*.{js,ts,tsx,json,md,yml,yaml}": "vp fmt",
   },
   fmt: {
     printWidth: 100,
