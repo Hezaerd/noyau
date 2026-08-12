@@ -6,11 +6,11 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
 
 ## Contenu
 
-| Module         | Rôle                                                                       |
-| -------------- | -------------------------------------------------------------------------- |
-| `./migrations` | Tables `events`, `receipts`, `outbox`, `tasks` via le `Migrator` d'Effect. |
-| `./receipt`    | Schémas `Receipt` / `ReceiptResponse` (accepted ou rejected).              |
-| `./task/store` | `executeTaskCommand` : la transaction unique. `readTask` : projection.     |
+| Module         | Rôle                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `./migrations` | Journal de commandes, événements, receipts, outbox, têtes et projections via le Migrator. |
+| `./receipt`    | Réexport temporaire des receipts désormais possédés par `protocol`.                       |
+| `./task/store` | Transaction task, idempotence, snapshot projet et lecture ordonnée des événements.        |
 
 ## Décisions structurantes
 
@@ -19,6 +19,9 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
 - **Commande auditée avant décision** : la request canonique, son scope et la commande enrichie
   sont conservés. Un retry compare request + projet + acteur avant tout nouvel enrichissement ;
   même `commandId` avec un contenu ou un scope différent est un conflit.
+- **Receipts historiques prudents** : un receipt antérieur au journal n'est rejoué que si son
+  événement racine permet de vérifier request, projet, acteur et corrélation ; les cas ambigus
+  deviennent des conflits et ne sont jamais réexécutés.
 - **Rejet métier = receipt stable** : un rejet du decider (`InvalidTaskTransition`, …) est
   persisté comme receipt `rejected` et rendu tel quel aux retries — jamais dans le canal
   d'erreur de l'exécution.
@@ -32,8 +35,8 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
   `projectId`. Une entité d'un autre projet est invisible à la commande.
 - **Snapshot cohérent** : tâches et position du flux sont lues dans une transaction
   `REPEATABLE READ READ ONLY`, afin que le snapshot et son curseur décrivent le même état logique.
-- **Port générique `SqlClient`** : ce package ne dépend d'aucun driver. `@effect/sql-pg`
-  arrivera avec `apps/control-plane` ; les tests utilisent `@effect/sql-pglite` (même dialecte).
+- **Port générique `SqlClient`** : ce package ne dépend d'aucun driver. `apps/control-plane`
+  fournit `@effect/sql-pg` ; les tests rapides utilisent `@effect/sql-pglite` (même dialecte).
 - **Horloge et UUID injectés** : `DateTime.now` (Clock) et `Crypto.randomUUIDv4` — pas de
   `now()` SQL ni de `crypto.randomUUID` en dur ; testable avec TestClock et un Crypto
   déterministe.
@@ -42,5 +45,6 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
 
 ## Tests
 
-`bun run test` — vitest + `@effect/vitest` sur pglite in-memory : happy path, idempotence des
-receipts, rejet stable, replay multi-événements.
+`bun run test` — vitest + `@effect/vitest` sur PGlite in-memory : migrations historiques,
+idempotence, causalité, isolation projet, versions, positions, snapshot et rejets stables. Les tests
+du control plane exercent la contention multi-connexion sur PostgreSQL réel via Testcontainers.

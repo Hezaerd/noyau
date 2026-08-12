@@ -13,6 +13,7 @@ import { DateTime } from "effect"
 export const taskId = TaskId.make("3f8f0d70-1111-4000-8000-000000000010")
 export const missionId = MissionId.make("3f8f0d70-1111-4000-8000-000000000011")
 export const marion = ActorId.make("agent:marion")
+export const hermes = ActorId.make("agent:hermes")
 
 const meta = {
   commandId: CommandId.make("3f8f0d70-1111-4000-8000-000000000001"),
@@ -33,10 +34,13 @@ export const createCommand = TaskCreate.make({
   },
 })
 
-export const assignCommand = TaskAssign.make({
-  ...meta,
-  payload: { taskId, assigneeId: marion },
-})
+export const assignCommandTo = (assigneeId: ActorId) =>
+  TaskAssign.make({
+    ...meta,
+    payload: { taskId, assigneeId },
+  })
+
+export const assignCommand = assignCommandTo(marion)
 
 export const completeCommand = TaskComplete.make({
   ...meta,
@@ -48,4 +52,5 @@ export const failCommand = TaskFail.make({
   payload: { taskId, reason: "Tests rouges" },
 })
 
-export const stateWith = (status: TaskState["status"]): TaskState => ({ taskId, status })
+export const stateWith = (status: TaskState["status"], assigneeId?: ActorId): TaskState =>
+  assigneeId === undefined ? { taskId, status } : { taskId, status, assigneeId }

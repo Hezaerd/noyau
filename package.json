@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:control-plane": "turbo run dev --filter=@noyau/control-plane",
     "dev:web": "turbo run dev --filter=@noyau/web",
     "build": "turbo run build",
     "check": "bun run format:check && bun run lint && bun run typecheck",
@@ -30,6 +31,8 @@
   },
   "packageManager": "bun@1.3.14",
   "catalog": {
+    "@effect/platform-bun": "4.0.0-beta.107",
+    "@effect/sql-pg": "4.0.0-beta.107",
     "@effect/sql-pglite": "4.0.0-beta.107",
     "@effect/vitest": "4.0.0-beta.107",
     "effect": "4.0.0-beta.107"

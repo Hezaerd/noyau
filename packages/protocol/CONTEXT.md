@@ -27,12 +27,15 @@ _À éviter_ : sequence, offset SQL
 
 ## Contenu
 
-| Module         | Rôle                                                                                                |
-| -------------- | --------------------------------------------------------------------------------------------------- |
-| `./ids`        | IDs brandés (UUID sauf `ActorId`) + `SchemaVersion` du protocole.                                   |
-| `./entities/*` | `Project`, `Repository`, `Channel`, `Thread`, `Message`, `Mission`, `Task` (avec `TaskStatus`).     |
-| `./commands`   | Enveloppe de commande + `task.create`, `task.assign`, `task.complete`, `task.fail`, `message.send`. |
-| `./events`     | Faits (`task.created`, …, `message.sent`) + `EventEnvelope` persisté.                               |
+| Module            | Rôle                                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| `./ids`           | IDs brandés (UUID sauf `ActorId`) + `SchemaVersion` du protocole.                               |
+| `./entities/*`    | `Project`, `Repository`, `Channel`, `Thread`, `Message`, `Mission`, `Task` (avec `TaskStatus`). |
+| `./commands`      | Commandes enrichies + `TaskCommandRequest` publique limitée à `task.create` et `task.assign`.   |
+| `./events`        | Faits (`task.created`, …, `message.sent`) + `EventEnvelope` persisté.                           |
+| `./task/errors`   | Rejets métier task partagés entre domaine, persistance et frontière HTTP.                       |
+| `./receipts`      | `Receipt` public stable, accepté ou rejeté.                                                     |
+| `./control-plane` | Contrat `HttpApi`, erreurs HTTP, identité, snapshot, curseur et événement SSE du control plane. |
 
 ## Décisions structurantes
 

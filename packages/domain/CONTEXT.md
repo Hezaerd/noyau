@@ -24,8 +24,8 @@ _À éviter_ : seconde assignation
 ## Décisions structurantes
 
 - **Decider pur** : commande + état minimal (`TaskState`) → faits ou erreur taguée
-  (`TaskAlreadyExists`, `TaskNotFound`, `InvalidTaskTransition`). Le `Result` d'Effect porte
-  l'erreur ; jamais d'exception pour un cas métier.
+  (`TaskAlreadyExists`, `TaskNotFound`, `InvalidTaskTransition`, `TaskAlreadyAssigned`). Le
+  `Result` d'Effect porte l'erreur ; jamais d'exception pour un cas métier.
 - **`TaskState` n'est pas la projection lecture** : c'est le strict nécessaire pour décider
   (statut, assignation). Les projections riches (forum, vues tâches) viendront séparément.
 - **Transitions** : `task.assign` depuis `proposed`/`ready` ; `task.complete` depuis
