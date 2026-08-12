@@ -19,15 +19,15 @@
     "./control-plane": "./src/control-plane.ts"
   },
   "scripts": {
-    "lint": "oxlint",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vp test run"
   },
   "dependencies": {
     "effect": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
-    "vitest": "^4.1.10"
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }

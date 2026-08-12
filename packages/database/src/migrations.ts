@@ -9,7 +9,7 @@ import { SqlClient } from "effect/unstable/sql/SqlClient"
  * `occurred_at`/`created_at` sont fournis par l'application (horloge Effect,
  * testable via TestClock) — pas de `DEFAULT now()`.
  */
-const init = Effect.gen(function* () {
+export const initMigration = Effect.gen(function* () {
   const sql = yield* SqlClient
 
   yield* sql`
@@ -71,7 +71,7 @@ const init = Effect.gen(function* () {
  * événements historiques suivent leur ordre interne `sequence`, uniquement
  * pour obtenir un backfill déterministe lors de la migration.
  */
-const durableCommandJournal = Effect.gen(function* () {
+export const durableCommandJournalMigration = Effect.gen(function* () {
   const sql = yield* SqlClient
 
   yield* sql`
@@ -187,8 +187,8 @@ const durableCommandJournal = Effect.gen(function* () {
 })
 
 export const migrations: Migrator.Loader = Migrator.fromRecord({
-  "1_init": init,
-  "2_durable_command_journal": durableCommandJournal,
+  "1_init": initMigration,
+  "2_durable_command_journal": durableCommandJournalMigration,
 })
 
 /** Applique les migrations en attente avec le `SqlClient` du contexte. */

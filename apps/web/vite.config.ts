@@ -3,10 +3,33 @@ import { fileURLToPath, URL } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, lazyPlugins } from "vite-plus"
 
 export default defineConfig({
-  plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react(), tailwindcss()],
+  run: {
+    tasks: {
+      // Déclaré en tâche plutôt qu'en script : `tsc -b` lit et réécrit son
+      // tsbuildinfo, que le suivi automatique compte alors comme un input
+      // modifié, ce qui rend la tâche non cachable. L'exclure suffit.
+      typecheck: {
+        command: "tsc -b",
+        input: [{ auto: true }, "!**/*.tsbuildinfo"],
+      },
+      build: {
+        command: "vp build",
+        dependsOn: ["typecheck"],
+      },
+    },
+  },
+  // `lazyPlugins` évite de charger les plugins quand vite-plus ne lit que les
+  // blocs de métadonnées (lint, fmt, check, staged). Le `?? []` est requis par
+  // `exactOptionalPropertyTypes`, la signature renvoyant `PluginOption[] | undefined`.
+  plugins:
+    lazyPlugins(() => [
+      tanstackRouter({ target: "react", autoCodeSplitting: true }),
+      react(),
+      tailwindcss(),
+    ]) ?? [],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

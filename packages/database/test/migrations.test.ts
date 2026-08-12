@@ -1,6 +1,6 @@
 import { PgliteClient } from "@effect/sql-pglite"
 import { assert, describe, layer } from "@effect/vitest"
-import { migrations } from "@noyau/database/migrations"
+import { durableCommandJournalMigration, initMigration } from "@noyau/database/migrations"
 import { Effect } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -8,21 +8,7 @@ describe("migrations", () => {
   layer(PgliteClient.layer({}), { timeout: "30 seconds" })((it) => {
     it.effect("backfill les versions et positions d'un journal existant", () =>
       Effect.gen(function* () {
-        const resolved = yield* migrations
-        const initLoader = resolved[0]?.[2] as
-          | Effect.Effect<Effect.Effect<void, unknown, SqlClient>, unknown>
-          | undefined
-        const durabilityLoader = resolved[1]?.[2] as
-          | Effect.Effect<Effect.Effect<void, unknown, SqlClient>, unknown>
-          | undefined
-        assert.isDefined(initLoader)
-        assert.isDefined(durabilityLoader)
-        if (initLoader === undefined || durabilityLoader === undefined) {
-          return
-        }
-
-        const init = yield* initLoader
-        yield* init
+        yield* initMigration
         const sql = yield* SqlClient
         const firstProject = "aaaaaaaa-0000-4000-8000-000000000101"
         const secondProject = "aaaaaaaa-0000-4000-8000-000000000102"
@@ -69,8 +55,7 @@ describe("migrations", () => {
           )
         `
 
-        const durability = yield* durabilityLoader
-        yield* durability
+        yield* durableCommandJournalMigration
 
         const events = yield* sql<{
           aggregate_version: string

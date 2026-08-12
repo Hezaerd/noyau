@@ -4,11 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview",
-    "typecheck": "tsc -b"
+    "dev": "vp dev",
+    "preview": "vp preview"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.170.25",
@@ -31,6 +28,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "shadcn": "^4.16.2",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.2.0"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   }
 }

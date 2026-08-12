@@ -1,5 +1,5 @@
 import * as PgClient from "@effect/sql-pg/PgClient"
-import { assert, describe, it } from "@effect/vitest"
+import { assert, layer } from "@effect/vitest"
 import { ControlPlaneConfig, type ControlPlaneConfigValue } from "@noyau/control-plane/config"
 import { controlPlaneRoutesLayer } from "@noyau/control-plane/server"
 import { migrationsLayer } from "@noyau/database/migrations"
@@ -25,7 +25,7 @@ import { Receipt } from "@noyau/protocol/receipts"
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql"
 import { Crypto, Effect, Layer, ManagedRuntime, Redacted, Schema } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
-import { afterAll, beforeAll } from "vitest"
+import { afterAll, beforeAll } from "vite-plus/test"
 
 let container: StartedPostgreSqlContainer
 
@@ -94,23 +94,26 @@ const testCrypto = () => {
 
 const crypto = testCrypto()
 
-const databaseLayer = () => {
-  const postgres = PgClient.layer({
-    url: Redacted.make(container.getConnectionUri()),
-    maxConnections: 10,
-  })
-  return Layer.mergeAll(
-    migrationsLayer,
-    Layer.succeed(Crypto.Crypto)(crypto),
-    Layer.succeed(ControlPlaneConfig)({
-      environment: "test",
-      databaseUrl: Redacted.make(container.getConnectionUri()),
-      host: "127.0.0.1",
-      port: 0,
-      eventPollInterval: 1,
-    } satisfies ControlPlaneConfigValue),
-  ).pipe(Layer.provideMerge(postgres))
-}
+const databaseLayer = () =>
+  Layer.unwrap(
+    Effect.sync(() => {
+      const postgres = PgClient.layer({
+        url: Redacted.make(container.getConnectionUri()),
+        maxConnections: 10,
+      })
+      return Layer.mergeAll(
+        migrationsLayer,
+        Layer.succeed(Crypto.Crypto)(crypto),
+        Layer.succeed(ControlPlaneConfig)({
+          environment: "test",
+          databaseUrl: Redacted.make(container.getConnectionUri()),
+          host: "127.0.0.1",
+          port: 0,
+          eventPollInterval: 1,
+        } satisfies ControlPlaneConfigValue),
+      ).pipe(Layer.provideMerge(postgres))
+    }),
+  )
 
 const configLayer = () =>
   Layer.succeed(ControlPlaneConfig)({
@@ -158,7 +161,7 @@ const readFirstSseFrame = async (response: Response) => {
   }
 }
 
-describe("PostgreSQL integration", () => {
+layer(databaseLayer(), { timeout: "120 seconds" })((it) => {
   it("serves health checks and protects project routes", async () => {
     const webLayer = controlPlaneRoutesLayer.pipe(
       Layer.provide(HttpServer.layerServices),
@@ -388,6 +391,6 @@ describe("PostgreSQL integration", () => {
       assert.strictEqual(finalSnapshot.tasks[0]?.assigneeId, assigneeId)
       assert.strictEqual(finalSnapshot.position, 2n)
       assert.strictEqual(finalEvents.length, 2)
-    }).pipe(Effect.provide(databaseLayer())),
+    }),
   )
 })

@@ -16,8 +16,7 @@
     "start": "bun src/main.ts",
     "build": "bun build src/main.ts --outdir dist --target=bun",
     "typecheck": "tsc -p tsconfig.json",
-    "lint": "oxlint",
-    "test": "vitest run"
+    "test": "vp test run"
   },
   "dependencies": {
     "@effect/platform-bun": "catalog:",
@@ -30,6 +29,7 @@
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@testcontainers/postgresql": "^12.1.0",
-    "vitest": "^4.1.10"
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }
