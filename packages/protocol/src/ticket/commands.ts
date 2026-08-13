@@ -39,13 +39,21 @@ export const TicketPlacement = Schema.Struct({
 })
 export type TicketPlacement = (typeof TicketPlacement)["Type"]
 
-const ticketCreatePayload = {
+const ticketCreatePayload = Schema.Struct({
   ticketId: TicketId,
   workbenchThreadId: ThreadId,
   title: Schema.NonEmptyString,
   placement: TicketPlacement,
   sourceThreadId: Schema.optionalKey(ThreadId),
-} as const
+}).check(
+  Schema.makeFilter(
+    (value) =>
+      value.sourceThreadId === undefined || value.workbenchThreadId !== value.sourceThreadId,
+    {
+      expected: "workbenchThreadId and sourceThreadId to be different",
+    },
+  ),
+)
 
 const ticketMovePayload = {
   ticketId: TicketId,
@@ -72,10 +80,20 @@ const ticketAssignPayload = {
 const ticketUpdatePayload = {
   ticketId: TicketId,
   title: Schema.optionalKey(Schema.NonEmptyString),
-  description: Schema.optionalKey(Schema.String),
+  /** Omission = inchangé, chaîne = remplacement, null = suppression explicite. */
+  description: Schema.optionalKey(Schema.NullOr(Schema.String)),
   priority: Schema.optionalKey(TicketPriority),
   dueAt: Schema.optionalKey(Schema.NullOr(Schema.DateTimeUtcFromString)),
 } as const
+
+const ticketDependencyPayload = Schema.Struct({
+  ticketId: TicketId,
+  dependsOnTicketId: TicketId,
+}).check(
+  Schema.makeFilter((value) => value.ticketId !== value.dependsOnTicketId, {
+    expected: "ticketId and dependsOnTicketId to be different",
+  }),
+)
 
 const executionStartPayload = {
   executionId: ExecutionId,
@@ -111,35 +129,62 @@ const columnDeletePayload = {
   destinationColumnId: Schema.optionalKey(KanbanColumnId),
 } as const
 
-const boardInitializePayload = {
+const boardInitializePayload = Schema.Struct({
   backlogColumnId: KanbanColumnId,
   activeColumnId: KanbanColumnId,
   doneColumnId: KanbanColumnId,
-} as const
+}).check(
+  Schema.makeFilter(
+    (value) =>
+      value.backlogColumnId !== value.activeColumnId &&
+      value.backlogColumnId !== value.doneColumnId &&
+      value.activeColumnId !== value.doneColumnId,
+    {
+      expected: "backlogColumnId, activeColumnId, and doneColumnId to be pairwise distinct",
+    },
+  ),
+)
 
-const request = <Tag extends string, Fields extends Schema.Struct.Fields>(
+const request = <Tag extends string, Payload extends Schema.Top>(
   tag: Tag,
-  fields: Fields,
-) => Schema.TaggedStruct(tag, { ...requestMeta, payload: Schema.Struct(fields) })
+  payload: Payload,
+) => Schema.TaggedStruct(tag, { ...requestMeta, payload })
 
-const command = <Tag extends string, Fields extends Schema.Struct.Fields>(
+const command = <Tag extends string, Payload extends Schema.Top>(
   tag: Tag,
-  fields: Fields,
-) => Schema.TaggedStruct(tag, { ...commandMeta, payload: Schema.Struct(fields) })
+  payload: Payload,
+) => Schema.TaggedStruct(tag, { ...commandMeta, payload })
 
 export const TicketCreateRequest = request("ticket.create", ticketCreatePayload)
-export const TicketMoveRequest = request("ticket.move", ticketMovePayload)
-export const TicketCompleteRequest = request("ticket.complete", ticketClosePayload)
-export const TicketReopenRequest = request("ticket.reopen", ticketIdPayload)
-export const TicketArchiveRequest = request("ticket.archive", ticketClosePayload)
-export const TicketRestoreRequest = request("ticket.restore", ticketIdPayload)
-export const TicketAssignRequest = request("ticket.assign", ticketAssignPayload)
-export const TicketUpdateRequest = request("ticket.update", ticketUpdatePayload)
-export const ExecutionStartRequest = request("execution.start", executionStartPayload)
-export const KanbanColumnCreateRequest = request("kanbanColumn.create", columnCreatePayload)
-export const KanbanColumnUpdateRequest = request("kanbanColumn.update", columnUpdatePayload)
-export const KanbanColumnMoveRequest = request("kanbanColumn.move", columnMovePayload)
-export const KanbanColumnDeleteRequest = request("kanbanColumn.delete", columnDeletePayload)
+export const TicketMoveRequest = request("ticket.move", Schema.Struct(ticketMovePayload))
+export const TicketCompleteRequest = request("ticket.complete", Schema.Struct(ticketClosePayload))
+export const TicketReopenRequest = request("ticket.reopen", Schema.Struct(ticketIdPayload))
+export const TicketArchiveRequest = request("ticket.archive", Schema.Struct(ticketClosePayload))
+export const TicketRestoreRequest = request("ticket.restore", Schema.Struct(ticketIdPayload))
+export const TicketAssignRequest = request("ticket.assign", Schema.Struct(ticketAssignPayload))
+export const TicketUpdateRequest = request("ticket.update", Schema.Struct(ticketUpdatePayload))
+export const TicketDependencyAddRequest = request("ticket.dependency.add", ticketDependencyPayload)
+export const TicketDependencyRemoveRequest = request(
+  "ticket.dependency.remove",
+  ticketDependencyPayload,
+)
+export const ExecutionStartRequest = request("execution.start", Schema.Struct(executionStartPayload))
+export const KanbanColumnCreateRequest = request(
+  "kanbanColumn.create",
+  Schema.Struct(columnCreatePayload),
+)
+export const KanbanColumnUpdateRequest = request(
+  "kanbanColumn.update",
+  Schema.Struct(columnUpdatePayload),
+)
+export const KanbanColumnMoveRequest = request(
+  "kanbanColumn.move",
+  Schema.Struct(columnMovePayload),
+)
+export const KanbanColumnDeleteRequest = request(
+  "kanbanColumn.delete",
+  Schema.Struct(columnDeletePayload),
+)
 
 export const TicketCommandRequest = Schema.Union([
   TicketCreateRequest,
@@ -150,6 +195,8 @@ export const TicketCommandRequest = Schema.Union([
   TicketRestoreRequest,
   TicketAssignRequest,
   TicketUpdateRequest,
+  TicketDependencyAddRequest,
+  TicketDependencyRemoveRequest,
   ExecutionStartRequest,
   KanbanColumnCreateRequest,
   KanbanColumnUpdateRequest,
@@ -160,18 +207,26 @@ export type TicketCommandRequest = (typeof TicketCommandRequest)["Type"]
 export const decodeTicketCommandRequest = Schema.decodeUnknownEffect(TicketCommandRequest)
 
 export const TicketCreate = command("ticket.create", ticketCreatePayload)
-export const TicketMove = command("ticket.move", ticketMovePayload)
-export const TicketComplete = command("ticket.complete", ticketClosePayload)
-export const TicketReopen = command("ticket.reopen", ticketIdPayload)
-export const TicketArchive = command("ticket.archive", ticketClosePayload)
-export const TicketRestore = command("ticket.restore", ticketIdPayload)
-export const TicketAssign = command("ticket.assign", ticketAssignPayload)
-export const TicketUpdate = command("ticket.update", ticketUpdatePayload)
-export const ExecutionStart = command("execution.start", executionStartPayload)
-export const KanbanColumnCreate = command("kanbanColumn.create", columnCreatePayload)
-export const KanbanColumnUpdate = command("kanbanColumn.update", columnUpdatePayload)
-export const KanbanColumnMove = command("kanbanColumn.move", columnMovePayload)
-export const KanbanColumnDelete = command("kanbanColumn.delete", columnDeletePayload)
+export const TicketMove = command("ticket.move", Schema.Struct(ticketMovePayload))
+export const TicketComplete = command("ticket.complete", Schema.Struct(ticketClosePayload))
+export const TicketReopen = command("ticket.reopen", Schema.Struct(ticketIdPayload))
+export const TicketArchive = command("ticket.archive", Schema.Struct(ticketClosePayload))
+export const TicketRestore = command("ticket.restore", Schema.Struct(ticketIdPayload))
+export const TicketAssign = command("ticket.assign", Schema.Struct(ticketAssignPayload))
+export const TicketUpdate = command("ticket.update", Schema.Struct(ticketUpdatePayload))
+export const TicketDependencyAdd = command("ticket.dependency.add", ticketDependencyPayload)
+export const TicketDependencyRemove = command("ticket.dependency.remove", ticketDependencyPayload)
+export const ExecutionStart = command("execution.start", Schema.Struct(executionStartPayload))
+export const KanbanColumnCreate = command(
+  "kanbanColumn.create",
+  Schema.Struct(columnCreatePayload),
+)
+export const KanbanColumnUpdate = command(
+  "kanbanColumn.update",
+  Schema.Struct(columnUpdatePayload),
+)
+export const KanbanColumnMove = command("kanbanColumn.move", Schema.Struct(columnMovePayload))
+export const KanbanColumnDelete = command("kanbanColumn.delete", Schema.Struct(columnDeletePayload))
 /** Commande système émise à la création d'un projet, jamais soumise directement par le client. */
 export const BoardInitialize = command("board.initialize", boardInitializePayload)
 
@@ -184,6 +239,8 @@ export const TicketCommand = Schema.Union([
   TicketRestore,
   TicketAssign,
   TicketUpdate,
+  TicketDependencyAdd,
+  TicketDependencyRemove,
   ExecutionStart,
   KanbanColumnCreate,
   KanbanColumnUpdate,

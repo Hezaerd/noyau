@@ -47,6 +47,40 @@ export class ColumnDestinationRequired extends Schema.TaggedError<ColumnDestinat
   { columnId: KanbanColumnId },
 ) {}
 
+export class DoneColumnDestinationForbidden extends Schema.TaggedError<DoneColumnDestinationForbidden>()(
+  "DoneColumnDestinationForbidden",
+  { destinationColumnId: KanbanColumnId },
+) {}
+
+export class TicketDependencyAlreadyExists extends Schema.TaggedError<TicketDependencyAlreadyExists>()(
+  "TicketDependencyAlreadyExists",
+  {
+    ticketId: TicketId,
+    dependsOnTicketId: TicketId,
+  },
+) {}
+
+export class TicketDependencyNotFound extends Schema.TaggedError<TicketDependencyNotFound>()(
+  "TicketDependencyNotFound",
+  {
+    ticketId: TicketId,
+    dependsOnTicketId: TicketId,
+  },
+) {}
+
+export class TicketSelfDependency extends Schema.TaggedError<TicketSelfDependency>()(
+  "TicketSelfDependency",
+  { ticketId: TicketId },
+) {}
+
+export class TicketDependencyCycle extends Schema.TaggedError<TicketDependencyCycle>()(
+  "TicketDependencyCycle",
+  {
+    ticketId: TicketId,
+    dependsOnTicketId: TicketId,
+  },
+) {}
+
 export class TicketAlreadyArchived extends Schema.TaggedError<TicketAlreadyArchived>()(
   "TicketAlreadyArchived",
   { ticketId: TicketId },
@@ -109,6 +143,11 @@ export const TicketRejection = Schema.Union([
   InvalidColumnPlacement,
   ProtectedDoneColumn,
   ColumnDestinationRequired,
+  DoneColumnDestinationForbidden,
+  TicketDependencyAlreadyExists,
+  TicketDependencyNotFound,
+  TicketSelfDependency,
+  TicketDependencyCycle,
   TicketAlreadyArchived,
   TicketNotArchived,
   TicketAlreadyCompleted,

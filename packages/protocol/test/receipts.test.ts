@@ -7,6 +7,7 @@ const encodeReceipt = Schema.encodeSync(Receipt)
 
 const commandId = "3f8f0d70-1111-4000-8000-000000000001"
 const taskId = "3f8f0d70-1111-4000-8000-000000000002"
+const ticketId = "3f8f0d70-1111-4000-8000-000000000004"
 
 describe("Receipt", () => {
   it("décode et encode un receipt accepté", () => {
@@ -41,6 +42,21 @@ describe("Receipt", () => {
       response: {
         _tag: "rejected",
         error,
+      },
+    }
+
+    expect(encodeReceipt(decodeReceipt(encoded))).toEqual(encoded)
+  })
+
+  it("décode et encode un rejet TicketNotFound dans le receipt générique", () => {
+    const encoded = {
+      commandId,
+      response: {
+        _tag: "rejected",
+        error: {
+          _tag: "TicketNotFound",
+          ticketId,
+        },
       },
     }
 

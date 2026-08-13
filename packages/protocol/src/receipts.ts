@@ -26,7 +26,7 @@ export const ReceiptResponse = Schema.Union([
     eventIds: Schema.Array(EventId),
   }),
   Schema.TaggedStruct("rejected", {
-    error: TaskRejection,
+    error: CommandRejection,
   }),
 ])
 export type ReceiptResponse = (typeof ReceiptResponse)["Type"]
