@@ -1,49 +1,51 @@
 # @noyau/domain
 
-Deciders et projectors purs du control plane. Aucune IO, aucun UUID, aucune horloge : ces
-fonctions sont appelées par le control plane à l'intérieur d'une transaction PostgreSQL.
+Langage métier du tracker Kanban humains-agents et de ses exécutions isolées.
 
 ## Langage
 
-**Task**:
-Unité de travail bornée par un objectif et au moins un critère d'acceptation non vide.
-_À éviter_ : tâche sans condition de réussite explicite
+**Tableau**:
+Projection Kanban unique d'un projet, composée de colonnes librement ordonnées entre lesquelles les
+tickets sont déplacés.
+_À éviter_ : Board multiple, workflow d'exécution
 
-**Assignation**:
-Première désignation de l'acteur responsable d'une tâche non assignée.
-_À éviter_ : réassignation, dernier assigné gagne
+**Colonne Done**:
+Colonne terminale unique d'un tableau. Son identité est native et protégée, tandis que son nom, sa
+couleur et sa position sont configurables.
+_À éviter_ : colonne ordinaire, statut d'exécution
 
-**Réassignation**:
-Remplacement explicite de l'acteur déjà responsable d'une tâche ; cette intention exige une
-commande distincte, non encore définie.
-_À éviter_ : seconde assignation
+**Ticket**:
+Élément de travail durable organisé sur un tableau, qu'il soit non assigné ou confié à un humain,
+Marion ou un profil d'agent.
+_À éviter_ : Task, Mission, unité d'exécution
 
-## Contenu
+**Execution**:
+Intention durable de faire contribuer un ou plusieurs agents à un ticket avec un résultat attendu,
+un budget et une politique d'outils.
+_À éviter_ : Ticket, tâche, AgentRun
 
-| Module             | Rôle                                                              |
-| ------------------ | ----------------------------------------------------------------- |
-| `./task/decider`   | `decide(state, command) → Result<TaskEvent[], TaskDecisionError>` |
-| `./task/projector` | `evolve(state, event) → state` et `replay(events)`                |
+**Attempt**:
+Tentative isolée de réaliser une exécution. Chaque retry crée un nouvel Attempt avec son propre
+environnement de travail.
+_À éviter_ : Execution, AgentRun, retry mutable
 
-## Décisions structurantes
+**AgentRun**:
+Invocation concrète d'un agent au sein d'un Attempt, comme run principal ou auxiliaire.
+_À éviter_ : Execution, Attempt
 
-- **Decider pur** : commande + état minimal (`TaskState`) → faits ou erreur taguée
-  (`TaskAlreadyExists`, `TaskNotFound`, `InvalidTaskTransition`, `TaskAlreadyAssigned`). Le
-  `Result` d'Effect porte l'erreur ; jamais d'exception pour un cas métier.
-- **`TaskState` n'est pas la projection lecture** : c'est le strict nécessaire pour décider
-  (statut, assignation). Les projections riches (forum, vues tâches) viendront séparément.
-- **Transitions** : `task.assign` depuis `proposed`/`ready` ; `task.complete` depuis
-  `running`/`verifying` ; `task.fail` depuis `leased`/`running`/`waiting_*`/`verifying`. Les
-  statuts `leased`/`running` seront atteints par les commandes du scheduler et des workers
-  (étapes 3+ de l'ordre d'implémentation) — le decider les accepte déjà en entrée.
-- **Assignation unique** : `task.assign` rejette une tâche qui possède déjà un assignee, même si
-  la seconde commande cite le même acteur. Une future `task.reassign` portera l'intention de
-  remplacement.
-- **Projector total** : un événement sur un état absent est ignoré plutôt que de jeter — le
-  journal fait foi.
+**Étiquette**:
+Classification configurable dans le périmètre d'un projet et attachable à un ticket. L'étiquette
+native `need-human` signale visuellement un besoin humain sans déclencher de comportement métier.
+_À éviter_ : statut, type de ticket
 
-## Tests
+**Responsable**:
+Acteur unique qui porte la responsabilité principale d'un ticket.
+_À éviter_ : participant, exécutant
 
-`bun run test` (vitest + `@effect/vitest`). Les états de test sont construits directement
-(`stateWith("running")`) sans passer par le replay, car toutes les transitions n'ont pas encore
-leurs commandes.
+**Participant**:
+Acteur associé explicitement à un ticket sans en porter la responsabilité principale.
+_À éviter_ : responsable, abonné implicite
+
+**Ticket archivé**:
+Ticket retiré du tableau actif tout en conservant son contenu, ses relations et son historique.
+_À éviter_ : ticket supprimé, ticket terminé

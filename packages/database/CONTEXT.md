@@ -6,6 +6,11 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
 
 ## Contenu
 
+> État d'implémentation : le store `task` et sa projection documentent le schéma actuellement
+> déployé. La cible est la séparation `Ticket → Execution → Attempt → AgentRun` de l'ADR-0008 ;
+> les migrations futures remplaceront `task` sans réinterpréter silencieusement les événements
+> historiques.
+
 | Module         | Rôle                                                                                      |
 | -------------- | ----------------------------------------------------------------------------------------- |
 | `./migrations` | Journal de commandes, événements, receipts, outbox, têtes et projections via le Migrator. |
@@ -41,7 +46,8 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
   `now()` SQL ni de `crypto.randomUUID` en dur ; testable avec TestClock et un Crypto
   déterministe.
 - **Colonnes d'agrégat génériques** (`aggregate_type`, `aggregate_id`) : le replay d'état charge
-  les événements par agrégat ; d'autres agrégats (message, mission) réutiliseront le journal.
+  les événements par agrégat ; d'autres agrégats (message, ticket, execution) réutiliseront le
+  journal.
 
 ## Tests
 

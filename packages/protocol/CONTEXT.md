@@ -27,6 +27,11 @@ _À éviter_ : sequence, offset SQL
 
 ## Contenu
 
+> État d'implémentation : les modules `Mission`/`Task` ci-dessous précèdent le modèle cible
+> `Ticket → Execution → Attempt → AgentRun` défini dans l'ADR-0008. Ils restent documentés sous
+> leurs noms réels jusqu'à la migration du protocole ; aucune nouvelle API ne doit étendre
+> `Mission` ou confondre le cycle de vie d'un ticket avec celui d'une exécution.
+
 | Module            | Rôle                                                                                            |
 | ----------------- | ----------------------------------------------------------------------------------------------- |
 | `./ids`           | IDs brandés (UUID sauf `ActorId`) + `SchemaVersion` du protocole.                               |

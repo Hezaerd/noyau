@@ -14,7 +14,7 @@ Chaque projet doit disposer :
 
 - d'un ou plusieurs dépôts GitHub associés ;
 - d'un espace de discussion de type channel/forum ;
-- de missions décomposées en tâches ;
+- d'un tableau Kanban unique pour organiser des tickets humains-agents ;
 - d'une cheffe d'orchestre appelée Marion ;
 - d'agents spécialisés que Marion peut mobiliser ;
 - d'un historique durable des décisions, messages, exécutions et artefacts ;
@@ -53,7 +53,7 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
 ```text
                          +----------------------+
                          |    Web App (PWA)     |
-                         | forum, tâches, diffs |
+                         | forum, tickets, diffs|
                          +----------+-----------+
                                     |
                         Effect RPC (WebSocket)
@@ -65,7 +65,7 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
                                 |       |
                      +----------v--+ +--v-------------+
                      | PostgreSQL | | Workflow Engine |
-                     | état/events| | missions/tasks  |
+                     | état/events| | executions      |
                      +-------------+ +--+--------------+
                                        |
                                 +------v-------+
@@ -108,7 +108,7 @@ Trois pièces sont volontairement différées au scénario « Noyau distribué �
 Noyau possède :
 
 - projets, dépôts et channels ;
-- missions, tâches, dépendances et tentatives ;
+- tableau Kanban, tickets, dépendances, exécutions et tentatives ;
 - messages et questions ;
 - profils d'agents ;
 - politiques d'autonomie et permissions ;
@@ -124,9 +124,9 @@ Marion doit pouvoir :
 
 - lire le contexte ciblé d'un projet ;
 - transformer une demande en plan structuré ;
-- construire un DAG de tâches ;
+- créer directement des tickets reliés par un DAG de dépendances ;
 - sélectionner un profil d'agent ;
-- définir les permissions, budgets et critères d'acceptation ;
+- définir le résultat attendu, les permissions et le budget de chaque exécution ;
 - recevoir des rapports synthétiques ;
 - replanifier après un résultat ou un échec ;
 - demander une décision humaine.
@@ -136,8 +136,9 @@ du control plane.
 
 ### Agents spécialisés
 
-Chaque agent spécialisé travaille sur une tâche bornée, dans une exécution indépendante. Il reçoit
-un contexte minimal, des capacités temporaires et des critères d'acceptation explicites.
+Chaque agent spécialisé travaille dans un `AgentRun` appartenant à un `Attempt` isolé. L'exécution
+qui porte l'intention définit un résultat attendu, un budget et une politique d'outils ; le run
+reçoit un contexte minimal et des capacités temporaires.
 
 ### n8n
 
@@ -152,14 +153,22 @@ Project
  |- Channel
  |   `- Thread
  |       `- Message
- `- Mission
-     |- Task
-     |   |- TaskDependency
-     |   |- Attempt
-     |   |   `- AgentRun
-     |   |- Artifact
-     |   `- Approval
-     `- WorkflowProposal
+ |- KanbanColumn
+ |- Label
+ |- WorkflowProposal
+ `- Ticket
+     |- TicketDependency
+     |- ChecklistItem
+     |- TicketLabel
+     |- Participant
+     |- Subscription
+     |- TicketThread
+     |- Attachment
+     `- Execution
+         |- Attempt
+         |   |- AgentRun
+         |   `- Artifact
+         `- Approval
 ```
 
 Entités/tableaux à prévoir :
@@ -169,10 +178,17 @@ Entités/tableaux à prévoir :
 - `channels`
 - `threads`
 - `messages`
-- `missions`
-- `tasks`
-- `task_dependencies`
-- `task_attempts`
+- `kanban_columns`
+- `labels`
+- `tickets`
+- `ticket_dependencies`
+- `ticket_labels`
+- `ticket_participants`
+- `ticket_subscriptions`
+- `checklist_items`
+- `attachments`
+- `executions`
+- `attempts`
 - `agent_profiles`
 - `agent_runs`
 - `artifacts`
@@ -187,17 +203,76 @@ Entités/tableaux à prévoir :
 Toutes les identités importantes doivent utiliser des identifiants opaques et brandés. Tous les
 payloads entrant ou sortant d'un processus doivent être décodés avec `Effect.Schema`.
 
-## Cycle de vie d'une tâche
+## Tracker Kanban
+
+Chaque projet possède exactement un tableau. Le tableau n'est pas une entité autonome : c'est la
+projection ordonnée des colonnes et tickets du projet.
+
+- Les colonnes ordinaires sont librement nommées, ordonnées, créées et supprimées. Supprimer une
+  colonne non vide exige une destination et déplace ses tickets dans la même transaction.
+- Une colonne terminale `Done` possède une identité système unique et protégée ; son nom, sa couleur
+  et sa position restent configurables.
+- Chaque ticket possède un booléen `done`, source de vérité de sa clôture. Le toggle et les
+  déplacements vers ou hors de la colonne `Done` restent bidirectionnellement cohérents. Une
+  réouverture par toggle restaure la dernière colonne non terminale.
+- L'ordre des tickets est partagé et durable dans chaque colonne. Les déplacements entre colonnes
+  sont libres.
+- Un ticket est plat : pas de sous-ticket. Une checklist reste interne ; un élément qui exige un
+  responsable, une dépendance ou une exécution devient un ticket.
+- Les dépendances forment un DAG. Un prérequis ouvert ajoute un badge `blocked-by` dérivé et empêche
+  de lancer une nouvelle exécution, sans déplacer automatiquement la carte. Une clôture manuelle
+  reste possible après avertissement. Si un prérequis est rouvert pendant une exécution dépendante,
+  Noyau signale le blocage sans interrompre automatiquement le run déjà lancé.
+- Un ticket archivé quitte le tableau actif mais conserve relations et historique. Il reste
+  recherchable et restaurable dans sa dernière colonne active. La suppression définitive est une
+  action distincte et protégée.
+
+Le ticket exige seulement un titre. Il peut aussi porter une description, une priorité
+(`none`, `low`, `normal`, `high`, `urgent`), une échéance, une checklist, des étiquettes, un
+responsable unique et plusieurs participants explicites. Le responsable est un humain, Marion ou un
+profil d'agent persistant — jamais un run. La participation ne confère aucun droit implicite.
+L'étiquette native protégée `need-human` est un signal visuel manuel sans effet métier ; mentions,
+questions explicites et abonnements déclenchent les notifications. Responsable et participants sont
+abonnés par défaut avec opt-out.
+
+Quand plusieurs tickets sont exécutables, l'ordonnancement par défaut considère successivement la
+priorité, l'échéance puis l'ordre visuel de la carte dans sa colonne.
+
+Chaque ticket possède un thread de travail dédié et peut référencer un thread source optionnel et
+immuable. Les pièces jointes utilisateur appartiennent au ticket ; les artefacts versionnés
+appartiennent aux attempts mais restent visibles depuis la carte.
+
+## Cycles de vie du ticket et de l'exécution
+
+Le ticket suit sa colonne, son booléen `done` et son éventuel archivage ; il ne reprend jamais les
+états techniques d'un agent. Terminer ou archiver un ticket avec une exécution active exige une
+confirmation puis l'interruption de celle-ci. Une réassignation n'interrompt pas les exécutions
+existantes. Un ticket terminé ou archivé doit être rouvert ou restauré avant tout nouveau lancement.
+
+Une `Execution` est une intention durable de contribution agent, distincte de l'assignation du
+ticket. La lancer est une commande explicite contrôlée par une capability grant. Elle porte un
+résultat attendu libre, un budget et une politique d'outils. Plusieurs exécutions aux résultats
+attendus distincts peuvent contribuer parallèlement au même ticket sans partager branche, worktree
+ou état implicite.
 
 ```text
-proposed -> ready -> leased -> running
-                              |- waiting_human
-                              |- waiting_agent
-                              |- verifying -> completed
-                              `- failed / cancelled
+Execution
+ `- Attempt 1 -> leased -> running
+                           |- waiting_human
+                           |- waiting_agent
+                           |- verifying -> completed
+                           `- failed / cancelled
+ `- Attempt 2 -> ... (retry)
 ```
 
-Le LLM ne modifie jamais directement cet état ou la base de données. Il appelle une commande typée,
+Chaque retry crée un nouvel `Attempt`, propriétaire de son worktree et de sa branche. Un attempt
+contient un run principal et peut contenir des runs auxiliaires tracés. La réussite d'une exécution
+produit un rapport mais ne clôt jamais automatiquement le ticket : un humain ou Marion le fait par
+une commande séparée selon la politique du projet. L'état `waiting_human` appartient à l'exécution,
+pas au ticket. Une approbation vise une action précise de l'exécution et reste visible depuis le
+ticket.
+
+Le LLM ne modifie jamais directement ces états ni la base de données. Il appelle une commande typée,
 le control plane vérifie les droits et les invariants, écrit l'événement, puis déclenche la suite.
 
 À la frontière RPC, le client soumet une `CommandRequest` avec un `commandId`, une commande, son
@@ -207,11 +282,14 @@ vérifiée, ou utilise `commandId` comme racine.
 
 Commandes initiales envisagées :
 
-- `task.create`
-- `task.assign`
-- `task.complete`
-- `task.fail`
-- `agent.spawn`
+- `ticket.create`
+- `ticket.assign`
+- `ticket.move`
+- `ticket.complete`
+- `ticket.reopen`
+- `ticket.archive`
+- `execution.start`
+- `execution.retry`
 - `agent.interrupt`
 - `message.send`
 - `question.ask`
@@ -254,7 +332,7 @@ journal est durable ; `LISTEN/NOTIFY` pourra accélérer le réveil sans devenir
 Pour un premier déploiement sur un VPS :
 
 - PostgreSQL stocke l'état, les événements et les leases ;
-- les workers réclament une tâche avec verrouillage et expiration de lease ;
+- les workers réclament un attempt avec verrouillage et expiration de lease ;
 - `LISTEN/NOTIFY` peut accélérer le réveil, mais ne doit jamais être la source de durabilité ;
 - toutes les commandes susceptibles d'être répétées ont une clé d'idempotence.
 
@@ -262,8 +340,8 @@ Prévoir une abstraction `WorkflowEngine`, implémentée dans PostgreSQL : lease
 timers persistés et reprise après crash. Les attentes humaines et inter-agents sont des états
 (`waiting_human`, `waiting_agent`) réveillés par événement, jamais des processus bloqués en mémoire.
 Cette machine à états maison doit donc assumer elle-même retries, timeouts et réveils différés ; le
-port `WorkflowEngine` protège un éventuel remplacement futur si les missions deviennent trop
-complexes.
+port `WorkflowEngine` protège un éventuel remplacement futur si les graphes d'exécutions deviennent
+trop complexes.
 
 ## Forum et communication inter-agents
 
@@ -272,8 +350,8 @@ Le forum est une projection lisible de l'activité, pas le contexte brut du LLM.
 Un message doit pouvoir référencer :
 
 - `projectId` ;
-- `missionId` ;
-- `taskId` ;
+- `ticketId` ;
+- `executionId` ;
 - `runId` ;
 - auteur et audience ;
 - `replyTo` ;
@@ -290,12 +368,12 @@ Agent A -> message.send(to: Agent B)
         -> Agent A reprend
 ```
 
-Cette médiation empêche les tempêtes de délégation, conserve l'audit et permet de suspendre une tâche
-pendant une question.
+Cette médiation empêche les tempêtes de délégation, conserve l'audit et permet de suspendre une
+exécution pendant une question.
 
 Ne jamais injecter tout l'historique du forum dans un prompt. Construire un `ContextPack` versionné et
-ciblé contenant seulement : objectif, critères d'acceptation, décisions pertinentes, résumé des
-échanges, fichiers utiles et capacités disponibles. Pas de magasin mémoire externe (Mem0) : le
+ciblé contenant seulement : ticket, résultat attendu de l'exécution, décisions pertinentes, résumé
+des échanges, fichiers utiles et capacités disponibles. Pas de magasin mémoire externe (Mem0) : le
 `ContextPack` se limite à l'état Noyau (ADR-0005).
 
 ## Intégration Hermes
@@ -348,8 +426,9 @@ Un agent de code ne travaille jamais directement sur la branche principale.
 Flux recommandé :
 
 ```text
-Task
- -> worktree + branche dédiée
+Ticket
+ -> Execution
+ -> Attempt + worktree + branche dédiée
  -> changements
  -> format/lint/typecheck/tests
  -> rapport et diff
@@ -434,7 +513,7 @@ Invariants :
 - limiter ressources, durée, coût et récursion ;
 - conserver un audit append-only ;
 - rendre les actions externes idempotentes ;
-- fournir un kill switch par run, mission et projet ;
+- fournir un kill switch par run, exécution, ticket et projet ;
 - versionner prompts, profils, modèles et manifestes d'outils ;
 - conserver l'entrée exacte d'un run pour pouvoir l'évaluer ou l'expliquer, sans prétendre rejouer
   un LLM de manière déterministe.
@@ -478,10 +557,10 @@ Le premier objectif fonctionnel n'est pas « avoir tous les agents ». C'est ce 
 1. connecter un dépôt GitHub à un projet ;
 2. poster une demande dans son channel ;
 3. faire produire à Marion un plan typé ;
-4. créer deux tâches avec une dépendance ;
-5. lancer deux runs indépendants dans des worktrees ;
+4. créer directement deux tickets avec une dépendance sur le tableau du projet ;
+5. lancer deux exécutions indépendantes dans des worktrees ;
 6. laisser un agent poser une question visible dans l'interface ;
-7. reprendre la tâche après la réponse ;
+7. reprendre l'exécution après la réponse ;
 8. exécuter formatage, lint, typecheck et tests ;
 9. faire produire un rapport et un diff ;
 10. proposer une pull request après approbation.
@@ -491,13 +570,14 @@ Ce scénario doit continuer à fonctionner après le redémarrage du serveur.
 ## Ordre d'implémentation recommandé
 
 1. Configurations monorepo et conventions TypeScript/Effect.
-2. Schémas `Project`, `Repository`, `Channel`, `Message`, `Mission` et `Task`.
+2. Schémas `Project`, `Repository`, `Channel`, `Message`, `Ticket`, `Execution`, `Attempt` et
+   configuration Kanban.
 3. PostgreSQL, migrations, event log et outbox.
 4. Frontière Effect RPC sur WebSocket : commandes, snapshots et flux d'événements.
-5. Interface projet/channel/tâches minimale.
+5. Interface projet/channel/tableau Kanban minimale.
 6. Port `AgentRuntime` et adaptateur Hermes (instance locale ou Tailscale) pour un run isolé.
 7. Worktrees, artefacts, interruption et reprise.
-8. Plan structuré de Marion et scheduler de DAG.
+8. Plan structuré de Marion, dépendances de tickets et scheduler d'exécutions.
 9. Questions, rapports et approbations.
 10. Review agent, tests et création de pull request.
 11. Gateway n8n-dev puis promotion contrôlée.
@@ -522,7 +602,8 @@ la première tranche verticale et protégé derrière un port lorsque le remplac
 - Ajouter les invariants métier au domaine, pas uniquement dans les prompts.
 - Écrire les opérations externes de façon idempotente.
 - Ne pas confondre message de forum, contexte de modèle et événement de domaine.
-- Toute tâche autonome doit avoir un budget, une politique d'outils, un timeout et un kill switch.
+- Toute exécution autonome doit avoir un résultat attendu, un budget, une politique d'outils, un
+  timeout et un kill switch.
 - Toute fonctionnalité critique doit être testable sans appeler un vrai modèle LLM.
 - Préférer une tranche verticale fonctionnelle à une arborescence exhaustive de packages vides.
 
