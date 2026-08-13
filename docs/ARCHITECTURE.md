@@ -71,14 +71,19 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
                                 |  Scheduler   |
                                 +------+-------+
                                        |
-                 +---------------------+---------------------+
-                 |                     |                     |
-          +------v------+       +------v------+      +------v-----+
-          | Hermes Run  |       | Hermes Run  |      | n8n Gateway|
-          | développeur |       | reviewer     |      | draft/test |
-          +------+------+       +------+------+      +------------+
-                 |                     |
-          container/worktree    container/worktree
+                         +-------------+-------------+
+                         |                           |
+                  +------v-----------+       +-------v----+
+                  | Attempt          |       | n8n Gateway|
+                  | branche/worktree |       | draft/test |
+                  +----+--------+----+       +------------+
+                       |        |
+              +--------v--+  +--v---------+
+              | Hermes Run|  | Hermes Run |
+              | principal |  | auxiliaire |
+              +-----+-----+  +------+-----+
+                    |               |
+             processus/containers isolables
 ```
 
 Commencer par un modular monolith : un seul processus serveur — frontière RPC, engine de
@@ -198,12 +203,16 @@ Chaque projet possède exactement un tableau. Le tableau n'est pas une entité a
 projection ordonnée des colonnes et tickets du projet.
 
 - Les colonnes ordinaires sont librement nommées, ordonnées, créées et supprimées. Supprimer une
-  colonne non vide exige une destination et déplace ses tickets dans la même transaction.
+  colonne exige une destination active et non terminale ; `Done` ne doit jamais être acceptée. Dans
+  la même transaction, Noyau déplace les tickets actifs et re-cible toutes les références vers la
+  destination, notamment le `columnId` des tickets archivés et le `lastActiveColumnId` des tickets
+  terminés. Aucune colonne supprimée ne doit rester référencée.
 - Une colonne terminale `Done` possède une identité système unique et protégée ; son nom, sa couleur
   et sa position restent configurables.
 - Chaque ticket possède un booléen `done`, source de vérité de sa clôture. Le toggle et les
   déplacements vers ou hors de la colonne `Done` restent bidirectionnellement cohérents. Une
-  réouverture par toggle restaure la dernière colonne non terminale.
+  réouverture par toggle restaure le `lastActiveColumnId`, qui doit toujours désigner une colonne
+  active et non terminale.
 - L'ordre des tickets est partagé et durable dans chaque colonne. Les déplacements entre colonnes
   sont libres.
 - Un ticket est plat : pas de sous-ticket. Une checklist reste interne ; un élément qui exige un
@@ -213,8 +222,8 @@ projection ordonnée des colonnes et tickets du projet.
   reste possible après avertissement. Si un prérequis est rouvert pendant une exécution dépendante,
   Noyau signale le blocage sans interrompre automatiquement le run déjà lancé.
 - Un ticket archivé quitte le tableau actif mais conserve relations et historique. Il reste
-  recherchable et restaurable dans sa dernière colonne active. La suppression définitive est une
-  action distincte et protégée.
+  recherchable et restaurable dans son `columnId`, qui doit toujours désigner une colonne active et
+  non terminale. La suppression définitive est une action distincte et protégée.
 
 Le ticket exige seulement un titre. Il peut aussi porter une description, une priorité
 (`none`, `low`, `normal`, `high`, `urgent`), une échéance, une checklist, des étiquettes, un
@@ -234,9 +243,12 @@ appartiennent aux attempts mais restent visibles depuis la carte.
 ## Cycles de vie du ticket et de l'exécution
 
 Le ticket suit sa colonne, son booléen `done` et son éventuel archivage ; il ne reprend jamais les
-états techniques d'un agent. Terminer ou archiver un ticket avec une exécution active exige une
-confirmation puis l'interruption de celle-ci. Une réassignation n'interrompt pas les exécutions
-existantes. Un ticket terminé ou archivé doit être rouvert ou restauré avant tout nouveau lancement.
+états techniques d'un agent. Terminer ou archiver un ticket avec des exécutions actives exige une
+confirmation puis l'interruption de chacune d'elles. Un fait d'interruption doit être émis pour
+chaque exécution active, et tous ces faits doivent précéder le fait de clôture ou d'archivage. Les
+exécutions dont le statut dérivé est déjà `completed`, `failed` ou `cancelled` ne reçoivent aucun
+fait d'interruption. Une réassignation n'interrompt pas les exécutions existantes. Un ticket terminé
+ou archivé doit être rouvert ou restauré avant tout nouveau lancement.
 
 Une `Execution` est une intention durable de contribution agent, distincte de l'assignation du
 ticket. La lancer est une commande explicite contrôlée par une capability grant. Elle porte un
@@ -254,12 +266,15 @@ Execution
  `- Attempt 2 -> ... (retry)
 ```
 
-Chaque retry crée un nouvel `Attempt`, propriétaire de son worktree et de sa branche. Un attempt
-contient un run principal et peut contenir des runs auxiliaires tracés. La réussite d'une exécution
-produit un rapport mais ne clôt jamais automatiquement le ticket : un humain ou un agent autorisé
-le fait par une commande séparée selon la politique du projet. L'état `waiting_human` appartient à
-l'exécution, pas au ticket. Une approbation vise une action précise de l'exécution et reste visible
-depuis le ticket.
+Chaque retry crée un nouvel `Attempt`, propriétaire de son worktree et de sa branche. Un `Attempt`
+contient un `AgentRun` principal et peut contenir des `AgentRun` auxiliaires tracés, qui partagent
+tous cet espace de travail. Le cycle technique (`leased`, `running`, `waiting_human`,
+`waiting_agent`, `verifying`, `completed`, `failed`, `cancelled`), la `lease` et les réveils
+appartiennent à l'`Attempt`. Le statut de l'`Execution` est une projection dérivée de ses tentatives,
+jamais une seconde machine d'état. La réussite d'une exécution produit un rapport mais ne clôt
+jamais automatiquement le ticket : un humain ou un agent autorisé le fait par une commande séparée
+selon la politique du projet. Une approbation vise une action précise de l'exécution, réveille
+l'`Attempt` concerné et reste visible depuis le ticket.
 
 Le LLM ne modifie jamais directement ces états ni la base de données. Il appelle une commande typée,
 le control plane vérifie les droits et les invariants, écrit l'événement, puis déclenche la suite.
@@ -326,11 +341,12 @@ Pour un premier déploiement sur un VPS :
 - toutes les commandes susceptibles d'être répétées ont une clé d'idempotence.
 
 Prévoir une abstraction `WorkflowEngine`, implémentée dans PostgreSQL : leases avec expiration,
-timers persistés et reprise après crash. Les attentes humaines et inter-agents sont des états
-(`waiting_human`, `waiting_agent`) réveillés par événement, jamais des processus bloqués en mémoire.
-Cette machine à états maison doit donc assumer elle-même retries, timeouts et réveils différés ; le
-port `WorkflowEngine` protège un éventuel remplacement futur si les graphes d'exécutions deviennent
-trop complexes.
+timers persistés et reprise après crash. Les attentes humaines et inter-agents sont des états de
+l'`Attempt` (`waiting_human`, `waiting_agent`) réveillés par événement, jamais des processus bloqués
+en mémoire. Cette machine à états des tentatives doit donc assumer elle-même retries, timeouts et
+réveils différés ; le statut de l'`Execution` reste une projection de ses tentatives. Le port
+`WorkflowEngine` protège un éventuel remplacement futur si les graphes d'exécutions deviennent trop
+complexes.
 
 ## Forum et communication inter-agents
 
@@ -371,39 +387,42 @@ Hermes est le premier adaptateur d'un port générique :
 
 ```ts
 interface AgentRuntime {
-  readonly start: (
-    input: AgentRunInput,
-  ) => Effect.Effect<RunHandle, AgentRuntimeError>
+  readonly start: (input: AgentRunInput) => Effect.Effect<RunHandle, AgentRuntimeError>
 
-  readonly interrupt: (
-    runId: AgentRunId,
-  ) => Effect.Effect<void, AgentRuntimeError>
+  readonly interrupt: (runId: AgentRunId) => Effect.Effect<void, AgentRuntimeError>
 
-  readonly events: (
-    runId: AgentRunId,
-  ) => Stream.Stream<AgentEvent, AgentRuntimeError>
+  readonly events: (runId: AgentRunId) => Stream.Stream<AgentEvent, AgentRuntimeError>
 }
 ```
 
 Noyau adresse une instance Hermes, pas un cluster : soit le processus tourne sur la même machine
-que le serveur, soit il est joignable par Tailscale (ADR-0007). L'isolation du run (container,
-worktree) est du ressort d'Hermes sur cet hôte. Utiliser l'API HTTP publique et streamée d'Hermes
-plutôt que les WebSockets internes de son dashboard. Créer un MCP ou plugin Noyau exposant
-uniquement les commandes autorisées aux agents.
+que le serveur, soit il est joignable par Tailscale (ADR-0007). Chaque `Attempt` possède exactement
+une branche et un worktree, partagés par tous ses `AgentRun`. Hermes peut isoler leurs processus ou
+containers sur cet hôte, mais ne doit pas créer un espace de travail par `AgentRun`. Deux `Attempt`
+distincts ne doivent jamais partager une branche ou un worktree. Utiliser l'API HTTP publique et
+streamée d'Hermes plutôt que les WebSockets internes de son dashboard. Créer un MCP ou plugin Noyau
+exposant uniquement les commandes autorisées aux agents.
 
 Ne pas baser l'architecture de Noyau sur `delegate_task` : les sous-agents Hermes sont adaptés aux
 sous-tâches temporaires mais pas à la collaboration durable souhaitée. Noyau doit lancer des runs
 Hermes indépendants et considérer Hermes comme remplaçable.
 
-Pour chaque run :
+Pour chaque `Attempt` :
 
 - exiger un checkout ou `git worktree` dédié sur l'hôte Hermes ;
 - utiliser une branche dédiée ;
+- partager cet espace de travail entre l'`AgentRun` principal et ses `AgentRun` auxiliaires ;
+- détruire ou archiver proprement l'espace de travail à la fin.
+
+Pour chaque `AgentRun` :
+
+- isoler le processus ou le container si nécessaire, sans créer de branche ni de worktree
+  supplémentaire ;
 - injecter un profil, un prompt et une liste de capacités versionnés ;
 - limiter CPU, mémoire, durée, tokens et profondeur de délégation ;
 - ne jamais monter le socket Docker dans l'environnement du run ;
 - journaliser les appels d'outils en redigeant les secrets ;
-- détruire ou archiver proprement l'environnement à la fin.
+- détruire proprement l'environnement d'exécution à la fin.
 
 ## Git et artefacts
 
@@ -595,4 +614,3 @@ la première tranche verticale et protégé derrière un port lorsque le remplac
   timeout et un kill switch.
 - Toute fonctionnalité critique doit être testable sans appeler un vrai modèle LLM.
 - Préférer une tranche verticale fonctionnelle à une arborescence exhaustive de packages vides.
-
