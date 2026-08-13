@@ -11,21 +11,21 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | **Noyau**            | Control plane : état, permissions, commandes, événements, projections.                     |
 | **Marion**           | Cheffe d'orchestre LLM ; planifie et coordonne, ne possède pas l'état.                     |
 | **Hermes**           | Premier adaptateur du port `AgentRuntime` ; run isolé, instance locale ou Tailscale.       |
-| **Tableau**          | Projection Kanban unique d'un projet ; colonnes libres et ordre partagé.                  |
+| **Tableau**          | Projection Kanban unique d'un projet ; colonnes libres et ordre partagé.                   |
 | **Ticket**           | Élément de travail durable, assignable à un humain, Marion ou un profil d'agent.           |
-| **Execution**        | Intention agent bornée pour un ticket ; résultat attendu, budget et politique d'outils.   |
-| **Attempt**          | Tentative isolée d'une exécution ; porte worktree, artefacts et runs.                     |
-| **AgentRun**         | Invocation concrète d'un agent dans une tentative.                                        |
+| **Execution**        | Intention agent bornée pour un ticket ; résultat attendu, budget et politique d'outils.    |
+| **Attempt**          | Tentative isolée d'une exécution ; porte worktree, artefacts et runs.                      |
+| **AgentRun**         | Invocation concrète d'un agent dans une tentative.                                         |
 | **Command**          | Entrée typée (`commandId`, `actorId`, `projectId`, `correlationId`) persistée avant effet. |
 | **Event**            | Fait immuable produit par un decider pur à partir d'une commande.                          |
-| **Projection**       | Vue dérivée (forum, tickets, runs) reconstruite depuis le journal d'événements.           |
+| **Projection**       | Vue dérivée (forum, tickets, runs) reconstruite depuis le journal d'événements.            |
 | **Reactor**          | Consommateur durable de l'outbox (scheduler, Hermes, Git, n8n).                            |
 | **Outbox**           | File transactionnelle PostgreSQL ; seule source de reprise après crash.                    |
-| **Lease**            | Verrou temporaire avec expiration pour réclamer un attempt entre workers.                 |
+| **Lease**            | Verrou temporaire avec expiration pour réclamer un attempt entre workers.                  |
 | **Receipt**          | Preuve d'idempotence d'une commande ; réponse stable aux retries.                          |
 | **ContextPack**      | Contexte LLM versionné, tiré des projections Noyau ; jamais l'historique brut du forum.    |
 | **Capability grant** | Permission étroite, temporaire, attachée à un run — pas au rôle ni au prompt.              |
-| **Approval**         | Approbation humaine d'une action précise liée à une exécution.                            |
+| **Approval**         | Approbation humaine d'une action précise liée à une exécution.                             |
 
 Modèle cible : `Project → Ticket → Execution → Attempt → AgentRun`. Forum
 (`Channel/Thread/Message`) séparé ; chaque ticket possède son thread et peut référencer un thread
