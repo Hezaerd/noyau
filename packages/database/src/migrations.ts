@@ -236,19 +236,20 @@ export const kanbanTicketMigration = Effect.gen(function* () {
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL,
       PRIMARY KEY (project_id, id),
-      UNIQUE (project_id, column_id, rank),
+      UNIQUE (project_id, workbench_thread_id),
       FOREIGN KEY (project_id, column_id)
         REFERENCES kanban_columns (project_id, id),
       FOREIGN KEY (project_id, last_active_column_id)
         REFERENCES kanban_columns (project_id, id),
       CHECK (title <> ''),
       CHECK (rank <> ''),
-      CHECK (priority IN ('none', 'low', 'normal', 'high', 'urgent'))
+      CHECK (priority IN ('none', 'low', 'normal', 'high', 'urgent')),
+      CHECK (source_thread_id IS NULL OR source_thread_id <> workbench_thread_id)
     )
   `
 
   yield* sql`
-    CREATE INDEX tickets_active_board_idx
+    CREATE UNIQUE INDEX tickets_active_board_idx
       ON tickets (project_id, column_id, rank)
       WHERE archived_at IS NULL
   `
