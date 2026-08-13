@@ -12,11 +12,7 @@ export const isCanonicalFractionalIndex = (value: string): boolean => {
 
   const head = value.charCodeAt(0)
   const integerLength =
-    head >= 97 && head <= 122
-      ? 2 + head - 97
-      : head >= 65 && head <= 90
-        ? 2 + 90 - head
-        : 0
+    head >= 97 && head <= 122 ? 2 + head - 97 : head >= 65 && head <= 90 ? 2 + 90 - head : 0
 
   if (integerLength === 0 || value.length < integerLength) {
     return false

@@ -1,6 +1,6 @@
 import type { ProjectTaskSnapshot } from "@noyau/protocol/control-plane"
 import type { Task, TaskStatus } from "@noyau/protocol/entities/task"
-import type { TaskRejection } from "@noyau/protocol/receipts"
+import type { CommandRejection } from "@noyau/protocol/receipts"
 import {
   AlertCircle,
   ArrowRight,
@@ -59,7 +59,7 @@ const statusStyles = {
   cancelled: "border-zinc-500/25 bg-zinc-500/10 text-zinc-300",
 } satisfies Record<TaskStatus, string>
 
-const rejectionMessage = (rejection: TaskRejection): string => {
+const rejectionMessage = (rejection: CommandRejection): string => {
   switch (rejection._tag) {
     case "TaskAlreadyAssigned":
       return "Cette tâche est déjà attribuée."
@@ -69,6 +69,8 @@ const rejectionMessage = (rejection: TaskRejection): string => {
       return "Cette tâche n’existe plus dans le snapshot courant."
     case "InvalidTaskTransition":
       return "Cette action n’est pas permise dans l’état courant de la tâche."
+    default:
+      return "La commande a été rejetée par le control plane."
   }
 }
 

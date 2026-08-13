@@ -145,15 +145,11 @@ const boardInitializePayload = Schema.Struct({
   ),
 )
 
-const request = <Tag extends string, Payload extends Schema.Top>(
-  tag: Tag,
-  payload: Payload,
-) => Schema.TaggedStruct(tag, { ...requestMeta, payload })
+const request = <Tag extends string, Payload extends Schema.Top>(tag: Tag, payload: Payload) =>
+  Schema.TaggedStruct(tag, { ...requestMeta, payload })
 
-const command = <Tag extends string, Payload extends Schema.Top>(
-  tag: Tag,
-  payload: Payload,
-) => Schema.TaggedStruct(tag, { ...commandMeta, payload })
+const command = <Tag extends string, Payload extends Schema.Top>(tag: Tag, payload: Payload) =>
+  Schema.TaggedStruct(tag, { ...commandMeta, payload })
 
 export const TicketCreateRequest = request("ticket.create", ticketCreatePayload)
 export const TicketMoveRequest = request("ticket.move", Schema.Struct(ticketMovePayload))
@@ -168,7 +164,10 @@ export const TicketDependencyRemoveRequest = request(
   "ticket.dependency.remove",
   ticketDependencyPayload,
 )
-export const ExecutionStartRequest = request("execution.start", Schema.Struct(executionStartPayload))
+export const ExecutionStartRequest = request(
+  "execution.start",
+  Schema.Struct(executionStartPayload),
+)
 export const KanbanColumnCreateRequest = request(
   "kanbanColumn.create",
   Schema.Struct(columnCreatePayload),
@@ -217,14 +216,8 @@ export const TicketUpdate = command("ticket.update", Schema.Struct(ticketUpdateP
 export const TicketDependencyAdd = command("ticket.dependency.add", ticketDependencyPayload)
 export const TicketDependencyRemove = command("ticket.dependency.remove", ticketDependencyPayload)
 export const ExecutionStart = command("execution.start", Schema.Struct(executionStartPayload))
-export const KanbanColumnCreate = command(
-  "kanbanColumn.create",
-  Schema.Struct(columnCreatePayload),
-)
-export const KanbanColumnUpdate = command(
-  "kanbanColumn.update",
-  Schema.Struct(columnUpdatePayload),
-)
+export const KanbanColumnCreate = command("kanbanColumn.create", Schema.Struct(columnCreatePayload))
+export const KanbanColumnUpdate = command("kanbanColumn.update", Schema.Struct(columnUpdatePayload))
 export const KanbanColumnMove = command("kanbanColumn.move", Schema.Struct(columnMovePayload))
 export const KanbanColumnDelete = command("kanbanColumn.delete", Schema.Struct(columnDeletePayload))
 /** Commande système émise à la création d'un projet, jamais soumise directement par le client. */

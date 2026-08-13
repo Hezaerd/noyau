@@ -59,7 +59,7 @@ const ticket = {
   updatedAt: "2026-08-13T12:00:00.000Z",
 } as const
 
-const envelopeFor = (event: unknown, eventId = ids.event) => ({
+const envelopeFor = (event: unknown, eventId: string = ids.event) => ({
   eventId,
   projectId: ids.project,
   actorId: "human:hezaerd",
@@ -319,7 +319,11 @@ describe("Ticket protocol entities", () => {
 describe("Ticket update description", () => {
   it.each([
     { name: "omise", payload: { ticketId: ids.ticket }, expected: undefined },
-    { name: "remplacée", payload: { ticketId: ids.ticket, description: "Nouvelle" }, expected: "Nouvelle" },
+    {
+      name: "remplacée",
+      payload: { ticketId: ids.ticket, description: "Nouvelle" },
+      expected: "Nouvelle",
+    },
     { name: "supprimée", payload: { ticketId: ids.ticket, description: null }, expected: null },
   ])("préserve la description $name dans la commande", ({ payload, expected }) => {
     const decoded = Schema.decodeUnknownSync(TicketUpdate)({
@@ -498,7 +502,10 @@ describe("Ticket command and event envelopes", () => {
       "execution.interrupted",
       "execution.interrupted",
     ])
-    if (first.event._tag === "execution.interrupted" && second.event._tag === "execution.interrupted") {
+    if (
+      first.event._tag === "execution.interrupted" &&
+      second.event._tag === "execution.interrupted"
+    ) {
       expect(first.event.ticketId).toBe(second.event.ticketId)
       expect(first.event.executionId).not.toBe(second.event.executionId)
     }
