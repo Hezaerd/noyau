@@ -186,9 +186,196 @@ export const durableCommandJournalMigration = Effect.gen(function* () {
   `
 })
 
+/**
+ * Projections du modèle Ticket/Kanban. Le journal reste la source de vérité ;
+ * ces tables sont reconstruisibles depuis les événements.
+ */
+export const kanbanTicketMigration = Effect.gen(function* () {
+  const sql = yield* SqlClient
+
+  yield* sql`
+    CREATE TABLE kanban_columns (
+      id uuid NOT NULL,
+      project_id uuid NOT NULL,
+      name text NOT NULL,
+      color text NOT NULL,
+      rank text NOT NULL,
+      done boolean NOT NULL,
+      created_at timestamptz NOT NULL,
+      updated_at timestamptz NOT NULL,
+      PRIMARY KEY (project_id, id),
+      UNIQUE (project_id, rank),
+      CHECK (name <> ''),
+      CHECK (color ~ '^#[0-9A-Fa-f]{6}$'),
+      CHECK (rank <> '')
+    )
+  `
+
+  yield* sql`
+    CREATE UNIQUE INDEX kanban_columns_one_done_per_project
+      ON kanban_columns (project_id)
+      WHERE done
+  `
+
+  yield* sql`
+    CREATE TABLE tickets (
+      id uuid NOT NULL,
+      project_id uuid NOT NULL,
+      column_id uuid NOT NULL,
+      rank text NOT NULL,
+      title text NOT NULL,
+      description text,
+      priority text NOT NULL,
+      due_at timestamptz,
+      done boolean NOT NULL,
+      archived_at timestamptz,
+      last_active_column_id uuid,
+      assignee_id text,
+      workbench_thread_id uuid NOT NULL,
+      source_thread_id uuid,
+      created_at timestamptz NOT NULL,
+      updated_at timestamptz NOT NULL,
+      PRIMARY KEY (project_id, id),
+      UNIQUE (project_id, column_id, rank),
+      FOREIGN KEY (project_id, column_id)
+        REFERENCES kanban_columns (project_id, id),
+      FOREIGN KEY (project_id, last_active_column_id)
+        REFERENCES kanban_columns (project_id, id),
+      CHECK (title <> ''),
+      CHECK (rank <> ''),
+      CHECK (priority IN ('none', 'low', 'normal', 'high', 'urgent'))
+    )
+  `
+
+  yield* sql`
+    CREATE INDEX tickets_active_board_idx
+      ON tickets (project_id, column_id, rank)
+      WHERE archived_at IS NULL
+  `
+
+  yield* sql`
+    CREATE TABLE ticket_dependencies (
+      project_id uuid NOT NULL,
+      ticket_id uuid NOT NULL,
+      prerequisite_ticket_id uuid NOT NULL,
+      created_at timestamptz NOT NULL,
+      PRIMARY KEY (project_id, ticket_id, prerequisite_ticket_id),
+      FOREIGN KEY (project_id, ticket_id)
+        REFERENCES tickets (project_id, id),
+      FOREIGN KEY (project_id, prerequisite_ticket_id)
+        REFERENCES tickets (project_id, id),
+      CHECK (ticket_id <> prerequisite_ticket_id)
+    )
+  `
+
+  yield* sql`
+    CREATE TABLE checklist_items (
+      id uuid NOT NULL,
+      project_id uuid NOT NULL,
+      ticket_id uuid NOT NULL,
+      title text NOT NULL,
+      completed boolean NOT NULL,
+      rank text NOT NULL,
+      converted_ticket_id uuid,
+      PRIMARY KEY (project_id, id),
+      UNIQUE (project_id, ticket_id, rank),
+      FOREIGN KEY (project_id, ticket_id)
+        REFERENCES tickets (project_id, id),
+      FOREIGN KEY (project_id, converted_ticket_id)
+        REFERENCES tickets (project_id, id),
+      CHECK (title <> ''),
+      CHECK (rank <> '')
+    )
+  `
+
+  yield* sql`
+    CREATE TABLE ticket_participants (
+      project_id uuid NOT NULL,
+      ticket_id uuid NOT NULL,
+      actor_id text NOT NULL,
+      subscribed boolean NOT NULL,
+      PRIMARY KEY (project_id, ticket_id, actor_id),
+      FOREIGN KEY (project_id, ticket_id)
+        REFERENCES tickets (project_id, id)
+    )
+  `
+
+  yield* sql`
+    CREATE TABLE labels (
+      id uuid NOT NULL,
+      project_id uuid NOT NULL,
+      name text NOT NULL,
+      color text NOT NULL,
+      native boolean NOT NULL,
+      PRIMARY KEY (project_id, id),
+      UNIQUE (project_id, name),
+      CHECK (name <> ''),
+      CHECK (color ~ '^#[0-9A-Fa-f]{6}$')
+    )
+  `
+
+  yield* sql`
+    CREATE TABLE ticket_labels (
+      project_id uuid NOT NULL,
+      ticket_id uuid NOT NULL,
+      label_id uuid NOT NULL,
+      PRIMARY KEY (project_id, ticket_id, label_id),
+      FOREIGN KEY (project_id, ticket_id)
+        REFERENCES tickets (project_id, id),
+      FOREIGN KEY (project_id, label_id)
+        REFERENCES labels (project_id, id)
+    )
+  `
+
+  yield* sql`
+    CREATE TABLE executions (
+      id uuid NOT NULL,
+      project_id uuid NOT NULL,
+      ticket_id uuid NOT NULL,
+      expected_outcome text NOT NULL,
+      agent_profile_id uuid NOT NULL,
+      max_tokens integer NOT NULL,
+      timeout_seconds integer NOT NULL,
+      tool_policy jsonb NOT NULL,
+      created_at timestamptz NOT NULL,
+      PRIMARY KEY (project_id, id),
+      FOREIGN KEY (project_id, ticket_id)
+        REFERENCES tickets (project_id, id),
+      CHECK (expected_outcome <> ''),
+      CHECK (max_tokens >= 0),
+      CHECK (timeout_seconds > 0)
+    )
+  `
+
+  yield* sql`
+    CREATE TABLE attempts (
+      id uuid NOT NULL,
+      project_id uuid NOT NULL,
+      execution_id uuid NOT NULL,
+      attempt_number integer NOT NULL,
+      status text NOT NULL,
+      primary_run_id uuid,
+      created_at timestamptz NOT NULL,
+      updated_at timestamptz NOT NULL,
+      PRIMARY KEY (project_id, id),
+      UNIQUE (project_id, execution_id, attempt_number),
+      FOREIGN KEY (project_id, execution_id)
+        REFERENCES executions (project_id, id),
+      CHECK (attempt_number > 0),
+      CHECK (
+        status IN (
+          'pending', 'leased', 'running', 'waiting_human', 'waiting_agent',
+          'verifying', 'completed', 'failed', 'cancelled'
+        )
+      )
+    )
+  `
+})
+
 export const migrations: Migrator.Loader = Migrator.fromRecord({
   "1_init": initMigration,
   "2_durable_command_journal": durableCommandJournalMigration,
+  "3_kanban_ticket": kanbanTicketMigration,
 })
 
 /** Applique les migrations en attente avec le `SqlClient` du contexte. */

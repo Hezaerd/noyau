@@ -1,7 +1,11 @@
 import { PgliteClient } from "@effect/sql-pglite"
 import { assert, describe, layer } from "@effect/vitest"
-import { durableCommandJournalMigration, initMigration } from "@noyau/database/migrations"
-import { Effect } from "effect"
+import {
+  durableCommandJournalMigration,
+  initMigration,
+  kanbanTicketMigration,
+} from "@noyau/database/migrations"
+import { Effect, Exit } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 describe("migrations", () => {
@@ -102,6 +106,57 @@ describe("migrations", () => {
           WHERE id = ${taskId}
         `
         assert.strictEqual(taskCount[0]?.total, 2)
+
+        yield* kanbanTicketMigration
+
+        const backlogId = "bbbbbbbb-0000-4000-8000-000000000201"
+        const doneId = "bbbbbbbb-0000-4000-8000-000000000202"
+        yield* sql`
+          INSERT INTO kanban_columns (
+            id, project_id, name, color, rank, done, created_at, updated_at
+          ) VALUES
+            (
+              ${backlogId}, ${firstProject}, 'Backlog', '#6D5BD0', 'a0', false,
+              '2026-08-13T12:00:00.000Z', '2026-08-13T12:00:00.000Z'
+            ),
+            (
+              ${doneId}, ${firstProject}, 'Done', '#10B981', 'a1', true,
+              '2026-08-13T12:00:00.000Z', '2026-08-13T12:00:00.000Z'
+            ),
+            (
+              ${doneId}, ${secondProject}, 'Done', '#10B981', 'a0', true,
+              '2026-08-13T12:00:00.000Z', '2026-08-13T12:00:00.000Z'
+            )
+        `
+
+        const duplicateDone = yield* Effect.exit(sql`
+          INSERT INTO kanban_columns (
+            id, project_id, name, color, rank, done, created_at, updated_at
+          ) VALUES (
+            'bbbbbbbb-0000-4000-8000-000000000203',
+            ${firstProject},
+            'Terminé',
+            '#059669',
+            'a2',
+            true,
+            '2026-08-13T12:00:00.000Z',
+            '2026-08-13T12:00:00.000Z'
+          )
+        `)
+        assert.isTrue(Exit.isFailure(duplicateDone))
+
+        const projectionTables = yield* sql<{ table_name: string }>`
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name IN (
+              'kanban_columns', 'tickets', 'ticket_dependencies',
+              'checklist_items', 'ticket_participants', 'labels',
+              'ticket_labels', 'executions', 'attempts'
+            )
+          ORDER BY table_name
+        `
+        assert.strictEqual(projectionTables.length, 9)
       }),
     )
   })

@@ -6,16 +6,15 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
 
 ## Contenu
 
-> État d'implémentation : le store `task` et sa projection documentent le schéma actuellement
-> déployé. La cible est la séparation `Ticket → Execution → Attempt → AgentRun` de l'ADR-0008 ;
-> les migrations futures remplaceront `task` sans réinterpréter silencieusement les événements
-> historiques.
+> État d'implémentation : les projections SQL `Ticket → Execution → Attempt` et Tableau sont
+> disponibles pour la migration par couches. Le store `task` reste temporairement déployé jusqu'au
+> basculement de ses consommateurs ; aucun événement historique n'est réinterprété silencieusement.
 
-| Module         | Rôle                                                                                      |
-| -------------- | ----------------------------------------------------------------------------------------- |
-| `./migrations` | Journal de commandes, événements, receipts, outbox, têtes et projections via le Migrator. |
-| `./receipt`    | Réexport temporaire des receipts désormais possédés par `protocol`.                       |
-| `./task/store` | Transaction task, idempotence, snapshot projet et lecture ordonnée des événements.        |
+| Module         | Rôle                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| `./migrations` | Journal, receipts, outbox, têtes et projections Task puis Ticket/Kanban via le Migrator. |
+| `./receipt`    | Réexport temporaire des receipts désormais possédés par `protocol`.                      |
+| `./task/store` | Transaction task, idempotence, snapshot projet et lecture ordonnée des événements.       |
 
 ## Décisions structurantes
 
