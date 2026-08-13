@@ -58,7 +58,7 @@ _À éviter_ : sequence, offset SQL
   conflit, pas un retry.
 - **Curseur opaque et scopé** : un `EventCursor` encode sa version, son projet et une position
   logique sans exposer la séquence SQL interne.
-- **`ActorId` non-UUID** : format libre (`human:hezaerd`, `agent:marion`, `system`) pour rester
+- **`ActorId` non-UUID** : format libre (`human:hezaerd`, `agent:coordinator`, `system`) pour rester
   lisible dans le journal et le forum.
 - **GitHub seulement** : `Repository.provider` est le littéral `"github"`. Pas d'autre forge en v1
   (ADR-0006).

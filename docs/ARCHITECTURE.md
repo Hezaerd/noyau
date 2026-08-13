@@ -15,14 +15,13 @@ Chaque projet doit disposer :
 - d'un ou plusieurs dépôts GitHub associés ;
 - d'un espace de discussion de type channel/forum ;
 - d'un tableau Kanban unique pour organiser des tickets humains-agents ;
-- d'une cheffe d'orchestre appelée Marion ;
-- d'agents spécialisés que Marion peut mobiliser ;
 - d'un historique durable des décisions, messages, exécutions et artefacts ;
 - de workflows n8n que les agents peuvent proposer et tester sous contrôle.
 
-Marion planifie et coordonne. Elle ne doit pas être l'endroit où réside l'état du système. Noyau
-possède l'état durable, les permissions et les règles ; Hermes est un moteur d'exécution d'agents
-remplaçable.
+Un projet peut fonctionner sans agent ou utiliser les profils d'agents configurés par ses
+utilisateurs. Un profil peut notamment jouer un rôle d'orchestration, mais ce rôle ne crée ni type
+d'entité ni permission implicite. Noyau possède l'état durable, les permissions et les règles ;
+Hermes est un moteur d'exécution d'agents remplaçable.
 
 ## Stack souhaitée
 
@@ -118,27 +117,17 @@ Noyau possède :
 - versions des prompts, outils et profils ;
 - propositions et versions de workflows n8n.
 
-### Marion
+### Profils d'agents
 
-Marion doit pouvoir :
+Les profils d'agents sont configurés par les utilisateurs ; aucun agent ni orchestrateur n'est
+natif ou obligatoire. Un profil peut lire le contexte ciblé d'un projet, proposer un plan, créer des
+tickets reliés par un DAG de dépendances ou coordonner d'autres profils seulement lorsque ses
+capability grants l'y autorisent. Son rôle affiché ne lui confère aucun droit.
 
-- lire le contexte ciblé d'un projet ;
-- transformer une demande en plan structuré ;
-- créer directement des tickets reliés par un DAG de dépendances ;
-- sélectionner un profil d'agent ;
-- définir le résultat attendu, les permissions et le budget de chaque exécution ;
-- recevoir des rapports synthétiques ;
-- replanifier après un résultat ou un échec ;
-- demander une décision humaine.
-
-Par défaut, Marion ne devrait pas disposer d'un terminal. Ses outils principaux sont les commandes
-du control plane.
-
-### Agents spécialisés
-
-Chaque agent spécialisé travaille dans un `AgentRun` appartenant à un `Attempt` isolé. L'exécution
-qui porte l'intention définit un résultat attendu, un budget et une politique d'outils ; le run
-reçoit un contexte minimal et des capacités temporaires.
+Chaque agent travaille dans un `AgentRun` appartenant à un `Attempt` isolé. L'exécution qui porte
+l'intention définit un résultat attendu, un budget et une politique d'outils ; le run reçoit un
+contexte minimal et des capacités temporaires. Un profil orchestrateur devrait utiliser les
+commandes du control plane plutôt qu'un terminal et ne possède jamais l'état de l'orchestration.
 
 ### n8n
 
@@ -229,8 +218,8 @@ projection ordonnée des colonnes et tickets du projet.
 
 Le ticket exige seulement un titre. Il peut aussi porter une description, une priorité
 (`none`, `low`, `normal`, `high`, `urgent`), une échéance, une checklist, des étiquettes, un
-responsable unique et plusieurs participants explicites. Le responsable est un humain, Marion ou un
-profil d'agent persistant — jamais un run. La participation ne confère aucun droit implicite.
+responsable unique et plusieurs participants explicites. Le responsable est un humain ou un profil
+d'agent persistant — jamais un run. La participation ne confère aucun droit implicite.
 L'étiquette native protégée `need-human` est un signal visuel manuel sans effet métier ; mentions,
 questions explicites et abonnements déclenchent les notifications. Responsable et participants sont
 abonnés par défaut avec opt-out.
@@ -267,10 +256,10 @@ Execution
 
 Chaque retry crée un nouvel `Attempt`, propriétaire de son worktree et de sa branche. Un attempt
 contient un run principal et peut contenir des runs auxiliaires tracés. La réussite d'une exécution
-produit un rapport mais ne clôt jamais automatiquement le ticket : un humain ou Marion le fait par
-une commande séparée selon la politique du projet. L'état `waiting_human` appartient à l'exécution,
-pas au ticket. Une approbation vise une action précise de l'exécution et reste visible depuis le
-ticket.
+produit un rapport mais ne clôt jamais automatiquement le ticket : un humain ou un agent autorisé
+le fait par une commande séparée selon la politique du projet. L'état `waiting_human` appartient à
+l'exécution, pas au ticket. Une approbation vise une action précise de l'exécution et reste visible
+depuis le ticket.
 
 Le LLM ne modifie jamais directement ces états ni la base de données. Il appelle une commande typée,
 le control plane vérifie les droits et les invariants, écrit l'événement, puis déclenche la suite.
@@ -461,7 +450,7 @@ proposition agent
  -> contrôle des nodes et expressions
  -> installation dans n8n-dev
  -> exécution sur fixtures
- -> revue humaine ou Marion
+ -> revue humaine ou agent autorisé
  -> pull request
  -> promotion vers n8n-prod
 ```
@@ -556,7 +545,7 @@ Le premier objectif fonctionnel n'est pas « avoir tous les agents ». C'est ce 
 
 1. connecter un dépôt GitHub à un projet ;
 2. poster une demande dans son channel ;
-3. faire produire à Marion un plan typé ;
+3. faire produire un plan typé par un profil orchestrateur configuré ;
 4. créer directement deux tickets avec une dépendance sur le tableau du projet ;
 5. lancer deux exécutions indépendantes dans des worktrees ;
 6. laisser un agent poser une question visible dans l'interface ;
@@ -577,7 +566,7 @@ Ce scénario doit continuer à fonctionner après le redémarrage du serveur.
 5. Interface projet/channel/tableau Kanban minimale.
 6. Port `AgentRuntime` et adaptateur Hermes (instance locale ou Tailscale) pour un run isolé.
 7. Worktrees, artefacts, interruption et reprise.
-8. Plan structuré de Marion, dépendances de tickets et scheduler d'exécutions.
+8. Plan structuré par un profil orchestrateur, dépendances de tickets et scheduler d'exécutions.
 9. Questions, rapports et approbations.
 10. Review agent, tests et création de pull request.
 11. Gateway n8n-dev puis promotion contrôlée.

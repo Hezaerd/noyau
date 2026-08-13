@@ -16,8 +16,13 @@ _À éviter_ : colonne ordinaire, statut d'exécution
 
 **Ticket**:
 Élément de travail durable organisé sur un tableau, qu'il soit non assigné ou confié à un humain,
-Marion ou un profil d'agent.
+ou à un profil d'agent.
 _À éviter_ : Task, Mission, unité d'exécution
+
+**AgentProfile**:
+Configuration persistante d'un agent, incluant son identité affichée et son rôle sans conférer de
+permission implicite.
+_À éviter_ : agent système, AgentRun
 
 **Execution**:
 Intention durable de faire contribuer un ou plusieurs agents à un ticket avec un résultat attendu,

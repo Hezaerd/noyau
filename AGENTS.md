@@ -9,10 +9,10 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | Terme                | Sens                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------ |
 | **Noyau**            | Control plane : état, permissions, commandes, événements, projections.                     |
-| **Marion**           | Cheffe d'orchestre LLM ; planifie et coordonne, ne possède pas l'état.                     |
 | **Hermes**           | Premier adaptateur du port `AgentRuntime` ; run isolé, instance locale ou Tailscale.       |
+| **AgentProfile**     | Configuration persistante d'un agent ; rôle affiché sans privilège implicite.              |
 | **Tableau**          | Projection Kanban unique d'un projet ; colonnes libres et ordre partagé.                   |
-| **Ticket**           | Élément de travail durable, assignable à un humain, Marion ou un profil d'agent.           |
+| **Ticket**           | Élément de travail durable, assignable à un humain ou à un profil d'agent.                 |
 | **Execution**        | Intention agent bornée pour un ticket ; résultat attendu, budget et politique d'outils.    |
 | **Attempt**          | Tentative isolée d'une exécution ; porte worktree, artefacts et runs.                      |
 | **AgentRun**         | Invocation concrète d'un agent dans une tentative.                                         |
