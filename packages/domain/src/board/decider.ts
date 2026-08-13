@@ -331,6 +331,7 @@ export const decide = (
       if (destinationId !== undefined && findColumn(state, destinationId) === undefined) {
         return Result.fail(new KanbanColumnNotFound({ columnId: destinationId }))
       }
+      const destination = destinationId === undefined ? undefined : findColumn(state, destinationId)
       const destinationTickets =
         destinationId === undefined ? [] : orderedTickets(state, destinationId)
       const generatedRanks = generateNKeysBetween(
@@ -339,13 +340,21 @@ export const decide = (
         tickets.length,
       ).map(rank)
       return Result.succeed([
-        ...tickets.map((ticket, index) =>
-          TicketMoved.make({
-            ticketId: ticket.ticketId,
-            columnId: destinationId ?? column.columnId,
-            rank: generatedRanks[index] ?? rank(ticket.rank),
-          }),
-        ),
+        ...tickets.map((ticket, index) => {
+          const newRank = generatedRanks[index] ?? rank(ticket.rank)
+          return destination?.done === true
+            ? TicketCompleted.make({
+                ticketId: ticket.ticketId,
+                previousColumnId: column.columnId,
+                doneColumnId: destination.columnId,
+                rank: newRank,
+              })
+            : TicketMoved.make({
+                ticketId: ticket.ticketId,
+                columnId: destinationId ?? column.columnId,
+                rank: newRank,
+              })
+        }),
         KanbanColumnDeleted.make({
           columnId: column.columnId,
           ...(destinationId === undefined ? {} : { destinationColumnId: destinationId }),

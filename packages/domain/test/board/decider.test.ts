@@ -301,6 +301,27 @@ describe("destructive guards", () => {
 
     expect(error._tag).toBe("ColumnDestinationRequired")
   })
+
+  it("clôture les Tickets quand leur colonne est supprimée vers Done", () => {
+    const state = stateWithTicket()
+    const events = success(
+      decide(
+        state,
+        command({
+          _tag: "kanbanColumn.delete",
+          ...meta,
+          payload: {
+            columnId: ids.backlog,
+            destinationColumnId: ids.done,
+          },
+        }),
+      ),
+    )
+    const next = apply(state, events)
+
+    expect(events.map((event) => event._tag)).toEqual(["ticket.completed", "kanbanColumn.deleted"])
+    expect(next.tickets[0]).toMatchObject({ done: true, columnId: ids.done })
+  })
 })
 
 describe("execution.start", () => {
