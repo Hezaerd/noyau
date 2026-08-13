@@ -10,7 +10,7 @@ Contextes du monorepo Noyau et leurs relations. Un contexte = un `CONTEXT.md` lo
 | Domain   | `packages/domain/`   | Décision : deciders et projectors purs sur le journal d'événements. |
 | Database | `packages/database/` | Durabilité : event log, receipts, outbox, projections PostgreSQL.   |
 | Server   | `apps/server/`       | Frontière RPC : commandes, snapshots et flux d'événements.          |
-| Web      | `apps/web/`          | UI React (TanStack Router, Vite) — pas encore de `CONTEXT.md`.      |
+| Web      | `apps/web/`          | UI React (TanStack Router, Vite) pour collaboration et supervision. |
 
 ## Relations
 
