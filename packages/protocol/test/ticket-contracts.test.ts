@@ -390,6 +390,48 @@ describe("Ticket rejection contracts", () => {
 
     expect(Schema.decodeUnknownSync(TicketRejection)(error)._tag).toBe(error._tag)
   })
+
+  it("décode l'interdiction de créer un Ticket dans Done", () => {
+    const error = {
+      _tag: "DoneColumnCreationForbidden",
+      columnId: ids.doneColumn,
+    }
+
+    expect(Schema.decodeUnknownSync(TicketRejection)(error)._tag).toBe(error._tag)
+  })
+
+  it("décode toutes les exécutions actives à confirmer", () => {
+    const error = Schema.decodeUnknownSync(TicketRejection)({
+      _tag: "ActiveExecutionConfirmationRequired",
+      ticketId: ids.ticket,
+      executionIds: [ids.execution, ids.execution2],
+    })
+
+    expect(error._tag).toBe("ActiveExecutionConfirmationRequired")
+    if (error._tag === "ActiveExecutionConfirmationRequired") {
+      expect(error.executionIds).toEqual([ids.execution, ids.execution2])
+    }
+  })
+
+  it("rejette une confirmation sans exécution active", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(TicketRejection)({
+        _tag: "ActiveExecutionConfirmationRequired",
+        ticketId: ids.ticket,
+        executionIds: [],
+      }),
+    ).toThrow()
+  })
+
+  it("rejette l'ancien champ executionId", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(TicketRejection)({
+        _tag: "ActiveExecutionConfirmationRequired",
+        ticketId: ids.ticket,
+        executionId: ids.execution,
+      }),
+    ).toThrow()
+  })
 })
 
 describe("Ticket command and event envelopes", () => {

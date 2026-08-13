@@ -52,6 +52,11 @@ export class DoneColumnDestinationForbidden extends Schema.TaggedError<DoneColum
   { destinationColumnId: KanbanColumnId },
 ) {}
 
+export class DoneColumnCreationForbidden extends Schema.TaggedError<DoneColumnCreationForbidden>()(
+  "DoneColumnCreationForbidden",
+  { columnId: KanbanColumnId },
+) {}
+
 export class TicketDependencyAlreadyExists extends Schema.TaggedError<TicketDependencyAlreadyExists>()(
   "TicketDependencyAlreadyExists",
   {
@@ -112,7 +117,7 @@ export class ActiveExecutionConfirmationRequired extends Schema.TaggedError<Acti
   "ActiveExecutionConfirmationRequired",
   {
     ticketId: TicketId,
-    executionId: ExecutionId,
+    executionIds: Schema.NonEmptyArray(ExecutionId),
   },
 ) {}
 
@@ -144,6 +149,7 @@ export const TicketRejection = Schema.Union([
   ProtectedDoneColumn,
   ColumnDestinationRequired,
   DoneColumnDestinationForbidden,
+  DoneColumnCreationForbidden,
   TicketDependencyAlreadyExists,
   TicketDependencyNotFound,
   TicketSelfDependency,
