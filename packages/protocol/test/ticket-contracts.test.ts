@@ -17,6 +17,8 @@ const ids = {
   event: "3f8f0d70-1111-4000-8000-000000000007",
   execution: "3f8f0d70-1111-4000-8000-000000000008",
   profile: "3f8f0d70-1111-4000-8000-000000000009",
+  activeColumn: "3f8f0d70-1111-4000-8000-000000000010",
+  doneColumn: "3f8f0d70-1111-4000-8000-000000000011",
 } as const
 
 const commandMeta = {
@@ -144,6 +146,30 @@ describe("Ticket command and event envelopes", () => {
     })
 
     expect(command._tag).toBe("ticket.complete")
+  })
+
+  it("réserve l'initialisation du Tableau au contrat enrichi", () => {
+    const command = Schema.decodeSync(Command)({
+      _tag: "board.initialize",
+      ...commandMeta,
+      payload: {
+        backlogColumnId: ids.column,
+        activeColumnId: ids.activeColumn,
+        doneColumnId: ids.doneColumn,
+      },
+    })
+
+    expect(command._tag).toBe("board.initialize")
+    const publicRequest: unknown = {
+      _tag: "board.initialize",
+      commandId: ids.command,
+      payload: {
+        backlogColumnId: ids.column,
+        activeColumnId: ids.activeColumn,
+        doneColumnId: ids.doneColumn,
+      },
+    }
+    expect(() => Schema.decodeUnknownSync(TicketCommandRequest)(publicRequest)).toThrow()
   })
 
   it("décode un fait Ticket persisté", () => {

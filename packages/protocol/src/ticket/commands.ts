@@ -111,6 +111,12 @@ const columnDeletePayload = {
   destinationColumnId: Schema.optionalKey(KanbanColumnId),
 } as const
 
+const boardInitializePayload = {
+  backlogColumnId: KanbanColumnId,
+  activeColumnId: KanbanColumnId,
+  doneColumnId: KanbanColumnId,
+} as const
+
 const request = <Tag extends string, Fields extends Schema.Struct.Fields>(
   tag: Tag,
   fields: Fields,
@@ -166,6 +172,8 @@ export const KanbanColumnCreate = command("kanbanColumn.create", columnCreatePay
 export const KanbanColumnUpdate = command("kanbanColumn.update", columnUpdatePayload)
 export const KanbanColumnMove = command("kanbanColumn.move", columnMovePayload)
 export const KanbanColumnDelete = command("kanbanColumn.delete", columnDeletePayload)
+/** Commande système émise à la création d'un projet, jamais soumise directement par le client. */
+export const BoardInitialize = command("board.initialize", boardInitializePayload)
 
 export const TicketCommand = Schema.Union([
   TicketCreate,
@@ -181,5 +189,6 @@ export const TicketCommand = Schema.Union([
   KanbanColumnUpdate,
   KanbanColumnMove,
   KanbanColumnDelete,
+  BoardInitialize,
 ])
 export type TicketCommand = (typeof TicketCommand)["Type"]

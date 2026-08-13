@@ -15,6 +15,7 @@ import {
   ThreadId,
 } from "./ids"
 import {
+  BoardInitialize,
   ExecutionStart,
   KanbanColumnCreate,
   KanbanColumnDelete,
@@ -152,6 +153,7 @@ export const Command = Schema.Union([
   KanbanColumnUpdate,
   KanbanColumnMove,
   KanbanColumnDelete,
+  BoardInitialize,
 ])
 export type Command = (typeof Command)["Type"]
 
