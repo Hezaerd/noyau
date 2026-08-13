@@ -41,6 +41,7 @@ export type TicketPlacement = (typeof TicketPlacement)["Type"]
 
 const ticketCreatePayload = {
   ticketId: TicketId,
+  workbenchThreadId: ThreadId,
   title: Schema.NonEmptyString,
   placement: TicketPlacement,
   sourceThreadId: Schema.optionalKey(ThreadId),

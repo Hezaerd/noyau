@@ -53,6 +53,7 @@ describe("TicketCommandRequest", () => {
         commandId: ids.command,
         payload: {
           ticketId: ids.ticket,
+          workbenchThreadId: ids.thread,
           title: "Implement the board",
           placement: { columnId: ids.column },
         },
