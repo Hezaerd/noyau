@@ -1,0 +1,122 @@
+import { ExecutionId, KanbanColumnId, TicketId } from "@noyau/protocol/ids"
+import { Schema } from "effect"
+
+export class TicketAlreadyExists extends Schema.TaggedError<TicketAlreadyExists>()(
+  "TicketAlreadyExists",
+  { ticketId: TicketId },
+) {}
+
+export class TicketNotFound extends Schema.TaggedError<TicketNotFound>()("TicketNotFound", {
+  ticketId: TicketId,
+}) {}
+
+export class KanbanColumnAlreadyExists extends Schema.TaggedError<KanbanColumnAlreadyExists>()(
+  "KanbanColumnAlreadyExists",
+  { columnId: KanbanColumnId },
+) {}
+
+export class KanbanColumnNotFound extends Schema.TaggedError<KanbanColumnNotFound>()(
+  "KanbanColumnNotFound",
+  { columnId: KanbanColumnId },
+) {}
+
+export class InvalidTicketPlacement extends Schema.TaggedError<InvalidTicketPlacement>()(
+  "InvalidTicketPlacement",
+  {
+    columnId: KanbanColumnId,
+    beforeTicketId: Schema.optionalKey(TicketId),
+    afterTicketId: Schema.optionalKey(TicketId),
+  },
+) {}
+
+export class InvalidColumnPlacement extends Schema.TaggedError<InvalidColumnPlacement>()(
+  "InvalidColumnPlacement",
+  {
+    beforeColumnId: Schema.optionalKey(KanbanColumnId),
+    afterColumnId: Schema.optionalKey(KanbanColumnId),
+  },
+) {}
+
+export class ProtectedDoneColumn extends Schema.TaggedError<ProtectedDoneColumn>()(
+  "ProtectedDoneColumn",
+  { columnId: KanbanColumnId },
+) {}
+
+export class ColumnDestinationRequired extends Schema.TaggedError<ColumnDestinationRequired>()(
+  "ColumnDestinationRequired",
+  { columnId: KanbanColumnId },
+) {}
+
+export class TicketAlreadyArchived extends Schema.TaggedError<TicketAlreadyArchived>()(
+  "TicketAlreadyArchived",
+  { ticketId: TicketId },
+) {}
+
+export class TicketNotArchived extends Schema.TaggedError<TicketNotArchived>()(
+  "TicketNotArchived",
+  {
+    ticketId: TicketId,
+  },
+) {}
+
+export class TicketAlreadyCompleted extends Schema.TaggedError<TicketAlreadyCompleted>()(
+  "TicketAlreadyCompleted",
+  { ticketId: TicketId },
+) {}
+
+export class TicketNotCompleted extends Schema.TaggedError<TicketNotCompleted>()(
+  "TicketNotCompleted",
+  { ticketId: TicketId },
+) {}
+
+export class OpenDependenciesConfirmationRequired extends Schema.TaggedError<OpenDependenciesConfirmationRequired>()(
+  "OpenDependenciesConfirmationRequired",
+  { ticketId: TicketId },
+) {}
+
+export class ActiveExecutionConfirmationRequired extends Schema.TaggedError<ActiveExecutionConfirmationRequired>()(
+  "ActiveExecutionConfirmationRequired",
+  {
+    ticketId: TicketId,
+    executionId: ExecutionId,
+  },
+) {}
+
+export class ExecutionAlreadyExists extends Schema.TaggedError<ExecutionAlreadyExists>()(
+  "ExecutionAlreadyExists",
+  { executionId: ExecutionId },
+) {}
+
+export class ExecutionBlockedByDependencies extends Schema.TaggedError<ExecutionBlockedByDependencies>()(
+  "ExecutionBlockedByDependencies",
+  { ticketId: TicketId },
+) {}
+
+export class ExecutionForbiddenForTicket extends Schema.TaggedError<ExecutionForbiddenForTicket>()(
+  "ExecutionForbiddenForTicket",
+  {
+    ticketId: TicketId,
+    reason: Schema.Literals(["completed", "archived"]),
+  },
+) {}
+
+export const TicketRejection = Schema.Union([
+  TicketAlreadyExists,
+  TicketNotFound,
+  KanbanColumnAlreadyExists,
+  KanbanColumnNotFound,
+  InvalidTicketPlacement,
+  InvalidColumnPlacement,
+  ProtectedDoneColumn,
+  ColumnDestinationRequired,
+  TicketAlreadyArchived,
+  TicketNotArchived,
+  TicketAlreadyCompleted,
+  TicketNotCompleted,
+  OpenDependenciesConfirmationRequired,
+  ActiveExecutionConfirmationRequired,
+  ExecutionAlreadyExists,
+  ExecutionBlockedByDependencies,
+  ExecutionForbiddenForTicket,
+])
+export type TicketRejection = (typeof TicketRejection)["Type"]

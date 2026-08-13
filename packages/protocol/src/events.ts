@@ -14,6 +14,21 @@ import {
   TaskId,
   ThreadId,
 } from "./ids"
+import {
+  ExecutionStarted,
+  KanbanColumnCreated,
+  KanbanColumnDeleted,
+  KanbanColumnMoved,
+  KanbanColumnUpdated,
+  TicketArchived,
+  TicketAssigned,
+  TicketCompleted,
+  TicketCreated,
+  TicketMoved,
+  TicketReopened,
+  TicketRestored,
+  TicketUpdated,
+} from "./ticket/events"
 
 // Faits immuables produits par les deciders purs. L'enveloppe (identité,
 // horodatage, corrélation) est ajoutée par le control plane au moment de la
@@ -68,6 +83,19 @@ export const DomainEvent = Schema.Union([
   TaskCompleted,
   TaskFailed,
   MessageSent,
+  TicketCreated,
+  TicketMoved,
+  TicketCompleted,
+  TicketReopened,
+  TicketArchived,
+  TicketRestored,
+  TicketAssigned,
+  TicketUpdated,
+  ExecutionStarted,
+  KanbanColumnCreated,
+  KanbanColumnUpdated,
+  KanbanColumnMoved,
+  KanbanColumnDeleted,
 ])
 export type DomainEvent = (typeof DomainEvent)["Type"]
 

@@ -27,20 +27,22 @@ _À éviter_ : sequence, offset SQL
 
 ## Contenu
 
-> État d'implémentation : les modules `Mission`/`Task` ci-dessous précèdent le modèle cible
-> `Ticket → Execution → Attempt → AgentRun` défini dans l'ADR-0008. Ils restent documentés sous
-> leurs noms réels jusqu'à la migration du protocole ; aucune nouvelle API ne doit étendre
-> `Mission` ou confondre le cycle de vie d'un ticket avec celui d'une exécution.
+> État d'implémentation : les contrats `Ticket → Execution → Attempt → AgentRun` et Tableau sont
+> disponibles pour la migration par couches. Les modules `Mission`/`Task` restent temporairement
+> exportés afin que chaque PR de la stack reste vérifiable ; aucune nouvelle API ne doit les étendre.
 
-| Module            | Rôle                                                                                            |
-| ----------------- | ----------------------------------------------------------------------------------------------- |
-| `./ids`           | IDs brandés (UUID sauf `ActorId`) + `SchemaVersion` du protocole.                               |
-| `./entities/*`    | `Project`, `Repository`, `Channel`, `Thread`, `Message`, `Mission`, `Task` (avec `TaskStatus`). |
-| `./commands`      | Commandes enrichies + `TaskCommandRequest` publique limitée à `task.create` et `task.assign`.   |
-| `./events`        | Faits (`task.created`, …, `message.sent`) + `EventEnvelope` persisté.                           |
-| `./task/errors`   | Rejets métier task partagés entre domaine, persistance et frontière HTTP.                       |
-| `./receipts`      | `Receipt` public stable, accepté ou rejeté.                                                     |
-| `./control-plane` | Contrat `HttpApi`, erreurs HTTP, identité, snapshot, curseur et événement SSE du control plane. |
+| Module              | Rôle                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------- |
+| `./ids`             | IDs brandés (UUID sauf `ActorId`) + `SchemaVersion` du protocole.                           |
+| `./entities/*`      | Entités de collaboration, Tableau, Ticket, Execution et Attempt.                            |
+| `./ticket/commands` | Requests publiques et commandes enrichies du Tableau, des Tickets et des Executions.        |
+| `./ticket/events`   | Faits immuables produits par les futurs deciders Ticket et Tableau.                         |
+| `./ticket/errors`   | Rejets métier stables du Tableau, des Tickets et des Executions.                            |
+| `./commands`        | Union globale enrichie ; inclut temporairement les commandes Task historiques.              |
+| `./events`          | Union globale des faits + `EventEnvelope` persisté.                                         |
+| `./receipts`        | `Receipt` public stable, accepté ou rejeté.                                                 |
+| `./board`           | Snapshot compact du Tableau et curseur opaque ; les détails Ticket sont chargés séparément. |
+| `./control-plane`   | Contrat HTTP historique, remplacé dans une couche ultérieure par Effect RPC WebSocket.      |
 
 ## Décisions structurantes
 
@@ -62,6 +64,8 @@ _À éviter_ : sequence, offset SQL
   lisible dans le journal et le forum.
 - **GitHub seulement** : `Repository.provider` est le littéral `"github"`. Pas d'autre forge en v1
   (ADR-0006).
+- **Placement par ancres** : le client désigne la colonne et ses voisins attendus. Le domaine
+  valide ces ancres et calcule le `KanbanRank` canonique ; aucun rank client ne traverse la commande.
 - **Exports subpath uniquement**, pas de barrel — voir AGENTS.md.
 
 ## Extension
