@@ -31,6 +31,8 @@ import type { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
+import type { Crypto } from "effect"
+import { type Effect } from "effect"
 import {
   BotIcon,
   CalendarIcon,
@@ -46,8 +48,6 @@ import {
   UserIcon,
   XIcon,
 } from "lucide-react"
-import type { Crypto } from "effect"
-import { type Effect } from "effect"
 import {
   useCallback,
   useEffect,
