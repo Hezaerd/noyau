@@ -1,10 +1,11 @@
 /**
  * Noyau palette preserved before the Coss UI migration.
  *
- * This file is intentionally not imported until the palette is remapped to
- * every semantic token required by Coss.
+ * The original values remain unchanged; Coss-specific semantic colors extend
+ * the palette below so every active primitive has an explicit dark-theme token.
  */
-:root {
+:root,
+.dark {
   --background: #0f0f13;
   --foreground: #ededf2;
   --card: #17171c;
@@ -20,6 +21,13 @@
   --accent: #302b4b;
   --accent-foreground: #e2ddff;
   --destructive: #f0717d;
+  --destructive-foreground: #ffadb4;
+  --info: #6f8dff;
+  --info-foreground: #b8c5ff;
+  --success: #55b8a4;
+  --success-foreground: #9ce0d1;
+  --warning: #d99a58;
+  --warning-foreground: #ffd2a1;
   --border: #2b2a34;
   --input: #34323f;
   --ring: #9b8cff;
@@ -28,6 +36,9 @@
   --chart-3: #c574e8;
   --chart-4: #55b8d0;
   --chart-5: #d59cff;
+  --code: #17171c;
+  --code-foreground: #ededf2;
+  --code-highlight: #24242c;
   --subtle: #888793;
   --sidebar: #0a0a0e;
   --sidebar-foreground: #ecebf2;
