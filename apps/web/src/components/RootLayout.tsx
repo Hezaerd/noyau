@@ -1,8 +1,6 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router"
-import { ActivityIcon, SparkleIcon } from "lucide-react"
 
 import { AppSidebar } from "@/components/AppSidebar"
-import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 
@@ -45,19 +43,6 @@ export function RootLayout() {
           <Separator orientation="vertical" className="h-4" />
           <div className="flex min-w-0 items-center text-sm">
             <h1 className="truncate font-medium tracking-[-0.015em]">{meta.title}</h1>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" size="icon-sm" aria-label="Activité des agents">
-              <ActivityIcon />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden rounded-full bg-card shadow-xs sm:flex"
-            >
-              <SparkleIcon />
-              Nouvelle action
-            </Button>
           </div>
         </header>
 
