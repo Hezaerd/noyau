@@ -1,5 +1,5 @@
-import { Pulse, Sparkle } from "@phosphor-icons/react"
 import { Link, Outlet, useRouterState } from "@tanstack/react-router"
+import { ActivityIcon, SparkleIcon } from "lucide-react"
 
 import { AppSidebar } from "@/components/AppSidebar"
 import { Button } from "@/components/ui/button"
@@ -48,14 +48,14 @@ export function RootLayout() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="ghost" size="icon-sm" aria-label="Activité des agents">
-              <Pulse />
+              <ActivityIcon />
             </Button>
             <Button
               variant="outline"
               size="sm"
               className="hidden rounded-full bg-card shadow-xs sm:flex"
             >
-              <Sparkle />
+              <SparkleIcon />
               Nouvelle action
             </Button>
           </div>
