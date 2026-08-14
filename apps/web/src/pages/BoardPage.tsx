@@ -69,6 +69,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { agentDebugLog } from "@/lib/agent-debug"
 import {
   addColumn,
   appendWorkbenchMessage,
@@ -172,6 +173,12 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
     id: ticket.id,
     disabled: overlay,
   })
+  const pointerStart = useRef<{
+    readonly pointerId: number
+    readonly x: number
+    readonly y: number
+    movementLogged: boolean
+  }>(undefined)
   const actor = state.actors.find((candidate) => candidate.id === ticket.assigneeId)
   const column = state.columns.find((candidate) => candidate.id === ticket.columnId)
   const due = dueLabel(ticket, column?.done ?? false)
@@ -196,12 +203,83 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
     >
       <button
         type="button"
-        onClick={onOpen}
+        onClick={(event) => {
+          // #region agent log
+          agentDebugLog({
+            hypothesisId: "A,E",
+            location: "BoardPage.tsx:TicketCard.onClick",
+            message: "ticket activator click fired",
+            data: {
+              ticketId: ticket.id,
+              detail: event.detail,
+              defaultPrevented: event.defaultPrevented,
+              isDragging,
+            },
+          })
+          // #endregion
+          onOpen()
+        }}
         onFocus={onFocus}
         className="w-full touch-none rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/65"
         aria-label={`Ouvrir le ticket ${ticket.title}`}
         {...attributes}
         {...listeners}
+        onPointerDownCapture={(event) => {
+          pointerStart.current = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            movementLogged: false,
+          }
+          // #region agent log
+          agentDebugLog({
+            hypothesisId: "A,B,E",
+            location: "BoardPage.tsx:TicketCard.onPointerDownCapture",
+            message: "pointer reached ticket activator",
+            data: {
+              ticketId: ticket.id,
+              pointerId: event.pointerId,
+              pointerType: event.pointerType,
+              button: event.button,
+              buttons: event.buttons,
+              isPrimary: event.isPrimary,
+              clientX: event.clientX,
+              clientY: event.clientY,
+              target: event.target instanceof Element ? event.target.tagName : "unknown",
+              active,
+            },
+          })
+          // #endregion
+        }}
+        onPointerMoveCapture={(event) => {
+          const start = pointerStart.current
+          if (
+            start !== undefined &&
+            start.pointerId === event.pointerId &&
+            !start.movementLogged &&
+            Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 8
+          ) {
+            start.movementLogged = true
+            // #region agent log
+            agentDebugLog({
+              hypothesisId: "B",
+              location: "BoardPage.tsx:TicketCard.onPointerMoveCapture",
+              message: "pointer crossed activation distance on ticket",
+              data: {
+                ticketId: ticket.id,
+                pointerId: event.pointerId,
+                buttons: event.buttons,
+                distance: Math.hypot(event.clientX - start.x, event.clientY - start.y),
+                clientX: event.clientX,
+                clientY: event.clientY,
+              },
+            })
+            // #endregion
+          }
+        }}
+        onPointerUpCapture={() => {
+          pointerStart.current = undefined
+        }}
       >
         <div className="flex items-start gap-2">
           <CircleDot className={cn("mt-0.5 size-3.5 shrink-0", priorityStyles[ticket.priority])} />
@@ -670,6 +748,18 @@ export function BoardPage({
   )
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    // #region agent log
+    agentDebugLog({
+      hypothesisId: "C,D",
+      location: "BoardPage.tsx:handleDragEnd",
+      message: "drag ended",
+      data: {
+        activeId: String(active.id),
+        overId: over === null ? null : String(over.id),
+        knownActive: state.tickets.some((ticket) => ticket.id === String(active.id)),
+      },
+    })
+    // #endregion
     setDraggedTicketId(undefined)
     if (over === null) {
       return
@@ -862,9 +952,32 @@ export function BoardPage({
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
-        onDragStart={({ active }: DragStartEvent) => setDraggedTicketId(String(active.id))}
+        onDragStart={({ active }: DragStartEvent) => {
+          // #region agent log
+          agentDebugLog({
+            hypothesisId: "B,C",
+            location: "BoardPage.tsx:DndContext.onDragStart",
+            message: "dnd pointer sensor activated",
+            data: {
+              activeId: String(active.id),
+              knownTicket: state.tickets.some((ticket) => ticket.id === String(active.id)),
+            },
+          })
+          // #endregion
+          setDraggedTicketId(String(active.id))
+        }}
         onDragEnd={handleDragEnd}
-        onDragCancel={() => setDraggedTicketId(undefined)}
+        onDragCancel={() => {
+          // #region agent log
+          agentDebugLog({
+            hypothesisId: "B,D",
+            location: "BoardPage.tsx:DndContext.onDragCancel",
+            message: "drag cancelled",
+            data: { draggedTicketId: draggedTicketId ?? null },
+          })
+          // #endregion
+          setDraggedTicketId(undefined)
+        }}
       >
         <section
           ref={boardRef}
