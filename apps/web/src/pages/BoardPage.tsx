@@ -913,7 +913,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
                 )
               }
             >
-              <SelectTrigger size="default">
+              <SelectTrigger size="default" className="w-auto">
                 <UserIcon />
                 <SelectValue>
                   {search.assignee === undefined
@@ -942,7 +942,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
                 }
               }}
             >
-              <SelectTrigger size="default">
+              <SelectTrigger size="default" className="w-auto">
                 <FunnelIcon />
                 <SelectValue>
                   {search.priority === undefined ? "Priorité" : priorityLabels[search.priority]}
