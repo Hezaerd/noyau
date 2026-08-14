@@ -171,6 +171,14 @@ interface BoardPageProps {
   readonly onCloseTicket: () => void
 }
 
+type TicketUpdateInput = {
+  readonly ticketId: TicketId
+  readonly title?: string
+  readonly description?: string | null
+  readonly priority?: TicketPriority
+  readonly dueAt?: string | null
+}
+
 type CommandPaletteItem =
   | {
       readonly kind: "action"
@@ -1341,13 +1349,7 @@ export function BoardPage({
             patch.priority !== undefined ||
             "dueAt" in patch
           if (hasDetails) {
-            let updateInput: {
-              readonly ticketId: TicketId
-              readonly title?: string
-              readonly description?: string | null
-              readonly priority?: TicketPriority
-              readonly dueAt?: string | null
-            } = { ticketId: TicketId.make(ticketId) }
+            let updateInput: TicketUpdateInput = { ticketId: TicketId.make(ticketId) }
             if (patch.title !== undefined) {
               updateInput = { ...updateInput, title: patch.title }
             }

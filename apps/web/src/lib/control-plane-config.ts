@@ -7,6 +7,7 @@ const ControlPlaneEnvironment = Schema.Struct({
   VITE_NOYAU_RPC_URL: Schema.optionalKey(Schema.String),
   VITE_NOYAU_PROJECT_ID: Schema.optionalKey(Schema.String),
 })
+type ControlPlaneEnvironmentInput = Readonly<Record<string, string | boolean | undefined>>
 
 const ControlPlaneConfig = Schema.Struct({
   rpcUrl: Schema.NonEmptyString,
@@ -29,7 +30,7 @@ const defaultRpcUrl = () => {
 }
 
 export const decodeControlPlaneConfig = (
-  input: (typeof ControlPlaneEnvironment)["Encoded"],
+  input: ControlPlaneEnvironmentInput,
 ): ControlPlaneConfig => {
   const environment = decodeEnvironment(input)
   return decodeConfig({
