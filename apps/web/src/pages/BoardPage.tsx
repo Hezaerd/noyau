@@ -56,6 +56,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command"
+import { Input } from "@/components/ui/input"
 import {
   Menu,
   MenuGroup,
@@ -65,14 +66,7 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from "@/components/ui/menu"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectItem,
-  SelectPopup,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   addColumn,
   appendWorkbenchMessage,
@@ -1147,10 +1141,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
         }
       />
 
-      <CommandDialog
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-      >
+      <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
         <CommandDialogPopup>
           <Command items={commandGroups}>
             <CommandInput placeholder="Rechercher une commande ou un ticket…" />

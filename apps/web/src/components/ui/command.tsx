@@ -1,9 +1,9 @@
-"use client";
+"use client"
 
-import { Dialog as CommandDialogPrimitive } from "@base-ui/react/dialog";
-import { SearchIcon } from "lucide-react";
-import type * as React from "react";
-import { cn } from "@/lib/utils";
+import { Dialog as CommandDialogPrimitive } from "@base-ui/react/dialog"
+import { SearchIcon } from "lucide-react"
+import type * as React from "react"
+
 import {
   Autocomplete,
   AutocompleteCollection,
@@ -14,26 +14,21 @@ import {
   AutocompleteItem,
   AutocompleteList,
   AutocompleteSeparator,
-} from "@/components/ui/autocomplete";
+} from "@/components/ui/autocomplete"
+import { cn } from "@/lib/utils"
 
-export const CommandDialog: typeof CommandDialogPrimitive.Root =
-  CommandDialogPrimitive.Root;
+export const CommandDialog: typeof CommandDialogPrimitive.Root = CommandDialogPrimitive.Root
 
 export const CommandDialogPortal: typeof CommandDialogPrimitive.Portal =
-  CommandDialogPrimitive.Portal;
+  CommandDialogPrimitive.Portal
 
 export const CommandCreateHandle: typeof CommandDialogPrimitive.createHandle =
-  CommandDialogPrimitive.createHandle;
+  CommandDialogPrimitive.createHandle
 
 export function CommandDialogTrigger(
   props: CommandDialogPrimitive.Trigger.Props,
 ): React.ReactElement {
-  return (
-    <CommandDialogPrimitive.Trigger
-      data-slot="command-dialog-trigger"
-      {...props}
-    />
-  );
+  return <CommandDialogPrimitive.Trigger data-slot="command-dialog-trigger" {...props} />
 }
 
 export function CommandDialogBackdrop({
@@ -49,7 +44,7 @@ export function CommandDialogBackdrop({
       data-slot="command-dialog-backdrop"
       {...props}
     />
-  );
+  )
 }
 
 export function CommandDialogViewport({
@@ -65,7 +60,7 @@ export function CommandDialogViewport({
       data-slot="command-dialog-viewport"
       {...props}
     />
-  );
+  )
 }
 
 export function CommandDialogPopup({
@@ -74,7 +69,7 @@ export function CommandDialogPopup({
   portalProps,
   ...props
 }: CommandDialogPrimitive.Popup.Props & {
-  portalProps?: CommandDialogPrimitive.Portal.Props;
+  portalProps?: CommandDialogPrimitive.Portal.Props
 }): React.ReactElement {
   return (
     <CommandDialogPortal {...portalProps}>
@@ -92,7 +87,7 @@ export function CommandDialogPopup({
         </CommandDialogPrimitive.Popup>
       </CommandDialogViewport>
     </CommandDialogPortal>
-  );
+  )
 }
 
 export function Command({
@@ -108,12 +103,12 @@ export function Command({
       open
       {...props}
     />
-  );
+  )
 }
 
 export function CommandInput({
   className,
-  placeholder = undefined,
+  placeholder,
   ...props
 }: React.ComponentProps<typeof AutocompleteInput>): React.ReactElement {
   return (
@@ -130,7 +125,7 @@ export function CommandInput({
         {...props}
       />
     </div>
-  );
+  )
 }
 
 export function CommandList({
@@ -143,7 +138,7 @@ export function CommandList({
       data-slot="command-list"
       {...props}
     />
-  );
+  )
 }
 
 export function CommandEmpty({
@@ -156,7 +151,7 @@ export function CommandEmpty({
       data-slot="command-empty"
       {...props}
     />
-  );
+  )
 }
 
 export function CommandPanel({
@@ -171,48 +166,32 @@ export function CommandPanel({
       )}
       {...props}
     />
-  );
+  )
 }
 
 export function CommandGroup({
   className,
   ...props
 }: React.ComponentProps<typeof AutocompleteGroup>): React.ReactElement {
-  return (
-    <AutocompleteGroup
-      className={className}
-      data-slot="command-group"
-      {...props}
-    />
-  );
+  return <AutocompleteGroup className={className} data-slot="command-group" {...props} />
 }
 
 export function CommandGroupLabel({
   className,
   ...props
 }: React.ComponentProps<typeof AutocompleteGroupLabel>): React.ReactElement {
-  return (
-    <AutocompleteGroupLabel
-      className={className}
-      data-slot="command-group-label"
-      {...props}
-    />
-  );
+  return <AutocompleteGroupLabel className={className} data-slot="command-group-label" {...props} />
 }
 
-export const CommandCollection = AutocompleteCollection;
+export const CommandCollection = AutocompleteCollection
 
 export function CommandItem({
   className,
   ...props
 }: React.ComponentProps<typeof AutocompleteItem>): React.ReactElement {
   return (
-    <AutocompleteItem
-      className={cn("py-1.5", className)}
-      data-slot="command-item"
-      {...props}
-    />
-  );
+    <AutocompleteItem className={cn("py-1.5", className)} data-slot="command-item" {...props} />
+  )
 }
 
 export function CommandSeparator({
@@ -225,7 +204,7 @@ export function CommandSeparator({
       data-slot="command-separator"
       {...props}
     />
-  );
+  )
 }
 
 export function CommandShortcut({
@@ -241,7 +220,7 @@ export function CommandShortcut({
       data-slot="command-shortcut"
       {...props}
     />
-  );
+  )
 }
 
 export function CommandFooter({
@@ -257,7 +236,7 @@ export function CommandFooter({
       data-slot="command-footer"
       {...props}
     />
-  );
+  )
 }
 
-export { CommandDialogPrimitive };
+export { CommandDialogPrimitive }

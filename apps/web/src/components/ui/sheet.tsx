@@ -1,28 +1,25 @@
-"use client";
+"use client"
 
-import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
-import { XIcon } from "lucide-react";
-import type React from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { useRender } from "@base-ui/react/use-render"
+import { XIcon } from "lucide-react"
+import type React from "react"
 
-export const Sheet: typeof SheetPrimitive.Root = SheetPrimitive.Root;
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 
-export const SheetPortal: typeof SheetPrimitive.Portal = SheetPrimitive.Portal;
+export const Sheet: typeof SheetPrimitive.Root = SheetPrimitive.Root
 
-export function SheetTrigger(
-  props: SheetPrimitive.Trigger.Props,
-): React.ReactElement {
-  return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />;
+export const SheetPortal: typeof SheetPrimitive.Portal = SheetPrimitive.Portal
+
+export function SheetTrigger(props: SheetPrimitive.Trigger.Props): React.ReactElement {
+  return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
 }
 
-export function SheetClose(
-  props: SheetPrimitive.Close.Props,
-): React.ReactElement {
-  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />;
+export function SheetClose(props: SheetPrimitive.Close.Props): React.ReactElement {
+  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />
 }
 
 export function SheetBackdrop({
@@ -38,7 +35,7 @@ export function SheetBackdrop({
       data-slot="sheet-backdrop"
       {...props}
     />
-  );
+  )
 }
 
 export function SheetViewport({
@@ -47,8 +44,8 @@ export function SheetViewport({
   variant = "default",
   ...props
 }: SheetPrimitive.Viewport.Props & {
-  side?: "right" | "left" | "top" | "bottom";
-  variant?: "default" | "inset";
+  side?: "right" | "left" | "top" | "bottom"
+  variant?: "default" | "inset"
 }): React.ReactElement {
   return (
     <SheetPrimitive.Viewport
@@ -64,7 +61,7 @@ export function SheetViewport({
       data-slot="sheet-viewport"
       {...props}
     />
-  );
+  )
 }
 
 export function SheetPopup({
@@ -77,11 +74,11 @@ export function SheetPopup({
   portalProps,
   ...props
 }: SheetPrimitive.Popup.Props & {
-  showCloseButton?: boolean;
-  side?: "right" | "left" | "top" | "bottom";
-  variant?: "default" | "inset";
-  closeProps?: SheetPrimitive.Close.Props;
-  portalProps?: SheetPrimitive.Portal.Props;
+  showCloseButton?: boolean
+  side?: "right" | "left" | "top" | "bottom"
+  variant?: "default" | "inset"
+  closeProps?: SheetPrimitive.Close.Props
+  portalProps?: SheetPrimitive.Portal.Props
 }): React.ReactElement {
   return (
     <SheetPortal {...portalProps}>
@@ -119,7 +116,7 @@ export function SheetPopup({
         </SheetPrimitive.Popup>
       </SheetViewport>
     </SheetPortal>
-  );
+  )
 }
 
 export function SheetHeader({
@@ -133,13 +130,13 @@ export function SheetHeader({
       className,
     ),
     "data-slot": "sheet-header",
-  };
+  }
 
   return useRender({
     defaultTagName: "div",
     props: mergeProps<"div">(defaultProps, props),
     render,
-  });
+  })
 }
 
 export function SheetFooter({
@@ -148,7 +145,7 @@ export function SheetFooter({
   render,
   ...props
 }: useRender.ComponentProps<"div"> & {
-  variant?: "default" | "bare";
+  variant?: "default" | "bare"
 }): React.ReactElement {
   const defaultProps = {
     className: cn(
@@ -159,13 +156,13 @@ export function SheetFooter({
       className,
     ),
     "data-slot": "sheet-footer",
-  };
+  }
 
   return useRender({
     defaultTagName: "div",
     props: mergeProps<"div">(defaultProps, props),
     render,
-  });
+  })
 }
 
 export function SheetTitle({
@@ -174,14 +171,11 @@ export function SheetTitle({
 }: SheetPrimitive.Title.Props): React.ReactElement {
   return (
     <SheetPrimitive.Title
-      className={cn(
-        "font-heading font-semibold text-xl leading-none",
-        className,
-      )}
+      className={cn("font-heading font-semibold text-xl leading-none", className)}
       data-slot="sheet-title"
       {...props}
     />
-  );
+  )
 }
 
 export function SheetDescription({
@@ -194,7 +188,7 @@ export function SheetDescription({
       data-slot="sheet-description"
       {...props}
     />
-  );
+  )
 }
 
 export function SheetPanel({
@@ -203,7 +197,7 @@ export function SheetPanel({
   render,
   ...props
 }: useRender.ComponentProps<"div"> & {
-  scrollFade?: boolean;
+  scrollFade?: boolean
 }): React.ReactElement {
   const defaultProps = {
     className: cn(
@@ -211,7 +205,7 @@ export function SheetPanel({
       className,
     ),
     "data-slot": "sheet-panel",
-  };
+  }
 
   return (
     <ScrollArea overscrollContain scrollFade={scrollFade}>
@@ -221,11 +215,7 @@ export function SheetPanel({
         render,
       })}
     </ScrollArea>
-  );
+  )
 }
 
-export {
-  SheetPrimitive,
-  SheetBackdrop as SheetOverlay,
-  SheetPopup as SheetContent,
-};
+export { SheetPrimitive, SheetBackdrop as SheetOverlay, SheetPopup as SheetContent }

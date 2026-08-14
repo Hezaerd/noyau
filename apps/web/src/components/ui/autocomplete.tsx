@@ -1,14 +1,14 @@
-"use client";
+"use client"
 
-import { Autocomplete as AutocompletePrimitive } from "@base-ui/react/autocomplete";
-import { ChevronsUpDownIcon, XIcon } from "lucide-react";
-import type React from "react";
-import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Autocomplete as AutocompletePrimitive } from "@base-ui/react/autocomplete"
+import { ChevronsUpDownIcon, XIcon } from "lucide-react"
+import type React from "react"
 
-export const Autocomplete: typeof AutocompletePrimitive.Root =
-  AutocompletePrimitive.Root;
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
+
+export const Autocomplete: typeof AutocompletePrimitive.Root = AutocompletePrimitive.Root
 
 export function AutocompleteInput({
   className,
@@ -20,15 +20,15 @@ export function AutocompleteInput({
   clearProps,
   ...props
 }: Omit<AutocompletePrimitive.Input.Props, "size"> & {
-  showTrigger?: boolean;
-  showClear?: boolean;
-  startAddon?: React.ReactNode;
-  size?: "sm" | "default" | "lg" | number;
-  ref?: React.Ref<HTMLInputElement>;
-  triggerProps?: AutocompletePrimitive.Trigger.Props;
-  clearProps?: AutocompletePrimitive.Clear.Props;
+  showTrigger?: boolean
+  showClear?: boolean
+  startAddon?: React.ReactNode
+  size?: "sm" | "default" | "lg" | number
+  ref?: React.Ref<HTMLInputElement>
+  triggerProps?: AutocompletePrimitive.Trigger.Props
+  clearProps?: AutocompletePrimitive.Clear.Props
 }): React.ReactElement {
-  const sizeValue = (size ?? "default") as "sm" | "default" | "lg" | number;
+  const sizeValue = size ?? "default"
 
   return (
     <AutocompletePrimitive.InputGroup
@@ -82,7 +82,7 @@ export function AutocompleteInput({
         </AutocompleteClear>
       )}
     </AutocompletePrimitive.InputGroup>
-  );
+  )
 }
 
 export function AutocompletePopup({
@@ -96,12 +96,12 @@ export function AutocompletePopup({
   portalProps,
   ...props
 }: AutocompletePrimitive.Popup.Props & {
-  align?: AutocompletePrimitive.Positioner.Props["align"];
-  sideOffset?: AutocompletePrimitive.Positioner.Props["sideOffset"];
-  alignOffset?: AutocompletePrimitive.Positioner.Props["alignOffset"];
-  side?: AutocompletePrimitive.Positioner.Props["side"];
-  anchor?: AutocompletePrimitive.Positioner.Props["anchor"];
-  portalProps?: AutocompletePrimitive.Portal.Props;
+  align?: AutocompletePrimitive.Positioner.Props["align"]
+  sideOffset?: AutocompletePrimitive.Positioner.Props["sideOffset"]
+  alignOffset?: AutocompletePrimitive.Positioner.Props["alignOffset"]
+  side?: AutocompletePrimitive.Positioner.Props["side"]
+  anchor?: AutocompletePrimitive.Positioner.Props["anchor"]
+  portalProps?: AutocompletePrimitive.Portal.Props
 }): React.ReactElement {
   return (
     <AutocompletePrimitive.Portal {...portalProps}>
@@ -130,7 +130,7 @@ export function AutocompletePopup({
         </span>
       </AutocompletePrimitive.Positioner>
     </AutocompletePrimitive.Portal>
-  );
+  )
 }
 
 export function AutocompleteItem({
@@ -149,7 +149,7 @@ export function AutocompleteItem({
     >
       {children}
     </AutocompletePrimitive.Item>
-  );
+  )
 }
 
 export function AutocompleteSeparator({
@@ -162,7 +162,7 @@ export function AutocompleteSeparator({
       data-slot="autocomplete-separator"
       {...props}
     />
-  );
+  )
 }
 
 export function AutocompleteGroup({
@@ -175,7 +175,7 @@ export function AutocompleteGroup({
       data-slot="autocomplete-group"
       {...props}
     />
-  );
+  )
 }
 
 export function AutocompleteGroupLabel({
@@ -184,14 +184,11 @@ export function AutocompleteGroupLabel({
 }: AutocompletePrimitive.GroupLabel.Props): React.ReactElement {
   return (
     <AutocompletePrimitive.GroupLabel
-      className={cn(
-        "px-2 py-1.5 font-medium text-muted-foreground text-xs",
-        className,
-      )}
+      className={cn("px-2 py-1.5 font-medium text-muted-foreground text-xs", className)}
       data-slot="autocomplete-group-label"
       {...props}
     />
-  );
+  )
 }
 
 export function AutocompleteEmpty({
@@ -207,24 +204,17 @@ export function AutocompleteEmpty({
       data-slot="autocomplete-empty"
       {...props}
     />
-  );
+  )
 }
 
 export function AutocompleteRow({
   className,
   ...props
 }: AutocompletePrimitive.Row.Props): React.ReactElement {
-  return (
-    <AutocompletePrimitive.Row
-      className={className}
-      data-slot="autocomplete-row"
-      {...props}
-    />
-  );
+  return <AutocompletePrimitive.Row className={className} data-slot="autocomplete-row" {...props} />
 }
 
-export const AutocompleteValue: typeof AutocompletePrimitive.Value =
-  AutocompletePrimitive.Value;
+export const AutocompleteValue: typeof AutocompletePrimitive.Value = AutocompletePrimitive.Value
 
 export function AutocompleteList({
   className,
@@ -233,15 +223,12 @@ export function AutocompleteList({
   return (
     <ScrollArea overscrollContain scrollbarGutter scrollFade>
       <AutocompletePrimitive.List
-        className={cn(
-          "not-empty:scroll-py-1 not-empty:p-1 in-data-has-overflow-y:pe-3",
-          className,
-        )}
+        className={cn("not-empty:scroll-py-1 not-empty:p-1 in-data-has-overflow-y:pe-3", className)}
         data-slot="autocomplete-list"
         {...props}
       />
     </ScrollArea>
-  );
+  )
 }
 
 export function AutocompleteClear({
@@ -259,7 +246,7 @@ export function AutocompleteClear({
     >
       <XIcon />
     </AutocompletePrimitive.Clear>
-  );
+  )
 }
 
 export function AutocompleteStatus({
@@ -275,11 +262,11 @@ export function AutocompleteStatus({
       data-slot="autocomplete-status"
       {...props}
     />
-  );
+  )
 }
 
 export const AutocompleteCollection: typeof AutocompletePrimitive.Collection =
-  AutocompletePrimitive.Collection;
+  AutocompletePrimitive.Collection
 
 export function AutocompleteTrigger({
   className,
@@ -294,10 +281,10 @@ export function AutocompleteTrigger({
     >
       {children}
     </AutocompletePrimitive.Trigger>
-  );
+  )
 }
 
 export const useAutocompleteFilter: typeof AutocompletePrimitive.useFilter =
-  AutocompletePrimitive.useFilter;
+  AutocompletePrimitive.useFilter
 
-export { AutocompletePrimitive };
+export { AutocompletePrimitive }

@@ -167,78 +167,82 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
         <form onSubmit={(event) => void submit(event)} className="contents">
           <SheetPanel className="p-0">
             <div className="flex flex-col gap-6 px-6 py-3">
-            <div className="space-y-2">
-              <Label htmlFor="task-title">Objectif</Label>
-              <Input
-                id="task-title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Ex. Reprendre le flux après reconnexion"
-                autoFocus
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="task-description">Contexte</Label>
-              <Textarea
-                id="task-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Contexte utile à l’agent, sans répéter le résultat attendu."
-                rows={4}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Critères d’acceptation</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() =>
-                    setCriteria((current) => [
-                      ...current,
-                      { id: (current.at(-1)?.id ?? -1) + 1, value: "" },
-                    ])
-                  }
-                >
-                  <Plus />
-                  Ajouter
-                </Button>
+              <div className="space-y-2">
+                <Label htmlFor="task-title">Objectif</Label>
+                <Input
+                  id="task-title"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Ex. Reprendre le flux après reconnexion"
+                  autoFocus
+                />
               </div>
-              {criteria.map((criterion, index) => (
-                <div key={criterion.id} className="flex items-center gap-2">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-secondary text-[0.65rem] font-medium text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <Input
-                    value={criterion.value}
-                    onChange={(event) =>
-                      setCriteria((current) =>
-                        current.map((item) =>
-                          item.id === criterion.id ? { ...item, value: event.target.value } : item,
-                        ),
-                      )
+
+              <div className="space-y-2">
+                <Label htmlFor="task-description">Contexte</Label>
+                <Textarea
+                  id="task-description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Contexte utile à l’agent, sans répéter le résultat attendu."
+                  rows={4}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Critères d’acceptation</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    onClick={() =>
+                      setCriteria((current) => [
+                        ...current,
+                        { id: (current.at(-1)?.id ?? -1) + 1, value: "" },
+                      ])
                     }
-                    placeholder="Le comportement attendu est vérifiable"
-                  />
-                  {criteria.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Supprimer le critère ${index + 1}`}
-                      onClick={() =>
-                        setCriteria((current) => current.filter((item) => item.id !== criterion.id))
-                      }
-                    >
-                      <X />
-                    </Button>
-                  ) : null}
+                  >
+                    <Plus />
+                    Ajouter
+                  </Button>
                 </div>
-              ))}
-            </div>
+                {criteria.map((criterion, index) => (
+                  <div key={criterion.id} className="flex items-center gap-2">
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-secondary text-[0.65rem] font-medium text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <Input
+                      value={criterion.value}
+                      onChange={(event) =>
+                        setCriteria((current) =>
+                          current.map((item) =>
+                            item.id === criterion.id
+                              ? { ...item, value: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                      placeholder="Le comportement attendu est vérifiable"
+                    />
+                    {criteria.length > 1 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Supprimer le critère ${index + 1}`}
+                        onClick={() =>
+                          setCriteria((current) =>
+                            current.filter((item) => item.id !== criterion.id),
+                          )
+                        }
+                      >
+                        <X />
+                      </Button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
             </div>
           </SheetPanel>
 

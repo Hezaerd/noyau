@@ -1,21 +1,19 @@
-"use client";
+"use client"
 
-import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
-import type React from "react";
-import { cn } from "@/lib/utils";
+import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
+import type React from "react"
+
+import { cn } from "@/lib/utils"
 
 export const TooltipCreateHandle: typeof TooltipPrimitive.createHandle =
-  TooltipPrimitive.createHandle;
+  TooltipPrimitive.createHandle
 
-export const TooltipProvider: typeof TooltipPrimitive.Provider =
-  TooltipPrimitive.Provider;
+export const TooltipProvider: typeof TooltipPrimitive.Provider = TooltipPrimitive.Provider
 
-export const Tooltip: typeof TooltipPrimitive.Root = TooltipPrimitive.Root;
+export const Tooltip: typeof TooltipPrimitive.Root = TooltipPrimitive.Root
 
-export function TooltipTrigger(
-  props: TooltipPrimitive.Trigger.Props,
-): React.ReactElement {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+export function TooltipTrigger(props: TooltipPrimitive.Trigger.Props): React.ReactElement {
+  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
 }
 
 export function TooltipPopup({
@@ -28,11 +26,11 @@ export function TooltipPopup({
   portalProps,
   ...props
 }: TooltipPrimitive.Popup.Props & {
-  align?: TooltipPrimitive.Positioner.Props["align"];
-  side?: TooltipPrimitive.Positioner.Props["side"];
-  sideOffset?: TooltipPrimitive.Positioner.Props["sideOffset"];
-  anchor?: TooltipPrimitive.Positioner.Props["anchor"];
-  portalProps?: TooltipPrimitive.Portal.Props;
+  align?: TooltipPrimitive.Positioner.Props["align"]
+  side?: TooltipPrimitive.Positioner.Props["side"]
+  sideOffset?: TooltipPrimitive.Positioner.Props["sideOffset"]
+  anchor?: TooltipPrimitive.Positioner.Props["anchor"]
+  portalProps?: TooltipPrimitive.Portal.Props
 }): React.ReactElement {
   return (
     <TooltipPrimitive.Portal {...portalProps}>
@@ -61,7 +59,7 @@ export function TooltipPopup({
         </TooltipPrimitive.Popup>
       </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>
-  );
+  )
 }
 
-export { TooltipPrimitive, TooltipPopup as TooltipContent };
+export { TooltipPrimitive, TooltipPopup as TooltipContent }

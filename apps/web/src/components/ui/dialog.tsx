@@ -1,32 +1,27 @@
-"use client";
+"use client"
 
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
-import { XIcon } from "lucide-react";
-import type React from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { useRender } from "@base-ui/react/use-render"
+import { XIcon } from "lucide-react"
+import type React from "react"
 
-export const DialogCreateHandle: typeof DialogPrimitive.createHandle =
-  DialogPrimitive.createHandle;
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 
-export const Dialog: typeof DialogPrimitive.Root = DialogPrimitive.Root;
+export const DialogCreateHandle: typeof DialogPrimitive.createHandle = DialogPrimitive.createHandle
 
-export const DialogPortal: typeof DialogPrimitive.Portal =
-  DialogPrimitive.Portal;
+export const Dialog: typeof DialogPrimitive.Root = DialogPrimitive.Root
 
-export function DialogTrigger(
-  props: DialogPrimitive.Trigger.Props,
-): React.ReactElement {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
+export const DialogPortal: typeof DialogPrimitive.Portal = DialogPrimitive.Portal
+
+export function DialogTrigger(props: DialogPrimitive.Trigger.Props): React.ReactElement {
+  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
 }
 
-export function DialogClose(
-  props: DialogPrimitive.Close.Props,
-): React.ReactElement {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
+export function DialogClose(props: DialogPrimitive.Close.Props): React.ReactElement {
+  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
 export function DialogBackdrop({
@@ -42,7 +37,7 @@ export function DialogBackdrop({
       data-slot="dialog-backdrop"
       {...props}
     />
-  );
+  )
 }
 
 export function DialogViewport({
@@ -58,7 +53,7 @@ export function DialogViewport({
       data-slot="dialog-viewport"
       {...props}
     />
-  );
+  )
 }
 
 export function DialogPopup({
@@ -70,19 +65,16 @@ export function DialogPopup({
   portalProps,
   ...props
 }: DialogPrimitive.Popup.Props & {
-  showCloseButton?: boolean;
-  bottomStickOnMobile?: boolean;
-  closeProps?: DialogPrimitive.Close.Props;
-  portalProps?: DialogPrimitive.Portal.Props;
+  showCloseButton?: boolean
+  bottomStickOnMobile?: boolean
+  closeProps?: DialogPrimitive.Close.Props
+  portalProps?: DialogPrimitive.Portal.Props
 }): React.ReactElement {
   return (
     <DialogPortal {...portalProps}>
       <DialogBackdrop />
       <DialogViewport
-        className={cn(
-          bottomStickOnMobile &&
-            "max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-12",
-        )}
+        className={cn(bottomStickOnMobile && "max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-12")}
       >
         <DialogPrimitive.Popup
           className={cn(
@@ -108,7 +100,7 @@ export function DialogPopup({
         </DialogPrimitive.Popup>
       </DialogViewport>
     </DialogPortal>
-  );
+  )
 }
 
 export function DialogHeader({
@@ -122,13 +114,13 @@ export function DialogHeader({
       className,
     ),
     "data-slot": "dialog-header",
-  };
+  }
 
   return useRender({
     defaultTagName: "div",
     props: mergeProps<"div">(defaultProps, props),
     render,
-  });
+  })
 }
 
 export function DialogFooter({
@@ -137,7 +129,7 @@ export function DialogFooter({
   render,
   ...props
 }: useRender.ComponentProps<"div"> & {
-  variant?: "default" | "bare";
+  variant?: "default" | "bare"
 }): React.ReactElement {
   const defaultProps = {
     className: cn(
@@ -148,13 +140,13 @@ export function DialogFooter({
       className,
     ),
     "data-slot": "dialog-footer",
-  };
+  }
 
   return useRender({
     defaultTagName: "div",
     props: mergeProps<"div">(defaultProps, props),
     render,
-  });
+  })
 }
 
 export function DialogTitle({
@@ -163,14 +155,11 @@ export function DialogTitle({
 }: DialogPrimitive.Title.Props): React.ReactElement {
   return (
     <DialogPrimitive.Title
-      className={cn(
-        "font-heading font-semibold text-xl leading-none",
-        className,
-      )}
+      className={cn("font-heading font-semibold text-xl leading-none", className)}
       data-slot="dialog-title"
       {...props}
     />
-  );
+  )
 }
 
 export function DialogDescription({
@@ -183,7 +172,7 @@ export function DialogDescription({
       data-slot="dialog-description"
       {...props}
     />
-  );
+  )
 }
 
 export function DialogPanel({
@@ -192,7 +181,7 @@ export function DialogPanel({
   render,
   ...props
 }: useRender.ComponentProps<"div"> & {
-  scrollFade?: boolean;
+  scrollFade?: boolean
 }): React.ReactElement {
   const defaultProps = {
     className: cn(
@@ -200,7 +189,7 @@ export function DialogPanel({
       className,
     ),
     "data-slot": "dialog-panel",
-  };
+  }
 
   return (
     <ScrollArea overscrollContain scrollFade={scrollFade}>
@@ -210,11 +199,7 @@ export function DialogPanel({
         render,
       })}
     </ScrollArea>
-  );
+  )
 }
 
-export {
-  DialogPrimitive,
-  DialogBackdrop as DialogOverlay,
-  DialogPopup as DialogContent,
-};
+export { DialogPrimitive, DialogBackdrop as DialogOverlay, DialogPopup as DialogContent }
