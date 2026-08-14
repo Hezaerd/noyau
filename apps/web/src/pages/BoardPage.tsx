@@ -8,6 +8,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragMoveEvent,
   type DragStartEvent,
 } from "@dnd-kit/core"
 import {
@@ -38,7 +39,14 @@ import {
   UserRound,
   X,
 } from "lucide-react"
-import { useRef, useState, type CSSProperties, type FormEvent, type RefObject } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type RefObject,
+} from "react"
 
 import { TicketSheet } from "@/components/board/TicketSheet"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -620,6 +628,7 @@ export function BoardPage({
   const boardRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const localId = useRef(0)
+  const dragMoveLogged = useRef(false)
   const filters: BoardFilters = {
     query: search.q ?? "",
     ...(search.assignee === undefined ? {} : { assignee: search.assignee }),
@@ -636,6 +645,36 @@ export function BoardPage({
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
   )
+
+  useEffect(() => {
+    if (draggedTicketId === undefined) {
+      return
+    }
+    requestAnimationFrame(() => {
+      const overlay = document.querySelector<HTMLElement>("[data-agent-drag-overlay]")
+      const rect = overlay?.getBoundingClientRect()
+      const style = overlay === null ? undefined : window.getComputedStyle(overlay)
+      // #region agent log
+      agentDebugLog({
+        hypothesisId: "C",
+        location: "BoardPage.tsx:overlayCommitEffect",
+        message: "drag overlay inspected after React commit",
+        data: {
+          draggedTicketId,
+          found: overlay !== null,
+          width: rect?.width ?? null,
+          height: rect?.height ?? null,
+          x: rect?.x ?? null,
+          y: rect?.y ?? null,
+          display: style?.display ?? null,
+          visibility: style?.visibility ?? null,
+          opacity: style?.opacity ?? null,
+          transform: style?.transform ?? null,
+        },
+      })
+      // #endregion
+    })
+  }, [draggedTicketId])
 
   const setActiveAndFocus = (ticketId: string | undefined) => {
     setActiveTicketId(ticketId)
@@ -953,6 +992,7 @@ export function BoardPage({
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={({ active }: DragStartEvent) => {
+          dragMoveLogged.current = false
           // #region agent log
           agentDebugLog({
             hypothesisId: "B,C",
@@ -965,6 +1005,25 @@ export function BoardPage({
           })
           // #endregion
           setDraggedTicketId(String(active.id))
+        }}
+        onDragMove={({ active, over, delta }: DragMoveEvent) => {
+          if (dragMoveLogged.current) {
+            return
+          }
+          dragMoveLogged.current = true
+          // #region agent log
+          agentDebugLog({
+            hypothesisId: "C,D",
+            location: "BoardPage.tsx:DndContext.onDragMove",
+            message: "first dnd movement observed after activation",
+            data: {
+              activeId: String(active.id),
+              overId: over === null ? null : String(over.id),
+              deltaX: delta.x,
+              deltaY: delta.y,
+            },
+          })
+          // #endregion
         }}
         onDragEnd={handleDragEnd}
         onDragCancel={() => {
@@ -1075,14 +1134,16 @@ export function BoardPage({
 
         <DragOverlay>
           {draggedTicket === undefined ? null : (
-            <TicketCard
-              ticket={draggedTicket}
-              state={state}
-              active={false}
-              overlay
-              onFocus={() => undefined}
-              onOpen={() => undefined}
-            />
+            <div data-agent-drag-overlay>
+              <TicketCard
+                ticket={draggedTicket}
+                state={state}
+                active={false}
+                overlay
+                onFocus={() => undefined}
+                onOpen={() => undefined}
+              />
+            </div>
           )}
         </DragOverlay>
       </DndContext>
