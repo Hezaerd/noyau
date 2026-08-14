@@ -35,8 +35,8 @@ const meta = {
   schemaVersion: 1,
 } as const
 
-const command = (input: unknown) => Schema.decodeUnknownSync(TicketCommand)(input)
-const dependencyCommand = (input: unknown) => Schema.decodeUnknownSync(TicketDependencyAdd)(input)
+const command = Schema.decodeUnknownSync(TicketCommand)
+const dependencyCommand = Schema.decodeUnknownSync(TicketDependencyAdd)
 const executionId = Schema.decodeSync(ExecutionId)(ids.execution)
 const execution2Id = Schema.decodeSync(ExecutionId)(ids.execution2)
 const ticketId = Schema.decodeSync(TicketId)(ids.ticket)

@@ -86,9 +86,9 @@ const decodePositionRow = Schema.decodeUnknownEffect(PositionRow)
 const decodeCorrelationRow = Schema.decodeUnknownEffect(CorrelationRow)
 const decodeEventPayloadRow = Schema.decodeUnknownEffect(EventPayloadRow)
 
-const firstDecoded = <A, I, R>(
-  rows: ReadonlyArray<unknown>,
-  decode: (input: unknown) => Effect.Effect<A, I, R>,
+const firstDecoded = <A, Row, E, R>(
+  rows: ReadonlyArray<Row>,
+  decode: (input: Row) => Effect.Effect<A, E, R>,
 ) => {
   const first = rows[0]
   return first === undefined
@@ -148,9 +148,9 @@ const applyProjection = (sql: SqlClient, projectId: ProjectId, event: TaskEvent,
 }
 
 const canonicalRequestFromCommand = (command: TaskCommand): CanonicalTaskRequest => {
-  const meta = {
-    commandId: command.commandId,
-    ...(command.causationId === undefined ? {} : { causationId: command.causationId }),
+  const meta = { commandId: command.commandId }
+  if (command.causationId !== undefined) {
+    Object.assign(meta, { causationId: command.causationId })
   }
   switch (command._tag) {
     case "task.create":
@@ -431,7 +431,9 @@ export const executeTaskCommandRequest = ({
         correlationId,
         issuedAt,
         schemaVersion: 1 as const,
-        ...(request.causationId === undefined ? {} : { causationId: request.causationId }),
+      }
+      if (request.causationId !== undefined) {
+        Object.assign(metadata, { causationId: request.causationId })
       }
       switch (request._tag) {
         case "task.create":
@@ -470,8 +472,8 @@ const TaskRow = Schema.Struct({
 
 const decodeTaskRow = Schema.decodeUnknownEffect(TaskRow)
 
-const taskFromRow = (row: (typeof TaskRow)["Type"]) =>
-  Task.make({
+const taskFromRow = (row: (typeof TaskRow)["Type"]) => {
+  const task = {
     id: row.id,
     missionId: row.mission_id,
     projectId: row.project_id,
@@ -479,9 +481,15 @@ const taskFromRow = (row: (typeof TaskRow)["Type"]) =>
     acceptanceCriteria: row.acceptance_criteria,
     status: row.status,
     createdAt: row.created_at,
-    ...(row.description === null ? {} : { description: row.description }),
-    ...(row.assignee_id === null ? {} : { assigneeId: row.assignee_id }),
-  })
+  }
+  if (row.description !== null) {
+    Object.assign(task, { description: row.description })
+  }
+  if (row.assignee_id !== null) {
+    Object.assign(task, { assigneeId: row.assignee_id })
+  }
+  return Task.make(task)
+}
 
 /** Lit une tâche dans son projet et décode la projection. */
 export const readTask = (projectId: ProjectId, taskId: TaskId) =>

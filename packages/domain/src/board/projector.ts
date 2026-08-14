@@ -114,15 +114,25 @@ export const evolve = (state: BoardState, event: TicketEvent): BoardState => {
         tickets:
           event.destinationColumnId === undefined
             ? state.tickets
-            : state.tickets.map((ticket) => ({
-                ...ticket,
-                ...(ticket.archived && ticket.columnId === event.columnId
-                  ? { columnId: event.destinationColumnId }
-                  : {}),
-                ...(ticket.done && ticket.lastActiveColumnId === event.columnId
-                  ? { lastActiveColumnId: event.destinationColumnId }
-                  : {}),
-              })),
+            : state.tickets.map((ticket) => {
+                const destinationColumnId = event.destinationColumnId
+                const next = { ...ticket }
+                if (
+                  destinationColumnId !== undefined &&
+                  ticket.archived &&
+                  ticket.columnId === event.columnId
+                ) {
+                  next.columnId = destinationColumnId
+                }
+                if (
+                  destinationColumnId !== undefined &&
+                  ticket.done &&
+                  ticket.lastActiveColumnId === event.columnId
+                ) {
+                  next.lastActiveColumnId = destinationColumnId
+                }
+                return next
+              }),
       }
     case "ticket.created":
       return {
@@ -190,11 +200,14 @@ export const evolve = (state: BoardState, event: TicketEvent): BoardState => {
             : event.description === undefined
               ? ticket
               : { ...ticket, description: event.description }
-        return {
-          ...described,
-          ...(event.title === undefined ? {} : { title: event.title }),
-          ...(event.priority === undefined ? {} : { priority: event.priority }),
+        const updated = { ...described }
+        if (event.title !== undefined) {
+          updated.title = event.title
         }
+        if (event.priority !== undefined) {
+          updated.priority = event.priority
+        }
+        return updated
       })
     case "ticket.dependency.added":
       return withDerivedOpenDependencies({

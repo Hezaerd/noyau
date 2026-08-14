@@ -15,11 +15,12 @@ import {
 import { Effect, Stream } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
+import type { SqlError } from "effect/unstable/sql/SqlError"
 
 import { ServerConfig } from "./config"
 import { decodeEventCursor, encodeEventCursor } from "./cursor"
 
-const unavailable = (error: unknown) =>
+const unavailable = (error: SqlError) =>
   Effect.logError("PostgreSQL operation failed", error).pipe(
     Effect.andThen(
       new ServiceUnavailable({
@@ -52,10 +53,7 @@ export const projectHandlersLayer = HttpApiBuilder.group(ControlPlaneApi, "proje
             Effect.logWarning("Task command failed").pipe(
               Effect.annotateLogs({
                 ...annotations,
-                outcome:
-                  typeof error === "object" && error !== null && "_tag" in error
-                    ? error._tag
-                    : "defect",
+                outcome: "_tag" in error ? error._tag : "defect",
               }),
             ),
           ),
