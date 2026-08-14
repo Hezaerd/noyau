@@ -3,6 +3,14 @@
 Monorepo TypeScript du LifeOS Noyau. Voir [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour la
 vision, les décisions d'architecture et l'ordre de construction.
 
+## Modèle produit
+
+Chaque projet possède exactement un tableau Kanban pour des tickets suivis par des humains et,
+facultativement, des profils d'agents configurés par ses utilisateurs. Le ticket reste un objet de
+gestion léger ; le travail autonome est isolé selon
+`Ticket → Execution → Attempt → AgentRun`. Noyau n'utilise pas de conteneur `Mission`.
+Voir [l'ADR-0008](docs/adr/0008-separer-ticket-et-execution.md).
+
 ## Prérequis
 
 - [Bun](https://bun.com) (package manager et runtime applicatif)

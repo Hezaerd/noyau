@@ -14,6 +14,24 @@ import {
   TaskId,
   ThreadId,
 } from "./ids"
+import {
+  BoardInitialize,
+  ExecutionStart,
+  KanbanColumnCreate,
+  KanbanColumnDelete,
+  KanbanColumnMove,
+  KanbanColumnUpdate,
+  TicketArchive,
+  TicketAssign,
+  TicketComplete,
+  TicketCreate,
+  TicketDependencyAdd,
+  TicketDependencyRemove,
+  TicketMove,
+  TicketReopen,
+  TicketRestore,
+  TicketUpdate,
+} from "./ticket/commands"
 
 /**
  * Métadonnées choisies par le client. Le control plane possède et ajoute le
@@ -118,7 +136,29 @@ export const MessageSend = Schema.TaggedStruct("message.send", {
 })
 export type MessageSend = (typeof MessageSend)["Type"]
 
-export const Command = Schema.Union([TaskCreate, TaskAssign, TaskComplete, TaskFail, MessageSend])
+export const Command = Schema.Union([
+  TaskCreate,
+  TaskAssign,
+  TaskComplete,
+  TaskFail,
+  MessageSend,
+  TicketCreate,
+  TicketMove,
+  TicketComplete,
+  TicketReopen,
+  TicketArchive,
+  TicketRestore,
+  TicketAssign,
+  TicketUpdate,
+  TicketDependencyAdd,
+  TicketDependencyRemove,
+  ExecutionStart,
+  KanbanColumnCreate,
+  KanbanColumnUpdate,
+  KanbanColumnMove,
+  KanbanColumnDelete,
+  BoardInitialize,
+])
 export type Command = (typeof Command)["Type"]
 
 /** Décodage à la frontière : toute commande entrante passe par ici. */

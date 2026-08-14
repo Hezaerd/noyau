@@ -17,6 +17,27 @@ export type ThreadId = (typeof ThreadId)["Type"]
 export const MessageId = Uuid.pipe(Schema.brand("MessageId"))
 export type MessageId = (typeof MessageId)["Type"]
 
+export const KanbanColumnId = Uuid.pipe(Schema.brand("KanbanColumnId"))
+export type KanbanColumnId = (typeof KanbanColumnId)["Type"]
+
+export const TicketId = Uuid.pipe(Schema.brand("TicketId"))
+export type TicketId = (typeof TicketId)["Type"]
+
+export const LabelId = Uuid.pipe(Schema.brand("LabelId"))
+export type LabelId = (typeof LabelId)["Type"]
+
+export const ChecklistItemId = Uuid.pipe(Schema.brand("ChecklistItemId"))
+export type ChecklistItemId = (typeof ChecklistItemId)["Type"]
+
+export const AttachmentId = Uuid.pipe(Schema.brand("AttachmentId"))
+export type AttachmentId = (typeof AttachmentId)["Type"]
+
+export const AgentProfileId = Uuid.pipe(Schema.brand("AgentProfileId"))
+export type AgentProfileId = (typeof AgentProfileId)["Type"]
+
+export const ExecutionId = Uuid.pipe(Schema.brand("ExecutionId"))
+export type ExecutionId = (typeof ExecutionId)["Type"]
+
 export const MissionId = Uuid.pipe(Schema.brand("MissionId"))
 export type MissionId = (typeof MissionId)["Type"]
 
@@ -28,6 +49,15 @@ export type AttemptId = (typeof AttemptId)["Type"]
 
 export const AgentRunId = Uuid.pipe(Schema.brand("AgentRunId"))
 export type AgentRunId = (typeof AgentRunId)["Type"]
+
+export const ArtifactId = Uuid.pipe(Schema.brand("ArtifactId"))
+export type ArtifactId = (typeof ArtifactId)["Type"]
+
+export const ApprovalId = Uuid.pipe(Schema.brand("ApprovalId"))
+export type ApprovalId = (typeof ApprovalId)["Type"]
+
+export const CapabilityGrantId = Uuid.pipe(Schema.brand("CapabilityGrantId"))
+export type CapabilityGrantId = (typeof CapabilityGrantId)["Type"]
 
 export const CommandId = Uuid.pipe(Schema.brand("CommandId"))
 export type CommandId = (typeof CommandId)["Type"]

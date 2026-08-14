@@ -2,6 +2,9 @@
 
 Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
+Dans ce document, « ticket » désigne une GitHub Issue utilisée par les agents de développement, pas
+l'entité métier `Ticket` du tableau Kanban Noyau.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.

@@ -12,8 +12,10 @@ Le workspace racine utilise le vrai control plane. En développement, Vite proxi
 
 ## Sandbox
 
-L'UI démarre sans configuration avec un projet, une mission et un acteur sandbox stables. Ces
-valeurs non sensibles peuvent être remplacées :
+L'UI actuelle démarre sans configuration avec un projet, une mission legacy et un acteur sandbox
+stables. `VITE_NOYAU_MISSION_ID` appartient au protocole antérieur à l'ADR-0008 ; il disparaîtra
+lors de la migration vers le tableau et les tickets, sans être remplacé par un conteneur
+intermédiaire. Ces valeurs non sensibles peuvent être remplacées :
 
 | Variable                  | Défaut                                 |
 | ------------------------- | -------------------------------------- |

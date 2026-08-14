@@ -14,15 +14,14 @@ Chaque projet doit disposer :
 
 - d'un ou plusieurs dépôts GitHub associés ;
 - d'un espace de discussion de type channel/forum ;
-- de missions décomposées en tâches ;
-- d'une cheffe d'orchestre appelée Marion ;
-- d'agents spécialisés que Marion peut mobiliser ;
+- d'un tableau Kanban unique pour organiser des tickets humains-agents ;
 - d'un historique durable des décisions, messages, exécutions et artefacts ;
 - de workflows n8n que les agents peuvent proposer et tester sous contrôle.
 
-Marion planifie et coordonne. Elle ne doit pas être l'endroit où réside l'état du système. Noyau
-possède l'état durable, les permissions et les règles ; Hermes est un moteur d'exécution d'agents
-remplaçable.
+Un projet peut fonctionner sans agent ou utiliser les profils d'agents configurés par ses
+utilisateurs. Un profil peut notamment jouer un rôle d'orchestration, mais ce rôle ne crée ni type
+d'entité ni permission implicite. Noyau possède l'état durable, les permissions et les règles ;
+Hermes est un moteur d'exécution d'agents remplaçable.
 
 ## Stack souhaitée
 
@@ -53,7 +52,7 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
 ```text
                          +----------------------+
                          |    Web App (PWA)     |
-                         | forum, tâches, diffs |
+                         | forum, tickets, diffs|
                          +----------+-----------+
                                     |
                         Effect RPC (WebSocket)
@@ -65,21 +64,26 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
                                 |       |
                      +----------v--+ +--v-------------+
                      | PostgreSQL | | Workflow Engine |
-                     | état/events| | missions/tasks  |
+                     | état/events| | executions      |
                      +-------------+ +--+--------------+
                                        |
                                 +------v-------+
                                 |  Scheduler   |
                                 +------+-------+
                                        |
-                 +---------------------+---------------------+
-                 |                     |                     |
-          +------v------+       +------v------+      +------v-----+
-          | Hermes Run  |       | Hermes Run  |      | n8n Gateway|
-          | développeur |       | reviewer     |      | draft/test |
-          +------+------+       +------+------+      +------------+
-                 |                     |
-          container/worktree    container/worktree
+                         +-------------+-------------+
+                         |                           |
+                  +------v-----------+       +-------v----+
+                  | Attempt          |       | n8n Gateway|
+                  | branche/worktree |       | draft/test |
+                  +----+--------+----+       +------------+
+                       |        |
+              +--------v--+  +--v---------+
+              | Hermes Run|  | Hermes Run |
+              | principal |  | auxiliaire |
+              +-----+-----+  +------+-----+
+                    |               |
+             processus/containers isolables
 ```
 
 Commencer par un modular monolith : un seul processus serveur — frontière RPC, engine de
@@ -108,7 +112,7 @@ Trois pièces sont volontairement différées au scénario « Noyau distribué �
 Noyau possède :
 
 - projets, dépôts et channels ;
-- missions, tâches, dépendances et tentatives ;
+- tableau Kanban, tickets, dépendances, exécutions et tentatives ;
 - messages et questions ;
 - profils d'agents ;
 - politiques d'autonomie et permissions ;
@@ -118,26 +122,17 @@ Noyau possède :
 - versions des prompts, outils et profils ;
 - propositions et versions de workflows n8n.
 
-### Marion
+### Profils d'agents
 
-Marion doit pouvoir :
+Les profils d'agents sont configurés par les utilisateurs ; aucun agent ni orchestrateur n'est
+natif ou obligatoire. Un profil peut lire le contexte ciblé d'un projet, proposer un plan, créer des
+tickets reliés par un DAG de dépendances ou coordonner d'autres profils seulement lorsque ses
+capability grants l'y autorisent. Son rôle affiché ne lui confère aucun droit.
 
-- lire le contexte ciblé d'un projet ;
-- transformer une demande en plan structuré ;
-- construire un DAG de tâches ;
-- sélectionner un profil d'agent ;
-- définir les permissions, budgets et critères d'acceptation ;
-- recevoir des rapports synthétiques ;
-- replanifier après un résultat ou un échec ;
-- demander une décision humaine.
-
-Par défaut, Marion ne devrait pas disposer d'un terminal. Ses outils principaux sont les commandes
-du control plane.
-
-### Agents spécialisés
-
-Chaque agent spécialisé travaille sur une tâche bornée, dans une exécution indépendante. Il reçoit
-un contexte minimal, des capacités temporaires et des critères d'acceptation explicites.
+Chaque agent travaille dans un `AgentRun` appartenant à un `Attempt` isolé. L'exécution qui porte
+l'intention définit un résultat attendu, un budget et une politique d'outils ; le run reçoit un
+contexte minimal et des capacités temporaires. Un profil orchestrateur devrait utiliser les
+commandes du control plane plutôt qu'un terminal et ne possède jamais l'état de l'orchestration.
 
 ### n8n
 
@@ -152,14 +147,22 @@ Project
  |- Channel
  |   `- Thread
  |       `- Message
- `- Mission
-     |- Task
-     |   |- TaskDependency
-     |   |- Attempt
-     |   |   `- AgentRun
-     |   |- Artifact
-     |   `- Approval
-     `- WorkflowProposal
+ |- KanbanColumn
+ |- Label
+ |- WorkflowProposal
+ `- Ticket
+     |- TicketDependency
+     |- ChecklistItem
+     |- TicketLabel
+     |- Participant
+     |- Subscription
+     |- TicketThread
+     |- Attachment
+     `- Execution
+         |- Attempt
+         |   |- AgentRun
+         |   `- Artifact
+         `- Approval
 ```
 
 Entités/tableaux à prévoir :
@@ -169,10 +172,17 @@ Entités/tableaux à prévoir :
 - `channels`
 - `threads`
 - `messages`
-- `missions`
-- `tasks`
-- `task_dependencies`
-- `task_attempts`
+- `kanban_columns`
+- `labels`
+- `tickets`
+- `ticket_dependencies`
+- `ticket_labels`
+- `ticket_participants`
+- `ticket_subscriptions`
+- `checklist_items`
+- `attachments`
+- `executions`
+- `attempts`
 - `agent_profiles`
 - `agent_runs`
 - `artifacts`
@@ -187,17 +197,86 @@ Entités/tableaux à prévoir :
 Toutes les identités importantes doivent utiliser des identifiants opaques et brandés. Tous les
 payloads entrant ou sortant d'un processus doivent être décodés avec `Effect.Schema`.
 
-## Cycle de vie d'une tâche
+## Tracker Kanban
+
+Chaque projet possède exactement un tableau. Le tableau n'est pas une entité autonome : c'est la
+projection ordonnée des colonnes et tickets du projet.
+
+- Les colonnes ordinaires sont librement nommées, ordonnées, créées et supprimées. Supprimer une
+  colonne exige une destination active et non terminale ; `Done` ne doit jamais être acceptée. Dans
+  la même transaction, Noyau déplace les tickets actifs et re-cible toutes les références vers la
+  destination, notamment le `columnId` des tickets archivés et le `lastActiveColumnId` des tickets
+  terminés. Aucune colonne supprimée ne doit rester référencée.
+- Une colonne terminale `Done` possède une identité système unique et protégée ; son nom, sa couleur
+  et sa position restent configurables.
+- Chaque ticket possède un booléen `done`, source de vérité de sa clôture. Le toggle et les
+  déplacements vers ou hors de la colonne `Done` restent bidirectionnellement cohérents. Une
+  réouverture par toggle restaure le `lastActiveColumnId`, qui doit toujours désigner une colonne
+  active et non terminale.
+- L'ordre des tickets est partagé et durable dans chaque colonne. Les déplacements entre colonnes
+  sont libres.
+- Un ticket est plat : pas de sous-ticket. Une checklist reste interne ; un élément qui exige un
+  responsable, une dépendance ou une exécution devient un ticket.
+- Les dépendances forment un DAG. Un prérequis ouvert ajoute un badge `blocked-by` dérivé et empêche
+  de lancer une nouvelle exécution, sans déplacer automatiquement la carte. Une clôture manuelle
+  reste possible après avertissement. Si un prérequis est rouvert pendant une exécution dépendante,
+  Noyau signale le blocage sans interrompre automatiquement le run déjà lancé.
+- Un ticket archivé quitte le tableau actif mais conserve relations et historique. Il reste
+  recherchable et restaurable dans son `columnId`, qui doit toujours désigner une colonne active et
+  non terminale. La suppression définitive est une action distincte et protégée.
+
+Le ticket exige seulement un titre. Il peut aussi porter une description, une priorité
+(`none`, `low`, `normal`, `high`, `urgent`), une échéance, une checklist, des étiquettes, un
+responsable unique et plusieurs participants explicites. Le responsable est un humain ou un profil
+d'agent persistant — jamais un run. La participation ne confère aucun droit implicite.
+L'étiquette native protégée `need-human` est un signal visuel manuel sans effet métier ; mentions,
+questions explicites et abonnements déclenchent les notifications. Responsable et participants sont
+abonnés par défaut avec opt-out.
+
+Quand plusieurs tickets sont exécutables, l'ordonnancement par défaut considère successivement la
+priorité, l'échéance puis l'ordre visuel de la carte dans sa colonne.
+
+Chaque ticket possède un thread de travail dédié et peut référencer un thread source optionnel et
+immuable. Les pièces jointes utilisateur appartiennent au ticket ; les artefacts versionnés
+appartiennent aux attempts mais restent visibles depuis la carte.
+
+## Cycles de vie du ticket et de l'exécution
+
+Le ticket suit sa colonne, son booléen `done` et son éventuel archivage ; il ne reprend jamais les
+états techniques d'un agent. Terminer ou archiver un ticket avec des exécutions actives exige une
+confirmation puis l'interruption de chacune d'elles. Un fait d'interruption doit être émis pour
+chaque exécution active, et tous ces faits doivent précéder le fait de clôture ou d'archivage. Les
+exécutions dont le statut dérivé est déjà `completed`, `failed` ou `cancelled` ne reçoivent aucun
+fait d'interruption. Une réassignation n'interrompt pas les exécutions existantes. Un ticket terminé
+ou archivé doit être rouvert ou restauré avant tout nouveau lancement.
+
+Une `Execution` est une intention durable de contribution agent, distincte de l'assignation du
+ticket. La lancer est une commande explicite contrôlée par une capability grant. Elle porte un
+résultat attendu libre, un budget et une politique d'outils. Plusieurs exécutions aux résultats
+attendus distincts peuvent contribuer parallèlement au même ticket sans partager branche, worktree
+ou état implicite.
 
 ```text
-proposed -> ready -> leased -> running
-                              |- waiting_human
-                              |- waiting_agent
-                              |- verifying -> completed
-                              `- failed / cancelled
+Execution
+ `- Attempt 1 -> leased -> running
+                           |- waiting_human
+                           |- waiting_agent
+                           |- verifying -> completed
+                           `- failed / cancelled
+ `- Attempt 2 -> ... (retry)
 ```
 
-Le LLM ne modifie jamais directement cet état ou la base de données. Il appelle une commande typée,
+Chaque retry crée un nouvel `Attempt`, propriétaire de son worktree et de sa branche. Un `Attempt`
+contient un `AgentRun` principal et peut contenir des `AgentRun` auxiliaires tracés, qui partagent
+tous cet espace de travail. Le cycle technique (`leased`, `running`, `waiting_human`,
+`waiting_agent`, `verifying`, `completed`, `failed`, `cancelled`), la `lease` et les réveils
+appartiennent à l'`Attempt`. Le statut de l'`Execution` est une projection dérivée de ses tentatives,
+jamais une seconde machine d'état. La réussite d'une exécution produit un rapport mais ne clôt
+jamais automatiquement le ticket : un humain ou un agent autorisé le fait par une commande séparée
+selon la politique du projet. Une approbation vise une action précise de l'exécution, réveille
+l'`Attempt` concerné et reste visible depuis le ticket.
+
+Le LLM ne modifie jamais directement ces états ni la base de données. Il appelle une commande typée,
 le control plane vérifie les droits et les invariants, écrit l'événement, puis déclenche la suite.
 
 À la frontière RPC, le client soumet une `CommandRequest` avec un `commandId`, une commande, son
@@ -207,11 +286,14 @@ vérifiée, ou utilise `commandId` comme racine.
 
 Commandes initiales envisagées :
 
-- `task.create`
-- `task.assign`
-- `task.complete`
-- `task.fail`
-- `agent.spawn`
+- `ticket.create`
+- `ticket.assign`
+- `ticket.move`
+- `ticket.complete`
+- `ticket.reopen`
+- `ticket.archive`
+- `execution.start`
+- `execution.retry`
 - `agent.interrupt`
 - `message.send`
 - `question.ask`
@@ -254,15 +336,16 @@ journal est durable ; `LISTEN/NOTIFY` pourra accélérer le réveil sans devenir
 Pour un premier déploiement sur un VPS :
 
 - PostgreSQL stocke l'état, les événements et les leases ;
-- les workers réclament une tâche avec verrouillage et expiration de lease ;
+- les workers réclament un attempt avec verrouillage et expiration de lease ;
 - `LISTEN/NOTIFY` peut accélérer le réveil, mais ne doit jamais être la source de durabilité ;
 - toutes les commandes susceptibles d'être répétées ont une clé d'idempotence.
 
 Prévoir une abstraction `WorkflowEngine`, implémentée dans PostgreSQL : leases avec expiration,
-timers persistés et reprise après crash. Les attentes humaines et inter-agents sont des états
-(`waiting_human`, `waiting_agent`) réveillés par événement, jamais des processus bloqués en mémoire.
-Cette machine à états maison doit donc assumer elle-même retries, timeouts et réveils différés ; le
-port `WorkflowEngine` protège un éventuel remplacement futur si les missions deviennent trop
+timers persistés et reprise après crash. Les attentes humaines et inter-agents sont des états de
+l'`Attempt` (`waiting_human`, `waiting_agent`) réveillés par événement, jamais des processus bloqués
+en mémoire. Cette machine à états des tentatives doit donc assumer elle-même retries, timeouts et
+réveils différés ; le statut de l'`Execution` reste une projection de ses tentatives. Le port
+`WorkflowEngine` protège un éventuel remplacement futur si les graphes d'exécutions deviennent trop
 complexes.
 
 ## Forum et communication inter-agents
@@ -272,8 +355,8 @@ Le forum est une projection lisible de l'activité, pas le contexte brut du LLM.
 Un message doit pouvoir référencer :
 
 - `projectId` ;
-- `missionId` ;
-- `taskId` ;
+- `ticketId` ;
+- `executionId` ;
 - `runId` ;
 - auteur et audience ;
 - `replyTo` ;
@@ -290,12 +373,12 @@ Agent A -> message.send(to: Agent B)
         -> Agent A reprend
 ```
 
-Cette médiation empêche les tempêtes de délégation, conserve l'audit et permet de suspendre une tâche
-pendant une question.
+Cette médiation empêche les tempêtes de délégation, conserve l'audit et permet de suspendre une
+exécution pendant une question.
 
 Ne jamais injecter tout l'historique du forum dans un prompt. Construire un `ContextPack` versionné et
-ciblé contenant seulement : objectif, critères d'acceptation, décisions pertinentes, résumé des
-échanges, fichiers utiles et capacités disponibles. Pas de magasin mémoire externe (Mem0) : le
+ciblé contenant seulement : ticket, résultat attendu de l'exécution, décisions pertinentes, résumé
+des échanges, fichiers utiles et capacités disponibles. Pas de magasin mémoire externe (Mem0) : le
 `ContextPack` se limite à l'état Noyau (ADR-0005).
 
 ## Intégration Hermes
@@ -304,39 +387,42 @@ Hermes est le premier adaptateur d'un port générique :
 
 ```ts
 interface AgentRuntime {
-  readonly start: (
-    input: AgentRunInput,
-  ) => Effect.Effect<RunHandle, AgentRuntimeError>
+  readonly start: (input: AgentRunInput) => Effect.Effect<RunHandle, AgentRuntimeError>
 
-  readonly interrupt: (
-    runId: AgentRunId,
-  ) => Effect.Effect<void, AgentRuntimeError>
+  readonly interrupt: (runId: AgentRunId) => Effect.Effect<void, AgentRuntimeError>
 
-  readonly events: (
-    runId: AgentRunId,
-  ) => Stream.Stream<AgentEvent, AgentRuntimeError>
+  readonly events: (runId: AgentRunId) => Stream.Stream<AgentEvent, AgentRuntimeError>
 }
 ```
 
 Noyau adresse une instance Hermes, pas un cluster : soit le processus tourne sur la même machine
-que le serveur, soit il est joignable par Tailscale (ADR-0007). L'isolation du run (container,
-worktree) est du ressort d'Hermes sur cet hôte. Utiliser l'API HTTP publique et streamée d'Hermes
-plutôt que les WebSockets internes de son dashboard. Créer un MCP ou plugin Noyau exposant
-uniquement les commandes autorisées aux agents.
+que le serveur, soit il est joignable par Tailscale (ADR-0007). Chaque `Attempt` possède exactement
+une branche et un worktree, partagés par tous ses `AgentRun`. Hermes peut isoler leurs processus ou
+containers sur cet hôte, mais ne doit pas créer un espace de travail par `AgentRun`. Deux `Attempt`
+distincts ne doivent jamais partager une branche ou un worktree. Utiliser l'API HTTP publique et
+streamée d'Hermes plutôt que les WebSockets internes de son dashboard. Créer un MCP ou plugin Noyau
+exposant uniquement les commandes autorisées aux agents.
 
 Ne pas baser l'architecture de Noyau sur `delegate_task` : les sous-agents Hermes sont adaptés aux
 sous-tâches temporaires mais pas à la collaboration durable souhaitée. Noyau doit lancer des runs
 Hermes indépendants et considérer Hermes comme remplaçable.
 
-Pour chaque run :
+Pour chaque `Attempt` :
 
 - exiger un checkout ou `git worktree` dédié sur l'hôte Hermes ;
 - utiliser une branche dédiée ;
+- partager cet espace de travail entre l'`AgentRun` principal et ses `AgentRun` auxiliaires ;
+- détruire ou archiver proprement l'espace de travail à la fin.
+
+Pour chaque `AgentRun` :
+
+- isoler le processus ou le container si nécessaire, sans créer de branche ni de worktree
+  supplémentaire ;
 - injecter un profil, un prompt et une liste de capacités versionnés ;
 - limiter CPU, mémoire, durée, tokens et profondeur de délégation ;
 - ne jamais monter le socket Docker dans l'environnement du run ;
 - journaliser les appels d'outils en redigeant les secrets ;
-- détruire ou archiver proprement l'environnement à la fin.
+- détruire proprement l'environnement d'exécution à la fin.
 
 ## Git et artefacts
 
@@ -348,8 +434,9 @@ Un agent de code ne travaille jamais directement sur la branche principale.
 Flux recommandé :
 
 ```text
-Task
- -> worktree + branche dédiée
+Ticket
+ -> Execution
+ -> Attempt + worktree + branche dédiée
  -> changements
  -> format/lint/typecheck/tests
  -> rapport et diff
@@ -382,7 +469,7 @@ proposition agent
  -> contrôle des nodes et expressions
  -> installation dans n8n-dev
  -> exécution sur fixtures
- -> revue humaine ou Marion
+ -> revue humaine ou agent autorisé
  -> pull request
  -> promotion vers n8n-prod
 ```
@@ -434,7 +521,7 @@ Invariants :
 - limiter ressources, durée, coût et récursion ;
 - conserver un audit append-only ;
 - rendre les actions externes idempotentes ;
-- fournir un kill switch par run, mission et projet ;
+- fournir un kill switch par run, exécution, ticket et projet ;
 - versionner prompts, profils, modèles et manifestes d'outils ;
 - conserver l'entrée exacte d'un run pour pouvoir l'évaluer ou l'expliquer, sans prétendre rejouer
   un LLM de manière déterministe.
@@ -477,11 +564,11 @@ Le premier objectif fonctionnel n'est pas « avoir tous les agents ». C'est ce 
 
 1. connecter un dépôt GitHub à un projet ;
 2. poster une demande dans son channel ;
-3. faire produire à Marion un plan typé ;
-4. créer deux tâches avec une dépendance ;
-5. lancer deux runs indépendants dans des worktrees ;
+3. faire produire un plan typé par un profil orchestrateur configuré ;
+4. créer directement deux tickets avec une dépendance sur le tableau du projet ;
+5. lancer deux exécutions indépendantes dans des worktrees ;
 6. laisser un agent poser une question visible dans l'interface ;
-7. reprendre la tâche après la réponse ;
+7. reprendre l'exécution après la réponse ;
 8. exécuter formatage, lint, typecheck et tests ;
 9. faire produire un rapport et un diff ;
 10. proposer une pull request après approbation.
@@ -491,13 +578,14 @@ Ce scénario doit continuer à fonctionner après le redémarrage du serveur.
 ## Ordre d'implémentation recommandé
 
 1. Configurations monorepo et conventions TypeScript/Effect.
-2. Schémas `Project`, `Repository`, `Channel`, `Message`, `Mission` et `Task`.
+2. Schémas `Project`, `Repository`, `Channel`, `Message`, `Ticket`, `Execution`, `Attempt` et
+   configuration Kanban.
 3. PostgreSQL, migrations, event log et outbox.
 4. Frontière Effect RPC sur WebSocket : commandes, snapshots et flux d'événements.
-5. Interface projet/channel/tâches minimale.
+5. Interface projet/channel/tableau Kanban minimale.
 6. Port `AgentRuntime` et adaptateur Hermes (instance locale ou Tailscale) pour un run isolé.
 7. Worktrees, artefacts, interruption et reprise.
-8. Plan structuré de Marion et scheduler de DAG.
+8. Plan structuré par un profil orchestrateur, dépendances de tickets et scheduler d'exécutions.
 9. Questions, rapports et approbations.
 10. Review agent, tests et création de pull request.
 11. Gateway n8n-dev puis promotion contrôlée.
@@ -522,7 +610,7 @@ la première tranche verticale et protégé derrière un port lorsque le remplac
 - Ajouter les invariants métier au domaine, pas uniquement dans les prompts.
 - Écrire les opérations externes de façon idempotente.
 - Ne pas confondre message de forum, contexte de modèle et événement de domaine.
-- Toute tâche autonome doit avoir un budget, une politique d'outils, un timeout et un kill switch.
+- Toute exécution autonome doit avoir un résultat attendu, un budget, une politique d'outils, un
+  timeout et un kill switch.
 - Toute fonctionnalité critique doit être testable sans appeler un vrai modèle LLM.
 - Préférer une tranche verticale fonctionnelle à une arborescence exhaustive de packages vides.
-

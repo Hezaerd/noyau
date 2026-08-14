@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./board/decider": "./src/board/decider.ts",
+    "./board/projector": "./src/board/projector.ts",
     "./task/decider": "./src/task/decider.ts",
     "./task/projector": "./src/task/projector.ts"
   },
@@ -13,7 +15,8 @@
   },
   "dependencies": {
     "@noyau/protocol": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "fractional-indexing": "^4.0.0"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

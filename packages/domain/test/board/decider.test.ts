@@ -1,0 +1,910 @@
+import { describe, expect, it } from "@effect/vitest"
+import { decide } from "@noyau/domain/board/decider"
+import { emptyBoardState, evolve, type BoardState } from "@noyau/domain/board/projector"
+import { KanbanRank } from "@noyau/protocol/entities/kanban-column"
+import { ExecutionId, TicketId } from "@noyau/protocol/ids"
+import { TicketCommand, TicketDependencyAdd } from "@noyau/protocol/ticket/commands"
+import { ExecutionCompleted, type TicketEvent } from "@noyau/protocol/ticket/events"
+import { Result, Schema } from "effect"
+
+const ids = {
+  project: "3f8f0d70-1111-4000-8000-000000000001",
+  backlog: "3f8f0d70-1111-4000-8000-000000000002",
+  active: "3f8f0d70-1111-4000-8000-000000000003",
+  done: "3f8f0d70-1111-4000-8000-000000000004",
+  ticket: "3f8f0d70-1111-4000-8000-000000000005",
+  ticket2: "3f8f0d70-1111-4000-8000-000000000006",
+  thread: "3f8f0d70-1111-4000-8000-000000000007",
+  execution: "3f8f0d70-1111-4000-8000-000000000008",
+  profile: "3f8f0d70-1111-4000-8000-000000000009",
+  command: "3f8f0d70-1111-4000-8000-000000000010",
+  correlation: "3f8f0d70-1111-4000-8000-000000000011",
+  missing: "3f8f0d70-1111-4000-8000-000000000012",
+  ticket3: "3f8f0d70-1111-4000-8000-000000000013",
+  ticket4: "3f8f0d70-1111-4000-8000-000000000014",
+  execution2: "3f8f0d70-1111-4000-8000-000000000015",
+  column: "3f8f0d70-1111-4000-8000-000000000016",
+} as const
+
+const meta = {
+  commandId: ids.command,
+  projectId: ids.project,
+  actorId: "human:hezaerd",
+  correlationId: ids.correlation,
+  issuedAt: "2026-08-13T12:00:00.000Z",
+  schemaVersion: 1,
+} as const
+
+const command = (input: unknown) => Schema.decodeUnknownSync(TicketCommand)(input)
+const dependencyCommand = (input: unknown) => Schema.decodeUnknownSync(TicketDependencyAdd)(input)
+const executionId = Schema.decodeSync(ExecutionId)(ids.execution)
+const execution2Id = Schema.decodeSync(ExecutionId)(ids.execution2)
+const ticketId = Schema.decodeSync(TicketId)(ids.ticket)
+const ticket2Id = Schema.decodeSync(TicketId)(ids.ticket2)
+const ticket3Id = Schema.decodeSync(TicketId)(ids.ticket3)
+
+const success = <A, E>(result: Result.Result<A, E>): A => {
+  expect(Result.isSuccess(result)).toBe(true)
+  if (!Result.isSuccess(result)) {
+    throw new Error(`Expected success, received ${String(result.failure)}`)
+  }
+  return result.success
+}
+
+const failure = <A, E>(result: Result.Result<A, E>): E => {
+  expect(Result.isFailure(result)).toBe(true)
+  if (!Result.isFailure(result)) {
+    throw new Error("Expected failure")
+  }
+  return result.failure
+}
+
+const apply = (state: BoardState, events: ReadonlyArray<TicketEvent>) =>
+  events.reduce(evolve, state)
+
+const initialized = () =>
+  apply(
+    emptyBoardState,
+    success(
+      decide(
+        emptyBoardState,
+        command({
+          _tag: "board.initialize",
+          ...meta,
+          payload: {
+            backlogColumnId: ids.backlog,
+            activeColumnId: ids.active,
+            doneColumnId: ids.done,
+          },
+        }),
+      ),
+    ),
+  )
+
+const createTicket = (
+  state: BoardState,
+  id: string = ids.ticket,
+  placement: {
+    readonly columnId: string
+    readonly beforeTicketId?: string
+    readonly afterTicketId?: string
+  } = { columnId: ids.backlog },
+) =>
+  success(
+    decide(
+      state,
+      command({
+        _tag: "ticket.create",
+        ...meta,
+        payload: {
+          ticketId: id,
+          workbenchThreadId: ids.thread,
+          title: `Ticket ${id}`,
+          placement,
+        },
+      }),
+    ),
+  )
+
+const addDependency = (
+  state: BoardState,
+  id: string,
+  dependsOnId: string,
+): ReadonlyArray<TicketEvent> =>
+  success(
+    decide(
+      state,
+      command({
+        _tag: "ticket.dependency.add",
+        ...meta,
+        payload: { ticketId: id, dependsOnTicketId: dependsOnId },
+      }),
+    ),
+  )
+
+const startExecution = (
+  state: BoardState,
+  id: string,
+  execution: string,
+): ReadonlyArray<TicketEvent> =>
+  success(
+    decide(
+      state,
+      command({
+        _tag: "execution.start",
+        ...meta,
+        payload: {
+          executionId: execution,
+          ticketId: id,
+          expectedOutcome: "A working board",
+          agentProfileId: ids.profile,
+          budget: { maxTokens: 10_000, timeoutSeconds: 1_800 },
+          toolPolicy: { allowed: ["read", "edit"] },
+        },
+      }),
+    ),
+  )
+
+const stateWithTicket = () => {
+  const board = initialized()
+  return apply(board, createTicket(board))
+}
+
+describe("board.initialize", () => {
+  it("crée exactement les trois colonnes par défaut et protège Done par son identité", () => {
+    const board = initialized()
+
+    expect(board.columns).toHaveLength(3)
+    expect(board.columns.map((column) => column.rank)).toEqual(["a0", "a1", "a2"])
+    expect(board.columns.filter((column) => column.done).map((column) => column.columnId)).toEqual([
+      ids.done,
+    ])
+  })
+
+  it("refuse de réinitialiser un Tableau existant", () => {
+    const board = initialized()
+    const error = failure(
+      decide(
+        board,
+        command({
+          _tag: "board.initialize",
+          ...meta,
+          payload: {
+            backlogColumnId: ids.backlog,
+            activeColumnId: ids.active,
+            doneColumnId: ids.done,
+          },
+        }),
+      ),
+    )
+
+    expect(error._tag).toBe("KanbanColumnAlreadyExists")
+  })
+})
+
+describe("ticket placement", () => {
+  it("calcule les ranks côté domaine et conserve leur ordre", () => {
+    const board = initialized()
+    const first = apply(board, createTicket(board))
+    const second = apply(first, createTicket(first, ids.ticket2))
+
+    expect(second.tickets.map((ticket) => ticket.rank)).toEqual(["a0", "a1"])
+  })
+
+  it("rejette des ancres devenues incohérentes", () => {
+    const state = stateWithTicket()
+    const error = failure(
+      decide(
+        state,
+        command({
+          _tag: "ticket.move",
+          ...meta,
+          payload: {
+            ticketId: ids.ticket,
+            placement: {
+              columnId: ids.active,
+              beforeTicketId: ids.missing,
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(error._tag).toBe("InvalidTicketPlacement")
+  })
+
+  it("déduit le voisin inférieur d'une ancre before unilatérale", () => {
+    const board = initialized()
+    const withFirst = apply(board, createTicket(board))
+    const withSecond = apply(withFirst, createTicket(withFirst, ids.ticket2))
+    const state = apply(withSecond, createTicket(withSecond, ids.ticket3))
+    const [event] = success(
+      decide(
+        state,
+        command({
+          _tag: "ticket.move",
+          ...meta,
+          payload: {
+            ticketId: ids.ticket,
+            placement: { columnId: ids.backlog, beforeTicketId: ids.ticket3 },
+          },
+        }),
+      ),
+    )
+
+    expect(event?._tag).toBe("ticket.moved")
+    if (event?._tag !== "ticket.moved") {
+      throw new Error("Expected ticket.moved")
+    }
+    expect(event.rank > "a1" && event.rank < "a2").toBe(true)
+  })
+
+  it("déduit le voisin inférieur d'une ancre de colonne unilatérale", () => {
+    const [event] = success(
+      decide(
+        initialized(),
+        command({
+          _tag: "kanbanColumn.move",
+          ...meta,
+          payload: { columnId: ids.backlog, beforeColumnId: ids.done },
+        }),
+      ),
+    )
+
+    expect(event?._tag).toBe("kanbanColumn.moved")
+    if (event?._tag !== "kanbanColumn.moved") {
+      throw new Error("Expected kanbanColumn.moved")
+    }
+    expect(event.rank > "a1" && event.rank < "a2").toBe(true)
+  })
+
+  it("trie ordinalement les rangs base62 avant une insertion", () => {
+    const board = initialized()
+    const withFirst = apply(board, createTicket(board))
+    const withSecond = apply(withFirst, createTicket(withFirst, ids.ticket2))
+    const [firstTicket, secondTicket] = withSecond.tickets
+    if (firstTicket === undefined || secondTicket === undefined) {
+      throw new Error("Missing rank fixtures")
+    }
+    const state: BoardState = {
+      ...withSecond,
+      tickets: [
+        { ...firstTicket, rank: "aA" },
+        { ...secondTicket, rank: "aa" },
+      ],
+    }
+    const [event] = createTicket(state, ids.ticket3, {
+      columnId: ids.backlog,
+      beforeTicketId: ids.ticket2,
+    })
+
+    expect(event?._tag).toBe("ticket.created")
+    if (event?._tag !== "ticket.created") {
+      throw new Error("Expected ticket.created")
+    }
+    expect(Schema.is(KanbanRank)(event.rank)).toBe(true)
+    expect(event.rank > "aA" && event.rank < "aa").toBe(true)
+  })
+
+  it("laisse déplacer un Ticket bloqué entre colonnes ordinaires", () => {
+    const withFirst = stateWithTicket()
+    const withSecond = apply(withFirst, createTicket(withFirst, ids.ticket2))
+    const blocked = apply(withSecond, addDependency(withSecond, ids.ticket, ids.ticket2))
+    const moved = success(
+      decide(
+        blocked,
+        command({
+          _tag: "ticket.move",
+          ...meta,
+          payload: {
+            ticketId: ids.ticket,
+            placement: { columnId: ids.active },
+          },
+        }),
+      ),
+    )
+
+    expect(moved[0]?._tag).toBe("ticket.moved")
+  })
+})
+
+describe("Done coherence", () => {
+  it("refuse de créer directement un Ticket dans Done", () => {
+    const error = failure(
+      decide(
+        initialized(),
+        command({
+          _tag: "ticket.create",
+          ...meta,
+          payload: {
+            ticketId: ids.ticket,
+            workbenchThreadId: ids.thread,
+            title: "Already done",
+            placement: { columnId: ids.done },
+          },
+        }),
+      ),
+    )
+
+    expect(error).toMatchObject({ _tag: "DoneColumnCreationForbidden", columnId: ids.done })
+  })
+
+  it("transforme un déplacement vers Done en clôture et mémorise la colonne active", () => {
+    const state = stateWithTicket()
+    const completed = success(
+      decide(
+        state,
+        command({
+          _tag: "ticket.move",
+          ...meta,
+          payload: {
+            ticketId: ids.ticket,
+            placement: { columnId: ids.done },
+          },
+        }),
+      ),
+    )
+    const next = apply(state, completed)
+
+    expect(completed[0]?._tag).toBe("ticket.completed")
+    expect(next.tickets[0]).toMatchObject({
+      done: true,
+      columnId: ids.done,
+      lastActiveColumnId: ids.backlog,
+    })
+  })
+
+  it("restaure la dernière colonne non terminale à la réouverture", () => {
+    const state = stateWithTicket()
+    const completed = apply(
+      state,
+      success(
+        decide(
+          state,
+          command({
+            _tag: "ticket.complete",
+            ...meta,
+            payload: { ticketId: ids.ticket },
+          }),
+        ),
+      ),
+    )
+    const reopened = apply(
+      completed,
+      success(
+        decide(
+          completed,
+          command({
+            _tag: "ticket.reopen",
+            ...meta,
+            payload: { ticketId: ids.ticket },
+          }),
+        ),
+      ),
+    )
+
+    expect(reopened.tickets[0]).toMatchObject({
+      done: false,
+      columnId: ids.backlog,
+    })
+  })
+
+  it("restaure un Ticket terminé archivé dans la colonne Done actuelle", () => {
+    const state = stateWithTicket()
+    const completed = apply(
+      state,
+      success(
+        decide(
+          state,
+          command({
+            _tag: "ticket.complete",
+            ...meta,
+            payload: { ticketId: ids.ticket },
+          }),
+        ),
+      ),
+    )
+    const archived = apply(
+      completed,
+      success(
+        decide(
+          completed,
+          command({
+            _tag: "ticket.archive",
+            ...meta,
+            payload: { ticketId: ids.ticket },
+          }),
+        ),
+      ),
+    )
+    const restored = apply(
+      archived,
+      success(
+        decide(
+          archived,
+          command({
+            _tag: "ticket.restore",
+            ...meta,
+            payload: { ticketId: ids.ticket },
+          }),
+        ),
+      ),
+    )
+
+    expect(restored.tickets[0]).toMatchObject({
+      archived: false,
+      done: true,
+      columnId: ids.done,
+      lastActiveColumnId: ids.backlog,
+    })
+  })
+
+  it("exige la restauration avant de réouvrir un Ticket archivé", () => {
+    const state = stateWithTicket()
+    const completed = apply(
+      state,
+      success(
+        decide(
+          state,
+          command({
+            _tag: "ticket.complete",
+            ...meta,
+            payload: { ticketId: ids.ticket },
+          }),
+        ),
+      ),
+    )
+    const archived = apply(
+      completed,
+      success(
+        decide(
+          completed,
+          command({
+            _tag: "ticket.archive",
+            ...meta,
+            payload: { ticketId: ids.ticket },
+          }),
+        ),
+      ),
+    )
+    const error = failure(
+      decide(
+        archived,
+        command({
+          _tag: "ticket.reopen",
+          ...meta,
+          payload: { ticketId: ids.ticket },
+        }),
+      ),
+    )
+
+    expect(error._tag).toBe("TicketAlreadyArchived")
+  })
+})
+
+describe("destructive guards", () => {
+  it("interrompt toutes les exécutions actives avant de clôturer", () => {
+    const state = stateWithTicket()
+    const withFirstExecution = apply(state, startExecution(state, ids.ticket, ids.execution))
+    const guarded = apply(
+      withFirstExecution,
+      startExecution(withFirstExecution, ids.ticket, ids.execution2),
+    )
+    const error = failure(
+      decide(
+        guarded,
+        command({
+          _tag: "ticket.complete",
+          ...meta,
+          payload: { ticketId: ids.ticket },
+        }),
+      ),
+    )
+
+    expect(error).toMatchObject({
+      _tag: "ActiveExecutionConfirmationRequired",
+      executionIds: [ids.execution, ids.execution2],
+    })
+
+    const events = success(
+      decide(
+        guarded,
+        command({
+          _tag: "ticket.complete",
+          ...meta,
+          payload: { ticketId: ids.ticket, interruptActiveExecution: true },
+        }),
+      ),
+    )
+    const completed = apply(guarded, events)
+
+    expect(events.map((event) => event._tag)).toEqual([
+      "execution.interrupted",
+      "execution.interrupted",
+      "ticket.completed",
+    ])
+    expect(
+      events
+        .filter((event) => event._tag === "execution.interrupted")
+        .map((event) => event.executionId),
+    ).toEqual([executionId, execution2Id])
+    expect(completed.tickets[0]?.activeExecutionIds).toEqual([])
+    expect(completed.executionIds).toEqual([executionId, execution2Id])
+  })
+
+  it("refuse de supprimer Done", () => {
+    const error = failure(
+      decide(
+        initialized(),
+        command({
+          _tag: "kanbanColumn.delete",
+          ...meta,
+          payload: { columnId: ids.done },
+        }),
+      ),
+    )
+
+    expect(error._tag).toBe("ProtectedDoneColumn")
+  })
+
+  it("exige une destination pour supprimer une colonne non vide", () => {
+    const error = failure(
+      decide(
+        stateWithTicket(),
+        command({
+          _tag: "kanbanColumn.delete",
+          ...meta,
+          payload: { columnId: ids.backlog },
+        }),
+      ),
+    )
+
+    expect(error._tag).toBe("ColumnDestinationRequired")
+  })
+
+  it("re-cible les références cachées lors d'une suppression de colonne", () => {
+    const state = stateWithTicket()
+    const withSecond = apply(state, createTicket(state, ids.ticket2))
+    const archived = apply(
+      withSecond,
+      success(
+        decide(
+          withSecond,
+          command({
+            _tag: "ticket.archive",
+            ...meta,
+            payload: { ticketId: ids.ticket },
+          }),
+        ),
+      ),
+    )
+    const completed = apply(
+      archived,
+      success(
+        decide(
+          archived,
+          command({
+            _tag: "ticket.complete",
+            ...meta,
+            payload: { ticketId: ids.ticket2 },
+          }),
+        ),
+      ),
+    )
+    const missingDestination = failure(
+      decide(
+        completed,
+        command({
+          _tag: "kanbanColumn.delete",
+          ...meta,
+          payload: { columnId: ids.backlog },
+        }),
+      ),
+    )
+
+    expect(missingDestination._tag).toBe("ColumnDestinationRequired")
+
+    const events = success(
+      decide(
+        completed,
+        command({
+          _tag: "kanbanColumn.delete",
+          ...meta,
+          payload: {
+            columnId: ids.backlog,
+            destinationColumnId: ids.active,
+          },
+        }),
+      ),
+    )
+    const next = apply(completed, events)
+
+    expect(events.map((event) => event._tag)).toEqual(["kanbanColumn.deleted"])
+    expect(next.tickets.find((ticket) => ticket.ticketId === ticketId)).toMatchObject({
+      archived: true,
+      columnId: ids.active,
+    })
+    expect(next.tickets.find((ticket) => ticket.ticketId === ticket2Id)).toMatchObject({
+      done: true,
+      columnId: ids.done,
+      lastActiveColumnId: ids.active,
+    })
+  })
+
+  it("refuse Done comme destination même pour une colonne vide", () => {
+    const error = failure(
+      decide(
+        initialized(),
+        command({
+          _tag: "kanbanColumn.delete",
+          ...meta,
+          payload: {
+            columnId: ids.backlog,
+            destinationColumnId: ids.done,
+          },
+        }),
+      ),
+    )
+
+    expect(error).toMatchObject({
+      _tag: "DoneColumnDestinationForbidden",
+      destinationColumnId: ids.done,
+    })
+  })
+})
+
+describe("execution.start", () => {
+  it("refuse une exécution pour un Ticket bloqué", () => {
+    const withFirst = stateWithTicket()
+    const withSecond = apply(withFirst, createTicket(withFirst, ids.ticket2))
+    const blocked = apply(withSecond, addDependency(withSecond, ids.ticket, ids.ticket2))
+    const error = failure(
+      decide(
+        blocked,
+        command({
+          _tag: "execution.start",
+          ...meta,
+          payload: {
+            executionId: ids.execution,
+            ticketId: ids.ticket,
+            expectedOutcome: "A working board",
+            agentProfileId: ids.profile,
+            budget: { maxTokens: 10_000, timeoutSeconds: 1_800 },
+            toolPolicy: { allowed: ["read", "edit"] },
+          },
+        }),
+      ),
+    )
+
+    expect(error._tag).toBe("ExecutionBlockedByDependencies")
+  })
+
+  it("retire une exécution terminale de l'ensemble actif sans libérer son identifiant", () => {
+    const state = stateWithTicket()
+    const started = apply(state, startExecution(state, ids.ticket, ids.execution))
+    const completed = evolve(started, ExecutionCompleted.make({ executionId, ticketId }))
+
+    expect(completed.tickets[0]?.activeExecutionIds).toEqual([])
+    expect(completed.executionIds).toEqual([executionId])
+  })
+})
+
+describe("ticket dependencies", () => {
+  const stateWithThreeTickets = () => {
+    const withFirst = stateWithTicket()
+    const withSecond = apply(withFirst, createTicket(withFirst, ids.ticket2))
+    return apply(withSecond, createTicket(withSecond, ids.ticket3))
+  }
+
+  it("ajoute et retire une arête, et refuse les doublons", () => {
+    const state = stateWithThreeTickets()
+    const added = addDependency(state, ids.ticket, ids.ticket2)
+    const withDependency = apply(state, added)
+
+    expect(added.map((event) => event._tag)).toEqual(["ticket.dependency.added"])
+    expect(withDependency.dependencies).toEqual([{ ticketId, dependsOnTicketId: ticket2Id }])
+    expect(
+      failure(
+        decide(
+          withDependency,
+          command({
+            _tag: "ticket.dependency.add",
+            ...meta,
+            payload: { ticketId: ids.ticket, dependsOnTicketId: ids.ticket2 },
+          }),
+        ),
+      )._tag,
+    ).toBe("TicketDependencyAlreadyExists")
+
+    const removed = success(
+      decide(
+        withDependency,
+        command({
+          _tag: "ticket.dependency.remove",
+          ...meta,
+          payload: { ticketId: ids.ticket, dependsOnTicketId: ids.ticket2 },
+        }),
+      ),
+    )
+    const withoutDependency = apply(withDependency, removed)
+
+    expect(removed.map((event) => event._tag)).toEqual(["ticket.dependency.removed"])
+    expect(withoutDependency.dependencies).toEqual([])
+    expect(
+      failure(
+        decide(
+          withoutDependency,
+          command({
+            _tag: "ticket.dependency.remove",
+            ...meta,
+            payload: { ticketId: ids.ticket, dependsOnTicketId: ids.ticket2 },
+          }),
+        ),
+      )._tag,
+    ).toBe("TicketDependencyNotFound")
+  })
+
+  it("refuse les auto-dépendances même sans le refinement protocolaire", () => {
+    const valid = dependencyCommand({
+      _tag: "ticket.dependency.add",
+      ...meta,
+      payload: { ticketId: ids.ticket, dependsOnTicketId: ids.ticket2 },
+    })
+    const error = failure(
+      decide(stateWithThreeTickets(), {
+        ...valid,
+        payload: { ...valid.payload, dependsOnTicketId: valid.payload.ticketId },
+      }),
+    )
+
+    expect(error._tag).toBe("TicketSelfDependency")
+  })
+
+  it("refuse une arête qui fermerait un cycle transitif", () => {
+    const state = stateWithThreeTickets()
+    const withAB = apply(state, addDependency(state, ids.ticket, ids.ticket2))
+    const withBC = apply(withAB, addDependency(withAB, ids.ticket2, ids.ticket3))
+    const error = failure(
+      decide(
+        withBC,
+        command({
+          _tag: "ticket.dependency.add",
+          ...meta,
+          payload: { ticketId: ids.ticket3, dependsOnTicketId: ids.ticket },
+        }),
+      ),
+    )
+
+    expect(error).toMatchObject({
+      _tag: "TicketDependencyCycle",
+      ticketId: ticket3Id,
+      dependsOnTicketId: ticketId,
+    })
+  })
+
+  it("exige que les deux extrémités d'une nouvelle arête existent", () => {
+    const error = failure(
+      decide(
+        stateWithThreeTickets(),
+        command({
+          _tag: "ticket.dependency.add",
+          ...meta,
+          payload: { ticketId: ids.ticket, dependsOnTicketId: ids.missing },
+        }),
+      ),
+    )
+
+    expect(error).toMatchObject({ _tag: "TicketNotFound", ticketId: ids.missing })
+  })
+
+  it("dérive les prérequis ouverts après ajout, clôture, réouverture et retrait", () => {
+    const state = stateWithThreeTickets()
+    const blocked = apply(state, addDependency(state, ids.ticket, ids.ticket2))
+
+    expect(
+      blocked.tickets.find((ticket) => ticket.ticketId === ticketId)?.openDependencyIds,
+    ).toEqual([ticket2Id])
+
+    const completedPrerequisite = apply(
+      blocked,
+      success(
+        decide(
+          blocked,
+          command({
+            _tag: "ticket.complete",
+            ...meta,
+            payload: { ticketId: ids.ticket2 },
+          }),
+        ),
+      ),
+    )
+    expect(
+      completedPrerequisite.tickets.find((ticket) => ticket.ticketId === ticketId)
+        ?.openDependencyIds,
+    ).toEqual([])
+
+    const reopenedPrerequisite = apply(
+      completedPrerequisite,
+      success(
+        decide(
+          completedPrerequisite,
+          command({
+            _tag: "ticket.reopen",
+            ...meta,
+            payload: { ticketId: ids.ticket2 },
+          }),
+        ),
+      ),
+    )
+    expect(
+      reopenedPrerequisite.tickets.find((ticket) => ticket.ticketId === ticketId)
+        ?.openDependencyIds,
+    ).toEqual([ticket2Id])
+
+    const unblocked = apply(
+      reopenedPrerequisite,
+      success(
+        decide(
+          reopenedPrerequisite,
+          command({
+            _tag: "ticket.dependency.remove",
+            ...meta,
+            payload: { ticketId: ids.ticket, dependsOnTicketId: ids.ticket2 },
+          }),
+        ),
+      ),
+    )
+    expect(
+      unblocked.tickets.find((ticket) => ticket.ticketId === ticketId)?.openDependencyIds,
+    ).toEqual([])
+  })
+})
+
+describe("ticket.update projection", () => {
+  it("distingue description omise, remplacée et supprimée par null", () => {
+    const state = stateWithTicket()
+    const described = apply(
+      state,
+      success(
+        decide(
+          state,
+          command({
+            _tag: "ticket.update",
+            ...meta,
+            payload: { ticketId: ids.ticket, description: "Context" },
+          }),
+        ),
+      ),
+    )
+    const omitted = apply(
+      described,
+      success(
+        decide(
+          described,
+          command({
+            _tag: "ticket.update",
+            ...meta,
+            payload: { ticketId: ids.ticket, title: "Renamed" },
+          }),
+        ),
+      ),
+    )
+    const removed = apply(
+      omitted,
+      success(
+        decide(
+          omitted,
+          command({
+            _tag: "ticket.update",
+            ...meta,
+            payload: { ticketId: ids.ticket, description: null },
+          }),
+        ),
+      ),
+    )
+
+    expect(described.tickets[0]?.description).toBe("Context")
+    expect(omitted.tickets[0]?.description).toBe("Context")
+    expect(Object.hasOwn(removed.tickets[0] ?? {}, "description")).toBe(false)
+  })
+})

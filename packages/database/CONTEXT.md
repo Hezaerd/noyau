@@ -6,11 +6,15 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
 
 ## Contenu
 
-| Module         | Rôle                                                                                      |
-| -------------- | ----------------------------------------------------------------------------------------- |
-| `./migrations` | Journal de commandes, événements, receipts, outbox, têtes et projections via le Migrator. |
-| `./receipt`    | Réexport temporaire des receipts désormais possédés par `protocol`.                       |
-| `./task/store` | Transaction task, idempotence, snapshot projet et lecture ordonnée des événements.        |
+> État d'implémentation : les projections SQL `Ticket → Execution → Attempt` et Tableau sont
+> disponibles pour la migration par couches. Le store `task` reste temporairement déployé jusqu'au
+> basculement de ses consommateurs ; aucun événement historique n'est réinterprété silencieusement.
+
+| Module         | Rôle                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| `./migrations` | Journal, receipts, outbox, têtes et projections Task puis Ticket/Kanban via le Migrator. |
+| `./receipt`    | Réexport temporaire des receipts désormais possédés par `protocol`.                      |
+| `./task/store` | Transaction task, idempotence, snapshot projet et lecture ordonnée des événements.       |
 
 ## Décisions structurantes
 
@@ -41,7 +45,8 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
   `now()` SQL ni de `crypto.randomUUID` en dur ; testable avec TestClock et un Crypto
   déterministe.
 - **Colonnes d'agrégat génériques** (`aggregate_type`, `aggregate_id`) : le replay d'état charge
-  les événements par agrégat ; d'autres agrégats (message, mission) réutiliseront le journal.
+  les événements par agrégat ; d'autres agrégats (message, ticket, execution) réutiliseront le
+  journal.
 
 ## Tests
 
