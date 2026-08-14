@@ -1,9 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 import {
-  Bot,
   ChevronsUpDown,
   Inbox,
-  ListTodo,
+  LayoutDashboard,
   MessageSquareText,
   Plus,
   Search,
@@ -31,10 +30,10 @@ import {
 
 const projectLinks = [
   {
-    label: "Tâches",
-    to: "/projects/noyau/tasks",
-    icon: ListTodo,
-    badge: "6",
+    label: "Tableau",
+    to: "/projects/noyau/board",
+    icon: LayoutDashboard,
+    badge: "7",
   },
   {
     label: "Canal",
@@ -126,7 +125,8 @@ export function AppSidebar() {
               <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                 <p className="truncate text-xs font-medium text-sidebar-foreground">noyau</p>
                 <div className="mt-0.5 flex items-center gap-1.5 text-[0.64rem] text-sidebar-foreground/40">
-                  <span className="size-1.5 rounded-full bg-violet-400" />3 agents actifs
+                  <span className="size-1.5 rounded-full bg-emerald-400" />
+                  Tableau actif
                 </div>
               </div>
               <ChevronsUpDown className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
@@ -165,9 +165,7 @@ export function AppSidebar() {
           </Avatar>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-xs font-medium">Hezaerd</p>
-            <p className="flex items-center gap-1.5 text-[0.62rem] text-sidebar-foreground/42">
-              <Bot className="size-3" /> Marion disponible
-            </p>
+            <p className="text-[0.62rem] text-sidebar-foreground/42">Espace personnel</p>
           </div>
         </div>
       </SidebarFooter>

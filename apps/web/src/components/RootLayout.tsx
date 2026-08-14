@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router"
-import { Activity, Bot } from "lucide-react"
+import { Activity, Sparkles } from "lucide-react"
 
 import { AppSidebar } from "@/components/AppSidebar"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,14 @@ const pageMeta = {
 } as const
 
 const getPageMeta = (pathname: string) => {
+  const projectMatch = /^\/projects\/([^/]+)\/(board|channel)$/.exec(pathname)
+  if (projectMatch !== null) {
+    return {
+      eyebrow: projectMatch[1] ?? "Projet",
+      title: projectMatch[2] === "board" ? "Tableau" : "Canal",
+    }
+  }
+
   switch (pathname) {
     case "/":
       return pageMeta["/"]
@@ -57,8 +65,8 @@ export function RootLayout() {
               size="sm"
               className="hidden rounded-full bg-card shadow-xs sm:flex"
             >
-              <Bot />
-              Demander à Marion
+              <Sparkles />
+              Nouvelle action
             </Button>
           </div>
         </header>

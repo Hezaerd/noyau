@@ -17,15 +17,6 @@
     box-sizing: border-box;
   }
 
-  /* Le motion design est volontairement différé à une prochaine slice. */
-  *,
-  *::before,
-  *::after {
-    animation: none !important;
-    scroll-behavior: auto !important;
-    transition: none !important;
-  }
-
   body {
     @apply m-0 min-h-screen min-w-80 bg-background font-sans text-foreground;
     background-image:
@@ -45,6 +36,17 @@
 
   ::selection {
     background: color-mix(in oklab, var(--accent) 75%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
