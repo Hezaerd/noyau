@@ -7,9 +7,9 @@ import { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
 import { Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/unstable/rpc"
 
+import type { CurrentActor } from "./control-plane"
 import {
   CommandIdConflict,
-  CurrentActor,
   Forbidden,
   InvalidCausation,
   InvalidEventCursor,
@@ -40,11 +40,7 @@ export const SubmitTicketCommand = Rpc.make("SubmitTicketCommand", {
     request: TicketCommandRequest,
   }),
   success: TicketReceipt,
-  error: Schema.Union([
-    InvalidCausation,
-    CommandIdConflict,
-    ServiceUnavailable,
-  ]),
+  error: Schema.Union([InvalidCausation, CommandIdConflict, ServiceUnavailable]),
 })
 
 export const GetBoardSnapshot = Rpc.make("GetBoardSnapshot", {

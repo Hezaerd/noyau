@@ -15,9 +15,9 @@ Le workspace racine utilise le vrai control plane. En développement, Vite proxi
 L'UI soumet des `TicketCommandRequest` sur Effect RPC WebSocket. Elle ne transporte aucune identité
 sandbox : l'adaptateur de développement du serveur possède l'acteur courant.
 
-| Variable                | Défaut                                  |
-| ----------------------- | --------------------------------------- |
-| `VITE_NOYAU_RPC_URL`    | origine courante, chemin `/rpc`         |
+| Variable                | Défaut                                 |
+| ----------------------- | -------------------------------------- |
+| `VITE_NOYAU_RPC_URL`    | origine courante, chemin `/rpc`        |
 | `VITE_NOYAU_PROJECT_ID` | `10000000-0000-4000-8000-000000000001` |
 
 Les valeurs sont décodées au démarrage avec les schémas de `@noyau/protocol`.

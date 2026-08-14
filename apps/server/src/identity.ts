@@ -54,8 +54,6 @@ export const devRpcIdentityLayer = Layer.effect(
     }
     const actorId = yield* decodeDevActorId(config.devActorId ?? "human:developer")
 
-    return NoyauRpcIdentity.of((effect) =>
-      Effect.provideService(effect, CurrentActor, actorId),
-    )
+    return NoyauRpcIdentity.of((effect) => Effect.provideService(effect, CurrentActor, actorId))
   }),
 )

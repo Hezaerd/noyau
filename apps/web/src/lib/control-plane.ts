@@ -2,31 +2,15 @@ import type { BoardSnapshot, EventCursor } from "@noyau/protocol/board"
 import type { Execution } from "@noyau/protocol/entities/execution"
 import type { ProjectId, TicketId } from "@noyau/protocol/ids"
 import type { TicketReceipt } from "@noyau/protocol/receipts"
-import {
-  ControlPlaneRpcs,
-  type ProjectEvent,
-} from "@noyau/protocol/rpc"
+import { ControlPlaneRpcs, type ProjectEvent } from "@noyau/protocol/rpc"
 import type { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
-import {
-  Cause,
-  Context,
-  Crypto,
-  Effect,
-  Exit,
-  Fiber,
-  Layer,
-  ManagedRuntime,
-  Stream,
-} from "effect"
+import { Cause, Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Stream } from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
 import type { RpcClientError } from "effect/unstable/rpc/RpcClientError"
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup"
 import { Socket } from "effect/unstable/socket"
 
-import {
-  controlPlaneConfig,
-  type ControlPlaneConfig,
-} from "./control-plane-config"
+import { controlPlaneConfig, type ControlPlaneConfig } from "./control-plane-config"
 
 export type ControlPlaneResult<A> =
   | { readonly ok: true; readonly value: A }
@@ -37,15 +21,11 @@ class ControlPlaneClient extends Context.Service<
   RpcClient.RpcClient<RpcGroup.Rpcs<typeof ControlPlaneRpcs>, RpcClientError>
 >()("@noyau/web/ControlPlaneClient") {
   static layer(config: ControlPlaneConfig) {
-    const socketLayer = Layer.effect(
-      Socket.Socket,
-      Socket.makeWebSocket(config.rpcUrl),
-    ).pipe(Layer.provide(Socket.layerWebSocketConstructorGlobal))
+    const socketLayer = Layer.effect(Socket.Socket, Socket.makeWebSocket(config.rpcUrl)).pipe(
+      Layer.provide(Socket.layerWebSocketConstructorGlobal),
+    )
 
-    return Layer.effect(
-      ControlPlaneClient,
-      RpcClient.make(ControlPlaneRpcs),
-    ).pipe(
+    return Layer.effect(ControlPlaneClient, RpcClient.make(ControlPlaneRpcs)).pipe(
       Layer.provide(RpcClient.layerProtocolSocket()),
       Layer.provide(socketLayer),
       Layer.provide(RpcSerialization.layerNdjson),
@@ -133,12 +113,10 @@ export const subscribeProjectEvents = (
 ) => {
   const stream = Effect.gen(function* () {
     const client = yield* ControlPlaneClient
-    return yield* client.SubscribeProjectEvents({ projectId, cursor }).pipe(
-      Stream.runForEach((event) => Effect.sync(() => onEvent(event))),
-    )
-  }).pipe(
-    Effect.tapCause((cause) => Effect.sync(() => onError(Cause.pretty(cause)))),
-  )
+    return yield* client
+      .SubscribeProjectEvents({ projectId, cursor })
+      .pipe(Stream.runForEach((event) => Effect.sync(() => onEvent(event))))
+  }).pipe(Effect.tapCause((cause) => Effect.sync(() => onError(Cause.pretty(cause)))))
   const fiber = runtime.runFork(stream)
 
   return () => {

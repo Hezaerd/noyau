@@ -1,11 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
+import { ControlPlaneRpcs, GetBoardSnapshot, SubmitTicketCommand } from "@noyau/protocol/rpc"
 import { Schema } from "effect"
-
-import {
-  ControlPlaneRpcs,
-  GetBoardSnapshot,
-  SubmitTicketCommand,
-} from "../src/rpc"
 
 describe("ControlPlaneRpcs", () => {
   it("expose la commande Ticket, le snapshot, les exécutions et le flux projet", () => {

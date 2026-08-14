@@ -71,9 +71,10 @@ describe("boardStateFromSnapshot", () => {
 
     expect(board.columns.map((column) => column.name)).toEqual(["Backlog", "Done"])
     expect(
-      board.tickets
-        .toSorted((left, right) => left.position - right.position)
-        .map((ticket) => ticket.title),
-    ).toEqual(["First", "Second"])
+      Object.fromEntries(board.tickets.map((ticket) => [ticket.title, ticket.position])),
+    ).toEqual({
+      First: 0,
+      Second: 1,
+    })
   })
 })

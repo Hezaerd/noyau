@@ -30,7 +30,8 @@ import type { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
-import { Crypto, type Effect } from "effect"
+import type { Crypto } from "effect"
+import { type Effect } from "effect"
 import {
   AlertCircle,
   Bot,
@@ -631,7 +632,8 @@ export function BoardPage({
     if (ticketId === undefined) {
       return
     }
-    void loadTicketExecutions(projectId, TicketId.make(ticketId)).then((result) => {
+    void (async () => {
+      const result = await loadTicketExecutions(projectId, TicketId.make(ticketId))
       if (!result.ok) {
         setControlPlaneError(result.details)
         return
@@ -659,7 +661,7 @@ export function BoardPage({
             : ticket,
         ),
       }))
-    })
+    })()
   }, [projectId, search.ticket, state.actors])
 
   const visibleByColumn = new Map(
@@ -709,9 +711,7 @@ export function BoardPage({
         ticketId: TicketId.make(ticketId),
         placement: {
           columnId: KanbanColumnId.make(ticket.columnId),
-          ...(beforeTicket === undefined
-            ? {}
-            : { beforeTicketId: TicketId.make(beforeTicket.id) }),
+          ...(beforeTicket === undefined ? {} : { beforeTicketId: TicketId.make(beforeTicket.id) }),
           ...(afterTicket === undefined ? {} : { afterTicketId: TicketId.make(afterTicket.id) }),
         },
       }),
@@ -1225,9 +1225,7 @@ export function BoardPage({
               makeTicketUpdateRequest({
                 ticketId: TicketId.make(ticketId),
                 ...(patch.title === undefined ? {} : { title: patch.title }),
-                ...(patch.description === undefined
-                  ? {}
-                  : { description: patch.description }),
+                ...(patch.description === undefined ? {} : { description: patch.description }),
                 ...(patch.priority === undefined ? {} : { priority: patch.priority }),
                 ...(!("dueAt" in patch)
                   ? {}

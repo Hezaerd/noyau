@@ -1,11 +1,6 @@
-import {
-  AgentProfileId,
-  CommandId,
-  ExecutionId,
-  KanbanColumnId,
-  ThreadId,
-  TicketId,
-} from "@noyau/protocol/ids"
+import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import type { AgentProfileId } from "@noyau/protocol/ids"
+import { CommandId, ExecutionId, KanbanColumnId, ThreadId, TicketId } from "@noyau/protocol/ids"
 import {
   ExecutionStartRequest,
   KanbanColumnCreateRequest,
@@ -17,7 +12,6 @@ import {
   TicketUpdateRequest,
   type TicketPlacement,
 } from "@noyau/protocol/ticket/commands"
-import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import { Crypto, Effect, Schema } from "effect"
 
 const uuid = Effect.fn("TicketCommands.uuid")(function* () {
@@ -81,64 +75,64 @@ export const makeTicketUpdateRequest = Effect.fn("TicketCommands.ticketUpdate")(
   })
 })
 
-export const makeExecutionStartRequest = Effect.fn("TicketCommands.executionStart")(function* (
-  input: {
+export const makeExecutionStartRequest = Effect.fn("TicketCommands.executionStart")(
+  function* (input: {
     readonly ticketId: TicketId
     readonly expectedOutcome: string
     readonly agentProfileId: AgentProfileId
+  }) {
+    const [commandId, executionId] = yield* Effect.all([uuid(), uuid()])
+    return ExecutionStartRequest.make({
+      commandId: CommandId.make(commandId),
+      payload: {
+        executionId: ExecutionId.make(executionId),
+        ticketId: input.ticketId,
+        expectedOutcome: input.expectedOutcome,
+        agentProfileId: input.agentProfileId,
+        budget: {
+          maxTokens: 50_000,
+          timeoutSeconds: 3_600,
+        },
+        toolPolicy: {
+          allowed: ["repository.read", "repository.write", "tests.run"],
+        },
+      },
+    })
   },
-) {
-  const [commandId, executionId] = yield* Effect.all([uuid(), uuid()])
-  return ExecutionStartRequest.make({
-    commandId: CommandId.make(commandId),
-    payload: {
-      executionId: ExecutionId.make(executionId),
-      ticketId: input.ticketId,
-      expectedOutcome: input.expectedOutcome,
-      agentProfileId: input.agentProfileId,
-      budget: {
-        maxTokens: 50_000,
-        timeoutSeconds: 3_600,
+)
+
+export const makeKanbanColumnCreateRequest = Effect.fn("TicketCommands.kanbanColumnCreate")(
+  function* (input: {
+    readonly name: string
+    readonly color: string
+    readonly beforeColumnId?: KanbanColumnId
+    readonly afterColumnId?: KanbanColumnId
+  }) {
+    const [commandId, columnId] = yield* Effect.all([uuid(), uuid()])
+    return KanbanColumnCreateRequest.make({
+      commandId: CommandId.make(commandId),
+      payload: {
+        ...input,
+        columnId: KanbanColumnId.make(columnId),
       },
-      toolPolicy: {
-        allowed: ["repository.read", "repository.write", "tests.run"],
-      },
-    },
-  })
-})
+    })
+  },
+)
 
-export const makeKanbanColumnCreateRequest = Effect.fn(
-  "TicketCommands.kanbanColumnCreate",
-)(function* (input: {
-  readonly name: string
-  readonly color: string
-  readonly beforeColumnId?: KanbanColumnId
-  readonly afterColumnId?: KanbanColumnId
-}) {
-  const [commandId, columnId] = yield* Effect.all([uuid(), uuid()])
-  return KanbanColumnCreateRequest.make({
-    commandId: CommandId.make(commandId),
-    payload: {
-      ...input,
-      columnId: KanbanColumnId.make(columnId),
-    },
-  })
-})
+export const makeKanbanColumnUpdateRequest = Effect.fn("TicketCommands.kanbanColumnUpdate")(
+  function* (input: (typeof KanbanColumnUpdateRequest)["Type"]["payload"]) {
+    return KanbanColumnUpdateRequest.make({
+      commandId: CommandId.make(yield* uuid()),
+      payload: input,
+    })
+  },
+)
 
-export const makeKanbanColumnUpdateRequest = Effect.fn(
-  "TicketCommands.kanbanColumnUpdate",
-)(function* (input: (typeof KanbanColumnUpdateRequest)["Type"]["payload"]) {
-  return KanbanColumnUpdateRequest.make({
-    commandId: CommandId.make(yield* uuid()),
-    payload: input,
-  })
-})
-
-export const makeKanbanColumnDeleteRequest = Effect.fn(
-  "TicketCommands.kanbanColumnDelete",
-)(function* (input: (typeof KanbanColumnDeleteRequest)["Type"]["payload"]) {
-  return KanbanColumnDeleteRequest.make({
-    commandId: CommandId.make(yield* uuid()),
-    payload: input,
-  })
-})
+export const makeKanbanColumnDeleteRequest = Effect.fn("TicketCommands.kanbanColumnDelete")(
+  function* (input: (typeof KanbanColumnDeleteRequest)["Type"]["payload"]) {
+    return KanbanColumnDeleteRequest.make({
+      commandId: CommandId.make(yield* uuid()),
+      payload: input,
+    })
+  },
+)

@@ -638,8 +638,6 @@ export const readTicketExecutions = (projectId: ProjectId, ticketId: TicketId) =
     `
 
     return yield* Effect.forEach(rows, (row) =>
-      decodeEntityRow(row).pipe(
-        Effect.flatMap((decoded) => decodeExecution(decoded.entity)),
-      ),
+      decodeEntityRow(row).pipe(Effect.flatMap((decoded) => decodeExecution(decoded.entity))),
     )
   })
