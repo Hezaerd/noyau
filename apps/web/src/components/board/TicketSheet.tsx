@@ -61,13 +61,13 @@ const priorityLabels = {
   urgent: "Urgente",
 } satisfies Record<TicketPriority, string>
 
-const priorityDots: Record<TicketPriority, string> = {
+const priorityDots = {
   none: "bg-muted-foreground",
   low: "bg-info",
   normal: "bg-primary",
   high: "bg-warning",
   urgent: "bg-destructive",
-}
+} satisfies Record<TicketPriority, string>
 
 interface TicketSheetProps {
   readonly ticket: BoardTicket | undefined

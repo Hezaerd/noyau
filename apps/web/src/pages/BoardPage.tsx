@@ -100,13 +100,13 @@ const priorityLabels = {
   urgent: "Urgente",
 } satisfies Record<TicketPriority, string>
 
-const priorityStyles: Record<TicketPriority, string> = {
+const priorityStyles = {
   none: "text-muted-foreground",
   low: "text-info",
   normal: "text-primary",
   high: "text-warning",
   urgent: "text-destructive",
-}
+} satisfies Record<TicketPriority, string>
 
 const attentionLabels = {
   blocked: "Bloqué",
