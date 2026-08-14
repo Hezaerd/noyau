@@ -62,11 +62,11 @@ const priorityLabels: Record<TicketPriority, string> = {
 }
 
 const priorityDots: Record<TicketPriority, string> = {
-  none: "bg-zinc-500",
-  low: "bg-sky-400",
-  normal: "bg-violet-400",
-  high: "bg-amber-400",
-  urgent: "bg-rose-400",
+  none: "bg-muted-foreground",
+  low: "bg-info",
+  normal: "bg-primary",
+  high: "bg-warning",
+  urgent: "bg-destructive",
 }
 
 interface TicketSheetProps {
@@ -267,7 +267,7 @@ export function TicketSheet({
                     NOY-{ticket.id.replace("ticket-", "").slice(0, 4).toLocaleUpperCase("fr")}
                   </Badge>
                   {ticket.attention === undefined ? null : (
-                    <Badge className="rounded-full bg-amber-500/12 text-[0.62rem] text-amber-300">
+                    <Badge className="rounded-full bg-warning/12 text-[0.62rem] text-warning-foreground">
                       {ticket.attention === "blocked"
                         ? "Bloqué"
                         : ticket.attention === "question"
@@ -487,7 +487,7 @@ export function TicketSheet({
                             className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/45"
                           >
                             {item.done ? (
-                              <CheckCircle className="size-4 shrink-0 text-emerald-400" />
+                              <CheckCircle className="size-4 shrink-0 text-success" />
                             ) : (
                               <Circle className="size-4 shrink-0 text-muted-foreground" />
                             )}
@@ -549,8 +549,8 @@ export function TicketSheet({
                       <div className="rounded-xl border bg-muted/25 p-4">
                         <div className="flex items-center gap-3">
                           <span className="relative flex size-2">
-                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-violet-400 opacity-40" />
-                            <span className="relative inline-flex size-2 rounded-full bg-violet-400" />
+                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-40" />
+                            <span className="relative inline-flex size-2 rounded-full bg-primary" />
                           </span>
                           <div>
                             <p className="text-sm font-medium">

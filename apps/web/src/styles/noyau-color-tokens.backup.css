@@ -3,6 +3,7 @@
  *
  * The original values remain unchanged; Coss-specific semantic colors extend
  * the palette below so every active primitive has an explicit dark-theme token.
+ * This file is a reference backup and is intentionally not imported by the app.
  */
 :root,
 .dark {

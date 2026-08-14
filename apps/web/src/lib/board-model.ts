@@ -407,7 +407,7 @@ export const addColumn = (state: BoardState, name: string, id: string): BoardSta
   const column: BoardColumn = {
     id,
     name: name.trim(),
-    color: "#A855F7",
+    color: "#a3a3a3",
     done: false,
   }
   return { ...state, columns: state.columns.toSpliced(insertionIndex, 0, column) }
@@ -423,7 +423,7 @@ const actors: ReadonlyArray<BoardActor> = [
 export const initialBoardState: BoardState = {
   actors,
   columns: [
-    { id: "column-backlog", name: "Backlog", color: "#6D5BD0", done: false },
+    { id: "column-backlog", name: "Backlog", color: "#a3a3a3", done: false },
     { id: "column-active", name: "En cours", color: "#3B82F6", done: false },
     { id: "column-done", name: "Done", color: "#10B981", done: true },
   ],

@@ -101,11 +101,11 @@ const priorityLabels: Record<TicketPriority, string> = {
 }
 
 const priorityStyles: Record<TicketPriority, string> = {
-  none: "text-zinc-500",
-  low: "text-sky-400",
-  normal: "text-violet-400",
-  high: "text-amber-400",
-  urgent: "text-rose-400",
+  none: "text-muted-foreground",
+  low: "text-info",
+  normal: "text-primary",
+  high: "text-warning",
+  urgent: "text-destructive",
 }
 
 const attentionLabels = {
@@ -116,10 +116,10 @@ const attentionLabels = {
 } as const
 
 const attentionStyles = {
-  blocked: "border-amber-500/20 bg-amber-500/10 text-amber-300",
-  question: "border-sky-500/20 bg-sky-500/10 text-sky-300",
-  approval: "border-violet-500/20 bg-violet-500/10 text-violet-300",
-  failure: "border-rose-500/20 bg-rose-500/10 text-rose-300",
+  blocked: "border-warning/20 bg-warning/10 text-warning-foreground",
+  question: "border-info/20 bg-info/10 text-info-foreground",
+  approval: "border-primary/20 bg-primary/10 text-primary",
+  failure: "border-destructive/20 bg-destructive/10 text-destructive-foreground",
 } as const
 
 const executionLabels = {
@@ -212,8 +212,8 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
       style={style}
       data-ticket-id={ticket.id}
       className={cn(
-        "group relative rounded-xl border border-border/85 bg-card shadow-[0_5px_18px_rgba(0,0,0,0.18)]",
-        "hover:border-border hover:shadow-[0_10px_30px_rgba(34,28,74,0.28)]",
+        "group relative rounded-xl border border-border/85 bg-card shadow-xs",
+        "hover:border-border hover:shadow-lg/5",
         active && "border-primary/55 ring-2 ring-primary/18",
         isDragging && "opacity-30",
         overlay && "w-72 rotate-1 border-primary/50 shadow-2xl",
@@ -256,7 +256,7 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
 
         {ticket.execution === undefined ? null : (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/55 px-2.5 py-2">
-            <Robot className="size-3.5 shrink-0 text-violet-400" />
+            <Robot className="size-3.5 shrink-0 text-primary" />
             <p className="min-w-0 flex-1 truncate text-[0.65rem] text-muted-foreground">
               {ticket.execution.count} exécution{ticket.execution.count > 1 ? "s" : ""} ·{" "}
               <span className="text-foreground">{executionLabels[ticket.execution.status]}</span>
@@ -293,7 +293,7 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
             <span
               className={cn(
                 "flex items-center gap-1 text-[0.6rem] text-muted-foreground",
-                due.late && "text-rose-300",
+                due.late && "text-destructive",
               )}
             >
               <Calendar className="size-3" />
@@ -422,7 +422,7 @@ function BoardColumnView({
       ref={setNodeRef}
       aria-labelledby={`column-title-${column.id}`}
       className={cn(
-        "flex h-full w-[304px] shrink-0 flex-col rounded-2xl border border-border/70 bg-[#121218]/88",
+        "flex h-full w-[304px] shrink-0 flex-col rounded-2xl border border-border/70 bg-card",
         isOver && "border-primary/45 bg-primary/5",
       )}
     >
@@ -482,12 +482,12 @@ function BoardColumnView({
             <MenuGroup>
               <MenuGroupLabel>Couleur</MenuGroupLabel>
               {[
-                ["Violet", "#6D5BD0"],
+                ["Neutre", "#a3a3a3"],
                 ["Bleu", "#3B82F6"],
                 ["Émeraude", "#10B981"],
                 ["Ambre", "#F59E0B"],
               ].map(([label, color]) => (
-                <MenuItem key={color} onClick={() => onColor(color ?? "#6D5BD0")}>
+                <MenuItem key={color} onClick={() => onColor(color ?? "#a3a3a3")}>
                   <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
                   {label}
                 </MenuItem>
