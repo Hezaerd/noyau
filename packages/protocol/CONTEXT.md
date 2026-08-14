@@ -66,6 +66,9 @@ _À éviter_ : sequence, offset SQL
   (ADR-0006).
 - **Placement par ancres** : le client désigne la colonne et ses voisins attendus. Le domaine
   valide ces ancres et calcule le `KanbanRank` canonique ; aucun rank client ne traverse la commande.
+- **Versionnement additif** : ajouter des variantes à une union ouverte du protocole conserve
+  `SchemaVersion = 1`. L'élargissement de `ReceiptResponse.rejected.error` à `CommandRejection`
+  reste compatible : tout receipt Task v1 demeure décodable sans changement de représentation.
 - **Exports subpath uniquement**, pas de barrel — voir AGENTS.md.
 
 ## Extension

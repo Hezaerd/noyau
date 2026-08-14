@@ -7,6 +7,8 @@ import type { TicketCommand } from "@noyau/protocol/ticket/commands"
 import {
   ActiveExecutionConfirmationRequired,
   ColumnDestinationRequired,
+  DoneColumnCreationForbidden,
+  DoneColumnDestinationForbidden,
   ExecutionAlreadyExists,
   ExecutionBlockedByDependencies,
   ExecutionForbiddenForTicket,
@@ -18,12 +20,17 @@ import {
   ProtectedDoneColumn,
   TicketAlreadyArchived,
   TicketAlreadyCompleted,
+  TicketDependencyAlreadyExists,
+  TicketDependencyCycle,
+  TicketDependencyNotFound,
+  TicketSelfDependency,
   TicketAlreadyExists,
   TicketNotArchived,
   TicketNotCompleted,
   TicketNotFound,
 } from "@noyau/protocol/ticket/errors"
 import {
+  ExecutionInterrupted,
   ExecutionStarted,
   KanbanColumnCreated,
   KanbanColumnDeleted,
@@ -33,6 +40,8 @@ import {
   TicketAssigned,
   TicketCompleted,
   TicketCreated,
+  TicketDependencyAdded,
+  TicketDependencyRemoved,
   type TicketEvent,
   TicketMoved,
   TicketReopened,
@@ -47,6 +56,8 @@ import type { BoardState, ColumnState, TicketState } from "./projector"
 export type BoardDecisionError =
   | ActiveExecutionConfirmationRequired
   | ColumnDestinationRequired
+  | DoneColumnCreationForbidden
+  | DoneColumnDestinationForbidden
   | ExecutionAlreadyExists
   | ExecutionBlockedByDependencies
   | ExecutionForbiddenForTicket
@@ -58,6 +69,10 @@ export type BoardDecisionError =
   | ProtectedDoneColumn
   | TicketAlreadyArchived
   | TicketAlreadyCompleted
+  | TicketDependencyAlreadyExists
+  | TicketDependencyCycle
+  | TicketDependencyNotFound
+  | TicketSelfDependency
   | TicketAlreadyExists
   | TicketNotArchived
   | TicketNotCompleted
@@ -65,8 +80,10 @@ export type BoardDecisionError =
 
 const rank = (value: string) => Schema.decodeSync(KanbanRank)(value)
 
-const orderedColumns = (state: BoardState) =>
-  state.columns.toSorted((left, right) => left.rank.localeCompare(right.rank))
+const compareRanks = (left: { readonly rank: string }, right: { readonly rank: string }) =>
+  left.rank < right.rank ? -1 : left.rank > right.rank ? 1 : 0
+
+const orderedColumns = (state: BoardState) => state.columns.toSorted(compareRanks)
 
 const orderedTickets = (state: BoardState, columnId: KanbanColumnId, excludedTicketId?: TicketId) =>
   state.tickets
@@ -74,7 +91,7 @@ const orderedTickets = (state: BoardState, columnId: KanbanColumnId, excludedTic
       (ticket) =>
         ticket.columnId === columnId && !ticket.archived && ticket.ticketId !== excludedTicketId,
     )
-    .toSorted((left, right) => left.rank.localeCompare(right.rank))
+    .toSorted(compareRanks)
 
 const findColumn = (state: BoardState, columnId: KanbanColumnId) =>
   state.columns.find((column) => column.columnId === columnId)
@@ -135,8 +152,20 @@ const ticketRank = (
   validateTicketAnchors(state, columnId, beforeTicketId, afterTicketId, excludedTicketId).pipe(
     Result.map(({ before, after }) => {
       const tickets = orderedTickets(state, columnId, excludedTicketId)
-      const lower = after?.rank ?? (before === undefined ? tickets.at(-1)?.rank : undefined)
-      return rank(generateKeyBetween(lower ?? null, before?.rank ?? null))
+      if (before !== undefined && after === undefined) {
+        const beforeIndex = tickets.indexOf(before)
+        return rank(generateKeyBetween(tickets[beforeIndex - 1]?.rank ?? null, before.rank))
+      }
+      if (after !== undefined && before === undefined) {
+        const afterIndex = tickets.indexOf(after)
+        return rank(generateKeyBetween(after.rank, tickets[afterIndex + 1]?.rank ?? null))
+      }
+      return rank(
+        generateKeyBetween(
+          after?.rank ?? (before === undefined ? (tickets.at(-1)?.rank ?? null) : null),
+          before?.rank ?? null,
+        ),
+      )
     }),
   )
 
@@ -180,8 +209,20 @@ const columnRank = (
   validateColumnAnchors(state, beforeColumnId, afterColumnId, excludedColumnId).pipe(
     Result.map(({ before, after }) => {
       const columns = orderedColumns(state).filter((column) => column.columnId !== excludedColumnId)
-      const lower = after?.rank ?? (before === undefined ? columns.at(-1)?.rank : undefined)
-      return rank(generateKeyBetween(lower ?? null, before?.rank ?? null))
+      if (before !== undefined && after === undefined) {
+        const beforeIndex = columns.indexOf(before)
+        return rank(generateKeyBetween(columns[beforeIndex - 1]?.rank ?? null, before.rank))
+      }
+      if (after !== undefined && before === undefined) {
+        const afterIndex = columns.indexOf(after)
+        return rank(generateKeyBetween(after.rank, columns[afterIndex + 1]?.rank ?? null))
+      }
+      return rank(
+        generateKeyBetween(
+          after?.rank ?? (before === undefined ? (columns.at(-1)?.rank ?? null) : null),
+          before?.rank ?? null,
+        ),
+      )
     }),
   )
 
@@ -207,15 +248,49 @@ const requireCloseConfirmation = (
       }),
     )
   }
-  if (ticket.activeExecutionId !== undefined && interruptActiveExecution !== true) {
+  const [firstExecutionId, ...remainingExecutionIds] = ticket.activeExecutionIds
+  if (firstExecutionId !== undefined && interruptActiveExecution !== true) {
     return Result.fail(
       new ActiveExecutionConfirmationRequired({
         ticketId: ticket.ticketId,
-        executionId: ticket.activeExecutionId,
+        executionIds: [firstExecutionId, ...remainingExecutionIds],
       }),
     )
   }
   return Result.succeed(undefined)
+}
+
+const interruptionEvents = (ticket: TicketState): ReadonlyArray<TicketEvent> =>
+  ticket.activeExecutionIds.map((executionId) =>
+    ExecutionInterrupted.make({ executionId, ticketId: ticket.ticketId }),
+  )
+
+const hasDependencyPath = (
+  state: BoardState,
+  fromTicketId: TicketId,
+  targetTicketId: TicketId,
+): boolean => {
+  const visited = new Set<TicketId>()
+  const pending = [fromTicketId]
+  while (pending.length > 0) {
+    const current = pending.pop()
+    if (current === undefined) {
+      continue
+    }
+    if (current === targetTicketId) {
+      return true
+    }
+    if (visited.has(current)) {
+      continue
+    }
+    visited.add(current)
+    for (const dependency of state.dependencies) {
+      if (dependency.ticketId === current) {
+        pending.push(dependency.dependsOnTicketId)
+      }
+    }
+  }
+  return false
 }
 
 const initialize = (
@@ -316,7 +391,13 @@ export const decide = (
         return Result.fail(new ProtectedDoneColumn({ columnId: column.columnId }))
       }
       const tickets = orderedTickets(state, column.columnId)
-      if (tickets.length > 0 && command.payload.destinationColumnId === undefined) {
+      const hasReferences = state.tickets.some(
+        (ticket) =>
+          (!ticket.archived && ticket.columnId === column.columnId) ||
+          (ticket.archived && ticket.columnId === column.columnId) ||
+          (ticket.done && ticket.lastActiveColumnId === column.columnId),
+      )
+      if (hasReferences && command.payload.destinationColumnId === undefined) {
         return Result.fail(new ColumnDestinationRequired({ columnId: column.columnId }))
       }
       const destinationId = command.payload.destinationColumnId
@@ -328,10 +409,15 @@ export const decide = (
           }),
         )
       }
-      if (destinationId !== undefined && findColumn(state, destinationId) === undefined) {
+      const destination = destinationId === undefined ? undefined : findColumn(state, destinationId)
+      if (destinationId !== undefined && destination === undefined) {
         return Result.fail(new KanbanColumnNotFound({ columnId: destinationId }))
       }
-      const destination = destinationId === undefined ? undefined : findColumn(state, destinationId)
+      if (destination?.done === true) {
+        return Result.fail(
+          new DoneColumnDestinationForbidden({ destinationColumnId: destination.columnId }),
+        )
+      }
       const destinationTickets =
         destinationId === undefined ? [] : orderedTickets(state, destinationId)
       const generatedRanks = generateNKeysBetween(
@@ -342,18 +428,11 @@ export const decide = (
       return Result.succeed([
         ...tickets.map((ticket, index) => {
           const newRank = generatedRanks[index] ?? rank(ticket.rank)
-          return destination?.done === true
-            ? TicketCompleted.make({
-                ticketId: ticket.ticketId,
-                previousColumnId: column.columnId,
-                doneColumnId: destination.columnId,
-                rank: newRank,
-              })
-            : TicketMoved.make({
-                ticketId: ticket.ticketId,
-                columnId: destinationId ?? column.columnId,
-                rank: newRank,
-              })
+          return TicketMoved.make({
+            ticketId: ticket.ticketId,
+            columnId: destinationId ?? column.columnId,
+            rank: newRank,
+          })
         }),
         KanbanColumnDeleted.make({
           columnId: column.columnId,
@@ -364,6 +443,10 @@ export const decide = (
     case "ticket.create": {
       if (findTicket(state, command.payload.ticketId) !== undefined) {
         return Result.fail(new TicketAlreadyExists({ ticketId: command.payload.ticketId }))
+      }
+      const target = findColumn(state, command.payload.placement.columnId)
+      if (target?.done === true) {
+        return Result.fail(new DoneColumnCreationForbidden({ columnId: target.columnId }))
       }
       return ticketRank(
         state,
@@ -413,6 +496,7 @@ export const decide = (
             Result.map((newRank) => {
               if (target?.done === true && !ticket.done) {
                 return [
+                  ...interruptionEvents(ticket),
                   TicketCompleted.make({
                     ticketId: ticket.ticketId,
                     previousColumnId: ticket.columnId,
@@ -461,6 +545,7 @@ export const decide = (
           ).pipe(
             Result.flatMap(() => ticketRank(state, done.columnId, undefined, undefined)),
             Result.map((newRank) => [
+              ...interruptionEvents(ticket),
               TicketCompleted.make({
                 ticketId: ticket.ticketId,
                 previousColumnId: ticket.columnId,
@@ -474,6 +559,9 @@ export const decide = (
     case "ticket.reopen":
       return requireTicket(state, command.payload.ticketId).pipe(
         Result.flatMap((ticket) => {
+          if (ticket.archived) {
+            return Result.fail(new TicketAlreadyArchived({ ticketId: ticket.ticketId }))
+          }
           if (!ticket.done) {
             return Result.fail(new TicketNotCompleted({ ticketId: ticket.ticketId }))
           }
@@ -497,7 +585,12 @@ export const decide = (
                 ticket,
                 command.payload.acknowledgeOpenDependencies,
                 command.payload.interruptActiveExecution,
-              ).pipe(Result.map(() => [TicketArchived.make({ ticketId: ticket.ticketId })])),
+              ).pipe(
+                Result.map(() => [
+                  ...interruptionEvents(ticket),
+                  TicketArchived.make({ ticketId: ticket.ticketId }),
+                ]),
+              ),
         ),
       )
     case "ticket.restore":
@@ -506,9 +599,11 @@ export const decide = (
           if (!ticket.archived) {
             return Result.fail(new TicketNotArchived({ ticketId: ticket.ticketId }))
           }
-          const columnId = ticket.done
-            ? (ticket.lastActiveColumnId ?? ticket.columnId)
-            : ticket.columnId
+          const currentDoneColumn = ticket.done ? doneColumn(state) : undefined
+          if (ticket.done && currentDoneColumn === undefined) {
+            return Result.fail(new KanbanColumnNotFound({ columnId: ticket.columnId }))
+          }
+          const columnId = currentDoneColumn?.columnId ?? ticket.columnId
           return ticketRank(state, columnId, undefined, undefined, ticket.ticketId).pipe(
             Result.map((newRank) => [
               TicketRestored.make({ ticketId: ticket.ticketId, columnId, rank: newRank }),
@@ -531,6 +626,39 @@ export const decide = (
       return requireTicket(state, command.payload.ticketId).pipe(
         Result.map(() => [TicketUpdated.make(command.payload)]),
       )
+    case "ticket.dependency.add":
+      return requireTicket(state, command.payload.ticketId).pipe(
+        Result.flatMap(() => requireTicket(state, command.payload.dependsOnTicketId)),
+        Result.flatMap((): Result.Result<ReadonlyArray<TicketEvent>, BoardDecisionError> => {
+          const { ticketId, dependsOnTicketId } = command.payload
+          if (ticketId === dependsOnTicketId) {
+            return Result.fail(new TicketSelfDependency({ ticketId }))
+          }
+          if (
+            state.dependencies.some(
+              (dependency) =>
+                dependency.ticketId === ticketId &&
+                dependency.dependsOnTicketId === dependsOnTicketId,
+            )
+          ) {
+            return Result.fail(new TicketDependencyAlreadyExists({ ticketId, dependsOnTicketId }))
+          }
+          if (hasDependencyPath(state, dependsOnTicketId, ticketId)) {
+            return Result.fail(new TicketDependencyCycle({ ticketId, dependsOnTicketId }))
+          }
+          return Result.succeed([TicketDependencyAdded.make({ ticketId, dependsOnTicketId })])
+        }),
+      )
+    case "ticket.dependency.remove": {
+      const { ticketId, dependsOnTicketId } = command.payload
+      const exists = state.dependencies.some(
+        (dependency) =>
+          dependency.ticketId === ticketId && dependency.dependsOnTicketId === dependsOnTicketId,
+      )
+      return exists
+        ? Result.succeed([TicketDependencyRemoved.make({ ticketId, dependsOnTicketId })])
+        : Result.fail(new TicketDependencyNotFound({ ticketId, dependsOnTicketId }))
+    }
     case "execution.start":
       return requireTicket(state, command.payload.ticketId).pipe(
         Result.flatMap((ticket): Result.Result<ReadonlyArray<TicketEvent>, BoardDecisionError> => {
