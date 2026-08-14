@@ -22,7 +22,7 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | **Event**            | Fait immuable produit par un decider pur à partir d'une commande.                          |
 | **Projection**       | Vue dérivée (forum, tickets, runs) reconstruite depuis le journal d'événements.            |
 | **Reactor**          | Consommateur durable de l'outbox (scheduler, Hermes, Git, n8n).                            |
-| **Outbox**           | File transactionnelle du store SQL ; seule source de reprise après crash.                 |
+| **Outbox**           | File transactionnelle du store SQL ; seule source de reprise après crash.                  |
 | **Lease**            | Verrou temporaire avec expiration pour réclamer un attempt entre workers.                  |
 | **Receipt**          | Preuve d'idempotence d'une commande ; réponse stable aux retries.                          |
 | **ContextPack**      | Contexte LLM versionné, tiré des projections Noyau ; jamais l'historique brut du forum.    |
