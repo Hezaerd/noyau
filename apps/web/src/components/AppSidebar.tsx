@@ -1,9 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 import {
-  Bot,
   ChevronsUpDown,
   Inbox,
-  ListTodo,
+  LayoutDashboard,
   MessageSquareText,
   Plus,
   Search,
@@ -28,21 +27,6 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
-
-const projectLinks = [
-  {
-    label: "Tâches",
-    to: "/projects/noyau/tasks",
-    icon: ListTodo,
-    badge: "6",
-  },
-  {
-    label: "Canal",
-    to: "/projects/noyau/channel",
-    icon: MessageSquareText,
-    badge: "2",
-  },
-] as const
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
@@ -126,31 +110,50 @@ export function AppSidebar() {
               <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                 <p className="truncate text-xs font-medium text-sidebar-foreground">noyau</p>
                 <div className="mt-0.5 flex items-center gap-1.5 text-[0.64rem] text-sidebar-foreground/40">
-                  <span className="size-1.5 rounded-full bg-violet-400" />3 agents actifs
+                  <span className="size-1.5 rounded-full bg-emerald-400" />
+                  Tableau actif
                 </div>
               </div>
               <ChevronsUpDown className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
             </div>
 
             <SidebarMenu>
-              {projectLinks.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.to}
-                    tooltip={item.label}
-                    className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/projects/noyau/board"}
+                  tooltip="Tableau"
+                  className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                >
+                  <Link
+                    to="/projects/$projectId/board"
+                    params={{ projectId: "noyau" }}
+                    onClick={closeMobileNavigation}
                   >
-                    <Link to={item.to} onClick={closeMobileNavigation}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                  <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
-                    {item.badge}
-                  </SidebarMenuBadge>
-                </SidebarMenuItem>
-              ))}
+                    <LayoutDashboard />
+                    <span>Tableau</span>
+                  </Link>
+                </SidebarMenuButton>
+                <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
+                  7
+                </SidebarMenuBadge>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/projects/noyau/channel"}
+                  tooltip="Canal"
+                  className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                >
+                  <Link to="/projects/noyau/channel" onClick={closeMobileNavigation}>
+                    <MessageSquareText />
+                    <span>Canal</span>
+                  </Link>
+                </SidebarMenuButton>
+                <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
+                  2
+                </SidebarMenuBadge>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -165,9 +168,7 @@ export function AppSidebar() {
           </Avatar>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-xs font-medium">Hezaerd</p>
-            <p className="flex items-center gap-1.5 text-[0.62rem] text-sidebar-foreground/42">
-              <Bot className="size-3" /> Marion disponible
-            </p>
+            <p className="text-[0.62rem] text-sidebar-foreground/42">Espace personnel</p>
           </div>
         </div>
       </SidebarFooter>
