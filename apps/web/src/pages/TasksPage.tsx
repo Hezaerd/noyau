@@ -240,11 +240,13 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
           </div>
 
           <SheetFooter className="border-t sm:flex-row">
-            <SheetClose asChild>
-              <Button type="button" variant="outline">
-                Annuler
-              </Button>
-            </SheetClose>
+            <SheetClose
+              render={
+                <Button type="button" variant="outline">
+                  Annuler
+                </Button>
+              }
+            />
             <Button type="submit" disabled={disabled || submitting || !canSubmit}>
               {submitting ? <CircleNotch className="animate-spin" /> : <Plus />}
               Créer la tâche

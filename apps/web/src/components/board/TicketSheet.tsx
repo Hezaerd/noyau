@@ -34,7 +34,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import {
   isTicketPriority,
@@ -246,20 +252,25 @@ export function TicketSheet({
                     </Badge>
                   )}
                 </div>
-                <SheetTitle asChild>
-                  <Input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    onBlur={saveTitle}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.currentTarget.blur()
-                      }
-                    }}
-                    className="-ml-2 h-auto border-transparent bg-transparent px-2 py-1 text-xl font-semibold tracking-[-0.03em] shadow-none focus-visible:border-input"
-                    aria-label="Titre du ticket"
-                  />
-                </SheetTitle>
+                <SheetTitle
+                  render={
+                    <Input
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      onBlur={saveTitle}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur()
+                        }
+                      }}
+                      className="-ml-2 h-auto border-transparent bg-transparent px-2 py-1 text-xl font-semibold tracking-[-0.03em] shadow-none focus-visible:border-input"
+                      aria-label="Titre du ticket"
+                    />
+                  }
+                />
+                <SheetDescription>
+                  Modifie les détails sans quitter le contexte du Tableau.
+                </SheetDescription>
               </SheetHeader>
 
               <div className="space-y-8 px-6 py-6">
@@ -276,7 +287,8 @@ export function TicketSheet({
                         value={ticket.assigneeId ?? "unassigned"}
                         onValueChange={(value) =>
                           onUpdate(ticket.id, {
-                            assigneeId: value === "unassigned" ? undefined : value,
+                            assigneeId:
+                              value === null || value === "unassigned" ? undefined : value,
                           })
                         }
                       >

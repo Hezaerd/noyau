@@ -75,15 +75,13 @@ export function AppSidebar() {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
-                asChild
+                render={<Link to="/" onClick={closeMobileNavigation} />}
                 isActive={pathname === "/"}
                 tooltip="Inbox"
                 className="h-9 text-sidebar-foreground/68 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
               >
-                <Link to="/" onClick={closeMobileNavigation}>
-                  <Tray />
-                  <span>Inbox</span>
-                </Link>
+                <Tray />
+                <span>Inbox</span>
               </SidebarMenuButton>
               <SidebarMenuBadge className="bg-sidebar-primary text-[0.65rem] text-sidebar-primary-foreground">
                 4
@@ -113,19 +111,19 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  asChild
+                  render={
+                    <Link
+                      to="/projects/$projectId/board"
+                      params={{ projectId: "noyau" }}
+                      onClick={closeMobileNavigation}
+                    />
+                  }
                   isActive={pathname === "/projects/noyau/board"}
                   tooltip="Tableau"
                   className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
                 >
-                  <Link
-                    to="/projects/$projectId/board"
-                    params={{ projectId: "noyau" }}
-                    onClick={closeMobileNavigation}
-                  >
-                    <SquaresFour />
-                    <span>Tableau</span>
-                  </Link>
+                  <SquaresFour />
+                  <span>Tableau</span>
                 </SidebarMenuButton>
                 <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
                   7
@@ -133,15 +131,13 @@ export function AppSidebar() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  asChild
+                  render={<Link to="/projects/noyau/channel" onClick={closeMobileNavigation} />}
                   isActive={pathname === "/projects/noyau/channel"}
                   tooltip="Canal"
                   className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
                 >
-                  <Link to="/projects/noyau/channel" onClick={closeMobileNavigation}>
-                    <ChatCircleText />
-                    <span>Canal</span>
-                  </Link>
+                  <ChatCircleText />
+                  <span>Canal</span>
                 </SidebarMenuButton>
                 <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
                   2

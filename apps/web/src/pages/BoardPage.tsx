@@ -55,6 +55,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -435,31 +436,41 @@ function BoardColumnView({
           {filtered ? `${tickets.length}/${allTickets.length}` : allTickets.length}
         </span>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-xs" aria-label={`Menu de la colonne ${column.name}`}>
-              <DotsThree />
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Menu de la colonne ${column.name}`}
+              >
+                <DotsThree />
+              </Button>
+            }
+          />
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel>{column.name}</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => onEditingChange(true)}>Renommer</DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{column.name}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => onEditingChange(true)}>Renommer</DropdownMenuItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Couleur</DropdownMenuLabel>
-            {[
-              ["Violet", "#6D5BD0"],
-              ["Bleu", "#3B82F6"],
-              ["Émeraude", "#10B981"],
-              ["Ambre", "#F59E0B"],
-            ].map(([label, color]) => (
-              <DropdownMenuItem key={color} onSelect={() => onColor(color ?? "#6D5BD0")}>
-                <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
-                {label}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Couleur</DropdownMenuLabel>
+              {[
+                ["Violet", "#6D5BD0"],
+                ["Bleu", "#3B82F6"],
+                ["Émeraude", "#10B981"],
+                ["Ambre", "#F59E0B"],
+              ].map(([label, color]) => (
+                <DropdownMenuItem key={color} onClick={() => onColor(color ?? "#6D5BD0")}>
+                  <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
             {column.done ? null : (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                <DropdownMenuItem variant="destructive" onClick={onDelete}>
                   Supprimer
                 </DropdownMenuItem>
               </>
@@ -806,7 +817,10 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
             <Select
               value={search.assignee ?? "all"}
               onValueChange={(value) =>
-                onSearchChange({ assignee: value === "all" ? undefined : value }, true)
+                onSearchChange(
+                  { assignee: value === null || value === "all" ? undefined : value },
+                  true,
+                )
               }
             >
               <SelectTrigger size="default">
