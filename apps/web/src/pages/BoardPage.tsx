@@ -19,7 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import { useHotkeys } from "@tanstack/react-hotkeys"
-import { differenceInCalendarDays, format, parseISO } from "date-fns"
+import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
   AlertCircle,
@@ -156,7 +156,7 @@ const dueLabel = (
     return undefined
   }
   const due = parseISO(ticket.dueAt)
-  const days = differenceInCalendarDays(due, Date.now())
+  const days = differenceInCalendarDays(due, startOfToday())
   const date = format(due, "d MMM", { locale: fr })
   if (!done && days < 0) {
     return { label: `${date} · En retard`, late: true }
