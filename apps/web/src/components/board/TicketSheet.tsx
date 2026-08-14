@@ -1,16 +1,16 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import {
-  Activity,
-  Bot,
-  CheckCircle2,
-  ChevronDown,
+  ArrowSquareOut,
+  CaretDown,
+  ChatCircleText,
   Circle,
-  ExternalLink,
   GitBranch,
-  MessageSquareText,
+  CheckCircle,
+  PaperPlaneTilt,
   Play,
-  Send,
-} from "lucide-react"
+  Pulse,
+  Robot,
+} from "@phosphor-icons/react"
 import { useEffect, useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -146,7 +146,7 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
             </div>
             <details className="group rounded-xl border px-3 py-2.5">
               <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium">
-                <ChevronDown className="size-3.5 text-muted-foreground group-open:rotate-180" />
+                <CaretDown className="size-3.5 text-muted-foreground group-open:rotate-180" />
                 Paramètres avancés
               </summary>
               <p className="mt-3 pl-5 text-xs leading-relaxed text-muted-foreground">
@@ -448,7 +448,7 @@ export function TicketSheet({
                           className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/45"
                         >
                           {item.done ? (
-                            <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
+                            <CheckCircle className="size-4 shrink-0 text-emerald-400" />
                           ) : (
                             <Circle className="size-4 shrink-0 text-muted-foreground" />
                           )}
@@ -501,7 +501,7 @@ export function TicketSheet({
                   </div>
                   {ticket.execution === undefined ? (
                     <div className="rounded-xl border border-dashed px-4 py-5 text-center">
-                      <Bot className="mx-auto mb-2 size-4 text-muted-foreground" />
+                      <Robot className="mx-auto mb-2 size-4 text-muted-foreground" />
                       <p className="text-xs text-muted-foreground">
                         Aucune exécution pour ce ticket
                       </p>
@@ -543,14 +543,14 @@ export function TicketSheet({
                     </div>
                     <Button variant="ghost" size="xs">
                       Ouvrir dans le Channel
-                      <ExternalLink />
+                      <ArrowSquareOut />
                     </Button>
                   </div>
                   <div className="overflow-hidden rounded-xl border">
                     <div className="max-h-64 space-y-4 overflow-y-auto p-4">
                       {ticket.messages.length === 0 ? (
                         <div className="py-5 text-center">
-                          <MessageSquareText className="mx-auto mb-2 size-4 text-muted-foreground" />
+                          <ChatCircleText className="mx-auto mb-2 size-4 text-muted-foreground" />
                           <p className="text-xs text-muted-foreground">
                             Commence la conversation de travail.
                           </p>
@@ -599,7 +599,7 @@ export function TicketSheet({
                         disabled={reply.trim() === ""}
                         aria-label="Envoyer"
                       >
-                        <Send />
+                        <PaperPlaneTilt />
                       </Button>
                     </form>
                   </div>
@@ -607,7 +607,7 @@ export function TicketSheet({
 
                 <details className="group border-t pt-5" open={ticket.attention === "failure"}>
                   <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
-                    <ChevronDown className="size-3.5 group-open:rotate-180" />
+                    <CaretDown className="size-3.5 group-open:rotate-180" />
                     Activité système
                     <span className="ml-auto font-normal tracking-normal normal-case">
                       {ticket.activity.length}
@@ -620,7 +620,7 @@ export function TicketSheet({
                       ticket.activity.map((item) => (
                         <div key={item.id} className="flex gap-3">
                           <div className="mt-1 grid size-6 shrink-0 place-items-center rounded-full bg-muted">
-                            <Activity className="size-3 text-muted-foreground" />
+                            <Pulse className="size-3 text-muted-foreground" />
                           </div>
                           <div>
                             <p className="text-xs">

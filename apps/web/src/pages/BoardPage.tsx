@@ -19,24 +19,24 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import {
+  Calendar,
+  CheckCircle,
+  Command as CommandIcon,
+  DotsSixVertical,
+  DotsThree,
+  DotOutline,
+  Funnel,
+  MagnifyingGlass,
+  Plus,
+  Robot,
+  User,
+  WarningCircle,
+  X,
+} from "@phosphor-icons/react"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
-import {
-  AlertCircle,
-  Bot,
-  CalendarDays,
-  CheckCircle2,
-  CircleDot,
-  Command as CommandIcon,
-  Filter,
-  GripVertical,
-  MoreHorizontal,
-  Plus,
-  Search,
-  UserRound,
-  X,
-} from "lucide-react"
 import { useRef, useState, type CSSProperties, type FormEvent, type RefObject } from "react"
 
 import { TicketSheet } from "@/components/board/TicketSheet"
@@ -202,7 +202,7 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
         {...listeners}
       >
         <div className="flex items-start gap-2">
-          <CircleDot className={cn("mt-0.5 size-3.5 shrink-0", priorityStyles[ticket.priority])} />
+          <DotOutline className={cn("mt-0.5 size-3.5 shrink-0", priorityStyles[ticket.priority])} />
           <h3 className="line-clamp-2 flex-1 text-[0.82rem] leading-snug font-medium tracking-[-0.01em]">
             {ticket.title}
           </h3>
@@ -210,7 +210,7 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
             className="mt-0.5 cursor-grab touch-none text-muted-foreground/35 opacity-0 group-hover:opacity-100"
             aria-hidden="true"
           >
-            <GripVertical className="size-3.5" />
+            <DotsSixVertical className="size-3.5" />
           </span>
         </div>
 
@@ -222,14 +222,14 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
               attentionStyles[ticket.attention],
             )}
           >
-            <AlertCircle />
+            <WarningCircle />
             {attentionLabels[ticket.attention]}
           </Badge>
         )}
 
         {ticket.execution === undefined ? null : (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/55 px-2.5 py-2">
-            <Bot className="size-3.5 shrink-0 text-violet-400" />
+            <Robot className="size-3.5 shrink-0 text-violet-400" />
             <p className="min-w-0 flex-1 truncate text-[0.65rem] text-muted-foreground">
               {ticket.execution.count} exécution{ticket.execution.count > 1 ? "s" : ""} ·{" "}
               <span className="text-foreground">{executionLabels[ticket.execution.status]}</span>
@@ -253,7 +253,7 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
         <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
           {actor === undefined ? (
             <span className="grid size-5 place-items-center rounded-md border border-dashed text-muted-foreground/50">
-              <UserRound className="size-2.5" />
+              <User className="size-2.5" />
             </span>
           ) : (
             <Avatar className="size-5 rounded-md">
@@ -269,13 +269,13 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
                 due.late && "text-rose-300",
               )}
             >
-              <CalendarDays className="size-3" />
+              <Calendar className="size-3" />
               {due.label}
             </span>
           )}
           {ticket.checklist.length === 0 ? null : (
             <span className="ml-auto flex items-center gap-1 text-[0.6rem] text-muted-foreground">
-              <CheckCircle2 className="size-3" />
+              <CheckCircle className="size-3" />
               {checklistDone}/{ticket.checklist.length}
             </span>
           )}
@@ -437,7 +437,7 @@ function BoardColumnView({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-xs" aria-label={`Menu de la colonne ${column.name}`}>
-              <MoreHorizontal />
+              <DotsThree />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
@@ -785,7 +785,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
 
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 xl:justify-end">
             <div className="relative min-w-56 flex-1 xl:max-w-sm">
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <MagnifyingGlass className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 ref={searchRef}
                 value={search.q ?? ""}
@@ -810,7 +810,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
               }
             >
               <SelectTrigger size="default">
-                <UserRound />
+                <User />
                 <SelectValue>
                   {search.assignee === undefined
                     ? "Responsable"
@@ -839,7 +839,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
               }}
             >
               <SelectTrigger size="default">
-                <Filter />
+                <Funnel />
                 <SelectValue>
                   {search.priority === undefined ? "Priorité" : priorityLabels[search.priority]}
                 </SelectValue>
@@ -1067,7 +1067,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
                 searchRef.current?.focus()
               }}
             >
-              <Search />
+              <MagnifyingGlass />
               Rechercher
               <CommandShortcut>/</CommandShortcut>
             </CommandItem>
@@ -1100,7 +1100,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
                   onOpenTicket(ticket.id)
                 }}
               >
-                <CircleDot className={priorityStyles[ticket.priority]} />
+                <DotOutline className={priorityStyles[ticket.priority]} />
                 <span className="truncate">{ticket.title}</span>
               </CommandItem>
             ))}
