@@ -12,7 +12,7 @@ import {
   Pulse,
   Robot,
 } from "@phosphor-icons/react"
-import { format, isValid, parse } from "date-fns"
+import { format, isValid, parseISO } from "date-fns"
 import { useEffect, useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -30,12 +30,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Popover,
-  PopoverClose,
-  PopoverPopup,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Popover, PopoverClose, PopoverPopup, PopoverTrigger } from "@/components/ui/popover"
 import {
   Select,
   SelectGroup,
@@ -83,7 +78,7 @@ const parseTicketDueDate = (dueAt: string | undefined): Date | undefined => {
     return undefined
   }
 
-  const date = parse(dueAt.slice(0, 10), "yyyy-MM-dd", new Date())
+  const date = parseISO(dueAt.slice(0, 10))
   return isValid(date) ? date : undefined
 }
 
@@ -266,9 +261,13 @@ export function TicketSheet({
     value: priority,
     label: priorityLabels[priority],
   }))
-  const dueDate = parseTicketDueDate(ticket.dueAt)
+  const dueDate = parseTicketDueDate(ticket?.dueAt)
 
   const updateDueDate = (date: Date | undefined) => {
+    if (ticket === undefined) {
+      return
+    }
+
     onUpdate(ticket.id, {
       dueAt: date === undefined ? undefined : `${format(date, "yyyy-MM-dd")}T17:00:00.000Z`,
     })
@@ -407,11 +406,7 @@ export function TicketSheet({
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label
-                          className="text-[0.68rem] text-muted-foreground"
-                        >
-                          Échéance
-                        </Label>
+                        <Label className="text-[0.68rem] text-muted-foreground">Échéance</Label>
                         <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
                           <PopoverTrigger
                             aria-label="Sélectionner une échéance"
@@ -443,10 +438,11 @@ export function TicketSheet({
                               />
                             </div>
                             <Calendar
-                              defaultMonth={dueDate}
                               mode="single"
                               onSelect={updateDueDate}
-                              selected={dueDate}
+                              {...(dueDate === undefined
+                                ? {}
+                                : { defaultMonth: dueDate, selected: dueDate })}
                             />
                           </PopoverPopup>
                         </Popover>

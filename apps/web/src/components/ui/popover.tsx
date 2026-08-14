@@ -1,13 +1,14 @@
-"use client";
+"use client"
 
-import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
-import type React from "react";
-import { cn } from "@/lib/utils";
+import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
+import type React from "react"
+
+import { cn } from "@/lib/utils"
 
 export const PopoverCreateHandle: typeof PopoverPrimitive.createHandle =
-  PopoverPrimitive.createHandle;
+  PopoverPrimitive.createHandle
 
-export const Popover: typeof PopoverPrimitive.Root = PopoverPrimitive.Root;
+export const Popover: typeof PopoverPrimitive.Root = PopoverPrimitive.Root
 
 export function PopoverTrigger({
   className,
@@ -15,14 +16,10 @@ export function PopoverTrigger({
   ...props
 }: PopoverPrimitive.Trigger.Props): React.ReactElement {
   return (
-    <PopoverPrimitive.Trigger
-      className={className}
-      data-slot="popover-trigger"
-      {...props}
-    >
+    <PopoverPrimitive.Trigger className={className} data-slot="popover-trigger" {...props}>
       {children}
     </PopoverPrimitive.Trigger>
-  );
+  )
 }
 
 export function PopoverPopup({
@@ -37,13 +34,13 @@ export function PopoverPopup({
   portalProps,
   ...props
 }: PopoverPrimitive.Popup.Props & {
-  portalProps?: PopoverPrimitive.Portal.Props;
-  side?: PopoverPrimitive.Positioner.Props["side"];
-  align?: PopoverPrimitive.Positioner.Props["align"];
-  sideOffset?: PopoverPrimitive.Positioner.Props["sideOffset"];
-  alignOffset?: PopoverPrimitive.Positioner.Props["alignOffset"];
-  tooltipStyle?: boolean;
-  anchor?: PopoverPrimitive.Positioner.Props["anchor"];
+  portalProps?: PopoverPrimitive.Portal.Props
+  side?: PopoverPrimitive.Positioner.Props["side"]
+  align?: PopoverPrimitive.Positioner.Props["align"]
+  sideOffset?: PopoverPrimitive.Positioner.Props["sideOffset"]
+  alignOffset?: PopoverPrimitive.Positioner.Props["alignOffset"]
+  tooltipStyle?: boolean
+  anchor?: PopoverPrimitive.Positioner.Props["anchor"]
 }): React.ReactElement {
   return (
     <PopoverPrimitive.Portal {...portalProps}>
@@ -80,13 +77,11 @@ export function PopoverPopup({
         </PopoverPrimitive.Popup>
       </PopoverPrimitive.Positioner>
     </PopoverPrimitive.Portal>
-  );
+  )
 }
 
-export function PopoverClose({
-  ...props
-}: PopoverPrimitive.Close.Props): React.ReactElement {
-  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />;
+export function PopoverClose({ ...props }: PopoverPrimitive.Close.Props): React.ReactElement {
+  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />
 }
 
 export function PopoverTitle({
@@ -99,7 +94,7 @@ export function PopoverTitle({
       data-slot="popover-title"
       {...props}
     />
-  );
+  )
 }
 
 export function PopoverDescription({
@@ -112,7 +107,7 @@ export function PopoverDescription({
       data-slot="popover-description"
       {...props}
     />
-  );
+  )
 }
 
-export { PopoverPrimitive, PopoverPopup as PopoverContent };
+export { PopoverPrimitive, PopoverPopup as PopoverContent }
