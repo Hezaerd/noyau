@@ -8,6 +8,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core"
 import {
@@ -542,6 +543,7 @@ export function BoardPage({
   const boardRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const localId = useRef(0)
+  const dragStartStateRef = useRef<BoardState | undefined>(undefined)
   const filters: BoardFilters = {
     query: search.q ?? "",
     ...(search.assignee === undefined ? {} : { assignee: search.assignee }),
@@ -669,8 +671,44 @@ export function BoardPage({
     },
   )
 
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    dragStartStateRef.current = state
+    setDraggedTicketId(String(active.id))
+  }
+
+  const handleDragOver = ({ active, over }: DragOverEvent) => {
+    if (over === null || filtered) {
+      return
+    }
+
+    const ticketId = String(active.id)
+    const overId = String(over.id)
+    if (ticketId === overId) {
+      return
+    }
+
+    setState((current) => {
+      const source = current.tickets.find((ticket) => ticket.id === ticketId)
+      const overTicket = current.tickets.find((ticket) => ticket.id === overId)
+      const destinationColumnId = overId.startsWith("column:")
+        ? overId.slice("column:".length)
+        : overTicket?.columnId
+
+      if (
+        source === undefined ||
+        destinationColumnId === undefined ||
+        destinationColumnId === source.columnId
+      ) {
+        return current
+      }
+
+      return moveTicket(current, ticketId, destinationColumnId, overTicket?.id)
+    })
+  }
+
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     setDraggedTicketId(undefined)
+    dragStartStateRef.current = undefined
     if (over === null) {
       return
     }
@@ -862,9 +900,17 @@ export function BoardPage({
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
-        onDragStart={({ active }: DragStartEvent) => setDraggedTicketId(String(active.id))}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
-        onDragCancel={() => setDraggedTicketId(undefined)}
+        onDragCancel={() => {
+          setDraggedTicketId(undefined)
+          const dragStartState = dragStartStateRef.current
+          dragStartStateRef.current = undefined
+          if (dragStartState !== undefined) {
+            setState(dragStartState)
+          }
+        }}
       >
         <section
           ref={boardRef}
