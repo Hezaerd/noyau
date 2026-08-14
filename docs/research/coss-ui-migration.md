@@ -32,7 +32,7 @@ Cette URL est celle du
 [`components.json` de référence T3 Code](https://github.com/pingdotgg/t3code/blob/main/apps/web/components.json).
 Ses autres choix (`base-mira`, zinc, Lucide, alias `~/`) sont propres à T3 Code et ne sont pas des
 prérequis coss. Le registre coss fournit cependant des imports Lucide dans certains composants ;
-Lucide doit donc être une dépendance même si Noyau conserve Phosphor pour ses icônes applicatives.
+Lucide est la bibliothèque d’icônes unique, pour les primitives coss et pour l’UI applicative.
 
 ## Commandes Bun
 
@@ -88,10 +88,9 @@ Le preset de fontes référence `@fontsource-variable/inter` pour Inter et `geis
 `layout.tsx`/`next/font`; dans cette application Vite, mieux vaut conserver/configurer les variables
 CSS `--font-sans`, `--font-heading` et `--font-mono` explicitement.
 
-Ne pas supprimer immédiatement `@phosphor-icons/react`, `react-day-picker`, `input-otp`, `sonner` ou
-les dépendances des composants locaux : ils restent nécessaires tant que leurs consommateurs n'ont
-pas migré. Une fois le dernier composant base-nova remplacé, supprimer `@shadcn/react` et son import
-CSS.
+Ne pas supprimer immédiatement `react-day-picker`, `input-otp`, `sonner` ou les dépendances des
+composants locaux : ils restent nécessaires tant que leurs consommateurs n’ont pas migré. Une fois
+le dernier composant base-nova remplacé, supprimer `@shadcn/react` et son import CSS.
 
 ## Feuille de style
 
