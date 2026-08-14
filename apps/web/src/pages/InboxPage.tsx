@@ -1,12 +1,12 @@
 import {
-  ArrowSquareOut,
-  Check,
-  CheckCircle,
-  GitPullRequest,
-  Question,
-  Sparkle,
-  ChatCircleText,
-} from "@phosphor-icons/react"
+  CheckCircleIcon,
+  CheckIcon,
+  CircleHelpIcon,
+  GitPullRequestIcon,
+  MessageCircleIcon,
+  SparkleIcon,
+  SquareArrowOutUpRightIcon,
+} from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,7 @@ const activity = [
     actor: "Claude",
     initials: "CL",
     color: "bg-violet-500/15 text-violet-300",
-    icon: GitPullRequest,
+    icon: GitPullRequestIcon,
     title: "La refonte du moteur de receipts est prête à relire",
     detail: "PR #8 · 4 fichiers modifiés · check et tests passent",
     project: "noyau",
@@ -29,7 +29,7 @@ const activity = [
     actor: "Marion",
     initials: "MA",
     color: "bg-primary/15 text-primary",
-    icon: Question,
+    icon: CircleHelpIcon,
     title: "Une décision bloque la mission « Runtime Hermes »",
     detail: "Faut-il conserver les artefacts des runs échoués pendant 7 ou 30 jours ?",
     project: "noyau",
@@ -41,7 +41,7 @@ const activity = [
     actor: "Reviewer",
     initials: "RV",
     color: "bg-indigo-500/15 text-indigo-300",
-    icon: CheckCircle,
+    icon: CheckCircleIcon,
     title: "Le lot « Event cursor opaque » a passé la revue",
     detail: "Aucun défaut bloquant · 23 tests validés",
     project: "noyau",
@@ -53,7 +53,7 @@ const activity = [
     actor: "Marion",
     initials: "MA",
     color: "bg-primary/15 text-primary",
-    icon: Sparkle,
+    icon: SparkleIcon,
     title: "Le plan de la mission « Inbox v1 » a été ajusté",
     detail: "2 tâches terminées · 1 tâche ajoutée après analyse du flux",
     project: "noyau",
@@ -84,7 +84,7 @@ export function InboxPage() {
               </p>
             </div>
             <Button variant="outline" className="w-fit rounded-full bg-card shadow-xs">
-              <Check />
+              <CheckIcon />
               Tout marquer comme lu
             </Button>
           </header>
@@ -134,7 +134,7 @@ export function InboxPage() {
                   className="w-fit shrink-0 self-center rounded-full"
                 >
                   {item.action}
-                  <ArrowSquareOut />
+                  <SquareArrowOutUpRightIcon />
                 </Button>
               </article>
             ))}
@@ -172,7 +172,7 @@ export function InboxPage() {
                 className="flex w-full items-center justify-between text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 Voir tous les runs
-                <ArrowSquareOut className="size-3.5" />
+                <SquareArrowOutUpRightIcon className="size-3.5" />
               </button>
             </div>
           </section>
@@ -182,7 +182,7 @@ export function InboxPage() {
               <div>
                 <h3 className="text-base font-medium">Control plane durable</h3>
               </div>
-              <ChatCircleText className="size-4 text-violet-300" />
+              <MessageCircleIcon className="size-4 text-violet-300" />
             </div>
             <div className="mb-2 flex items-end justify-between">
               <span className="text-3xl font-semibold tracking-[-0.04em]">68%</span>
