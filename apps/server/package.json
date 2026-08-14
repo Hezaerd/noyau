@@ -12,7 +12,7 @@
     "./server": "./src/server.ts"
   },
   "scripts": {
-    "dev": "bun --watch src/main.ts",
+    "dev": "bun --env-file=../../.env --watch src/main.ts",
     "start": "bun src/main.ts",
     "build": "bun build src/main.ts --outdir dist --target=bun",
     "typecheck": "tsc -p tsconfig.json",
