@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./board/store": "./src/board/store.ts",
     "./migrations": "./src/migrations.ts",
     "./receipt": "./src/receipt.ts",
     "./task/store": "./src/task/store.ts"

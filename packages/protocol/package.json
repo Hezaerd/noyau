@@ -23,7 +23,8 @@
     "./ticket/events": "./src/ticket/events.ts",
     "./ticket/errors": "./src/ticket/errors.ts",
     "./receipts": "./src/receipts.ts",
-    "./control-plane": "./src/control-plane.ts"
+    "./control-plane": "./src/control-plane.ts",
+    "./rpc": "./src/rpc.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

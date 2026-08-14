@@ -28,8 +28,8 @@ _À éviter_ : sequence, offset SQL
 ## Contenu
 
 > État d'implémentation : les contrats `Ticket → Execution → Attempt → AgentRun` et Tableau sont
-> disponibles pour la migration par couches. Les modules `Mission`/`Task` restent temporairement
-> exportés afin que chaque PR de la stack reste vérifiable ; aucune nouvelle API ne doit les étendre.
+> exposés par la frontière Effect RPC. Les modules `Mission`/`Task` restent décodables pour le
+> journal historique, mais ne font plus partie de la frontière cliente.
 
 | Module              | Rôle                                                                                        |
 | ------------------- | ------------------------------------------------------------------------------------------- |
@@ -42,7 +42,8 @@ _À éviter_ : sequence, offset SQL
 | `./events`          | Union globale des faits + `EventEnvelope` persisté.                                         |
 | `./receipts`        | `Receipt` public stable, accepté ou rejeté.                                                 |
 | `./board`           | Snapshot compact du Tableau et curseur opaque ; les détails Ticket sont chargés séparément. |
-| `./control-plane`   | Contrat HTTP historique, remplacé dans une couche ultérieure par Effect RPC WebSocket.      |
+| `./rpc`             | Contrat Effect RPC WebSocket : commandes, snapshot et flux ordonné du projet.               |
+| `./control-plane`   | Erreurs partagées et contrat HTTP historique conservé pour décoder les échanges antérieurs. |
 
 ## Décisions structurantes
 
