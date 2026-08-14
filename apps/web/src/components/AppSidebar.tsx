@@ -28,21 +28,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
-const projectLinks = [
-  {
-    label: "Tableau",
-    to: "/projects/noyau/board",
-    icon: LayoutDashboard,
-    badge: "7",
-  },
-  {
-    label: "Canal",
-    to: "/projects/noyau/channel",
-    icon: MessageSquareText,
-    badge: "2",
-  },
-] as const
-
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { isMobile, setOpenMobile } = useSidebar()
@@ -133,24 +118,42 @@ export function AppSidebar() {
             </div>
 
             <SidebarMenu>
-              {projectLinks.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.to}
-                    tooltip={item.label}
-                    className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/projects/noyau/board"}
+                  tooltip="Tableau"
+                  className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                >
+                  <Link
+                    to="/projects/$projectId/board"
+                    params={{ projectId: "noyau" }}
+                    onClick={closeMobileNavigation}
                   >
-                    <Link to={item.to} onClick={closeMobileNavigation}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                  <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
-                    {item.badge}
-                  </SidebarMenuBadge>
-                </SidebarMenuItem>
-              ))}
+                    <LayoutDashboard />
+                    <span>Tableau</span>
+                  </Link>
+                </SidebarMenuButton>
+                <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
+                  7
+                </SidebarMenuBadge>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/projects/noyau/channel"}
+                  tooltip="Canal"
+                  className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                >
+                  <Link to="/projects/noyau/channel" onClick={closeMobileNavigation}>
+                    <MessageSquareText />
+                    <span>Canal</span>
+                  </Link>
+                </SidebarMenuButton>
+                <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
+                  2
+                </SidebarMenuBadge>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

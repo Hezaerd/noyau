@@ -2,8 +2,6 @@ import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import {
   Activity,
   Bot,
-  CalendarDays,
-  Check,
   CheckCircle2,
   ChevronDown,
   Circle,
@@ -14,7 +12,6 @@ import {
   Play,
   Send,
   Sparkles,
-  UserRound,
 } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
 
@@ -49,10 +46,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import type {
-  BoardActor,
-  BoardTicket,
-  BoardTicketPatch,
+import {
+  isTicketPriority,
+  priorities,
+  type BoardActor,
+  type BoardTicket,
+  type BoardTicketPatch,
 } from "@/lib/board-model"
 
 const priorityLabels: Record<TicketPriority, string> = {
@@ -89,13 +88,7 @@ interface ExecutionDialogProps {
   readonly onStart: (profile: string) => void
 }
 
-function ExecutionDialog({
-  ticket,
-  actors,
-  open,
-  onOpenChange,
-  onStart,
-}: ExecutionDialogProps) {
+function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: ExecutionDialogProps) {
   const agentProfiles = actors.filter((actor) => actor.kind === "agent")
   const [profile, setProfile] = useState(agentProfiles[0]?.name ?? "")
   const [outcome, setOutcome] = useState("")
@@ -293,10 +286,15 @@ export function TicketSheet({
               <div className="space-y-8 px-6 py-6">
                 <section aria-labelledby="ticket-details-title">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 id="ticket-details-title" className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                    <h3
+                      id="ticket-details-title"
+                      className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
+                    >
                       Détails
                     </h3>
-                    <span className="text-[0.65rem] text-muted-foreground">Sauvegarde immédiate</span>
+                    <span className="text-[0.65rem] text-muted-foreground">
+                      Sauvegarde immédiate
+                    </span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
@@ -344,23 +342,25 @@ export function TicketSheet({
                       <Label className="text-[0.68rem] text-muted-foreground">Priorité</Label>
                       <Select
                         value={ticket.priority}
-                        onValueChange={(value) =>
-                          onUpdate(ticket.id, { priority: value as TicketPriority })
-                        }
+                        onValueChange={(value) => {
+                          if (value !== null && isTicketPriority(value)) {
+                            onUpdate(ticket.id, { priority: value })
+                          }
+                        }}
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue>
-                            <span className={`size-2 rounded-full ${priorityDots[ticket.priority]}`} />
+                            <span
+                              className={`size-2 rounded-full ${priorityDots[ticket.priority]}`}
+                            />
                             {priorityLabels[ticket.priority]}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(priorityLabels).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              <span
-                                className={`size-2 rounded-full ${priorityDots[value as TicketPriority]}`}
-                              />
-                              {label}
+                          {priorities.map((priority) => (
+                            <SelectItem key={priority} value={priority}>
+                              <span className={`size-2 rounded-full ${priorityDots[priority]}`} />
+                              {priorityLabels[priority]}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -368,7 +368,10 @@ export function TicketSheet({
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="ticket-due-at" className="text-[0.68rem] text-muted-foreground">
+                      <Label
+                        htmlFor="ticket-due-at"
+                        className="text-[0.68rem] text-muted-foreground"
+                      >
                         Échéance
                       </Label>
                       <Input
@@ -417,7 +420,11 @@ export function TicketSheet({
                           <span className="mr-auto text-[0.65rem] text-muted-foreground">
                             Markdown · ⌘/Ctrl + Entrée
                           </span>
-                          <Button variant="ghost" size="sm" onClick={() => setEditingDescription(false)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingDescription(false)}
+                          >
                             Annuler
                           </Button>
                           <Button size="sm" onClick={saveDescription}>
@@ -431,7 +438,9 @@ export function TicketSheet({
                         className="w-full rounded-xl border border-transparent bg-muted/35 px-4 py-3 text-left text-sm leading-relaxed text-muted-foreground hover:border-border"
                         onClick={() => setEditingDescription(true)}
                       >
-                        {ticket.description === "" ? "Ajouter une description…" : ticket.description}
+                        {ticket.description === ""
+                          ? "Ajouter une description…"
+                          : ticket.description}
                       </button>
                     )}
                   </div>
@@ -450,7 +459,10 @@ export function TicketSheet({
                 {ticket.checklist.length === 0 ? null : (
                   <section aria-labelledby="ticket-checklist-title">
                     <div className="mb-3 flex items-center justify-between">
-                      <h3 id="ticket-checklist-title" className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                      <h3
+                        id="ticket-checklist-title"
+                        className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
+                      >
                         Checklist
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -480,7 +492,10 @@ export function TicketSheet({
                 )}
 
                 <section aria-labelledby="ticket-dependencies-title">
-                  <h3 id="ticket-dependencies-title" className="mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  <h3
+                    id="ticket-dependencies-title"
+                    className="mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
+                  >
                     Dépendances
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -508,7 +523,10 @@ export function TicketSheet({
                 <section aria-labelledby="ticket-executions-title">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <h3 id="ticket-executions-title" className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                      <h3
+                        id="ticket-executions-title"
+                        className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
+                      >
                         Exécutions
                       </h3>
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -523,7 +541,9 @@ export function TicketSheet({
                   {ticket.execution === undefined ? (
                     <div className="rounded-xl border border-dashed px-4 py-5 text-center">
                       <Bot className="mx-auto mb-2 size-4 text-muted-foreground" />
-                      <p className="text-xs text-muted-foreground">Aucune exécution pour ce ticket</p>
+                      <p className="text-xs text-muted-foreground">
+                        Aucune exécution pour ce ticket
+                      </p>
                     </div>
                   ) : (
                     <div className="rounded-xl border bg-muted/25 p-4">
@@ -556,7 +576,10 @@ export function TicketSheet({
                 <section aria-labelledby="ticket-workbench-title">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
-                      <h3 id="ticket-workbench-title" className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                      <h3
+                        id="ticket-workbench-title"
+                        className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
+                      >
                         Workbench
                       </h3>
                       <p className="mt-1 text-xs text-muted-foreground">Thread dédié à ce Ticket</p>
@@ -586,13 +609,17 @@ export function TicketSheet({
                                 {message.initials}
                               </AvatarFallback>
                             </Avatar>
-                            <div className={`max-w-[82%] ${message.own === true ? "text-right" : ""}`}>
+                            <div
+                              className={`max-w-[82%] ${message.own === true ? "text-right" : ""}`}
+                            >
                               <p className="mb-1 text-[0.64rem] text-muted-foreground">
                                 {message.actor} · {message.at}
                               </p>
                               <p
                                 className={`rounded-xl px-3 py-2 text-left text-xs leading-relaxed ${
-                                  message.own === true ? "bg-primary text-primary-foreground" : "bg-muted"
+                                  message.own === true
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted"
                                 }`}
                               >
                                 {message.body}
@@ -609,7 +636,12 @@ export function TicketSheet({
                         placeholder="Répondre dans le Workbench…"
                         aria-label="Répondre dans le Workbench"
                       />
-                      <Button type="submit" size="icon" disabled={reply.trim() === ""} aria-label="Envoyer">
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={reply.trim() === ""}
+                        aria-label="Envoyer"
+                      >
                         <Send />
                       </Button>
                     </form>

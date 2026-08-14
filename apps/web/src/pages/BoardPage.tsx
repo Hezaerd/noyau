@@ -19,16 +19,13 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import { useHotkeys } from "@tanstack/react-hotkeys"
+import { differenceInCalendarDays, format, parseISO } from "date-fns"
+import { fr } from "date-fns/locale"
 import {
   AlertCircle,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   Bot,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
   CircleDot,
   Command as CommandIcon,
   Filter,
@@ -41,14 +38,7 @@ import {
   UserRound,
   X,
 } from "lucide-react"
-import {
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type FormEvent,
-  type RefObject,
-} from "react"
+import { useRef, useState, type CSSProperties, type FormEvent, type RefObject } from "react"
 
 import { TicketSheet } from "@/components/board/TicketSheet"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -85,6 +75,7 @@ import {
   createTicket,
   initialBoardState,
   isFiltered,
+  isTicketPriority,
   moveTicket,
   moveTicketToAdjacentColumn,
   priorities,
@@ -97,6 +88,7 @@ import {
   type BoardColumn,
   type BoardFilters,
   type BoardSearch,
+  type BoardSearchPatch,
   type BoardState,
   type BoardTicket,
 } from "@/lib/board-model"
@@ -142,7 +134,7 @@ const executionLabels = {
 interface BoardPageProps {
   readonly projectId: string
   readonly search: BoardSearch
-  readonly onSearchChange: (patch: Partial<BoardSearch>, replace?: boolean) => void
+  readonly onSearchChange: (patch: BoardSearchPatch, replace?: boolean) => void
   readonly onOpenTicket: (ticketId: string) => void
   readonly onCloseTicket: () => void
 }
@@ -156,14 +148,16 @@ interface TicketCardProps {
   readonly onFocus: () => void
 }
 
-const dueLabel = (ticket: BoardTicket, done: boolean): { label: string; late: boolean } | undefined => {
+const dueLabel = (
+  ticket: BoardTicket,
+  done: boolean,
+): { label: string; late: boolean } | undefined => {
   if (ticket.dueAt === undefined) {
     return undefined
   }
-  const due = new Date(ticket.dueAt)
-  const today = new Date()
-  const days = Math.ceil((due.getTime() - today.getTime()) / 86_400_000)
-  const date = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(due)
+  const due = parseISO(ticket.dueAt)
+  const days = differenceInCalendarDays(due, Date.now())
+  const date = format(due, "d MMM", { locale: fr })
   if (!done && days < 0) {
     return { label: `${date} · En retard`, late: true }
   }
@@ -173,22 +167,11 @@ const dueLabel = (ticket: BoardTicket, done: boolean): { label: string; late: bo
   return { label: date, late: false }
 }
 
-function TicketCard({
-  ticket,
-  state,
-  active,
-  overlay = false,
-  onOpen,
-  onFocus,
-}: TicketCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: ticket.id, disabled: overlay })
+function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }: TicketCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: ticket.id,
+    disabled: overlay,
+  })
   const actor = state.actors.find((candidate) => candidate.id === ticket.assigneeId)
   const column = state.columns.find((candidate) => candidate.id === ticket.columnId)
   const due = dueLabel(ticket, column?.done ?? false)
@@ -224,8 +207,6 @@ function TicketCard({
             {ticket.title}
           </h3>
           <span
-            role="button"
-            tabIndex={-1}
             aria-label={`Déplacer ${ticket.title}`}
             className="mt-0.5 cursor-grab touch-none text-muted-foreground/35 opacity-0 group-hover:opacity-100"
             {...attributes}
@@ -238,7 +219,10 @@ function TicketCard({
         {ticket.attention === undefined ? null : (
           <Badge
             variant="outline"
-            className={cn("mt-3 rounded-md px-1.5 text-[0.58rem]", attentionStyles[ticket.attention])}
+            className={cn(
+              "mt-3 rounded-md px-1.5 text-[0.58rem]",
+              attentionStyles[ticket.attention],
+            )}
           >
             <AlertCircle />
             {attentionLabels[ticket.attention]}
@@ -311,13 +295,7 @@ interface QuickCreateProps {
   readonly onActivate: () => void
 }
 
-function QuickCreate({
-  columnId,
-  active,
-  onCancel,
-  onCreate,
-  onActivate,
-}: QuickCreateProps) {
+function QuickCreate({ columnId, active, onCancel, onCreate, onActivate }: QuickCreateProps) {
   const [title, setTitle] = useState("")
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -361,7 +339,13 @@ function QuickCreate({
         <Button type="submit" size="xs" disabled={title.trim() === ""}>
           Ajouter
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" onClick={onCancel} aria-label="Annuler">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={onCancel}
+          aria-label="Annuler"
+        >
           <X />
         </Button>
       </div>
@@ -442,7 +426,10 @@ function BoardColumnView({
             autoFocus
           />
         ) : (
-          <h2 id={`column-title-${column.id}`} className="min-w-0 flex-1 truncate text-xs font-semibold">
+          <h2
+            id={`column-title-${column.id}`}
+            className="min-w-0 flex-1 truncate text-xs font-semibold"
+          >
             {column.name}
           </h2>
         )}
@@ -484,7 +471,10 @@ function BoardColumnView({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
-        <SortableContext items={tickets.map((ticket) => ticket.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext
+          items={tickets.map((ticket) => ticket.id)}
+          strategy={verticalListSortingStrategy}
+        >
           <div className="space-y-2.5">
             {tickets.map((ticket) => (
               <TicketCard
@@ -525,7 +515,9 @@ const focusTicket = (boardRef: RefObject<HTMLElement | null>, ticketId: string |
   if (ticketId === undefined) {
     return
   }
-  const element = boardRef.current?.querySelector<HTMLElement>(`[data-ticket-id="${ticketId}"] button`)
+  const element = boardRef.current?.querySelector<HTMLElement>(
+    `[data-ticket-id="${ticketId}"] button`,
+  )
   element?.focus()
 }
 
@@ -549,6 +541,7 @@ export function BoardPage({
   )
   const boardRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const localId = useRef(0)
   const filters: BoardFilters = {
     query: search.q ?? "",
     ...(search.assignee === undefined ? {} : { assignee: search.assignee }),
@@ -562,9 +555,8 @@ export function BoardPage({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  const visibleByColumn = useMemo(
-    () => new Map(state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)])),
-    [filters.assignee, filters.priority, filters.query, state],
+  const visibleByColumn = new Map(
+    state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
   )
 
   const setActiveAndFocus = (ticketId: string | undefined) => {
@@ -660,7 +652,10 @@ export function BoardPage({
         },
       },
       { hotkey: "/", callback: () => searchRef.current?.focus() },
-      { hotkey: "Mod+K", callback: () => setPaletteOpen(true) },
+      {
+        hotkey: "Mod+K",
+        callback: () => setPaletteOpen(true),
+      },
       { hotkey: "M", callback: () => setPaletteOpen(true) },
       { hotkey: "Alt+Shift+ArrowUp", callback: () => keyboardMove(-1, false) },
       { hotkey: "Alt+Shift+ArrowDown", callback: () => keyboardMove(1, false) },
@@ -717,7 +712,8 @@ export function BoardPage({
     onSearchChange({ q: undefined, assignee: undefined, priority: undefined }, true)
 
   const createInColumn = (columnId: string, title: string) => {
-    const ticketId = `ticket-local-${globalThis.crypto.randomUUID()}`
+    localId.current += 1
+    const ticketId = `ticket-local-${localId.current}`
     setState((current) => createTicket(current, { id: ticketId, columnId, title }))
     setCreatingColumnId(undefined)
     setActiveTicketId(ticketId)
@@ -728,7 +724,9 @@ export function BoardPage({
     if (column.done) {
       return
     }
-    const destination = state.columns.find((candidate) => !candidate.done && candidate.id !== column.id)
+    const destination = state.columns.find(
+      (candidate) => !candidate.done && candidate.id !== column.id,
+    )
     if (destination === undefined) {
       setAnnouncement("Il faut conserver au moins une colonne non terminale.")
       return
@@ -767,7 +765,10 @@ export function BoardPage({
                 ref={searchRef}
                 value={search.q ?? ""}
                 onChange={(event) =>
-                  onSearchChange({ q: event.target.value === "" ? undefined : event.target.value }, true)
+                  onSearchChange(
+                    { q: event.target.value === "" ? undefined : event.target.value },
+                    true,
+                  )
                 }
                 placeholder="Rechercher un ticket…"
                 className="pl-9"
@@ -788,7 +789,8 @@ export function BoardPage({
                 <SelectValue>
                   {search.assignee === undefined
                     ? "Responsable"
-                    : state.actors.find((actor) => actor.id === search.assignee)?.name ?? "Responsable"}
+                    : (state.actors.find((actor) => actor.id === search.assignee)?.name ??
+                      "Responsable")}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -803,12 +805,13 @@ export function BoardPage({
 
             <Select
               value={search.priority ?? "all"}
-              onValueChange={(value) =>
-                onSearchChange(
-                  { priority: value === "all" ? undefined : (value as TicketPriority) },
-                  true,
-                )
-              }
+              onValueChange={(value) => {
+                if (value === "all") {
+                  onSearchChange({ priority: undefined }, true)
+                } else if (value !== null && isTicketPriority(value)) {
+                  onSearchChange({ priority: value }, true)
+                }
+              }}
             >
               <SelectTrigger size="default">
                 <Filter />
@@ -914,12 +917,9 @@ export function BoardPage({
                     if (newColumnName.trim() === "") {
                       return
                     }
+                    localId.current += 1
                     setState((current) =>
-                      addColumn(
-                        current,
-                        newColumnName,
-                        `column-local-${globalThis.crypto.randomUUID()}`,
-                      ),
+                      addColumn(current, newColumnName, `column-local-${localId.current}`),
                     )
                     setNewColumnName("")
                     setAddingColumn(false)
@@ -985,16 +985,29 @@ export function BoardPage({
           const ticketId = selectedTicket?.id
           onCloseTicket()
           requestAnimationFrame(() => {
-            const visible = ticketId === undefined ? undefined : state.tickets.find((ticket) => ticket.id === ticketId)
-            if (visible !== undefined && visibleTickets(state, visible.columnId, filters).some((ticket) => ticket.id === visible.id)) {
+            const visible =
+              ticketId === undefined
+                ? undefined
+                : state.tickets.find((ticket) => ticket.id === ticketId)
+            if (
+              visible !== undefined &&
+              visibleTickets(state, visible.columnId, filters).some(
+                (ticket) => ticket.id === visible.id,
+              )
+            ) {
               setActiveAndFocus(visible.id)
               return
             }
-            const fallback = visible === undefined ? undefined : visibleTickets(state, visible.columnId, filters)[0]
+            const fallback =
+              visible === undefined
+                ? undefined
+                : visibleTickets(state, visible.columnId, filters)[0]
             setActiveAndFocus(fallback?.id)
           })
         }}
-        onUpdate={(ticketId, patch) => setState((current) => updateTicket(current, ticketId, patch))}
+        onUpdate={(ticketId, patch) =>
+          setState((current) => updateTicket(current, ticketId, patch))
+        }
         onToggleChecklist={(ticketId, itemId) =>
           setState((current) => toggleChecklistItem(current, ticketId, itemId))
         }

@@ -50,7 +50,11 @@ export interface BoardTicket {
   readonly dueAt?: string
   readonly assigneeId?: string
   readonly labels: ReadonlyArray<string>
-  readonly checklist: ReadonlyArray<{ readonly id: string; readonly title: string; readonly done: boolean }>
+  readonly checklist: ReadonlyArray<{
+    readonly id: string
+    readonly title: string
+    readonly done: boolean
+  }>
   readonly attention?: TicketAttention
   readonly execution?: BoardExecutionSummary
   readonly blockedBy: ReadonlyArray<string>
@@ -77,6 +81,13 @@ export interface BoardSearch {
   readonly priority?: TicketPriority
 }
 
+export interface BoardSearchPatch {
+  readonly ticket?: string | undefined
+  readonly q?: string | undefined
+  readonly assignee?: string | undefined
+  readonly priority?: TicketPriority | undefined
+}
+
 export interface BoardTicketPatch {
   readonly title?: string
   readonly description?: string
@@ -86,22 +97,23 @@ export interface BoardTicketPatch {
 }
 
 export const priorities = ["none", "low", "normal", "high", "urgent"] as const
+export const isTicketPriority = (value: string): value is TicketPriority =>
+  priorities.some((priority) => priority === value)
 
 const asOptionalString = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim() !== "" ? value : undefined
 
 export const parseBoardSearch = (search: Record<string, unknown>): BoardSearch => {
+  const ticket = asOptionalString(search.ticket)
+  const query = asOptionalString(search.q)
+  const assignee = asOptionalString(search.assignee)
   const priority = asOptionalString(search.priority)
 
   return {
-    ...(asOptionalString(search.ticket) === undefined ? {} : { ticket: asOptionalString(search.ticket) }),
-    ...(asOptionalString(search.q) === undefined ? {} : { q: asOptionalString(search.q) }),
-    ...(asOptionalString(search.assignee) === undefined
-      ? {}
-      : { assignee: asOptionalString(search.assignee) }),
-    ...(priority !== undefined && priorities.includes(priority as TicketPriority)
-      ? { priority: priority as TicketPriority }
-      : {}),
+    ...(ticket === undefined ? {} : { ticket }),
+    ...(query === undefined ? {} : { q: query }),
+    ...(assignee === undefined ? {} : { assignee }),
+    ...(priority !== undefined && isTicketPriority(priority) ? { priority } : {}),
   }
 }
 
@@ -112,10 +124,7 @@ export const isFiltered = (filters: BoardFilters): boolean =>
 
 export const orderedColumns = (state: BoardState): ReadonlyArray<BoardColumn> => state.columns
 
-export const ticketsInColumn = (
-  state: BoardState,
-  columnId: string,
-): ReadonlyArray<BoardTicket> =>
+export const ticketsInColumn = (state: BoardState, columnId: string): ReadonlyArray<BoardTicket> =>
   state.tickets
     .filter((ticket) => ticket.columnId === columnId)
     .toSorted((left, right) => left.position - right.position)
@@ -133,8 +142,7 @@ export const visibleTickets = (
       `${ticket.title} ${ticket.description} ${ticket.labels.join(" ")}`
         .toLocaleLowerCase("fr")
         .includes(normalizedQuery)
-    const assigneeMatches =
-      filters.assignee === undefined || ticket.assigneeId === filters.assignee
+    const assigneeMatches = filters.assignee === undefined || ticket.assigneeId === filters.assignee
     const priorityMatches =
       filters.priority === undefined ||
       filters.priority === "none" ||
@@ -190,20 +198,20 @@ export const moveTicket = (
   const untouched = withoutTicket.filter((candidate) => !destinationIds.has(candidate.id))
   let nextTickets: ReadonlyArray<BoardTicket> = [
     ...untouched,
-    ...orderedDestination.map((candidate, position) => ({
-      ...candidate,
-      position,
-    })),
+    ...orderedDestination.map((candidate, position) => Object.assign({}, candidate, { position })),
   ]
   nextTickets = reindexColumn(nextTickets, ticket.columnId)
 
   return {
     ...state,
-    tickets: nextTickets.map((candidate) =>
-      candidate.id === ticketId && destination.done
-        ? { ...candidate, attention: undefined }
-        : candidate,
-    ),
+    tickets: nextTickets.map((candidate) => {
+      if (candidate.id !== ticketId || !destination.done) {
+        return candidate
+      }
+      const withoutAttention = Object.assign({}, candidate)
+      Reflect.deleteProperty(withoutAttention, "attention")
+      return withoutAttention
+    }),
   }
 }
 
@@ -286,23 +294,29 @@ export const updateTicket = (
   patch: BoardTicketPatch,
 ): BoardState => ({
   ...state,
-  tickets: state.tickets.map((ticket) =>
-    ticket.id === ticketId
-      ? {
-          ...ticket,
-          ...patch,
-          activity: [
-            {
-              id: `${ticketId}-${ticket.activity.length}`,
-              actor: "Hezaerd",
-              action: "a mis à jour les détails",
-              at: "À l’instant",
-            },
-            ...ticket.activity,
-          ],
-        }
-      : ticket,
-  ),
+  tickets: state.tickets.map((ticket) => {
+    if (ticket.id !== ticketId) {
+      return ticket
+    }
+    const next = Object.assign({}, ticket, patch, {
+      activity: [
+        {
+          id: `${ticketId}-${ticket.activity.length}`,
+          actor: "Hezaerd",
+          action: "a mis à jour les détails",
+          at: "À l’instant",
+        },
+        ...ticket.activity,
+      ],
+    })
+    if (patch.dueAt === undefined && "dueAt" in patch) {
+      Reflect.deleteProperty(next, "dueAt")
+    }
+    if (patch.assigneeId === undefined && "assigneeId" in patch) {
+      Reflect.deleteProperty(next, "assigneeId")
+    }
+    return next
+  }),
 })
 
 export const toggleChecklistItem = (
@@ -442,7 +456,12 @@ export const initialBoardState: BoardState = {
         },
       ],
       activity: [
-        { id: "activity-1", actor: "Marion", action: "a ajouté une dépendance", at: "Il y a 32 min" },
+        {
+          id: "activity-1",
+          actor: "Marion",
+          action: "a ajouté une dépendance",
+          at: "Il y a 32 min",
+        },
         { id: "activity-2", actor: "Hezaerd", action: "a défini la priorité urgente", at: "Hier" },
       ],
     },
@@ -461,7 +480,12 @@ export const initialBoardState: BoardState = {
       blockedBy: [],
       messages: [],
       activity: [
-        { id: "activity-3", actor: "Marion", action: "a demandé une approbation", at: "Il y a 1 h" },
+        {
+          id: "activity-3",
+          actor: "Marion",
+          action: "a demandé une approbation",
+          at: "Il y a 1 h",
+        },
       ],
     },
     {
@@ -515,7 +539,12 @@ export const initialBoardState: BoardState = {
         },
       ],
       activity: [
-        { id: "activity-4", actor: "Claude", action: "a démarré une exécution", at: "Il y a 24 min" },
+        {
+          id: "activity-4",
+          actor: "Claude",
+          action: "a démarré une exécution",
+          at: "Il y a 24 min",
+        },
       ],
     },
     {
@@ -552,7 +581,12 @@ export const initialBoardState: BoardState = {
       blockedBy: [],
       messages: [],
       activity: [
-        { id: "activity-5", actor: "Hezaerd", action: "a clôturé le ticket", at: "Aujourd’hui, 01:13" },
+        {
+          id: "activity-5",
+          actor: "Hezaerd",
+          action: "a clôturé le ticket",
+          at: "Aujourd’hui, 01:13",
+        },
       ],
     },
     {
