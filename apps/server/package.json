@@ -7,8 +7,7 @@
     "./config": "./src/config.ts",
     "./cursor": "./src/cursor.ts",
     "./identity": "./src/identity.ts",
-    "./handlers": "./src/handlers.ts",
-    "./request-errors": "./src/request-errors.ts",
+    "./rpc-handlers": "./src/rpc-handlers.ts",
     "./server": "./src/server.ts"
   },
   "scripts": {

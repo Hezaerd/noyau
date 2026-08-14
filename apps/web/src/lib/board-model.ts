@@ -14,6 +14,7 @@ export interface BoardActor {
   readonly initials: string
   readonly role: string
   readonly kind: "human" | "agent"
+  readonly profileId?: string
 }
 
 export type TicketAttention = "blocked" | "question" | "approval" | "failure"
@@ -433,15 +434,36 @@ export const addColumn = (state: BoardState, name: string, id: string): BoardSta
   return { ...state, columns: state.columns.toSpliced(insertionIndex, 0, column) }
 }
 
-const actors: ReadonlyArray<BoardActor> = [
+export const boardActors: ReadonlyArray<BoardActor> = [
   { id: "human:hezaerd", name: "Hezaerd", initials: "HZ", role: "Propriétaire", kind: "human" },
-  { id: "agent:marion", name: "Marion", initials: "MA", role: "Orchestration", kind: "agent" },
-  { id: "agent:claude", name: "Claude", initials: "CL", role: "Développement", kind: "agent" },
-  { id: "agent:reviewer", name: "Reviewer", initials: "RV", role: "Revue", kind: "agent" },
+  {
+    id: "agent:marion",
+    name: "Marion",
+    initials: "MA",
+    role: "Orchestration",
+    kind: "agent",
+    profileId: "71000000-0000-4000-8000-000000000001",
+  },
+  {
+    id: "agent:claude",
+    name: "Claude",
+    initials: "CL",
+    role: "Développement",
+    kind: "agent",
+    profileId: "71000000-0000-4000-8000-000000000002",
+  },
+  {
+    id: "agent:reviewer",
+    name: "Reviewer",
+    initials: "RV",
+    role: "Revue",
+    kind: "agent",
+    profileId: "71000000-0000-4000-8000-000000000003",
+  },
 ]
 
 export const initialBoardState: BoardState = {
-  actors,
+  actors: boardActors,
   columns: [
     { id: "column-backlog", name: "Backlog", color: "#a3a3a3", done: false },
     { id: "column-active", name: "En cours", color: "#3B82F6", done: false },

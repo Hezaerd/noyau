@@ -38,12 +38,6 @@ export type AgentProfileId = (typeof AgentProfileId)["Type"]
 export const ExecutionId = Uuid.pipe(Schema.brand("ExecutionId"))
 export type ExecutionId = (typeof ExecutionId)["Type"]
 
-export const MissionId = Uuid.pipe(Schema.brand("MissionId"))
-export type MissionId = (typeof MissionId)["Type"]
-
-export const TaskId = Uuid.pipe(Schema.brand("TaskId"))
-export type TaskId = (typeof TaskId)["Type"]
-
 export const AttemptId = Uuid.pipe(Schema.brand("AttemptId"))
 export type AttemptId = (typeof AttemptId)["Type"]
 

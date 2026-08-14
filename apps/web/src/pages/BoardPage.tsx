@@ -18,10 +18,21 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import type { EventCursor } from "@noyau/protocol/board"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import {
+  ActorId,
+  AgentProfileId,
+  KanbanColumnId,
+  type ProjectId,
+  TicketId,
+} from "@noyau/protocol/ids"
+import type { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
+import type { Crypto } from "effect"
+import { type Effect } from "effect"
 import {
   BotIcon,
   CalendarIcon,
@@ -37,7 +48,15 @@ import {
   UserIcon,
   XIcon,
 } from "lucide-react"
-import { useRef, useState, type CSSProperties, type FormEvent, type RefObject } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type RefObject,
+} from "react"
 
 import { TicketSheet } from "@/components/board/TicketSheet"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -68,10 +87,8 @@ import {
 } from "@/components/ui/menu"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  addColumn,
   appendWorkbenchMessage,
-  createTicket,
-  initialBoardState,
+  boardActors,
   isFiltered,
   isTicketPriority,
   moveTicket,
@@ -90,6 +107,23 @@ import {
   type BoardState,
   type BoardTicket,
 } from "@/lib/board-model"
+import { boardStateFromSnapshot, withExecutionSummaries } from "@/lib/board-snapshot"
+import {
+  buildAndSubmitTicketCommand,
+  loadBoardSnapshot,
+  loadProjectExecutions,
+  subscribeProjectEvents,
+} from "@/lib/control-plane"
+import {
+  makeExecutionStartRequest,
+  makeKanbanColumnCreateRequest,
+  makeKanbanColumnDeleteRequest,
+  makeKanbanColumnUpdateRequest,
+  makeTicketAssignRequest,
+  makeTicketCreateRequest,
+  makeTicketMoveRequest,
+  makeTicketUpdateRequest,
+} from "@/lib/ticket-commands"
 import { cn } from "@/lib/utils"
 
 const priorityLabels = {
@@ -130,10 +164,19 @@ const executionLabels = {
 } as const
 
 interface BoardPageProps {
+  readonly projectId: ProjectId
   readonly search: BoardSearch
   readonly onSearchChange: (patch: BoardSearchPatch, replace?: boolean) => void
   readonly onOpenTicket: (ticketId: string) => void
   readonly onCloseTicket: () => void
+}
+
+type TicketUpdateInput = {
+  readonly ticketId: TicketId
+  readonly title?: string
+  readonly description?: string | null
+  readonly priority?: TicketPriority
+  readonly dueAt?: string | null
 }
 
 type CommandPaletteItem =
@@ -556,8 +599,21 @@ const focusTicket = (boardRef: RefObject<HTMLElement | null>, ticketId: string |
   element?.focus()
 }
 
-export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket }: BoardPageProps) {
-  const [state, setState] = useState(initialBoardState)
+export function BoardPage({
+  projectId,
+  search,
+  onSearchChange,
+  onOpenTicket,
+  onCloseTicket,
+}: BoardPageProps) {
+  const [state, setState] = useState<BoardState>({
+    actors: boardActors,
+    columns: [],
+    tickets: [],
+  })
+  const [cursor, setCursor] = useState<EventCursor>()
+  const [controlPlaneError, setControlPlaneError] = useState<string>()
+  const [loading, setLoading] = useState(true)
   const [activeTicketId, setActiveTicketId] = useState<string | undefined>(state.tickets[0]?.id)
   const [draggedTicketId, setDraggedTicketId] = useState<string>()
   const [creatingColumnId, setCreatingColumnId] = useState<string>()
@@ -570,7 +626,6 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
   )
   const boardRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
-  const localId = useRef(0)
   const dragStartStateRef = useRef<BoardState | undefined>(undefined)
   const filters: BoardFilters = {
     query: search.q ?? "",
@@ -627,6 +682,48 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
     },
   ]
 
+  const refreshBoard = useCallback(async () => {
+    const [snapshot, executions] = await Promise.all([
+      loadBoardSnapshot(projectId),
+      loadProjectExecutions(projectId),
+    ])
+    if (!snapshot.ok) {
+      setControlPlaneError(snapshot.details)
+      setLoading(false)
+      return false
+    }
+    if (!executions.ok) {
+      setControlPlaneError(executions.details)
+      setLoading(false)
+      return false
+    }
+    setState((current) =>
+      withExecutionSummaries(boardStateFromSnapshot(snapshot.value, current), executions.value),
+    )
+    setCursor((current) => current ?? snapshot.value.cursor)
+    setControlPlaneError(undefined)
+    setLoading(false)
+    return true
+  }, [projectId])
+
+  useEffect(() => {
+    void refreshBoard()
+  }, [refreshBoard])
+
+  useEffect(() => {
+    if (cursor === undefined) {
+      return
+    }
+    return subscribeProjectEvents(
+      projectId,
+      cursor,
+      () => {
+        void refreshBoard()
+      },
+      setControlPlaneError,
+    )
+  }, [cursor, projectId, refreshBoard])
+
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
   )
@@ -634,6 +731,66 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
   const setActiveAndFocus = (ticketId: string | undefined) => {
     setActiveTicketId(ticketId)
     requestAnimationFrame(() => focusTicket(boardRef, ticketId))
+  }
+
+  const runCommand = async <A extends TicketCommandRequest, E>(
+    request: Effect.Effect<A, E, Crypto.Crypto>,
+    successMessage: string,
+  ) => {
+    const result = await buildAndSubmitTicketCommand(projectId, request)
+    if (!result.ok) {
+      setControlPlaneError(result.details)
+      setAnnouncement("La commande n’a pas pu être envoyée au control plane.")
+      await refreshBoard()
+      return false
+    }
+    if (result.value.response._tag === "rejected") {
+      const reason = result.value.response.error._tag
+      setControlPlaneError(reason)
+      setAnnouncement(`Commande rejetée : ${reason}.`)
+      await refreshBoard()
+      return false
+    }
+    setControlPlaneError(undefined)
+    setAnnouncement(successMessage)
+    await refreshBoard()
+    return true
+  }
+
+  const persistTicketPlacement = (next: BoardState, ticketId: string, message: string) => {
+    const ticket = next.tickets.find((candidate) => candidate.id === ticketId)
+    if (ticket === undefined) {
+      return
+    }
+    const siblings = ticketsInColumn(next, ticket.columnId)
+    const index = siblings.findIndex((candidate) => candidate.id === ticketId)
+    const beforeTicket = siblings[index + 1]
+    const afterTicket = siblings[index - 1]
+    const placement =
+      beforeTicket === undefined
+        ? afterTicket === undefined
+          ? { columnId: KanbanColumnId.make(ticket.columnId) }
+          : {
+              columnId: KanbanColumnId.make(ticket.columnId),
+              afterTicketId: TicketId.make(afterTicket.id),
+            }
+        : afterTicket === undefined
+          ? {
+              columnId: KanbanColumnId.make(ticket.columnId),
+              beforeTicketId: TicketId.make(beforeTicket.id),
+            }
+          : {
+              columnId: KanbanColumnId.make(ticket.columnId),
+              beforeTicketId: TicketId.make(beforeTicket.id),
+              afterTicketId: TicketId.make(afterTicket.id),
+            }
+    void runCommand(
+      makeTicketMoveRequest({
+        ticketId: TicketId.make(ticketId),
+        placement,
+      }),
+      message,
+    )
   }
 
   const navigateVertical = (direction: -1 | 1) => {
@@ -681,7 +838,9 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
       if (next !== state && destination !== undefined) {
         setState(next)
         const column = next.columns.find((candidate) => candidate.id === destination.columnId)
-        setAnnouncement(
+        persistTicketPlacement(
+          next,
+          activeTicketId,
           `Ticket déplacé vers ${column?.name ?? "la colonne cible"}${filtered ? ", en fin de colonne" : ""}.`,
         )
       }
@@ -694,7 +853,11 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
     const next = reorderTicket(state, activeTicketId, direction)
     setState(next)
     const nextPosition = next.tickets.find((candidate) => candidate.id === activeTicketId)?.position
-    setAnnouncement(`Ticket réordonné, position ${(nextPosition ?? 0) + 1}.`)
+    persistTicketPlacement(
+      next,
+      activeTicketId,
+      `Ticket réordonné, position ${(nextPosition ?? 0) + 1}.`,
+    )
   }
 
   useHotkeys(
@@ -809,7 +972,9 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
     setActiveTicketId(ticketId)
     const column = next.columns.find((candidate) => candidate.id === destinationColumnId)
     const moved = next.tickets.find((ticket) => ticket.id === ticketId)
-    setAnnouncement(
+    persistTicketPlacement(
+      next,
+      ticketId,
       filtered
         ? `Ticket déplacé vers ${column?.name ?? "la colonne cible"}, en fin de colonne.`
         : `Ticket déplacé vers ${column?.name ?? "la colonne cible"}, position ${(moved?.position ?? 0) + 1}.`,
@@ -841,12 +1006,14 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
   }
 
   const createInColumn = (columnId: string, title: string) => {
-    localId.current += 1
-    const ticketId = `ticket-local-${localId.current}`
-    setState((current) => createTicket(current, { id: ticketId, columnId, title }))
     setCreatingColumnId(undefined)
-    setActiveTicketId(ticketId)
-    setAnnouncement(`Ticket ${title} créé dans la colonne.`)
+    void runCommand(
+      makeTicketCreateRequest({
+        title: title.trim(),
+        placement: { columnId: KanbanColumnId.make(columnId) },
+      }),
+      `Ticket ${title} créé dans la colonne.`,
+    )
   }
 
   const removeColumn = (column: BoardColumn) => {
@@ -865,11 +1032,22 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
       next = moveTicket(next, ticket.id, destination.id)
     }
     setState({ ...next, columns: next.columns.filter((candidate) => candidate.id !== column.id) })
-    setAnnouncement(`Colonne supprimée. Ses tickets ont été déplacés vers ${destination.name}.`)
+    void runCommand(
+      makeKanbanColumnDeleteRequest({
+        columnId: KanbanColumnId.make(column.id),
+        destinationColumnId: KanbanColumnId.make(destination.id),
+      }),
+      `Colonne supprimée. Ses tickets ont été déplacés vers ${destination.name}.`,
+    )
   }
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {controlPlaneError === undefined ? null : (
+        <div className="border-b border-rose-500/25 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
+          Control plane indisponible : {controlPlaneError}
+        </div>
+      )}
       <header className="border-b border-border/65 bg-background/80 px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
           <div className="min-w-0">
@@ -878,7 +1056,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
                 Tableau
               </h1>
               <Badge variant="outline" className="rounded-full text-[0.6rem]">
-                {state.tickets.length} tickets
+                {loading ? "Chargement…" : `${state.tickets.length} tickets`}
               </Badge>
             </div>
           </div>
@@ -1011,22 +1189,36 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
                   setCreatingColumnId(creating ? column.id : undefined)
                 }
                 onEditingChange={(editing) => setEditingColumnId(editing ? column.id : undefined)}
-                onRename={(name) =>
+                onRename={(name) => {
                   setState((current) => ({
                     ...current,
                     columns: current.columns.map((candidate) =>
                       candidate.id === column.id ? { ...candidate, name: name.trim() } : candidate,
                     ),
                   }))
-                }
-                onColor={(color) =>
+                  void runCommand(
+                    makeKanbanColumnUpdateRequest({
+                      columnId: KanbanColumnId.make(column.id),
+                      name: name.trim(),
+                    }),
+                    `Colonne renommée ${name.trim()}.`,
+                  )
+                }}
+                onColor={(color) => {
                   setState((current) => ({
                     ...current,
                     columns: current.columns.map((candidate) =>
                       candidate.id === column.id ? { ...candidate, color } : candidate,
                     ),
                   }))
-                }
+                  void runCommand(
+                    makeKanbanColumnUpdateRequest({
+                      columnId: KanbanColumnId.make(column.id),
+                      color,
+                    }),
+                    `Couleur de la colonne ${column.name} mise à jour.`,
+                  )
+                }}
                 onDelete={() => removeColumn(column)}
               />
             ))}
@@ -1039,9 +1231,18 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
                     if (newColumnName.trim() === "") {
                       return
                     }
-                    localId.current += 1
-                    setState((current) =>
-                      addColumn(current, newColumnName, `column-local-${localId.current}`),
+                    const done = state.columns.find((column) => column.done)
+                    const columnInput =
+                      done === undefined
+                        ? { name: newColumnName.trim(), color: "#A855F7" }
+                        : {
+                            name: newColumnName.trim(),
+                            color: "#A855F7",
+                            beforeColumnId: KanbanColumnId.make(done.id),
+                          }
+                    void runCommand(
+                      makeKanbanColumnCreateRequest(columnInput),
+                      `Colonne ${newColumnName.trim()} ajoutée.`,
                     )
                     setNewColumnName("")
                     setAddingColumn(false)
@@ -1127,15 +1328,60 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
             setActiveAndFocus(fallback?.id)
           })
         }}
-        onUpdate={(ticketId, patch) =>
+        onUpdate={(ticketId, patch) => {
           setState((current) => updateTicket(current, ticketId, patch))
-        }
+          if ("assigneeId" in patch) {
+            const assignment =
+              patch.assigneeId === undefined
+                ? { ticketId: TicketId.make(ticketId) }
+                : {
+                    ticketId: TicketId.make(ticketId),
+                    assigneeId: ActorId.make(patch.assigneeId),
+                  }
+            void runCommand(
+              makeTicketAssignRequest(assignment),
+              "Responsable du ticket mis à jour.",
+            )
+          }
+          const hasDetails =
+            patch.title !== undefined ||
+            patch.description !== undefined ||
+            patch.priority !== undefined ||
+            "dueAt" in patch
+          if (hasDetails) {
+            let updateInput: TicketUpdateInput = { ticketId: TicketId.make(ticketId) }
+            if (patch.title !== undefined) {
+              updateInput = { ...updateInput, title: patch.title }
+            }
+            if (patch.description !== undefined) {
+              updateInput = { ...updateInput, description: patch.description }
+            }
+            if (patch.priority !== undefined) {
+              updateInput = { ...updateInput, priority: patch.priority }
+            }
+            if ("dueAt" in patch) {
+              updateInput = {
+                ...updateInput,
+                dueAt: patch.dueAt === undefined ? null : patch.dueAt,
+              }
+            }
+            void runCommand(makeTicketUpdateRequest(updateInput), "Détails du ticket mis à jour.")
+          }
+        }}
         onToggleChecklist={(ticketId, itemId) =>
           setState((current) => toggleChecklistItem(current, ticketId, itemId))
         }
-        onStartExecution={(ticketId, profile) =>
-          setState((current) => startExecution(current, ticketId, profile))
-        }
+        onStartExecution={(ticketId, input) => {
+          setState((current) => startExecution(current, ticketId, input.profileName))
+          void runCommand(
+            makeExecutionStartRequest({
+              ticketId: TicketId.make(ticketId),
+              expectedOutcome: input.outcome,
+              agentProfileId: AgentProfileId.make(input.profileId),
+            }),
+            `Exécution lancée avec ${input.profileName}.`,
+          )
+        }}
         onReply={(ticketId, message) =>
           setState((current) => appendWorkbenchMessage(current, ticketId, message))
         }
