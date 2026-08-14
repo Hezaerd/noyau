@@ -18,27 +18,30 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
+  DialogClose,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
+  DialogPopup,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
-  SelectContent,
   SelectGroup,
+  SelectGroupLabel,
   SelectItem,
-  SelectLabel,
+  SelectPopup,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
 import {
   Sheet,
-  SheetContent,
   SheetDescription,
   SheetHeader,
+  SheetPanel,
+  SheetPopup,
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
@@ -86,6 +89,10 @@ interface ExecutionDialogProps {
 
 function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: ExecutionDialogProps) {
   const agentProfiles = actors.filter((actor) => actor.kind === "agent")
+  const agentOptions = agentProfiles.map((actor) => ({
+    value: actor.name,
+    label: `${actor.name} · ${actor.role}`,
+  }))
   const [profile, setProfile] = useState(agentProfiles[0]?.name ?? "")
   const [outcome, setOutcome] = useState("")
 
@@ -101,77 +108,81 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <form onSubmit={submit}>
-          <DialogHeader>
-            <div className="mb-2 grid size-10 place-items-center rounded-xl bg-primary/12 text-primary">
-              <Play className="size-4" />
-            </div>
-            <DialogTitle>Lancer une exécution</DialogTitle>
-          </DialogHeader>
-
-          <div className="my-6 space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="execution-outcome">Résultat attendu</Label>
-              <Textarea
-                id="execution-outcome"
-                value={outcome}
-                onChange={(event) => setOutcome(event.target.value)}
-                placeholder={`Ex. ${ticket.title} est vérifié par les tests de l’interface.`}
-                rows={3}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="execution-profile">Profil d’agent</Label>
-              <Select value={profile} onValueChange={(value) => setProfile(value ?? "")}>
-                <SelectTrigger id="execution-profile" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Agents</SelectLabel>
-                    {agentProfiles.map((actor) => (
-                      <SelectItem key={actor.id} value={actor.name}>
-                        {actor.name} · {actor.role}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border bg-muted/35 p-3">
-                <p className="text-xs font-medium">Budget hérité</p>
-                <p className="mt-2 text-xs">45 min · 180k tokens</p>
-              </div>
-              <div className="rounded-xl border bg-muted/35 p-3">
-                <p className="text-xs font-medium">Outils</p>
-                <p className="mt-2 text-xs">Branche + tests · sans publication</p>
-              </div>
-            </div>
-            <details className="group rounded-xl border px-3 py-2.5">
-              <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium">
-                <CaretDown className="size-3.5 text-muted-foreground group-open:rotate-180" />
-                Paramètres avancés
-              </summary>
-              <p className="mt-3 pl-5 text-xs leading-relaxed text-muted-foreground">
-                Timeout 45 min · autonomie niveau 2 · arrêt sur demande humaine.
-              </p>
-            </details>
+      <DialogPopup className="sm:max-w-lg">
+        <DialogHeader>
+          <div className="mb-2 grid size-10 place-items-center rounded-xl bg-primary/12 text-primary">
+            <Play className="size-4" />
           </div>
+          <DialogTitle>Lancer une exécution</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={submit} className="contents">
+          <DialogPanel>
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="execution-outcome">Résultat attendu</Label>
+                <Textarea
+                  id="execution-outcome"
+                  value={outcome}
+                  onChange={(event) => setOutcome(event.target.value)}
+                  placeholder={`Ex. ${ticket.title} est vérifié par les tests de l’interface.`}
+                  rows={3}
+                  autoFocus
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="execution-profile">Profil d’agent</Label>
+                <Select
+                  items={agentOptions}
+                  value={profile}
+                  onValueChange={(value) => setProfile(value ?? "")}
+                >
+                  <SelectTrigger id="execution-profile" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectGroup>
+                      <SelectGroupLabel>Agents</SelectGroupLabel>
+                      {agentOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectPopup>
+                </Select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border bg-muted/35 p-3">
+                  <p className="text-xs font-medium">Budget hérité</p>
+                  <p className="mt-2 text-xs">45 min · 180k tokens</p>
+                </div>
+                <div className="rounded-xl border bg-muted/35 p-3">
+                  <p className="text-xs font-medium">Outils</p>
+                  <p className="mt-2 text-xs">Branche + tests · sans publication</p>
+                </div>
+              </div>
+              <details className="group rounded-xl border px-3 py-2.5">
+                <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium">
+                  <CaretDown className="size-3.5 text-muted-foreground group-open:rotate-180" />
+                  Paramètres avancés
+                </summary>
+                <p className="mt-3 pl-5 text-xs leading-relaxed text-muted-foreground">
+                  Timeout 45 min · autonomie niveau 2 · arrêt sur demande humaine.
+                </p>
+              </details>
+            </div>
+          </DialogPanel>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
+            <DialogClose render={<Button type="button" variant="ghost" />}>Annuler</DialogClose>
             <Button type="submit" disabled={outcome.trim() === "" || profile === ""}>
               <Play />
               Lancer une exécution
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
+      </DialogPopup>
     </Dialog>
   )
 }
@@ -221,6 +232,21 @@ export function TicketSheet({
 
   const assignee = actors.find((actor) => actor.id === ticket?.assigneeId)
   const completedChecklist = ticket?.checklist.filter((item) => item.done).length ?? 0
+  const humanAssigneeOptions = actors
+    .filter((actor) => actor.kind === "human")
+    .map((actor) => ({ value: actor.id, label: actor.name }))
+  const agentAssigneeOptions = actors
+    .filter((actor) => actor.kind === "agent")
+    .map((actor) => ({ value: actor.id, label: actor.name }))
+  const assigneeOptions = [
+    { value: "unassigned", label: "Non assigné" },
+    ...humanAssigneeOptions,
+    ...agentAssigneeOptions,
+  ]
+  const priorityOptions = priorities.map((priority) => ({
+    value: priority,
+    label: priorityLabels[priority],
+  }))
 
   return (
     <>
@@ -232,7 +258,7 @@ export function TicketSheet({
           }
         }}
       >
-        <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-2xl">
+        <SheetPopup className="w-full gap-0 p-0 sm:max-w-2xl">
           {ticket === undefined ? null : (
             <>
               <SheetHeader className="border-b px-6 py-5 pr-14">
@@ -273,7 +299,8 @@ export function TicketSheet({
                 </SheetDescription>
               </SheetHeader>
 
-              <div className="space-y-8 px-6 py-6">
+              <SheetPanel className="p-0">
+                <div className="space-y-8 px-6 py-6">
                 <section aria-labelledby="ticket-details-title">
                   <div className="mb-4 flex items-center justify-between">
                     <h3 id="ticket-details-title" className="text-sm font-medium">
@@ -284,6 +311,7 @@ export function TicketSheet({
                     <div className="space-y-1.5">
                       <Label className="text-[0.68rem] text-muted-foreground">Responsable</Label>
                       <Select
+                        items={assigneeOptions}
                         value={ticket.assigneeId ?? "unassigned"}
                         onValueChange={(value) =>
                           onUpdate(ticket.id, {
@@ -297,35 +325,32 @@ export function TicketSheet({
                             {assignee === undefined ? "Non assigné" : assignee.name}
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectPopup>
                           <SelectItem value="unassigned">Non assigné</SelectItem>
                           <SelectGroup>
-                            <SelectLabel>Humains</SelectLabel>
-                            {actors
-                              .filter((actor) => actor.kind === "human")
-                              .map((actor) => (
-                                <SelectItem key={actor.id} value={actor.id}>
-                                  {actor.name}
-                                </SelectItem>
-                              ))}
+                            <SelectGroupLabel>Humains</SelectGroupLabel>
+                            {humanAssigneeOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectGroup>
                           <SelectGroup>
-                            <SelectLabel>Agents</SelectLabel>
-                            {actors
-                              .filter((actor) => actor.kind === "agent")
-                              .map((actor) => (
-                                <SelectItem key={actor.id} value={actor.id}>
-                                  {actor.name}
-                                </SelectItem>
-                              ))}
+                            <SelectGroupLabel>Agents</SelectGroupLabel>
+                            {agentAssigneeOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectGroup>
-                        </SelectContent>
+                        </SelectPopup>
                       </Select>
                     </div>
 
                     <div className="space-y-1.5">
                       <Label className="text-[0.68rem] text-muted-foreground">Priorité</Label>
                       <Select
+                        items={priorityOptions}
                         value={ticket.priority}
                         onValueChange={(value) => {
                           if (value !== null && isTicketPriority(value)) {
@@ -341,14 +366,16 @@ export function TicketSheet({
                             {priorityLabels[ticket.priority]}
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent>
-                          {priorities.map((priority) => (
-                            <SelectItem key={priority} value={priority}>
-                              <span className={`size-2 rounded-full ${priorityDots[priority]}`} />
-                              {priorityLabels[priority]}
+                        <SelectPopup>
+                          {priorityOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              <span
+                                className={`size-2 rounded-full ${priorityDots[option.value]}`}
+                              />
+                              {option.label}
                             </SelectItem>
                           ))}
-                        </SelectContent>
+                        </SelectPopup>
                       </Select>
                     </div>
 
@@ -645,10 +672,11 @@ export function TicketSheet({
                     )}
                   </div>
                 </details>
-              </div>
+                </div>
+              </SheetPanel>
             </>
           )}
-        </SheetContent>
+        </SheetPopup>
       </Sheet>
 
       {ticket === undefined ? null : (

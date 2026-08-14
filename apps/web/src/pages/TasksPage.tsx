@@ -24,9 +24,10 @@ import { Progress } from "@/components/ui/progress"
 import {
   Sheet,
   SheetClose,
-  SheetContent,
   SheetFooter,
   SheetHeader,
+  SheetPanel,
+  SheetPopup,
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
@@ -155,16 +156,17 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-        <form onSubmit={(event) => void submit(event)} className="flex min-h-full flex-col">
-          <SheetHeader className="border-b">
-            <div className="mb-3 grid size-10 place-items-center rounded-xl bg-accent text-accent-foreground">
-              <Plus className="size-4" />
-            </div>
-            <SheetTitle className="text-xl tracking-[-0.025em]">Nouvelle tâche</SheetTitle>
-          </SheetHeader>
+      <SheetPopup className="w-full sm:max-w-lg">
+        <SheetHeader>
+          <div className="mb-3 grid size-10 place-items-center rounded-xl bg-accent text-accent-foreground">
+            <Plus className="size-4" />
+          </div>
+          <SheetTitle className="text-xl tracking-[-0.025em]">Nouvelle tâche</SheetTitle>
+        </SheetHeader>
 
-          <div className="flex-1 space-y-6 px-4 py-6">
+        <form onSubmit={(event) => void submit(event)} className="contents">
+          <SheetPanel className="p-0">
+            <div className="flex flex-col gap-6 px-6 py-3">
             <div className="space-y-2">
               <Label htmlFor="task-title">Objectif</Label>
               <Input
@@ -237,23 +239,18 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
                 </div>
               ))}
             </div>
-          </div>
+            </div>
+          </SheetPanel>
 
-          <SheetFooter className="border-t sm:flex-row">
-            <SheetClose
-              render={
-                <Button type="button" variant="outline">
-                  Annuler
-                </Button>
-              }
-            />
+          <SheetFooter>
+            <SheetClose render={<Button type="button" variant="ghost" />}>Annuler</SheetClose>
             <Button type="submit" disabled={disabled || submitting || !canSubmit}>
               {submitting ? <CircleNotch className="animate-spin" /> : <Plus />}
               Créer la tâche
             </Button>
           </SheetFooter>
         </form>
-      </SheetContent>
+      </SheetPopup>
     </Sheet>
   )
 }
