@@ -48,15 +48,15 @@ const statusLabels = {
 
 const statusStyles = {
   proposed: "border-border bg-muted/60 text-muted-foreground",
-  ready: "border-violet-500/25 bg-violet-500/10 text-violet-300",
-  leased: "border-blue-500/25 bg-blue-500/10 text-blue-300",
-  running: "border-primary/30 bg-primary/10 text-violet-300",
-  waiting_human: "border-amber-500/25 bg-amber-500/10 text-amber-300",
-  waiting_agent: "border-sky-500/25 bg-sky-500/10 text-sky-300",
-  verifying: "border-cyan-500/25 bg-cyan-500/10 text-cyan-300",
-  completed: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300",
-  failed: "border-red-500/25 bg-red-500/10 text-red-300",
-  cancelled: "border-zinc-500/25 bg-zinc-500/10 text-zinc-300",
+  ready: "border-info/25 bg-info/10 text-info-foreground",
+  leased: "border-info/25 bg-info/10 text-info-foreground",
+  running: "border-primary/30 bg-primary/10 text-primary",
+  waiting_human: "border-warning/25 bg-warning/10 text-warning-foreground",
+  waiting_agent: "border-info/25 bg-info/10 text-info-foreground",
+  verifying: "border-info/25 bg-info/10 text-info-foreground",
+  completed: "border-success/25 bg-success/10 text-success-foreground",
+  failed: "border-destructive/25 bg-destructive/10 text-destructive-foreground",
+  cancelled: "border-border/70 bg-muted/60 text-muted-foreground",
 } satisfies Record<TaskStatus, string>
 
 const rejectionMessage = (rejection: CommandRejection): string => {
@@ -267,12 +267,12 @@ interface TaskItemProps {
 
 function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
   return (
-    <article className="group rounded-2xl border border-border/85 bg-card px-4 py-4 shadow-xs transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-[0_14px_38px_rgba(53,38,122,0.16)] sm:px-5">
+    <article className="group rounded-2xl border border-border/85 bg-card px-4 py-4 shadow-xs transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-lg/5 sm:px-5">
       <div className="flex items-start gap-3.5">
         <div
           className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full border ${
             task.status === "completed"
-              ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+              ? "border-success/25 bg-success/10 text-success-foreground"
               : "border-border bg-background text-muted-foreground"
           }`}
         >
@@ -321,7 +321,7 @@ function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
               </Button>
             ) : (
               <div className="flex w-fit shrink-0 items-center gap-2 rounded-full bg-secondary px-2.5 py-1.5 text-[0.68rem] text-muted-foreground">
-                <span className="size-1.5 rounded-full bg-violet-400" />
+                <span className="size-1.5 rounded-full bg-primary" />
                 {task.assigneeId}
               </div>
             )}
@@ -333,7 +333,7 @@ function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
                 key={criterion}
                 className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"
               >
-                <CheckCircleIcon className="size-3 text-violet-400" />
+                <CheckCircleIcon className="size-3 text-primary" />
                 {criterion}
               </span>
             ))}
@@ -470,17 +470,17 @@ export function TasksPage() {
           </div>
           <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
             <div className="flex items-center gap-2">
-              <ClockIcon className="size-4 text-violet-500" />
+              <ClockIcon className="size-4 text-primary" />
               <span className="text-2xl font-semibold tracking-[-0.04em]">
                 {tasks.filter((task) => task.status === "running").length}
               </span>
               <span className="text-xs text-muted-foreground">tâches actives</span>
             </div>
           </div>
-          <div className="rounded-2xl border border-violet-500/15 bg-[#15131d] p-4 text-foreground shadow-[0_14px_38px_rgba(68,48,150,0.14)]">
+          <div className="rounded-2xl border border-border/80 bg-card p-4 text-foreground shadow-lg/5">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium">Revoir les sorties agents</span>
-              <ArrowRightIcon className="size-4 text-violet-300" />
+              <ArrowRightIcon className="size-4 text-primary" />
             </div>
           </div>
         </div>
@@ -492,13 +492,13 @@ export function TasksPage() {
           className={`mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
             feedback.tone === "error"
               ? "border-destructive/25 bg-destructive/5"
-              : "border-emerald-500/25 bg-emerald-500/10"
+              : "border-success/25 bg-success/10"
           }`}
         >
           {feedback.tone === "error" ? (
             <CircleAlertIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
           ) : (
-            <CheckCircleIcon className="mt-0.5 size-4 shrink-0 text-emerald-300" />
+            <CheckCircleIcon className="mt-0.5 size-4 shrink-0 text-success-foreground" />
           )}
           <div>
             <p className="font-medium">{feedback.message}</p>

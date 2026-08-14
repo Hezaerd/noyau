@@ -41,7 +41,7 @@ export function AppSidebar() {
     <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
       <SidebarHeader className="gap-3 p-3">
         <div className="flex h-10 items-center gap-2 px-1">
-          <div className="grid size-8 shrink-0 place-items-center rounded-xl bg-sidebar-primary font-semibold text-sidebar-primary-foreground shadow-[0_8px_24px_rgba(113,87,255,0.28)]">
+          <div className="grid size-8 shrink-0 place-items-center rounded-xl bg-sidebar-primary font-semibold text-sidebar-primary-foreground shadow-lg/5">
             N
           </div>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">

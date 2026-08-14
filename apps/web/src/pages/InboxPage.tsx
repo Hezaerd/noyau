@@ -16,7 +16,7 @@ const activity = [
   {
     actor: "Claude",
     initials: "CL",
-    color: "bg-violet-500/15 text-violet-300",
+    color: "bg-info/15 text-info-foreground",
     icon: GitPullRequestIcon,
     title: "La refonte du moteur de receipts est prête à relire",
     detail: "PR #8 · 4 fichiers modifiés · check et tests passent",
@@ -40,7 +40,7 @@ const activity = [
   {
     actor: "Reviewer",
     initials: "RV",
-    color: "bg-indigo-500/15 text-indigo-300",
+    color: "bg-success/15 text-success-foreground",
     icon: CheckCircleIcon,
     title: "Le lot « Event cursor opaque » a passé la revue",
     detail: "Aucun défaut bloquant · 23 tests validés",
@@ -89,7 +89,7 @@ export function InboxPage() {
             </Button>
           </header>
 
-          <div className="overflow-hidden rounded-2xl border border-border/90 bg-card shadow-[0_18px_60px_rgba(53,38,122,0.16)]">
+          <div className="overflow-hidden rounded-2xl border border-border/90 bg-card shadow-lg/5">
             <div className="flex justify-end border-b border-border/70 px-5 py-3.5 sm:px-6">
               <span className="text-xs text-muted-foreground">12 août</span>
             </div>
@@ -99,10 +99,10 @@ export function InboxPage() {
                 key={item.title}
                 className={`group relative grid gap-4 px-5 py-5 transition-colors hover:bg-muted/35 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-6 ${
                   index === activity.length - 1 ? "" : "border-b border-border/65"
-                } ${item.tone === "attention" ? "bg-violet-500/5" : ""}`}
+                } ${item.tone === "attention" ? "bg-warning/5" : ""}`}
               >
                 {item.tone === "attention" ? (
-                  <span className="absolute inset-y-0 left-0 w-0.5 bg-violet-400" />
+                  <span className="absolute inset-y-0 left-0 w-0.5 bg-warning" />
                 ) : null}
                 <Avatar className="size-9 rounded-xl">
                   <AvatarFallback
@@ -155,7 +155,7 @@ export function InboxPage() {
                       </Avatar>
                       <span
                         className={`absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-card ${
-                          agent.status === "active" ? "bg-violet-400" : "bg-indigo-400"
+                          agent.status === "active" ? "bg-success" : "bg-muted-foreground"
                         }`}
                       />
                     </div>
@@ -177,18 +177,18 @@ export function InboxPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-violet-500/15 bg-[#15131d] p-5 text-foreground shadow-[0_18px_48px_rgba(68,48,150,0.2)]">
+          <section className="rounded-2xl border border-border/80 bg-card p-5 text-foreground shadow-lg/5">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-base font-medium">Control plane durable</h3>
               </div>
-              <MessageCircleIcon className="size-4 text-violet-300" />
+              <MessageCircleIcon className="size-4 text-primary" />
             </div>
             <div className="mb-2 flex items-end justify-between">
               <span className="text-3xl font-semibold tracking-[-0.04em]">68%</span>
-              <span className="text-[0.68rem] text-white/45">8 / 12 tâches</span>
+              <span className="text-[0.68rem] text-muted-foreground">8 / 12 tâches</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
               <div className="h-full w-[68%] rounded-full bg-primary" />
             </div>
           </section>
