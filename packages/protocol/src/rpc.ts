@@ -7,7 +7,7 @@ import { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
 import { Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/unstable/rpc"
 
-import type { CurrentActor } from "./control-plane"
+import type { CurrentActor } from "./errors"
 import {
   CommandIdConflict,
   Forbidden,
@@ -15,7 +15,7 @@ import {
   InvalidEventCursor,
   MissingIdentity,
   ServiceUnavailable,
-} from "./control-plane"
+} from "./errors"
 
 /**
  * Authentifie une connexion au control plane et fournit l'acteur vérifié aux

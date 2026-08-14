@@ -6,7 +6,7 @@ import {
   readProjectBoardSnapshot,
 } from "@noyau/database/board/store"
 import { migrationsLayer } from "@noyau/database/migrations"
-import { readProjectEvents } from "@noyau/database/task/store"
+import { readProjectEvents } from "@noyau/database/project-stream"
 import { KanbanColumn } from "@noyau/protocol/entities/kanban-column"
 import { Ticket } from "@noyau/protocol/entities/ticket"
 import {

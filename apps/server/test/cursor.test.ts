@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { InvalidEventCursor } from "@noyau/protocol/control-plane"
+import { InvalidEventCursor } from "@noyau/protocol/errors"
 import { ProjectId } from "@noyau/protocol/ids"
 import { decodeEventCursor, encodeEventCursor } from "@noyau/server/cursor"
 import { Effect } from "effect"

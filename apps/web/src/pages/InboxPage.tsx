@@ -55,8 +55,8 @@ const activity = [
     initials: "MA",
     color: "bg-primary/15 text-primary",
     icon: Sparkles,
-    title: "Le plan de la mission « Inbox v1 » a été ajusté",
-    detail: "2 tâches terminées · 1 tâche ajoutée après analyse du flux",
+    title: "Le plan du projet « Inbox v1 » a été ajusté",
+    detail: "2 tickets terminés · 1 ticket ajouté après analyse du flux",
     project: "noyau",
     time: "hier, 22:14",
     action: "Voir la mission",
@@ -205,7 +205,7 @@ export function InboxPage() {
             </div>
             <div className="mb-2 flex items-end justify-between">
               <span className="text-3xl font-semibold tracking-[-0.04em]">68%</span>
-              <span className="text-[0.68rem] text-white/45">8 / 12 tâches</span>
+              <span className="text-[0.68rem] text-white/45">8 / 12 tickets</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
               <div className="h-full w-[68%] rounded-full bg-primary" />

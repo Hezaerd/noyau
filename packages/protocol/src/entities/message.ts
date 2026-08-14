@@ -2,11 +2,11 @@ import {
   ActorId,
   AgentRunId,
   CorrelationId,
+  ExecutionId,
   MessageId,
-  MissionId,
   ProjectId,
-  TaskId,
   ThreadId,
+  TicketId,
 } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
@@ -22,8 +22,8 @@ export class Message extends Schema.Class<Message>("@noyau/protocol/entities/Mes
   body: Schema.NonEmptyString,
   replyTo: Schema.optionalKey(MessageId),
   correlationId: Schema.optionalKey(CorrelationId),
-  missionId: Schema.optionalKey(MissionId),
-  taskId: Schema.optionalKey(TaskId),
+  ticketId: Schema.optionalKey(TicketId),
+  executionId: Schema.optionalKey(ExecutionId),
   runId: Schema.optionalKey(AgentRunId),
   createdAt: Schema.DateTimeUtcFromString,
 }) {}

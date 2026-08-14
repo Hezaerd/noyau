@@ -4,8 +4,8 @@ import {
   readProjectBoardSnapshot,
   readTicketExecutions,
 } from "@noyau/database/board/store"
-import { readProjectEventHighWater, readProjectEvents } from "@noyau/database/task/store"
-import { CurrentActor, ServiceUnavailable } from "@noyau/protocol/control-plane"
+import { readProjectEventHighWater, readProjectEvents } from "@noyau/database/project-stream"
+import { CurrentActor, ServiceUnavailable } from "@noyau/protocol/errors"
 import { ActorId, CommandId, KanbanColumnId, type ProjectId } from "@noyau/protocol/ids"
 import { ControlPlaneRpcs, ProjectEvent } from "@noyau/protocol/rpc"
 import { Crypto, Effect, Stream } from "effect"
