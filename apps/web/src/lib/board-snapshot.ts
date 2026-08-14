@@ -1,4 +1,5 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
+import type { Execution } from "@noyau/protocol/entities/execution"
 import { DateTime } from "effect"
 
 import { boardActors, type BoardState, type BoardTicket } from "./board-model"
@@ -65,3 +66,33 @@ export const boardStateFromSnapshot = (
       }),
   }
 }
+
+export const withExecutionSummaries = (
+  board: BoardState,
+  executions: ReadonlyArray<Execution>,
+): BoardState => ({
+  ...board,
+  tickets: board.tickets.map((ticket) => {
+    const ticketExecutions = executions.filter((execution) => execution.ticketId === ticket.id)
+    const next = Object.assign({}, ticket)
+    if (ticketExecutions.length === 0) {
+      Reflect.deleteProperty(next, "execution")
+      return next
+    }
+    return Object.assign(next, {
+      execution: {
+        count: ticketExecutions.length,
+        profiles: [
+          ...new Set(
+            ticketExecutions.map(
+              (execution) =>
+                board.actors.find((actor) => actor.profileId === execution.agentProfileId)?.name ??
+                execution.agentProfileId,
+            ),
+          ),
+        ],
+        status: "running" as const,
+      },
+    })
+  }),
+})

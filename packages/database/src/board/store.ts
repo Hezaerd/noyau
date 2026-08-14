@@ -5,7 +5,7 @@ import { Execution, ToolPolicy } from "@noyau/protocol/entities/execution"
 import { KanbanColumn } from "@noyau/protocol/entities/kanban-column"
 import { Ticket } from "@noyau/protocol/entities/ticket"
 import { CommandIdConflict, InvalidCausation } from "@noyau/protocol/errors"
-import type { ActorId, ProjectId, TicketId } from "@noyau/protocol/ids"
+import type { ActorId, ProjectId } from "@noyau/protocol/ids"
 import { CommandId, CorrelationId, EventId, KanbanColumnId } from "@noyau/protocol/ids"
 import { type TicketReceipt, TicketReceiptResponse } from "@noyau/protocol/receipts"
 import {
@@ -614,8 +614,8 @@ export const readProjectBoardSnapshot = (projectId: ProjectId) =>
     )
   })
 
-/** Charge les intentions agent d'un ticket séparément du snapshot compact du Tableau. */
-export const readTicketExecutions = (projectId: ProjectId, ticketId: TicketId) =>
+/** Charge les intentions agent séparément du snapshot compact du Tableau. */
+export const readProjectExecutions = (projectId: ProjectId) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient
     const rows = yield* sql`
@@ -633,7 +633,7 @@ export const readTicketExecutions = (projectId: ProjectId, ticketId: TicketId) =
         'createdAt', created_at
       ) AS entity
       FROM executions
-      WHERE project_id = ${projectId} AND ticket_id = ${ticketId}
+      WHERE project_id = ${projectId}
       ORDER BY created_at, id
     `
 

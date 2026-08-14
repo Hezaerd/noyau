@@ -6,7 +6,7 @@ describe("ControlPlaneRpcs", () => {
   it("expose la commande Ticket, le snapshot, les exécutions et le flux projet", () => {
     expect([...ControlPlaneRpcs.requests.keys()].toSorted()).toEqual([
       "GetBoardSnapshot",
-      "GetTicketExecutions",
+      "GetProjectExecutions",
       "SubmitTicketCommand",
       "SubscribeProjectEvents",
     ])

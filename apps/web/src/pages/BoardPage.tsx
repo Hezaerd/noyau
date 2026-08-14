@@ -109,11 +109,11 @@ import {
   type BoardState,
   type BoardTicket,
 } from "@/lib/board-model"
-import { boardStateFromSnapshot } from "@/lib/board-snapshot"
+import { boardStateFromSnapshot, withExecutionSummaries } from "@/lib/board-snapshot"
 import {
   buildAndSubmitTicketCommand,
   loadBoardSnapshot,
-  loadTicketExecutions,
+  loadProjectExecutions,
   subscribeProjectEvents,
 } from "@/lib/control-plane"
 import {
@@ -596,14 +596,24 @@ export function BoardPage({
   )
 
   const refreshBoard = useCallback(async () => {
-    const result = await loadBoardSnapshot(projectId)
-    if (!result.ok) {
-      setControlPlaneError(result.details)
+    const [snapshot, executions] = await Promise.all([
+      loadBoardSnapshot(projectId),
+      loadProjectExecutions(projectId),
+    ])
+    if (!snapshot.ok) {
+      setControlPlaneError(snapshot.details)
       setLoading(false)
       return false
     }
-    setState((current) => boardStateFromSnapshot(result.value, current))
-    setCursor((current) => current ?? result.value.cursor)
+    if (!executions.ok) {
+      setControlPlaneError(executions.details)
+      setLoading(false)
+      return false
+    }
+    setState((current) =>
+      withExecutionSummaries(boardStateFromSnapshot(snapshot.value, current), executions.value),
+    )
+    setCursor((current) => current ?? snapshot.value.cursor)
     setControlPlaneError(undefined)
     setLoading(false)
     return true
@@ -626,43 +636,6 @@ export function BoardPage({
       setControlPlaneError,
     )
   }, [cursor, projectId, refreshBoard])
-
-  useEffect(() => {
-    const ticketId = search.ticket
-    if (ticketId === undefined) {
-      return
-    }
-    void (async () => {
-      const result = await loadTicketExecutions(projectId, TicketId.make(ticketId))
-      if (!result.ok) {
-        setControlPlaneError(result.details)
-        return
-      }
-      if (result.value.length === 0) {
-        return
-      }
-      const profiles = result.value.map(
-        (execution) =>
-          state.actors.find((actor) => actor.profileId === execution.agentProfileId)?.name ??
-          execution.agentProfileId,
-      )
-      setState((current) => ({
-        ...current,
-        tickets: current.tickets.map((ticket) =>
-          ticket.id === ticketId
-            ? {
-                ...ticket,
-                execution: {
-                  count: result.value.length,
-                  profiles: [...new Set(profiles)],
-                  status: "running",
-                },
-              }
-            : ticket,
-        ),
-      }))
-    })()
-  }, [projectId, search.ticket, state.actors])
 
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),

@@ -1,8 +1,9 @@
 import { BoardSnapshot } from "@noyau/protocol/board"
+import { Execution } from "@noyau/protocol/entities/execution"
 import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
-import { boardStateFromSnapshot } from "../src/lib/board-snapshot"
+import { boardStateFromSnapshot, withExecutionSummaries } from "../src/lib/board-snapshot"
 
 describe("boardStateFromSnapshot", () => {
   it("ordonne les colonnes et tickets selon leurs ranks durables", () => {
@@ -75,6 +76,53 @@ describe("boardStateFromSnapshot", () => {
     ).toEqual({
       First: 0,
       Second: 1,
+    })
+  })
+
+  it("hydrate les résumés d'exécution dès le chargement du Tableau", () => {
+    const board = {
+      actors: [
+        {
+          id: "agent:claude",
+          profileId: "71000000-0000-4000-8000-000000000002",
+          name: "Claude",
+          initials: "CL",
+          role: "Développement",
+          kind: "agent" as const,
+        },
+      ],
+      columns: [],
+      tickets: [
+        {
+          id: "30000000-0000-4000-8000-000000000001",
+          columnId: "20000000-0000-4000-8000-000000000001",
+          position: 0,
+          title: "Ticket exécuté",
+          description: "",
+          priority: "normal" as const,
+          labels: [],
+          checklist: [],
+          blockedBy: [],
+          messages: [],
+          activity: [],
+        },
+      ],
+    }
+    const execution = Schema.decodeSync(Execution)({
+      id: "50000000-0000-4000-8000-000000000001",
+      ticketId: "30000000-0000-4000-8000-000000000001",
+      projectId: "10000000-0000-4000-8000-000000000001",
+      expectedOutcome: "Terminé",
+      agentProfileId: "71000000-0000-4000-8000-000000000002",
+      budget: { maxTokens: 1000, timeoutSeconds: 60 },
+      toolPolicy: { allowed: [] },
+      createdAt: "2026-08-14T12:00:00.000Z",
+    })
+
+    expect(withExecutionSummaries(board, [execution]).tickets[0]?.execution).toEqual({
+      count: 1,
+      profiles: ["Claude"],
+      status: "running",
     })
   })
 })

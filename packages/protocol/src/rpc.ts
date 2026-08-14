@@ -1,7 +1,7 @@
 import { BoardSnapshot, EventCursor } from "@noyau/protocol/board"
 import { Execution } from "@noyau/protocol/entities/execution"
 import { EventEnvelope } from "@noyau/protocol/events"
-import { ProjectId, TicketId } from "@noyau/protocol/ids"
+import { ProjectId } from "@noyau/protocol/ids"
 import { TicketReceipt } from "@noyau/protocol/receipts"
 import { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
 import { Schema } from "effect"
@@ -51,10 +51,9 @@ export const GetBoardSnapshot = Rpc.make("GetBoardSnapshot", {
   error: ServiceUnavailable,
 })
 
-export const GetTicketExecutions = Rpc.make("GetTicketExecutions", {
+export const GetProjectExecutions = Rpc.make("GetProjectExecutions", {
   payload: Schema.Struct({
     projectId: ProjectId,
-    ticketId: TicketId,
   }),
   success: Schema.Array(Execution),
   error: ServiceUnavailable,
@@ -74,7 +73,7 @@ export const SubscribeProjectEvents = Rpc.make("SubscribeProjectEvents", {
 export const ControlPlaneRpcs = RpcGroup.make(
   SubmitTicketCommand,
   GetBoardSnapshot,
-  GetTicketExecutions,
+  GetProjectExecutions,
   SubscribeProjectEvents,
 ).middleware(NoyauRpcIdentity)
 
