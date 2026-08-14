@@ -1,35 +1,9 @@
-import { appendFileSync } from "node:fs"
 import { fileURLToPath, URL } from "node:url"
 
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react from "@vitejs/plugin-react"
-import { defineConfig, lazyPlugins, type Plugin } from "vite-plus"
-
-const agentDebugPlugin = {
-  name: "agent-debug-log",
-  apply: "serve",
-  configureServer(server) {
-    server.middlewares.use("/__agent-debug", (request, response, next) => {
-      if (request.method !== "POST") {
-        next()
-        return
-      }
-      let body = ""
-      request.setEncoding("utf8")
-      request.on("data", (chunk) => {
-        body += chunk
-      })
-      request.on("end", () => {
-        // #region agent log
-        appendFileSync("/opt/cursor/logs/debug.log", `${body}\n`)
-        // #endregion
-        response.statusCode = 204
-        response.end()
-      })
-    })
-  },
-} satisfies Plugin
+import { defineConfig, lazyPlugins } from "vite-plus"
 
 export default defineConfig({
   test: {
@@ -59,7 +33,6 @@ export default defineConfig({
       tanstackRouter({ target: "react", autoCodeSplitting: true }),
       react(),
       tailwindcss(),
-      agentDebugPlugin,
     ]) ?? [],
   resolve: {
     alias: {
