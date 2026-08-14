@@ -176,6 +176,10 @@ Tailscale convient exactement au scénario personnel « desktop connu vers VPS c
 - Tailscale Serve reverse-proxy un service local vers le tailnet, provisionne HTTPS et applique les
   règles d'accès du tailnet
   ([documentation Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve));
+- Serve retire les éventuels headers d'identité fournis par le client puis injecte
+  `Tailscale-User-Login`, `Tailscale-User-Name` et `Tailscale-User-Profile-Pic` pour le trafic du
+  tailnet ; ces headers ne sont pas renseignés pour un appareil taggé
+  ([même documentation](https://tailscale.com/docs/features/tailscale-serve#identity-headers));
 - les Grants permettent de limiter une identité ou un groupe au seul tag/port Noyau, avec une
   politique deny-by-default
   ([documentation Grants](https://tailscale.com/docs/features/access-control/grants)).
@@ -184,16 +188,21 @@ Topologie initiale :
 
 ```text
 noyau serve --host 127.0.0.1 --port 3001
-tailscale serve --bg / http://127.0.0.1:3001
+tailscale serve --bg 3001
 Electron -> wss://noyau.<tailnet>.ts.net/ws
 ```
 
-Cette commande est illustrative ; l'installateur serveur doit afficher la commande correspondant à
-la version de Tailscale réellement supportée.
+Cette commande est illustrative ; la syntaxe de Serve a changé avec Tailscale 1.52, donc
+l'installateur serveur doit afficher la commande correspondant à la version réellement supportée
+([documentation Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve)).
 
 Tailscale ne remplace pas l'authentification applicative. Ses règles disent quel appareil peut
 atteindre le port ; Noyau doit encore connaître l'`actorId`, révoquer un appareil, auditer ses
 commandes et appliquer les scopes RPC. Il faut donc cumuler identité réseau et session Noyau.
+Dans un mode personnel strictement Tailscale, Noyau peut utiliser `Tailscale-User-Login` comme preuve
+d'identité initiale uniquement si le serveur écoute sur loopback derrière Serve. L'appairage Noyau
+reste utile pour une révocation par appareil, pour les autres transports et pour ne pas faire varier
+le modèle d'autorisation selon le chemin réseau.
 
 ### Option B — tunnel SSH géré par Electron : bon fallback
 
