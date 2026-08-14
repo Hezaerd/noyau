@@ -51,6 +51,7 @@ function InputGroupAddon({
       data-align={align}
       className={cn(inputGroupAddonVariants({ align }), className)}
       onClick={(e) => {
+        // SAFETY: DOM click targets are HTMLElements or descend from one; used to skip focus when a button was clicked.
         if ((e.target as HTMLElement).closest("button")) {
           return
         }

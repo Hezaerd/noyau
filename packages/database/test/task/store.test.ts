@@ -67,12 +67,16 @@ const createFor = (
     },
   })
 
-const assignFor = (taskId: TaskId, commandId: CommandId, causationId?: EventId) =>
-  TaskAssignRequest.make({
+const assignFor = (taskId: TaskId, commandId: CommandId, causationId?: EventId) => {
+  const request = {
     commandId,
     payload: { taskId, assigneeId: marion },
-    ...(causationId === undefined ? {} : { causationId }),
-  })
+  }
+  if (causationId !== undefined) {
+    Object.assign(request, { causationId })
+  }
+  return TaskAssignRequest.make(request)
+}
 
 const execute = (
   request: TaskCreateRequest | TaskAssignRequest,
