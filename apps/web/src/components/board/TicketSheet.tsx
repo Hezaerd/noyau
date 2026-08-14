@@ -1,6 +1,7 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import {
   ArrowSquareOut,
+  Calendar as CalendarIcon,
   CaretDown,
   ChatCircleText,
   Circle,
@@ -11,11 +12,13 @@ import {
   Pulse,
   Robot,
 } from "@phosphor-icons/react"
+import { format, isValid, parse } from "date-fns"
 import { useEffect, useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
   DialogClose,
@@ -27,6 +30,12 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Popover,
+  PopoverClose,
+  PopoverPopup,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Select,
   SelectGroup,
@@ -67,6 +76,15 @@ const priorityDots: Record<TicketPriority, string> = {
   normal: "bg-violet-400",
   high: "bg-amber-400",
   urgent: "bg-rose-400",
+}
+
+const parseTicketDueDate = (dueAt: string | undefined): Date | undefined => {
+  if (dueAt === undefined) {
+    return undefined
+  }
+
+  const date = parse(dueAt.slice(0, 10), "yyyy-MM-dd", new Date())
+  return isValid(date) ? date : undefined
 }
 
 interface TicketSheetProps {
@@ -201,6 +219,7 @@ export function TicketSheet({
   const [editingDescription, setEditingDescription] = useState(false)
   const [executionOpen, setExecutionOpen] = useState(false)
   const [reply, setReply] = useState("")
+  const [dueDateOpen, setDueDateOpen] = useState(false)
 
   useEffect(() => {
     setTitle(ticket?.title ?? "")
@@ -247,6 +266,14 @@ export function TicketSheet({
     value: priority,
     label: priorityLabels[priority],
   }))
+  const dueDate = parseTicketDueDate(ticket.dueAt)
+
+  const updateDueDate = (date: Date | undefined) => {
+    onUpdate(ticket.id, {
+      dueAt: date === undefined ? undefined : `${format(date, "yyyy-MM-dd")}T17:00:00.000Z`,
+    })
+    setDueDateOpen(false)
+  }
 
   return (
     <>
@@ -381,24 +408,48 @@ export function TicketSheet({
 
                       <div className="space-y-1.5">
                         <Label
-                          htmlFor="ticket-due-at"
                           className="text-[0.68rem] text-muted-foreground"
                         >
                           Échéance
                         </Label>
-                        <Input
-                          id="ticket-due-at"
-                          type="date"
-                          value={ticket.dueAt?.slice(0, 10) ?? ""}
-                          onChange={(event) =>
-                            onUpdate(ticket.id, {
-                              dueAt:
-                                event.target.value === ""
-                                  ? undefined
-                                  : `${event.target.value}T17:00:00.000Z`,
-                            })
-                          }
-                        />
+                        <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
+                          <PopoverTrigger
+                            aria-label="Sélectionner une échéance"
+                            render={
+                              <Button
+                                className="w-full justify-start text-left font-normal"
+                                variant="outline"
+                              />
+                            }
+                          >
+                            <CalendarIcon aria-hidden="true" />
+                            {dueDate === undefined ? (
+                              <span className="text-muted-foreground">Aucune date</span>
+                            ) : (
+                              format(dueDate, "dd/MM/yyyy")
+                            )}
+                          </PopoverTrigger>
+                          <PopoverPopup align="start" className="w-auto p-0">
+                            <div className="flex items-center justify-between border-b px-3 py-2">
+                              <span className="text-xs font-medium">Échéance</span>
+                              <PopoverClose
+                                disabled={dueDate === undefined}
+                                onClick={() => updateDueDate(undefined)}
+                                render={
+                                  <Button size="xs" variant="ghost">
+                                    Effacer
+                                  </Button>
+                                }
+                              />
+                            </div>
+                            <Calendar
+                              defaultMonth={dueDate}
+                              mode="single"
+                              onSelect={updateDueDate}
+                              selected={dueDate}
+                            />
+                          </PopoverPopup>
+                        </Popover>
                       </div>
                     </div>
 
