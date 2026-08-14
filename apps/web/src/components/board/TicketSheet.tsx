@@ -264,8 +264,9 @@ export function TicketSheet({
                     </Badge>
                   )}
                 </div>
-                <SheetTitle asChild>
-                  <Input
+                <SheetTitle
+                  render={
+                    <Input
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     onBlur={saveTitle}
@@ -276,8 +277,9 @@ export function TicketSheet({
                     }}
                     className="-ml-2 h-auto border-transparent bg-transparent px-2 py-1 text-xl font-semibold tracking-[-0.03em] shadow-none focus-visible:border-input"
                     aria-label="Titre du ticket"
-                  />
-                </SheetTitle>
+                    />
+                  }
+                />
                 <SheetDescription>
                   Modifie les détails sans quitter le contexte du Tableau.
                 </SheetDescription>

@@ -438,14 +438,16 @@ function BoardColumnView({
           {filtered ? `${tickets.length}/${allTickets.length}` : allTickets.length}
         </span>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-xs" aria-label={`Menu de la colonne ${column.name}`}>
-              <MoreHorizontal />
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="icon-xs" aria-label={`Menu de la colonne ${column.name}`}>
+                <MoreHorizontal />
+              </Button>
+            }
+          />
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuLabel>{column.name}</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => onEditingChange(true)}>Renommer</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEditingChange(true)}>Renommer</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Couleur</DropdownMenuLabel>
             {[
@@ -454,7 +456,7 @@ function BoardColumnView({
               ["Émeraude", "#10B981"],
               ["Ambre", "#F59E0B"],
             ].map(([label, color]) => (
-              <DropdownMenuItem key={color} onSelect={() => onColor(color ?? "#6D5BD0")}>
+              <DropdownMenuItem key={color} onClick={() => onColor(color ?? "#6D5BD0")}>
                 <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
                 {label}
               </DropdownMenuItem>
@@ -462,7 +464,7 @@ function BoardColumnView({
             {column.done ? null : (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                <DropdownMenuItem variant="destructive" onClick={onDelete}>
                   Supprimer
                 </DropdownMenuItem>
               </>
