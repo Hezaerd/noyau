@@ -128,18 +128,25 @@ const validateTicketAnchors = (
       after !== undefined &&
       tickets.indexOf(after) + 1 !== tickets.indexOf(before))
 
-  return invalid
-    ? Result.fail(
-        new InvalidTicketPlacement({
-          columnId,
-          ...(beforeTicketId === undefined ? {} : { beforeTicketId }),
-          ...(afterTicketId === undefined ? {} : { afterTicketId }),
-        }),
-      )
-    : Result.succeed({
-        ...(before === undefined ? {} : { before }),
-        ...(after === undefined ? {} : { after }),
-      })
+  if (invalid) {
+    const placement = { columnId }
+    if (beforeTicketId !== undefined) {
+      Object.assign(placement, { beforeTicketId })
+    }
+    if (afterTicketId !== undefined) {
+      Object.assign(placement, { afterTicketId })
+    }
+    return Result.fail(new InvalidTicketPlacement(placement))
+  }
+
+  const anchors = {}
+  if (before !== undefined) {
+    Object.assign(anchors, { before })
+  }
+  if (after !== undefined) {
+    Object.assign(anchors, { after })
+  }
+  return Result.succeed(anchors)
 }
 
 const ticketRank = (
@@ -187,17 +194,25 @@ const validateColumnAnchors = (
       after !== undefined &&
       columns.indexOf(after) + 1 !== columns.indexOf(before))
 
-  return invalid
-    ? Result.fail(
-        new InvalidColumnPlacement({
-          ...(beforeColumnId === undefined ? {} : { beforeColumnId }),
-          ...(afterColumnId === undefined ? {} : { afterColumnId }),
-        }),
-      )
-    : Result.succeed({
-        ...(before === undefined ? {} : { before }),
-        ...(after === undefined ? {} : { after }),
-      })
+  if (invalid) {
+    const placement = {}
+    if (beforeColumnId !== undefined) {
+      Object.assign(placement, { beforeColumnId })
+    }
+    if (afterColumnId !== undefined) {
+      Object.assign(placement, { afterColumnId })
+    }
+    return Result.fail(new InvalidColumnPlacement(placement))
+  }
+
+  const anchors = {}
+  if (before !== undefined) {
+    Object.assign(anchors, { before })
+  }
+  if (after !== undefined) {
+    Object.assign(anchors, { after })
+  }
+  return Result.succeed(anchors)
 }
 
 const columnRank = (
@@ -425,6 +440,10 @@ export const decide = (
         null,
         tickets.length,
       ).map(rank)
+      const deletedColumn = { columnId: column.columnId }
+      if (destinationId !== undefined) {
+        Object.assign(deletedColumn, { destinationColumnId: destinationId })
+      }
       return Result.succeed([
         ...tickets.map((ticket, index) => {
           const newRank = generatedRanks[index] ?? rank(ticket.rank)
@@ -434,10 +453,7 @@ export const decide = (
             rank: newRank,
           })
         }),
-        KanbanColumnDeleted.make({
-          columnId: column.columnId,
-          ...(destinationId === undefined ? {} : { destinationColumnId: destinationId }),
-        }),
+        KanbanColumnDeleted.make(deletedColumn),
       ])
     }
     case "ticket.create": {
@@ -454,18 +470,19 @@ export const decide = (
         command.payload.placement.beforeTicketId,
         command.payload.placement.afterTicketId,
       ).pipe(
-        Result.map((newRank) => [
-          TicketCreated.make({
+        Result.map((newRank) => {
+          const created = {
             ticketId: command.payload.ticketId,
             columnId: command.payload.placement.columnId,
             rank: newRank,
             title: command.payload.title,
             workbenchThreadId: command.payload.workbenchThreadId,
-            ...(command.payload.sourceThreadId === undefined
-              ? {}
-              : { sourceThreadId: command.payload.sourceThreadId }),
-          }),
-        ]),
+          }
+          if (command.payload.sourceThreadId !== undefined) {
+            Object.assign(created, { sourceThreadId: command.payload.sourceThreadId })
+          }
+          return [TicketCreated.make(created)]
+        }),
       )
     }
     case "ticket.move":
@@ -613,14 +630,13 @@ export const decide = (
       )
     case "ticket.assign":
       return requireTicket(state, command.payload.ticketId).pipe(
-        Result.map((ticket) => [
-          TicketAssigned.make({
-            ticketId: ticket.ticketId,
-            ...(command.payload.assigneeId === undefined
-              ? {}
-              : { assigneeId: command.payload.assigneeId }),
-          }),
-        ]),
+        Result.map((ticket) => {
+          const assigned = { ticketId: ticket.ticketId }
+          if (command.payload.assigneeId !== undefined) {
+            Object.assign(assigned, { assigneeId: command.payload.assigneeId })
+          }
+          return [TicketAssigned.make(assigned)]
+        }),
       )
     case "ticket.update":
       return requireTicket(state, command.payload.ticketId).pipe(

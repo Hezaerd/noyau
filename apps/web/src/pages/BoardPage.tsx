@@ -28,24 +28,24 @@ import {
   TicketId,
 } from "@noyau/protocol/ids"
 import type { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
-import {
-  Calendar,
-  CheckCircle,
-  Command as CommandIcon,
-  DotsSixVertical,
-  DotsThree,
-  DotOutline,
-  Funnel,
-  MagnifyingGlass,
-  Plus,
-  Robot,
-  User,
-  WarningCircle,
-  X,
-} from "@phosphor-icons/react"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
+import {
+  BotIcon,
+  CalendarIcon,
+  CheckCircleIcon,
+  CircleAlertIcon,
+  CircleIcon,
+  CommandIcon,
+  EllipsisIcon,
+  FunnelIcon,
+  GripVerticalIcon,
+  PlusIcon,
+  SearchIcon,
+  UserIcon,
+  XIcon,
+} from "lucide-react"
 import type { Crypto } from "effect"
 import { type Effect } from "effect"
 import {
@@ -63,31 +63,29 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
+  Command,
+  CommandCollection,
   CommandDialog,
+  CommandDialogPopup,
   CommandEmpty,
   CommandGroup,
+  CommandGroupLabel,
   CommandInput,
   CommandItem,
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuSeparator,
+  MenuTrigger,
+} from "@/components/ui/menu"
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   appendWorkbenchMessage,
   boardActors,
@@ -128,21 +126,21 @@ import {
 } from "@/lib/ticket-commands"
 import { cn } from "@/lib/utils"
 
-const priorityLabels: Record<TicketPriority, string> = {
+const priorityLabels = {
   none: "Sans priorité",
   low: "Basse",
   normal: "Normale",
   high: "Haute",
   urgent: "Urgente",
-}
+} satisfies Record<TicketPriority, string>
 
-const priorityStyles: Record<TicketPriority, string> = {
-  none: "text-zinc-500",
-  low: "text-sky-400",
-  normal: "text-violet-400",
-  high: "text-amber-400",
-  urgent: "text-rose-400",
-}
+const priorityStyles = {
+  none: "text-muted-foreground",
+  low: "text-info",
+  normal: "text-primary",
+  high: "text-warning",
+  urgent: "text-destructive",
+} satisfies Record<TicketPriority, string>
 
 const attentionLabels = {
   blocked: "Bloqué",
@@ -152,10 +150,10 @@ const attentionLabels = {
 } as const
 
 const attentionStyles = {
-  blocked: "border-amber-500/20 bg-amber-500/10 text-amber-300",
-  question: "border-sky-500/20 bg-sky-500/10 text-sky-300",
-  approval: "border-violet-500/20 bg-violet-500/10 text-violet-300",
-  failure: "border-rose-500/20 bg-rose-500/10 text-rose-300",
+  blocked: "border-warning/20 bg-warning/10 text-warning-foreground",
+  question: "border-info/20 bg-info/10 text-info-foreground",
+  approval: "border-primary/20 bg-primary/10 text-primary",
+  failure: "border-destructive/20 bg-destructive/10 text-destructive-foreground",
 } as const
 
 const executionLabels = {
@@ -171,6 +169,34 @@ interface BoardPageProps {
   readonly onSearchChange: (patch: BoardSearchPatch, replace?: boolean) => void
   readonly onOpenTicket: (ticketId: string) => void
   readonly onCloseTicket: () => void
+}
+
+type CommandPaletteItem =
+  | {
+      readonly kind: "action"
+      readonly value: "create" | "search"
+      readonly label: string
+      readonly shortcut: string
+    }
+  | {
+      readonly kind: "move"
+      readonly value: string
+      readonly label: string
+      readonly columnId: string
+      readonly color: string
+    }
+  | {
+      readonly kind: "ticket"
+      readonly value: string
+      readonly label: string
+      readonly ticketId: string
+      readonly priority: TicketPriority
+    }
+
+interface CommandPaletteGroup {
+  readonly value: string
+  readonly label: string
+  readonly items: ReadonlyArray<CommandPaletteItem>
 }
 
 interface TicketCardProps {
@@ -221,8 +247,8 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
       style={style}
       data-ticket-id={ticket.id}
       className={cn(
-        "group relative rounded-xl border border-border/85 bg-card shadow-[0_5px_18px_rgba(0,0,0,0.18)]",
-        "hover:border-border hover:shadow-[0_10px_30px_rgba(34,28,74,0.28)]",
+        "group relative rounded-xl border border-border/85 bg-card shadow-xs",
+        "hover:border-border hover:shadow-lg/5",
         active && "border-primary/55 ring-2 ring-primary/18",
         isDragging && "opacity-30",
         overlay && "w-72 rotate-1 border-primary/50 shadow-2xl",
@@ -238,7 +264,7 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
         {...listeners}
       >
         <div className="flex items-start gap-2">
-          <DotOutline className={cn("mt-0.5 size-3.5 shrink-0", priorityStyles[ticket.priority])} />
+          <CircleIcon className={cn("mt-0.5 size-3.5 shrink-0", priorityStyles[ticket.priority])} />
           <h3 className="line-clamp-2 flex-1 text-[0.82rem] leading-snug font-medium tracking-[-0.01em]">
             {ticket.title}
           </h3>
@@ -246,7 +272,7 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
             className="mt-0.5 cursor-grab touch-none text-muted-foreground/35 opacity-0 group-hover:opacity-100"
             aria-hidden="true"
           >
-            <DotsSixVertical className="size-3.5" />
+            <GripVerticalIcon className="size-3.5" />
           </span>
         </div>
 
@@ -258,14 +284,14 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
               attentionStyles[ticket.attention],
             )}
           >
-            <WarningCircle />
+            <CircleAlertIcon />
             {attentionLabels[ticket.attention]}
           </Badge>
         )}
 
         {ticket.execution === undefined ? null : (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/55 px-2.5 py-2">
-            <Robot className="size-3.5 shrink-0 text-violet-400" />
+            <BotIcon className="size-3.5 shrink-0 text-primary" />
             <p className="min-w-0 flex-1 truncate text-[0.65rem] text-muted-foreground">
               {ticket.execution.count} exécution{ticket.execution.count > 1 ? "s" : ""} ·{" "}
               <span className="text-foreground">{executionLabels[ticket.execution.status]}</span>
@@ -289,7 +315,7 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
         <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
           {actor === undefined ? (
             <span className="grid size-5 place-items-center rounded-md border border-dashed text-muted-foreground/50">
-              <User className="size-2.5" />
+              <UserIcon className="size-2.5" />
             </span>
           ) : (
             <Avatar className="size-5 rounded-md">
@@ -302,16 +328,16 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
             <span
               className={cn(
                 "flex items-center gap-1 text-[0.6rem] text-muted-foreground",
-                due.late && "text-rose-300",
+                due.late && "text-destructive",
               )}
             >
-              <Calendar className="size-3" />
+              <CalendarIcon className="size-3" />
               {due.label}
             </span>
           )}
           {ticket.checklist.length === 0 ? null : (
             <span className="ml-auto flex items-center gap-1 text-[0.6rem] text-muted-foreground">
-              <CheckCircle className="size-3" />
+              <CheckCircleIcon className="size-3" />
               {checklistDone}/{ticket.checklist.length}
             </span>
           )}
@@ -348,7 +374,7 @@ function QuickCreate({ columnId, active, onCancel, onCreate, onActivate }: Quick
         className="w-full justify-start text-muted-foreground"
         onClick={onActivate}
       >
-        <Plus />
+        <PlusIcon />
         Ajouter un ticket
       </Button>
     )
@@ -380,7 +406,7 @@ function QuickCreate({ columnId, active, onCancel, onCreate, onActivate }: Quick
           onClick={onCancel}
           aria-label="Annuler"
         >
-          <X />
+          <XIcon />
         </Button>
       </div>
     </form>
@@ -431,7 +457,7 @@ function BoardColumnView({
       ref={setNodeRef}
       aria-labelledby={`column-title-${column.id}`}
       className={cn(
-        "flex h-full w-[304px] shrink-0 flex-col rounded-2xl border border-border/70 bg-[#121218]/88",
+        "flex h-full w-[304px] shrink-0 flex-col rounded-2xl border border-border/70 bg-card",
         isOver && "border-primary/45 bg-primary/5",
       )}
     >
@@ -470,48 +496,48 @@ function BoardColumnView({
         <span className="rounded-full bg-muted px-1.5 py-0.5 text-[0.58rem] text-muted-foreground">
           {filtered ? `${tickets.length}/${allTickets.length}` : allTickets.length}
         </span>
-        <DropdownMenu>
-          <DropdownMenuTrigger
+        <Menu>
+          <MenuTrigger
             render={
               <Button
                 variant="ghost"
                 size="icon-xs"
                 aria-label={`Menu de la colonne ${column.name}`}
               >
-                <DotsThree />
+                <EllipsisIcon />
               </Button>
             }
           />
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>{column.name}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => onEditingChange(true)}>Renommer</DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Couleur</DropdownMenuLabel>
+          <MenuPopup align="end" className="w-44">
+            <MenuGroup>
+              <MenuGroupLabel>{column.name}</MenuGroupLabel>
+              <MenuItem onClick={() => onEditingChange(true)}>Renommer</MenuItem>
+            </MenuGroup>
+            <MenuSeparator />
+            <MenuGroup>
+              <MenuGroupLabel>Couleur</MenuGroupLabel>
               {[
-                ["Violet", "#6D5BD0"],
+                ["Neutre", "#a3a3a3"],
                 ["Bleu", "#3B82F6"],
                 ["Émeraude", "#10B981"],
                 ["Ambre", "#F59E0B"],
               ].map(([label, color]) => (
-                <DropdownMenuItem key={color} onClick={() => onColor(color ?? "#6D5BD0")}>
+                <MenuItem key={color} onClick={() => onColor(color ?? "#a3a3a3")}>
                   <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
                   {label}
-                </DropdownMenuItem>
+                </MenuItem>
               ))}
-            </DropdownMenuGroup>
+            </MenuGroup>
             {column.done ? null : (
               <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                <MenuSeparator />
+                <MenuItem variant="destructive" onClick={onDelete}>
                   Supprimer
-                </DropdownMenuItem>
+                </MenuItem>
               </>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </MenuPopup>
+        </Menu>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
@@ -595,8 +621,8 @@ export function BoardPage({
   const dragStartStateRef = useRef<BoardState | undefined>(undefined)
   const filters: BoardFilters = {
     query: search.q ?? "",
-    ...(search.assignee === undefined ? {} : { assignee: search.assignee }),
-    ...(search.priority === undefined ? {} : { priority: search.priority }),
+    ...(search.assignee !== undefined && { assignee: search.assignee }),
+    ...(search.priority !== undefined && { priority: search.priority }),
   }
   const filtered = isFiltered(filters)
   const selectedTicket = state.tickets.find((ticket) => ticket.id === search.ticket)
@@ -605,6 +631,48 @@ export function BoardPage({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+  const assigneeOptions = [
+    { value: "all", label: "Tous les responsables" },
+    ...state.actors.map((actor) => ({ value: actor.id, label: actor.name })),
+  ]
+  const priorityOptions = [
+    { value: "all", label: "Toutes les priorités" },
+    ...priorities
+      .filter((priority) => priority !== "none")
+      .map((priority) => ({ value: priority, label: priorityLabels[priority] })),
+  ]
+  const commandGroups: ReadonlyArray<CommandPaletteGroup> = [
+    {
+      value: "actions",
+      label: "Commandes",
+      items: [
+        { kind: "action", value: "create", label: "Créer un ticket", shortcut: "C" },
+        { kind: "action", value: "search", label: "Rechercher", shortcut: "/" },
+      ],
+    },
+    {
+      value: "move",
+      label: "Déplacer le ticket actif",
+      items: state.columns.map((column) => ({
+        kind: "move",
+        value: `move:${column.id}`,
+        label: column.name,
+        columnId: column.id,
+        color: column.color,
+      })),
+    },
+    {
+      value: "tickets",
+      label: "Tickets",
+      items: state.tickets.map((ticket) => ({
+        kind: "ticket",
+        value: `ticket:${ticket.id}:${ticket.title}:${ticket.labels.join(":")}`,
+        label: ticket.title,
+        ticketId: ticket.id,
+        priority: ticket.priority,
+      })),
+    },
+  ]
 
   const refreshBoard = useCallback(async () => {
     const [snapshot, executions] = await Promise.all([
@@ -894,6 +962,27 @@ export function BoardPage({
   const clearFilters = () =>
     onSearchChange({ q: undefined, assignee: undefined, priority: undefined }, true)
 
+  const runCommandPaletteItem = (item: CommandPaletteItem) => {
+    setPaletteOpen(false)
+    if (item.kind === "action") {
+      if (item.value === "create") {
+        const column = state.columns.find((candidate) => !candidate.done)
+        setCreatingColumnId(column?.id)
+      } else {
+        requestAnimationFrame(() => searchRef.current?.focus())
+      }
+      return
+    }
+    if (item.kind === "move") {
+      if (activeTicketId !== undefined) {
+        setState((current) => moveTicket(current, activeTicketId, item.columnId))
+        setAnnouncement(`Ticket déplacé vers ${item.label}, en fin de colonne.`)
+      }
+      return
+    }
+    onOpenTicket(item.ticketId)
+  }
+
   const createInColumn = (columnId: string, title: string) => {
     setCreatingColumnId(undefined)
     void runCommand(
@@ -952,7 +1041,7 @@ export function BoardPage({
 
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 xl:justify-end">
             <div className="relative min-w-56 flex-1 xl:max-w-sm">
-              <MagnifyingGlass className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 ref={searchRef}
                 value={search.q ?? ""}
@@ -971,6 +1060,7 @@ export function BoardPage({
             </div>
 
             <Select
+              items={assigneeOptions}
               value={search.assignee ?? "all"}
               onValueChange={(value) =>
                 onSearchChange(
@@ -979,8 +1069,8 @@ export function BoardPage({
                 )
               }
             >
-              <SelectTrigger size="default">
-                <User />
+              <SelectTrigger size="default" className="w-auto">
+                <UserIcon />
                 <SelectValue>
                   {search.assignee === undefined
                     ? "Responsable"
@@ -988,17 +1078,17 @@ export function BoardPage({
                       "Responsable")}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les responsables</SelectItem>
-                {state.actors.map((actor) => (
-                  <SelectItem key={actor.id} value={actor.id}>
-                    {actor.name}
+              <SelectPopup>
+                {assigneeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
-              </SelectContent>
+              </SelectPopup>
             </Select>
 
             <Select
+              items={priorityOptions}
               value={search.priority ?? "all"}
               onValueChange={(value) => {
                 if (value === "all") {
@@ -1008,32 +1098,29 @@ export function BoardPage({
                 }
               }}
             >
-              <SelectTrigger size="default">
-                <Funnel />
+              <SelectTrigger size="default" className="w-auto">
+                <FunnelIcon />
                 <SelectValue>
                   {search.priority === undefined ? "Priorité" : priorityLabels[search.priority]}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les priorités</SelectItem>
-                {priorities
-                  .filter((priority) => priority !== "none")
-                  .map((priority) => (
-                    <SelectItem key={priority} value={priority}>
-                      {priorityLabels[priority]}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
+              <SelectPopup>
+                {priorityOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
             </Select>
 
             {filtered ? (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X />
+              <Button variant="ghost" size="default" onClick={clearFilters}>
+                <XIcon />
                 Effacer
               </Button>
             ) : null}
 
-            <Button variant="outline" size="sm" onClick={() => setPaletteOpen(true)}>
+            <Button variant="outline" size="default" onClick={() => setPaletteOpen(true)}>
               <CommandIcon />
               <span className="hidden sm:inline">Commandes</span>
               <kbd className="ml-1 text-[0.58rem] text-muted-foreground">⌘ K</kbd>
@@ -1164,7 +1251,7 @@ export function BoardPage({
                   className="w-full justify-start border-dashed bg-card/35 text-muted-foreground"
                   onClick={() => setAddingColumn(true)}
                 >
-                  <Plus />
+                  <PlusIcon />
                   Ajouter une colonne
                 </Button>
               )}
@@ -1269,77 +1356,49 @@ export function BoardPage({
         }
       />
 
-      <CommandDialog
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        title="Commandes du Tableau"
-        description="Rechercher un ticket ou lancer une commande."
-      >
-        <CommandInput placeholder="Rechercher une commande ou un ticket…" />
-        <CommandList>
-          <CommandEmpty>Aucun résultat.</CommandEmpty>
-          <CommandGroup heading="Commandes">
-            <CommandItem
-              onSelect={() => {
-                setPaletteOpen(false)
-                const column = state.columns.find((candidate) => !candidate.done)
-                setCreatingColumnId(column?.id)
-              }}
-            >
-              <Plus />
-              Créer un ticket
-              <CommandShortcut>C</CommandShortcut>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setPaletteOpen(false)
-                searchRef.current?.focus()
-              }}
-            >
-              <MagnifyingGlass />
-              Rechercher
-              <CommandShortcut>/</CommandShortcut>
-            </CommandItem>
-          </CommandGroup>
-          <CommandGroup heading="Déplacer le ticket actif">
-            {state.columns.map((column) => (
-              <CommandItem
-                key={column.id}
-                disabled={activeTicketId === undefined}
-                onSelect={() => {
-                  if (activeTicketId !== undefined) {
-                    const next = moveTicket(state, activeTicketId, column.id)
-                    setState(next)
-                    persistTicketPlacement(
-                      next,
-                      activeTicketId,
-                      `Ticket déplacé vers ${column.name}, en fin de colonne.`,
-                    )
-                  }
-                  setPaletteOpen(false)
-                }}
-              >
-                <span className="size-2 rounded-full" style={{ backgroundColor: column.color }} />
-                {column.name}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandGroup heading="Tickets">
-            {state.tickets.map((ticket) => (
-              <CommandItem
-                key={ticket.id}
-                value={`${ticket.title} ${ticket.labels.join(" ")}`}
-                onSelect={() => {
-                  setPaletteOpen(false)
-                  onOpenTicket(ticket.id)
-                }}
-              >
-                <DotOutline className={priorityStyles[ticket.priority]} />
-                <span className="truncate">{ticket.title}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
+      <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
+        <CommandDialogPopup>
+          <Command items={commandGroups}>
+            <CommandInput placeholder="Rechercher une commande ou un ticket…" />
+            <CommandEmpty>Aucun résultat.</CommandEmpty>
+            <CommandList>
+              {(group: CommandPaletteGroup) => (
+                <CommandGroup key={group.value} items={group.items}>
+                  <CommandGroupLabel>{group.label}</CommandGroupLabel>
+                  <CommandCollection>
+                    {(item: CommandPaletteItem) => (
+                      <CommandItem
+                        key={item.value}
+                        value={item.value}
+                        disabled={item.kind === "move" && activeTicketId === undefined}
+                        onClick={() => runCommandPaletteItem(item)}
+                      >
+                        {item.kind === "action" ? (
+                          item.value === "create" ? (
+                            <PlusIcon />
+                          ) : (
+                            <SearchIcon />
+                          )
+                        ) : item.kind === "move" ? (
+                          <span
+                            className="size-2 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          />
+                        ) : (
+                          <CircleIcon className={priorityStyles[item.priority]} />
+                        )}
+                        <span className="truncate">{item.label}</span>
+                        {item.kind === "action" ? (
+                          <CommandShortcut>{item.shortcut}</CommandShortcut>
+                        ) : null}
+                      </CommandItem>
+                    )}
+                  </CommandCollection>
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </CommandDialogPopup>
       </CommandDialog>
     </main>
   )

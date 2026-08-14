@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import "./styles/coss-color-tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -18,10 +18,11 @@
   }
 
   body {
-    @apply m-0 min-h-screen min-w-80 bg-background font-sans text-foreground;
-    background-image:
-      radial-gradient(circle at 78% -8%, rgb(126 101 255 / 16%), transparent 36rem),
-      radial-gradient(circle at 18% 110%, rgb(76 52 180 / 10%), transparent 32rem);
+    @apply relative m-0 min-h-screen min-w-80 bg-background font-sans text-foreground;
+  }
+
+  #root {
+    @apply isolate;
   }
 
   a {
@@ -32,6 +33,13 @@
   }
   html {
     @apply font-sans;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
   }
 
   ::selection {
@@ -52,8 +60,11 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -62,15 +73,17 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -83,9 +96,6 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --color-subtle: var(--subtle);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -93,41 +103,15 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --animate-skeleton: skeleton 2s -1s infinite linear;
+  @keyframes skeleton {
+    to {
+      background-position: -200% 0;
+    }
+  }
 }
 
 :root {
   color-scheme: dark;
-  --background: #0f0f13;
-  --foreground: #ededf2;
-  --card: #17171c;
-  --card-foreground: #ededf2;
-  --popover: #1b1a22;
-  --popover-foreground: #f2f1f7;
-  --primary: #9b8cff;
-  --primary-foreground: #121018;
-  --secondary: #24242c;
-  --secondary-foreground: #e4e3eb;
-  --muted: #202027;
-  --muted-foreground: #a5a4b0;
-  --accent: #302b4b;
-  --accent-foreground: #e2ddff;
-  --destructive: #f0717d;
-  --border: #2b2a34;
-  --input: #34323f;
-  --ring: #9b8cff;
-  --chart-1: #9b8cff;
-  --chart-2: #6f8dff;
-  --chart-3: #c574e8;
-  --chart-4: #55b8d0;
-  --chart-5: #d59cff;
-  --radius: 0.75rem;
-  --subtle: #888793;
-  --sidebar: #0a0a0e;
-  --sidebar-foreground: #ecebf2;
-  --sidebar-primary: #8f7cff;
-  --sidebar-primary-foreground: #100e17;
-  --sidebar-accent: #211f2b;
-  --sidebar-accent-foreground: #f3f1ff;
-  --sidebar-border: #282630;
-  --sidebar-ring: #9b8cff;
+  --radius: 0.625rem;
 }

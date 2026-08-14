@@ -1,13 +1,13 @@
-import {
-  CaretUpDown,
-  ChatCircleText,
-  Gear,
-  MagnifyingGlass,
-  Plus,
-  SquaresFour,
-  Tray,
-} from "@phosphor-icons/react"
 import { Link, useRouterState } from "@tanstack/react-router"
+import {
+  ChevronsUpDownIcon,
+  InboxIcon,
+  LayoutGridIcon,
+  MessageCircleIcon,
+  PlusIcon,
+  SearchIcon,
+  SettingsIcon,
+} from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -41,7 +41,7 @@ export function AppSidebar() {
     <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
       <SidebarHeader className="gap-3 p-3">
         <div className="flex h-10 items-center gap-2 px-1">
-          <div className="grid size-8 shrink-0 place-items-center rounded-xl bg-sidebar-primary font-semibold text-sidebar-primary-foreground shadow-[0_8px_24px_rgba(113,87,255,0.28)]">
+          <div className="grid size-8 shrink-0 place-items-center rounded-xl bg-sidebar-primary font-semibold text-sidebar-primary-foreground shadow-lg/5">
             N
           </div>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
@@ -54,7 +54,7 @@ export function AppSidebar() {
             aria-label="Paramètres"
             className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden"
           >
-            <Gear />
+            <SettingsIcon />
           </Button>
         </div>
 
@@ -62,7 +62,7 @@ export function AppSidebar() {
           type="button"
           className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 px-2.5 text-xs text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
         >
-          <MagnifyingGlass className="size-3.5 shrink-0" />
+          <SearchIcon className="size-3.5 shrink-0" />
           <span className="group-data-[collapsible=icon]:hidden">Rechercher</span>
           <kbd className="ml-auto rounded border border-sidebar-border bg-sidebar px-1.5 py-0.5 font-sans text-[0.6rem] group-data-[collapsible=icon]:hidden">
             ⌘ K
@@ -78,9 +78,9 @@ export function AppSidebar() {
                 render={<Link to="/" onClick={closeMobileNavigation} />}
                 isActive={pathname === "/"}
                 tooltip="Inbox"
-                className="h-9 text-sidebar-foreground/68 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                className="h-9 text-sidebar-foreground/68"
               >
-                <Tray />
+                <InboxIcon />
                 <span>Inbox</span>
               </SidebarMenuButton>
               <SidebarMenuBadge className="bg-sidebar-primary text-[0.65rem] text-sidebar-primary-foreground">
@@ -95,7 +95,7 @@ export function AppSidebar() {
         <SidebarGroup className="pt-1">
           <SidebarGroupLabel className="sr-only">Projets suivis</SidebarGroupLabel>
           <SidebarGroupAction aria-label="Ajouter un projet" title="Ajouter un projet">
-            <Plus />
+            <PlusIcon />
           </SidebarGroupAction>
           <SidebarGroupContent>
             <div className="mb-1 flex items-center gap-2.5 rounded-lg px-2 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
@@ -105,7 +105,7 @@ export function AppSidebar() {
               <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                 <p className="truncate text-xs font-medium text-sidebar-foreground">noyau</p>
               </div>
-              <CaretUpDown className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
+              <ChevronsUpDownIcon className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
             </div>
 
             <SidebarMenu>
@@ -120,9 +120,9 @@ export function AppSidebar() {
                   }
                   isActive={pathname === "/projects/noyau/board"}
                   tooltip="Tableau"
-                  className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                  className="h-8 text-sidebar-foreground/58"
                 >
-                  <SquaresFour />
+                  <LayoutGridIcon />
                   <span>Tableau</span>
                 </SidebarMenuButton>
                 <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
@@ -134,9 +134,9 @@ export function AppSidebar() {
                   render={<Link to="/projects/noyau/channel" onClick={closeMobileNavigation} />}
                   isActive={pathname === "/projects/noyau/channel"}
                   tooltip="Canal"
-                  className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                  className="h-8 text-sidebar-foreground/58"
                 >
-                  <ChatCircleText />
+                  <MessageCircleIcon />
                   <span>Canal</span>
                 </SidebarMenuButton>
                 <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">

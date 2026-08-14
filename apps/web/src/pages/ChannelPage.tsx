@@ -1,12 +1,12 @@
 import {
-  At,
-  DotsThree,
-  Hash,
-  Paperclip,
-  PaperPlaneTilt,
-  Robot,
-  Sparkle,
-} from "@phosphor-icons/react"
+  AtSignIcon,
+  BotIcon,
+  EllipsisIcon,
+  HashIcon,
+  PaperclipIcon,
+  SendIcon,
+  SparkleIcon,
+} from "lucide-react"
 import { useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -43,7 +43,7 @@ const initialMessages: ReadonlyArray<ChannelMessage> = [
     role: "Développement",
     time: "09:24",
     body: "La première tâche est en cours. J’ai ajouté le verrou de projection et un test qui rejoue deux événements livrés au moins une fois.",
-    tone: "bg-violet-500/15 text-violet-300",
+    tone: "bg-info/15 text-info-foreground",
     agent: true,
   },
   {
@@ -53,7 +53,7 @@ const initialMessages: ReadonlyArray<ChannelMessage> = [
     role: "Humain",
     time: "09:31",
     body: "Garde le transport hors du domaine. La reprise doit rester un détail de la frontière RPC.",
-    tone: "bg-fuchsia-500/15 text-fuchsia-300",
+    tone: "bg-secondary text-secondary-foreground",
     agent: false,
   },
   {
@@ -63,7 +63,7 @@ const initialMessages: ReadonlyArray<ChannelMessage> = [
     role: "Revue",
     time: "10:02",
     body: "Compris. Je vérifierai aussi qu’aucun offset PostgreSQL n’est exposé au client dans le nouveau contrat.",
-    tone: "bg-indigo-500/15 text-indigo-300",
+    tone: "bg-success/15 text-success-foreground",
     agent: true,
   },
 ]
@@ -88,7 +88,7 @@ export function ChannelPage() {
         role: "Humain",
         time: "maintenant",
         body,
-        tone: "bg-fuchsia-500/15 text-fuchsia-300",
+        tone: "bg-secondary text-secondary-foreground",
         agent: false,
       },
     ])
@@ -101,14 +101,14 @@ export function ChannelPage() {
         <div className="mx-auto flex w-full max-w-5xl items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-card shadow-sm">
-              <Hash className="size-4 text-muted-foreground" />
+              <HashIcon className="size-4 text-muted-foreground" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="truncate text-lg font-semibold tracking-[-0.025em]">noyau</h2>
                 <Badge
                   variant="outline"
-                  className="rounded-full border-violet-500/25 bg-violet-500/10 text-[0.62rem] text-violet-300"
+                  className="rounded-full border-info/25 bg-info/10 text-[0.62rem] text-info-foreground"
                 >
                   3 agents actifs
                 </Badge>
@@ -116,7 +116,7 @@ export function ChannelPage() {
             </div>
           </div>
           <Button variant="ghost" size="icon-sm" aria-label="Options du canal">
-            <DotsThree />
+            <EllipsisIcon />
           </Button>
         </div>
       </header>
@@ -141,7 +141,7 @@ export function ChannelPage() {
                     <p className="text-sm font-semibold">{message.author}</p>
                     {message.agent ? (
                       <span className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[0.58rem] font-medium text-muted-foreground uppercase">
-                        <Robot className="size-2.5" /> Agent
+                        <BotIcon className="size-2.5" /> Agent
                       </span>
                     ) : null}
                     <span className="text-[0.68rem] text-muted-foreground">
@@ -158,7 +158,7 @@ export function ChannelPage() {
         <div className="sticky bottom-0 z-10 bg-background/92 pt-3 pb-5 backdrop-blur-xl">
           <form
             onSubmit={submit}
-            className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_14px_44px_rgba(61,42,138,0.2)] focus-within:border-ring/60 focus-within:ring-3 focus-within:ring-ring/10"
+            className="overflow-hidden rounded-2xl border border-border bg-card shadow-lg/5 focus-within:border-ring/60 focus-within:ring-3 focus-within:ring-ring/10"
           >
             <Textarea
               value={draft}
@@ -175,7 +175,7 @@ export function ChannelPage() {
             />
             <div className="flex items-center gap-1 border-t border-border/60 px-2 py-2">
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Joindre un artefact">
-                <Paperclip />
+                <PaperclipIcon />
               </Button>
               <Button
                 type="button"
@@ -183,10 +183,10 @@ export function ChannelPage() {
                 size="icon-sm"
                 aria-label="Mentionner un membre"
               >
-                <At />
+                <AtSignIcon />
               </Button>
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Commande Marion">
-                <Sparkle />
+                <SparkleIcon />
               </Button>
               <span className="ml-1 text-[0.65rem] text-muted-foreground">
                 Entrée pour envoyer · Maj + Entrée pour une ligne
@@ -198,7 +198,7 @@ export function ChannelPage() {
                 aria-label="Envoyer"
                 className="ml-auto rounded-lg"
               >
-                <PaperPlaneTilt />
+                <SendIcon />
               </Button>
             </div>
           </form>
