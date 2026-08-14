@@ -69,8 +69,8 @@ const decodeEventPayloadRow = Schema.decodeUnknownEffect(EventPayloadRow)
 const decodeEntityRow = Schema.decodeUnknownEffect(EntityRow)
 
 const firstDecoded = <A, I, R>(
-  rows: ReadonlyArray<unknown>,
-  decode: (input: unknown) => Effect.Effect<A, I, R>,
+  rows: ReadonlyArray<Schema.Top["Encoded"]>,
+  decode: (input: Schema.Top["Encoded"]) => Effect.Effect<A, I, R>,
 ) => {
   const first = rows[0]
   return first === undefined
@@ -519,20 +519,26 @@ export interface BoardInitializeInput {
 }
 
 /** Initialise les trois colonnes système d'un projet via le même journal durable. */
-export const executeBoardInitialize = (input: BoardInitializeInput) =>
-  executeJournaledBoardCommand({
-    request: BoardInitializeRequest.make({
-      commandId: input.commandId,
-      payload: {
-        backlogColumnId: input.backlogColumnId,
-        activeColumnId: input.activeColumnId,
-        doneColumnId: input.doneColumnId,
-      },
-      ...(input.causationId === undefined ? {} : { causationId: input.causationId }),
-    }),
+export const executeBoardInitialize = (input: BoardInitializeInput) => {
+  const payload = {
+    backlogColumnId: input.backlogColumnId,
+    activeColumnId: input.activeColumnId,
+    doneColumnId: input.doneColumnId,
+  }
+  const request =
+    input.causationId === undefined
+      ? BoardInitializeRequest.make({ commandId: input.commandId, payload })
+      : BoardInitializeRequest.make({
+          commandId: input.commandId,
+          causationId: input.causationId,
+          payload,
+        })
+  return executeJournaledBoardCommand({
+    request,
     projectId: input.projectId,
     actorId: input.actorId,
   })
+}
 
 /** Lit le Tableau et son curseur dans un snapshot PostgreSQL cohérent. */
 export const readProjectBoardSnapshot = (projectId: ProjectId) =>

@@ -20,14 +20,17 @@ const decodeConfig = Schema.decodeUnknownSync(ControlPlaneConfig)
 const decodeProjectId = Schema.decodeUnknownSync(ProjectId)
 
 const defaultRpcUrl = () => {
-  if (typeof window === "undefined") {
+  const location = globalThis.location
+  if (location === undefined) {
     return "ws://localhost:5173/rpc"
   }
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-  return `${protocol}//${window.location.host}/rpc`
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:"
+  return `${protocol}//${location.host}/rpc`
 }
 
-export const decodeControlPlaneConfig = (input: unknown): ControlPlaneConfig => {
+export const decodeControlPlaneConfig = (
+  input: (typeof ControlPlaneEnvironment)["Encoded"],
+): ControlPlaneConfig => {
   const environment = decodeEnvironment(input)
   return decodeConfig({
     rpcUrl: environment.VITE_NOYAU_RPC_URL ?? defaultRpcUrl(),

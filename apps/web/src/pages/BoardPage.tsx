@@ -758,14 +758,28 @@ export function BoardPage({
     const index = siblings.findIndex((candidate) => candidate.id === ticketId)
     const beforeTicket = siblings[index + 1]
     const afterTicket = siblings[index - 1]
+    const placement =
+      beforeTicket === undefined
+        ? afterTicket === undefined
+          ? { columnId: KanbanColumnId.make(ticket.columnId) }
+          : {
+              columnId: KanbanColumnId.make(ticket.columnId),
+              afterTicketId: TicketId.make(afterTicket.id),
+            }
+        : afterTicket === undefined
+          ? {
+              columnId: KanbanColumnId.make(ticket.columnId),
+              beforeTicketId: TicketId.make(beforeTicket.id),
+            }
+          : {
+              columnId: KanbanColumnId.make(ticket.columnId),
+              beforeTicketId: TicketId.make(beforeTicket.id),
+              afterTicketId: TicketId.make(afterTicket.id),
+            }
     void runCommand(
       makeTicketMoveRequest({
         ticketId: TicketId.make(ticketId),
-        placement: {
-          columnId: KanbanColumnId.make(ticket.columnId),
-          ...(beforeTicket === undefined ? {} : { beforeTicketId: TicketId.make(beforeTicket.id) }),
-          ...(afterTicket === undefined ? {} : { afterTicketId: TicketId.make(afterTicket.id) }),
-        },
+        placement,
       }),
       message,
     )
@@ -1210,14 +1224,16 @@ export function BoardPage({
                       return
                     }
                     const done = state.columns.find((column) => column.done)
+                    const columnInput =
+                      done === undefined
+                        ? { name: newColumnName.trim(), color: "#A855F7" }
+                        : {
+                            name: newColumnName.trim(),
+                            color: "#A855F7",
+                            beforeColumnId: KanbanColumnId.make(done.id),
+                          }
                     void runCommand(
-                      makeKanbanColumnCreateRequest({
-                        name: newColumnName.trim(),
-                        color: "#A855F7",
-                        ...(done === undefined
-                          ? {}
-                          : { beforeColumnId: KanbanColumnId.make(done.id) }),
-                      }),
+                      makeKanbanColumnCreateRequest(columnInput),
                       `Colonne ${newColumnName.trim()} ajoutée.`,
                     )
                     setNewColumnName("")
@@ -1307,13 +1323,15 @@ export function BoardPage({
         onUpdate={(ticketId, patch) => {
           setState((current) => updateTicket(current, ticketId, patch))
           if ("assigneeId" in patch) {
+            const assignment =
+              patch.assigneeId === undefined
+                ? { ticketId: TicketId.make(ticketId) }
+                : {
+                    ticketId: TicketId.make(ticketId),
+                    assigneeId: ActorId.make(patch.assigneeId),
+                  }
             void runCommand(
-              makeTicketAssignRequest({
-                ticketId: TicketId.make(ticketId),
-                ...(patch.assigneeId === undefined
-                  ? {}
-                  : { assigneeId: ActorId.make(patch.assigneeId) }),
-              }),
+              makeTicketAssignRequest(assignment),
               "Responsable du ticket mis à jour.",
             )
           }
@@ -1323,18 +1341,29 @@ export function BoardPage({
             patch.priority !== undefined ||
             "dueAt" in patch
           if (hasDetails) {
-            void runCommand(
-              makeTicketUpdateRequest({
-                ticketId: TicketId.make(ticketId),
-                ...(patch.title === undefined ? {} : { title: patch.title }),
-                ...(patch.description === undefined ? {} : { description: patch.description }),
-                ...(patch.priority === undefined ? {} : { priority: patch.priority }),
-                ...(!("dueAt" in patch)
-                  ? {}
-                  : { dueAt: patch.dueAt === undefined ? null : patch.dueAt }),
-              }),
-              "Détails du ticket mis à jour.",
-            )
+            let updateInput: {
+              readonly ticketId: TicketId
+              readonly title?: string
+              readonly description?: string | null
+              readonly priority?: TicketPriority
+              readonly dueAt?: string | null
+            } = { ticketId: TicketId.make(ticketId) }
+            if (patch.title !== undefined) {
+              updateInput = { ...updateInput, title: patch.title }
+            }
+            if (patch.description !== undefined) {
+              updateInput = { ...updateInput, description: patch.description }
+            }
+            if (patch.priority !== undefined) {
+              updateInput = { ...updateInput, priority: patch.priority }
+            }
+            if ("dueAt" in patch) {
+              updateInput = {
+                ...updateInput,
+                dueAt: patch.dueAt === undefined ? null : patch.dueAt,
+              }
+            }
+            void runCommand(makeTicketUpdateRequest(updateInput), "Détails du ticket mis à jour.")
           }
         }}
         onToggleChecklist={(ticketId, itemId) =>

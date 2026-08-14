@@ -59,7 +59,8 @@ const profile = (suffix: number) => AgentProfileId.make(uuid("99999999", suffix)
 const human = ActorId.make("human:hezaerd")
 const agent = ActorId.make("agent:marion")
 
-const request = (input: unknown) => Schema.decodeUnknownSync(TicketCommandRequest)(input)
+const request = (input: (typeof TicketCommandRequest)["Encoded"]) =>
+  Schema.decodeUnknownSync(TicketCommandRequest)(input)
 
 const execute = (projectId: ProjectId, commandRequest: TicketCommandRequestType, actorId = human) =>
   executeTicketCommandRequest({ request: commandRequest, projectId, actorId })

@@ -66,12 +66,10 @@ export const makeTicketUpdateRequest = Effect.fn("TicketCommands.ticketUpdate")(
     dueAt === undefined || dueAt === null
       ? dueAt
       : yield* Schema.decodeEffect(Schema.DateTimeUtcFromString)(dueAt)
+  const payload = decodedDueAt === undefined ? details : { ...details, dueAt: decodedDueAt }
   return TicketUpdateRequest.make({
     commandId: CommandId.make(yield* uuid()),
-    payload: {
-      ...details,
-      ...(decodedDueAt === undefined ? {} : { dueAt: decodedDueAt }),
-    },
+    payload,
   })
 })
 

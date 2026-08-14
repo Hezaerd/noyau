@@ -14,8 +14,8 @@ import { SqlClient } from "effect/unstable/sql/SqlClient"
 import { ServerConfig } from "./config"
 import { decodeEventCursor, encodeEventCursor } from "./cursor"
 
-const unavailable = (error: unknown) =>
-  Effect.logError("PostgreSQL operation failed", error).pipe(
+const unavailable = (cause: unknown) =>
+  Effect.logError("PostgreSQL operation failed", cause).pipe(
     Effect.andThen(new ServiceUnavailable({ service: "postgresql" })),
   )
 
