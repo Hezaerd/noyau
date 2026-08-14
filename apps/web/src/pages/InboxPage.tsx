@@ -1,12 +1,12 @@
 import {
-  ArrowUpRight,
+  ArrowSquareOut,
   Check,
-  CheckCircle2,
-  CircleHelp,
+  CheckCircle,
   GitPullRequest,
-  MessageSquareText,
-  Sparkles,
-} from "lucide-react"
+  Question,
+  Sparkle,
+  ChatCircleText,
+} from "@phosphor-icons/react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -29,7 +29,7 @@ const activity = [
     actor: "Marion",
     initials: "MA",
     color: "bg-primary/15 text-primary",
-    icon: CircleHelp,
+    icon: Question,
     title: "Une décision bloque la mission « Runtime Hermes »",
     detail: "Faut-il conserver les artefacts des runs échoués pendant 7 ou 30 jours ?",
     project: "noyau",
@@ -41,7 +41,7 @@ const activity = [
     actor: "Reviewer",
     initials: "RV",
     color: "bg-indigo-500/15 text-indigo-300",
-    icon: CheckCircle2,
+    icon: CheckCircle,
     title: "Le lot « Event cursor opaque » a passé la revue",
     detail: "Aucun défaut bloquant · 23 tests validés",
     project: "noyau",
@@ -53,7 +53,7 @@ const activity = [
     actor: "Marion",
     initials: "MA",
     color: "bg-primary/15 text-primary",
-    icon: Sparkles,
+    icon: Sparkle,
     title: "Le plan de la mission « Inbox v1 » a été ajusté",
     detail: "2 tâches terminées · 1 tâche ajoutée après analyse du flux",
     project: "noyau",
@@ -134,7 +134,7 @@ export function InboxPage() {
                   className="w-fit shrink-0 self-center rounded-full"
                 >
                   {item.action}
-                  <ArrowUpRight />
+                  <ArrowSquareOut />
                 </Button>
               </article>
             ))}
@@ -172,7 +172,7 @@ export function InboxPage() {
                 className="flex w-full items-center justify-between text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 Voir tous les runs
-                <ArrowUpRight className="size-3.5" />
+                <ArrowSquareOut className="size-3.5" />
               </button>
             </div>
           </section>
@@ -182,7 +182,7 @@ export function InboxPage() {
               <div>
                 <h3 className="text-base font-medium">Control plane durable</h3>
               </div>
-              <MessageSquareText className="size-4 text-violet-300" />
+              <ChatCircleText className="size-4 text-violet-300" />
             </div>
             <div className="mb-2 flex items-end justify-between">
               <span className="text-3xl font-semibold tracking-[-0.04em]">68%</span>

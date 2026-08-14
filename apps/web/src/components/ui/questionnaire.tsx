@@ -1,7 +1,7 @@
 "use client"
 
+import { CheckIcon } from "@phosphor-icons/react"
 import { Questionnaire as QuestionnairePrimitive } from "@shadcn/react/questionnaire"
-import { CheckIcon } from "lucide-react"
 import * as React from "react"
 
 import { buttonVariants, type Button } from "@/components/ui/button"
@@ -120,6 +120,7 @@ function QuestionnaireChoice({
           className="hidden size-2 rounded-full bg-primary-foreground group-data-[type=checkbox]/questionnaire-choice:hidden group-data-checked/questionnaire-choice:block"
         />
         <CheckIcon
+          strokeWidth={2}
           data-slot="questionnaire-choice-indicator-check"
           className="hidden size-3.5 group-data-[type=radio]/questionnaire-choice:hidden group-data-checked/questionnaire-choice:block"
         />

@@ -1,13 +1,13 @@
-import { Link, useRouterState } from "@tanstack/react-router"
 import {
-  ChevronsUpDown,
-  Inbox,
-  LayoutDashboard,
-  MessageSquareText,
+  CaretUpDown,
+  ChatCircleText,
+  Gear,
+  MagnifyingGlass,
   Plus,
-  Search,
-  Settings2,
-} from "lucide-react"
+  SquaresFour,
+  Tray,
+} from "@phosphor-icons/react"
+import { Link, useRouterState } from "@tanstack/react-router"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -54,7 +54,7 @@ export function AppSidebar() {
             aria-label="Paramètres"
             className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden"
           >
-            <Settings2 />
+            <Gear />
           </Button>
         </div>
 
@@ -62,7 +62,7 @@ export function AppSidebar() {
           type="button"
           className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 px-2.5 text-xs text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
         >
-          <Search className="size-3.5 shrink-0" />
+          <MagnifyingGlass className="size-3.5 shrink-0" />
           <span className="group-data-[collapsible=icon]:hidden">Rechercher</span>
           <kbd className="ml-auto rounded border border-sidebar-border bg-sidebar px-1.5 py-0.5 font-sans text-[0.6rem] group-data-[collapsible=icon]:hidden">
             ⌘ K
@@ -81,7 +81,7 @@ export function AppSidebar() {
                 className="h-9 text-sidebar-foreground/68 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
               >
                 <Link to="/" onClick={closeMobileNavigation}>
-                  <Inbox />
+                  <Tray />
                   <span>Inbox</span>
                 </Link>
               </SidebarMenuButton>
@@ -107,7 +107,7 @@ export function AppSidebar() {
               <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                 <p className="truncate text-xs font-medium text-sidebar-foreground">noyau</p>
               </div>
-              <ChevronsUpDown className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
+              <CaretUpDown className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
             </div>
 
             <SidebarMenu>
@@ -123,7 +123,7 @@ export function AppSidebar() {
                     params={{ projectId: "noyau" }}
                     onClick={closeMobileNavigation}
                   >
-                    <LayoutDashboard />
+                    <SquaresFour />
                     <span>Tableau</span>
                   </Link>
                 </SidebarMenuButton>
@@ -139,7 +139,7 @@ export function AppSidebar() {
                   className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
                 >
                   <Link to="/projects/noyau/channel" onClick={closeMobileNavigation}>
-                    <MessageSquareText />
+                    <ChatCircleText />
                     <span>Canal</span>
                   </Link>
                 </SidebarMenuButton>

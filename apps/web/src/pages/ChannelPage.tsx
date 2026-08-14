@@ -1,4 +1,12 @@
-import { AtSign, Bot, Hash, MoreHorizontal, Paperclip, Send, Sparkles } from "lucide-react"
+import {
+  At,
+  DotsThree,
+  Hash,
+  Paperclip,
+  PaperPlaneTilt,
+  Robot,
+  Sparkle,
+} from "@phosphor-icons/react"
 import { useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -108,7 +116,7 @@ export function ChannelPage() {
             </div>
           </div>
           <Button variant="ghost" size="icon-sm" aria-label="Options du canal">
-            <MoreHorizontal />
+            <DotsThree />
           </Button>
         </div>
       </header>
@@ -133,7 +141,7 @@ export function ChannelPage() {
                     <p className="text-sm font-semibold">{message.author}</p>
                     {message.agent ? (
                       <span className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[0.58rem] font-medium text-muted-foreground uppercase">
-                        <Bot className="size-2.5" /> Agent
+                        <Robot className="size-2.5" /> Agent
                       </span>
                     ) : null}
                     <span className="text-[0.68rem] text-muted-foreground">
@@ -175,10 +183,10 @@ export function ChannelPage() {
                 size="icon-sm"
                 aria-label="Mentionner un membre"
               >
-                <AtSign />
+                <At />
               </Button>
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Commande Marion">
-                <Sparkles />
+                <Sparkle />
               </Button>
               <span className="ml-1 text-[0.65rem] text-muted-foreground">
                 Entrée pour envoyer · Maj + Entrée pour une ligne
@@ -190,7 +198,7 @@ export function ChannelPage() {
                 aria-label="Envoyer"
                 className="ml-auto rounded-lg"
               >
-                <Send />
+                <PaperPlaneTilt />
               </Button>
             </div>
           </form>
