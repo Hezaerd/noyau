@@ -2,7 +2,49 @@ import { recommended as effectRecommended } from "@effect/tsgo/oxlint-presets"
 import { defineConfig } from "vite-plus"
 
 // `repos/**` est le subtree Effect en lecture seule : jamais formaté, jamais linté.
-const ignorePatterns = ["**/dist/**", "**/coverage/**", "**/routeTree.gen.ts", "repos/**"]
+// `.agents/**` regroupe des skills importés — hors périmètre lint/fmt Noyau.
+// `tools/oxlint/anti-slop/**` : plugin Oxlint vendored (anti-slop).
+const agentIgnorePatterns = [
+  ".agent/**",
+  ".agents/**",
+  ".claude/**",
+  ".codex/**",
+  ".continue/**",
+  ".cursor/**",
+  ".gemini/**",
+  ".opencode/**",
+  ".pi/**",
+  ".roo/**",
+  ".windsurf/**",
+]
+const ignorePatterns = [
+  "**/dist/**",
+  "**/coverage/**",
+  "**/routeTree.gen.ts",
+  "repos/**",
+  "tools/oxlint/anti-slop/**",
+  ...agentIgnorePatterns,
+]
+
+type AntiSlopRule = "error" | ["error", { allowInTypeGuards: true }]
+
+const antiSlopRules = {
+  "anti-slop/no-chained-type-assertions": "error",
+  "anti-slop/no-conditional-empty-object-spread": "error",
+  "anti-slop/no-known-value-widening": "error",
+  "anti-slop/no-module-mocking": "error",
+  "anti-slop/no-object-parameters": "error",
+  "anti-slop/no-reflect-apply": "error",
+  "anti-slop/no-reflect-get": "error",
+  "anti-slop/no-runtime-typeof": ["error", { allowInTypeGuards: true }],
+  "anti-slop/no-shape-in-symbol-names": "error",
+  "anti-slop/no-unknown-parameters": "error",
+  "anti-slop/no-unknown-returns": "error",
+  "anti-slop/no-unknown-type-aliases": "error",
+  "anti-slop/no-unsafe-dictionary-type": "error",
+  "anti-slop/no-widen-then-assert": "error",
+  "anti-slop/require-safety-comment-for-type-assertion": "error",
+} satisfies Record<string, AntiSlopRule>
 
 export default defineConfig({
   test: {
@@ -34,6 +76,7 @@ export default defineConfig({
     ignorePatterns,
     rules: {
       ...effectRecommended.rules,
+      ...antiSlopRules,
       "no-underscore-dangle": ["error", { allow: ["_tag"] }],
       "import/no-cycle": "error",
       "import/no-relative-parent-imports": "error",
@@ -87,6 +130,10 @@ export default defineConfig({
       {
         name: "vite-plus",
         specifier: "vite-plus/oxlint-plugin",
+      },
+      {
+        name: "anti-slop",
+        specifier: "./tools/oxlint/anti-slop/index.js",
       },
     ],
   },

@@ -4,7 +4,11 @@ import { Command } from "@noyau/protocol/commands"
 import { Execution } from "@noyau/protocol/entities/execution"
 import { KanbanRank } from "@noyau/protocol/entities/kanban-column"
 import { Ticket } from "@noyau/protocol/entities/ticket"
-import { DomainEvent, EventEnvelope } from "@noyau/protocol/events"
+import {
+  DomainEvent,
+  EventEnvelope,
+  type DomainEvent as DomainEventType,
+} from "@noyau/protocol/events"
 import {
   decodeTicketCommandRequest,
   TicketCommand,
@@ -59,7 +63,7 @@ const ticket = {
   updatedAt: "2026-08-13T12:00:00.000Z",
 } as const
 
-const envelopeFor = (event: unknown, eventId: string = ids.event) => ({
+const envelopeFor = (event: DomainEventType, eventId: string = ids.event) => ({
   eventId,
   projectId: ids.project,
   actorId: "human:hezaerd",
@@ -460,7 +464,7 @@ describe("Ticket command and event envelopes", () => {
     })
 
     expect(command._tag).toBe("board.initialize")
-    const publicRequest: unknown = {
+    const publicRequest = {
       _tag: "board.initialize",
       commandId: ids.command,
       payload: {
@@ -496,8 +500,9 @@ describe("Ticket command and event envelopes", () => {
 
   it("décode chaque nouveau fait via DomainEvent et EventEnvelope", () => {
     for (const event of newTicketEvents) {
-      expect(Schema.decodeUnknownSync(DomainEvent)(event)._tag).toBe(event._tag)
-      expect(Schema.decodeUnknownSync(EventEnvelope)(envelopeFor(event)).event._tag).toBe(
+      const decoded = Schema.decodeUnknownSync(DomainEvent)(event)
+      expect(decoded._tag).toBe(event._tag)
+      expect(Schema.decodeUnknownSync(EventEnvelope)(envelopeFor(decoded)).event._tag).toBe(
         event._tag,
       )
     }
@@ -523,19 +528,21 @@ describe("Ticket command and event envelopes", () => {
 
   it("accepte deux interruptions d'Execution distinctes pour le même Ticket", () => {
     const first = Schema.decodeUnknownSync(EventEnvelope)(
-      envelopeFor({
-        _tag: "execution.interrupted",
-        executionId: ids.execution,
-        ticketId: ids.ticket,
-      }),
+      envelopeFor(
+        Schema.decodeUnknownSync(DomainEvent)({
+          _tag: "execution.interrupted",
+          executionId: ids.execution,
+          ticketId: ids.ticket,
+        }),
+      ),
     )
     const second = Schema.decodeUnknownSync(EventEnvelope)(
       envelopeFor(
-        {
+        Schema.decodeUnknownSync(DomainEvent)({
           _tag: "execution.interrupted",
           executionId: ids.execution2,
           ticketId: ids.ticket,
-        },
+        }),
         ids.event2,
       ),
     )

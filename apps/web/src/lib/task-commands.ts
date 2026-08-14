@@ -27,16 +27,20 @@ export const buildTaskCreateRequest = (
     .map((criterion) => criterion.trim())
     .filter(Boolean)
 
+  const payload = {
+    taskId: ids.taskId,
+    missionId,
+    title,
+    acceptanceCriteria,
+  }
+  if (description !== "") {
+    Object.assign(payload, { description })
+  }
+
   return decodeTaskCreateRequest({
     _tag: "task.create",
     commandId: ids.commandId,
-    payload: {
-      taskId: ids.taskId,
-      missionId,
-      title,
-      acceptanceCriteria,
-      ...(description === "" ? {} : { description }),
-    },
+    payload,
   })
 }
 

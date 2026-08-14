@@ -2,18 +2,18 @@ import type { ProjectTaskSnapshot } from "@noyau/protocol/control-plane"
 import type { Task, TaskStatus } from "@noyau/protocol/entities/task"
 import type { CommandRejection } from "@noyau/protocol/receipts"
 import {
-  ArrowClockwise,
-  ArrowRight,
-  CheckCircle,
-  Check,
-  CircleNotch,
-  Clock,
-  DotOutline,
-  Plus,
-  UserPlus,
-  WarningCircle,
-  X,
-} from "@phosphor-icons/react"
+  ArrowRightIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  CircleAlertIcon,
+  CircleIcon,
+  ClockIcon,
+  Loader2Icon,
+  PlusIcon,
+  RefreshCwIcon,
+  UserPlusIcon,
+  XIcon,
+} from "lucide-react"
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -159,7 +159,7 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
       <SheetPopup className="w-full sm:max-w-lg">
         <SheetHeader>
           <div className="mb-3 grid size-10 place-items-center rounded-xl bg-accent text-accent-foreground">
-            <Plus className="size-4" />
+            <PlusIcon className="size-4" />
           </div>
           <SheetTitle className="text-xl tracking-[-0.025em]">Nouvelle tâche</SheetTitle>
         </SheetHeader>
@@ -203,7 +203,7 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
                       ])
                     }
                   >
-                    <Plus />
+                    <PlusIcon />
                     Ajouter
                   </Button>
                 </div>
@@ -237,7 +237,7 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
                           )
                         }
                       >
-                        <X />
+                        <XIcon />
                       </Button>
                     ) : null}
                   </div>
@@ -249,7 +249,7 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
           <SheetFooter>
             <SheetClose render={<Button type="button" variant="ghost" />}>Annuler</SheetClose>
             <Button type="submit" disabled={disabled || submitting || !canSubmit}>
-              {submitting ? <CircleNotch className="animate-spin" /> : <Plus />}
+              {submitting ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
               Créer la tâche
             </Button>
           </SheetFooter>
@@ -277,9 +277,9 @@ function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
           }`}
         >
           {task.status === "completed" ? (
-            <Check className="size-3.5" />
+            <CheckIcon className="size-3.5" />
           ) : (
-            <DotOutline className="size-3" />
+            <CircleIcon className="size-3" />
           )}
         </div>
 
@@ -316,7 +316,7 @@ function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
                 onClick={() => onAssign(task)}
                 className="w-fit shrink-0 rounded-full text-muted-foreground"
               >
-                {assigning ? <CircleNotch className="animate-spin" /> : <UserPlus />}
+                {assigning ? <Loader2Icon className="animate-spin" /> : <UserPlusIcon />}
                 M’attribuer
               </Button>
             ) : (
@@ -333,7 +333,7 @@ function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
                 key={criterion}
                 className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"
               >
-                <CheckCircle className="size-3 text-primary" />
+                <CheckCircleIcon className="size-3 text-primary" />
                 {criterion}
               </span>
             ))}
@@ -449,10 +449,10 @@ export function TasksPage() {
               onClick={() => void refresh()}
               className="rounded-full bg-card"
             >
-              <ArrowClockwise className={refreshing ? "animate-spin" : ""} />
+              <RefreshCwIcon className={refreshing ? "animate-spin" : ""} />
             </Button>
             <Button className="rounded-full" onClick={() => setComposerOpen(true)}>
-              <Plus />
+              <PlusIcon />
               Nouvelle tâche
             </Button>
           </div>
@@ -470,7 +470,7 @@ export function TasksPage() {
           </div>
           <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
             <div className="flex items-center gap-2">
-              <Clock className="size-4 text-primary" />
+              <ClockIcon className="size-4 text-primary" />
               <span className="text-2xl font-semibold tracking-[-0.04em]">
                 {tasks.filter((task) => task.status === "running").length}
               </span>
@@ -480,7 +480,7 @@ export function TasksPage() {
           <div className="rounded-2xl border border-border/80 bg-card p-4 text-foreground shadow-lg/5">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium">Revoir les sorties agents</span>
-              <ArrowRight className="size-4 text-primary" />
+              <ArrowRightIcon className="size-4 text-primary" />
             </div>
           </div>
         </div>
@@ -496,9 +496,9 @@ export function TasksPage() {
           }`}
         >
           {feedback.tone === "error" ? (
-            <WarningCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <CircleAlertIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
           ) : (
-            <CheckCircle className="mt-0.5 size-4 shrink-0 text-success-foreground" />
+            <CheckCircleIcon className="mt-0.5 size-4 shrink-0 text-success-foreground" />
           )}
           <div>
             <p className="font-medium">{feedback.message}</p>
@@ -529,14 +529,14 @@ export function TasksPage() {
       {loading ? (
         <div className="flex min-h-64 items-center justify-center rounded-2xl border border-dashed border-border">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <CircleNotch className="size-4 animate-spin" />
+            <Loader2Icon className="size-4 animate-spin" />
             Lecture du snapshot…
           </div>
         </div>
       ) : tasks.length === 0 ? (
         <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 px-6 text-center">
           <div className="mb-4 grid size-10 place-items-center rounded-xl bg-accent">
-            <CheckCircle className="size-4 text-accent-foreground" />
+            <CheckCircleIcon className="size-4 text-accent-foreground" />
           </div>
           <h3 className="text-sm font-semibold">Aucune tâche dans cette mission</h3>
           <p className="mt-2 max-w-md text-xs leading-relaxed text-muted-foreground">
@@ -544,7 +544,7 @@ export function TasksPage() {
             ici.
           </p>
           <Button size="sm" className="mt-5 rounded-full" onClick={() => setComposerOpen(true)}>
-            <Plus />
+            <PlusIcon />
             Créer la première tâche
           </Button>
         </div>

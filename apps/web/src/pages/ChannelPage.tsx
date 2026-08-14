@@ -1,12 +1,12 @@
 import {
-  At,
-  DotsThree,
-  Hash,
-  Paperclip,
-  PaperPlaneTilt,
-  Robot,
-  Sparkle,
-} from "@phosphor-icons/react"
+  AtSignIcon,
+  BotIcon,
+  EllipsisIcon,
+  HashIcon,
+  PaperclipIcon,
+  SendIcon,
+  SparkleIcon,
+} from "lucide-react"
 import { useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -101,7 +101,7 @@ export function ChannelPage() {
         <div className="mx-auto flex w-full max-w-5xl items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-card shadow-sm">
-              <Hash className="size-4 text-muted-foreground" />
+              <HashIcon className="size-4 text-muted-foreground" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ export function ChannelPage() {
             </div>
           </div>
           <Button variant="ghost" size="icon-sm" aria-label="Options du canal">
-            <DotsThree />
+            <EllipsisIcon />
           </Button>
         </div>
       </header>
@@ -141,7 +141,7 @@ export function ChannelPage() {
                     <p className="text-sm font-semibold">{message.author}</p>
                     {message.agent ? (
                       <span className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[0.58rem] font-medium text-muted-foreground uppercase">
-                        <Robot className="size-2.5" /> Agent
+                        <BotIcon className="size-2.5" /> Agent
                       </span>
                     ) : null}
                     <span className="text-[0.68rem] text-muted-foreground">
@@ -175,7 +175,7 @@ export function ChannelPage() {
             />
             <div className="flex items-center gap-1 border-t border-border/60 px-2 py-2">
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Joindre un artefact">
-                <Paperclip />
+                <PaperclipIcon />
               </Button>
               <Button
                 type="button"
@@ -183,10 +183,10 @@ export function ChannelPage() {
                 size="icon-sm"
                 aria-label="Mentionner un membre"
               >
-                <At />
+                <AtSignIcon />
               </Button>
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Commande Marion">
-                <Sparkle />
+                <SparkleIcon />
               </Button>
               <span className="ml-1 text-[0.65rem] text-muted-foreground">
                 Entrée pour envoyer · Maj + Entrée pour une ligne
@@ -198,7 +198,7 @@ export function ChannelPage() {
                 aria-label="Envoyer"
                 className="ml-auto rounded-lg"
               >
-                <PaperPlaneTilt />
+                <SendIcon />
               </Button>
             </div>
           </form>
