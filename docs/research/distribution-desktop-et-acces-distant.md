@@ -60,6 +60,9 @@ La comparaison est pertinente, mais T3 Code ne supprime pas non plus son backend
 - Détenir un socket authentifié ne suffit pas : le serveur associe aussi chaque méthode RPC à un
   scope
   ([vue interne officielle](https://github.com/pingdotgg/t3code/blob/main/docs/internals/overview.md)).
+- T3 Connect ne relaie pas lui-même les frames dans un Durable Object : son Worker porte la
+  découverte et les credentials, puis le trafic passe par un hostname Cloudflare Tunnel
+  ([architecture T3 Connect au commit étudié](https://github.com/pingdotgg/t3code/blob/5304f3e9d4c912bfa0eb2f5f41fa109b3646236b/docs/internals/t3-connect.md)).
 
 Le modèle transposable à Noyau n'est donc pas « Electron remplace le serveur », mais « plusieurs
 clients utilisent une même runtime distante authentifiée ».
@@ -98,6 +101,12 @@ Le transport client existant reste celui de
 ordonné repris depuis un `EventCursor`. Le superviseur de connexion desktop doit reconnecter avec
 backoff et reprendre depuis le curseur durable ; il ne doit jamais traiter la durée de vie du socket
 comme la durée de vie de l'état.
+
+Effect RPC v4 vit encore sous `effect/unstable/*`. La distribution indépendante du desktop et du
+serveur exige donc un handshake annonçant version de protocole et capacités, une fenêtre de
+compatibilité explicite et des schémas Noyau versionnés ; le format interne Effect ne doit pas
+devenir par accident un engagement wire public
+([source Effect correspondant à la version étudiée](https://github.com/Effect-TS/effect/blob/3c495ae7c96d43bfc3b8020250562a194c2c895e/packages/effect/src/unstable/rpc/RpcServer.ts)).
 
 ### Frontières à conserver
 
@@ -151,14 +160,20 @@ Il n'est pas nécessaire d'embarquer `noyau serve` dans la première version des
 client distant évite de mélanger cycle de vie desktop, PostgreSQL local, migrations et supervision
 des agents.
 
+Le « coffre OS » doit être vérifié par plateforme : `safeStorage` utilise Keychain sur macOS et
+DPAPI sur Windows, mais peut tomber sous Linux sur le backend `basic_text`, que l'application doit
+refuser au lieu de considérer le credential comme protégé
+([documentation Electron](https://www.electronjs.org/docs/latest/api/safe-storage)).
+
 Le renderer doit charger des assets locaux packagés et rester traité comme du contenu web non
 fiable : `nodeIntegration: false`, `contextIsolation: true`, sandbox activée, CSP restrictive, IPC
 minimal avec validation de l'émetteur, navigation externe bloquée et protocole local dédié. Ce sont
 des recommandations explicites de la
 [checklist de sécurité Electron](https://www.electronjs.org/docs/latest/tutorial/security).
 L'application ajoute aussi une chaîne de signature, publication et mises à jour ; Electron fournit
-`autoUpdater`, mais les mécanismes varient selon la plateforme
-([documentation officielle](https://www.electronjs.org/docs/latest/tutorial/updates)).
+`autoUpdater` sur macOS et Windows, tandis que Linux repose normalement sur son gestionnaire de
+paquets
+([documentation officielle](https://www.electronjs.org/docs/latest/api/auto-updater)).
 
 Electron est donc faisable, mais ce n'est pas une optimisation gratuite. Il faut l'adopter pour
 l'expérience desktop, le coffre OS et les intégrations locales, pas parce qu'il rendrait la
@@ -239,10 +254,12 @@ notifications. Un VPS adressable n'a pas ce problème.
 
 Cloudflare Durable Objects sait terminer des WebSockets entrants et les laisser hiberner
 ([documentation officielle](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)).
-Cependant, un relay bidirectionnel nécessiterait aussi une connexion sortante persistante du relay
-vers chaque serveur Noyau. Les WebSockets sortants ne peuvent pas hiberner et gardent le Durable
-Object actif ; un déploiement de code déconnecte les sockets
-([même source](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)).
+Un vrai rendez-vous peut donc utiliser un Durable Object par `instanceId`, avec **deux connexions
+sortantes vers Cloudflare** — une ouverte par `noyau serve`, l'autre par Electron. Du point de vue du
+Durable Object, les deux sockets sont entrants et peuvent utiliser l'API d'hibernation. En revanche,
+une variante où le Worker ouvre lui-même un WebSocket sortant vers le VPS ne peut pas hiberner
+pendant cette connexion. Les déploiements de code déconnectent dans tous les cas les sockets
+([cycle de vie officiel](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/)).
 
 Il faudrait en plus concevoir :
 
@@ -300,6 +317,8 @@ Cela rend l'adaptateur prévu par
 [l'ADR-0007](../adr/0007-hermes-local-ou-tailscale.md) réalisable. Le serveur Noyau doit :
 
 - créer l'`Attempt` et son worktree avant de lancer Hermes ;
+- utiliser un profil/processus Hermes isolé par `Attempt`, plutôt qu'une instance globale dont les
+  sessions, sous-agents ou containers pourraient partager un état implicite ;
 - traduire le `ContextPack`, les budgets et capacités vers l'entrée Hermes ;
 - persister les événements Hermes pertinents via commandes/outbox ;
 - traiter les flux SSE comme une source d'observation reprenable, pas comme la durabilité de Noyau ;
@@ -330,6 +349,7 @@ supporte pas toutes les livraisons asynchrones de certaines intégrations Hermes
 
 - tester le WebSocket Effect RPC via Tailscale Serve ;
 - vérifier reconnexion, reprise par curseur, expiration de ticket et révocation d'appareil ;
+- vérifier le handshake de version et la compatibilité entre deux versions desktop/serveur ;
 - mesurer le comportement après redémarrage serveur et coupure réseau.
 
 Cette étape sépare les risques de protocole des risques de packaging desktop.
