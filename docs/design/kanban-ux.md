@@ -222,7 +222,7 @@ La sélection multiple est hors v1.
 
 Le composant shadcn `Sheet` s'ouvre à droite et reste contrôlé par `ticket` dans l'URL. Sa largeur
 desktop dépasse le défaut `sm:max-w-sm` afin d'accueillir le détail sans masquer inutilement le
-Tableau. Radix conserve le focus trap, `Escape` et le titre accessible. La restitution du focus est
+Tableau. Base UI conserve le focus trap, `Escape` et le titre accessible. La restitution du focus est
 pilotée par le Tableau pour appliquer son fallback, sans tenter de cibler un élément supprimé,
 archivé ou filtré.
 

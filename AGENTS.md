@@ -9,6 +9,8 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | Terme                | Sens                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------ |
 | **Noyau**            | Control plane : état, permissions, commandes, événements, projections.                     |
+| **Noyau Desktop**    | Client Electron et superviseur local ; ne possède aucun état métier autoritatif.           |
+| **Noyau Server**     | Instance locale ou VPS du control plane ; unique autorité durable de sa base.              |
 | **Hermes**           | Premier adaptateur du port `AgentRuntime` ; run isolé, instance locale ou Tailscale.       |
 | **AgentProfile**     | Configuration persistante d'un agent ; rôle affiché sans privilège implicite.              |
 | **Tableau**          | Projection Kanban unique d'un projet ; colonnes libres et ordre partagé.                   |
@@ -20,7 +22,7 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | **Event**            | Fait immuable produit par un decider pur à partir d'une commande.                          |
 | **Projection**       | Vue dérivée (forum, tickets, runs) reconstruite depuis le journal d'événements.            |
 | **Reactor**          | Consommateur durable de l'outbox (scheduler, Hermes, Git, n8n).                            |
-| **Outbox**           | File transactionnelle PostgreSQL ; seule source de reprise après crash.                    |
+| **Outbox**           | File transactionnelle du store SQL ; seule source de reprise après crash.                  |
 | **Lease**            | Verrou temporaire avec expiration pour réclamer un attempt entre workers.                  |
 | **Receipt**          | Preuve d'idempotence d'une commande ; réponse stable aux retries.                          |
 | **ContextPack**      | Contexte LLM versionné, tiré des projections Noyau ; jamais l'historique brut du forum.    |
@@ -34,25 +36,27 @@ source.
 ## Flux cible
 
 ```text
-Command (Schema) → Decider pur → Transaction PG (event + receipt + projection + outbox)
+Command (Schema) → Decider pur → Transaction SQL (event + receipt + projection + outbox)
   → Reactors durables → Ports runtime (AgentRuntime, WorkflowEngine, GitRuntime)
   → Snapshot + deltas (Effect RPC sur WebSocket, flux ordonné — ADR-0003)
 ```
 
-PostgreSQL porte la durabilité. Une `Queue` ou un `PubSub` Effect ne remplace jamais l'outbox.
+Le store SQL porte la durabilité : PostgreSQL sur VPS, PGlite pour le profil local géré
+(ADR-0009). Une `Queue` ou un `PubSub` Effect ne remplace jamais l'outbox.
 
 ## Carte du repo
 
 ```text
 apps/
-  web/                  # UI React (TanStack Router, Vite), PWA — pas d'Effect dans l'état local
-  server/               # frontière Effect RPC (WebSocket), engine de commandes, reactors, scheduler
+  web/                  # renderer React partagé — pas d'Effect dans l'état local
+  server/               # même Noyau Server local ou VPS
+  desktop/              # cible Electron, créée seulement après validation des frontières
 
 packages/
   config/               # tsconfig.base.json partagé, diagnostics @effect/tsgo
   domain/               # deciders et projectors purs
   protocol/             # Schemas commandes/événements, contrat RPC, exports subpath
-  database/             # event log, receipts, outbox, projections PostgreSQL
+  database/             # event log, receipts, outbox, projections SQL
   …                     # voir docs/ARCHITECTURE.md — un package seulement si frontière réelle
 
 docs/
@@ -176,7 +180,7 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 
 | Piège                                         | Choix Noyau                                            |
 | --------------------------------------------- | ------------------------------------------------------ |
-| `Queue` / `PubSub` comme source de vérité     | PostgreSQL + outbox transactionnelle                   |
+| `Queue` / `PubSub` comme source de vérité     | Store SQL + outbox transactionnelle                    |
 | Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                     |
 | Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`              |
 | `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                          |

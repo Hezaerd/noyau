@@ -1,5 +1,4 @@
-import { Command as CommandPrimitive } from "cmdk"
-import { SearchIcon, CheckIcon } from "lucide-react"
+import { MagnifyingGlassIcon, CheckIcon } from "@phosphor-icons/react"
 import * as React from "react"
 
 import {
@@ -12,16 +11,74 @@ import {
 import { InputGroup, InputGroupAddon } from "@/components/ui/input-group"
 import { cn } from "@/lib/utils"
 
-function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
+type CommandItemState = {
+  readonly disabled: boolean
+  readonly groupId: string | undefined
+  readonly value: string
+}
+
+type CommandContextValue = {
+  readonly items: ReadonlyMap<string, CommandItemState>
+  readonly query: string
+  readonly register: (id: string, item: CommandItemState) => () => void
+  readonly setQuery: (query: string) => void
+}
+
+const CommandContext = React.createContext<CommandContextValue | null>(null)
+const CommandGroupContext = React.createContext<string | undefined>(undefined)
+
+function useCommand() {
+  const context = React.useContext(CommandContext)
+  if (!context) {
+    throw new Error("Command components must be used within Command.")
+  }
+
+  return context
+}
+
+function matchesQuery(value: string, query: string) {
+  return value.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
+}
+
+function textValue(children: React.ReactNode): string {
+  return React.Children.toArray(children)
+    .flatMap((child) => {
+      if (typeof child === "string" || typeof child === "number") {
+        return [String(child)]
+      }
+      if (React.isValidElement<{ children?: React.ReactNode }>(child)) {
+        return [textValue(child.props.children)]
+      }
+      return []
+    })
+    .join(" ")
+}
+
+function Command({ className, ...props }: React.ComponentProps<"div">) {
+  const [query, setQuery] = React.useState("")
+  const [items, setItems] = React.useState<ReadonlyMap<string, CommandItemState>>(new Map())
+  const register = React.useCallback((id: string, item: CommandItemState) => {
+    setItems((current) => new Map(current).set(id, item))
+    return () => {
+      setItems((current) => {
+        const next = new Map(current)
+        next.delete(id)
+        return next
+      })
+    }
+  }, [])
+
   return (
-    <CommandPrimitive
-      data-slot="command"
-      className={cn(
-        "flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground",
-        className,
-      )}
-      {...props}
-    />
+    <CommandContext.Provider value={{ items, query, register, setQuery }}>
+      <div
+        data-slot="command"
+        className={cn(
+          "flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground",
+          className,
+        )}
+        {...props}
+      />
+    </CommandContext.Provider>
   )
 }
 
@@ -32,7 +89,8 @@ function CommandDialog({
   className,
   showCloseButton = false,
   ...props
-}: React.ComponentProps<typeof Dialog> & {
+}: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
+  children: React.ReactNode
   title?: string
   description?: string
   className?: string
@@ -54,32 +112,35 @@ function CommandDialog({
   )
 }
 
-function CommandInput({
-  className,
-  ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+function CommandInput({ className, onChange, ...props }: React.ComponentProps<"input">) {
+  const { query, setQuery } = useCommand()
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
       <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
-        <CommandPrimitive.Input
+        <input
           data-slot="command-input"
           className={cn(
             "w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            onChange?.(event)
+          }}
           {...props}
         />
         <InputGroupAddon>
-          <SearchIcon className="size-4 shrink-0 opacity-50" />
+          <MagnifyingGlassIcon strokeWidth={2} className="size-4 shrink-0 opacity-50" />
         </InputGroupAddon>
       </InputGroup>
     </div>
   )
 }
 
-function CommandList({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.List>) {
+function CommandList({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <CommandPrimitive.List
+    <div
       data-slot="command-list"
       className={cn(
         "no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
@@ -90,13 +151,15 @@ function CommandList({ className, ...props }: React.ComponentProps<typeof Comman
   )
 }
 
-function CommandEmpty({
-  className,
-  ...props
-}: React.ComponentProps<typeof CommandPrimitive.Empty>) {
+function CommandEmpty({ className, ...props }: React.ComponentProps<"div">) {
+  const { items, query } = useCommand()
+  const isEmpty = ![...items.values()].some(
+    (item) => !item.disabled && matchesQuery(item.value, query),
+  )
   return (
-    <CommandPrimitive.Empty
+    <div
       data-slot="command-empty"
+      hidden={!isEmpty}
       className={cn("py-6 text-center text-sm", className)}
       {...props}
     />
@@ -105,26 +168,39 @@ function CommandEmpty({
 
 function CommandGroup({
   className,
+  heading,
+  children,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Group>) {
+}: React.ComponentProps<"div"> & { heading?: React.ReactNode }) {
+  const id = React.useId()
+  const { items, query } = useCommand()
+  const isEmpty =
+    query.length > 0 &&
+    ![...items.values()].some(
+      (item) => item.groupId === id && !item.disabled && matchesQuery(item.value, query),
+    )
+
   return (
-    <CommandPrimitive.Group
-      data-slot="command-group"
-      className={cn(
-        "overflow-hidden p-1 text-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground",
-        className,
-      )}
-      {...props}
-    />
+    <CommandGroupContext.Provider value={id}>
+      <div
+        data-slot="command-group"
+        hidden={isEmpty}
+        className={cn("overflow-hidden p-1 text-foreground", className)}
+        {...props}
+      >
+        {heading && (
+          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{heading}</div>
+        )}
+        {children}
+      </div>
+    </CommandGroupContext.Provider>
   )
 }
 
-function CommandSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof CommandPrimitive.Separator>) {
+function CommandSeparator({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <CommandPrimitive.Separator
+    <div
+      role="separator"
       data-slot="command-separator"
       className={cn("-mx-1 h-px bg-border", className)}
       {...props}
@@ -135,20 +211,51 @@ function CommandSeparator({
 function CommandItem({
   className,
   children,
+  disabled = false,
+  onClick,
+  onSelect,
+  value,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Item>) {
+}: Omit<React.ComponentProps<"button">, "value"> & {
+  disabled?: boolean
+  onSelect?: (value: string) => void
+  value?: string
+}) {
+  const id = React.useId()
+  const groupId = React.useContext(CommandGroupContext)
+  const { query, register } = useCommand()
+  const itemValue = value ?? textValue(children)
+  const matches = matchesQuery(itemValue, query)
+
+  React.useLayoutEffect(
+    () => register(id, { disabled, groupId, value: itemValue }),
+    [disabled, groupId, id, itemValue, register],
+  )
+
   return (
-    <CommandPrimitive.Item
+    <button
+      type="button"
       data-slot="command-item"
+      hidden={!matches}
+      disabled={disabled}
       className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
+        "group/command-item relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-hidden select-none hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground disabled:pointer-events-none disabled:opacity-50 in-data-[slot=dialog-content]:rounded-lg! [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
+      onClick={(event) => {
+        onClick?.(event)
+        if (!event.defaultPrevented) {
+          onSelect?.(itemValue)
+        }
+      }}
       {...props}
     >
       {children}
-      <CheckIcon className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
-    </CommandPrimitive.Item>
+      <CheckIcon
+        strokeWidth={2}
+        className="ml-auto hidden group-has-data-[slot=command-shortcut]/command-item:hidden"
+      />
+    </button>
   )
 }
 
@@ -157,7 +264,7 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) 
     <span
       data-slot="command-shortcut"
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground",
+        "ml-auto text-xs tracking-widest text-muted-foreground group-hover/command-item:text-foreground group-focus-within/command-item:text-foreground",
         className,
       )}
       {...props}

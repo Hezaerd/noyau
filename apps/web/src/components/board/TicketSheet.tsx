@@ -1,18 +1,16 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import {
-  Activity,
-  Bot,
-  CheckCircle2,
-  ChevronDown,
+  ArrowSquareOut,
+  CaretDown,
+  ChatCircleText,
   Circle,
-  CircleDot,
-  ExternalLink,
   GitBranch,
-  MessageSquareText,
+  CheckCircle,
+  PaperPlaneTilt,
   Play,
-  Send,
-  Sparkles,
-} from "lucide-react"
+  Pulse,
+  Robot,
+} from "@phosphor-icons/react"
 import { useEffect, useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -21,7 +19,6 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -37,7 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import {
   Sheet,
   SheetContent,
@@ -124,10 +120,6 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
               <Play className="size-4" />
             </div>
             <DialogTitle>Lancer une exécution</DialogTitle>
-            <DialogDescription>
-              L’assignation reste indépendante. Cette exécution reçoit un résultat, un budget et une
-              politique d’outils explicites.
-            </DialogDescription>
           </DialogHeader>
 
           <div className="my-6 space-y-5">
@@ -166,21 +158,17 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border bg-muted/35 p-3">
-                <p className="text-[0.65rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-                  Budget hérité
-                </p>
+                <p className="text-xs font-medium">Budget hérité</p>
                 <p className="mt-2 text-xs">45 min · 180k tokens</p>
               </div>
               <div className="rounded-xl border bg-muted/35 p-3">
-                <p className="text-[0.65rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-                  Outils
-                </p>
+                <p className="text-xs font-medium">Outils</p>
                 <p className="mt-2 text-xs">Branche + tests · sans publication</p>
               </div>
             </div>
             <details className="group rounded-xl border px-3 py-2.5">
               <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium">
-                <ChevronDown className="size-3.5 text-muted-foreground group-open:rotate-180" />
+                <CaretDown className="size-3.5 text-muted-foreground group-open:rotate-180" />
                 Paramètres avancés
               </summary>
               <p className="mt-3 pl-5 text-xs leading-relaxed text-muted-foreground">
@@ -280,20 +268,22 @@ export function TicketSheet({
                     </Badge>
                   )}
                 </div>
-                <SheetTitle asChild>
-                  <Input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    onBlur={saveTitle}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.currentTarget.blur()
-                      }
-                    }}
-                    className="-ml-2 h-auto border-transparent bg-transparent px-2 py-1 text-xl font-semibold tracking-[-0.03em] shadow-none focus-visible:border-input"
-                    aria-label="Titre du ticket"
-                  />
-                </SheetTitle>
+                <SheetTitle
+                  render={
+                    <Input
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      onBlur={saveTitle}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur()
+                        }
+                      }}
+                      className="-ml-2 h-auto border-transparent bg-transparent px-2 py-1 text-xl font-semibold tracking-[-0.03em] shadow-none focus-visible:border-input"
+                      aria-label="Titre du ticket"
+                    />
+                  }
+                />
                 <SheetDescription>
                   Modifie les détails sans quitter le contexte du Tableau.
                 </SheetDescription>
@@ -302,15 +292,9 @@ export function TicketSheet({
               <div className="space-y-8 px-6 py-6">
                 <section aria-labelledby="ticket-details-title">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3
-                      id="ticket-details-title"
-                      className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                    >
+                    <h3 id="ticket-details-title" className="text-sm font-medium">
                       Détails
                     </h3>
-                    <span className="text-[0.65rem] text-muted-foreground">
-                      Sauvegarde immédiate
-                    </span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
@@ -319,7 +303,8 @@ export function TicketSheet({
                         value={ticket.assigneeId ?? "unassigned"}
                         onValueChange={(value) =>
                           onUpdate(ticket.id, {
-                            assigneeId: value === "unassigned" ? undefined : value,
+                            assigneeId:
+                              value === null || value === "unassigned" ? undefined : value,
                           })
                         }
                       >
@@ -475,10 +460,7 @@ export function TicketSheet({
                 {ticket.checklist.length === 0 ? null : (
                   <section aria-labelledby="ticket-checklist-title">
                     <div className="mb-3 flex items-center justify-between">
-                      <h3
-                        id="ticket-checklist-title"
-                        className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                      >
+                      <h3 id="ticket-checklist-title" className="text-sm font-medium">
                         Checklist
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -494,7 +476,7 @@ export function TicketSheet({
                           className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/45"
                         >
                           {item.done ? (
-                            <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
+                            <CheckCircle className="size-4 shrink-0 text-emerald-400" />
                           ) : (
                             <Circle className="size-4 shrink-0 text-muted-foreground" />
                           )}
@@ -508,10 +490,7 @@ export function TicketSheet({
                 )}
 
                 <section aria-labelledby="ticket-dependencies-title">
-                  <h3
-                    id="ticket-dependencies-title"
-                    className="mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                  >
+                  <h3 id="ticket-dependencies-title" className="mb-3 text-sm font-medium">
                     Dépendances
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -539,15 +518,9 @@ export function TicketSheet({
                 <section aria-labelledby="ticket-executions-title">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <h3
-                        id="ticket-executions-title"
-                        className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                      >
+                      <h3 id="ticket-executions-title" className="text-sm font-medium">
                         Exécutions
                       </h3>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Assigner un agent ne lance rien.
-                      </p>
                     </div>
                     <Button size="sm" onClick={() => setExecutionOpen(true)}>
                       <Play />
@@ -556,7 +529,7 @@ export function TicketSheet({
                   </div>
                   {ticket.execution === undefined ? (
                     <div className="rounded-xl border border-dashed px-4 py-5 text-center">
-                      <Bot className="mx-auto mb-2 size-4 text-muted-foreground" />
+                      <Robot className="mx-auto mb-2 size-4 text-muted-foreground" />
                       <p className="text-xs text-muted-foreground">
                         Aucune exécution pour ce ticket
                       </p>
@@ -592,24 +565,20 @@ export function TicketSheet({
                 <section aria-labelledby="ticket-workbench-title">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
-                      <h3
-                        id="ticket-workbench-title"
-                        className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                      >
+                      <h3 id="ticket-workbench-title" className="text-sm font-medium">
                         Workbench
                       </h3>
-                      <p className="mt-1 text-xs text-muted-foreground">Thread dédié à ce Ticket</p>
                     </div>
                     <Button variant="ghost" size="xs">
                       Ouvrir dans le Channel
-                      <ExternalLink />
+                      <ArrowSquareOut />
                     </Button>
                   </div>
                   <div className="overflow-hidden rounded-xl border">
                     <div className="max-h-64 space-y-4 overflow-y-auto p-4">
                       {ticket.messages.length === 0 ? (
                         <div className="py-5 text-center">
-                          <MessageSquareText className="mx-auto mb-2 size-4 text-muted-foreground" />
+                          <ChatCircleText className="mx-auto mb-2 size-4 text-muted-foreground" />
                           <p className="text-xs text-muted-foreground">
                             Commence la conversation de travail.
                           </p>
@@ -658,15 +627,15 @@ export function TicketSheet({
                         disabled={reply.trim() === ""}
                         aria-label="Envoyer"
                       >
-                        <Send />
+                        <PaperPlaneTilt />
                       </Button>
                     </form>
                   </div>
                 </section>
 
                 <details className="group border-t pt-5" open={ticket.attention === "failure"}>
-                  <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-                    <ChevronDown className="size-3.5 group-open:rotate-180" />
+                  <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
+                    <CaretDown className="size-3.5 group-open:rotate-180" />
                     Activité système
                     <span className="ml-auto font-normal tracking-normal normal-case">
                       {ticket.activity.length}
@@ -679,7 +648,7 @@ export function TicketSheet({
                       ticket.activity.map((item) => (
                         <div key={item.id} className="flex gap-3">
                           <div className="mt-1 grid size-6 shrink-0 place-items-center rounded-full bg-muted">
-                            <Activity className="size-3 text-muted-foreground" />
+                            <Pulse className="size-3 text-muted-foreground" />
                           </div>
                           <div>
                             <p className="text-xs">
@@ -692,16 +661,6 @@ export function TicketSheet({
                     )}
                   </div>
                 </details>
-              </div>
-
-              <Separator />
-              <div className="flex items-center gap-3 px-6 py-4 text-[0.68rem] text-muted-foreground">
-                <CircleDot className="size-3.5" />
-                Dernière synchronisation locale à l’instant
-                <span className="ml-auto flex items-center gap-1.5">
-                  <Sparkles className="size-3.5 text-violet-400" />
-                  Interface de prévisualisation
-                </span>
               </div>
             </>
           )}

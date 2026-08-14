@@ -1,8 +1,9 @@
 # @noyau/database
 
-Couche de persistance PostgreSQL du control plane : journal d'événements append-only, receipts
-d'idempotence, outbox transactionnelle et projections lecture. SQL explicite via le `SqlClient`
-de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
+Couche de persistance SQL du control plane : journal d'événements append-only, receipts
+d'idempotence, outbox transactionnelle et projections lecture. PostgreSQL sert le profil VPS et
+PGlite persistante le profil local géré ; le SQL explicite passe par le `SqlClient`
+de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR-0001, ADR-0009).
 
 ## Contenu
 
@@ -40,8 +41,9 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
   `projectId`. Une entité d'un autre projet est invisible à la commande.
 - **Snapshot cohérent** : Tableau et position du flux sont lus dans une transaction
   `REPEATABLE READ READ ONLY`, afin que le snapshot et son curseur décrivent le même état logique.
-- **Port générique `SqlClient`** : ce package ne dépend d'aucun driver. `apps/server`
-  fournit `@effect/sql-pg` ; les tests rapides utilisent `@effect/sql-pglite` (même dialecte).
+- **Port générique `SqlClient`** : ce package ne dépend d'aucun driver. `apps/server` fournit
+  `@effect/sql-pg` pour le profil VPS ou `@effect/sql-pglite` pour le profil local géré ; les tests
+  rapides utilisent aussi PGlite in-memory (même dialecte).
 - **Horloge et UUID injectés** : `DateTime.now` (Clock) et `Crypto.randomUUIDv4` — pas de
   `now()` SQL ni de `crypto.randomUUID` en dur ; testable avec TestClock et un Crypto
   déterministe.
@@ -53,4 +55,5 @@ de `effect/unstable/sql`, décodé par `Schema` à la frontière (ADR 0001).
 
 `bun run test` — vitest + `@effect/vitest` sur PGlite in-memory : migrations historiques,
 idempotence, causalité, isolation projet, versions, positions, snapshot et rejets stables. Les tests
-du control plane exercent la contention multi-connexion sur PostgreSQL réel via Testcontainers.
+de contrat du profil local doivent aussi couvrir une PGlite persistante ; ceux du control plane
+exercent la contention multi-connexion sur PostgreSQL réel via Testcontainers.
