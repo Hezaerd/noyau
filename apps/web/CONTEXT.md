@@ -23,3 +23,7 @@ _À éviter_ : Channel, commentaire de ticket
 **Workbench**:
 Nom affiché du Thread dédié à la collaboration opérationnelle sur un Ticket.
 _À éviter_ : nouvelle entité de conversation, espace d'exécution
+
+Le Tableau charge un `BoardSnapshot`, soumet des `TicketCommandRequest` et reprend le flux projet
+sur Effect RPC WebSocket. L'identité courante appartient à la frontière serveur ; l'UI ne fournit
+ni acteur sandbox ni métadonnée d'enrichissement de commande.

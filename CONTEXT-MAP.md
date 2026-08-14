@@ -15,7 +15,7 @@ Contextes du monorepo Noyau et leurs relations. Un contexte = un `CONTEXT.md` lo
 ## Relations
 
 ```text
-apps/web ──(futur: Effect RPC sur WebSocket)──> apps/server
+apps/web ──(Effect RPC sur WebSocket)─────────> apps/server
                                                      │
                                                      ├──> packages/database
                                                      ├──> packages/domain

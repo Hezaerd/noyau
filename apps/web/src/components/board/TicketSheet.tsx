@@ -76,7 +76,10 @@ interface TicketSheetProps {
   readonly onClose: () => void
   readonly onUpdate: (ticketId: string, patch: BoardTicketPatch) => void
   readonly onToggleChecklist: (ticketId: string, itemId: string) => void
-  readonly onStartExecution: (ticketId: string, profile: string) => void
+  readonly onStartExecution: (
+    ticketId: string,
+    input: { readonly profileId: string; readonly profileName: string; readonly outcome: string },
+  ) => void
   readonly onReply: (ticketId: string, message: string) => void
 }
 
@@ -85,20 +88,29 @@ interface ExecutionDialogProps {
   readonly actors: ReadonlyArray<BoardActor>
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
-  readonly onStart: (profile: string) => void
+  readonly onStart: (input: {
+    readonly profileId: string
+    readonly profileName: string
+    readonly outcome: string
+  }) => void
 }
 
 function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: ExecutionDialogProps) {
   const agentProfiles = actors.filter((actor) => actor.kind === "agent")
-  const [profile, setProfile] = useState(agentProfiles[0]?.name ?? "")
+  const [profileId, setProfileId] = useState(agentProfiles[0]?.profileId ?? "")
   const [outcome, setOutcome] = useState("")
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (outcome.trim() === "" || profile === "") {
+    const profile = agentProfiles.find((actor) => actor.profileId === profileId)
+    if (outcome.trim() === "" || profile?.profileId === undefined) {
       return
     }
-    onStart(profile)
+    onStart({
+      profileId: profile.profileId,
+      profileName: profile.name,
+      outcome: outcome.trim(),
+    })
     setOutcome("")
     onOpenChange(false)
   }
@@ -132,7 +144,7 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
             </div>
             <div className="space-y-2">
               <Label htmlFor="execution-profile">Profil d’agent</Label>
-              <Select value={profile} onValueChange={(value) => setProfile(value ?? "")}>
+              <Select value={profileId} onValueChange={(value) => setProfileId(value ?? "")}>
                 <SelectTrigger id="execution-profile" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -140,7 +152,11 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
                   <SelectGroup>
                     <SelectLabel>Agents</SelectLabel>
                     {agentProfiles.map((actor) => (
-                      <SelectItem key={actor.id} value={actor.name}>
+                      <SelectItem
+                        key={actor.id}
+                        value={actor.profileId ?? actor.id}
+                        disabled={actor.profileId === undefined}
+                      >
                         {actor.name} · {actor.role}
                       </SelectItem>
                     ))}
@@ -177,7 +193,7 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
-            <Button type="submit" disabled={outcome.trim() === "" || profile === ""}>
+            <Button type="submit" disabled={outcome.trim() === "" || profileId === ""}>
               <Play />
               Lancer une exécution
             </Button>
@@ -698,7 +714,7 @@ export function TicketSheet({
           actors={actors}
           open={executionOpen}
           onOpenChange={setExecutionOpen}
-          onStart={(profile) => onStartExecution(ticket.id, profile)}
+          onStart={(input) => onStartExecution(ticket.id, input)}
         />
       )}
     </>

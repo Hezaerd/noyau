@@ -8,7 +8,6 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 
 const pageMeta = {
   "/": { eyebrow: "Aujourd'hui", title: "Inbox" },
-  "/projects/noyau/tasks": { eyebrow: "noyau", title: "Tâches" },
   "/projects/noyau/channel": { eyebrow: "noyau", title: "Canal" },
 } as const
 
@@ -24,8 +23,6 @@ const getPageMeta = (pathname: string) => {
   switch (pathname) {
     case "/":
       return pageMeta["/"]
-    case "/projects/noyau/tasks":
-      return pageMeta["/projects/noyau/tasks"]
     case "/projects/noyau/channel":
       return pageMeta["/projects/noyau/channel"]
     default:

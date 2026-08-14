@@ -7,24 +7,20 @@ bun run dev:web    # ou vp -C apps/web dev
 vp -C apps/web build
 ```
 
-Le workspace racine utilise le vrai control plane. En développement, Vite proxifie `/api` et
-`/health` vers `http://127.0.0.1:3001`.
+Le workspace racine utilise le vrai control plane. En développement, Vite proxifie le WebSocket
+`/rpc` et les probes `/health` vers `http://127.0.0.1:3001`.
 
-## Sandbox
+## Control plane
 
-L'UI actuelle démarre sans configuration avec un projet, une mission legacy et un acteur sandbox
-stables. `VITE_NOYAU_MISSION_ID` appartient au protocole antérieur à l'ADR-0008 ; il disparaîtra
-lors de la migration vers le tableau et les tickets, sans être remplacé par un conteneur
-intermédiaire. Ces valeurs non sensibles peuvent être remplacées :
+L'UI soumet des `TicketCommandRequest` sur Effect RPC WebSocket. Elle ne transporte aucune identité
+sandbox : l'adaptateur de développement du serveur possède l'acteur courant.
 
-| Variable                  | Défaut                                 |
-| ------------------------- | -------------------------------------- |
-| `VITE_NOYAU_API_BASE_URL` | origine courante, via le proxy Vite    |
-| `VITE_NOYAU_PROJECT_ID`   | `10000000-0000-4000-8000-000000000001` |
-| `VITE_NOYAU_MISSION_ID`   | `30000000-0000-4000-8000-000000000001` |
-| `VITE_NOYAU_ACTOR_ID`     | `human:sandbox`                        |
+| Variable                | Défaut                                  |
+| ----------------------- | --------------------------------------- |
+| `VITE_NOYAU_RPC_URL`    | origine courante, chemin `/rpc`         |
+| `VITE_NOYAU_PROJECT_ID` | `10000000-0000-4000-8000-000000000001` |
 
-Toute valeur est décodée au démarrage avec les schémas de `@noyau/protocol`.
+Les valeurs sont décodées au démarrage avec les schémas de `@noyau/protocol`.
 
 ## Configuration
 
