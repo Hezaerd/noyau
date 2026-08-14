@@ -9,7 +9,6 @@ import {
 } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 
@@ -77,12 +76,6 @@ export function InboxPage() {
         <section className="min-w-0">
           <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <Badge
-                variant="outline"
-                className="mb-3 rounded-full border-violet-500/25 bg-violet-500/10 px-2.5 text-violet-300"
-              >
-                4 nouveautés
-              </Badge>
               <h2 className="max-w-xl text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
                 Voilà ce qui s’est passé pendant ton absence.
               </h2>
@@ -97,10 +90,7 @@ export function InboxPage() {
           </header>
 
           <div className="overflow-hidden rounded-2xl border border-border/90 bg-card shadow-[0_18px_60px_rgba(53,38,122,0.16)]">
-            <div className="flex items-center justify-between border-b border-border/70 px-5 py-3.5 sm:px-6">
-              <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-                Depuis ta dernière visite
-              </p>
+            <div className="flex justify-end border-b border-border/70 px-5 py-3.5 sm:px-6">
               <span className="text-xs text-muted-foreground">12 août</span>
             </div>
 
@@ -153,12 +143,6 @@ export function InboxPage() {
 
         <aside className="space-y-7">
           <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-                En cours
-              </h3>
-              <span className="text-xs text-muted-foreground">3 agents</span>
-            </div>
             <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
               <div className="space-y-4">
                 {agents.map((agent) => (
@@ -196,10 +180,7 @@ export function InboxPage() {
           <section className="rounded-2xl border border-violet-500/15 bg-[#15131d] p-5 text-foreground shadow-[0_18px_48px_rgba(68,48,150,0.2)]">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <p className="text-[0.66rem] font-medium tracking-[0.12em] text-white/45 uppercase">
-                  Mission active
-                </p>
-                <h3 className="mt-2 text-base font-medium">Control plane durable</h3>
+                <h3 className="text-base font-medium">Control plane durable</h3>
               </div>
               <MessageSquareText className="size-4 text-violet-300" />
             </div>

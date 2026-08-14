@@ -1,4 +1,4 @@
-import { useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-router"
+import { useNavigate, useRouter, useSearch } from "@tanstack/react-router"
 import { useRef } from "react"
 
 import { type BoardSearch, type BoardSearchPatch } from "@/lib/board-model"
@@ -23,7 +23,6 @@ const applySearchPatch = (current: BoardSearch, patch: BoardSearchPatch): BoardS
 }
 
 export function BoardRoutePage() {
-  const { projectId } = useParams({ from: routeId })
   const search = useSearch({ from: routeId })
   const navigate = useNavigate({ from: routeId })
   const router = useRouter()
@@ -57,7 +56,6 @@ export function BoardRoutePage() {
 
   return (
     <BoardPage
-      projectId={projectId}
       search={search}
       onSearchChange={updateSearch}
       onOpenTicket={openTicket}

@@ -5,13 +5,11 @@ import {
   CheckCircle2,
   ChevronDown,
   Circle,
-  CircleDot,
   ExternalLink,
   GitBranch,
   MessageSquareText,
   Play,
   Send,
-  Sparkles,
 } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
 
@@ -21,7 +19,6 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -37,14 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import {
   isTicketPriority,
@@ -112,10 +102,6 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
               <Play className="size-4" />
             </div>
             <DialogTitle>Lancer une exécution</DialogTitle>
-            <DialogDescription>
-              L’assignation reste indépendante. Cette exécution reçoit un résultat, un budget et une
-              politique d’outils explicites.
-            </DialogDescription>
           </DialogHeader>
 
           <div className="my-6 space-y-5">
@@ -150,15 +136,11 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border bg-muted/35 p-3">
-                <p className="text-[0.65rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-                  Budget hérité
-                </p>
+                <p className="text-xs font-medium">Budget hérité</p>
                 <p className="mt-2 text-xs">45 min · 180k tokens</p>
               </div>
               <div className="rounded-xl border bg-muted/35 p-3">
-                <p className="text-[0.65rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-                  Outils
-                </p>
+                <p className="text-xs font-medium">Outils</p>
                 <p className="mt-2 text-xs">Branche + tests · sans publication</p>
               </div>
             </div>
@@ -278,23 +260,14 @@ export function TicketSheet({
                     aria-label="Titre du ticket"
                   />
                 </SheetTitle>
-                <SheetDescription>
-                  Modifie les détails sans quitter le contexte du Tableau.
-                </SheetDescription>
               </SheetHeader>
 
               <div className="space-y-8 px-6 py-6">
                 <section aria-labelledby="ticket-details-title">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3
-                      id="ticket-details-title"
-                      className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                    >
+                    <h3 id="ticket-details-title" className="text-sm font-medium">
                       Détails
                     </h3>
-                    <span className="text-[0.65rem] text-muted-foreground">
-                      Sauvegarde immédiate
-                    </span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
@@ -459,10 +432,7 @@ export function TicketSheet({
                 {ticket.checklist.length === 0 ? null : (
                   <section aria-labelledby="ticket-checklist-title">
                     <div className="mb-3 flex items-center justify-between">
-                      <h3
-                        id="ticket-checklist-title"
-                        className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                      >
+                      <h3 id="ticket-checklist-title" className="text-sm font-medium">
                         Checklist
                       </h3>
                       <span className="text-xs text-muted-foreground">
@@ -492,10 +462,7 @@ export function TicketSheet({
                 )}
 
                 <section aria-labelledby="ticket-dependencies-title">
-                  <h3
-                    id="ticket-dependencies-title"
-                    className="mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                  >
+                  <h3 id="ticket-dependencies-title" className="mb-3 text-sm font-medium">
                     Dépendances
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -523,15 +490,9 @@ export function TicketSheet({
                 <section aria-labelledby="ticket-executions-title">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <h3
-                        id="ticket-executions-title"
-                        className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                      >
+                      <h3 id="ticket-executions-title" className="text-sm font-medium">
                         Exécutions
                       </h3>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Assigner un agent ne lance rien.
-                      </p>
                     </div>
                     <Button size="sm" onClick={() => setExecutionOpen(true)}>
                       <Play />
@@ -576,13 +537,9 @@ export function TicketSheet({
                 <section aria-labelledby="ticket-workbench-title">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
-                      <h3
-                        id="ticket-workbench-title"
-                        className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase"
-                      >
+                      <h3 id="ticket-workbench-title" className="text-sm font-medium">
                         Workbench
                       </h3>
-                      <p className="mt-1 text-xs text-muted-foreground">Thread dédié à ce Ticket</p>
                     </div>
                     <Button variant="ghost" size="xs">
                       Ouvrir dans le Channel
@@ -649,7 +606,7 @@ export function TicketSheet({
                 </section>
 
                 <details className="group border-t pt-5" open={ticket.attention === "failure"}>
-                  <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
                     <ChevronDown className="size-3.5 group-open:rotate-180" />
                     Activité système
                     <span className="ml-auto font-normal tracking-normal normal-case">
@@ -676,16 +633,6 @@ export function TicketSheet({
                     )}
                   </div>
                 </details>
-              </div>
-
-              <Separator />
-              <div className="flex items-center gap-3 px-6 py-4 text-[0.68rem] text-muted-foreground">
-                <CircleDot className="size-3.5" />
-                Dernière synchronisation locale à l’instant
-                <span className="ml-auto flex items-center gap-1.5">
-                  <Sparkles className="size-3.5 text-violet-400" />
-                  Interface de prévisualisation
-                </span>
               </div>
             </>
           )}

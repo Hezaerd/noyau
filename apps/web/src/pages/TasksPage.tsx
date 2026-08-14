@@ -25,7 +25,6 @@ import {
   Sheet,
   SheetClose,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
@@ -163,9 +162,6 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
               <Plus className="size-4" />
             </div>
             <SheetTitle className="text-xl tracking-[-0.025em]">Nouvelle tâche</SheetTitle>
-            <SheetDescription>
-              Définis un résultat borné et les preuves qui permettront de le valider.
-            </SheetDescription>
           </SheetHeader>
 
           <div className="flex-1 space-y-6 px-4 py-6">
@@ -432,10 +428,6 @@ export function TasksPage() {
       <header className="mb-8 flex flex-col gap-6">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="size-2 rounded-full bg-primary ring-4 ring-primary/15" />
-              Mission active · Control plane durable
-            </div>
             <h2 className="text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
               Le travail qui compte.
             </h2>
@@ -465,10 +457,7 @@ export function TasksPage() {
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
-            <p className="text-[0.68rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-              Progression
-            </p>
-            <div className="mt-3 flex items-end justify-between">
+            <div className="flex items-end justify-between">
               <span className="text-2xl font-semibold tracking-[-0.04em]">{progress}%</span>
               <span className="text-xs text-muted-foreground">
                 {completedCount} / {tasks.length}
@@ -477,10 +466,7 @@ export function TasksPage() {
             <Progress value={progress} className="mt-3 h-1.5" />
           </div>
           <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
-            <p className="text-[0.68rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-              En mouvement
-            </p>
-            <div className="mt-3 flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <Clock3 className="size-4 text-violet-500" />
               <span className="text-2xl font-semibold tracking-[-0.04em]">
                 {tasks.filter((task) => task.status === "running").length}
@@ -489,10 +475,7 @@ export function TasksPage() {
             </div>
           </div>
           <div className="rounded-2xl border border-violet-500/15 bg-[#15131d] p-4 text-foreground shadow-[0_14px_38px_rgba(68,48,150,0.14)]">
-            <p className="text-[0.68rem] font-medium tracking-[0.1em] text-white/45 uppercase">
-              Prochaine étape
-            </p>
-            <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium">Revoir les sorties agents</span>
               <ArrowRight className="size-4 text-violet-300" />
             </div>
