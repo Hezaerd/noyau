@@ -1,285 +1,242 @@
-import { MagnifyingGlassIcon, CheckIcon } from "@phosphor-icons/react"
-import * as React from "react"
+"use client"
+
+import { Dialog as CommandDialogPrimitive } from "@base-ui/react/dialog"
+import { SearchIcon } from "lucide-react"
+import type * as React from "react"
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { InputGroup, InputGroupAddon } from "@/components/ui/input-group"
+  Autocomplete,
+  AutocompleteCollection,
+  AutocompleteEmpty,
+  AutocompleteGroup,
+  AutocompleteGroupLabel,
+  AutocompleteInput,
+  AutocompleteItem,
+  AutocompleteList,
+  AutocompleteSeparator,
+} from "@/components/ui/autocomplete"
 import { cn } from "@/lib/utils"
 
-type CommandItemState = {
-  readonly disabled: boolean
-  readonly groupId: string | undefined
-  readonly value: string
+export const CommandDialog: typeof CommandDialogPrimitive.Root = CommandDialogPrimitive.Root
+
+export const CommandDialogPortal: typeof CommandDialogPrimitive.Portal =
+  CommandDialogPrimitive.Portal
+
+export const CommandCreateHandle: typeof CommandDialogPrimitive.createHandle =
+  CommandDialogPrimitive.createHandle
+
+export function CommandDialogTrigger(
+  props: CommandDialogPrimitive.Trigger.Props,
+): React.ReactElement {
+  return <CommandDialogPrimitive.Trigger data-slot="command-dialog-trigger" {...props} />
 }
 
-type CommandContextValue = {
-  readonly items: ReadonlyMap<string, CommandItemState>
-  readonly query: string
-  readonly register: (id: string, item: CommandItemState) => () => void
-  readonly setQuery: (query: string) => void
-}
-
-const CommandContext = React.createContext<CommandContextValue | null>(null)
-const CommandGroupContext = React.createContext<string | undefined>(undefined)
-
-function useCommand() {
-  const context = React.useContext(CommandContext)
-  if (!context) {
-    throw new Error("Command components must be used within Command.")
-  }
-
-  return context
-}
-
-function matchesQuery(value: string, query: string) {
-  return value.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
-}
-
-function textValue(children: React.ReactNode): string {
-  return React.Children.toArray(children)
-    .flatMap((child) => {
-      if (typeof child === "string" || typeof child === "number") {
-        return [String(child)]
-      }
-      if (React.isValidElement<{ children?: React.ReactNode }>(child)) {
-        return [textValue(child.props.children)]
-      }
-      return []
-    })
-    .join(" ")
-}
-
-function Command({ className, ...props }: React.ComponentProps<"div">) {
-  const [query, setQuery] = React.useState("")
-  const [items, setItems] = React.useState<ReadonlyMap<string, CommandItemState>>(new Map())
-  const register = React.useCallback((id: string, item: CommandItemState) => {
-    setItems((current) => new Map(current).set(id, item))
-    return () => {
-      setItems((current) => {
-        const next = new Map(current)
-        next.delete(id)
-        return next
-      })
-    }
-  }, [])
-
-  return (
-    <CommandContext.Provider value={{ items, query, register, setQuery }}>
-      <div
-        data-slot="command"
-        className={cn(
-          "flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground",
-          className,
-        )}
-        {...props}
-      />
-    </CommandContext.Provider>
-  )
-}
-
-function CommandDialog({
-  title = "Command Palette",
-  description = "Search for a command to run...",
-  children,
+export function CommandDialogBackdrop({
   className,
-  showCloseButton = false,
   ...props
-}: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
-  children: React.ReactNode
-  title?: string
-  description?: string
-  className?: string
-  showCloseButton?: boolean
-}) {
+}: CommandDialogPrimitive.Backdrop.Props): React.ReactElement {
   return (
-    <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
-      <DialogContent
-        className={cn("top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0", className)}
-        showCloseButton={showCloseButton}
-      >
-        <Command>{children}</Command>
-      </DialogContent>
-    </Dialog>
+    <CommandDialogPrimitive.Backdrop
+      className={cn(
+        "fixed inset-0 z-50 bg-black/32 backdrop-blur-sm transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
+        className,
+      )}
+      data-slot="command-dialog-backdrop"
+      {...props}
+    />
   )
 }
 
-function CommandInput({ className, onChange, ...props }: React.ComponentProps<"input">) {
-  const { query, setQuery } = useCommand()
+export function CommandDialogViewport({
+  className,
+  ...props
+}: CommandDialogPrimitive.Viewport.Props): React.ReactElement {
   return (
-    <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
-        <input
-          data-slot="command-input"
+    <CommandDialogPrimitive.Viewport
+      className={cn(
+        "fixed inset-0 z-50 flex flex-col items-center px-4 py-[max(--spacing(4),4vh)] sm:py-[10vh]",
+        className,
+      )}
+      data-slot="command-dialog-viewport"
+      {...props}
+    />
+  )
+}
+
+export function CommandDialogPopup({
+  className,
+  children,
+  portalProps,
+  ...props
+}: CommandDialogPrimitive.Popup.Props & {
+  portalProps?: CommandDialogPrimitive.Portal.Props
+}): React.ReactElement {
+  return (
+    <CommandDialogPortal {...portalProps}>
+      <CommandDialogBackdrop />
+      <CommandDialogViewport>
+        <CommandDialogPrimitive.Popup
           className={cn(
-            "w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+            "relative row-start-2 flex max-h-105 min-h-0 w-full min-w-0 max-w-xl -translate-y-[calc(1.25rem*var(--nested-dialogs))] scale-[calc(1-0.1*var(--nested-dialogs))] flex-col rounded-2xl border bg-popover not-dark:bg-clip-padding text-popover-foreground opacity-[calc(1-0.1*var(--nested-dialogs))] shadow-lg/5 outline-none transition-[scale,opacity,translate] duration-200 ease-in-out will-change-transform before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:bg-muted/72 before:shadow-[0_1px_--theme(--color-black/4%)] data-nested:data-ending-style:translate-y-8 data-nested:data-starting-style:translate-y-8 data-nested-dialog-open:origin-top data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-1 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
             className,
           )}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value)
-            onChange?.(event)
-          }}
+          data-slot="command-dialog-popup"
           {...props}
-        />
-        <InputGroupAddon>
-          <MagnifyingGlassIcon strokeWidth={2} className="size-4 shrink-0 opacity-50" />
-        </InputGroupAddon>
-      </InputGroup>
+        >
+          {children}
+        </CommandDialogPrimitive.Popup>
+      </CommandDialogViewport>
+    </CommandDialogPortal>
+  )
+}
+
+export function Command({
+  autoHighlight = "always",
+  keepHighlight = true,
+  ...props
+}: React.ComponentProps<typeof Autocomplete>): React.ReactElement {
+  return (
+    <Autocomplete
+      autoHighlight={autoHighlight}
+      inline
+      keepHighlight={keepHighlight}
+      open
+      {...props}
+    />
+  )
+}
+
+export function CommandInput({
+  className,
+  placeholder,
+  ...props
+}: React.ComponentProps<typeof AutocompleteInput>): React.ReactElement {
+  return (
+    <div className="px-2.5 py-1.5">
+      <AutocompleteInput
+        autoFocus
+        className={cn(
+          "border-transparent! bg-transparent! shadow-none before:hidden has-focus-visible:ring-0",
+          className,
+        )}
+        placeholder={placeholder}
+        size="lg"
+        startAddon={<SearchIcon />}
+        {...props}
+      />
     </div>
   )
 }
 
-function CommandList({ className, ...props }: React.ComponentProps<"div">) {
+export function CommandList({
+  className,
+  ...props
+}: React.ComponentProps<typeof AutocompleteList>): React.ReactElement {
   return (
-    <div
+    <AutocompleteList
+      className={cn("not-empty:scroll-py-2 not-empty:p-2", className)}
       data-slot="command-list"
-      className={cn(
-        "no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
-        className,
-      )}
       {...props}
     />
   )
 }
 
-function CommandEmpty({ className, ...props }: React.ComponentProps<"div">) {
-  const { items, query } = useCommand()
-  const isEmpty = ![...items.values()].some(
-    (item) => !item.disabled && matchesQuery(item.value, query),
-  )
+export function CommandEmpty({
+  className,
+  ...props
+}: React.ComponentProps<typeof AutocompleteEmpty>): React.ReactElement {
   return (
-    <div
+    <AutocompleteEmpty
+      className={cn("not-empty:py-6", className)}
       data-slot="command-empty"
-      hidden={!isEmpty}
-      className={cn("py-6 text-center text-sm", className)}
       {...props}
     />
   )
 }
 
-function CommandGroup({
+export function CommandPanel({
   className,
-  heading,
-  children,
   ...props
-}: React.ComponentProps<"div"> & { heading?: React.ReactNode }) {
-  const id = React.useId()
-  const { items, query } = useCommand()
-  const isEmpty =
-    query.length > 0 &&
-    ![...items.values()].some(
-      (item) => item.groupId === id && !item.disabled && matchesQuery(item.value, query),
-    )
-
-  return (
-    <CommandGroupContext.Provider value={id}>
-      <div
-        data-slot="command-group"
-        hidden={isEmpty}
-        className={cn("overflow-hidden p-1 text-foreground", className)}
-        {...props}
-      >
-        {heading && (
-          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{heading}</div>
-        )}
-        {children}
-      </div>
-    </CommandGroupContext.Provider>
-  )
-}
-
-function CommandSeparator({ className, ...props }: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      role="separator"
-      data-slot="command-separator"
-      className={cn("-mx-1 h-px bg-border", className)}
+      className={cn(
+        "relative -mx-px not-has-[+[data-slot=command-footer]]:-mb-px min-h-0 rounded-t-xl not-has-[+[data-slot=command-footer]]:rounded-b-2xl border border-b-0 bg-popover bg-clip-padding shadow-xs/5 [clip-path:inset(0_1px)] not-has-[+[data-slot=command-footer]]:[clip-path:inset(0_1px_1px_1px_round_0_0_calc(var(--radius-2xl)-1px)_calc(var(--radius-2xl)-1px))] before:pointer-events-none before:absolute before:inset-0 before:rounded-t-[calc(var(--radius-xl)-1px)] **:data-[slot=scroll-area-scrollbar]:mt-2",
+        className,
+      )}
       {...props}
     />
   )
 }
 
-function CommandItem({
+export function CommandGroup({
   className,
-  children,
-  disabled = false,
-  onClick,
-  onSelect,
-  value,
   ...props
-}: Omit<React.ComponentProps<"button">, "value"> & {
-  disabled?: boolean
-  onSelect?: (value: string) => void
-  value?: string
-}) {
-  const id = React.useId()
-  const groupId = React.useContext(CommandGroupContext)
-  const { query, register } = useCommand()
-  const itemValue = value ?? textValue(children)
-  const matches = matchesQuery(itemValue, query)
+}: React.ComponentProps<typeof AutocompleteGroup>): React.ReactElement {
+  return <AutocompleteGroup className={className} data-slot="command-group" {...props} />
+}
 
-  React.useLayoutEffect(
-    () => register(id, { disabled, groupId, value: itemValue }),
-    [disabled, groupId, id, itemValue, register],
-  )
+export function CommandGroupLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof AutocompleteGroupLabel>): React.ReactElement {
+  return <AutocompleteGroupLabel className={className} data-slot="command-group-label" {...props} />
+}
 
+export const CommandCollection = AutocompleteCollection
+
+export function CommandItem({
+  className,
+  ...props
+}: React.ComponentProps<typeof AutocompleteItem>): React.ReactElement {
   return (
-    <button
-      type="button"
-      data-slot="command-item"
-      hidden={!matches}
-      disabled={disabled}
-      className={cn(
-        "group/command-item relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-hidden select-none hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground disabled:pointer-events-none disabled:opacity-50 in-data-[slot=dialog-content]:rounded-lg! [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
-      onClick={(event) => {
-        onClick?.(event)
-        if (!event.defaultPrevented) {
-          onSelect?.(itemValue)
-        }
-      }}
-      {...props}
-    >
-      {children}
-      <CheckIcon
-        strokeWidth={2}
-        className="ml-auto hidden group-has-data-[slot=command-shortcut]/command-item:hidden"
-      />
-    </button>
+    <AutocompleteItem className={cn("py-1.5", className)} data-slot="command-item" {...props} />
   )
 }
 
-function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) {
+export function CommandSeparator({
+  className,
+  ...props
+}: React.ComponentProps<typeof AutocompleteSeparator>): React.ReactElement {
   return (
-    <span
-      data-slot="command-shortcut"
-      className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-hover/command-item:text-foreground group-focus-within/command-item:text-foreground",
-        className,
-      )}
+    <AutocompleteSeparator
+      className={cn("my-2", className)}
+      data-slot="command-separator"
       {...props}
     />
   )
 }
 
-export {
-  Command,
-  CommandDialog,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandShortcut,
-  CommandSeparator,
+export function CommandShortcut({
+  className,
+  ...props
+}: React.ComponentProps<"kbd">): React.ReactElement {
+  return (
+    <kbd
+      className={cn(
+        "ms-auto font-medium font-sans text-muted-foreground/72 text-xs tracking-widest",
+        className,
+      )}
+      data-slot="command-shortcut"
+      {...props}
+    />
+  )
 }
+
+export function CommandFooter({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.ReactElement {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-2 rounded-b-[calc(var(--radius-2xl)-1px)] border-t px-5 py-3 text-muted-foreground text-xs",
+        className,
+      )}
+      data-slot="command-footer"
+      {...props}
+    />
+  )
+}
+
+export { CommandDialogPrimitive }

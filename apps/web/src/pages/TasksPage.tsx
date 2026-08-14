@@ -24,9 +24,10 @@ import { Progress } from "@/components/ui/progress"
 import {
   Sheet,
   SheetClose,
-  SheetContent,
   SheetFooter,
   SheetHeader,
+  SheetPanel,
+  SheetPopup,
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
@@ -155,105 +156,105 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-        <form onSubmit={(event) => void submit(event)} className="flex min-h-full flex-col">
-          <SheetHeader className="border-b">
-            <div className="mb-3 grid size-10 place-items-center rounded-xl bg-accent text-accent-foreground">
-              <Plus className="size-4" />
-            </div>
-            <SheetTitle className="text-xl tracking-[-0.025em]">Nouvelle tâche</SheetTitle>
-          </SheetHeader>
-
-          <div className="flex-1 space-y-6 px-4 py-6">
-            <div className="space-y-2">
-              <Label htmlFor="task-title">Objectif</Label>
-              <Input
-                id="task-title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Ex. Reprendre le flux après reconnexion"
-                autoFocus
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="task-description">Contexte</Label>
-              <Textarea
-                id="task-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Contexte utile à l’agent, sans répéter le résultat attendu."
-                rows={4}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Critères d’acceptation</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() =>
-                    setCriteria((current) => [
-                      ...current,
-                      { id: (current.at(-1)?.id ?? -1) + 1, value: "" },
-                    ])
-                  }
-                >
-                  <Plus />
-                  Ajouter
-                </Button>
-              </div>
-              {criteria.map((criterion, index) => (
-                <div key={criterion.id} className="flex items-center gap-2">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-secondary text-[0.65rem] font-medium text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <Input
-                    value={criterion.value}
-                    onChange={(event) =>
-                      setCriteria((current) =>
-                        current.map((item) =>
-                          item.id === criterion.id ? { ...item, value: event.target.value } : item,
-                        ),
-                      )
-                    }
-                    placeholder="Le comportement attendu est vérifiable"
-                  />
-                  {criteria.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Supprimer le critère ${index + 1}`}
-                      onClick={() =>
-                        setCriteria((current) => current.filter((item) => item.id !== criterion.id))
-                      }
-                    >
-                      <X />
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
-            </div>
+      <SheetPopup className="w-full sm:max-w-lg">
+        <SheetHeader>
+          <div className="mb-3 grid size-10 place-items-center rounded-xl bg-accent text-accent-foreground">
+            <Plus className="size-4" />
           </div>
+          <SheetTitle className="text-xl tracking-[-0.025em]">Nouvelle tâche</SheetTitle>
+        </SheetHeader>
 
-          <SheetFooter className="border-t sm:flex-row">
-            <SheetClose
-              render={
-                <Button type="button" variant="outline">
-                  Annuler
-                </Button>
-              }
-            />
+        <form onSubmit={(event) => void submit(event)} className="contents">
+          <SheetPanel className="p-0">
+            <div className="flex flex-col gap-6 px-6 py-3">
+              <div className="space-y-2">
+                <Label htmlFor="task-title">Objectif</Label>
+                <Input
+                  id="task-title"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Ex. Reprendre le flux après reconnexion"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="task-description">Contexte</Label>
+                <Textarea
+                  id="task-description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Contexte utile à l’agent, sans répéter le résultat attendu."
+                  rows={4}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Critères d’acceptation</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    onClick={() =>
+                      setCriteria((current) => [
+                        ...current,
+                        { id: (current.at(-1)?.id ?? -1) + 1, value: "" },
+                      ])
+                    }
+                  >
+                    <Plus />
+                    Ajouter
+                  </Button>
+                </div>
+                {criteria.map((criterion, index) => (
+                  <div key={criterion.id} className="flex items-center gap-2">
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-secondary text-[0.65rem] font-medium text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <Input
+                      value={criterion.value}
+                      onChange={(event) =>
+                        setCriteria((current) =>
+                          current.map((item) =>
+                            item.id === criterion.id
+                              ? { ...item, value: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                      placeholder="Le comportement attendu est vérifiable"
+                    />
+                    {criteria.length > 1 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Supprimer le critère ${index + 1}`}
+                        onClick={() =>
+                          setCriteria((current) =>
+                            current.filter((item) => item.id !== criterion.id),
+                          )
+                        }
+                      >
+                        <X />
+                      </Button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SheetPanel>
+
+          <SheetFooter>
+            <SheetClose render={<Button type="button" variant="ghost" />}>Annuler</SheetClose>
             <Button type="submit" disabled={disabled || submitting || !canSubmit}>
               {submitting ? <CircleNotch className="animate-spin" /> : <Plus />}
               Créer la tâche
             </Button>
           </SheetFooter>
         </form>
-      </SheetContent>
+      </SheetPopup>
     </Sheet>
   )
 }

@@ -44,31 +44,29 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
+  Command,
+  CommandCollection,
   CommandDialog,
+  CommandDialogPopup,
   CommandEmpty,
   CommandGroup,
+  CommandGroupLabel,
   CommandInput,
   CommandItem,
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuSeparator,
+  MenuTrigger,
+} from "@/components/ui/menu"
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   addColumn,
   appendWorkbenchMessage,
@@ -136,6 +134,34 @@ interface BoardPageProps {
   readonly onSearchChange: (patch: BoardSearchPatch, replace?: boolean) => void
   readonly onOpenTicket: (ticketId: string) => void
   readonly onCloseTicket: () => void
+}
+
+type CommandPaletteItem =
+  | {
+      readonly kind: "action"
+      readonly value: "create" | "search"
+      readonly label: string
+      readonly shortcut: string
+    }
+  | {
+      readonly kind: "move"
+      readonly value: string
+      readonly label: string
+      readonly columnId: string
+      readonly color: string
+    }
+  | {
+      readonly kind: "ticket"
+      readonly value: string
+      readonly label: string
+      readonly ticketId: string
+      readonly priority: TicketPriority
+    }
+
+interface CommandPaletteGroup {
+  readonly value: string
+  readonly label: string
+  readonly items: ReadonlyArray<CommandPaletteItem>
 }
 
 interface TicketCardProps {
@@ -435,8 +461,8 @@ function BoardColumnView({
         <span className="rounded-full bg-muted px-1.5 py-0.5 text-[0.58rem] text-muted-foreground">
           {filtered ? `${tickets.length}/${allTickets.length}` : allTickets.length}
         </span>
-        <DropdownMenu>
-          <DropdownMenuTrigger
+        <Menu>
+          <MenuTrigger
             render={
               <Button
                 variant="ghost"
@@ -447,36 +473,36 @@ function BoardColumnView({
               </Button>
             }
           />
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>{column.name}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => onEditingChange(true)}>Renommer</DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Couleur</DropdownMenuLabel>
+          <MenuPopup align="end" className="w-44">
+            <MenuGroup>
+              <MenuGroupLabel>{column.name}</MenuGroupLabel>
+              <MenuItem onClick={() => onEditingChange(true)}>Renommer</MenuItem>
+            </MenuGroup>
+            <MenuSeparator />
+            <MenuGroup>
+              <MenuGroupLabel>Couleur</MenuGroupLabel>
               {[
                 ["Violet", "#6D5BD0"],
                 ["Bleu", "#3B82F6"],
                 ["Émeraude", "#10B981"],
                 ["Ambre", "#F59E0B"],
               ].map(([label, color]) => (
-                <DropdownMenuItem key={color} onClick={() => onColor(color ?? "#6D5BD0")}>
+                <MenuItem key={color} onClick={() => onColor(color ?? "#6D5BD0")}>
                   <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
                   {label}
-                </DropdownMenuItem>
+                </MenuItem>
               ))}
-            </DropdownMenuGroup>
+            </MenuGroup>
             {column.done ? null : (
               <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                <MenuSeparator />
+                <MenuItem variant="destructive" onClick={onDelete}>
                   Supprimer
-                </DropdownMenuItem>
+                </MenuItem>
               </>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </MenuPopup>
+        </Menu>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
@@ -558,6 +584,48 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+  const assigneeOptions = [
+    { value: "all", label: "Tous les responsables" },
+    ...state.actors.map((actor) => ({ value: actor.id, label: actor.name })),
+  ]
+  const priorityOptions = [
+    { value: "all", label: "Toutes les priorités" },
+    ...priorities
+      .filter((priority) => priority !== "none")
+      .map((priority) => ({ value: priority, label: priorityLabels[priority] })),
+  ]
+  const commandGroups: ReadonlyArray<CommandPaletteGroup> = [
+    {
+      value: "actions",
+      label: "Commandes",
+      items: [
+        { kind: "action", value: "create", label: "Créer un ticket", shortcut: "C" },
+        { kind: "action", value: "search", label: "Rechercher", shortcut: "/" },
+      ],
+    },
+    {
+      value: "move",
+      label: "Déplacer le ticket actif",
+      items: state.columns.map((column) => ({
+        kind: "move",
+        value: `move:${column.id}`,
+        label: column.name,
+        columnId: column.id,
+        color: column.color,
+      })),
+    },
+    {
+      value: "tickets",
+      label: "Tickets",
+      items: state.tickets.map((ticket) => ({
+        kind: "ticket",
+        value: `ticket:${ticket.id}:${ticket.title}:${ticket.labels.join(":")}`,
+        label: ticket.title,
+        ticketId: ticket.id,
+        priority: ticket.priority,
+      })),
+    },
+  ]
 
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
@@ -751,6 +819,27 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
   const clearFilters = () =>
     onSearchChange({ q: undefined, assignee: undefined, priority: undefined }, true)
 
+  const runCommandPaletteItem = (item: CommandPaletteItem) => {
+    setPaletteOpen(false)
+    if (item.kind === "action") {
+      if (item.value === "create") {
+        const column = state.columns.find((candidate) => !candidate.done)
+        setCreatingColumnId(column?.id)
+      } else {
+        requestAnimationFrame(() => searchRef.current?.focus())
+      }
+      return
+    }
+    if (item.kind === "move") {
+      if (activeTicketId !== undefined) {
+        setState((current) => moveTicket(current, activeTicketId, item.columnId))
+        setAnnouncement(`Ticket déplacé vers ${item.label}, en fin de colonne.`)
+      }
+      return
+    }
+    onOpenTicket(item.ticketId)
+  }
+
   const createInColumn = (columnId: string, title: string) => {
     localId.current += 1
     const ticketId = `ticket-local-${localId.current}`
@@ -815,6 +904,7 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
             </div>
 
             <Select
+              items={assigneeOptions}
               value={search.assignee ?? "all"}
               onValueChange={(value) =>
                 onSearchChange(
@@ -832,17 +922,17 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
                       "Responsable")}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les responsables</SelectItem>
-                {state.actors.map((actor) => (
-                  <SelectItem key={actor.id} value={actor.id}>
-                    {actor.name}
+              <SelectPopup>
+                {assigneeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
-              </SelectContent>
+              </SelectPopup>
             </Select>
 
             <Select
+              items={priorityOptions}
               value={search.priority ?? "all"}
               onValueChange={(value) => {
                 if (value === "all") {
@@ -858,16 +948,13 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
                   {search.priority === undefined ? "Priorité" : priorityLabels[search.priority]}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les priorités</SelectItem>
-                {priorities
-                  .filter((priority) => priority !== "none")
-                  .map((priority) => (
-                    <SelectItem key={priority} value={priority}>
-                      {priorityLabels[priority]}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
+              <SelectPopup>
+                {priorityOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
             </Select>
 
             {filtered ? (
@@ -1054,72 +1141,49 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
         }
       />
 
-      <CommandDialog
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        title="Commandes du Tableau"
-        description="Rechercher un ticket ou lancer une commande."
-      >
-        <CommandInput placeholder="Rechercher une commande ou un ticket…" />
-        <CommandList>
-          <CommandEmpty>Aucun résultat.</CommandEmpty>
-          <CommandGroup heading="Commandes">
-            <CommandItem
-              onSelect={() => {
-                setPaletteOpen(false)
-                const column = state.columns.find((candidate) => !candidate.done)
-                setCreatingColumnId(column?.id)
-              }}
-            >
-              <Plus />
-              Créer un ticket
-              <CommandShortcut>C</CommandShortcut>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setPaletteOpen(false)
-                searchRef.current?.focus()
-              }}
-            >
-              <MagnifyingGlass />
-              Rechercher
-              <CommandShortcut>/</CommandShortcut>
-            </CommandItem>
-          </CommandGroup>
-          <CommandGroup heading="Déplacer le ticket actif">
-            {state.columns.map((column) => (
-              <CommandItem
-                key={column.id}
-                disabled={activeTicketId === undefined}
-                onSelect={() => {
-                  if (activeTicketId !== undefined) {
-                    setState((current) => moveTicket(current, activeTicketId, column.id))
-                    setAnnouncement(`Ticket déplacé vers ${column.name}, en fin de colonne.`)
-                  }
-                  setPaletteOpen(false)
-                }}
-              >
-                <span className="size-2 rounded-full" style={{ backgroundColor: column.color }} />
-                {column.name}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandGroup heading="Tickets">
-            {state.tickets.map((ticket) => (
-              <CommandItem
-                key={ticket.id}
-                value={`${ticket.title} ${ticket.labels.join(" ")}`}
-                onSelect={() => {
-                  setPaletteOpen(false)
-                  onOpenTicket(ticket.id)
-                }}
-              >
-                <DotOutline className={priorityStyles[ticket.priority]} />
-                <span className="truncate">{ticket.title}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
+      <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
+        <CommandDialogPopup>
+          <Command items={commandGroups}>
+            <CommandInput placeholder="Rechercher une commande ou un ticket…" />
+            <CommandEmpty>Aucun résultat.</CommandEmpty>
+            <CommandList>
+              {(group: CommandPaletteGroup) => (
+                <CommandGroup key={group.value} items={group.items}>
+                  <CommandGroupLabel>{group.label}</CommandGroupLabel>
+                  <CommandCollection>
+                    {(item: CommandPaletteItem) => (
+                      <CommandItem
+                        key={item.value}
+                        value={item.value}
+                        disabled={item.kind === "move" && activeTicketId === undefined}
+                        onClick={() => runCommandPaletteItem(item)}
+                      >
+                        {item.kind === "action" ? (
+                          item.value === "create" ? (
+                            <Plus />
+                          ) : (
+                            <MagnifyingGlass />
+                          )
+                        ) : item.kind === "move" ? (
+                          <span
+                            className="size-2 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          />
+                        ) : (
+                          <DotOutline className={priorityStyles[item.priority]} />
+                        )}
+                        <span className="truncate">{item.label}</span>
+                        {item.kind === "action" ? (
+                          <CommandShortcut>{item.shortcut}</CommandShortcut>
+                        ) : null}
+                      </CommandItem>
+                    )}
+                  </CommandCollection>
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </CommandDialogPopup>
       </CommandDialog>
     </main>
   )
