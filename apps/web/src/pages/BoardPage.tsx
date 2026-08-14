@@ -198,8 +198,10 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
         type="button"
         onClick={onOpen}
         onFocus={onFocus}
-        className="w-full rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/65"
+        className="w-full touch-none rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/65"
         aria-label={`Ouvrir le ticket ${ticket.title}`}
+        {...attributes}
+        {...listeners}
       >
         <div className="flex items-start gap-2">
           <CircleDot className={cn("mt-0.5 size-3.5 shrink-0", priorityStyles[ticket.priority])} />
@@ -207,10 +209,8 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
             {ticket.title}
           </h3>
           <span
-            aria-label={`Déplacer ${ticket.title}`}
             className="mt-0.5 cursor-grab touch-none text-muted-foreground/35 opacity-0 group-hover:opacity-100"
-            {...attributes}
-            {...listeners}
+            aria-hidden="true"
           >
             <GripVertical className="size-3.5" />
           </span>
