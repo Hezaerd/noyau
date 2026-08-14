@@ -220,6 +220,7 @@ export function TicketSheet({
     setTitle(ticket?.title ?? "")
     setDescription(ticket?.description ?? "")
     setEditingDescription(false)
+    setDueDateOpen(false)
   }, [ticket])
 
   const saveTitle = () => {
@@ -406,9 +407,15 @@ export function TicketSheet({
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-[0.68rem] text-muted-foreground">Échéance</Label>
+                        <Label
+                          htmlFor="ticket-due-at"
+                          className="text-[0.68rem] text-muted-foreground"
+                        >
+                          Échéance
+                        </Label>
                         <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
                           <PopoverTrigger
+                            id="ticket-due-at"
                             aria-label="Sélectionner une échéance"
                             render={
                               <Button
