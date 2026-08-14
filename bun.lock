@@ -14,6 +14,15 @@
         "vite-plus": "catalog:",
       },
     },
+    "apps/desktop": {
+      "name": "@noyau/desktop",
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
+    },
     "apps/server": {
       "name": "@noyau/server",
       "version": "0.0.0",
@@ -326,6 +335,8 @@
     "@noyau/config": ["@noyau/config@workspace:packages/config"],
 
     "@noyau/database": ["@noyau/database@workspace:packages/database"],
+
+    "@noyau/desktop": ["@noyau/desktop@workspace:apps/desktop"],
 
     "@noyau/domain": ["@noyau/domain@workspace:packages/domain"],
 
