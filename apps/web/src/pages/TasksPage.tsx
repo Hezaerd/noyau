@@ -2,18 +2,18 @@ import type { ProjectTaskSnapshot } from "@noyau/protocol/control-plane"
 import type { Task, TaskStatus } from "@noyau/protocol/entities/task"
 import type { CommandRejection } from "@noyau/protocol/receipts"
 import {
-  AlertCircle,
+  ArrowClockwise,
   ArrowRight,
+  CheckCircle,
   Check,
-  CheckCircle2,
-  CircleDot,
-  Clock3,
-  LoaderCircle,
+  CircleNotch,
+  Clock,
+  DotOutline,
   Plus,
-  RefreshCw,
   UserPlus,
+  WarningCircle,
   X,
-} from "lucide-react"
+} from "@phosphor-icons/react"
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -25,7 +25,6 @@ import {
   Sheet,
   SheetClose,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
@@ -163,9 +162,6 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
               <Plus className="size-4" />
             </div>
             <SheetTitle className="text-xl tracking-[-0.025em]">Nouvelle tâche</SheetTitle>
-            <SheetDescription>
-              Définis un résultat borné et les preuves qui permettront de le valider.
-            </SheetDescription>
           </SheetHeader>
 
           <div className="flex-1 space-y-6 px-4 py-6">
@@ -252,7 +248,7 @@ function TaskComposer({ open, disabled, onOpenChange, onCreated, onFeedback }: T
               }
             />
             <Button type="submit" disabled={disabled || submitting || !canSubmit}>
-              {submitting ? <LoaderCircle className="animate-spin" /> : <Plus />}
+              {submitting ? <CircleNotch className="animate-spin" /> : <Plus />}
               Créer la tâche
             </Button>
           </SheetFooter>
@@ -282,7 +278,7 @@ function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
           {task.status === "completed" ? (
             <Check className="size-3.5" />
           ) : (
-            <CircleDot className="size-3" />
+            <DotOutline className="size-3" />
           )}
         </div>
 
@@ -319,7 +315,7 @@ function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
                 onClick={() => onAssign(task)}
                 className="w-fit shrink-0 rounded-full text-muted-foreground"
               >
-                {assigning ? <LoaderCircle className="animate-spin" /> : <UserPlus />}
+                {assigning ? <CircleNotch className="animate-spin" /> : <UserPlus />}
                 M’attribuer
               </Button>
             ) : (
@@ -336,7 +332,7 @@ function TaskItem({ task, assigning, onAssign }: TaskItemProps) {
                 key={criterion}
                 className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"
               >
-                <CheckCircle2 className="size-3 text-violet-400" />
+                <CheckCircle className="size-3 text-violet-400" />
                 {criterion}
               </span>
             ))}
@@ -434,10 +430,6 @@ export function TasksPage() {
       <header className="mb-8 flex flex-col gap-6">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="size-2 rounded-full bg-primary ring-4 ring-primary/15" />
-              Mission active · Control plane durable
-            </div>
             <h2 className="text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
               Le travail qui compte.
             </h2>
@@ -456,7 +448,7 @@ export function TasksPage() {
               onClick={() => void refresh()}
               className="rounded-full bg-card"
             >
-              <RefreshCw className={refreshing ? "animate-spin" : ""} />
+              <ArrowClockwise className={refreshing ? "animate-spin" : ""} />
             </Button>
             <Button className="rounded-full" onClick={() => setComposerOpen(true)}>
               <Plus />
@@ -467,10 +459,7 @@ export function TasksPage() {
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
-            <p className="text-[0.68rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-              Progression
-            </p>
-            <div className="mt-3 flex items-end justify-between">
+            <div className="flex items-end justify-between">
               <span className="text-2xl font-semibold tracking-[-0.04em]">{progress}%</span>
               <span className="text-xs text-muted-foreground">
                 {completedCount} / {tasks.length}
@@ -479,11 +468,8 @@ export function TasksPage() {
             <Progress value={progress} className="mt-3 h-1.5" />
           </div>
           <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
-            <p className="text-[0.68rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-              En mouvement
-            </p>
-            <div className="mt-3 flex items-center gap-2">
-              <Clock3 className="size-4 text-violet-500" />
+            <div className="flex items-center gap-2">
+              <Clock className="size-4 text-violet-500" />
               <span className="text-2xl font-semibold tracking-[-0.04em]">
                 {tasks.filter((task) => task.status === "running").length}
               </span>
@@ -491,10 +477,7 @@ export function TasksPage() {
             </div>
           </div>
           <div className="rounded-2xl border border-violet-500/15 bg-[#15131d] p-4 text-foreground shadow-[0_14px_38px_rgba(68,48,150,0.14)]">
-            <p className="text-[0.68rem] font-medium tracking-[0.1em] text-white/45 uppercase">
-              Prochaine étape
-            </p>
-            <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium">Revoir les sorties agents</span>
               <ArrowRight className="size-4 text-violet-300" />
             </div>
@@ -512,9 +495,9 @@ export function TasksPage() {
           }`}
         >
           {feedback.tone === "error" ? (
-            <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <WarningCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
           ) : (
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-300" />
+            <CheckCircle className="mt-0.5 size-4 shrink-0 text-emerald-300" />
           )}
           <div>
             <p className="font-medium">{feedback.message}</p>
@@ -545,14 +528,14 @@ export function TasksPage() {
       {loading ? (
         <div className="flex min-h-64 items-center justify-center rounded-2xl border border-dashed border-border">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <LoaderCircle className="size-4 animate-spin" />
+            <CircleNotch className="size-4 animate-spin" />
             Lecture du snapshot…
           </div>
         </div>
       ) : tasks.length === 0 ? (
         <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 px-6 text-center">
           <div className="mb-4 grid size-10 place-items-center rounded-xl bg-accent">
-            <CheckCircle2 className="size-4 text-accent-foreground" />
+            <CheckCircle className="size-4 text-accent-foreground" />
           </div>
           <h3 className="text-sm font-semibold">Aucune tâche dans cette mission</h3>
           <p className="mt-2 max-w-md text-xs leading-relaxed text-muted-foreground">

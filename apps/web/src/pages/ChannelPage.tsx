@@ -1,4 +1,12 @@
-import { AtSign, Bot, Hash, MoreHorizontal, Paperclip, Send, Sparkles } from "lucide-react"
+import {
+  At,
+  DotsThree,
+  Hash,
+  Paperclip,
+  PaperPlaneTilt,
+  Robot,
+  Sparkle,
+} from "@phosphor-icons/react"
 import { useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -105,27 +113,16 @@ export function ChannelPage() {
                   3 agents actifs
                 </Badge>
               </div>
-              <p className="truncate text-xs text-muted-foreground">
-                Décisions, questions et rapports du projet
-              </p>
             </div>
           </div>
           <Button variant="ghost" size="icon-sm" aria-label="Options du canal">
-            <MoreHorizontal />
+            <DotsThree />
           </Button>
         </div>
       </header>
 
       <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 sm:px-7 lg:px-10">
         <div className="flex-1 py-6 sm:py-8">
-          <div className="mb-7 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border/80" />
-            <span className="text-[0.66rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-              Aujourd’hui
-            </span>
-            <div className="h-px flex-1 bg-border/80" />
-          </div>
-
           <div className="space-y-1">
             {messages.map((message) => (
               <article
@@ -144,7 +141,7 @@ export function ChannelPage() {
                     <p className="text-sm font-semibold">{message.author}</p>
                     {message.agent ? (
                       <span className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[0.58rem] font-medium text-muted-foreground uppercase">
-                        <Bot className="size-2.5" /> Agent
+                        <Robot className="size-2.5" /> Agent
                       </span>
                     ) : null}
                     <span className="text-[0.68rem] text-muted-foreground">
@@ -186,10 +183,10 @@ export function ChannelPage() {
                 size="icon-sm"
                 aria-label="Mentionner un membre"
               >
-                <AtSign />
+                <At />
               </Button>
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Commande Marion">
-                <Sparkles />
+                <Sparkle />
               </Button>
               <span className="ml-1 text-[0.65rem] text-muted-foreground">
                 Entrée pour envoyer · Maj + Entrée pour une ligne
@@ -201,7 +198,7 @@ export function ChannelPage() {
                 aria-label="Envoyer"
                 className="ml-auto rounded-lg"
               >
-                <Send />
+                <PaperPlaneTilt />
               </Button>
             </div>
           </form>
