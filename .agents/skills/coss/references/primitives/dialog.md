@@ -90,4 +90,3 @@ import {
 - long scrollable content in panel: `p-dialog-5`
 - bare footer variant usage: `p-dialog-6`
 - responsive dialog/drawer variant: `p-drawer-12`
-

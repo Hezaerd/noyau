@@ -36,19 +36,19 @@ Apply this section only when the task touches global theme/layout setup (not nor
 
 coss components use three CSS custom properties for typography:
 
-| Variable | Used by | Default fallback |
-|---|---|---|
-| `--font-sans` | Body text, buttons, labels, most UI | `ui-sans-serif, system-ui, sans-serif` |
-| `--font-mono` | `<code>`, `<kbd>`, `<pre>`, code blocks | `ui-monospace, monospace` |
-| `--font-heading` | Dialog/AlertDialog titles, headings | `var(--font-sans)` (override with `--font-heading`) |
+| Variable         | Used by                                 | Default fallback                                    |
+| ---------------- | --------------------------------------- | --------------------------------------------------- |
+| `--font-sans`    | Body text, buttons, labels, most UI     | `ui-sans-serif, system-ui, sans-serif`              |
+| `--font-mono`    | `<code>`, `<kbd>`, `<pre>`, code blocks | `ui-monospace, monospace`                           |
+| `--font-heading` | Dialog/AlertDialog titles, headings     | `var(--font-sans)` (override with `--font-heading`) |
 
 **CLI setup (recommended):** `npx shadcn@latest init @coss/style` automatically installs `@coss/fonts` — Inter for `--font-sans` and `--font-heading`, Geist Mono for `--font-mono` — via `registry:font` items and configures them in `layout.tsx`.
 
 **Manual / custom font setup:** When using `next/font`, the `variable` option must match coss expectations exactly:
 
 ```tsx
-const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] });
+const inter = Inter({ variable: "--font-sans", subsets: ["latin"] })
+const geistMono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] })
 ```
 
 When sans and heading share one family, only `--font-sans` needs to be set — the theme aliases `--font-heading` to it (`--font-heading: var(--font-sans)`). For a separate heading font, wire `--font-heading` in your layout and set `--font-heading: var(--font-heading)` in `@theme inline`.

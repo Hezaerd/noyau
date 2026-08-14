@@ -78,4 +78,3 @@ import {
 - `CardFrame` + static table: `p-table-7`
 - `CardFrame` + TanStack + checkboxes: `p-table-6`
 - `CardFrame` + TanStack + sort + pagination: `p-table-8`
-

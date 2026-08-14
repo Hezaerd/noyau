@@ -70,7 +70,11 @@ Field wrapping an autocomplete:
     <AutocompleteInput placeholder="Search..." />
     <AutocompletePopup>
       <AutocompleteList>
-        {(item) => <AutocompleteItem key={item.value} value={item}>{item.label}</AutocompleteItem>}
+        {(item) => (
+          <AutocompleteItem key={item.value} value={item}>
+            {item.label}
+          </AutocompleteItem>
+        )}
       </AutocompleteList>
     </AutocompletePopup>
   </Autocomplete>

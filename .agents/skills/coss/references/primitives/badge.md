@@ -60,7 +60,9 @@ Badge inside a button (use negative margin for alignment):
 ```tsx
 <Button variant="outline">
   Messages
-  <Badge className="-me-1" variant="outline">18</Badge>
+  <Badge className="-me-1" variant="outline">
+    18
+  </Badge>
 </Button>
 ```
 

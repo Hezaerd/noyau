@@ -126,4 +126,3 @@ anchoredToastManager.add({
 - anchored tooltip-style confirmation: `p-toast-7`
 - anchored error toast with manual lifecycle handling: `p-toast-8`
 - anchored toast pattern in a non-toast primitive: `p-toggle-8`
-

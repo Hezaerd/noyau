@@ -70,7 +70,9 @@ Sizes: `xs`, `sm`, `default`, `lg`, `icon-xs`, `icon-sm`, `icon`, `icon-lg`.
 Built-in `loading` prop (disables and shows spinner automatically):
 
 ```tsx
-<Button loading={isLoading} onClick={handleClick}>Submit</Button>
+<Button loading={isLoading} onClick={handleClick}>
+  Submit
+</Button>
 ```
 
 Composite approach (manual `Spinner` + `disabled`):
