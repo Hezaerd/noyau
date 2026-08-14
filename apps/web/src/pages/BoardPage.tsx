@@ -958,13 +958,13 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
             </Select>
 
             {filtered ? (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <Button variant="ghost" size="default" onClick={clearFilters}>
                 <XIcon />
                 Effacer
               </Button>
             ) : null}
 
-            <Button variant="outline" size="sm" onClick={() => setPaletteOpen(true)}>
+            <Button variant="outline" size="default" onClick={() => setPaletteOpen(true)}>
               <CommandIcon />
               <span className="hidden sm:inline">Commandes</span>
               <kbd className="ml-1 text-[0.58rem] text-muted-foreground">⌘ K</kbd>
