@@ -10,18 +10,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { InputGroup, InputGroupAddon } from "@/components/ui/input-group"
-import { agentDebugLog } from "@/lib/agent-debug"
 import { cn } from "@/lib/utils"
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
-  // #region agent log
-  agentDebugLog({
-    hypothesisId: "A",
-    location: "components/ui/command.tsx:Command",
-    message: "cmdk root rendered",
-    data: { childCount: React.Children.count(props.children) },
-  })
-  // #endregion
   return (
     <CommandPrimitive
       data-slot="command"
@@ -47,14 +38,6 @@ function CommandDialog({
   className?: string
   showCloseButton?: boolean
 }) {
-  // #region agent log
-  agentDebugLog({
-    hypothesisId: "A,B,C",
-    location: "components/ui/command.tsx:CommandDialog",
-    message: "command dialog rendered",
-    data: { open: props.open, childCount: React.Children.count(children) },
-  })
-  // #endregion
   return (
     <Dialog {...props}>
       <DialogHeader className="sr-only">
@@ -75,14 +58,6 @@ function CommandInput({
   className,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
-  // #region agent log
-  agentDebugLog({
-    hypothesisId: "A,B",
-    location: "components/ui/command.tsx:CommandInput",
-    message: "cmdk input wrapper rendered before primitive",
-    data: { hasMountedCmdkRoot: document.querySelector("[cmdk-root]") !== null },
-  })
-  // #endregion
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
       <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
