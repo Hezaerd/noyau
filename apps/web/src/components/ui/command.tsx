@@ -89,7 +89,8 @@ function CommandDialog({
   className,
   showCloseButton = false,
   ...props
-}: React.ComponentProps<typeof Dialog> & {
+}: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
+  children: React.ReactNode
   title?: string
   description?: string
   className?: string
@@ -111,11 +112,7 @@ function CommandDialog({
   )
 }
 
-function CommandInput({
-  className,
-  onChange,
-  ...props
-}: React.ComponentProps<"input">) {
+function CommandInput({ className, onChange, ...props }: React.ComponentProps<"input">) {
   const { query, setQuery } = useCommand()
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">

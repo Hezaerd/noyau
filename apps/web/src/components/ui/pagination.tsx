@@ -40,10 +40,10 @@ function PaginationLink({ className, isActive, size = "icon", ...props }: Pagina
     <Button
       render={
         <a
-        aria-current={isActive ? "page" : undefined}
-        data-slot="pagination-link"
-        data-active={isActive}
-        {...props}
+          aria-current={isActive ? "page" : undefined}
+          data-slot="pagination-link"
+          data-active={isActive}
+          {...props}
         />
       }
       variant={isActive ? "outline" : "ghost"}

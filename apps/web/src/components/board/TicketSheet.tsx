@@ -267,16 +267,16 @@ export function TicketSheet({
                 <SheetTitle
                   render={
                     <Input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    onBlur={saveTitle}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.currentTarget.blur()
-                      }
-                    }}
-                    className="-ml-2 h-auto border-transparent bg-transparent px-2 py-1 text-xl font-semibold tracking-[-0.03em] shadow-none focus-visible:border-input"
-                    aria-label="Titre du ticket"
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      onBlur={saveTitle}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur()
+                        }
+                      }}
+                      className="-ml-2 h-auto border-transparent bg-transparent px-2 py-1 text-xl font-semibold tracking-[-0.03em] shadow-none focus-visible:border-input"
+                      aria-label="Titre du ticket"
                     />
                   }
                 />
@@ -305,7 +305,8 @@ export function TicketSheet({
                         value={ticket.assigneeId ?? "unassigned"}
                         onValueChange={(value) =>
                           onUpdate(ticket.id, {
-                            assigneeId: value === "unassigned" ? undefined : value,
+                            assigneeId:
+                              value === null || value === "unassigned" ? undefined : value,
                           })
                         }
                       >
