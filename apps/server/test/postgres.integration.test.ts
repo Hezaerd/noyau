@@ -166,6 +166,7 @@ layer(databaseLayer(), { timeout: "120 seconds" })((it) => {
     const webLayer = serverRoutesLayer.pipe(
       Layer.provide(HttpServer.layerServices),
       Layer.provide(configLayer()),
+      Layer.provide(databaseLayer()),
     )
     const runtime = ManagedRuntime.make(databaseLayer())
     const context = await runtime.context()

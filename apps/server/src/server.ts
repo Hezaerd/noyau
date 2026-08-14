@@ -2,14 +2,17 @@ import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
 import * as PgClient from "@effect/sql-pg/PgClient"
 import { runMigrations } from "@noyau/database/migrations"
 import { ControlPlaneApi } from "@noyau/protocol/control-plane"
+import { ControlPlaneRpcs } from "@noyau/protocol/rpc"
 import { Context, Effect, Layer } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiScalar } from "effect/unstable/httpapi"
+import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 
 import { ServerConfig, serverConfigLayer } from "./config"
 import { healthHandlersLayer, projectHandlersLayer } from "./handlers"
-import { devIdentityLayer } from "./identity"
+import { devIdentityLayer, devRpcIdentityLayer } from "./identity"
 import { requestSchemaErrorsLayer } from "./request-errors"
+import { rpcHandlersLayer } from "./rpc-handlers"
 
 export class MigrationsReady extends Context.Service<
   MigrationsReady,
@@ -48,7 +51,16 @@ const apiLayer = HttpApiBuilder.layer(ControlPlaneApi).pipe(
   Layer.provide(requestSchemaErrorsLayer),
 )
 
-export const serverRoutesLayer = Layer.mergeAll(apiLayer, docsLayer)
+const rpcLayer = RpcServer.layerHttp({
+  group: ControlPlaneRpcs,
+  path: "/rpc",
+}).pipe(
+  Layer.provide(rpcHandlersLayer),
+  Layer.provide(devRpcIdentityLayer),
+  Layer.provide(RpcSerialization.layerNdjson),
+)
+
+export const serverRoutesLayer = Layer.mergeAll(apiLayer, docsLayer, rpcLayer)
 
 export const bunServerLayer = Layer.mergeAll(
   Layer.effect(

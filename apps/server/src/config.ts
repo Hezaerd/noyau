@@ -8,6 +8,7 @@ export interface ServerConfigValue {
   readonly host: string
   readonly port: number
   readonly eventPollInterval: number
+  readonly devActorId?: string
 }
 
 export class ServerConfig extends Context.Service<ServerConfig, ServerConfigValue>()(
@@ -20,6 +21,7 @@ export const serverConfig = Config.all({
   host: Config.string("HOST").pipe(Config.withDefault("127.0.0.1")),
   port: Config.port("PORT").pipe(Config.withDefault(3001)),
   eventPollInterval: Config.int("EVENT_POLL_INTERVAL_MS").pipe(Config.withDefault(500)),
+  devActorId: Config.string("NOYAU_DEV_ACTOR_ID").pipe(Config.withDefault("human:developer")),
 })
 
 export const serverConfigLayer = Layer.effect(ServerConfig, serverConfig)

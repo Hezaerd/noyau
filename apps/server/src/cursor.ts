@@ -1,4 +1,5 @@
-import { EventCursor, InvalidEventCursor } from "@noyau/protocol/control-plane"
+import { EventCursor } from "@noyau/protocol/board"
+import { InvalidEventCursor } from "@noyau/protocol/control-plane"
 import { ProjectId } from "@noyau/protocol/ids"
 import { Effect, Schema } from "effect"
 
