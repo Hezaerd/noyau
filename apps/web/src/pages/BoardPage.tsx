@@ -92,21 +92,21 @@ import {
 } from "@/lib/board-model"
 import { cn } from "@/lib/utils"
 
-const priorityLabels: Record<TicketPriority, string> = {
+const priorityLabels = {
   none: "Sans priorité",
   low: "Basse",
   normal: "Normale",
   high: "Haute",
   urgent: "Urgente",
-}
+} satisfies Record<TicketPriority, string>
 
-const priorityStyles: Record<TicketPriority, string> = {
+const priorityStyles = {
   none: "text-zinc-500",
   low: "text-sky-400",
   normal: "text-violet-400",
   high: "text-amber-400",
   urgent: "text-rose-400",
-}
+} satisfies Record<TicketPriority, string>
 
 const attentionLabels = {
   blocked: "Bloqué",
@@ -574,8 +574,8 @@ export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket 
   const dragStartStateRef = useRef<BoardState | undefined>(undefined)
   const filters: BoardFilters = {
     query: search.q ?? "",
-    ...(search.assignee === undefined ? {} : { assignee: search.assignee }),
-    ...(search.priority === undefined ? {} : { priority: search.priority }),
+    ...(search.assignee !== undefined && { assignee: search.assignee }),
+    ...(search.priority !== undefined && { priority: search.priority }),
   }
   const filtered = isFiltered(filters)
   const selectedTicket = state.tickets.find((ticket) => ticket.id === search.ticket)

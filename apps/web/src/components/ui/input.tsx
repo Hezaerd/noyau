@@ -14,6 +14,21 @@ export type InputProps = Omit<
   nativeInput?: boolean
 }
 
+const isNumericSize = (size: InputProps["size"]): size is number => typeof size === "number"
+
+const isStyleFunction = (
+  style: InputProps["style"],
+): style is Extract<InputProps["style"], (...args: never) => React.CSSProperties> =>
+  typeof style === "function"
+
+const nativeInputStyle = (style: InputProps["style"]): React.CSSProperties | undefined => {
+  if (style === undefined || isStyleFunction(style)) {
+    return undefined
+  }
+  // SAFETY: function styles were excluded; remaining values are plain CSSProperties for native inputs.
+  return style as React.CSSProperties
+}
+
 export function Input({
   className,
   size = "default",
@@ -22,6 +37,9 @@ export function Input({
   style,
   ...props
 }: InputProps): React.ReactElement {
+  const numericSize = isNumericSize(size) ? size : undefined
+  const nativeStyle = nativeInputStyle(style)
+
   const inputClassName = cn(
     "h-8.5 w-full min-w-0 rounded-[inherit] px-[calc(--spacing(3)-1px)] text-foreground leading-8.5 outline-none [transition:background-color_5000000s_ease-in-out_0s] placeholder:text-muted-foreground/72 sm:h-7.5 sm:leading-7.5 autofill:[-webkit-text-fill-color:var(--foreground)]",
     size === "sm" && "h-7.5 px-[calc(--spacing(2.5)-1px)] leading-7.5 sm:h-6.5 sm:leading-6.5",
@@ -48,15 +66,15 @@ export function Input({
         <input
           className={inputClassName}
           data-slot="input"
-          size={typeof size === "number" ? size : undefined}
-          style={typeof style === "function" ? undefined : style}
+          size={numericSize}
+          style={nativeStyle}
           {...props}
         />
       ) : (
         <InputPrimitive
           className={inputClassName}
           data-slot="input"
-          size={typeof size === "number" ? size : undefined}
+          size={numericSize}
           style={style}
           {...props}
         />

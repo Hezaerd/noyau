@@ -1,4 +1,5 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import { Schema } from "effect"
 
 export interface BoardColumn {
   readonly id: string
@@ -100,21 +101,40 @@ export const priorities = ["none", "low", "normal", "high", "urgent"] as const
 export const isTicketPriority = (value: string): value is TicketPriority =>
   priorities.some((priority) => priority === value)
 
-const asOptionalString = (value: unknown): string | undefined =>
-  typeof value === "string" && value.trim() !== "" ? value : undefined
+const BoardSearchInput = Schema.Struct({
+  ticket: Schema.optionalKey(Schema.String),
+  q: Schema.optionalKey(Schema.String),
+  assignee: Schema.optionalKey(Schema.String),
+  priority: Schema.optionalKey(Schema.String),
+})
 
-export const parseBoardSearch = (search: Record<string, unknown>): BoardSearch => {
-  const ticket = asOptionalString(search.ticket)
-  const query = asOptionalString(search.q)
-  const assignee = asOptionalString(search.assignee)
-  const priority = asOptionalString(search.priority)
+type BoardSearchParams = Record<string, string | undefined>
 
-  return {
-    ...(ticket === undefined ? {} : { ticket }),
-    ...(query === undefined ? {} : { q: query }),
-    ...(assignee === undefined ? {} : { assignee }),
-    ...(priority !== undefined && isTicketPriority(priority) ? { priority } : {}),
+const decodeBoardSearchInput = Schema.decodeUnknownSync(BoardSearchInput)
+
+const trimmedOptional = (value: string | undefined): string | undefined =>
+  value !== undefined && value.trim() !== "" ? value : undefined
+
+export const parseBoardSearch = (search: BoardSearchParams): BoardSearch => {
+  const decoded = decodeBoardSearchInput(search)
+  const result = {}
+  const ticket = trimmedOptional(decoded.ticket)
+  if (ticket !== undefined) {
+    Object.assign(result, { ticket })
   }
+  const query = trimmedOptional(decoded.q)
+  if (query !== undefined) {
+    Object.assign(result, { q: query })
+  }
+  const assignee = trimmedOptional(decoded.assignee)
+  if (assignee !== undefined) {
+    Object.assign(result, { assignee })
+  }
+  const priority = trimmedOptional(decoded.priority)
+  if (priority !== undefined && isTicketPriority(priority)) {
+    Object.assign(result, { priority })
+  }
+  return result
 }
 
 export const isFiltered = (filters: BoardFilters): boolean =>

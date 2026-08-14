@@ -21,10 +21,12 @@ const SandboxConfig = Schema.Struct({
 
 export type SandboxConfig = (typeof SandboxConfig)["Type"]
 
+type SandboxEnvironmentInput = (typeof SandboxEnvironment)["Type"]
+
 const decodeEnvironment = Schema.decodeUnknownSync(SandboxEnvironment)
 const decodeConfig = Schema.decodeUnknownSync(SandboxConfig)
 
-export const decodeSandboxConfig = (input: unknown): SandboxConfig => {
+export const decodeSandboxConfig = (input: SandboxEnvironmentInput): SandboxConfig => {
   const environment = decodeEnvironment(input)
 
   return decodeConfig({
@@ -35,4 +37,4 @@ export const decodeSandboxConfig = (input: unknown): SandboxConfig => {
   })
 }
 
-export const sandboxConfig = decodeSandboxConfig(import.meta.env)
+export const sandboxConfig = decodeSandboxConfig(decodeEnvironment(import.meta.env))

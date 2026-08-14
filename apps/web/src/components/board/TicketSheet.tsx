@@ -53,21 +53,21 @@ import {
   type BoardTicketPatch,
 } from "@/lib/board-model"
 
-const priorityLabels: Record<TicketPriority, string> = {
+const priorityLabels = {
   none: "Aucune",
   low: "Basse",
   normal: "Normale",
   high: "Haute",
   urgent: "Urgente",
-}
+} satisfies Record<TicketPriority, string>
 
-const priorityDots: Record<TicketPriority, string> = {
+const priorityDots = {
   none: "bg-zinc-500",
   low: "bg-sky-400",
   normal: "bg-violet-400",
   high: "bg-amber-400",
   urgent: "bg-rose-400",
-}
+} satisfies Record<TicketPriority, string>
 
 interface TicketSheetProps {
   readonly ticket: BoardTicket | undefined
