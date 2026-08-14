@@ -48,9 +48,12 @@ export function Calendar({
   }
   const mergedClassNames: typeof defaultClassNames = Object.keys(defaultClassNames).reduce(
     (acc, key) => {
+      // SAFETY: Object.keys iterates only keys from defaultClassNames.
       const userClass = classNames?.[key as keyof typeof classNames]
+      // SAFETY: The key was obtained from defaultClassNames above.
       const baseClass = defaultClassNames[key as keyof typeof defaultClassNames]
 
+      // SAFETY: The key is constrained to the keys present in defaultClassNames.
       acc[key as keyof typeof defaultClassNames] = userClass ? cn(baseClass, userClass) : baseClass
 
       return acc
@@ -101,6 +104,7 @@ export function Calendar({
     classNames: mergedClassNames,
     components: mergedComponents,
     "data-slot": "calendar",
+    // SAFETY: The formatter shape matches the DayPicker formatters contract.
     formatters: {
       formatMonthDropdown: (date: Date) => date.toLocaleString("default", { month: "short" }),
     } as React.ComponentProps<typeof DayPicker>["formatters"],
@@ -109,5 +113,6 @@ export function Calendar({
     ...props,
   }
 
+  // SAFETY: dayPickerProps is assembled from DayPicker props and the component's defaults above.
   return <DayPicker {...(dayPickerProps as React.ComponentProps<typeof DayPicker>)} />
 }

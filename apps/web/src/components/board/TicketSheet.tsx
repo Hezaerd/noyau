@@ -1,4 +1,5 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import { format, isValid, parseISO } from "date-fns"
 import {
   ActivityIcon,
   BotIcon,
@@ -12,7 +13,6 @@ import {
   SendIcon,
   SquareArrowOutUpRightIcon,
 } from "lucide-react"
-import { format, isValid, parseISO } from "date-fns"
 import { useEffect, useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
