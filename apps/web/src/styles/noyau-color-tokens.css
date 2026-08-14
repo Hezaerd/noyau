@@ -1,0 +1,40 @@
+/**
+ * Noyau palette preserved before the Coss UI migration.
+ *
+ * This file is intentionally not imported until the palette is remapped to
+ * every semantic token required by Coss.
+ */
+:root {
+  --background: #0f0f13;
+  --foreground: #ededf2;
+  --card: #17171c;
+  --card-foreground: #ededf2;
+  --popover: #1b1a22;
+  --popover-foreground: #f2f1f7;
+  --primary: #9b8cff;
+  --primary-foreground: #121018;
+  --secondary: #24242c;
+  --secondary-foreground: #e4e3eb;
+  --muted: #202027;
+  --muted-foreground: #a5a4b0;
+  --accent: #302b4b;
+  --accent-foreground: #e2ddff;
+  --destructive: #f0717d;
+  --border: #2b2a34;
+  --input: #34323f;
+  --ring: #9b8cff;
+  --chart-1: #9b8cff;
+  --chart-2: #6f8dff;
+  --chart-3: #c574e8;
+  --chart-4: #55b8d0;
+  --chart-5: #d59cff;
+  --subtle: #888793;
+  --sidebar: #0a0a0e;
+  --sidebar-foreground: #ecebf2;
+  --sidebar-primary: #8f7cff;
+  --sidebar-primary-foreground: #100e17;
+  --sidebar-accent: #211f2b;
+  --sidebar-accent-foreground: #f3f1ff;
+  --sidebar-border: #282630;
+  --sidebar-ring: #9b8cff;
+}
