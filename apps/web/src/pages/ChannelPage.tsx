@@ -105,9 +105,6 @@ export function ChannelPage() {
                   3 agents actifs
                 </Badge>
               </div>
-              <p className="truncate text-xs text-muted-foreground">
-                Décisions, questions et rapports du projet
-              </p>
             </div>
           </div>
           <Button variant="ghost" size="icon-sm" aria-label="Options du canal">
@@ -118,14 +115,6 @@ export function ChannelPage() {
 
       <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 sm:px-7 lg:px-10">
         <div className="flex-1 py-6 sm:py-8">
-          <div className="mb-7 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border/80" />
-            <span className="text-[0.66rem] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-              Aujourd’hui
-            </span>
-            <div className="h-px flex-1 bg-border/80" />
-          </div>
-
           <div className="space-y-1">
             {messages.map((message) => (
               <article

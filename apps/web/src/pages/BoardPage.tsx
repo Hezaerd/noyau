@@ -31,11 +31,9 @@ import {
   Command as CommandIcon,
   Filter,
   GripVertical,
-  ListFilter,
   MoreHorizontal,
   Plus,
   Search,
-  Sparkles,
   UserRound,
   X,
 } from "lucide-react"
@@ -133,7 +131,6 @@ const executionLabels = {
 } as const
 
 interface BoardPageProps {
-  readonly projectId: string
   readonly search: BoardSearch
   readonly onSearchChange: (patch: BoardSearchPatch, replace?: boolean) => void
   readonly onOpenTicket: (ticketId: string) => void
@@ -522,13 +519,7 @@ const focusTicket = (boardRef: RefObject<HTMLElement | null>, ticketId: string |
   element?.focus()
 }
 
-export function BoardPage({
-  projectId,
-  search,
-  onSearchChange,
-  onOpenTicket,
-  onCloseTicket,
-}: BoardPageProps) {
+export function BoardPage({ search, onSearchChange, onOpenTicket, onCloseTicket }: BoardPageProps) {
   const [state, setState] = useState(initialBoardState)
   const [activeTicketId, setActiveTicketId] = useState<string | undefined>(state.tickets[0]?.id)
   const [draggedTicketId, setDraggedTicketId] = useState<string>()
@@ -782,10 +773,6 @@ export function BoardPage({
       <header className="border-b border-border/65 bg-background/80 px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
           <div className="min-w-0">
-            <div className="mb-1.5 flex items-center gap-2 text-[0.65rem] font-medium tracking-[0.12em] text-muted-foreground uppercase">
-              <span className="size-1.5 rounded-full bg-violet-400" />
-              Projet {projectId}
-            </div>
             <div className="flex items-center gap-3">
               <h1 id="board-title" className="text-2xl font-semibold tracking-[-0.04em]">
                 Tableau
@@ -883,18 +870,6 @@ export function BoardPage({
             </Button>
           </div>
         </div>
-
-        {filtered ? (
-          <div className="mt-3 flex items-center gap-2 text-[0.68rem] text-muted-foreground">
-            <ListFilter className="size-3.5 text-violet-400" />
-            Vue filtrée · les déplacements entre colonnes sont ajoutés en fin de colonne.
-          </div>
-        ) : (
-          <div className="mt-3 flex items-center gap-2 text-[0.68rem] text-muted-foreground">
-            <Sparkles className="size-3.5 text-violet-400" />
-            Glisse les tickets ou utilise Alt + Shift + flèches. Appuie sur C pour créer.
-          </div>
-        )}
       </header>
 
       <DndContext

@@ -46,7 +46,6 @@ export function AppSidebar() {
           </div>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold tracking-[-0.02em]">Noyau</p>
-            <p className="truncate text-[0.68rem] text-sidebar-foreground/45">Control room</p>
           </div>
           <Button
             type="button"
@@ -96,9 +95,7 @@ export function AppSidebar() {
         <SidebarSeparator className="my-2 opacity-60" />
 
         <SidebarGroup className="pt-1">
-          <SidebarGroupLabel className="text-[0.64rem] font-semibold tracking-[0.12em] text-sidebar-foreground/38 uppercase">
-            Projets suivis
-          </SidebarGroupLabel>
+          <SidebarGroupLabel className="sr-only">Projets suivis</SidebarGroupLabel>
           <SidebarGroupAction aria-label="Ajouter un projet" title="Ajouter un projet">
             <Plus />
           </SidebarGroupAction>
@@ -109,10 +106,6 @@ export function AppSidebar() {
               </div>
               <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                 <p className="truncate text-xs font-medium text-sidebar-foreground">noyau</p>
-                <div className="mt-0.5 flex items-center gap-1.5 text-[0.64rem] text-sidebar-foreground/40">
-                  <span className="size-1.5 rounded-full bg-emerald-400" />
-                  Tableau actif
-                </div>
               </div>
               <ChevronsUpDown className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
             </div>
@@ -168,7 +161,6 @@ export function AppSidebar() {
           </Avatar>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-xs font-medium">Hezaerd</p>
-            <p className="text-[0.62rem] text-sidebar-foreground/42">Espace personnel</p>
           </div>
         </div>
       </SidebarFooter>
