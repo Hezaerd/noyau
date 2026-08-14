@@ -1,16 +1,16 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import {
-  ArrowSquareOut,
-  CaretDown,
-  ChatCircleText,
-  Circle,
-  GitBranch,
-  CheckCircle,
-  PaperPlaneTilt,
-  Play,
-  Pulse,
-  Robot,
-} from "@phosphor-icons/react"
+  ActivityIcon,
+  BotIcon,
+  CheckCircleIcon,
+  ChevronDownIcon,
+  CircleIcon,
+  GitBranchIcon,
+  MessageCircleIcon,
+  PlayIcon,
+  SendIcon,
+  SquareArrowOutUpRightIcon,
+} from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -111,7 +111,7 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
       <DialogPopup className="sm:max-w-lg">
         <DialogHeader>
           <div className="mb-2 grid size-10 place-items-center rounded-xl bg-primary/12 text-primary">
-            <Play className="size-4" />
+            <PlayIcon className="size-4" />
           </div>
           <DialogTitle>Lancer une exécution</DialogTitle>
         </DialogHeader>
@@ -164,7 +164,7 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
               </div>
               <details className="group rounded-xl border px-3 py-2.5">
                 <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium">
-                  <CaretDown className="size-3.5 text-muted-foreground group-open:rotate-180" />
+                  <ChevronDownIcon className="size-3.5 text-muted-foreground group-open:rotate-180" />
                   Paramètres avancés
                 </summary>
                 <p className="mt-3 pl-5 text-xs leading-relaxed text-muted-foreground">
@@ -177,7 +177,7 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="ghost" />}>Annuler</DialogClose>
             <Button type="submit" disabled={outcome.trim() === "" || profile === ""}>
-              <Play />
+              <PlayIcon />
               Lancer une exécution
             </Button>
           </DialogFooter>
@@ -487,9 +487,9 @@ export function TicketSheet({
                             className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/45"
                           >
                             {item.done ? (
-                              <CheckCircle className="size-4 shrink-0 text-emerald-400" />
+                              <CheckCircleIcon className="size-4 shrink-0 text-emerald-400" />
                             ) : (
-                              <Circle className="size-4 shrink-0 text-muted-foreground" />
+                              <CircleIcon className="size-4 shrink-0 text-muted-foreground" />
                             )}
                             <span className={item.done ? "text-muted-foreground line-through" : ""}>
                               {item.title}
@@ -507,7 +507,7 @@ export function TicketSheet({
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="rounded-xl border p-3">
                         <div className="flex items-center gap-2 text-xs font-medium">
-                          <GitBranch className="size-3.5 text-muted-foreground" />
+                          <GitBranchIcon className="size-3.5 text-muted-foreground" />
                           Bloqué par
                         </div>
                         <p className="mt-2 text-xs text-muted-foreground">
@@ -518,7 +518,7 @@ export function TicketSheet({
                       </div>
                       <div className="rounded-xl border p-3">
                         <div className="flex items-center gap-2 text-xs font-medium">
-                          <GitBranch className="size-3.5 rotate-180 text-muted-foreground" />
+                          <GitBranchIcon className="size-3.5 rotate-180 text-muted-foreground" />
                           Bloque
                         </div>
                         <p className="mt-2 text-xs text-muted-foreground">Aucun ticket</p>
@@ -534,13 +534,13 @@ export function TicketSheet({
                         </h3>
                       </div>
                       <Button size="sm" onClick={() => setExecutionOpen(true)}>
-                        <Play />
+                        <PlayIcon />
                         Lancer une exécution
                       </Button>
                     </div>
                     {ticket.execution === undefined ? (
                       <div className="rounded-xl border border-dashed px-4 py-5 text-center">
-                        <Robot className="mx-auto mb-2 size-4 text-muted-foreground" />
+                        <BotIcon className="mx-auto mb-2 size-4 text-muted-foreground" />
                         <p className="text-xs text-muted-foreground">
                           Aucune exécution pour ce ticket
                         </p>
@@ -582,14 +582,14 @@ export function TicketSheet({
                       </div>
                       <Button variant="ghost" size="xs">
                         Ouvrir dans le Channel
-                        <ArrowSquareOut />
+                        <SquareArrowOutUpRightIcon />
                       </Button>
                     </div>
                     <div className="overflow-hidden rounded-xl border">
                       <div className="max-h-64 space-y-4 overflow-y-auto p-4">
                         {ticket.messages.length === 0 ? (
                           <div className="py-5 text-center">
-                            <ChatCircleText className="mx-auto mb-2 size-4 text-muted-foreground" />
+                            <MessageCircleIcon className="mx-auto mb-2 size-4 text-muted-foreground" />
                             <p className="text-xs text-muted-foreground">
                               Commence la conversation de travail.
                             </p>
@@ -638,7 +638,7 @@ export function TicketSheet({
                           disabled={reply.trim() === ""}
                           aria-label="Envoyer"
                         >
-                          <PaperPlaneTilt />
+                          <SendIcon />
                         </Button>
                       </form>
                     </div>
@@ -646,7 +646,7 @@ export function TicketSheet({
 
                   <details className="group border-t pt-5" open={ticket.attention === "failure"}>
                     <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
-                      <CaretDown className="size-3.5 group-open:rotate-180" />
+                      <ChevronDownIcon className="size-3.5 group-open:rotate-180" />
                       Activité système
                       <span className="ml-auto font-normal tracking-normal normal-case">
                         {ticket.activity.length}
@@ -661,7 +661,7 @@ export function TicketSheet({
                         ticket.activity.map((item) => (
                           <div key={item.id} className="flex gap-3">
                             <div className="mt-1 grid size-6 shrink-0 place-items-center rounded-full bg-muted">
-                              <Pulse className="size-3 text-muted-foreground" />
+                              <ActivityIcon className="size-3 text-muted-foreground" />
                             </div>
                             <div>
                               <p className="text-xs">

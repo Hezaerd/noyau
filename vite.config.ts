@@ -2,6 +2,7 @@ import { recommended as effectRecommended } from "@effect/tsgo/oxlint-presets"
 import { defineConfig } from "vite-plus"
 
 // `repos/**` est le subtree Effect en lecture seule : jamais formaté, jamais linté.
+// `.agents/**` regroupe des skills importés — hors périmètre lint/fmt Noyau.
 // `tools/oxlint/anti-slop/**` : plugin Oxlint vendored (anti-slop).
 const agentIgnorePatterns = [
   ".agent/**",
