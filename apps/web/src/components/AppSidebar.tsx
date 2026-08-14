@@ -78,7 +78,7 @@ export function AppSidebar() {
                 render={<Link to="/" onClick={closeMobileNavigation} />}
                 isActive={pathname === "/"}
                 tooltip="Inbox"
-                className="h-9 text-sidebar-foreground/68 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                className="h-9 text-sidebar-foreground/68"
               >
                 <Tray />
                 <span>Inbox</span>
@@ -120,7 +120,7 @@ export function AppSidebar() {
                   }
                   isActive={pathname === "/projects/noyau/board"}
                   tooltip="Tableau"
-                  className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                  className="h-8 text-sidebar-foreground/58"
                 >
                   <SquaresFour />
                   <span>Tableau</span>
@@ -134,7 +134,7 @@ export function AppSidebar() {
                   render={<Link to="/projects/noyau/channel" onClick={closeMobileNavigation} />}
                   isActive={pathname === "/projects/noyau/channel"}
                   tooltip="Canal"
-                  className="h-8 text-sidebar-foreground/58 data-active:bg-sidebar-accent data-active:text-sidebar-foreground"
+                  className="h-8 text-sidebar-foreground/58"
                 >
                   <ChatCircleText />
                   <span>Canal</span>
