@@ -2,7 +2,7 @@
 
 ---
 
-Statut : accepté.
+Statut : accepté pour le modular monolith — topologie de distribution remplacée par l'ADR-0009.
 
 ---
 
@@ -12,9 +12,8 @@ comme le `apps/server` de T3 Code. Le split de déploiement redeviendra une opti
 réelle le justifiera ; rien dans le code ne doit l'empêcher (reactors derrière l'outbox, pas de
 couplage mémoire).
 
-Le serveur est déployé durable sur un VPS avec PostgreSQL : les clients s'y connectent en direct.
-Un relay façon T3 Connect (découverte, credentials courte durée, notifications) ne se justifie que
-si des instances Noyau tournent un jour sur des machines personnelles derrière NAT — scénario de
-distribution, pas de v1. Même raisonnement pour les clients natifs : `apps/web` en PWA couvre
-desktop et mobile ; Electron et mobile natif sont différés jusqu'à un besoin réel (bundling d'un
-serveur local, notifications push natives).
+La décision initiale limitait le déploiement à un VPS PostgreSQL servi directement à une PWA.
+L'ADR-0009 remplace cette topologie par deux profils utilisant le même `apps/server` : serveur
+PostgreSQL sur VPS avec client Electron distant, ou serveur local supervisé par Electron avec
+PGlite. Le relay reste différé tant qu'un besoin de découverte ou de traversée de NAT n'est pas
+constaté.

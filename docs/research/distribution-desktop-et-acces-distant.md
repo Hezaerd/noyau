@@ -2,6 +2,11 @@
 
 Date de l'étude : 14 août 2026.
 
+> Statut : étude exploratoire. La décision normative issue de cette recherche est
+> [l'ADR-0009](../adr/0009-deux-profils-meme-serveur-noyau.md) : un même `Noyau Server`, avec un
+> profil distant PostgreSQL + Hermes sur VPS et un profil local géré PGlite + Hermes sur laptop.
+> Les autres topologies comparées ci-dessous restent différées.
+
 ## Question
 
 Peut-on distribuer Noyau comme une application desktop Electron qui se connecte à une instance
@@ -24,20 +29,17 @@ Deux nuances sont importantes :
    ne doit pas parler directement à Hermes, sinon elle contournerait les commandes, permissions,
    receipts, événements et approbations de Noyau.
 
-La trajectoire recommandée est :
+La décision retenue conserve le même contrat client/serveur dans deux profils :
 
-- un serveur headless `noyau serve` sur Bun, supervisé sur le VPS ;
-- une application Electron qui réutilise le renderer React et ne contient aucun état autoritatif ;
-- une connexion directe privée par Tailscale en premier ;
-- une authentification Noyau par appairage et sessions d'appareil, même sur Tailscale ;
-- Cloudflare Tunnel + Access comme option gérée si Tailscale n'est pas souhaité ;
-- aucun relay propriétaire avant qu'un vrai besoin de découverte, NAT ou notifications ne
-  l'impose.
+- distant : Electron se connecte directement via Tailscale à `noyau serve`, PostgreSQL et Hermes sur
+  le VPS ;
+- local géré : Electron supervise sur loopback le même `noyau serve`, seul propriétaire d'une
+  PGlite persistante, ainsi qu'un Hermes local.
 
-Cette conclusion modifie le motif de report formulé dans
-[l'ADR-0004](../adr/0004-serveur-unique-sur-vps-sans-relay.md) : Electron est utile ici comme
-produit desktop et gestionnaire d'environnements distants, pas seulement pour embarquer un serveur
-local. Elle ne justifie toutefois pas encore d'implémenter un relay.
+Cloudflare Tunnel, relay, SSH et Hermes distant restent hors du périmètre initial. Cette décision
+remplace la topologie de distribution de
+[l'ADR-0004](../adr/0004-serveur-unique-sur-vps-sans-relay.md), sans remettre en cause son serveur
+modular monolith.
 
 ## Ce que montre réellement T3 Code
 
@@ -154,11 +156,11 @@ les composants réellement partagés. Electron apporte alors :
 - protocol handler/deep links pour l'appairage ;
 - notifications et intégration desktop ;
 - gestion de plusieurs instances Noyau ;
-- possibilité ultérieure de lancer une instance locale ou un tunnel SSH.
+- supervision de l'instance locale et possibilité ultérieure d'un tunnel SSH.
 
-Il n'est pas nécessaire d'embarquer `noyau serve` dans la première version desktop. Commencer par un
-client distant évite de mélanger cycle de vie desktop, PostgreSQL local, migrations et supervision
-des agents.
+Le desktop doit supporter les deux profils sans bifurquer le renderer : soit il ne lance aucun
+backend et se connecte au VPS, soit son main process supervise `noyau serve` et Hermes localement.
+Même dans ce second cas, Electron ne possède ni la base, ni l'outbox, ni le scheduler.
 
 Le « coffre OS » doit être vérifié par plateforme : `safeStorage` utilise Keychain sur macOS et
 DPAPI sur Windows, mais peut tomber sous Linux sur le backend `basic_text`, que l'application doit
@@ -345,28 +347,28 @@ supporte pas toutes les livraisons asynchrones de certaines intégrations Hermes
 - exposer d'abord sur loopback ;
 - ajouter `noyau pair` et `noyau auth`.
 
-### 3. Valider l'accès distant sans Electron
+### 3. Valider les deux profils sans Electron
 
-- tester le WebSocket Effect RPC via Tailscale Serve ;
+- tester le même Effect RPC sur PostgreSQL via Tailscale Serve et sur PGlite via loopback ;
 - vérifier reconnexion, reprise par curseur, expiration de ticket et révocation d'appareil ;
 - vérifier le handshake de version et la compatibilité entre deux versions desktop/serveur ;
 - mesurer le comportement après redémarrage serveur et coupure réseau.
 
-Cette étape sépare les risques de protocole des risques de packaging desktop.
+Cette étape sépare les risques de stockage et de protocole des risques de packaging desktop.
 
 ### 4. Ajouter le shell Electron
 
 - créer `apps/desktop` seulement quand la frontière précédente est réelle et testée ;
 - packager le renderer existant localement ;
 - implémenter coffre OS, deep link, sélection d'instance et mises à jour ;
-- commencer par un seul transport direct WSS ; ajouter SSH/Tunnel comme stratégies d'accès, pas
-  comme protocoles métier.
+- connecter directement le profil VPS ou superviser le profil local sans raccourci IPC métier.
 
-### 5. Brancher Hermes
+### 5. Brancher Hermes colocalisé
 
 - prototyper `HermesAgentRuntime` contre la Runs API sur loopback ;
 - tester interruption, approbation, perte de stream et reprise ;
-- étendre à une instance Hermes distante via Tailscale seulement après le chemin local.
+- utiliser le même adaptateur quand Noyau et Hermes tournent sur le laptop ou sur le VPS ;
+- différer Hermes sur un hôte distinct.
 
 ### 6. Réévaluer un relay
 
@@ -379,36 +381,30 @@ Ne lancer cette phase que si au moins un besoin mesuré apparaît :
 
 ## Décisions à prendre avant l'implémentation
 
-1. L'application desktop doit-elle supporter uniquement une instance distante, ou aussi lancer un
-   Noyau local à terme ?
-2. Tailscale peut-il être un prérequis assumé pour la première distribution personnelle ?
-3. Un même utilisateur peut-il appairer plusieurs appareils et les révoquer séparément ?
-4. Les projets d'une instance partagent-ils tous une identité de session, avec scopes par projet, ou
+L'ADR-0009 a résolu la topologie : desktop distant et local géré sont tous deux supportés, Tailscale
+sert le profil VPS initial et Hermes est colocalisé. Restent à décider :
+
+1. Un même utilisateur peut-il appairer plusieurs appareils et les révoquer séparément ?
+2. Les projets d'une instance partagent-ils tous une identité de session, avec scopes par projet, ou
    faut-il des appareils limités à certains projets ?
-5. La CLI est-elle distribuée comme binaire Bun, package Bun ou image OCI en premier ?
-6. Hermes sera-t-il toujours colocalisé au début, ou le premier prototype doit-il couvrir aussi un
-   hôte Tailscale distinct ?
+3. La CLI est-elle distribuée comme binaire Bun, package Bun ou image OCI en premier ?
+4. Le profil local s'arrête-t-il avec la fenêtre, reste-t-il dans le tray ou installe-t-il un daemon
+   utilisateur ?
 
 ## Recommandation finale
 
-Adopter le modèle **desktop client + serveur headless**, sans présenter Electron comme un
-remplacement du backend. Le premier produit distribuable devrait être :
+Adopter le modèle **desktop client + même serveur local ou distant**, sans présenter Electron comme
+un remplacement du backend :
 
 ```text
-VPS
-  PostgreSQL
-  noyau serve (loopback, service supervisé)
-  Hermes (loopback)
-  Tailscale Serve
-
-Desktop
-  Tailscale
-  Noyau Electron
-  appairage Noyau révocable
-  Effect RPC sur WSS
+Profil distant                    Profil local géré
+Noyau Desktop                    Noyau Desktop
+  │ WSS / Tailscale                │ WS / loopback
+  v                                v
+noyau serve sur VPS              noyau serve supervisé
+  ├─ PostgreSQL                     ├─ PGlite persistante
+  `─ Hermes                         `─ Hermes
 ```
 
-Cette topologie satisfait le besoin d'usage, reste cohérente avec le control plane durable et
-conserve une migration propre vers SSH, Cloudflare Tunnel ou un relay futur. La seule décision
-d'architecture à réviser immédiatement est l'idée qu'Electron n'aurait de valeur que pour bundler
-un serveur local ; le report du relay, lui, reste justifié.
+Les deux profils utilisent le même protocole, les mêmes règles d'authentification et le même
+parcours fonctionnel. Ils ne synchronisent pas leurs bases et ne chaînent pas deux control planes.

@@ -8,7 +8,7 @@ confirmés avant leur implémentation.
 ## Vision
 
 Noyau est le socle d'un LifeOS personnel permettant de piloter des projets et des agents depuis
-une application web.
+un client React, distribué principalement comme application desktop.
 
 Chaque projet doit disposer :
 
@@ -30,13 +30,17 @@ Hermes est un moteur d'exécution d'agents remplaçable.
 - Vite+ comme toolchain unique : Vite, Rolldown, Vitest, Oxlint, Oxfmt, tsdown et Vite Task
   épinglés ensemble, configurés dans un `vite.config.ts` racine ;
 - Effect autant que pertinent côté serveur et domaine ;
-- PostgreSQL comme source de vérité ;
-- application web React avec Vite et TanStack Router, installable en PWA — elle couvre desktop et
-  mobile pour la v1 ;
+- PostgreSQL comme source de vérité sur VPS ; PGlite persistante comme implémentation embarquée du
+  même dialecte pour le profil local géré ;
+- renderer React avec Vite et TanStack Router dans `apps/web`, partagé entre le navigateur et
+  `Noyau Desktop` ;
+- shell Electron dans `apps/desktop`, introduit seulement lorsque la frontière locale/distance est
+  testée ; il supervise une instance locale ou se connecte directement à une instance distante,
+  sans posséder l'état métier ;
 - serveur unique (`apps/server`) sur le runtime Bun ; frontière client en Effect RPC sur WebSocket
   (ADR-0003) ;
-- Hermes Agent comme premier runtime d'agents, instance locale ou joignable par Tailscale
-  (ADR-0007) ;
+- Hermes Agent comme runtime prioritaire, colocalisé avec le serveur dans les deux profils initiaux ;
+  le port `AgentRuntime` conserve la possibilité d'une instance distante (ADR-0007, ADR-0009) ;
 - n8n comme moteur d'automatisations déterministes ;
 - GitHub comme unique forge (ADR-0006) ;
 - OpenTelemetry pour les traces, métriques et corrélations.
@@ -50,60 +54,58 @@ pas nécessaire de forcer Effect dans l'état local des composants React.
 Noyau doit être construit comme un control plane durable autour de runtimes isolés.
 
 ```text
-                         +----------------------+
-                         |    Web App (PWA)     |
-                         | forum, tickets, diffs|
-                         +----------+-----------+
-                                    |
-                        Effect RPC (WebSocket)
-                                    |
-+--------------+         +----------v-----------+
-|    GitHub    +-------->|     Noyau Server     |
-| webhooks     |         | commandes + policies|
-+--------------+         +------+-------+-------+
-                                |       |
-                     +----------v--+ +--v-------------+
-                     | PostgreSQL | | Workflow Engine |
-                     | état/events| | executions      |
-                     +-------------+ +--+--------------+
-                                       |
-                                +------v-------+
-                                |  Scheduler   |
-                                +------+-------+
-                                       |
-                         +-------------+-------------+
-                         |                           |
-                  +------v-----------+       +-------v----+
-                  | Attempt          |       | n8n Gateway|
-                  | branche/worktree |       | draft/test |
-                  +----+--------+----+       +------------+
-                       |        |
-              +--------v--+  +--v---------+
-              | Hermes Run|  | Hermes Run |
-              | principal |  | auxiliaire |
-              +-----+-----+  +------+-----+
-                    |               |
-             processus/containers isolables
+                    +-----------------------------+
+                    |       Noyau Desktop         |
+                    | renderer React + superviseur|
+                    +--------------+--------------+
+                                   |
+                    Effect RPC (WebSocket)
+                    loopback ou Tailscale Serve
+                                   |
++--------------+       +-----------v------------+
+|    GitHub    +------>|      Noyau Server      |
+| webhooks     |       | commandes + projections|
++--------------+       | outbox + scheduler     |
+                       +---------+---------+
+                                 |
+                  +--------------+--------------+
+                  |                             |
+           +------v-------+              +------v-------+
+           | Store SQL    |              | AgentRuntime |
+           | PG ou PGlite |              | Hermes       |
+           +--------------+              +------+-------+
+                                                |
+                                      Attempt + worktree isolé
 ```
 
 Commencer par un modular monolith : un seul processus serveur — frontière RPC, engine de
-commandes, reactors et scheduler — plus PostgreSQL, Hermes et n8n (ADR-0004). Ne pas introduire
-Kafka, Kubernetes ou une constellation de microservices au début.
+commandes, reactors et scheduler — plus son store SQL, Hermes et n8n (ADR-0004, ADR-0009). Ne pas
+introduire Kafka, Kubernetes ou une constellation de microservices au début.
 
 ## Topologie de déploiement
 
-Le serveur tourne en durable sur un VPS, à côté de PostgreSQL. Hermes tourne sur la même machine
-ou sur un hôte joignable par Tailscale (ADR-0007) — pas de cluster de containers à provisionner.
-Les dépôts projet sont des dépôts GitHub (ADR-0006). Les clients s'y connectent en direct : pas de
-relay, pas d'app desktop, pas d'app mobile native en v1. La web app en PWA couvre desktop et mobile.
+Noyau possède une seule frontière client/serveur et deux profils initiaux (ADR-0009) :
 
-Trois pièces sont volontairement différées au scénario « Noyau distribué à d'autres personnes » :
+1. **Distant** : `Noyau Desktop` charge son renderer local puis se connecte directement, via
+   Tailscale Serve, à `noyau serve` sur un VPS. PostgreSQL et Hermes tournent sur ce VPS.
+2. **Local géré** : Electron lance et supervise le même `noyau serve` sur loopback. Le serveur
+   possède seul une PGlite persistante et un Hermes local. Le renderer utilise exactement le même
+   Effect RPC, l'authentification, les commandes, snapshots et curseurs que dans le profil distant.
 
-- un relay hébergé (découverte d'instances, credentials courte durée, notifications push) — utile
-  seulement quand des serveurs Noyau tournent sur des machines personnelles derrière NAT ;
-- une app desktop Electron — utile seulement si elle doit bundler et piloter un serveur local ;
-- une app mobile native — utile seulement pour les notifications push natives et les Live
-  Activities.
+Chaque serveur local ou distant est une autorité indépendante avec une identité stable et sa propre
+base. Le client peut connaître plusieurs instances, mais Noyau ne synchronise ni ne fédère leurs
+journaux. Dans le profil distant, aucun serveur Noyau local ne sert de proxy.
+
+Sont volontairement différés :
+
+- Noyau local avec Hermes distant ;
+- lancement ou tunnel SSH géré par le desktop ;
+- Cloudflare Tunnel et un relay hébergé ;
+- synchronisation ou migration continue entre une instance locale et une instance distante ;
+- application mobile native.
+
+Les dépôts projet restent des dépôts GitHub (ADR-0006). Le port `AgentRuntime` préserve la
+possibilité future d'un Hermes distant (ADR-0007), sans l'introduire dans les deux profils initiaux.
 
 ## Responsabilités
 
@@ -315,17 +317,20 @@ Chaque commande et événement doit inclure au minimum :
 
 ## Événements et durabilité
 
-PostgreSQL est la source de vérité. Utiliser un journal d'événements append-only et un transactional
-outbox pour publier les effets secondaires sans perdre d'événements.
+Le store SQL possédé par `Noyau Server` est la source de vérité : PostgreSQL dans le profil distant,
+PGlite dans le profil local géré. Les deux utilisent le même journal append-only, les receipts, les
+projections et un transactional outbox pour publier les effets secondaires sans perdre
+d'événements.
 
 La commande enrichie et sa request canonique sont persistées avec leur scope avant décision, dans la
 même transaction que le receipt et les événements éventuels. Un retry identique rend le receipt
 original ; réutiliser un `commandId` avec un autre contenu, projet ou acteur est un conflit.
 
-Les commandes visant le même agrégat sont sérialisées par un verrou PostgreSQL durable et chaque
-événement porte une version d'agrégat unique. Le flux client est ordonné par une position
-transactionnelle propre au projet : un `bigserial` PostgreSQL ne constitue pas un ordre de commit et
-ne doit pas servir de curseur.
+Sur PostgreSQL, les commandes visant le même agrégat sont sérialisées par un verrou de ligne durable.
+En local, l'unique processus propriétaire et l'unique connexion PGlite sérialisent les transactions ;
+PGlite n'est jamais partagée entre processus. Chaque événement porte une version d'agrégat unique.
+Le flux client est ordonné par une position transactionnelle propre au projet : une séquence SQL ne
+constitue pas un ordre de commit et ne doit pas servir de curseur.
 
 Le client lit d'abord un snapshot cohérent avec son `EventCursor`, puis reprend un server stream
 RPC filtré par projet. Le curseur est opaque, versionné et lié au projet. Le flux garantit l'ordre
@@ -340,7 +345,11 @@ Pour un premier déploiement sur un VPS :
 - `LISTEN/NOTIFY` peut accélérer le réveil, mais ne doit jamais être la source de durabilité ;
 - toutes les commandes susceptibles d'être répétées ont une clé d'idempotence.
 
-Prévoir une abstraction `WorkflowEngine`, implémentée dans PostgreSQL : leases avec expiration,
+Dans le profil local, PGlite utilise la durabilité stricte, un chemin de données appartenant à
+l'instance et un seul processus serveur. Les mêmes tests de contrat couvrent les deux stores ; les
+tests de contention multi-connexion restent exécutés sur PostgreSQL réel.
+
+Prévoir une abstraction `WorkflowEngine`, implémentée dans le store SQL : leases avec expiration,
 timers persistés et reprise après crash. Les attentes humaines et inter-agents sont des états de
 l'`Attempt` (`waiting_human`, `waiting_agent`) réveillés par événement, jamais des processus bloqués
 en mémoire. Cette machine à états des tentatives doit donc assumer elle-même retries, timeouts et
@@ -446,8 +455,8 @@ Ticket
 ```
 
 Les artefacts peuvent être des patches, commits, rapports, logs de tests, captures ou fichiers. Les
-gros blobs doivent être placés dans un stockage objet à terme ; PostgreSQL conserve leurs métadonnées
-et sommes de contrôle.
+gros blobs doivent être placés dans un stockage objet à terme ; le store SQL conserve leurs
+métadonnées et sommes de contrôle.
 
 ## Workflows n8n créés par les agents
 
@@ -530,7 +539,8 @@ Invariants :
 
 ```text
 apps/
-  web/       # client web PWA
+  web/       # renderer React partagé
+  desktop/   # shell Electron et supervision de l'instance locale
   server/    # frontière RPC, engine de commandes, reactors, scheduler
 
 packages/
@@ -553,10 +563,9 @@ infra/
 ```
 
 Ne pas créer tous les packages dès le premier commit. Introduire un package lorsqu'une frontière est
-réelle et testée. Le premier socle se limite à `web`, `server`, `domain`, `protocol` et `database`.
-
-Réservés au scénario de distribution, jamais créés en v1 : `infra/relay`, `apps/desktop`,
-`apps/mobile` (ADR-0004).
+réelle et testée. Le socle actuel reste `web`, `server`, `domain`, `protocol` et `database` ;
+`apps/desktop` n'est créé qu'après validation du même parcours RPC contre les profils PostgreSQL et
+PGlite. `infra/relay` et `apps/mobile` restent différés (ADR-0009).
 
 ## Première tranche verticale
 
@@ -580,16 +589,19 @@ Ce scénario doit continuer à fonctionner après le redémarrage du serveur.
 1. Configurations monorepo et conventions TypeScript/Effect.
 2. Schémas `Project`, `Repository`, `Channel`, `Message`, `Ticket`, `Execution`, `Attempt` et
    configuration Kanban.
-3. PostgreSQL, migrations, event log et outbox.
+3. Store SQL, migrations, event log et outbox sur PostgreSQL.
 4. Frontière Effect RPC sur WebSocket : commandes, snapshots et flux d'événements.
 5. Interface projet/channel/tableau Kanban minimale.
-6. Port `AgentRuntime` et adaptateur Hermes (instance locale ou Tailscale) pour un run isolé.
-7. Worktrees, artefacts, interruption et reprise.
-8. Plan structuré par un profil orchestrateur, dépendances de tickets et scheduler d'exécutions.
-9. Questions, rapports et approbations.
-10. Review agent, tests et création de pull request.
-11. Gateway n8n-dev puis promotion contrôlée.
-12. Budgets, traces, évaluations, politiques avancées et hardening.
+6. Entrée `noyau serve`, readiness, appairage, sessions et compatibilité de protocole.
+7. Port `AgentRuntime` et adaptateur Hermes colocalisé pour un run isolé sur VPS.
+8. Profil PGlite persistant soumis aux mêmes migrations et tests de contrat.
+9. `Noyau Desktop` : renderer partagé, connexion distante et supervision du profil local.
+10. Worktrees, artefacts, interruption et reprise.
+11. Plan structuré par un profil orchestrateur, dépendances de tickets et scheduler d'exécutions.
+12. Questions, rapports et approbations.
+13. Review agent, tests et création de pull request.
+14. Gateway n8n-dev puis promotion contrôlée.
+15. Budgets, traces, évaluations, politiques avancées et hardening.
 
 ## Choix encore ouverts
 
@@ -606,7 +618,7 @@ la première tranche verticale et protégé derrière un port lorsque le remplac
 - Lire ce document avant toute modification structurelle.
 - Préserver le modular monolith tant qu'une séparation de déploiement n'est pas nécessaire.
 - Faire passer toute donnée de frontière par un schéma runtime.
-- Ne jamais donner au LLM un accès direct à PostgreSQL, Git, Docker, n8n ou aux secrets.
+- Ne jamais donner au LLM un accès direct au store SQL, Git, Docker, n8n ou aux secrets.
 - Ajouter les invariants métier au domaine, pas uniquement dans les prompts.
 - Écrire les opérations externes de façon idempotente.
 - Ne pas confondre message de forum, contexte de modèle et événement de domaine.

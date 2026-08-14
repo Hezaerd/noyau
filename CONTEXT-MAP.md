@@ -29,7 +29,8 @@ packages/database ──dépend de──> packages/domain ──dépend de──
 - `database` dépend de `domain` et `protocol` ; le driver SQL concret (pg, pglite) est fourni
   par l'app ou le test, jamais par le package.
 - `server` enrichit et exécute les commandes, lit les projections et diffuse les événements ;
-  le driver PostgreSQL concret et l'identité de développement restent à cette frontière.
+  le profil choisit à cette frontière le driver PostgreSQL ou PGlite et l'adaptateur Hermes
+  (ADR-0009).
 - Les apps consomment `protocol` pour les types de frontière ; seul `server` consomme
   `domain` et `database` (les reactors vivent dans le même processus, ADR-0004).
 
