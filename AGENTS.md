@@ -65,6 +65,7 @@ docs/
   adr/                  # Décisions système (quand elles existent)
 
 repos/effect/           # Subtree Effect v4 — lecture seule, jamais importé
+repos/t3code/           # Subtree T3 Code — patterns Effect applicatifs, lecture seule
 .agents/skills/         # Skills Cursor du repo
 
 vite.config.ts          # Config unique fmt / lint / test / staged + tâches Vite Task
@@ -123,13 +124,27 @@ Conventions détaillées : [`.cursor/rules/effect-v4.mdc`](.cursor/rules/effect-
 - Ajouter une entrée catalogue seulement à l'usage réel d'un package Effect.
 - API v4 correspondant à la version pin ; vérifier les signatures dans `repos/effect/` avant toute transposition d'API unstable.
 - Lire `repos/effect/LLMS.md` en premier pour la doc Effect ; **ne jamais modifier ni importer depuis `repos/`**.
-- Sync subtree après bump catalogue :
+- Pour les patterns Effect applicatifs (command → decider → event → projector → reactor, Schema aux
+  frontières, Layers testables), s'inspirer de `repos/t3code/` — en particulier `apps/server` et
+  `packages/contracts`. Lire `repos/t3code/AGENTS.md` et `repos/t3code/docs/internals/` avant
+  d'inventer une architecture parallèle.
+- Sync subtree Effect après bump catalogue :
 
 ```bash
 git subtree pull \
   --prefix=repos/effect \
   https://github.com/Effect-TS/effect.git \
   effect@<version-catalogue> \
+  --squash
+```
+
+Sync subtree t3code :
+
+```bash
+git fetch https://github.com/pingdotgg/t3code.git main:refs/remotes/t3code-upstream/main
+git subtree pull \
+  --prefix=repos/t3code \
+  refs/remotes/t3code-upstream/main \
   --squash
 ```
 
@@ -172,7 +187,7 @@ en `warn` et ne font pas échouer la commande ; les règles de correction sorten
 Vite Task cache `test`, `typecheck` et `build`. `vp run --last-details` explique chaque hit et
 chaque miss ; `vp cache clean` vide le cache quand un résultat paraît faux.
 
-Le subtree `repos/effect/` n'a pas besoin d'être typechecké ni testé par la CI Noyau.
+Les subtrees `repos/effect/` et `repos/t3code/` n'ont pas besoin d'être typecheckés ni testés par la CI Noyau.
 
 Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `DrainableWorker.drain` pour les reactors éphémères. La reprise après crash reste en base.
 
@@ -201,7 +216,7 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 
 Ne pas faire sans instruction explicite de l'humain :
 
-- modifier, committer ou importer depuis `repos/effect/` ;
+- modifier, committer ou importer depuis `repos/effect/` ou `repos/t3code/` ;
 - bump Effect sans sync subtree et sans vérifier les breaking changes beta ;
 - désactiver un diagnostic `@effect/tsgo` ou `--no-verify` sur un hook ;
 - bump `vite-plus` sans vérifier `vp toolchain` contre les versions Oxlint supportées par

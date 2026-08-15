@@ -18,3 +18,6 @@ alwaysApply: false
 - Suivre les diagnostics `@effect/tsgo`; ne pas les désactiver pour contourner un problème de design.
 - Si `repos/effect/` existe, lire `repos/effect/LLMS.md` puis utiliser ce dépôt uniquement comme
   référence en lecture seule. Ne jamais importer du code depuis `repos/`.
+- Pour les patterns Effect dans le code applicatif Noyau (deciders, projectors, reactors, Schema,
+  Layers), s'inspirer de `repos/t3code/` — surtout `apps/server` et `packages/contracts` — sans
+  importer depuis ce subtree.

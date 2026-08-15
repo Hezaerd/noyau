@@ -67,7 +67,7 @@ body:
       description: Boundaries, non-goals, or operations to avoid.
       placeholder: |
         - No new workspace/package
-        - Do not modify `repos/effect/`
+        - Do not modify `repos/effect/` or `repos/t3code/`
         - No Effect catalogue bump
 
   - type: textarea

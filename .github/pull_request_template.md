@@ -22,7 +22,7 @@ Closes #<!-- issue number, or remove -->
 ## Domain / docs
 
 - [ ] CONTEXT.md or ADR updated if the model changed
-- [ ] No changes under `repos/effect/`
+- [ ] No changes under `repos/effect/` or `repos/t3code/` (subtree sync only)
 
 ## UI (if applicable)
 
