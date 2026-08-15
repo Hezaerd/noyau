@@ -6,11 +6,10 @@ import {
   MessageCircleIcon,
   PlusIcon,
   SearchIcon,
-  SettingsIcon,
 } from "lucide-react"
 
+import { AppearanceMenu } from "@/components/AppearanceMenu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import {
   Sidebar,
   SidebarContent,
@@ -39,35 +38,34 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
-      <SidebarHeader className="gap-3 p-3">
-        <div className="flex h-10 items-center gap-2 px-1">
+      <SidebarHeader className="gap-0 p-0">
+        <div
+          className="drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center gap-2 border-b border-sidebar-border/70 px-3"
+          data-desktop-sidebar-titlebar=""
+        >
           <div className="grid size-8 shrink-0 place-items-center rounded-xl bg-sidebar-primary font-semibold text-sidebar-primary-foreground shadow-lg/5">
             N
           </div>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold tracking-[-0.02em]">Noyau</p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Paramètres"
-            className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden"
-          >
-            <SettingsIcon />
-          </Button>
+          <div className="group-data-[collapsible=icon]:hidden">
+            <AppearanceMenu />
+          </div>
         </div>
 
-        <button
-          type="button"
-          className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 px-2.5 text-xs text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
-        >
-          <SearchIcon className="size-3.5 shrink-0" />
-          <span className="group-data-[collapsible=icon]:hidden">Rechercher</span>
-          <kbd className="ml-auto rounded border border-sidebar-border bg-sidebar px-1.5 py-0.5 font-sans text-[0.6rem] group-data-[collapsible=icon]:hidden">
-            ⌘ K
-          </kbd>
-        </button>
+        <div className="p-3">
+          <button
+            type="button"
+            className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 px-2.5 text-xs text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
+          >
+            <SearchIcon className="size-3.5 shrink-0" />
+            <span className="group-data-[collapsible=icon]:hidden">Rechercher</span>
+            <kbd className="ml-auto rounded border border-sidebar-border bg-sidebar px-1.5 py-0.5 font-sans text-[0.6rem] group-data-[collapsible=icon]:hidden">
+              ⌘ K
+            </kbd>
+          </button>
+        </div>
       </SidebarHeader>
 
       <SidebarContent className="px-1">

@@ -2,7 +2,8 @@ import { existsSync, statSync } from "node:fs"
 import { extname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
-import { app, BrowserWindow, net, protocol, session, shell } from "electron"
+import { Effect } from "effect"
+import { app, BrowserWindow, ipcMain, nativeTheme, net, protocol, session, shell } from "electron"
 
 import {
   DESKTOP_HOST,
@@ -11,6 +12,13 @@ import {
   DEVELOPMENT_RENDERER_URL,
   resolveRendererAssetPath,
 } from "./renderer"
+import { SET_THEME_CHANNEL } from "./theme"
+import { decodeAppearancePreference } from "./theme-schema"
+import {
+  getTitleBarOverlayOptions,
+  getWindowBackgroundColor,
+  getWindowTitleBarOptions,
+} from "./window-chrome"
 
 const isDevelopment = process.env.NOYAU_DESKTOP_DEV === "1"
 const isSmokeTest = process.env.NOYAU_DESKTOP_SMOKE_TEST === "1"
@@ -18,6 +26,28 @@ const rendererRoot = join(__dirname, "renderer")
 const preloadPath = join(__dirname, "preload.cjs")
 
 let mainWindow: BrowserWindow | undefined
+
+const syncMainWindowAppearance = (): void => {
+  if (mainWindow === undefined || mainWindow.isDestroyed()) {
+    return
+  }
+
+  const shouldUseDarkColors = nativeTheme.shouldUseDarkColors
+  mainWindow.setBackgroundColor(getWindowBackgroundColor(shouldUseDarkColors))
+  if (process.platform !== "darwin") {
+    mainWindow.setTitleBarOverlay(getTitleBarOverlayOptions(shouldUseDarkColors))
+  }
+}
+
+const registerThemeBridge = (): void => {
+  ipcMain.handle(SET_THEME_CHANNEL, (_event, input) =>
+    Effect.runPromise(decodeAppearancePreference(input)).then((theme) => {
+      nativeTheme.themeSource = theme
+      return undefined
+    }),
+  )
+  nativeTheme.on("updated", syncMainWindowAppearance)
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -104,6 +134,7 @@ const openExternalUrl = (url: string): void => {
 }
 
 const createMainWindow = async (): Promise<void> => {
+  const shouldUseDarkColors = nativeTheme.shouldUseDarkColors
   const window = new BrowserWindow({
     width: 1440,
     height: 960,
@@ -111,8 +142,9 @@ const createMainWindow = async (): Promise<void> => {
     minHeight: 620,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: "#111318",
+    backgroundColor: getWindowBackgroundColor(shouldUseDarkColors),
     title: "Noyau",
+    ...getWindowTitleBarOptions(process.platform, shouldUseDarkColors),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -160,6 +192,7 @@ const createMainWindow = async (): Promise<void> => {
 const launch = async (): Promise<void> => {
   await app.whenReady()
   registerRendererProtocol()
+  registerThemeBridge()
   session.defaultSession.setPermissionCheckHandler(() => false)
   await createMainWindow()
 
@@ -177,7 +210,7 @@ app.on("window-all-closed", () => {
   }
 })
 
-void launch().catch(() => {
-  process.stderr.write("Failed to launch Noyau Desktop.\n")
+void launch().catch((cause) => {
+  process.stderr.write(`Failed to launch Noyau Desktop: ${String(cause)}\n`)
   app.quit()
 })

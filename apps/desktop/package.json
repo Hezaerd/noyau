@@ -11,6 +11,7 @@
     "smoke-test": "bun scripts/smoke-test.mjs"
   },
   "dependencies": {
+    "effect": "catalog:",
     "electron": "43.4.0"
   },
   "devDependencies": {

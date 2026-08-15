@@ -35,7 +35,10 @@ export function RootLayout() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="min-w-0 overflow-hidden">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5">
+        <header
+          className="drag-region sticky top-0 z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
+          data-desktop-page-titlebar=""
+        >
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
           <Separator orientation="vertical" className="h-4" />
           <div className="flex min-w-0 items-center text-sm">
