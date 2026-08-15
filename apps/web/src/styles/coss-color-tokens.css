@@ -1,48 +1,60 @@
 /**
  * Coss UI semantic tokens with the Noyau violet palette.
  *
- * Color values come from the pre-Coss theme; border/input tokens keep Coss
- * alpha-based borders so component rounding and elevation stay unchanged.
+ * Light and dark share the same hue family. Light uses a deeper primary so
+ * actions stay readable on paper; dark keeps the #9b8cff glow. Border/input
+ * tokens stay Coss alpha-based so rounding and elevation stay unchanged.
  *
  * @see https://coss.com/ui/docs/styling
  */
 :root {
-  --background: var(--color-white);
-  --foreground: var(--color-neutral-800);
-  --card: var(--color-white);
-  --card-foreground: var(--color-neutral-800);
-  --popover: var(--color-white);
-  --popover-foreground: var(--color-neutral-800);
-  --primary: var(--color-neutral-800);
-  --primary-foreground: var(--color-neutral-50);
-  --secondary: --alpha(var(--color-black) / 4%);
-  --secondary-foreground: var(--color-neutral-800);
-  --muted: --alpha(var(--color-black) / 4%);
-  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-black));
-  --accent: --alpha(var(--color-black) / 4%);
-  --accent-foreground: var(--color-neutral-800);
-  --destructive: var(--color-red-500);
-  --destructive-foreground: var(--color-red-700);
-  --info: var(--color-blue-500);
-  --info-foreground: var(--color-blue-700);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-700);
-  --warning: var(--color-amber-500);
-  --warning-foreground: var(--color-amber-700);
+  color-scheme: light;
+  --background: #f5f4fb;
+  --foreground: #1c1b26;
+  --card: #ffffff;
+  --card-foreground: #1c1b26;
+  --popover: #ffffff;
+  --popover-foreground: #1c1b26;
+  --primary: #6154e0;
+  --primary-foreground: #f7f5ff;
+  --secondary: #eceaf5;
+  --secondary-foreground: #2a2840;
+  --muted: #efedf6;
+  --muted-foreground: #6a6780;
+  --accent: #e4e0ff;
+  --accent-foreground: #3f3680;
+  --destructive: #e05566;
+  --destructive-foreground: #b12b3c;
+  --info: #5b74f0;
+  --info-foreground: #2f48c4;
+  --success: #3aaa94;
+  --success-foreground: #1d7a68;
+  --warning: #d0893a;
+  --warning-foreground: #9a5a14;
   --border: --alpha(var(--color-black) / 8%);
   --input: --alpha(var(--color-black) / 10%);
-  --ring: var(--color-neutral-400);
-  --sidebar: var(--color-neutral-50);
-  --sidebar-foreground: color-mix(in srgb, var(--color-neutral-800) 64%, var(--sidebar));
-  --sidebar-primary: var(--color-neutral-800);
-  --sidebar-primary-foreground: var(--color-neutral-50);
-  --sidebar-accent: --alpha(var(--color-black) / 4%);
-  --sidebar-accent-foreground: var(--color-neutral-800);
+  --ring: #6154e0;
+  --chart-1: #6154e0;
+  --chart-2: #4d6ef0;
+  --chart-3: #b04ad4;
+  --chart-4: #2f9ab8;
+  --chart-5: #8b5ae8;
+  --code: #efedf6;
+  --code-foreground: #1c1b26;
+  --code-highlight: #e4e1f0;
+  --subtle: #7a778c;
+  --sidebar: #ebe9f4;
+  --sidebar-foreground: #2a2840;
+  --sidebar-primary: #6154e0;
+  --sidebar-primary-foreground: #f7f5ff;
+  --sidebar-accent: #ddd8f2;
+  --sidebar-accent-foreground: #2a2840;
   --sidebar-border: --alpha(var(--color-black) / 6%);
-  --sidebar-ring: var(--color-neutral-400);
+  --sidebar-ring: #6154e0;
 }
 
 .dark {
+  color-scheme: dark;
   --background: #0f0f13;
   --foreground: #ededf2;
   --card: #17171c;

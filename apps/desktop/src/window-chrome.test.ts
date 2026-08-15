@@ -26,11 +26,11 @@ describe("desktop window chrome", () => {
   })
 
   it("adapts the window and native symbols to light appearance", () => {
-    expect(getWindowBackgroundColor(false)).toBe("#ffffff")
+    expect(getWindowBackgroundColor(false)).toBe("#f5f4fb")
     expect(getTitleBarOverlayOptions(false)).toEqual({
       color: "#01000000",
       height: 40,
-      symbolColor: "#1f2937",
+      symbolColor: "#1c1b26",
     })
   })
 })
