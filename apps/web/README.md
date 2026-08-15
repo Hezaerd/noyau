@@ -1,14 +1,15 @@
 # @noyau/web
 
-UI React du LifeOS Noyau : TanStack Router, Tailwind, Vite via la toolchain Vite+.
+Renderer React de Noyau Desktop : TanStack Router, Tailwind, Vite via la toolchain Vite+.
 
 ```bash
-bun run dev:web    # ou vp -C apps/web dev
+bun run dev:desktop
 vp -C apps/web build
 ```
 
-Le workspace racine utilise le vrai control plane. En développement, Vite proxifie le WebSocket
-`/rpc` et les probes `/health` vers `http://127.0.0.1:3001`.
+Ce workspace produit les assets embarqués par `apps/desktop` ; il n'est pas distribué comme
+application web. En développement, Vite écoute uniquement sur `127.0.0.1:5173` et Noyau Desktop le
+sert sous l'origine `noyau://app/`.
 
 ## Control plane
 
@@ -17,7 +18,7 @@ sandbox : l'adaptateur de développement du serveur possède l'acteur courant.
 
 | Variable                | Défaut                                 |
 | ----------------------- | -------------------------------------- |
-| `VITE_NOYAU_RPC_URL`    | origine courante, chemin `/rpc`        |
+| `VITE_NOYAU_RPC_URL`    | `ws://127.0.0.1:3001/rpc`              |
 | `VITE_NOYAU_PROJECT_ID` | `10000000-0000-4000-8000-000000000001` |
 
 Les valeurs sont décodées au démarrage avec les schémas de `@noyau/protocol`.

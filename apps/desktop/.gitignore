@@ -1,0 +1,4 @@
+dist-electron/
+.electron-runtime/
+coverage/
+*.tsbuildinfo
