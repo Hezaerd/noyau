@@ -22,6 +22,7 @@ import {
 
 const isDevelopment = process.env.NOYAU_DESKTOP_DEV === "1"
 const isSmokeTest = process.env.NOYAU_DESKTOP_SMOKE_TEST === "1"
+const appDisplayName = isDevelopment ? "Noyau (Dev)" : "Noyau"
 const rendererRoot = join(__dirname, "renderer")
 const preloadPath = join(__dirname, "preload.cjs")
 
@@ -203,7 +204,8 @@ const launch = async (): Promise<void> => {
   })
 }
 
-app.setName("Noyau")
+app.setName(appDisplayName)
+app.setAboutPanelOptions({ applicationName: appDisplayName })
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit()

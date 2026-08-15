@@ -1,18 +1,11 @@
 import * as NodeChildProcess from "node:child_process"
 import * as NodeFS from "node:fs"
-import * as NodeModule from "node:module"
 import * as NodePath from "node:path"
-import * as NodeURL from "node:url"
 
+import { desktopDir, resolveElectronLaunchCommand } from "./electron-launcher.mjs"
 import { waitForResources } from "./wait-for-resources.mjs"
 
-const require = NodeModule.createRequire(import.meta.url)
-const electronPath = require("electron")
-const desktopDirectory = NodePath.resolve(
-  NodePath.dirname(NodeURL.fileURLToPath(import.meta.url)),
-  "..",
-)
-const bundleDirectory = NodePath.join(desktopDirectory, "dist-electron")
+const bundleDirectory = NodePath.join(desktopDir, "dist-electron")
 const watchedBundles = new Set(["main.cjs", "preload.cjs"])
 const childEnvironment = {
   ...process.env,
@@ -30,7 +23,7 @@ let restartTimer
 let shuttingDown = false
 
 const packProcess = NodeChildProcess.spawn("vp", ["pack", "--watch"], {
-  cwd: desktopDirectory,
+  cwd: desktopDir,
   env: process.env,
   stdio: "inherit",
 })
@@ -40,8 +33,9 @@ const startElectron = () => {
     return
   }
 
-  electronProcess = NodeChildProcess.spawn(electronPath, electronArguments, {
-    cwd: desktopDirectory,
+  const launch = resolveElectronLaunchCommand(electronArguments, true)
+  electronProcess = NodeChildProcess.spawn(launch.electronPath, launch.args, {
+    cwd: desktopDir,
     env: childEnvironment,
     stdio: "inherit",
   })
@@ -94,7 +88,7 @@ packProcess.once("exit", (code) => {
 })
 
 await waitForResources({
-  baseDirectory: desktopDirectory,
+  baseDirectory: desktopDir,
   files: ["dist-electron/main.cjs", "dist-electron/preload.cjs"],
   host: "127.0.0.1",
   port: 5173,
