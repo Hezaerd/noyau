@@ -83,8 +83,8 @@ const fetchProductionRenderer = async (requestUrl: URL): Promise<Response> => {
   return withSecurityHeaders(response)
 }
 
-const registerRendererProtocol = async (): Promise<void> => {
-  await protocol.handle(DESKTOP_SCHEME, (request) => {
+const registerRendererProtocol = (): void => {
+  protocol.handle(DESKTOP_SCHEME, (request) => {
     const requestUrl = new URL(request.url)
     if (requestUrl.host !== DESKTOP_HOST) {
       return new Response(null, { status: 404 })
@@ -159,7 +159,7 @@ const createMainWindow = async (): Promise<void> => {
 
 const launch = async (): Promise<void> => {
   await app.whenReady()
-  await registerRendererProtocol()
+  registerRendererProtocol()
   session.defaultSession.setPermissionCheckHandler(() => false)
   await createMainWindow()
 
@@ -177,7 +177,7 @@ app.on("window-all-closed", () => {
   }
 })
 
-void launch().catch((error: unknown) => {
-  process.stderr.write(`Failed to launch Noyau Desktop: ${String(error)}\n`)
+void launch().catch(() => {
+  process.stderr.write("Failed to launch Noyau Desktop.\n")
   app.quit()
 })

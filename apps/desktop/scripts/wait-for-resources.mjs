@@ -35,17 +35,23 @@ export const waitForResources = async ({
 }) => {
   const startedAt = Date.now()
 
-  while (Date.now() - startedAt < timeoutMs) {
-    const filesReady = await Promise.all(
-      files.map((file) => fileExists(NodePath.resolve(baseDirectory, file))),
-    )
-    if (filesReady.every(Boolean) && (await tcpPortIsReady(host, port))) {
+  const waitUntilReady = async () => {
+    const [filesReady, portReady] = await Promise.all([
+      Promise.all(files.map((file) => fileExists(NodePath.resolve(baseDirectory, file)))),
+      tcpPortIsReady(host, port),
+    ])
+    if (filesReady.every(Boolean) && portReady) {
       return
     }
+    if (Date.now() - startedAt >= timeoutMs) {
+      throw new Error(
+        `Timed out waiting for desktop resources: ${files.join(", ")}, tcp:${host}:${port}`,
+      )
+    }
+
     await NodeTimers.setTimeout(100)
+    return waitUntilReady()
   }
 
-  throw new Error(
-    `Timed out waiting for desktop resources: ${files.join(", ")}, tcp:${host}:${port}`,
-  )
+  await waitUntilReady()
 }
