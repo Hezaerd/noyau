@@ -5,9 +5,7 @@
   "type": "module",
   "exports": {
     "./board/decider": "./src/board/decider.ts",
-    "./board/projector": "./src/board/projector.ts",
-    "./task/decider": "./src/task/decider.ts",
-    "./task/projector": "./src/task/projector.ts"
+    "./board/projector": "./src/board/projector.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

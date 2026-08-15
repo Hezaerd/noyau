@@ -57,8 +57,7 @@ package manager, à la version du champ `packageManager`.
 
 ```bash
 docker compose -f infra/compose/docker-compose.yml up -d postgres
-NOYAU_ENV=development \
-DATABASE_URL=postgresql://noyau:noyau@localhost:5432/noyau \
+cp .env.example .env   # optionnel — les valeurs par défaut conviennent au compose local
 bun run dev:server
 ```
 

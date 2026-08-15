@@ -1,4 +1,5 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import { Schema } from "effect"
 
 export interface BoardColumn {
   readonly id: string
@@ -13,6 +14,7 @@ export interface BoardActor {
   readonly initials: string
   readonly role: string
   readonly kind: "human" | "agent"
+  readonly profileId?: string
 }
 
 export type TicketAttention = "blocked" | "question" | "approval" | "failure"
@@ -100,21 +102,40 @@ export const priorities = ["none", "low", "normal", "high", "urgent"] as const
 export const isTicketPriority = (value: string): value is TicketPriority =>
   priorities.some((priority) => priority === value)
 
-const asOptionalString = (value: unknown): string | undefined =>
-  typeof value === "string" && value.trim() !== "" ? value : undefined
+const BoardSearchInput = Schema.Struct({
+  ticket: Schema.optionalKey(Schema.String),
+  q: Schema.optionalKey(Schema.String),
+  assignee: Schema.optionalKey(Schema.String),
+  priority: Schema.optionalKey(Schema.String),
+})
 
-export const parseBoardSearch = (search: Record<string, unknown>): BoardSearch => {
-  const ticket = asOptionalString(search.ticket)
-  const query = asOptionalString(search.q)
-  const assignee = asOptionalString(search.assignee)
-  const priority = asOptionalString(search.priority)
+type BoardSearchParams = Record<string, string | undefined>
 
-  return {
-    ...(ticket === undefined ? {} : { ticket }),
-    ...(query === undefined ? {} : { q: query }),
-    ...(assignee === undefined ? {} : { assignee }),
-    ...(priority !== undefined && isTicketPriority(priority) ? { priority } : {}),
+const decodeBoardSearchInput = Schema.decodeUnknownSync(BoardSearchInput)
+
+const trimmedOptional = (value: string | undefined): string | undefined =>
+  value !== undefined && value.trim() !== "" ? value : undefined
+
+export const parseBoardSearch = (search: BoardSearchParams): BoardSearch => {
+  const decoded = decodeBoardSearchInput(search)
+  const result = {}
+  const ticket = trimmedOptional(decoded.ticket)
+  if (ticket !== undefined) {
+    Object.assign(result, { ticket })
   }
+  const query = trimmedOptional(decoded.q)
+  if (query !== undefined) {
+    Object.assign(result, { q: query })
+  }
+  const assignee = trimmedOptional(decoded.assignee)
+  if (assignee !== undefined) {
+    Object.assign(result, { assignee })
+  }
+  const priority = trimmedOptional(decoded.priority)
+  if (priority !== undefined && isTicketPriority(priority)) {
+    Object.assign(result, { priority })
+  }
+  return result
 }
 
 export const isFiltered = (filters: BoardFilters): boolean =>
@@ -407,23 +428,44 @@ export const addColumn = (state: BoardState, name: string, id: string): BoardSta
   const column: BoardColumn = {
     id,
     name: name.trim(),
-    color: "#A855F7",
+    color: "#a3a3a3",
     done: false,
   }
   return { ...state, columns: state.columns.toSpliced(insertionIndex, 0, column) }
 }
 
-const actors: ReadonlyArray<BoardActor> = [
+export const boardActors: ReadonlyArray<BoardActor> = [
   { id: "human:hezaerd", name: "Hezaerd", initials: "HZ", role: "Propriétaire", kind: "human" },
-  { id: "agent:marion", name: "Marion", initials: "MA", role: "Orchestration", kind: "agent" },
-  { id: "agent:claude", name: "Claude", initials: "CL", role: "Développement", kind: "agent" },
-  { id: "agent:reviewer", name: "Reviewer", initials: "RV", role: "Revue", kind: "agent" },
+  {
+    id: "agent:marion",
+    name: "Marion",
+    initials: "MA",
+    role: "Orchestration",
+    kind: "agent",
+    profileId: "71000000-0000-4000-8000-000000000001",
+  },
+  {
+    id: "agent:claude",
+    name: "Claude",
+    initials: "CL",
+    role: "Développement",
+    kind: "agent",
+    profileId: "71000000-0000-4000-8000-000000000002",
+  },
+  {
+    id: "agent:reviewer",
+    name: "Reviewer",
+    initials: "RV",
+    role: "Revue",
+    kind: "agent",
+    profileId: "71000000-0000-4000-8000-000000000003",
+  },
 ]
 
 export const initialBoardState: BoardState = {
-  actors,
+  actors: boardActors,
   columns: [
-    { id: "column-backlog", name: "Backlog", color: "#6D5BD0", done: false },
+    { id: "column-backlog", name: "Backlog", color: "#a3a3a3", done: false },
     { id: "column-active", name: "En cours", color: "#3B82F6", done: false },
     { id: "column-done", name: "Done", color: "#10B981", done: true },
   ],

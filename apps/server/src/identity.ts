@@ -1,6 +1,7 @@
-import { CurrentActor, MissingIdentity, NoyauIdentity } from "@noyau/protocol/control-plane"
+import { CurrentActor, MissingIdentity } from "@noyau/protocol/errors"
 import { ActorId } from "@noyau/protocol/ids"
-import { Effect, Layer, Redacted, Schema } from "effect"
+import { NoyauRpcIdentity } from "@noyau/protocol/rpc"
+import { Effect, Layer, Schema } from "effect"
 
 import { ServerConfig } from "./config"
 
@@ -13,11 +14,12 @@ export class DevIdentityEnvironmentError extends Schema.TaggedError<DevIdentityE
 
 const decodeActorId = Schema.decodeUnknownEffect(ActorId)
 
-export const decodeDevActorCredential = (credential: Redacted.Redacted) =>
-  decodeActorId(Redacted.value(credential)).pipe(Effect.mapError(() => new MissingIdentity()))
+export const decodeDevActorId = (actorId: string) =>
+  decodeActorId(actorId).pipe(Effect.mapError(() => new MissingIdentity()))
 
+/** Identité de développement possédée par le serveur RPC. */
 export const devIdentityLayer = Layer.effect(
-  NoyauIdentity,
+  NoyauRpcIdentity,
   Effect.gen(function* () {
     const config = yield* ServerConfig
     if (config.environment === "production") {
@@ -25,12 +27,8 @@ export const devIdentityLayer = Layer.effect(
         environment: "production",
       })
     }
+    const actorId = yield* decodeDevActorId(config.devActorId ?? "human:developer")
 
-    return NoyauIdentity.of({
-      actorId: (httpEffect, { credential }) =>
-        decodeDevActorCredential(credential).pipe(
-          Effect.flatMap((actorId) => Effect.provideService(httpEffect, CurrentActor, actorId)),
-        ),
-    })
+    return NoyauRpcIdentity.of((effect) => Effect.provideService(effect, CurrentActor, actorId))
   }),
 )

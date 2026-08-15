@@ -1,7 +1,9 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import { format, isValid, parseISO } from "date-fns"
 import {
   ActivityIcon,
   BotIcon,
+  CalendarIcon,
   CheckCircleIcon,
   ChevronDownIcon,
   CircleIcon,
@@ -16,6 +18,7 @@ import { useEffect, useState, type FormEvent } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
   DialogClose,
@@ -27,6 +30,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverClose, PopoverPopup, PopoverTrigger } from "@/components/ui/popover"
 import {
   Select,
   SelectGroup,
@@ -53,20 +57,29 @@ import {
   type BoardTicketPatch,
 } from "@/lib/board-model"
 
-const priorityLabels: Record<TicketPriority, string> = {
+const priorityLabels = {
   none: "Aucune",
   low: "Basse",
   normal: "Normale",
   high: "Haute",
   urgent: "Urgente",
-}
+} satisfies Record<TicketPriority, string>
 
-const priorityDots: Record<TicketPriority, string> = {
-  none: "bg-zinc-500",
-  low: "bg-sky-400",
-  normal: "bg-violet-400",
-  high: "bg-amber-400",
-  urgent: "bg-rose-400",
+const priorityDots = {
+  none: "bg-muted-foreground",
+  low: "bg-info",
+  normal: "bg-primary",
+  high: "bg-warning",
+  urgent: "bg-destructive",
+} satisfies Record<TicketPriority, string>
+
+const parseTicketDueDate = (dueAt: string | undefined): Date | undefined => {
+  if (dueAt === undefined) {
+    return undefined
+  }
+
+  const date = parseISO(dueAt.slice(0, 10))
+  return isValid(date) ? date : undefined
 }
 
 interface TicketSheetProps {
@@ -75,7 +88,10 @@ interface TicketSheetProps {
   readonly onClose: () => void
   readonly onUpdate: (ticketId: string, patch: BoardTicketPatch) => void
   readonly onToggleChecklist: (ticketId: string, itemId: string) => void
-  readonly onStartExecution: (ticketId: string, profile: string) => void
+  readonly onStartExecution: (
+    ticketId: string,
+    input: { readonly profileId: string; readonly profileName: string; readonly outcome: string },
+  ) => void
   readonly onReply: (ticketId: string, message: string) => void
 }
 
@@ -84,24 +100,34 @@ interface ExecutionDialogProps {
   readonly actors: ReadonlyArray<BoardActor>
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
-  readonly onStart: (profile: string) => void
+  readonly onStart: (input: {
+    readonly profileId: string
+    readonly profileName: string
+    readonly outcome: string
+  }) => void
 }
 
 function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: ExecutionDialogProps) {
   const agentProfiles = actors.filter((actor) => actor.kind === "agent")
-  const agentOptions = agentProfiles.map((actor) => ({
-    value: actor.name,
-    label: `${actor.name} · ${actor.role}`,
-  }))
-  const [profile, setProfile] = useState(agentProfiles[0]?.name ?? "")
+  const agentOptions = agentProfiles.flatMap((actor) =>
+    actor.profileId === undefined
+      ? []
+      : [{ value: actor.profileId, label: `${actor.name} · ${actor.role}` }],
+  )
+  const [profileId, setProfileId] = useState(agentOptions[0]?.value ?? "")
   const [outcome, setOutcome] = useState("")
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (outcome.trim() === "" || profile === "") {
+    const profile = agentProfiles.find((actor) => actor.profileId === profileId)
+    if (outcome.trim() === "" || profile === undefined || profile.profileId === undefined) {
       return
     }
-    onStart(profile)
+    onStart({
+      profileId: profile.profileId,
+      profileName: profile.name,
+      outcome: outcome.trim(),
+    })
     setOutcome("")
     onOpenChange(false)
   }
@@ -134,8 +160,8 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
                 <Label htmlFor="execution-profile">Profil d’agent</Label>
                 <Select
                   items={agentOptions}
-                  value={profile}
-                  onValueChange={(value) => setProfile(value ?? "")}
+                  value={profileId}
+                  onValueChange={(value) => setProfileId(value ?? "")}
                 >
                   <SelectTrigger id="execution-profile" className="w-full">
                     <SelectValue />
@@ -176,7 +202,7 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
 
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="ghost" />}>Annuler</DialogClose>
-            <Button type="submit" disabled={outcome.trim() === "" || profile === ""}>
+            <Button type="submit" disabled={outcome.trim() === "" || profileId === ""}>
               <PlayIcon />
               Lancer une exécution
             </Button>
@@ -201,11 +227,13 @@ export function TicketSheet({
   const [editingDescription, setEditingDescription] = useState(false)
   const [executionOpen, setExecutionOpen] = useState(false)
   const [reply, setReply] = useState("")
+  const [dueDateOpen, setDueDateOpen] = useState(false)
 
   useEffect(() => {
     setTitle(ticket?.title ?? "")
     setDescription(ticket?.description ?? "")
     setEditingDescription(false)
+    setDueDateOpen(false)
   }, [ticket])
 
   const saveTitle = () => {
@@ -247,6 +275,18 @@ export function TicketSheet({
     value: priority,
     label: priorityLabels[priority],
   }))
+  const dueDate = parseTicketDueDate(ticket?.dueAt)
+
+  const updateDueDate = (date: Date | undefined) => {
+    if (ticket === undefined) {
+      return
+    }
+
+    onUpdate(ticket.id, {
+      dueAt: date === undefined ? undefined : `${format(date, "yyyy-MM-dd")}T17:00:00.000Z`,
+    })
+    setDueDateOpen(false)
+  }
 
   return (
     <>
@@ -267,7 +307,7 @@ export function TicketSheet({
                     NOY-{ticket.id.replace("ticket-", "").slice(0, 4).toLocaleUpperCase("fr")}
                   </Badge>
                   {ticket.attention === undefined ? null : (
-                    <Badge className="rounded-full bg-amber-500/12 text-[0.62rem] text-amber-300">
+                    <Badge className="rounded-full bg-warning/12 text-[0.62rem] text-warning-foreground">
                       {ticket.attention === "blocked"
                         ? "Bloqué"
                         : ticket.attention === "question"
@@ -386,19 +426,46 @@ export function TicketSheet({
                         >
                           Échéance
                         </Label>
-                        <Input
-                          id="ticket-due-at"
-                          type="date"
-                          value={ticket.dueAt?.slice(0, 10) ?? ""}
-                          onChange={(event) =>
-                            onUpdate(ticket.id, {
-                              dueAt:
-                                event.target.value === ""
-                                  ? undefined
-                                  : `${event.target.value}T17:00:00.000Z`,
-                            })
-                          }
-                        />
+                        <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
+                          <PopoverTrigger
+                            id="ticket-due-at"
+                            aria-label="Sélectionner une échéance"
+                            render={
+                              <Button
+                                className="w-full justify-start text-left font-normal"
+                                variant="outline"
+                              />
+                            }
+                          >
+                            <CalendarIcon aria-hidden="true" />
+                            {dueDate === undefined ? (
+                              <span className="text-muted-foreground">Aucune date</span>
+                            ) : (
+                              format(dueDate, "dd/MM/yyyy")
+                            )}
+                          </PopoverTrigger>
+                          <PopoverPopup align="start" className="w-auto p-0">
+                            <div className="flex items-center justify-between border-b px-3 py-2">
+                              <span className="text-xs font-medium">Échéance</span>
+                              <PopoverClose
+                                disabled={dueDate === undefined}
+                                onClick={() => updateDueDate(undefined)}
+                                render={
+                                  <Button size="xs" variant="ghost">
+                                    Effacer
+                                  </Button>
+                                }
+                              />
+                            </div>
+                            <Calendar
+                              mode="single"
+                              onSelect={updateDueDate}
+                              {...(dueDate === undefined
+                                ? {}
+                                : { defaultMonth: dueDate, selected: dueDate })}
+                            />
+                          </PopoverPopup>
+                        </Popover>
                       </div>
                     </div>
 
@@ -487,7 +554,7 @@ export function TicketSheet({
                             className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/45"
                           >
                             {item.done ? (
-                              <CheckCircleIcon className="size-4 shrink-0 text-emerald-400" />
+                              <CheckCircleIcon className="size-4 shrink-0 text-success" />
                             ) : (
                               <CircleIcon className="size-4 shrink-0 text-muted-foreground" />
                             )}
@@ -549,8 +616,8 @@ export function TicketSheet({
                       <div className="rounded-xl border bg-muted/25 p-4">
                         <div className="flex items-center gap-3">
                           <span className="relative flex size-2">
-                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-violet-400 opacity-40" />
-                            <span className="relative inline-flex size-2 rounded-full bg-violet-400" />
+                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-40" />
+                            <span className="relative inline-flex size-2 rounded-full bg-primary" />
                           </span>
                           <div>
                             <p className="text-sm font-medium">
@@ -689,7 +756,7 @@ export function TicketSheet({
           actors={actors}
           open={executionOpen}
           onOpenChange={setExecutionOpen}
-          onStart={(profile) => onStartExecution(ticket.id, profile)}
+          onStart={(input) => onStartExecution(ticket.id, input)}
         />
       )}
     </>

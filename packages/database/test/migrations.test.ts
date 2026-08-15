@@ -4,6 +4,7 @@ import {
   durableCommandJournalMigration,
   initMigration,
   kanbanTicketMigration,
+  removeLegacyTaskMigration,
 } from "@noyau/database/migrations"
 import { Effect, Exit } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
@@ -57,7 +58,7 @@ const insertTicket = (fixture: TicketFixture) =>
 
 describe("migrations", () => {
   layer(PgliteClient.layer({}), { timeout: "30 seconds" })((it) => {
-    it.effect("backfill les versions et positions d'un journal existant", () =>
+    it.effect("backfill puis supprime le journal Task historique", () =>
       Effect.gen(function* () {
         yield* initMigration
         const sql = yield* SqlClient
@@ -204,6 +205,20 @@ describe("migrations", () => {
           ORDER BY table_name
         `
         assert.strictEqual(projectionTables.length, 9)
+
+        yield* removeLegacyTaskMigration
+        const legacyTables = yield* sql<{ total: number }>`
+          SELECT count(*)::int AS total
+          FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'tasks'
+        `
+        const legacyEvents = yield* sql<{ total: number }>`
+          SELECT count(*)::int AS total
+          FROM events
+          WHERE aggregate_type = 'task'
+        `
+        assert.strictEqual(legacyTables[0]?.total, 0)
+        assert.strictEqual(legacyEvents[0]?.total, 0)
       }),
     )
   })

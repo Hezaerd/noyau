@@ -373,10 +373,44 @@ export const kanbanTicketMigration = Effect.gen(function* () {
   `
 })
 
+/** Supprime définitivement le modèle Task/Mission et son historique technique. */
+export const removeLegacyTaskMigration = Effect.gen(function* () {
+  const sql = yield* SqlClient
+
+  yield* sql`
+    DELETE FROM outbox
+    WHERE event_sequence IN (
+      SELECT sequence FROM events WHERE aggregate_type = 'task'
+    )
+  `
+  yield* sql`
+    DELETE FROM receipts
+    WHERE command_id IN (
+      SELECT command_id
+      FROM commands
+      WHERE command ->> '_tag' LIKE 'task.%'
+    )
+  `
+  yield* sql`
+    DELETE FROM commands
+    WHERE command ->> '_tag' LIKE 'task.%'
+  `
+  yield* sql`
+    DELETE FROM events
+    WHERE aggregate_type = 'task'
+  `
+  yield* sql`
+    DELETE FROM aggregate_heads
+    WHERE aggregate_type = 'task'
+  `
+  yield* sql`DROP TABLE tasks`
+})
+
 export const migrations: Migrator.Loader = Migrator.fromRecord({
   "1_init": initMigration,
   "2_durable_command_journal": durableCommandJournalMigration,
   "3_kanban_ticket": kanbanTicketMigration,
+  "4_remove_legacy_task": removeLegacyTaskMigration,
 })
 
 /** Applique les migrations en attente avec le `SqlClient` du contexte. */

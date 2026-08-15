@@ -43,7 +43,7 @@ const initialMessages: ReadonlyArray<ChannelMessage> = [
     role: "Développement",
     time: "09:24",
     body: "La première tâche est en cours. J’ai ajouté le verrou de projection et un test qui rejoue deux événements livrés au moins une fois.",
-    tone: "bg-violet-500/15 text-violet-300",
+    tone: "bg-info/15 text-info-foreground",
     agent: true,
   },
   {
@@ -53,7 +53,7 @@ const initialMessages: ReadonlyArray<ChannelMessage> = [
     role: "Humain",
     time: "09:31",
     body: "Garde le transport hors du domaine. La reprise doit rester un détail de la frontière RPC.",
-    tone: "bg-fuchsia-500/15 text-fuchsia-300",
+    tone: "bg-secondary text-secondary-foreground",
     agent: false,
   },
   {
@@ -63,7 +63,7 @@ const initialMessages: ReadonlyArray<ChannelMessage> = [
     role: "Revue",
     time: "10:02",
     body: "Compris. Je vérifierai aussi qu’aucun offset PostgreSQL n’est exposé au client dans le nouveau contrat.",
-    tone: "bg-indigo-500/15 text-indigo-300",
+    tone: "bg-success/15 text-success-foreground",
     agent: true,
   },
 ]
@@ -88,7 +88,7 @@ export function ChannelPage() {
         role: "Humain",
         time: "maintenant",
         body,
-        tone: "bg-fuchsia-500/15 text-fuchsia-300",
+        tone: "bg-secondary text-secondary-foreground",
         agent: false,
       },
     ])
@@ -108,7 +108,7 @@ export function ChannelPage() {
                 <h2 className="truncate text-lg font-semibold tracking-[-0.025em]">noyau</h2>
                 <Badge
                   variant="outline"
-                  className="rounded-full border-violet-500/25 bg-violet-500/10 text-[0.62rem] text-violet-300"
+                  className="rounded-full border-info/25 bg-info/10 text-[0.62rem] text-info-foreground"
                 >
                   3 agents actifs
                 </Badge>
@@ -158,7 +158,7 @@ export function ChannelPage() {
         <div className="sticky bottom-0 z-10 bg-background/92 pt-3 pb-5 backdrop-blur-xl">
           <form
             onSubmit={submit}
-            className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_14px_44px_rgba(61,42,138,0.2)] focus-within:border-ring/60 focus-within:ring-3 focus-within:ring-ring/10"
+            className="overflow-hidden rounded-2xl border border-border bg-card shadow-lg/5 focus-within:border-ring/60 focus-within:ring-3 focus-within:ring-ring/10"
           >
             <Textarea
               value={draft}

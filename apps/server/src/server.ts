@@ -1,15 +1,15 @@
 import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
 import * as PgClient from "@effect/sql-pg/PgClient"
 import { runMigrations } from "@noyau/database/migrations"
-import { ControlPlaneApi } from "@noyau/protocol/control-plane"
+import { ControlPlaneRpcs } from "@noyau/protocol/rpc"
 import { Context, Effect, Layer } from "effect"
-import { HttpRouter, HttpServer } from "effect/unstable/http"
-import { HttpApiBuilder, HttpApiScalar } from "effect/unstable/httpapi"
+import { HttpRouter, HttpServer, HttpServerResponse } from "effect/unstable/http"
+import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
+import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { ServerConfig, serverConfigLayer } from "./config"
-import { healthHandlersLayer, projectHandlersLayer } from "./handlers"
 import { devIdentityLayer } from "./identity"
-import { requestSchemaErrorsLayer } from "./request-errors"
+import { rpcHandlersLayer } from "./rpc-handlers"
 
 export class MigrationsReady extends Context.Service<
   MigrationsReady,
@@ -35,20 +35,33 @@ export const migrationsReadyLayer = Layer.effect(
   ),
 )
 
-const docsLayer = Layer.unwrap(
-  Effect.map(ServerConfig, (config) =>
-    config.environment === "development" ? HttpApiScalar.layer(ControlPlaneApi) : Layer.empty,
+const readiness = Effect.gen(function* () {
+  const sql = yield* SqlClient
+  yield* sql`SELECT 1`
+  return HttpServerResponse.jsonUnsafe({ status: "ready" })
+}).pipe(
+  Effect.catchTag("SqlError", (error) =>
+    Effect.logError("PostgreSQL readiness check failed", error).pipe(
+      Effect.as(HttpServerResponse.jsonUnsafe({ status: "unavailable" }, { status: 503 })),
+    ),
   ),
 )
 
-const apiLayer = HttpApiBuilder.layer(ControlPlaneApi).pipe(
-  Layer.provide(projectHandlersLayer),
-  Layer.provide(healthHandlersLayer),
-  Layer.provide(devIdentityLayer),
-  Layer.provide(requestSchemaErrorsLayer),
+const healthLayer = Layer.mergeAll(
+  HttpRouter.add("GET", "/health/live", HttpServerResponse.jsonUnsafe({ status: "live" })),
+  HttpRouter.add("GET", "/health/ready", readiness),
 )
 
-export const serverRoutesLayer = Layer.mergeAll(apiLayer, docsLayer)
+const rpcLayer = RpcServer.layerHttp({
+  group: ControlPlaneRpcs,
+  path: "/rpc",
+}).pipe(
+  Layer.provide(rpcHandlersLayer),
+  Layer.provide(devIdentityLayer),
+  Layer.provide(RpcSerialization.layerNdjson),
+)
+
+export const serverRoutesLayer = Layer.mergeAll(healthLayer, rpcLayer)
 
 export const bunServerLayer = Layer.mergeAll(
   Layer.effect(

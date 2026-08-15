@@ -1,8 +1,8 @@
 import { assert, describe, it } from "@effect/vitest"
-import { MissingIdentity } from "@noyau/protocol/control-plane"
+import { MissingIdentity } from "@noyau/protocol/errors"
 import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
 import {
-  decodeDevActorCredential,
+  decodeDevActorId,
   DevIdentityEnvironmentError,
   devIdentityLayer,
 } from "@noyau/server/identity"
@@ -14,6 +14,7 @@ const config = (environment: ServerConfigValue["environment"]): ServerConfigValu
   host: "127.0.0.1",
   port: 3001,
   eventPollInterval: 1,
+  devActorId: "human:hezaerd",
 })
 
 const identityLayer = (environment: ServerConfigValue["environment"]) =>
@@ -22,16 +23,13 @@ const identityLayer = (environment: ServerConfigValue["environment"]) =>
 describe("DevIdentity", () => {
   it.effect("provides a decoded actor id", () =>
     Effect.gen(function* () {
-      assert.strictEqual(
-        yield* decodeDevActorCredential(Redacted.make("human:hezaerd")),
-        "human:hezaerd",
-      )
+      assert.strictEqual(yield* decodeDevActorId("human:hezaerd"), "human:hezaerd")
     }),
   )
 
-  it.effect("rejects a missing or invalid header", () =>
+  it.effect("rejects an invalid configured actor", () =>
     Effect.gen(function* () {
-      const missing = yield* decodeDevActorCredential(Redacted.make("")).pipe(Effect.flip)
+      const missing = yield* decodeDevActorId("").pipe(Effect.flip)
       assert.instanceOf(missing, MissingIdentity)
     }),
   )

@@ -1,12 +1,16 @@
-import type { TaskCommandRequest } from "@noyau/protocol/commands"
-import { ControlPlaneApi, NoyauIdentity } from "@noyau/protocol/control-plane"
-import type { TaskId } from "@noyau/protocol/ids"
-import { Cause, Context, Crypto, Effect, Exit, Layer, ManagedRuntime } from "effect"
-import { FetchHttpClient, HttpClientRequest } from "effect/unstable/http"
-import { HttpApiClient, HttpApiMiddleware } from "effect/unstable/httpapi"
+import type { BoardSnapshot, EventCursor } from "@noyau/protocol/board"
+import type { Execution } from "@noyau/protocol/entities/execution"
+import type { ProjectId } from "@noyau/protocol/ids"
+import type { TicketReceipt } from "@noyau/protocol/receipts"
+import { ControlPlaneRpcs, type ProjectEvent } from "@noyau/protocol/rpc"
+import type { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
+import { Cause, Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Stream } from "effect"
+import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
+import type { RpcClientError } from "effect/unstable/rpc/RpcClientError"
+import type * as RpcGroup from "effect/unstable/rpc/RpcGroup"
+import { Socket } from "effect/unstable/socket"
 
-import { sandboxConfig, type SandboxConfig } from "./sandbox-config"
-import { buildTaskAssignRequest, buildTaskCreateRequest, type TaskDraft } from "./task-commands"
+import { controlPlaneConfig, type ControlPlaneConfig } from "./control-plane-config"
 
 export type ControlPlaneResult<A> =
   | { readonly ok: true; readonly value: A }
@@ -14,17 +18,17 @@ export type ControlPlaneResult<A> =
 
 class ControlPlaneClient extends Context.Service<
   ControlPlaneClient,
-  HttpApiClient.ForApi<typeof ControlPlaneApi>
+  RpcClient.RpcClient<RpcGroup.Rpcs<typeof ControlPlaneRpcs>, RpcClientError>
 >()("@noyau/web/ControlPlaneClient") {
-  static layer(config: SandboxConfig) {
-    const identityLayer = HttpApiMiddleware.layerClient(NoyauIdentity, ({ next, request }) =>
-      next(HttpClientRequest.setHeader(request, "x-noyau-actor-id", config.actorId)),
+  static layer(config: ControlPlaneConfig) {
+    const socketLayer = Layer.effect(Socket.Socket, Socket.makeWebSocket(config.rpcUrl)).pipe(
+      Layer.provide(Socket.layerWebSocketConstructorGlobal),
     )
-    const options = config.apiBaseUrl === "" ? {} : { baseUrl: config.apiBaseUrl }
 
-    return Layer.effect(ControlPlaneClient, HttpApiClient.make(ControlPlaneApi, options)).pipe(
-      Layer.provide(identityLayer),
-      Layer.provide(FetchHttpClient.layer),
+    return Layer.effect(ControlPlaneClient, RpcClient.make(ControlPlaneRpcs)).pipe(
+      Layer.provide(RpcClient.layerProtocolSocket()),
+      Layer.provide(socketLayer),
+      Layer.provide(RpcSerialization.layerNdjson),
     )
   }
 }
@@ -40,7 +44,10 @@ const browserCrypto = Crypto.make({
 })
 
 const runtime = ManagedRuntime.make(
-  Layer.merge(ControlPlaneClient.layer(sandboxConfig), Layer.succeed(Crypto.Crypto)(browserCrypto)),
+  Layer.merge(
+    ControlPlaneClient.layer(controlPlaneConfig),
+    Layer.succeed(Crypto.Crypto)(browserCrypto),
+  ),
 )
 
 const runOperation = async <A, E>(
@@ -54,56 +61,63 @@ const runOperation = async <A, E>(
   })
 }
 
-const getProjectTaskSnapshot = Effect.fn("ControlPlaneClient.getProjectTaskSnapshot")(function* () {
-  const client = yield* ControlPlaneClient
-
-  return yield* client.projects.getProjectTasks({
-    params: { projectId: sandboxConfig.projectId },
-  })
-})
-
-const submitTaskCommand = Effect.fn("ControlPlaneClient.submitTaskCommand")(function* (
-  request: TaskCommandRequest,
+const getBoardSnapshot = Effect.fn("ControlPlaneClient.getBoardSnapshot")(function* (
+  projectId: ProjectId,
 ) {
   const client = yield* ControlPlaneClient
+  return yield* client.GetBoardSnapshot({ projectId })
+})
 
-  switch (request._tag) {
-    case "task.create":
-      return yield* client.projects.submitTaskCommand({
-        params: { projectId: sandboxConfig.projectId },
-        payload: request,
-      })
-    case "task.assign":
-      return yield* client.projects.submitTaskCommand({
-        params: { projectId: sandboxConfig.projectId },
-        payload: request,
-      })
+const getProjectExecutions = Effect.fn("ControlPlaneClient.getProjectExecutions")(function* (
+  projectId: ProjectId,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client.GetProjectExecutions({ projectId })
+})
+
+const submitCommand = Effect.fn("ControlPlaneClient.submitTicketCommand")(function* (
+  projectId: ProjectId,
+  request: TicketCommandRequest,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client.SubmitTicketCommand({ projectId, request })
+})
+
+export const loadBoardSnapshot = (
+  projectId: ProjectId,
+): Promise<ControlPlaneResult<BoardSnapshot>> => runOperation(getBoardSnapshot(projectId))
+
+export const loadProjectExecutions = (
+  projectId: ProjectId,
+): Promise<ControlPlaneResult<ReadonlyArray<Execution>>> =>
+  runOperation(getProjectExecutions(projectId))
+
+export const submitTicketCommand = (
+  projectId: ProjectId,
+  request: TicketCommandRequest,
+): Promise<ControlPlaneResult<TicketReceipt>> => runOperation(submitCommand(projectId, request))
+
+export const buildAndSubmitTicketCommand = <A extends TicketCommandRequest, E>(
+  projectId: ProjectId,
+  request: Effect.Effect<A, E, Crypto.Crypto>,
+): Promise<ControlPlaneResult<TicketReceipt>> =>
+  runOperation(request.pipe(Effect.flatMap((built) => submitCommand(projectId, built))))
+
+export const subscribeProjectEvents = (
+  projectId: ProjectId,
+  cursor: EventCursor,
+  onEvent: (event: ProjectEvent) => void,
+  onError: (details: string) => void,
+) => {
+  const stream = Effect.gen(function* () {
+    const client = yield* ControlPlaneClient
+    return yield* client
+      .SubscribeProjectEvents({ projectId, cursor })
+      .pipe(Stream.runForEach((event) => Effect.sync(() => onEvent(event))))
+  }).pipe(Effect.tapCause((cause) => Effect.sync(() => onError(Cause.pretty(cause)))))
+  const fiber = runtime.runFork(stream)
+
+  return () => {
+    runtime.runFork(Fiber.interrupt(fiber))
   }
-})
-
-const createTaskCommand = Effect.fn("ControlPlaneClient.createTaskCommand")(function* (
-  draft: TaskDraft,
-) {
-  const crypto = yield* Crypto.Crypto
-  const commandId = yield* crypto.randomUUIDv4
-  const taskId = yield* crypto.randomUUIDv4
-  const request = buildTaskCreateRequest(draft, sandboxConfig.missionId, { commandId, taskId })
-
-  return yield* submitTaskCommand(request)
-})
-
-const selfAssignTaskCommand = Effect.fn("ControlPlaneClient.selfAssignTaskCommand")(function* (
-  taskId: TaskId,
-) {
-  const crypto = yield* Crypto.Crypto
-  const commandId = yield* crypto.randomUUIDv4
-  const request = buildTaskAssignRequest(taskId, sandboxConfig.actorId, commandId)
-
-  return yield* submitTaskCommand(request)
-})
-
-export const loadTaskSnapshot = () => runOperation(getProjectTaskSnapshot())
-
-export const createTask = (draft: TaskDraft) => runOperation(createTaskCommand(draft))
-
-export const selfAssignTask = (taskId: TaskId) => runOperation(selfAssignTaskCommand(taskId))
+}

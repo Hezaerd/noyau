@@ -27,9 +27,8 @@ _À éviter_ : sequence, offset SQL
 
 ## Contenu
 
-> État d'implémentation : les contrats `Ticket → Execution → Attempt → AgentRun` et Tableau sont
-> disponibles pour la migration par couches. Les modules `Mission`/`Task` restent temporairement
-> exportés afin que chaque PR de la stack reste vérifiable ; aucune nouvelle API ne doit les étendre.
+> Les contrats `Ticket → Execution → Attempt → AgentRun` et Tableau sont exposés par la frontière
+> Effect RPC. `Task` et `Mission` ne font plus partie du protocole.
 
 | Module              | Rôle                                                                                        |
 | ------------------- | ------------------------------------------------------------------------------------------- |
@@ -38,11 +37,12 @@ _À éviter_ : sequence, offset SQL
 | `./ticket/commands` | Requests publiques et commandes enrichies du Tableau, des Tickets et des Executions.        |
 | `./ticket/events`   | Faits immuables produits par les futurs deciders Ticket et Tableau.                         |
 | `./ticket/errors`   | Rejets métier stables du Tableau, des Tickets et des Executions.                            |
-| `./commands`        | Union globale enrichie ; inclut temporairement les commandes Task historiques.              |
+| `./commands`        | Union globale enrichie des commandes de collaboration et du Tableau.                        |
 | `./events`          | Union globale des faits + `EventEnvelope` persisté.                                         |
 | `./receipts`        | `Receipt` public stable, accepté ou rejeté.                                                 |
 | `./board`           | Snapshot compact du Tableau et curseur opaque ; les détails Ticket sont chargés séparément. |
-| `./control-plane`   | Contrat HTTP historique, remplacé dans une couche ultérieure par Effect RPC WebSocket.      |
+| `./rpc`             | Contrat Effect RPC WebSocket : commandes, snapshot et flux ordonné du projet.               |
+| `./errors`          | Erreurs publiques et service de l'acteur vérifié à la frontière RPC.                        |
 
 ## Décisions structurantes
 
@@ -67,8 +67,7 @@ _À éviter_ : sequence, offset SQL
 - **Placement par ancres** : le client désigne la colonne et ses voisins attendus. Le domaine
   valide ces ancres et calcule le `KanbanRank` canonique ; aucun rank client ne traverse la commande.
 - **Versionnement additif** : ajouter des variantes à une union ouverte du protocole conserve
-  `SchemaVersion = 1`. L'élargissement de `ReceiptResponse.rejected.error` à `CommandRejection`
-  reste compatible : tout receipt Task v1 demeure décodable sans changement de représentation.
+  `SchemaVersion = 1`. Une rupture explicite du contrat incrémente cette version.
 - **Exports subpath uniquement**, pas de barrel — voir AGENTS.md.
 
 ## Extension
