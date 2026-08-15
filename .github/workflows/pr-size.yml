@@ -158,7 +158,7 @@ jobs:
             const managedLabels = JSON.parse(process.env.PR_SIZE_LABELS_JSON ?? "[]");
             const managedLabelNames = new Set(managedLabels.map((label) => label.name));
             const testExcludePathspecs = [
-              ":(glob,exclude)repos/effect/**",
+              ":(glob,exclude)repos/**",
               ":(glob,exclude)**/__tests__/**",
               ":(glob,exclude)**/test/**",
               ":(glob,exclude)**/tests/**",

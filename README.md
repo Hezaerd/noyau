@@ -84,17 +84,31 @@ d'un accord de versions exact — `vite-plus` doit fournir l'Oxlint et l'`oxlint
 `@effect/tsgo` supporte. Vérifier `vp toolchain` contre les exigences de `@effect/tsgo` avant
 tout bump de `vite-plus`.
 
-Le code source correspondant à la version du catalogue est vendored sous `repos/effect/` avec un
-git subtree. Il sert uniquement de référence aux agents : lire d'abord `repos/effect/LLMS.md`, ne
-jamais modifier cette arborescence et ne jamais importer depuis `repos/`.
+Les dépôts de référence pour les agents vivent sous `repos/` en git subtree. Lecture seule :
+ne jamais modifier ces arborescences et ne jamais importer depuis `repos/`.
 
-Pour synchroniser le subtree après avoir mis à jour la version du catalogue :
+| Subtree        | Source                                                  | Usage agent                                                                |
+| -------------- | ------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `repos/effect` | [Effect-TS/effect](https://github.com/Effect-TS/effect) | API et primitives Effect v4 — lire `repos/effect/LLMS.md` en premier       |
+| `repos/t3code` | [pingdotgg/t3code](https://github.com/pingdotgg/t3code) | Patterns Effect applicatifs (decider, projector, reactors, Schema, Layers) |
+
+Pour synchroniser le subtree Effect après un bump du catalogue :
 
 ```bash
 git subtree pull \
   --prefix=repos/effect \
   https://github.com/Effect-TS/effect.git \
   effect@4.0.0-beta.107 \
+  --squash
+```
+
+Pour synchroniser le subtree t3code :
+
+```bash
+git fetch https://github.com/pingdotgg/t3code.git main:refs/remotes/t3code-upstream/main
+git subtree pull \
+  --prefix=repos/t3code \
+  refs/remotes/t3code-upstream/main \
   --squash
 ```
 
