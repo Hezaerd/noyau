@@ -392,7 +392,7 @@ export function SidebarSeparator({
 }: React.ComponentProps<typeof Separator>): React.ReactElement {
   return (
     <Separator
-      className={cn("mx-2 w-auto bg-sidebar-border", className)}
+      className={cn("mx-2 bg-sidebar-border data-[orientation=horizontal]:w-auto", className)}
       data-sidebar="separator"
       data-slot="sidebar-separator"
       {...props}
@@ -408,7 +408,7 @@ export function SidebarContent({
     <ScrollArea className="min-h-0 min-w-0 flex-1" fill overscrollContain scrollFade>
       <div
         className={cn(
-          "flex h-full w-full min-w-0 flex-col gap-2 group-data-[collapsible=icon]:overflow-hidden",
+          "flex h-full w-full min-w-0 flex-col gap-2 overflow-x-hidden group-data-[collapsible=icon]:overflow-hidden",
           className,
         )}
         data-sidebar="content"
