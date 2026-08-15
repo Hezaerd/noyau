@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp run -r --parallel dev",
-    "dev:desktop": "vp run --filter @noyau/server --filter @noyau/web --filter @noyau/desktop --parallel dev",
+    "dev:desktop": "bun apps/desktop/scripts/dev-stack.mjs",
     "dev:server": "bun run --cwd apps/server dev",
     "dev:web": "vp -C apps/web dev",
     "build": "vp run -r --cache build",
