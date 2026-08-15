@@ -19,6 +19,7 @@ const agentIgnorePatterns = [
 ]
 const ignorePatterns = [
   "**/dist/**",
+  "**/dist-electron/**",
   "**/coverage/**",
   "**/routeTree.gen.ts",
   "repos/**",
@@ -48,7 +49,7 @@ const antiSlopRules = {
 
 export default defineConfig({
   test: {
-    projects: ["apps/server", "apps/web", "packages/*"],
+    projects: ["apps/desktop", "apps/server", "apps/web", "packages/*"],
   },
   staged: {
     "*.{js,ts,tsx,json,md,yml,yaml}": "vp fmt",

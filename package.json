@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp run -r --parallel dev",
+    "dev:desktop": "bun apps/desktop/scripts/dev-stack.mjs",
     "dev:server": "bun run --cwd apps/server dev",
     "dev:web": "vp -C apps/web dev",
     "build": "vp run -r --cache build",
@@ -17,6 +18,7 @@
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
     "test": "vp run -r --cache test",
+    "test:desktop-smoke": "vp run --filter @noyau/desktop smoke-test",
     "typecheck": "vp run -r --cache typecheck",
     "prepare": "vp config --no-agent && effect-tsgo patch --typescript --oxlint"
   },

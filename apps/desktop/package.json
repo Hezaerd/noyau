@@ -1,0 +1,22 @@
+{
+  "name": "@noyau/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "start": "bun scripts/start-electron.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vp test run",
+    "smoke-test": "bun scripts/smoke-test.mjs"
+  },
+  "dependencies": {
+    "electron": "43.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "productName": "Noyau"
+}

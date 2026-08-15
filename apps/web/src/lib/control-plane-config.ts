@@ -2,6 +2,7 @@ import { ProjectId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
 const DEFAULT_PROJECT_ID = "10000000-0000-4000-8000-000000000001"
+const DEFAULT_RPC_URL = "ws://127.0.0.1:3001/rpc"
 
 const ControlPlaneEnvironment = Schema.Struct({
   VITE_NOYAU_RPC_URL: Schema.optionalKey(Schema.String),
@@ -20,21 +21,12 @@ const decodeEnvironment = Schema.decodeUnknownSync(ControlPlaneEnvironment)
 const decodeConfig = Schema.decodeUnknownSync(ControlPlaneConfig)
 const decodeProjectId = Schema.decodeUnknownSync(ProjectId)
 
-const defaultRpcUrl = () => {
-  const location = globalThis.location
-  if (location === undefined) {
-    return "ws://localhost:5173/rpc"
-  }
-  const protocol = location.protocol === "https:" ? "wss:" : "ws:"
-  return `${protocol}//${location.host}/rpc`
-}
-
 export const decodeControlPlaneConfig = (
   input: ControlPlaneEnvironmentInput,
 ): ControlPlaneConfig => {
   const environment = decodeEnvironment(input)
   return decodeConfig({
-    rpcUrl: environment.VITE_NOYAU_RPC_URL ?? defaultRpcUrl(),
+    rpcUrl: environment.VITE_NOYAU_RPC_URL ?? DEFAULT_RPC_URL,
     projectId: environment.VITE_NOYAU_PROJECT_ID ?? DEFAULT_PROJECT_ID,
   })
 }

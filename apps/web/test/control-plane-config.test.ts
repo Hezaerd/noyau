@@ -5,7 +5,7 @@ import { decodeControlPlaneConfig } from "../src/lib/control-plane-config"
 describe("control plane config", () => {
   it("utilise le projet de développement sans exposer d'identité cliente", () => {
     expect(decodeControlPlaneConfig({})).toEqual({
-      rpcUrl: "ws://localhost:5173/rpc",
+      rpcUrl: "ws://127.0.0.1:3001/rpc",
       projectId: "10000000-0000-4000-8000-000000000001",
     })
   })
