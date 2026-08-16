@@ -11,6 +11,7 @@ Contextes du monorepo Noyau et leurs relations. Un contexte = un `CONTEXT.md` lo
 | Database | `packages/database/` | Durabilité : event log, receipts, outbox, projections PostgreSQL.   |
 | Server   | `apps/server/`       | Frontière RPC : commandes, snapshots et flux d'événements.          |
 | Web      | `apps/web/`          | UI React (TanStack Router, Vite) pour collaboration et supervision. |
+| Desktop  | `apps/desktop/`      | Enveloppe Electron et intégration au système hôte.                  |
 
 ## Relations
 
@@ -20,6 +21,8 @@ apps/web ──(Effect RPC sur WebSocket)─────────> apps/serve
                                                      ├──> packages/database
                                                      ├──> packages/domain
                                                      `──> packages/protocol
+
+apps/desktop ──enveloppe──> apps/web
 
 packages/database ──dépend de──> packages/domain ──dépend de──> packages/protocol
 ```
@@ -31,6 +34,7 @@ packages/database ──dépend de──> packages/domain ──dépend de──
 - `server` enrichit et exécute les commandes, lit les projections et diffuse les événements ;
   le profil choisit à cette frontière le driver PostgreSQL ou PGlite et l'adaptateur Hermes
   (ADR-0009).
+- `desktop` enveloppe le renderer partagé et reste sans état métier autoritatif.
 - Les apps consomment `protocol` pour les types de frontière ; seul `server` consomme
   `domain` et `database` (les reactors vivent dans le même processus, ADR-0004).
 

@@ -15,6 +15,9 @@ Le shell sert le renderer sous l'origine privée `noyau://app/`. En développeme
 redirige vers Vite, fixé sur `http://127.0.0.1:5173/`. Le RPC local utilise par défaut
 `ws://127.0.0.1:3001/rpc`; `VITE_NOYAU_RPC_URL` permet de sélectionner une instance distante.
 
+Sur macOS, le launcher copie `Electron.app` vers `.electron-runtime/Noyau (Dev).app` et patche
+`CFBundleName` pour que le Dock et le menu affichent Noyau plutôt qu'Electron.
+
 ## Build et smoke test
 
 ```bash

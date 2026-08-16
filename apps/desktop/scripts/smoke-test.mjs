@@ -1,20 +1,14 @@
 import * as NodeChildProcess from "node:child_process"
-import * as NodeModule from "node:module"
-import * as NodePath from "node:path"
-import * as NodeURL from "node:url"
 
-const require = NodeModule.createRequire(import.meta.url)
-const electronPath = require("electron")
-const desktopDirectory = NodePath.resolve(
-  NodePath.dirname(NodeURL.fileURLToPath(import.meta.url)),
-  "..",
-)
+import { desktopDir, resolveElectronLaunchCommand } from "./electron-launcher.mjs"
+
 const electronArguments = ["dist-electron/main.cjs"]
-const command = process.platform === "linux" ? "xvfb-run" : electronPath
+const launch = resolveElectronLaunchCommand(electronArguments, false)
+const command = process.platform === "linux" ? "xvfb-run" : launch.electronPath
 const commandArguments =
   process.platform === "linux"
-    ? ["-a", electronPath, "--no-sandbox", ...electronArguments]
-    : electronArguments
+    ? ["-a", launch.electronPath, "--no-sandbox", ...electronArguments]
+    : launch.args
 const childEnvironment = {
   ...process.env,
   NOYAU_DESKTOP_SMOKE_TEST: "1",
@@ -22,7 +16,7 @@ const childEnvironment = {
 delete childEnvironment.ELECTRON_RUN_AS_NODE
 
 const electronProcess = NodeChildProcess.spawn(command, commandArguments, {
-  cwd: desktopDirectory,
+  cwd: desktopDir,
   env: childEnvironment,
   stdio: ["ignore", "pipe", "pipe"],
 })

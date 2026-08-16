@@ -6,6 +6,10 @@
 
 @layer base {
   :root {
+    --desktop-native-controls-inset: 0px;
+    --desktop-titlebar-content-left: 0px;
+    --desktop-titlebar-height: 3.5rem;
+    --desktop-window-right-resize-inset: 0px;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -23,6 +27,7 @@
 
   #root {
     @apply isolate;
+    padding-right: var(--desktop-window-right-resize-inset);
   }
 
   a {
@@ -56,6 +61,59 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+.electron {
+  --desktop-titlebar-height: 52px;
+}
+
+.electron-macos {
+  --desktop-titlebar-content-left: 92px;
+}
+
+.wco {
+  --desktop-native-controls-inset: calc(
+    100vw - env(titlebar-area-width, 100vw) - env(titlebar-area-x, 0px) + 0.75rem
+  );
+  --desktop-titlebar-height: env(titlebar-area-height, 40px);
+}
+
+.electron-windows {
+  --desktop-window-right-resize-inset: 6px;
+}
+
+.electron-macos [data-desktop-sidebar-titlebar] {
+  padding-left: var(--desktop-titlebar-content-left);
+}
+
+.electron-macos
+  [data-slot="sidebar"][data-state="collapsed"]
+  ~ [data-slot="sidebar-inset"]
+  [data-desktop-page-titlebar] {
+  padding-left: var(--desktop-titlebar-content-left);
+}
+
+.wco [data-desktop-page-titlebar] {
+  padding-right: var(--desktop-native-controls-inset);
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.drag-region button,
+.drag-region input,
+.drag-region textarea,
+.drag-region select,
+.drag-region a {
+  -webkit-app-region: no-drag;
+}
+
+.no-theme-transitions *,
+.no-theme-transitions *::before,
+.no-theme-transitions *::after {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
 }
 
 @theme inline {
@@ -112,6 +170,5 @@
 }
 
 :root {
-  color-scheme: dark;
   --radius: 0.625rem;
 }

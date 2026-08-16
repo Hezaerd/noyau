@@ -19,6 +19,7 @@
       "name": "@noyau/desktop",
       "version": "0.0.0",
       "dependencies": {
+        "effect": "catalog:",
         "electron": "43.4.0",
       },
       "devDependencies": {

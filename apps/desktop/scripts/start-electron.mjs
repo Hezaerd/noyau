@@ -1,14 +1,7 @@
 import * as NodeChildProcess from "node:child_process"
-import * as NodeModule from "node:module"
-import * as NodePath from "node:path"
-import * as NodeURL from "node:url"
 
-const require = NodeModule.createRequire(import.meta.url)
-const electronPath = require("electron")
-const desktopDirectory = NodePath.resolve(
-  NodePath.dirname(NodeURL.fileURLToPath(import.meta.url)),
-  "..",
-)
+import { desktopDir, resolveElectronLaunchCommand } from "./electron-launcher.mjs"
+
 const childEnvironment = { ...process.env }
 delete childEnvironment.ELECTRON_RUN_AS_NODE
 
@@ -16,8 +9,9 @@ const electronArguments =
   process.platform === "linux"
     ? ["--no-sandbox", "dist-electron/main.cjs"]
     : ["dist-electron/main.cjs"]
-const electronProcess = NodeChildProcess.spawn(electronPath, electronArguments, {
-  cwd: desktopDirectory,
+const launch = resolveElectronLaunchCommand(electronArguments, false)
+const electronProcess = NodeChildProcess.spawn(launch.electronPath, launch.args, {
+  cwd: desktopDir,
   env: childEnvironment,
   stdio: "inherit",
 })
