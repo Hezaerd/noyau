@@ -13,7 +13,7 @@ import {
   SendIcon,
   SquareArrowOutUpRightIcon,
 } from "lucide-react"
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -85,7 +85,9 @@ const parseTicketDueDate = (dueAt: string | undefined): Date | undefined => {
 interface TicketSheetProps {
   readonly ticket: BoardTicket | undefined
   readonly actors: ReadonlyArray<BoardActor>
+  readonly focusTitle: boolean
   readonly onClose: () => void
+  readonly onTitleFocusComplete: () => void
   readonly onUpdate: (ticketId: string, patch: BoardTicketPatch) => void
   readonly onToggleChecklist: (ticketId: string, itemId: string) => void
   readonly onStartExecution: (
@@ -216,7 +218,9 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
 export function TicketSheet({
   ticket,
   actors,
+  focusTitle,
   onClose,
+  onTitleFocusComplete,
   onUpdate,
   onToggleChecklist,
   onStartExecution,
@@ -228,6 +232,7 @@ export function TicketSheet({
   const [executionOpen, setExecutionOpen] = useState(false)
   const [reply, setReply] = useState("")
   const [dueDateOpen, setDueDateOpen] = useState(false)
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setTitle(ticket?.title ?? "")
@@ -235,6 +240,18 @@ export function TicketSheet({
     setEditingDescription(false)
     setDueDateOpen(false)
   }, [ticket])
+
+  useEffect(() => {
+    if (!focusTitle || ticket === undefined) {
+      return
+    }
+    const frame = requestAnimationFrame(() => {
+      titleInputRef.current?.focus()
+      titleInputRef.current?.select()
+      onTitleFocusComplete()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focusTitle, onTitleFocusComplete, ticket])
 
   const saveTitle = () => {
     if (ticket !== undefined && title.trim() !== "" && title.trim() !== ticket.title) {
@@ -321,6 +338,7 @@ export function TicketSheet({
                 <SheetTitle
                   render={
                     <Input
+                      ref={titleInputRef}
                       value={title}
                       onChange={(event) => setTitle(event.target.value)}
                       onBlur={saveTitle}
