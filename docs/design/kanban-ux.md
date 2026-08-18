@@ -3,7 +3,7 @@
 ## Statut et portée
 
 Cette spécification traduit le modèle validé dans l'ADR-0008 en expérience desktop. Elle décrit le
-Tableau, le Sheet Ticket, l'Inbox et leurs interactions avec le Channel. Elle ne redéfinit ni les
+Tableau, le Dialog Ticket, l'Inbox et leurs interactions avec le Channel. Elle ne redéfinit ni les
 invariants du domaine ni les cycles de vie d'exécution.
 
 La première version optimise le travail d'un humain qui supervise une flotte optionnelle d'agents.
@@ -21,7 +21,7 @@ Marion appartient à la configuration de son utilisateur.
 4. **Optimisme par défaut** : toute commande réversible et applicable rejoint une file ordonnée
    corrélée par `commandId`. L'état affiché est toujours recalculé depuis la projection serveur
    confirmée, sur laquelle l'interface rejoue les commandes encore en attente.
-5. **Information progressive** : les cartes restent scannables ; le Sheet concentre le détail.
+5. **Information progressive** : les cartes restent scannables ; le Dialog concentre le détail.
 6. **Conversation et audit séparés** : le Workbench reste une conversation ; les faits système
    vivent dans une timeline distincte.
 7. **Accessibilité équivalente** : toute opération de pointeur possède une voie clavier et un retour
@@ -47,7 +47,7 @@ Route du Tableau :
 /projects/:projectId/board
 ```
 
-Le Sheet Ticket est un état partageable du Tableau :
+Le Dialog Ticket est un état partageable du Tableau :
 
 ```text
 /projects/:projectId/board?ticket=:ticketId
@@ -59,11 +59,11 @@ La recherche et les filtres sont aussi encodés dans les search params :
 /projects/:projectId/board?ticket=:ticketId&q=:query&assignee=:id&priority=:value
 ```
 
-TanStack Router doit valider les search params. Ouvrir un Ticket depuis le Tableau sans Sheet fait
-un `push` depuis l'URL courante. L'application n'utilise Back pour fermer le Sheet que si l'entrée
+TanStack Router doit valider les search params. Ouvrir un Ticket depuis le Tableau sans Dialog fait
+un `push` depuis l'URL courante. L'application n'utilise Back pour fermer le Dialog que si l'entrée
 précédente est le même Tableau, avec les mêmes filtres et sans `ticket` ; Forward peut alors rouvrir
-le Sheet. Dans tous les autres cas, notamment un lien direct ou une arrivée depuis l'Inbox, fermer
-le Sheet fait un `replace` qui retire uniquement `ticket` et conserve les filtres. Un `replace` ne
+le Dialog. Dans tous les autres cas, notamment un lien direct ou une arrivée depuis l'Inbox, fermer
+le Dialog fait un `replace` qui retire uniquement `ticket` et conserve les filtres. Un `replace` ne
 crée aucune entrée que Forward pourrait rouvrir, et le bouton Back natif reste fidèle à l'historique
 réel au lieu d'être détourné pour fermer un deep link.
 
@@ -125,7 +125,7 @@ colorée avec tooltip et texte accessible. L'échéance affiche une date locale 
 états explicites `Bientôt` et `En retard`. Un Ticket terminé n'est jamais signalé en retard.
 
 Les dépendances n'ajoutent aucune ligne entre les cartes. Un prérequis ouvert produit le badge
-`Bloqué`; le détail vit dans le Sheet.
+`Bloqué`; le détail vit dans le Dialog.
 
 ### Drag-and-drop
 
@@ -167,7 +167,7 @@ pas, puis à l'en-tête de la colonne cible si la source ne contient plus de car
 Chaque colonne non terminale termine sa liste par `Ajouter un ticket` ; `Done` n'affiche jamais ce
 CTA. La création inline exige seulement un titre. `c` déclenche le même flux dans une colonne
 non terminale active. Si `Done` est active ou si aucune colonne ne l'est, le raccourci demande une
-colonne non terminale. Après création optimiste, le Sheet peut être ouvert pour enrichir le Ticket.
+colonne non terminale. Après création optimiste, le Dialog peut être ouvert pour enrichir le Ticket.
 La création déclenchée depuis la Palette choisit une colonne non terminale. Ce choix UI ne remplace
 pas l'invariant métier : le serveur refuse toute création qui cible `Done`.
 
@@ -210,7 +210,7 @@ TanStack Hotkeys centralise les bindings, leurs scopes et leur présentation. La
 3. la Navigation vers `Inbox`, `Tableau` et `Channel`, à l'exception de la page courante.
 
 Le Tableau contribue `Créer un ticket` et `Rechercher` en v1. Dès qu'une query est saisie, un groupe
-`Tickets` recherche localement dans leurs titres et labels ; choisir un résultat ouvre son Sheet.
+`Tickets` recherche localement dans leurs titres et labels ; choisir un résultat ouvre son Dialog.
 Ce groupe reste absent à query vide et ses ouvertures ne deviennent pas des Récents. Les destinations
 de déplacement restent accessibles par interaction directe ou raccourci. Un Récent est ajouté
 uniquement après exécution d'une Action depuis la Palette, stocké localement comme préférence UI non
@@ -219,21 +219,21 @@ premiers résultats visibles sont directement activables avec `Cmd+1` à `Cmd+9`
 `Alt+1` à `Alt+9` ailleurs.
 
 Les raccourcis du Tableau ne sont actifs que lorsque le focus est dans sa zone, hors `input`,
-`textarea`, contenu `contenteditable`, contrôle interactif et overlay. Le Sheet et les Dialogs
+`textarea`, contenu `contenteditable`, contrôle interactif et overlay. Les Dialogs
 prennent leur propre contexte clavier et neutralisent tous les raccourcis du Tableau. `Escape` ferme
-le Sheet selon la règle d'historique et restitue le focus selon la chaîne de fallback définie pour
+le Dialog Ticket selon la règle d'historique et restitue le focus selon la chaîne de fallback définie pour
 la navigation. Le réordonnancement par `Alt+Shift+↑` / `Alt+Shift+↓` est désactivé en mode filtré ;
 le changement de colonne reste permis et insère alors en fin de colonne.
 
 La sélection multiple est hors v1.
 
-## Sheet Ticket
+## Dialog Ticket
 
 ### Comportement
 
-Le composant shadcn `Sheet` s'ouvre à droite et reste contrôlé par `ticket` dans l'URL. Sa largeur
-desktop dépasse le défaut `sm:max-w-sm` afin d'accueillir le détail sans masquer inutilement le
-Tableau. Base UI conserve le focus trap, `Escape` et le titre accessible. La restitution du focus est
+Le composant coss `Dialog` s'ouvre au centre et reste contrôlé par `ticket` dans l'URL. Sa largeur
+desktop accueille les métadonnées sur trois colonnes, tandis que le panneau central gère le contenu
+long par défilement. Base UI conserve le focus trap, `Escape` et le titre accessible. La restitution du focus est
 pilotée par le Tableau pour appliquer son fallback, sans tenter de cibler un élément supprimé,
 archivé ou filtré.
 
@@ -264,7 +264,7 @@ configuration visuelle, jamais une permission implicite.
 
 ### Dépendances
 
-Le Sheet distingue `Bloqué par` et `Bloque`. Une recherche de Tickets permet d'ajouter une relation.
+Le Dialog distingue `Bloqué par` et `Bloque`. Une recherche de Tickets permet d'ajouter une relation.
 La création d'un cycle est rejetée avec une explication locale.
 
 `Convertir en ticket` sur un item de checklist crée un Ticket lié, marque l'item comme converti et
@@ -272,8 +272,8 @@ ouvre le nouveau Ticket.
 
 ### Exécutions
 
-Assigner un profil d'agent ne lance pas d'exécution. Le CTA `Lancer une exécution` ouvre un Dialog
-au-dessus du Sheet avec :
+Assigner un profil d'agent ne lance pas d'exécution. Le CTA `Lancer une exécution` ouvre un second
+Dialog avec :
 
 - résultat attendu obligatoire ;
 - profil d'agent ;
@@ -282,8 +282,8 @@ au-dessus du Sheet avec :
 - section `Paramètres avancés` pour inspecter ou modifier les valeurs héritées.
 
 Le CTA final porte le même libellé explicite. Toutes les exécutions actives ou passées restent
-consultables dans le Sheet avec leurs Attempts, rapports et artefacts en détail progressif. Quand
-plusieurs exécutions sont actives, le Sheet les liste séparément et reprend en tête le compteur et
+consultables dans le Dialog Ticket avec leurs Attempts, rapports et artefacts en détail progressif.
+Quand plusieurs exécutions sont actives, le Dialog les liste séparément et reprend en tête le compteur et
 le statut agrégé de la carte selon la priorité d'attention déterministe.
 
 ### Workbench
@@ -346,9 +346,9 @@ L'Inbox agrège seulement les éléments demandant une action :
 L'étiquette `need-human` reste un signal manuel, visuel et filtrable ; elle n'alimente pas l'Inbox à
 elle seule.
 
-Cliquer une attention navigue vers le Tableau avec le Sheet ouvert et place le focus sur la section
+Cliquer une attention navigue vers le Tableau avec le Dialog ouvert et place le focus sur la section
 concernée. Cette arrivée ne prétend pas avoir une entrée précédente du même Tableau : fermer le
-Sheet utilise `replace`, puis applique le fallback de focus.
+Dialog utilise `replace`, puis applique le fallback de focus.
 
 ## Optimisme, temps réel et erreurs
 
@@ -409,7 +409,7 @@ commandes inverses explicites ; il n'existe pas d'undo générique.
 - Couleur, animation et position ne portent jamais seules une information.
 - Les badges utilisent une icône et un libellé explicite.
 - Le focus reste visible et suit le fallback carte d'origine, première carte visible de sa colonne,
-  puis titre `Tableau` après fermeture du Sheet.
+  puis titre `Tableau` après fermeture du Dialog.
 - Les raccourcis sont découvrables dans les menus, tooltips et la palette.
 
 ## Hors périmètre de la première version
@@ -433,7 +433,7 @@ commandes inverses explicites ; il n'existe pas d'undo générique.
 3. En vue complète, un utilisateur peut réordonner un Ticket au pointeur comme au clavier. En mode
    filtré, ce réordonnancement est désactivé, mais un déplacement inter-colonnes reste possible en
    fin de colonne et reçoit une annonce sans position ambiguë.
-4. L'URL partage Tableau, Ticket ouvert, recherche et filtres. Back ne ferme le Sheet que depuis un
+4. L'URL partage Tableau, Ticket ouvert, recherche et filtres. Back ne ferme le Dialog que depuis un
    vrai `push` du même Tableau ; les autres fermetures utilisent `replace`, et le focus suit le
    fallback documenté.
 5. Confirmer ou rejeter `M1` alors que `M2` reste pending conserve l'effet affiché de `M2` après
@@ -450,4 +450,4 @@ commandes inverses explicites ; il n'existe pas d'undo générique.
 12. `Cmd/Ctrl+K` ouvre la Palette depuis toute page ; elle affiche les Récents applicables, les
     Actions de la page puis les destinations de Navigation sans dupliquer la page courante.
 13. Sur le Tableau, saisir un titre ou un label fait apparaître les Tickets correspondants sans
-    afficher le catalogue complet à query vide ; choisir un résultat ouvre son Sheet.
+    afficher le catalogue complet à query vide ; choisir un résultat ouvre son Dialog.

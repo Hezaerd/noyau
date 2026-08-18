@@ -61,7 +61,7 @@ import {
 } from "react"
 
 import { type AppPaletteAction, useAppPaletteActions } from "@/components/app-palette-context"
-import { TicketSheet } from "@/components/board/TicketSheet"
+import { TicketDialog } from "@/components/board/TicketDialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -1368,7 +1368,7 @@ export function BoardPage({
         {announcement}
       </div>
 
-      <TicketSheet
+      <TicketDialog
         ticket={selectedTicket}
         actors={state.actors}
         focusTitle={renamingTicketId === selectedTicket?.id}
