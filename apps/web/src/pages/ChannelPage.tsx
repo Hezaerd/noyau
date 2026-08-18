@@ -12,6 +12,7 @@ import { useState, type FormEvent } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { Textarea } from "@/components/ui/textarea"
 
 interface ChannelMessage {
@@ -188,8 +189,9 @@ export function ChannelPage() {
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Commande Marion">
                 <SparkleIcon />
               </Button>
-              <span className="ml-1 text-[0.65rem] text-muted-foreground">
-                Entrée pour envoyer · Maj + Entrée pour une ligne
+              <span className="ml-1 flex flex-wrap items-center gap-1 text-[0.65rem] text-muted-foreground">
+                <KeyboardShortcut hotkey="Enter" /> pour envoyer ·{" "}
+                <KeyboardShortcut hotkey="Shift+Enter" /> pour une ligne
               </span>
               <Button
                 type="submit"

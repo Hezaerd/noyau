@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverClose, PopoverPopup, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -510,8 +511,8 @@ export function TicketDialog({
                             autoFocus
                           />
                           <div className="flex items-center justify-end gap-2">
-                            <span className="mr-auto text-[0.65rem] text-muted-foreground">
-                              Markdown · ⌘/Ctrl + Entrée
+                            <span className="mr-auto flex items-center gap-1 text-[0.65rem] text-muted-foreground">
+                              Markdown · <KeyboardShortcut hotkey="Mod+Enter" />
                             </span>
                             <Button
                               variant="ghost"

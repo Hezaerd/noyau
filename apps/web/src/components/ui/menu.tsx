@@ -4,6 +4,7 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { ChevronRightIcon } from "lucide-react"
 import type * as React from "react"
 
+import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { cn } from "@/lib/utils"
 
 export const MenuCreateHandle: typeof MenuPrimitive.createHandle = MenuPrimitive.createHandle
@@ -248,17 +249,17 @@ export function MenuSeparator({
 }
 
 export function MenuShortcut({
+  hotkey,
   className,
-  ...props
-}: React.ComponentProps<"kbd">): React.ReactElement {
+}: {
+  readonly hotkey: string
+  readonly className?: string
+}): React.ReactElement {
   return (
-    <kbd
-      className={cn(
-        "ms-auto font-medium font-sans text-muted-foreground/72 text-xs tracking-widest",
-        className,
-      )}
-      data-slot="menu-shortcut"
-      {...props}
+    <KeyboardShortcut
+      hotkey={hotkey}
+      className={cn("ms-auto tracking-widest", className)}
+      kbdClassName="text-muted-foreground/72"
     />
   )
 }

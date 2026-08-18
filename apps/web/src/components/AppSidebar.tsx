@@ -11,6 +11,7 @@ import {
 import { AppearanceMenu } from "@/components/AppearanceMenu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { CommandDialogTrigger } from "@/components/ui/command"
+import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +28,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { HOTKEY_COMMAND_PALETTE } from "@/lib/keyboard-shortcut"
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
@@ -67,9 +69,10 @@ export function AppSidebar() {
           >
             <SearchIcon className="size-3.5 shrink-0" />
             <span className="group-data-[collapsible=icon]:hidden">Rechercher</span>
-            <kbd className="ml-auto rounded border border-sidebar-border bg-sidebar px-1.5 py-0.5 font-sans text-[0.6rem] group-data-[collapsible=icon]:hidden">
-              ⌘ K
-            </kbd>
+            <KeyboardShortcut
+              hotkey={HOTKEY_COMMAND_PALETTE}
+              className="ml-auto group-data-[collapsible=icon]:hidden"
+            />
           </CommandDialogTrigger>
         </div>
       </SidebarHeader>
