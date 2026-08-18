@@ -24,6 +24,30 @@ _À éviter_ : Channel, commentaire de ticket
 Nom affiché du Thread dédié à la collaboration opérationnelle sur un Ticket.
 _À éviter_ : nouvelle entité de conversation, espace d'exécution
 
+**Palette**:
+Overlay clavier searchable de l'app. Elle propose navigation, verbes de la page et Récents, puis les Tickets du Tableau lorsqu'une recherche est saisie.
+_À éviter_ : Command, Command palette, Spotlight, Menu
+
+**Action**:
+Entrée choisissable du catalogue UI de l'app. Ce n'est pas une Command.
+_À éviter_ : Command, BoardCommand, commande
+
+**BoardAction**:
+Action dont la cible appartient au Tableau.
+_À éviter_ : BoardCommand
+
+**Contexte d'activation**:
+Page courante, qui détermine les verbes proposés par la Palette.
+_À éviter_ : context, focus, mode, intelligence, sélection
+
+**Récent**:
+Action déjà déclenchée, proposée si elle reste applicable dans le contexte d'activation courant.
+_À éviter_ : history, shortcut, historique
+
+**Catalogue**:
+Union des Actions du socle de navigation, des verbes de la page courante et des résultats recherchables propres à cette page.
+_À éviter_ : registry, command list
+
 Le Tableau charge un `BoardSnapshot`, soumet des `TicketCommandRequest` et reprend le flux projet
 sur Effect RPC WebSocket. L'identité courante appartient à la frontière serveur ; l'UI ne fournit
 ni acteur sandbox ni métadonnée d'enrichissement de commande.

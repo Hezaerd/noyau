@@ -39,7 +39,6 @@ import {
   CheckCircleIcon,
   CircleAlertIcon,
   CircleIcon,
-  CommandIcon,
   EllipsisIcon,
   FunnelIcon,
   GripVerticalIcon,
@@ -53,6 +52,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -60,23 +60,11 @@ import {
   type RefObject,
 } from "react"
 
+import { type AppPaletteAction, useAppPaletteActions } from "@/components/app-palette-context"
 import { TicketDialog } from "@/components/board/TicketDialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandCollection,
-  CommandDialog,
-  CommandDialogPopup,
-  CommandEmpty,
-  CommandGroup,
-  CommandGroupLabel,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandShortcut,
-} from "@/components/ui/command"
 import {
   ContextMenu,
   ContextMenuItem,
@@ -97,11 +85,10 @@ import {
 } from "@/components/ui/menu"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  createBoardCommands,
-  groupBoardCommands,
-  type BoardCommandGroup as ExecutableBoardCommandGroup,
-  type ExecutableBoardCommand,
-} from "@/lib/board-commands"
+  createBoardActions,
+  groupBoardActions,
+  type ExecutableBoardAction,
+} from "@/lib/board-actions"
 import {
   appendWorkbenchMessage,
   boardActors,
@@ -198,28 +185,21 @@ type TicketUpdateInput = {
 interface TicketCardProps {
   readonly ticket: BoardTicket
   readonly state: BoardState
-  readonly commands: ReadonlyArray<ExecutableBoardCommand>
+  readonly actions: ReadonlyArray<ExecutableBoardAction>
   readonly active: boolean
   readonly overlay?: boolean
   readonly onOpen: () => void
   readonly onFocus: () => void
 }
 
-function BoardCommandIcon({ command }: { readonly command: ExecutableBoardCommand }) {
-  switch (command.appearance.kind) {
+function BoardActionIcon({ action }: { readonly action: ExecutableBoardAction }) {
+  switch (action.appearance.kind) {
     case "create":
       return <PlusIcon />
     case "search":
       return <SearchIcon />
-    case "column":
-      return (
-        <span
-          className="size-2 rounded-full"
-          style={{ backgroundColor: command.appearance.color }}
-        />
-      )
     case "ticket":
-      return <CircleIcon className={priorityStyles[command.appearance.priority]} />
+      return <CircleIcon className={priorityStyles[action.appearance.priority]} />
     case "rename":
       return <PencilIcon />
     case "delete":
@@ -227,35 +207,35 @@ function BoardCommandIcon({ command }: { readonly command: ExecutableBoardComman
   }
 }
 
-const renderBoardCommandContextMenuItem = (command: ExecutableBoardCommand) => (
+const renderBoardActionContextMenuItem = (action: ExecutableBoardAction) => (
   <ContextMenuItem
-    key={command.id}
+    key={action.id}
     closeOnClick
-    disabled={command.disabled}
-    variant={command.destructive ? "destructive" : "default"}
-    onClick={() => requestAnimationFrame(() => void command.execute())}
+    disabled={action.disabled}
+    variant={action.destructive ? "destructive" : "default"}
+    onClick={() => requestAnimationFrame(() => void action.execute())}
   >
-    <BoardCommandIcon command={command} />
-    {command.label}
-    {command.shortcut === undefined ? null : (
-      <ContextMenuShortcut>{command.shortcut}</ContextMenuShortcut>
+    <BoardActionIcon action={action} />
+    {action.label}
+    {action.shortcut === undefined ? null : (
+      <ContextMenuShortcut>{action.shortcut}</ContextMenuShortcut>
     )}
   </ContextMenuItem>
 )
 
-function BoardCommandContextMenuItems({
-  commands,
+function BoardActionContextMenuItems({
+  actions,
 }: {
-  readonly commands: ReadonlyArray<ExecutableBoardCommand>
+  readonly actions: ReadonlyArray<ExecutableBoardAction>
 }) {
-  const regular = commands.filter((command) => !command.destructive)
-  const destructive = commands.filter((command) => command.destructive)
+  const regular = actions.filter((action) => !action.destructive)
+  const destructive = actions.filter((action) => action.destructive)
 
   return (
     <>
-      {regular.map(renderBoardCommandContextMenuItem)}
+      {regular.map(renderBoardActionContextMenuItem)}
       {regular.length === 0 || destructive.length === 0 ? null : <ContextMenuSeparator />}
-      {destructive.map(renderBoardCommandContextMenuItem)}
+      {destructive.map(renderBoardActionContextMenuItem)}
     </>
   )
 }
@@ -282,7 +262,7 @@ const dueLabel = (
 function TicketCard({
   ticket,
   state,
-  commands,
+  actions,
   active,
   overlay = false,
   onOpen,
@@ -300,10 +280,10 @@ function TicketCard({
     transform: CSS.Transform.toString(transform),
     transition,
   }
-  const contextCommands = groupBoardCommands(commands, "context-menu", {
+  const contextActions = groupBoardActions(actions, "context-menu", {
     kind: "ticket",
     id: ticket.id,
-  }).flatMap((group) => group.commands)
+  }).flatMap((group) => group.actions)
 
   return (
     <ContextMenu>
@@ -416,7 +396,7 @@ function TicketCard({
         </button>
       </ContextMenuTrigger>
       <ContextMenuPopup align="start" className="w-48">
-        <BoardCommandContextMenuItems commands={contextCommands} />
+        <BoardActionContextMenuItems actions={contextActions} />
       </ContextMenuPopup>
     </ContextMenu>
   )
@@ -491,7 +471,7 @@ function QuickCreate({ columnId, active, onCancel, onCreate, onActivate }: Quick
 interface BoardColumnViewProps {
   readonly column: BoardColumn
   readonly state: BoardState
-  readonly commands: ReadonlyArray<ExecutableBoardCommand>
+  readonly actions: ReadonlyArray<ExecutableBoardAction>
   readonly filters: BoardFilters
   readonly activeTicketId: string | undefined
   readonly creating: boolean
@@ -509,7 +489,7 @@ interface BoardColumnViewProps {
 function BoardColumnView({
   column,
   state,
-  commands,
+  actions,
   filters,
   activeTicketId,
   creating,
@@ -529,10 +509,10 @@ function BoardColumnView({
   const filtered = isFiltered(filters)
   const [name, setName] = useState(column.name)
   const nameInputRef = useRef<HTMLInputElement>(null)
-  const contextCommands = groupBoardCommands(commands, "context-menu", {
+  const contextActions = groupBoardActions(actions, "context-menu", {
     kind: "column",
     id: column.id,
-  }).flatMap((group) => group.commands)
+  }).flatMap((group) => group.actions)
 
   useEffect(() => {
     if (!editing) {
@@ -639,7 +619,7 @@ function BoardColumnView({
           </Menu>
         </ContextMenuTrigger>
         <ContextMenuPopup align="start" className="w-48">
-          <BoardCommandContextMenuItems commands={contextCommands} />
+          <BoardActionContextMenuItems actions={contextActions} />
         </ContextMenuPopup>
       </ContextMenu>
 
@@ -654,7 +634,7 @@ function BoardColumnView({
                 key={ticket.id}
                 ticket={ticket}
                 state={state}
-                commands={commands}
+                actions={actions}
                 active={activeTicketId === ticket.id}
                 onFocus={() => onActiveTicket(ticket.id)}
                 onOpen={() => onOpenTicket(ticket.id)}
@@ -717,7 +697,6 @@ export function BoardPage({
   const [renamingTicketId, setRenamingTicketId] = useState<string>()
   const [addingColumn, setAddingColumn] = useState(false)
   const [newColumnName, setNewColumnName] = useState("")
-  const [paletteOpen, setPaletteOpen] = useState(false)
   const [announcement, setAnnouncement] = useState(
     "Tableau chargé. Utilise les flèches pour naviguer entre les tickets.",
   )
@@ -952,11 +931,6 @@ export function BoardPage({
         },
       },
       { hotkey: "/", callback: () => searchRef.current?.focus() },
-      {
-        hotkey: "Mod+K",
-        callback: () => setPaletteOpen(true),
-      },
-      { hotkey: "M", callback: () => setPaletteOpen(true) },
       { hotkey: "Alt+Shift+ArrowUp", callback: () => keyboardMove(-1, false) },
       { hotkey: "Alt+Shift+ArrowDown", callback: () => keyboardMove(1, false) },
       { hotkey: "Alt+Shift+ArrowLeft", callback: () => keyboardMove(-1, true) },
@@ -964,7 +938,7 @@ export function BoardPage({
     ],
     {
       target: boardRef,
-      enabled: selectedTicket === undefined && !paletteOpen,
+      enabled: selectedTicket === undefined,
       preventDefault: true,
     },
   )
@@ -1085,28 +1059,51 @@ export function BoardPage({
     )
   }
 
-  const boardCommands = createBoardCommands(state, activeTicketId, {
-    createTicket: () => {
-      const column = state.columns.find((candidate) => !candidate.done)
-      setCreatingColumnId(column?.id)
-    },
+  const createTicketFromPalette = useCallback(() => {
+    const column = state.columns.find((candidate) => !candidate.done)
+    setCreatingColumnId(column?.id)
+  }, [state.columns])
+  const focusBoardSearch = useCallback(
+    () => requestAnimationFrame(() => searchRef.current?.focus()),
+    [],
+  )
+  const paletteActions = useMemo<ReadonlyArray<AppPaletteAction>>(
+    () => [
+      {
+        id: "ticket.create",
+        label: "Créer un ticket",
+        searchValue: "Créer un ticket",
+        icon: <PlusIcon />,
+        execute: createTicketFromPalette,
+      },
+      {
+        id: "board.search",
+        label: "Rechercher",
+        searchValue: "Rechercher dans le Tableau",
+        icon: <SearchIcon />,
+        execute: focusBoardSearch,
+      },
+      ...state.tickets.map((ticket): AppPaletteAction => ({
+        id: `ticket.open.${ticket.id}`,
+        label: ticket.title,
+        searchValue: `${ticket.title} ${ticket.labels.join(" ")}`,
+        category: "ticket",
+        icon: <CircleIcon className={priorityStyles[ticket.priority]} />,
+        execute: () => onOpenTicket(ticket.id),
+      })),
+    ],
+    [createTicketFromPalette, focusBoardSearch, onOpenTicket, state.tickets],
+  )
+  useAppPaletteActions(paletteActions)
+
+  const boardActions = createBoardActions(state, {
+    createTicket: createTicketFromPalette,
+    focusSearch: focusBoardSearch,
     deleteColumn: (columnId) => {
       const column = state.columns.find((candidate) => candidate.id === columnId)
       if (column !== undefined) {
         removeColumn(column)
       }
-    },
-    focusSearch: () => requestAnimationFrame(() => searchRef.current?.focus()),
-    moveTicket: (ticketId, columnId) => {
-      const next = moveTicket(state, ticketId, columnId)
-      const column = next.columns.find((candidate) => candidate.id === columnId)
-      setState(next)
-      setActiveTicketId(ticketId)
-      persistTicketPlacement(
-        next,
-        ticketId,
-        `Ticket déplacé vers ${column?.name ?? "la colonne cible"}, en fin de colonne.`,
-      )
     },
     openTicket: onOpenTicket,
     renameColumn: setEditingColumnId,
@@ -1115,12 +1112,6 @@ export function BoardPage({
       onOpenTicket(ticketId)
     },
   })
-  const commandGroups = groupBoardCommands(boardCommands, "palette")
-  const executePaletteCommand = (command: ExecutableBoardCommand) => {
-    setPaletteOpen(false)
-    void command.execute()
-  }
-
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {controlPlaneError === undefined ? null : (
@@ -1221,12 +1212,6 @@ export function BoardPage({
                 Effacer
               </Button>
             ) : null}
-
-            <Button variant="outline" size="default" onClick={() => setPaletteOpen(true)}>
-              <CommandIcon />
-              <span className="hidden sm:inline">Commandes</span>
-              <kbd className="ml-1 text-[0.58rem] text-muted-foreground">⌘ K</kbd>
-            </Button>
           </div>
         </div>
       </header>
@@ -1258,7 +1243,7 @@ export function BoardPage({
                 key={column.id}
                 column={column}
                 state={state}
-                commands={boardCommands}
+                actions={boardActions}
                 filters={filters}
                 activeTicketId={activeTicketId}
                 creating={creatingColumnId === column.id}
@@ -1369,7 +1354,7 @@ export function BoardPage({
             <TicketCard
               ticket={draggedTicket}
               state={state}
-              commands={boardCommands}
+              actions={boardActions}
               active={false}
               overlay
               onFocus={() => undefined}
@@ -1471,38 +1456,6 @@ export function BoardPage({
           setState((current) => appendWorkbenchMessage(current, ticketId, message))
         }
       />
-
-      <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
-        <CommandDialogPopup>
-          <Command items={commandGroups}>
-            <CommandInput placeholder="Rechercher une commande ou un ticket…" />
-            <CommandEmpty>Aucun résultat.</CommandEmpty>
-            <CommandList>
-              {(group: ExecutableBoardCommandGroup) => (
-                <CommandGroup key={group.id} items={group.commands}>
-                  <CommandGroupLabel>{group.label}</CommandGroupLabel>
-                  <CommandCollection>
-                    {(command: ExecutableBoardCommand) => (
-                      <CommandItem
-                        key={command.id}
-                        value={command.searchValue}
-                        disabled={command.disabled}
-                        onClick={() => executePaletteCommand(command)}
-                      >
-                        <BoardCommandIcon command={command} />
-                        <span className="truncate">{command.paletteLabel ?? command.label}</span>
-                        {command.shortcut === undefined ? null : (
-                          <CommandShortcut>{command.shortcut}</CommandShortcut>
-                        )}
-                      </CommandItem>
-                    )}
-                  </CommandCollection>
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
-        </CommandDialogPopup>
-      </CommandDialog>
     </main>
   )
 }
