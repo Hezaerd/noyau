@@ -76,6 +76,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
+import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
   Menu,
   MenuGroup,
@@ -114,6 +115,7 @@ import {
   loadProjectExecutions,
   subscribeProjectEvents,
 } from "@/lib/control-plane"
+import { HOTKEY_COMMAND_PALETTE } from "@/lib/keyboard-shortcut"
 import {
   makeExecutionStartRequest,
   makeKanbanColumnCreateRequest,
@@ -888,7 +890,7 @@ export function BoardPage({
       },
       { hotkey: "/", callback: () => searchRef.current?.focus() },
       {
-        hotkey: "Mod+K",
+        hotkey: HOTKEY_COMMAND_PALETTE,
         callback: () => setPaletteOpen(true),
       },
       { hotkey: "M", callback: () => setPaletteOpen(true) },
@@ -1076,9 +1078,10 @@ export function BoardPage({
                 placeholder="Rechercher un ticket…"
                 className="pl-9"
               />
-              <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border px-1.5 py-0.5 text-[0.58rem] text-muted-foreground">
-                /
-              </kbd>
+              <KeyboardShortcut
+                hotkey="/"
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-[0.58rem]"
+              />
             </div>
 
             <Select
@@ -1145,7 +1148,7 @@ export function BoardPage({
             <Button variant="outline" size="default" onClick={() => setPaletteOpen(true)}>
               <CommandIcon />
               <span className="hidden sm:inline">Commandes</span>
-              <kbd className="ml-1 text-[0.58rem] text-muted-foreground">⌘ K</kbd>
+              <KeyboardShortcut hotkey={HOTKEY_COMMAND_PALETTE} className="ml-1 text-[0.58rem]" />
             </Button>
           </div>
         </div>
@@ -1419,9 +1422,7 @@ export function BoardPage({
                           <CircleIcon className={priorityStyles[item.priority]} />
                         )}
                         <span className="truncate">{item.label}</span>
-                        {item.kind === "action" ? (
-                          <CommandShortcut>{item.shortcut}</CommandShortcut>
-                        ) : null}
+                        {item.kind === "action" ? <CommandShortcut hotkey={item.shortcut} /> : null}
                       </CommandItem>
                     )}
                   </CommandCollection>
