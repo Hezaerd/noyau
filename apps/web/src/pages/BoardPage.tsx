@@ -1073,7 +1073,6 @@ export function BoardPage({
         id: "ticket.create",
         label: "Créer un ticket",
         searchValue: "Créer un ticket",
-        shortcut: "C",
         icon: <PlusIcon />,
         execute: createTicketFromPalette,
       },
@@ -1081,12 +1080,19 @@ export function BoardPage({
         id: "board.search",
         label: "Rechercher",
         searchValue: "Rechercher dans le Tableau",
-        shortcut: "/",
         icon: <SearchIcon />,
         execute: focusBoardSearch,
       },
+      ...state.tickets.map((ticket): AppPaletteAction => ({
+        id: `ticket.open.${ticket.id}`,
+        label: ticket.title,
+        searchValue: `${ticket.title} ${ticket.labels.join(" ")}`,
+        category: "ticket",
+        icon: <CircleIcon className={priorityStyles[ticket.priority]} />,
+        execute: () => onOpenTicket(ticket.id),
+      })),
     ],
-    [createTicketFromPalette, focusBoardSearch],
+    [createTicketFromPalette, focusBoardSearch, onOpenTicket, state.tickets],
   )
   useAppPaletteActions(paletteActions)
 

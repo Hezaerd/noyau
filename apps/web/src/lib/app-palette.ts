@@ -7,9 +7,13 @@ export interface PaletteItem {
 }
 
 export interface PaletteGroup<TItem extends PaletteItem> {
-  readonly id: "recents" | "actions" | "navigation"
-  readonly label: "Récents" | "Actions" | "Navigation"
+  readonly id: "recents" | "actions" | "navigation" | "tickets"
+  readonly label: "Récents" | "Actions" | "Navigation" | "Tickets"
   readonly items: ReadonlyArray<TItem>
+}
+
+export interface SearchablePaletteItem extends PaletteItem {
+  readonly searchValue: string
 }
 
 const RecentActionIdsJson = Schema.fromJsonString(Schema.Array(Schema.String))
@@ -21,6 +25,37 @@ export const parseRecentActionIds = (value: string | null): ReadonlyArray<string
 
 export const serializeRecentActionIds = (ids: ReadonlyArray<string>): string =>
   encodeRecentActionIds([...ids])
+
+export const paletteShortcutIndex = (code: string): number | undefined => {
+  if (!code.startsWith("Digit")) {
+    return undefined
+  }
+  const number = Number(code.slice(5))
+  return Number.isInteger(number) && number >= 1 && number <= 9 ? number - 1 : undefined
+}
+
+const normalizePaletteQuery = (value: string): string =>
+  value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase("fr")
+    .trim()
+
+export const filterPaletteGroups = <TItem extends SearchablePaletteItem>(
+  groups: ReadonlyArray<PaletteGroup<TItem>>,
+  query: string,
+): ReadonlyArray<PaletteGroup<TItem>> => {
+  const normalizedQuery = normalizePaletteQuery(query)
+  if (normalizedQuery === "") {
+    return groups
+  }
+  return groups.flatMap((group) => {
+    const items = group.items.filter((item) =>
+      normalizePaletteQuery(item.searchValue).includes(normalizedQuery),
+    )
+    return items.length === 0 ? [] : [{ ...group, items }]
+  })
+}
 
 export const updateRecentActionIds = (
   recentIds: ReadonlyArray<string>,

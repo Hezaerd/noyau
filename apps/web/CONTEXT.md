@@ -25,7 +25,7 @@ Nom affiché du Thread dédié à la collaboration opérationnelle sur un Ticket
 _À éviter_ : nouvelle entité de conversation, espace d'exécution
 
 **Palette**:
-Overlay clavier searchable de l'app. Elle propose des Actions — navigation, verbes de la page, Récents — jamais une ligne par Ticket.
+Overlay clavier searchable de l'app. Elle propose navigation, verbes de la page et Récents, puis les Tickets du Tableau lorsqu'une recherche est saisie.
 _À éviter_ : Command, Command palette, Spotlight, Menu
 
 **Action**:
@@ -45,7 +45,7 @@ Action déjà déclenchée, proposée si elle reste applicable dans le contexte 
 _À éviter_ : history, shortcut, historique
 
 **Catalogue**:
-Union des Actions du socle de navigation et des verbes de la page courante.
+Union des Actions du socle de navigation, des verbes de la page courante et des résultats recherchables propres à cette page.
 _À éviter_ : registry, command list
 
 Le Tableau charge un `BoardSnapshot`, soumet des `TicketCommandRequest` et reprend le flux projet

@@ -209,11 +209,14 @@ TanStack Hotkeys centralise les bindings, leurs scopes et leur présentation. La
 2. les Actions de la page courante ;
 3. la Navigation vers `Inbox`, `Tableau` et `Channel`, à l'exception de la page courante.
 
-Le Tableau contribue seulement `Créer un ticket` et `Rechercher` en v1. La Palette ne contient ni
-une ligne par Ticket, ni une destination de déplacement : ouverture, renommage et déplacement
-restent accessibles par interaction directe, raccourci ou menu contextuel. Un Récent est ajouté
-uniquement après exécution depuis la Palette, stocké localement comme préférence UI non autoritative
-et affiché seulement si son Action appartient encore au Catalogue courant.
+Le Tableau contribue `Créer un ticket` et `Rechercher` en v1. Dès qu'une query est saisie, un groupe
+`Tickets` recherche localement dans leurs titres et labels ; choisir un résultat ouvre son Sheet.
+Ce groupe reste absent à query vide et ses ouvertures ne deviennent pas des Récents. Les destinations
+de déplacement restent accessibles par interaction directe ou raccourci. Un Récent est ajouté
+uniquement après exécution d'une Action depuis la Palette, stocké localement comme préférence UI non
+autoritative et affiché seulement si son Action appartient encore au Catalogue courant. Les neuf
+premiers résultats visibles sont directement activables avec `Cmd+1` à `Cmd+9` sur macOS, ou
+`Alt+1` à `Alt+9` ailleurs.
 
 Les raccourcis du Tableau ne sont actifs que lorsque le focus est dans sa zone, hors `input`,
 `textarea`, contenu `contenteditable`, contrôle interactif et overlay. Le Sheet et les Dialogs
@@ -446,3 +449,5 @@ commandes inverses explicites ; il n'existe pas d'undo générique.
     les raccourcis du Tableau ne s'activent jamais depuis un champ, un contrôle ou un overlay.
 12. `Cmd/Ctrl+K` ouvre la Palette depuis toute page ; elle affiche les Récents applicables, les
     Actions de la page puis les destinations de Navigation sans dupliquer la page courante.
+13. Sur le Tableau, saisir un titre ou un label fait apparaître les Tickets correspondants sans
+    afficher le catalogue complet à query vide ; choisir un résultat ouvre son Sheet.

@@ -25,7 +25,10 @@ import {
 } from "@/components/ui/command"
 import {
   buildPaletteGroups,
+  filterPaletteGroups,
+  paletteShortcutIndex,
   parseRecentActionIds,
+  type PaletteGroup,
   serializeRecentActionIds,
   updateRecentActionIds,
 } from "@/lib/app-palette"
@@ -51,6 +54,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
   const [pageActions, setPageActions] = useState<ReadonlyArray<AppPaletteAction>>([])
   const [recentActionIds, setRecentActionIds] = useState<ReadonlyArray<string>>(readRecentActionIds)
 
@@ -129,26 +133,87 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     return actions.filter((action) => action.path !== pathname)
   }, [navigate, pathname])
 
-  const groups = useMemo(
-    () => buildPaletteGroups(pageActions, navigationActions, recentActionIds),
-    [navigationActions, pageActions, recentActionIds],
+  const contextualActions = useMemo(
+    () => pageActions.filter((action) => action.category !== "ticket"),
+    [pageActions],
+  )
+  const ticketActions = useMemo(
+    () => pageActions.filter((action) => action.category === "ticket"),
+    [pageActions],
+  )
+  const groups = useMemo(() => {
+    const baseGroups = buildPaletteGroups(contextualActions, navigationActions, recentActionIds)
+    const searchableGroups: ReadonlyArray<PaletteGroup<AppPaletteAction>> =
+      query.trim() === "" || ticketActions.length === 0
+        ? baseGroups
+        : [...baseGroups, { id: "tickets", label: "Tickets", items: ticketActions }]
+    return filterPaletteGroups(searchableGroups, query)
+  }, [contextualActions, navigationActions, query, recentActionIds, ticketActions])
+  const numberedActions = useMemo(
+    () => groups.flatMap((group) => group.items).slice(0, 9),
+    [groups],
+  )
+  const shortcutModifier = navigator.platform.startsWith("Mac") ? "⌘" : "Alt"
+  const shortcutByActionId = useMemo(
+    () =>
+      new Map(
+        numberedActions.map((action, index) => [action.id, `${shortcutModifier}${index + 1}`]),
+      ),
+    [numberedActions, shortcutModifier],
   )
 
-  const executeAction = (action: AppPaletteAction): void => {
+  const executeAction = useCallback((action: AppPaletteAction): void => {
     setOpen(false)
-    setRecentActionIds((current) => updateRecentActionIds(current, action.id))
+    setQuery("")
+    if (action.category !== "ticket") {
+      setRecentActionIds((current) => updateRecentActionIds(current, action.id))
+    }
     void action.execute()
+  }, [])
+
+  const handleOpenChange = (nextOpen: boolean): void => {
+    setOpen(nextOpen)
+    if (!nextOpen) {
+      setQuery("")
+    }
   }
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    const handleNumberShortcut = (event: KeyboardEvent) => {
+      const shortcutIndex = paletteShortcutIndex(event.code)
+      const modifierPressed = shortcutModifier === "⌘" ? event.metaKey : event.altKey
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        !modifierPressed ||
+        shortcutIndex === undefined ||
+        shortcutIndex >= numberedActions.length
+      ) {
+        return
+      }
+      const action = numberedActions[shortcutIndex]
+      if (action !== undefined) {
+        event.preventDefault()
+        executeAction(action)
+      }
+    }
+
+    window.addEventListener("keydown", handleNumberShortcut)
+    return () => window.removeEventListener("keydown", handleNumberShortcut)
+  }, [executeAction, numberedActions, open, shortcutModifier])
 
   return (
     <AppPaletteContext.Provider value={context}>
-      <CommandDialog open={open} onOpenChange={setOpen}>
+      <CommandDialog open={open} onOpenChange={handleOpenChange}>
         {children}
         <CommandDialogPopup>
           <CommandDialogPrimitive.Title className="sr-only">Palette</CommandDialogPrimitive.Title>
           <CommandPanel>
-            <Command items={groups}>
-              <CommandInput placeholder="Rechercher une action ou une page…" />
+            <Command filter={null} items={groups} value={query} onValueChange={setQuery}>
+              <CommandInput placeholder="Rechercher une action, une page ou un ticket…" />
               <CommandEmpty>Aucun résultat.</CommandEmpty>
               <CommandList>
                 {(group) => (
@@ -158,14 +223,17 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
                       {(action: AppPaletteAction) => (
                         <CommandItem
                           key={action.id}
+                          className="gap-2"
                           value={action.searchValue}
                           onClick={() => executeAction(action)}
                         >
-                          {action.icon}
+                          <span className="grid size-4 shrink-0 place-items-center [&>svg]:size-4">
+                            {action.icon}
+                          </span>
                           <span className="truncate">{action.label}</span>
-                          {action.shortcut === undefined ? null : (
-                            <CommandShortcut>{action.shortcut}</CommandShortcut>
-                          )}
+                          {shortcutByActionId.has(action.id) ? (
+                            <CommandShortcut>{shortcutByActionId.get(action.id)}</CommandShortcut>
+                          ) : null}
                         </CommandItem>
                       )}
                     </CommandCollection>

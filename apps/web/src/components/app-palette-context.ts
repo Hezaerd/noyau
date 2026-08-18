@@ -4,7 +4,7 @@ export interface AppPaletteAction {
   readonly id: string
   readonly label: string
   readonly searchValue: string
-  readonly shortcut?: string
+  readonly category?: "action" | "ticket"
   readonly icon?: ReactNode
   readonly execute: () => void | Promise<void>
 }

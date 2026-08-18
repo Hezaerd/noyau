@@ -3,6 +3,8 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   applicableRecentActionIds,
   buildPaletteGroups,
+  filterPaletteGroups,
+  paletteShortcutIndex,
   parseRecentActionIds,
   serializeRecentActionIds,
   updateRecentActionIds,
@@ -21,6 +23,13 @@ describe("app Palette", () => {
       parseRecentActionIds(serializeRecentActionIds(["board.search", "navigate.inbox"])),
     ).toEqual(["board.search", "navigate.inbox"])
     expect(parseRecentActionIds('{"not":"an array"}')).toEqual([])
+  })
+
+  it("maps physical number keys independently from the keyboard layout", () => {
+    expect(paletteShortcutIndex("Digit1")).toBe(0)
+    expect(paletteShortcutIndex("Digit9")).toBe(8)
+    expect(paletteShortcutIndex("KeyA")).toBeUndefined()
+    expect(paletteShortcutIndex("Numpad1")).toBeUndefined()
   })
 
   it("keeps only recents that remain in the current Catalogue", () => {
@@ -50,5 +59,31 @@ describe("app Palette", () => {
         items: [item("navigate.board")],
       },
     ])
+  })
+
+  it("filters Ticket results by title or label without accents", () => {
+    const groups = filterPaletteGroups(
+      [
+        {
+          id: "tickets",
+          label: "Tickets",
+          items: [
+            {
+              id: "ticket-http",
+              searchValue: "Corriger la requête HTTP backend urgent",
+            },
+            {
+              id: "ticket-ui",
+              searchValue: "Polir le Tableau frontend",
+            },
+          ],
+        },
+      ],
+      "requete",
+    )
+
+    expect(groups[0]?.items.map(({ id }) => id)).toEqual(["ticket-http"])
+    expect(filterPaletteGroups(groups, "urgent")[0]?.items).toHaveLength(1)
+    expect(filterPaletteGroups(groups, "mobile")).toEqual([])
   })
 })
