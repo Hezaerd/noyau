@@ -39,18 +39,20 @@ import {
   CheckCircleIcon,
   CircleAlertIcon,
   CircleIcon,
-  CommandIcon,
   EllipsisIcon,
   FunnelIcon,
   GripVerticalIcon,
+  PencilIcon,
   PlusIcon,
   SearchIcon,
+  Trash2Icon,
   UserIcon,
   XIcon,
 } from "lucide-react"
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -58,23 +60,19 @@ import {
   type RefObject,
 } from "react"
 
-import { TicketSheet } from "@/components/board/TicketSheet"
+import { type AppPaletteAction, useAppPaletteActions } from "@/components/app-palette-context"
+import { TicketDialog } from "@/components/board/TicketDialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  Command,
-  CommandCollection,
-  CommandDialog,
-  CommandDialogPopup,
-  CommandEmpty,
-  CommandGroup,
-  CommandGroupLabel,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandShortcut,
-} from "@/components/ui/command"
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuPopup,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { Input } from "@/components/ui/input"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
@@ -87,6 +85,11 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  createBoardActions,
+  groupBoardActions,
+  type ExecutableBoardAction,
+} from "@/lib/board-actions"
 import {
   appendWorkbenchMessage,
   boardActors,
@@ -115,7 +118,6 @@ import {
   loadProjectExecutions,
   subscribeProjectEvents,
 } from "@/lib/control-plane"
-import { HOTKEY_COMMAND_PALETTE } from "@/lib/keyboard-shortcut"
 import {
   makeExecutionStartRequest,
   makeKanbanColumnCreateRequest,
@@ -181,41 +183,60 @@ type TicketUpdateInput = {
   readonly dueAt?: string | null
 }
 
-type CommandPaletteItem =
-  | {
-      readonly kind: "action"
-      readonly value: "create" | "search"
-      readonly label: string
-      readonly shortcut: string
-    }
-  | {
-      readonly kind: "move"
-      readonly value: string
-      readonly label: string
-      readonly columnId: string
-      readonly color: string
-    }
-  | {
-      readonly kind: "ticket"
-      readonly value: string
-      readonly label: string
-      readonly ticketId: string
-      readonly priority: TicketPriority
-    }
-
-interface CommandPaletteGroup {
-  readonly value: string
-  readonly label: string
-  readonly items: ReadonlyArray<CommandPaletteItem>
-}
-
 interface TicketCardProps {
   readonly ticket: BoardTicket
   readonly state: BoardState
+  readonly actions: ReadonlyArray<ExecutableBoardAction>
   readonly active: boolean
   readonly overlay?: boolean
   readonly onOpen: () => void
   readonly onFocus: () => void
+}
+
+function BoardActionIcon({ action }: { readonly action: ExecutableBoardAction }) {
+  switch (action.appearance.kind) {
+    case "create":
+      return <PlusIcon />
+    case "search":
+      return <SearchIcon />
+    case "ticket":
+      return <CircleIcon className={priorityStyles[action.appearance.priority]} />
+    case "rename":
+      return <PencilIcon />
+    case "delete":
+      return <Trash2Icon />
+  }
+}
+
+const renderBoardActionContextMenuItem = (action: ExecutableBoardAction) => (
+  <ContextMenuItem
+    key={action.id}
+    closeOnClick
+    disabled={action.disabled}
+    variant={action.destructive ? "destructive" : "default"}
+    onClick={() => requestAnimationFrame(() => void action.execute())}
+  >
+    <BoardActionIcon action={action} />
+    {action.label}
+    {action.shortcut === undefined ? null : <ContextMenuShortcut hotkey={action.shortcut} />}
+  </ContextMenuItem>
+)
+
+function BoardActionContextMenuItems({
+  actions,
+}: {
+  readonly actions: ReadonlyArray<ExecutableBoardAction>
+}) {
+  const regular = actions.filter((action) => !action.destructive)
+  const destructive = actions.filter((action) => action.destructive)
+
+  return (
+    <>
+      {regular.map(renderBoardActionContextMenuItem)}
+      {regular.length === 0 || destructive.length === 0 ? null : <ContextMenuSeparator />}
+      {destructive.map(renderBoardActionContextMenuItem)}
+    </>
+  )
 }
 
 const dueLabel = (
@@ -237,7 +258,15 @@ const dueLabel = (
   return { label: date, late: false }
 }
 
-function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }: TicketCardProps) {
+function TicketCard({
+  ticket,
+  state,
+  actions,
+  active,
+  overlay = false,
+  onOpen,
+  onFocus,
+}: TicketCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: ticket.id,
     disabled: overlay,
@@ -250,110 +279,125 @@ function TicketCard({ ticket, state, active, overlay = false, onOpen, onFocus }:
     transform: CSS.Transform.toString(transform),
     transition,
   }
+  const contextActions = groupBoardActions(actions, "context-menu", {
+    kind: "ticket",
+    id: ticket.id,
+  }).flatMap((group) => group.actions)
 
   return (
-    <article
-      ref={setNodeRef}
-      style={style}
-      data-ticket-id={ticket.id}
-      className={cn(
-        "group relative rounded-xl border border-border/85 bg-card shadow-xs",
-        "hover:border-border hover:shadow-lg/5",
-        active && "border-primary/55 ring-2 ring-primary/18",
-        isDragging && "opacity-30",
-        overlay && "w-72 rotate-1 border-primary/50 shadow-2xl",
-      )}
-    >
-      <button
-        type="button"
-        onClick={onOpen}
-        onFocus={onFocus}
-        className="w-full touch-none rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/65"
-        aria-label={`Ouvrir le ticket ${ticket.title}`}
-        {...attributes}
-        {...listeners}
-      >
-        <div className="flex items-start gap-2">
-          <CircleIcon className={cn("mt-0.5 size-3.5 shrink-0", priorityStyles[ticket.priority])} />
-          <h3 className="line-clamp-2 flex-1 text-[0.82rem] leading-snug font-medium tracking-[-0.01em]">
-            {ticket.title}
-          </h3>
-          <span
-            className="mt-0.5 cursor-grab touch-none text-muted-foreground/35 opacity-0 group-hover:opacity-100"
-            aria-hidden="true"
-          >
-            <GripVerticalIcon className="size-3.5" />
-          </span>
-        </div>
-
-        {ticket.attention === undefined ? null : (
-          <Badge
-            variant="outline"
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <article
+            ref={setNodeRef}
+            style={style}
+            data-ticket-id={ticket.id}
             className={cn(
-              "mt-3 rounded-md px-1.5 text-[0.58rem]",
-              attentionStyles[ticket.attention],
+              "group relative rounded-xl border border-border/85 bg-card shadow-xs",
+              "hover:border-border hover:shadow-lg/5",
+              active && "border-primary/55 ring-2 ring-primary/18",
+              isDragging && "opacity-30",
+              overlay && "w-72 rotate-1 border-primary/50 shadow-2xl",
             )}
-          >
-            <CircleAlertIcon />
-            {attentionLabels[ticket.attention]}
-          </Badge>
-        )}
-
-        {ticket.execution === undefined ? null : (
-          <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/55 px-2.5 py-2">
-            <BotIcon className="size-3.5 shrink-0 text-primary" />
-            <p className="min-w-0 flex-1 truncate text-[0.65rem] text-muted-foreground">
-              {ticket.execution.count} exécution{ticket.execution.count > 1 ? "s" : ""} ·{" "}
-              <span className="text-foreground">{executionLabels[ticket.execution.status]}</span>
-            </p>
-          </div>
-        )}
-
-        {ticket.labels.length === 0 ? null : (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {ticket.labels.slice(0, 3).map((label) => (
-              <span
-                key={label}
-                className="rounded-md bg-secondary px-1.5 py-0.5 text-[0.58rem] text-muted-foreground"
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
-          {actor === undefined ? (
-            <span className="grid size-5 place-items-center rounded-md border border-dashed text-muted-foreground/50">
-              <UserIcon className="size-2.5" />
-            </span>
-          ) : (
-            <Avatar className="size-5 rounded-md">
-              <AvatarFallback className="rounded-md bg-primary/12 text-[0.5rem] font-semibold text-primary">
-                {actor.initials}
-              </AvatarFallback>
-            </Avatar>
-          )}
-          {due === undefined ? null : (
+          />
+        }
+      >
+        <button
+          type="button"
+          onClick={onOpen}
+          onFocus={onFocus}
+          className="w-full touch-none rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/65"
+          aria-label={`Ouvrir le ticket ${ticket.title}`}
+          {...attributes}
+          {...listeners}
+        >
+          <div className="flex items-start gap-2">
+            <CircleIcon
+              className={cn("mt-0.5 size-3.5 shrink-0", priorityStyles[ticket.priority])}
+            />
+            <h3 className="line-clamp-2 flex-1 text-[0.82rem] leading-snug font-medium tracking-[-0.01em]">
+              {ticket.title}
+            </h3>
             <span
+              className="mt-0.5 cursor-grab touch-none text-muted-foreground/35 opacity-0 group-hover:opacity-100"
+              aria-hidden="true"
+            >
+              <GripVerticalIcon className="size-3.5" />
+            </span>
+          </div>
+
+          {ticket.attention === undefined ? null : (
+            <Badge
+              variant="outline"
               className={cn(
-                "flex items-center gap-1 text-[0.6rem] text-muted-foreground",
-                due.late && "text-destructive",
+                "mt-3 rounded-md px-1.5 text-[0.58rem]",
+                attentionStyles[ticket.attention],
               )}
             >
-              <CalendarIcon className="size-3" />
-              {due.label}
-            </span>
+              <CircleAlertIcon />
+              {attentionLabels[ticket.attention]}
+            </Badge>
           )}
-          {ticket.checklist.length === 0 ? null : (
-            <span className="ml-auto flex items-center gap-1 text-[0.6rem] text-muted-foreground">
-              <CheckCircleIcon className="size-3" />
-              {checklistDone}/{ticket.checklist.length}
-            </span>
+
+          {ticket.execution === undefined ? null : (
+            <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/55 px-2.5 py-2">
+              <BotIcon className="size-3.5 shrink-0 text-primary" />
+              <p className="min-w-0 flex-1 truncate text-[0.65rem] text-muted-foreground">
+                {ticket.execution.count} exécution{ticket.execution.count > 1 ? "s" : ""} ·{" "}
+                <span className="text-foreground">{executionLabels[ticket.execution.status]}</span>
+              </p>
+            </div>
           )}
-        </div>
-      </button>
-    </article>
+
+          {ticket.labels.length === 0 ? null : (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {ticket.labels.slice(0, 3).map((label) => (
+                <span
+                  key={label}
+                  className="rounded-md bg-secondary px-1.5 py-0.5 text-[0.58rem] text-muted-foreground"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
+            {actor === undefined ? (
+              <span className="grid size-5 place-items-center rounded-md border border-dashed text-muted-foreground/50">
+                <UserIcon className="size-2.5" />
+              </span>
+            ) : (
+              <Avatar className="size-5 rounded-md">
+                <AvatarFallback className="rounded-md bg-primary/12 text-[0.5rem] font-semibold text-primary">
+                  {actor.initials}
+                </AvatarFallback>
+              </Avatar>
+            )}
+            {due === undefined ? null : (
+              <span
+                className={cn(
+                  "flex items-center gap-1 text-[0.6rem] text-muted-foreground",
+                  due.late && "text-destructive",
+                )}
+              >
+                <CalendarIcon className="size-3" />
+                {due.label}
+              </span>
+            )}
+            {ticket.checklist.length === 0 ? null : (
+              <span className="ml-auto flex items-center gap-1 text-[0.6rem] text-muted-foreground">
+                <CheckCircleIcon className="size-3" />
+                {checklistDone}/{ticket.checklist.length}
+              </span>
+            )}
+          </div>
+        </button>
+      </ContextMenuTrigger>
+      <ContextMenuPopup align="start" className="w-48">
+        <BoardActionContextMenuItems actions={contextActions} />
+      </ContextMenuPopup>
+    </ContextMenu>
   )
 }
 
@@ -426,6 +470,7 @@ function QuickCreate({ columnId, active, onCancel, onCreate, onActivate }: Quick
 interface BoardColumnViewProps {
   readonly column: BoardColumn
   readonly state: BoardState
+  readonly actions: ReadonlyArray<ExecutableBoardAction>
   readonly filters: BoardFilters
   readonly activeTicketId: string | undefined
   readonly creating: boolean
@@ -443,6 +488,7 @@ interface BoardColumnViewProps {
 function BoardColumnView({
   column,
   state,
+  actions,
   filters,
   activeTicketId,
   creating,
@@ -461,6 +507,22 @@ function BoardColumnView({
   const tickets = visibleTickets(state, column.id, filters)
   const filtered = isFiltered(filters)
   const [name, setName] = useState(column.name)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+  const contextActions = groupBoardActions(actions, "context-menu", {
+    kind: "column",
+    id: column.id,
+  }).flatMap((group) => group.actions)
+
+  useEffect(() => {
+    if (!editing) {
+      return
+    }
+    const frame = requestAnimationFrame(() => {
+      nameInputRef.current?.focus()
+      nameInputRef.current?.select()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [editing])
 
   return (
     <section
@@ -471,84 +533,94 @@ function BoardColumnView({
         isOver && "border-primary/45 bg-primary/5",
       )}
     >
-      <header className="flex h-12 items-center gap-2 border-b border-border/55 px-3">
-        <span className="size-2 rounded-full" style={{ backgroundColor: column.color }} />
-        {editing ? (
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onBlur={() => {
-              if (name.trim() !== "") {
-                onRename(name)
-              }
-              onEditingChange(false)
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur()
-              }
-              if (event.key === "Escape") {
-                setName(column.name)
+      <ContextMenu>
+        <ContextMenuTrigger
+          render={
+            <header className="flex h-12 items-center gap-2 border-b border-border/55 px-3" />
+          }
+        >
+          <span className="size-2 rounded-full" style={{ backgroundColor: column.color }} />
+          {editing ? (
+            <Input
+              ref={nameInputRef}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onBlur={() => {
+                if (name.trim() !== "") {
+                  onRename(name)
+                }
                 onEditingChange(false)
+              }}
+              onContextMenu={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur()
+                }
+                if (event.key === "Escape") {
+                  setName(column.name)
+                  onEditingChange(false)
+                }
+              }}
+              className="h-7 flex-1 border-transparent bg-transparent px-1 text-xs font-semibold"
+            />
+          ) : (
+            <h2
+              id={`column-title-${column.id}`}
+              className="min-w-0 flex-1 truncate text-xs font-semibold"
+            >
+              {column.name}
+            </h2>
+          )}
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[0.58rem] text-muted-foreground">
+            {filtered ? `${tickets.length}/${allTickets.length}` : allTickets.length}
+          </span>
+          <Menu>
+            <MenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Menu de la colonne ${column.name}`}
+                >
+                  <EllipsisIcon />
+                </Button>
               }
-            }}
-            className="h-7 flex-1 border-transparent bg-transparent px-1 text-xs font-semibold"
-            autoFocus
-          />
-        ) : (
-          <h2
-            id={`column-title-${column.id}`}
-            className="min-w-0 flex-1 truncate text-xs font-semibold"
-          >
-            {column.name}
-          </h2>
-        )}
-        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[0.58rem] text-muted-foreground">
-          {filtered ? `${tickets.length}/${allTickets.length}` : allTickets.length}
-        </span>
-        <Menu>
-          <MenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Menu de la colonne ${column.name}`}
-              >
-                <EllipsisIcon />
-              </Button>
-            }
-          />
-          <MenuPopup align="end" className="w-44">
-            <MenuGroup>
-              <MenuGroupLabel>{column.name}</MenuGroupLabel>
-              <MenuItem onClick={() => onEditingChange(true)}>Renommer</MenuItem>
-            </MenuGroup>
-            <MenuSeparator />
-            <MenuGroup>
-              <MenuGroupLabel>Couleur</MenuGroupLabel>
-              {[
-                ["Neutre", "#a3a3a3"],
-                ["Bleu", "#3B82F6"],
-                ["Émeraude", "#10B981"],
-                ["Ambre", "#F59E0B"],
-              ].map(([label, color]) => (
-                <MenuItem key={color} onClick={() => onColor(color ?? "#a3a3a3")}>
-                  <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
-                  {label}
-                </MenuItem>
-              ))}
-            </MenuGroup>
-            {column.done ? null : (
-              <>
-                <MenuSeparator />
-                <MenuItem variant="destructive" onClick={onDelete}>
-                  Supprimer
-                </MenuItem>
-              </>
-            )}
-          </MenuPopup>
-        </Menu>
-      </header>
+            />
+            <MenuPopup align="end" className="w-44">
+              <MenuGroup>
+                <MenuGroupLabel>{column.name}</MenuGroupLabel>
+                <MenuItem onClick={() => onEditingChange(true)}>Renommer</MenuItem>
+              </MenuGroup>
+              <MenuSeparator />
+              <MenuGroup>
+                <MenuGroupLabel>Couleur</MenuGroupLabel>
+                {[
+                  ["Neutre", "#a3a3a3"],
+                  ["Bleu", "#3B82F6"],
+                  ["Émeraude", "#10B981"],
+                  ["Ambre", "#F59E0B"],
+                ].map(([label, color]) => (
+                  <MenuItem key={color} onClick={() => onColor(color ?? "#a3a3a3")}>
+                    <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
+                    {label}
+                  </MenuItem>
+                ))}
+              </MenuGroup>
+              {column.done ? null : (
+                <>
+                  <MenuSeparator />
+                  <MenuItem variant="destructive" onClick={onDelete}>
+                    Supprimer
+                  </MenuItem>
+                </>
+              )}
+            </MenuPopup>
+          </Menu>
+        </ContextMenuTrigger>
+        <ContextMenuPopup align="start" className="w-48">
+          <BoardActionContextMenuItems actions={contextActions} />
+        </ContextMenuPopup>
+      </ContextMenu>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
         <SortableContext
@@ -561,6 +633,7 @@ function BoardColumnView({
                 key={ticket.id}
                 ticket={ticket}
                 state={state}
+                actions={actions}
                 active={activeTicketId === ticket.id}
                 onFocus={() => onActiveTicket(ticket.id)}
                 onOpen={() => onOpenTicket(ticket.id)}
@@ -620,9 +693,9 @@ export function BoardPage({
   const [draggedTicketId, setDraggedTicketId] = useState<string>()
   const [creatingColumnId, setCreatingColumnId] = useState<string>()
   const [editingColumnId, setEditingColumnId] = useState<string>()
+  const [renamingTicketId, setRenamingTicketId] = useState<string>()
   const [addingColumn, setAddingColumn] = useState(false)
   const [newColumnName, setNewColumnName] = useState("")
-  const [paletteOpen, setPaletteOpen] = useState(false)
   const [announcement, setAnnouncement] = useState(
     "Tableau chargé. Utilise les flèches pour naviguer entre les tickets.",
   )
@@ -650,38 +723,6 @@ export function BoardPage({
     ...priorities
       .filter((priority) => priority !== "none")
       .map((priority) => ({ value: priority, label: priorityLabels[priority] })),
-  ]
-  const commandGroups: ReadonlyArray<CommandPaletteGroup> = [
-    {
-      value: "actions",
-      label: "Commandes",
-      items: [
-        { kind: "action", value: "create", label: "Créer un ticket", shortcut: "C" },
-        { kind: "action", value: "search", label: "Rechercher", shortcut: "/" },
-      ],
-    },
-    {
-      value: "move",
-      label: "Déplacer le ticket actif",
-      items: state.columns.map((column) => ({
-        kind: "move",
-        value: `move:${column.id}`,
-        label: column.name,
-        columnId: column.id,
-        color: column.color,
-      })),
-    },
-    {
-      value: "tickets",
-      label: "Tickets",
-      items: state.tickets.map((ticket) => ({
-        kind: "ticket",
-        value: `ticket:${ticket.id}:${ticket.title}:${ticket.labels.join(":")}`,
-        label: ticket.title,
-        ticketId: ticket.id,
-        priority: ticket.priority,
-      })),
-    },
   ]
 
   const refreshBoard = useCallback(async () => {
@@ -889,11 +930,6 @@ export function BoardPage({
         },
       },
       { hotkey: "/", callback: () => searchRef.current?.focus() },
-      {
-        hotkey: HOTKEY_COMMAND_PALETTE,
-        callback: () => setPaletteOpen(true),
-      },
-      { hotkey: "M", callback: () => setPaletteOpen(true) },
       { hotkey: "Alt+Shift+ArrowUp", callback: () => keyboardMove(-1, false) },
       { hotkey: "Alt+Shift+ArrowDown", callback: () => keyboardMove(1, false) },
       { hotkey: "Alt+Shift+ArrowLeft", callback: () => keyboardMove(-1, true) },
@@ -901,7 +937,7 @@ export function BoardPage({
     ],
     {
       target: boardRef,
-      enabled: selectedTicket === undefined && !paletteOpen,
+      enabled: selectedTicket === undefined,
       preventDefault: true,
     },
   )
@@ -986,27 +1022,6 @@ export function BoardPage({
   const clearFilters = () =>
     onSearchChange({ q: undefined, assignee: undefined, priority: undefined }, true)
 
-  const runCommandPaletteItem = (item: CommandPaletteItem) => {
-    setPaletteOpen(false)
-    if (item.kind === "action") {
-      if (item.value === "create") {
-        const column = state.columns.find((candidate) => !candidate.done)
-        setCreatingColumnId(column?.id)
-      } else {
-        requestAnimationFrame(() => searchRef.current?.focus())
-      }
-      return
-    }
-    if (item.kind === "move") {
-      if (activeTicketId !== undefined) {
-        setState((current) => moveTicket(current, activeTicketId, item.columnId))
-        setAnnouncement(`Ticket déplacé vers ${item.label}, en fin de colonne.`)
-      }
-      return
-    }
-    onOpenTicket(item.ticketId)
-  }
-
   const createInColumn = (columnId: string, title: string) => {
     setCreatingColumnId(undefined)
     void runCommand(
@@ -1043,6 +1058,59 @@ export function BoardPage({
     )
   }
 
+  const createTicketFromPalette = useCallback(() => {
+    const column = state.columns.find((candidate) => !candidate.done)
+    setCreatingColumnId(column?.id)
+  }, [state.columns])
+  const focusBoardSearch = useCallback(
+    () => requestAnimationFrame(() => searchRef.current?.focus()),
+    [],
+  )
+  const paletteActions = useMemo<ReadonlyArray<AppPaletteAction>>(
+    () => [
+      {
+        id: "ticket.create",
+        label: "Créer un ticket",
+        searchValue: "Créer un ticket",
+        icon: <PlusIcon />,
+        execute: createTicketFromPalette,
+      },
+      {
+        id: "board.search",
+        label: "Rechercher",
+        searchValue: "Rechercher dans le Tableau",
+        icon: <SearchIcon />,
+        execute: focusBoardSearch,
+      },
+      ...state.tickets.map((ticket): AppPaletteAction => ({
+        id: `ticket.open.${ticket.id}`,
+        label: ticket.title,
+        searchValue: `${ticket.title} ${ticket.labels.join(" ")}`,
+        category: "ticket",
+        icon: <CircleIcon className={priorityStyles[ticket.priority]} />,
+        execute: () => onOpenTicket(ticket.id),
+      })),
+    ],
+    [createTicketFromPalette, focusBoardSearch, onOpenTicket, state.tickets],
+  )
+  useAppPaletteActions(paletteActions)
+
+  const boardActions = createBoardActions(state, {
+    createTicket: createTicketFromPalette,
+    focusSearch: focusBoardSearch,
+    deleteColumn: (columnId) => {
+      const column = state.columns.find((candidate) => candidate.id === columnId)
+      if (column !== undefined) {
+        removeColumn(column)
+      }
+    },
+    openTicket: onOpenTicket,
+    renameColumn: setEditingColumnId,
+    renameTicket: (ticketId) => {
+      setRenamingTicketId(ticketId)
+      onOpenTicket(ticketId)
+    },
+  })
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {controlPlaneError === undefined ? null : (
@@ -1144,12 +1212,6 @@ export function BoardPage({
                 Effacer
               </Button>
             ) : null}
-
-            <Button variant="outline" size="default" onClick={() => setPaletteOpen(true)}>
-              <CommandIcon />
-              <span className="hidden sm:inline">Commandes</span>
-              <KeyboardShortcut hotkey={HOTKEY_COMMAND_PALETTE} className="ml-1 text-[0.58rem]" />
-            </Button>
           </div>
         </div>
       </header>
@@ -1181,6 +1243,7 @@ export function BoardPage({
                 key={column.id}
                 column={column}
                 state={state}
+                actions={boardActions}
                 filters={filters}
                 activeTicketId={activeTicketId}
                 creating={creatingColumnId === column.id}
@@ -1291,6 +1354,7 @@ export function BoardPage({
             <TicketCard
               ticket={draggedTicket}
               state={state}
+              actions={boardActions}
               active={false}
               overlay
               onFocus={() => undefined}
@@ -1304,11 +1368,13 @@ export function BoardPage({
         {announcement}
       </div>
 
-      <TicketSheet
+      <TicketDialog
         ticket={selectedTicket}
         actors={state.actors}
+        focusTitle={renamingTicketId === selectedTicket?.id}
         onClose={() => {
           const ticketId = selectedTicket?.id
+          setRenamingTicketId(undefined)
           onCloseTicket()
           requestAnimationFrame(() => {
             const visible =
@@ -1331,6 +1397,7 @@ export function BoardPage({
             setActiveAndFocus(fallback?.id)
           })
         }}
+        onTitleFocusComplete={() => setRenamingTicketId(undefined)}
         onUpdate={(ticketId, patch) => {
           setState((current) => updateTicket(current, ticketId, patch))
           if ("assigneeId" in patch) {
@@ -1389,49 +1456,6 @@ export function BoardPage({
           setState((current) => appendWorkbenchMessage(current, ticketId, message))
         }
       />
-
-      <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
-        <CommandDialogPopup>
-          <Command items={commandGroups}>
-            <CommandInput placeholder="Rechercher une commande ou un ticket…" />
-            <CommandEmpty>Aucun résultat.</CommandEmpty>
-            <CommandList>
-              {(group: CommandPaletteGroup) => (
-                <CommandGroup key={group.value} items={group.items}>
-                  <CommandGroupLabel>{group.label}</CommandGroupLabel>
-                  <CommandCollection>
-                    {(item: CommandPaletteItem) => (
-                      <CommandItem
-                        key={item.value}
-                        value={item.value}
-                        disabled={item.kind === "move" && activeTicketId === undefined}
-                        onClick={() => runCommandPaletteItem(item)}
-                      >
-                        {item.kind === "action" ? (
-                          item.value === "create" ? (
-                            <PlusIcon />
-                          ) : (
-                            <SearchIcon />
-                          )
-                        ) : item.kind === "move" ? (
-                          <span
-                            className="size-2 rounded-full"
-                            style={{ backgroundColor: item.color }}
-                          />
-                        ) : (
-                          <CircleIcon className={priorityStyles[item.priority]} />
-                        )}
-                        <span className="truncate">{item.label}</span>
-                        {item.kind === "action" ? <CommandShortcut hotkey={item.shortcut} /> : null}
-                      </CommandItem>
-                    )}
-                  </CommandCollection>
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
-        </CommandDialogPopup>
-      </CommandDialog>
     </main>
   )
 }

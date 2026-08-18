@@ -13,7 +13,7 @@ import {
   SendIcon,
   SquareArrowOutUpRightIcon,
 } from "lucide-react"
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +22,7 @@ import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
   DialogClose,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogPanel,
@@ -41,14 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Sheet,
-  SheetDescription,
-  SheetHeader,
-  SheetPanel,
-  SheetPopup,
-  SheetTitle,
-} from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import {
   isTicketPriority,
@@ -83,10 +76,12 @@ const parseTicketDueDate = (dueAt: string | undefined): Date | undefined => {
   return isValid(date) ? date : undefined
 }
 
-interface TicketSheetProps {
+interface TicketDialogProps {
   readonly ticket: BoardTicket | undefined
   readonly actors: ReadonlyArray<BoardActor>
+  readonly focusTitle: boolean
   readonly onClose: () => void
+  readonly onTitleFocusComplete: () => void
   readonly onUpdate: (ticketId: string, patch: BoardTicketPatch) => void
   readonly onToggleChecklist: (ticketId: string, itemId: string) => void
   readonly onStartExecution: (
@@ -214,21 +209,24 @@ function ExecutionDialog({ ticket, actors, open, onOpenChange, onStart }: Execut
   )
 }
 
-export function TicketSheet({
+export function TicketDialog({
   ticket,
   actors,
+  focusTitle,
   onClose,
+  onTitleFocusComplete,
   onUpdate,
   onToggleChecklist,
   onStartExecution,
   onReply,
-}: TicketSheetProps) {
+}: TicketDialogProps) {
   const [title, setTitle] = useState(ticket?.title ?? "")
   const [description, setDescription] = useState(ticket?.description ?? "")
   const [editingDescription, setEditingDescription] = useState(false)
   const [executionOpen, setExecutionOpen] = useState(false)
   const [reply, setReply] = useState("")
   const [dueDateOpen, setDueDateOpen] = useState(false)
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setTitle(ticket?.title ?? "")
@@ -236,6 +234,18 @@ export function TicketSheet({
     setEditingDescription(false)
     setDueDateOpen(false)
   }, [ticket])
+
+  useEffect(() => {
+    if (!focusTitle || ticket === undefined) {
+      return
+    }
+    const frame = requestAnimationFrame(() => {
+      titleInputRef.current?.focus()
+      titleInputRef.current?.select()
+      onTitleFocusComplete()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focusTitle, onTitleFocusComplete, ticket])
 
   const saveTitle = () => {
     if (ticket !== undefined && title.trim() !== "" && title.trim() !== ticket.title) {
@@ -291,7 +301,7 @@ export function TicketSheet({
 
   return (
     <>
-      <Sheet
+      <Dialog
         open={ticket !== undefined}
         onOpenChange={(open) => {
           if (!open) {
@@ -299,10 +309,13 @@ export function TicketSheet({
           }
         }}
       >
-        <SheetPopup className="w-full gap-0 p-0 sm:max-w-2xl">
+        <DialogPopup
+          bottomStickOnMobile={false}
+          className="gap-0 p-0 sm:max-h-[min(52rem,calc(100dvh-2rem))] sm:max-w-4xl"
+        >
           {ticket === undefined ? null : (
             <>
-              <SheetHeader className="border-b px-6 py-5 pr-14">
+              <DialogHeader className="border-b px-6 py-5 pr-14">
                 <div className="mb-2 flex items-center gap-2">
                   <Badge variant="outline" className="rounded-full text-[0.62rem]">
                     NOY-{ticket.id.replace("ticket-", "").slice(0, 4).toLocaleUpperCase("fr")}
@@ -319,9 +332,10 @@ export function TicketSheet({
                     </Badge>
                   )}
                 </div>
-                <SheetTitle
+                <DialogTitle
                   render={
                     <Input
+                      ref={titleInputRef}
                       value={title}
                       onChange={(event) => setTitle(event.target.value)}
                       onBlur={saveTitle}
@@ -335,12 +349,12 @@ export function TicketSheet({
                     />
                   }
                 />
-                <SheetDescription>
+                <DialogDescription>
                   Modifie les détails sans quitter le contexte du Tableau.
-                </SheetDescription>
-              </SheetHeader>
+                </DialogDescription>
+              </DialogHeader>
 
-              <SheetPanel className="p-0">
+              <DialogPanel className="p-0">
                 <div className="space-y-8 px-6 py-6">
                   <section aria-labelledby="ticket-details-title">
                     <div className="mb-4 flex items-center justify-between">
@@ -745,11 +759,11 @@ export function TicketSheet({
                     </div>
                   </details>
                 </div>
-              </SheetPanel>
+              </DialogPanel>
             </>
           )}
-        </SheetPopup>
-      </Sheet>
+        </DialogPopup>
+      </Dialog>
 
       {ticket === undefined ? null : (
         <ExecutionDialog

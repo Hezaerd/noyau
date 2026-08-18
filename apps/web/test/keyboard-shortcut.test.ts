@@ -4,6 +4,7 @@ import {
   getHotkeysPlatform,
   getShortcutSegments,
   HOTKEY_COMMAND_PALETTE,
+  paletteItemHotkey,
 } from "../src/lib/keyboard-shortcut"
 
 describe("keyboard-shortcut", () => {
@@ -36,5 +37,10 @@ describe("keyboard-shortcut", () => {
   it("formats shift combinations", () => {
     expect(getShortcutSegments("Shift+Enter", "mac")).toEqual(["⇧", "↵"])
     expect(getShortcutSegments("Shift+Enter", "windows")).toEqual(["Shift", "↵"])
+  })
+
+  it("builds palette item hotkeys per platform", () => {
+    expect(paletteItemHotkey(0, "mac")).toBe("Mod+1")
+    expect(paletteItemHotkey(0, "windows")).toBe("Alt+1")
   })
 })

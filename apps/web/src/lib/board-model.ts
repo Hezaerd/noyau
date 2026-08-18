@@ -534,7 +534,7 @@ export const initialBoardState: BoardState = {
       id: "ticket-sheet",
       columnId: "column-backlog",
       position: 2,
-      title: "Rendre le Sheet Ticket partageable",
+      title: "Rendre le Dialog Ticket partageable",
       description:
         "Conserver le ticket, la recherche et les filtres dans l’URL sans détourner l’historique natif.",
       priority: "normal",
@@ -558,7 +558,7 @@ export const initialBoardState: BoardState = {
       checklist: [
         { id: "check-4", title: "Colonnes et cartes", done: true },
         { id: "check-5", title: "Navigation clavier", done: true },
-        { id: "check-6", title: "Sheet Ticket", done: false },
+        { id: "check-6", title: "Dialog Ticket", done: false },
         { id: "check-7", title: "Palette", done: false },
       ],
       execution: { count: 1, profiles: ["Claude"], status: "running" },
@@ -575,7 +575,7 @@ export const initialBoardState: BoardState = {
           id: "message-3",
           actor: "Hezaerd",
           initials: "HZ",
-          body: "Garde les cartes compactes, le détail peut vivre dans le Sheet.",
+          body: "Garde les cartes compactes, le détail peut vivre dans le Dialog.",
           at: "01:11",
           own: true,
         },
