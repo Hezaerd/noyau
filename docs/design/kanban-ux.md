@@ -81,8 +81,8 @@ archivé ou masqué par la recherche ou les filtres.
 
 ### Structure
 
-- Un header compact contient le titre `Tableau`, la recherche, les filtres actifs, `Cmd/Ctrl+K` et
-  le menu global.
+- Un header compact contient le titre `Tableau`, la recherche, les filtres actifs et le menu global.
+  Le trigger visible de la Palette appartient à la sidebar commune.
 - Les colonnes ont une largeur stable de 288 à 320 px et occupent la hauteur disponible.
 - Le Tableau défile horizontalement au trackpad, avec `Shift+molette` et au clavier.
 - Les colonnes ne se replient pas et ne se compressent pas pour tenir à l'écran.
@@ -168,8 +168,8 @@ Chaque colonne non terminale termine sa liste par `Ajouter un ticket` ; `Done` n
 CTA. La création inline exige seulement un titre. `c` déclenche le même flux dans une colonne
 non terminale active. Si `Done` est active ou si aucune colonne ne l'est, le raccourci demande une
 colonne non terminale. Après création optimiste, le Sheet peut être ouvert pour enrichir le Ticket.
-La palette exclut `Done` des destinations de création. Ce masquage UI ne remplace pas l'invariant
-métier : le serveur refuse toute création qui cible `Done`.
+La création déclenchée depuis la Palette choisit une colonne non terminale. Ce choix UI ne remplace
+pas l'invariant métier : le serveur refuse toute création qui cible `Done`.
 
 Un premier Tableau vide n'utilise aucun faux Ticket. Il montre les CTA inline des colonnes
 non terminales et un court rappel de `c`, `Cmd/Ctrl+K` et du drag-and-drop, retiré après la première
@@ -177,8 +177,8 @@ création.
 
 ### Recherche et filtres
 
-Une barre compacte au-dessus du Tableau expose la recherche et les filtres actifs. `Cmd/Ctrl+K`
-permet d'activer les mêmes commandes.
+Une barre compacte au-dessus du Tableau expose la recherche et les filtres actifs. `/` lui donne le
+focus ; la Palette globale expose aussi l'Action `Rechercher`.
 
 Les Tickets qui ne correspondent pas disparaissent. Chaque colonne garde un compteur
 `visible sur total` et l'interface propose clairement `Effacer les filtres`. Les URLs suffisent pour
@@ -196,16 +196,24 @@ Le Tableau maintient une seule carte active, avec focus visible :
 | Naviguer entre colonnes | `←` / `→` |
 | Ouvrir le Ticket | `Enter` |
 | Créer un Ticket | `c` |
-| Ouvrir « Déplacer vers… » | `m` |
 | Réordonner | `Alt+Shift+↑` / `Alt+Shift+↓` |
 | Changer de colonne | `Alt+Shift+←` / `Alt+Shift+→` |
 | Rechercher | `/` |
 | Ouvrir la palette | `Cmd/Ctrl+K` |
 | Annuler le dernier déplacement en attente | `Cmd/Ctrl+Z` |
 
-TanStack Hotkeys centralise les bindings, leurs scopes et leur présentation. La palette couvre en v1
-les commandes et Tickets du projet courant, puis pourra accueillir une navigation globale. Ses
-commandes de création ne proposent que les colonnes non terminales.
+TanStack Hotkeys centralise les bindings, leurs scopes et leur présentation. La Palette est globale
+à l'application et s'ouvre avec `Cmd/Ctrl+K` ou son trigger dans la sidebar. Son Catalogue réunit :
+
+1. les Récents encore applicables ;
+2. les Actions de la page courante ;
+3. la Navigation vers `Inbox`, `Tableau` et `Channel`, à l'exception de la page courante.
+
+Le Tableau contribue seulement `Créer un ticket` et `Rechercher` en v1. La Palette ne contient ni
+une ligne par Ticket, ni une destination de déplacement : ouverture, renommage et déplacement
+restent accessibles par interaction directe, raccourci ou menu contextuel. Un Récent est ajouté
+uniquement après exécution depuis la Palette, stocké localement comme préférence UI non autoritative
+et affiché seulement si son Action appartient encore au Catalogue courant.
 
 Les raccourcis du Tableau ne sont actifs que lorsque le focus est dans sa zone, hors `input`,
 `textarea`, contenu `contenteditable`, contrôle interactif et overlay. Le Sheet et les Dialogs
@@ -307,8 +315,8 @@ renforcée expliquant son effet sur les relations conservées.
 
 ## Channel et création liée
 
-Le menu d'un message ou d'un Thread propose `Créer un ticket`; la même commande est accessible par
-la palette. Le flux :
+Le menu d'un message ou d'un Thread proposera `Créer un ticket`. Le Channel ne contribue encore
+aucune Action à la Palette en v1. Le flux de création liée :
 
 1. préremplit titre et description ;
 2. conserve le Thread d'origine comme source immuable ;
@@ -436,3 +444,5 @@ commandes inverses explicites ; il n'existe pas d'undo générique.
 10. Un projet sans agent ne présente aucune dépendance UX à un orchestrateur.
 11. Les opérations DnD sont annoncées et réalisables au clavier sous les mêmes règles de filtre, et
     les raccourcis du Tableau ne s'activent jamais depuis un champ, un contrôle ou un overlay.
+12. `Cmd/Ctrl+K` ouvre la Palette depuis toute page ; elle affiche les Récents applicables, les
+    Actions de la page puis les destinations de Navigation sans dupliquer la page courante.
