@@ -2,25 +2,29 @@
 
 Contextes du monorepo Noyau et leurs relations. Un contexte = un `CONTEXT.md` local.
 
+La spec v0.1 est [ADR-0011](docs/adr/0011-noyau-local-first-v0.1.md). L'arbre peut encore contenir
+les formes précédentes : ne pas les étendre.
+
 ## Contextes
 
 | Contexte | Chemin               | Rôle                                                                |
 | -------- | -------------------- | ------------------------------------------------------------------- |
-| Protocol | `packages/protocol/` | Contrat : schémas des IDs, entités, commandes et événements.        |
-| Domain   | `packages/domain/`   | Décision : deciders et projectors purs sur le journal d'événements. |
-| Database | `packages/database/` | Durabilité : event log, receipts, outbox, projections PostgreSQL.   |
-| Server   | `apps/server/`       | Frontière RPC : commandes, snapshots et flux d'événements.          |
-| Web      | `apps/web/`          | UI React (TanStack Router, Vite) pour collaboration et supervision. |
-| Desktop  | `apps/desktop/`      | Enveloppe Electron et intégration au système hôte.                  |
+| Protocol | `packages/protocol/` | Contrat : schémas des IDs, commandes, événements et RPC.            |
+| Domain   | `packages/domain/`   | Décision : deciders et projectors purs sur le journal.              |
+| Database | `packages/database/` | Durabilité : journal SQLite, receipts, projections.                 |
+| Server   | `apps/server/`       | Frontière RPC, composition, adaptateur Cursor, reactors `TxQueue`.  |
+| Web      | `apps/web/`          | UI React (TanStack Router, Vite) : Tableau, Threads, Dialog Ticket. |
+| Desktop  | `apps/desktop/`      | Electron : superviseur du serveur enfant et chrome hôte.            |
 
 ## Relations
 
 ```text
-apps/web ──(Effect RPC sur WebSocket)─────────> apps/server
-                                                     │
-                                                     ├──> packages/database
-                                                     ├──> packages/domain
-                                                     `──> packages/protocol
+apps/desktop ──supervise──> apps/server
+apps/web     ──(Effect RPC WS loopback)──> apps/server
+                                              │
+                                              ├──> packages/database
+                                              ├──> packages/domain
+                                              `──> packages/protocol
 
 apps/desktop ──enveloppe──> apps/web
 
@@ -29,16 +33,14 @@ packages/database ──dépend de──> packages/domain ──dépend de──
 
 - `protocol` ne dépend de rien (hors `effect`).
 - `domain` dépend de `protocol` uniquement. Jamais l'inverse.
-- `database` dépend de `domain` et `protocol` ; le driver SQL concret (pg, pglite) est fourni
-  par l'app ou le test, jamais par le package.
-- `server` enrichit et exécute les commandes, lit les projections et diffuse les événements ;
-  le profil choisit à cette frontière le driver PostgreSQL ou PGlite et l'adaptateur Hermes
-  (ADR-0009).
-- `desktop` enveloppe le renderer partagé et reste sans état métier autoritatif.
-- Les apps consomment `protocol` pour les types de frontière ; seul `server` consomme
-  `domain` et `database` (les reactors vivent dans le même processus, ADR-0004).
+- `database` dépend de `domain` et `protocol`. Le driver concret est `node:sqlite`, fourni par
+  l'app ou le test, jamais choisi par le package comme « PG ou PGlite ».
+- `server` enrichit les commandes, possède SQLite, spawn Cursor et pousse les streams RPC.
+- `desktop` supervise le process serveur (fd3, token de lancement, PID). Aucun état métier.
+- Les apps consomment `protocol` pour les types de frontière. Seul `server` consomme `domain` et
+  `database`. Les reactors vivent dans le même processus.
 
 ## Langage
 
-Le glossaire de référence est dans `AGENTS.md`. Les termes spécifiques à un contexte vivent dans
-son `CONTEXT.md`.
+Le glossaire système est dans `AGENTS.md`. Les termes spécifiques à un contexte vivent dans son
+`CONTEXT.md`.

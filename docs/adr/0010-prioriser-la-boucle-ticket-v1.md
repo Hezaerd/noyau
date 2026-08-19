@@ -1,6 +1,8 @@
 # Prioriser la boucle Ticket v1
 
-> **Statut : accepté.** Supersède l'ADR-0008 pour la v1.
+> **Statut : remplacé par [ADR-0011](0011-noyau-local-first-v0.1.md).** Le Tableau et le Ticket
+> restent, mais la v0.1 n'est plus une coupe « Ticket seul, agents plus tard » : Threads Cursor
+> et Session projetée sont dans la même boucle. Conservé pour le détail Ticket encore en vigueur.
 
 Noyau livre d'abord une boucle logique Trello-like centrée sur le Ticket : titre requis,
 description GFMD, échéance et priorité optionnelles, audit système et dépendances entre Tickets

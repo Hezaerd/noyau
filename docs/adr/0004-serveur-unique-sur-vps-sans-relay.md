@@ -2,7 +2,8 @@
 
 ---
 
-Statut : accepté pour le modular monolith — topologie de distribution remplacée par l'ADR-0009.
+Statut : accepté pour le modular monolith — topologie de distribution remplacée par l'ADR-0009,
+puis par [l'ADR-0011](0011-noyau-local-first-v0.1.md) (Environment local unique, VPS hors v0.1).
 
 ---
 

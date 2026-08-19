@@ -5,16 +5,14 @@ vision, les décisions d'architecture et l'ordre de construction.
 
 ## Modèle produit
 
-Chaque projet possède exactement un tableau Kanban pour des tickets suivis par des humains et,
-facultativement, des profils d'agents configurés par ses utilisateurs. Le ticket reste un objet de
-gestion léger ; le travail autonome est isolé selon
-`Ticket → Execution → Attempt → AgentRun`. Noyau n'utilise pas de conteneur `Mission`.
-Voir [l'ADR-0008](docs/adr/0008-separer-ticket-et-execution.md).
+Noyau v0.1 est un Environment desktop local : un Tableau Kanban par Project, des Threads Cursor
+(`Project → Thread → Turn`) et un lien optionnel `TicketThread`. Voir
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) et [l'ADR-0011](docs/adr/0011-noyau-local-first-v0.1.md).
 
 ## Prérequis
 
 - [Bun](https://bun.com) (package manager et runtime applicatif)
-- Docker (PostgreSQL local et tests d'intégration Testcontainers)
+- Docker (uniquement si tu touches encore l'ancien store Postgres — la cible v0.1 est `node:sqlite`)
 - [Vite+](https://viteplus.dev) pour la CLI `vp` globale — optionnel mais recommandé :
 
 ```bash
@@ -53,16 +51,17 @@ vp hooks enable
 Node est provisionné par `vp` à la version de [`.node-version`](.node-version) ; Bun reste le
 package manager, à la version du champ `packageManager`.
 
-## Serveur local
+## Développement local
+
+La cible v0.1 est Electron + serveur Node + SQLite, pas PostgreSQL.
 
 ```bash
-docker compose -f infra/compose/docker-compose.yml up -d postgres
-cp .env.example .env   # optionnel — les valeurs par défaut conviennent au compose local
-bun run dev:server
+bun run dev:desktop
 ```
 
-L'API écoute par défaut sur `http://127.0.0.1:3001`. Les routes projet exigent
-`X-Noyau-Actor-Id` en développement ; la documentation Scalar est servie sur `/docs`.
+`bun run dev:server` et `bun run dev:web` restent utiles en hot-reload, avec le même contrat RPC
+loopback. Le compose Postgres et `X-Noyau-Actor-Id` appartiennent à l'arbre précédent : ne pas
+les étendre.
 
 ## Effect
 

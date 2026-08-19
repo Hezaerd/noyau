@@ -2,7 +2,9 @@
 
 ---
 
-Statut : accepté — remplace la partie transport de l'ADR-0002.
+Statut : accepté — remplace la partie transport de l'ADR-0002. La v0.1 conserve ce transport
+loopback et précise les méthodes (`dispatchCommand`, `subscribeShell` / `subscribeProject` /
+`subscribeThread`) et le curseur `afterSequence` dans [l'ADR-0011](0011-noyau-local-first-v0.1.md).
 
 ---
 

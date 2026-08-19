@@ -12,8 +12,8 @@ bun run dev:desktop
 ```
 
 Le shell sert le renderer sous l'origine privée `noyau://app/`. En développement, ce protocole
-redirige vers Vite, fixé sur `http://127.0.0.1:5173/`. Le RPC local utilise par défaut
-`ws://127.0.0.1:3001/rpc`; `VITE_NOYAU_RPC_URL` permet de sélectionner une instance distante.
+redirige vers Vite, fixé sur `http://127.0.0.1:5173/`. Le métier passe uniquement par Effect RPC
+loopback. Une URL RPC distante est hors v0.1.
 
 Sur macOS, le launcher copie `Electron.app` vers `.electron-runtime/Noyau (Dev).app` et patche
 `CFBundleName` pour que le Dock et le menu affichent Noyau plutôt qu'Electron.

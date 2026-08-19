@@ -2,8 +2,10 @@
 
 Date de l'étude : 19 août 2026.
 
-> Statut : note factuelle pour un ticket de prototype. Pas une spec Noyau. Aucune
-> décision produit.
+> **Statut : note factuelle.** Les décisions produit sont dans
+> [Tester la reprise après crash de Cursor ACP](https://github.com/Hezaerd/noyau/issues/64) et
+> [l'ADR-0013](../adr/0013-session-projetee-et-cursor.md). Le repli t3code (`error` + `lastError`,
+> pas `lost`) gagne en cas de conflit avec une phrase de cette note.
 
 ## Question
 

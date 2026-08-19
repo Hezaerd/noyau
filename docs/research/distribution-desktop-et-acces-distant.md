@@ -2,10 +2,9 @@
 
 Date de l'étude : 14 août 2026.
 
-> Statut : étude exploratoire. La décision normative issue de cette recherche est
-> [l'ADR-0009](../adr/0009-deux-profils-meme-serveur-noyau.md) : un même `Noyau Server`, avec un
-> profil distant PostgreSQL + Hermes sur VPS et un profil local géré PGlite + Hermes sur laptop.
-> Les autres topologies comparées ci-dessous restent différées.
+> **Statut : historique.** La v0.1 a remplacé cette topologie par un Environment local unique
+> ([ADR-0011](../adr/0011-noyau-local-first-v0.1.md)). PostgreSQL, PGlite, Hermes, VPS et
+> Tailscale ne sont plus des cibles actives. Ne pas implémenter depuis cette note.
 
 ## Question
 

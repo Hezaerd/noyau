@@ -1,8 +1,8 @@
 # Séparer le ticket Kanban de l'exécution agent
 
-> **Statut : différé pour la v1, supersédé par [ADR-0010](0010-prioriser-la-boucle-ticket-v1.md).**
-> Cet ADR conserve l'historique du modèle envisagé, mais `Execution`, `Attempt` et `AgentRun` ne
-> font pas partie du contrat actif Ticket v1.
+> **Statut : remplacé.** [ADR-0010](0010-prioriser-la-boucle-ticket-v1.md) a retiré
+> `Execution` / `Attempt` / `AgentRun`. [ADR-0013](0013-session-projetee-et-cursor.md) fixe le
+> modèle actif : Thread, Session projetée et Turn. Cet ADR reste un historique.
 
 Noyau adopte un tracker humains-agents avec exactement un tableau Kanban par projet et abandonne
 `Mission` comme conteneur de travail. Un `Ticket` organise le travail durable sans imposer de

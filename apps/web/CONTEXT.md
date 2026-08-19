@@ -1,11 +1,12 @@
 # @noyau/web
 
-Langage de l'interface humaine des projets et Tickets Noyau.
+Langage de l'interface humaine : Tableau-first, Threads provider et Dialog Ticket.
 
 ## Langage
 
 **Tableau**:
-Vue Kanban unique d'un projet, composée de colonnes ordonnées et de Tickets.
+Vue Kanban unique d'un Project, composée de colonnes ordonnées et de Tickets. Destination au
+restart.
 _À éviter_ : Kanban, liste de tâches
 
 **Ticket**:
@@ -13,7 +14,7 @@ _À éviter_ : Kanban, liste de tâches
 _À éviter_ : tâche, carte, exécution
 
 **Responsable**:
-Acteur durable optionnel d'un Ticket, volontairement absent de l'interface v1.
+Acteur durable optionnel d'un Ticket, volontairement absent de l'interface v0.1.
 _À éviter_ : exécutant, participant
 
 **Dépendance**:
@@ -21,16 +22,20 @@ Relation orientée entre deux Tickets, présentée comme `Bloqué par` ou `Bloqu
 _À éviter_ : sous-ticket, checklist, todolist
 
 **Activité système**:
-Historique autoritatif des faits d'un Ticket, affiché séparément des conversations.
+Historique autoritatif des faits d'un Ticket, affiché séparément du transcript d'un Thread.
 _À éviter_ : commentaire, Channel, historique local
 
-**Channel**:
-Canal de discussion générique d'un projet.
-_À éviter_ : activité système, espace de Ticket
-
 **Thread**:
-Discussion isolée au sein d'un Channel, éventuellement référencée comme source d'un Ticket.
-_À éviter_ : Channel, commentaire de Ticket
+Conversation provider titrée, listée dans la sidebar du Project.
+_À éviter_ : Channel, Message, forum, Workbench
+
+**lastError**:
+Diagnostic visible d'une Session en `error`. Remplace tout badge `lost`.
+_À éviter_ : lost, failed, requested
+
+**runtimeMode**:
+Picker à quatre valeurs t3code sur le Thread.
+_À éviter_ : permissionMode
 
 **Palette**:
 Overlay clavier searchable de l'app qui propose navigation, Actions et résultats contextuels.

@@ -13,13 +13,12 @@ sert sous l'origine `noyau://app/`.
 
 ## Control plane
 
-L'UI soumet des `TicketCommandRequest` sur Effect RPC WebSocket. Elle ne transporte aucune identité
-sandbox : l'adaptateur de développement du serveur possède l'acteur courant.
+L'UI soumet des `CommandRequest` sur Effect RPC WebSocket loopback. L'acteur vient du token de
+lancement, pas du renderer.
 
-| Variable                | Défaut                                 |
-| ----------------------- | -------------------------------------- |
-| `VITE_NOYAU_RPC_URL`    | `ws://127.0.0.1:3001/rpc`              |
-| `VITE_NOYAU_PROJECT_ID` | `10000000-0000-4000-8000-000000000001` |
+| Variable             | Défaut                               |
+| -------------------- | ------------------------------------ |
+| `VITE_NOYAU_RPC_URL` | `ws://127.0.0.1:3001/rpc` (loopback) |
 
 Les valeurs sont décodées au démarrage avec les schémas de `@noyau/protocol`.
 

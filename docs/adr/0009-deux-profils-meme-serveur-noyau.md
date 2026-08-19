@@ -2,13 +2,13 @@
 
 ---
 
-Statut : accepté — remplace la topologie de distribution de l'ADR-0004.
+Statut : remplacé par [l'ADR-0011](0011-noyau-local-first-v0.1.md) pour la v0.1 (Environment
+local unique, pas de profil VPS). Conservé comme historique des deux profils envisagés.
 
 ---
 
-> **Portée v1 :** l'ADR-0010 conserve les deux profils serveur et stockage, mais diffère toute
-> intégration Hermes. Les mentions Hermes ci-dessous documentent l'intention historique, pas une
-> composante active de Ticket v1.
+> **Historique.** La v0.1 n'a qu'un Environment local SQLite. PostgreSQL, PGlite, Tailscale et
+> Hermes ne sont pas des cibles actives.
 
 Noyau adopte un seul modèle client/serveur et deux profils de déploiement. `Noyau Desktop` est le
 client Electron qui réutilise le renderer React ; il ne possède jamais l'état métier. `Noyau Server`

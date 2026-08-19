@@ -2,12 +2,13 @@
 
 ---
 
-Statut : accepté comme capacité du port — profils initiaux colocalisés par l'ADR-0009.
+Statut : remplacé par [l'ADR-0013](0013-session-projetee-et-cursor.md) — Cursor ACP local, pas
+Hermes. Conservé comme historique d'exploration.
 
 ---
 
-> **Différé par l'ADR-0010 :** cette décision reste un historique d'exploration post-v1. Elle ne
-> définit ni runtime actif ni modèle agent engagé pour Ticket v1.
+> **Historique.** Hermes, `Attempt` et Tailscale ne font pas partie de la v0.1. Le runtime actif
+> est l'adaptateur Cursor.
 
 Une instance Hermes tourne soit sur la même machine que Noyau, soit sur une machine joignable par
 Tailscale. Noyau n'orchestre pas de cluster de containers (Kubernetes, fleet cloud). Chaque

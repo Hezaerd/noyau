@@ -2,13 +2,12 @@
 
 ## Statut et portée
 
-Cette spécification décrit la boucle Ticket v1 décidée par
-[ADR-0010](../adr/0010-prioriser-la-boucle-ticket-v1.md). Elle couvre le Tableau, ses cartes et le
-Dialog Ticket. Le serveur reste autoritaire pour les invariants, l'ordre, le DAG de dépendances et
-l'activité système.
+Cette spécification décrit le Tableau et le Dialog Ticket de la v0.1
+([ADR-0011](../adr/0011-noyau-local-first-v0.1.md)). Le serveur reste autoritaire pour les
+invariants, l'ordre, le DAG de dépendances et l'activité système.
 
-La v1 optimise un usage humain Trello-like. Elle n'expose aucune surface agent. Le responsable
-reste dans le modèle durable mais est volontairement absent de l'interface.
+Le Tableau reste Trello-like. L'état agent vit sur le Thread / la Session, pas sur la carte.
+Le responsable reste dans le modèle durable mais est volontairement absent de l'interface.
 
 ## Principes
 
@@ -18,8 +17,8 @@ reste dans le modèle durable mais est volontairement absent de l'interface.
 3. **Dépendances explicites** : les liens entre Tickets remplacent checklists et todolists.
 4. **Serveur autoritaire** : l'optimisme masque la latence sans devenir une seconde source de
    vérité.
-5. **Conversation et audit séparés** : le Channel contient les discussions génériques ; l'activité
-   du Ticket expose les faits système autoritatifs.
+5. **Conversation et audit séparés** : le Thread porte le transcript provider ; l'activité du
+   Ticket expose les faits système autoritatifs.
 6. **Accessibilité équivalente** : toute opération de pointeur possède une voie clavier et un
    retour annoncé.
 
@@ -27,11 +26,11 @@ reste dans le modèle durable mais est volontairement absent de l'interface.
 
 ### Destinations
 
-- `Tableau` : vue en colonnes des Tickets du projet.
-- `Channel` : discussion générique composée de Threads et Messages.
+- `Tableau` : vue en colonnes des Tickets du projet ; destination au restart.
+- Sidebar : Threads titrés du Project.
 
-Un Ticket peut référencer un Thread d'origine par `sourceThreadId`, mais il ne possède pas de Thread
-dédié. Aucun Workbench n'est créé ou affiché.
+Un Ticket et un Thread se lient par `TicketThread` (plusieurs-à-plusieurs, optionnel). Aucun
+Thread n'est créé automatiquement. Aucun Workbench, Channel ou Message.
 
 ### URL
 
@@ -47,7 +46,7 @@ Le Dialog Ticket, la recherche et le filtre de priorité sont partageables :
 /projects/:projectId/board?ticket=:ticketId&q=:query&priority=:value
 ```
 
-TanStack Router valide les search params. Le responsable n'est pas un filtre v1.
+TanStack Router valide les search params. Le responsable n'est pas un filtre v0.1.
 
 Ouvrir une carte ajoute `ticket` à l'URL. Fermer le Dialog retire uniquement ce paramètre et
 conserve recherche et priorité. Le scroll, la carte active et l'origine d'ouverture restent
@@ -73,7 +72,7 @@ conserve recherche et priorité. Le scroll, la carte active et l'origine d'ouver
   proposée.
 - Le compteur d'une colonne indique le total, ou `visible/total` avec un filtre actif.
 
-### Cartes v1
+### Cartes
 
 Une carte affiche :
 
@@ -130,7 +129,7 @@ La recherche porte sur le titre et la description. Le filtre porte sur la priori
 correspondants disparaissent sans modifier l'ordre durable.
 
 L'interface expose `Effacer les filtres`. Les vues filtrées nommées et les filtres par responsable
-sont hors v1.
+sont hors v0.1.
 
 ### Clavier
 
@@ -146,7 +145,7 @@ sont hors v1.
 | Ouvrir la Palette | `Cmd/Ctrl+K` |
 
 Les raccourcis du Tableau sont inactifs depuis un champ, un contrôle interactif ou un overlay. Le
-Dialog possède son propre contexte clavier. La sélection multiple est hors v1.
+Dialog possède son propre contexte clavier. La sélection multiple est hors v0.1.
 
 ## Dialog Ticket
 
@@ -156,9 +155,10 @@ Le Dialog est contrôlé par le paramètre `ticket` de l'URL. Son contenu suit s
 
 1. **Détails**
 2. **Dépendances**
-3. **Activité système**
+3. **Threads liés**
+4. **Activité système**
 
-Aucune section Responsable, Checklist, Exécution ou Workbench n'existe en v1.
+Aucune section Responsable, Checklist, Exécution ou Workbench n'existe en v0.1.
 
 ### Détails
 
@@ -208,19 +208,13 @@ Elle couvre notamment :
 - ajout ou retrait d'une dépendance ;
 
 L'activité est autoritative : elle provient des événements persistés. Elle reste distincte du
-Channel et ne transforme pas les Messages en commentaires de Ticket. Un état de chargement, une
-erreur explicite et un état vide sont prévus.
+transcript d'un Thread. Un état de chargement, une erreur explicite et un état vide sont prévus.
 
-## Channel et source
+## Threads liés
 
-`Channel`, `Thread` et `Message` sont génériques. Un flux de création depuis un Thread peut :
-
-1. préremplir le titre et la description ;
-2. enregistrer le Thread d'origine comme `sourceThreadId` immuable ;
-3. choisir une colonne non terminale ;
-4. ouvrir le nouveau Ticket dans le Tableau.
-
-Ce flux ne crée aucun Thread supplémentaire. La conversation continue dans le Channel ; les faits
+La section liste les `TicketThread` du Ticket et permet d'ajouter ou retirer un lien vers un
+Thread du même Project. Un flux inverse depuis un Thread peut créer un Ticket en préremplissant
+titre et description, puis ouvrir le Tableau. Aucun Thread n'est créé pour autant. Les faits
 système restent dans l'activité du Ticket.
 
 ## Optimisme, temps réel et erreurs
@@ -249,13 +243,13 @@ et restitue un focus cohérent.
 - Le focus reste visible et suit le fallback documenté après fermeture du Dialog.
 - Les raccourcis sont découvrables dans les menus et la Palette.
 
-## Hors périmètre v1
+## Hors périmètre v0.1
 
 - responsable visible ou éditable ;
 - checklist, todolist et conversion d'un item ;
-- Workbench ou Thread dédié au Ticket ;
-- exécution, tentative, run, agent ou orchestrateur ;
-- Inbox d'approbations ou d'attentes agent ;
+- Workbench, Channel, Message ou Thread dédié automatique ;
+- `Execution`, `Attempt`, Hermes ;
+- état agent sur la carte Ticket (il vit sur le Thread) ;
 - sélection multiple et actions groupées ;
 - vue graphe des dépendances ;
 - vues filtrées sauvegardées ;
@@ -264,7 +258,7 @@ et restitue un focus cohérent.
 - file hors ligne et replay de commandes concurrentes ;
 - undo générique ;
 - expérience mobile complète ;
-- slash commands dans le Channel ;
+- slash commands dans un Thread ;
 - surfaces d'archives et suppression définitive.
 
 Les commandes durables d'archivage et de restauration peuvent exister sans imposer leur surface à la
@@ -276,15 +270,14 @@ première UI.
    domaine n'acceptent une création dans `Done`.
 2. Une carte affiche le titre, la priorité, l'échéance éventuelle et `Bloqué` si un prérequis est
    ouvert, sans responsable, checklist ni état agent.
-3. Le Dialog présente exactement Détails, Dépendances puis Activité système.
+3. Le Dialog présente Détails, Dépendances, Threads liés, puis Activité système.
 4. Le titre vide est refusé ; la description est éditable et rendue en GFMD sans HTML brut.
 5. Priorité et échéance peuvent être définies puis effacées sans perdre les autres détails.
 6. `Bloqué par` et `Bloque` permettent d'ajouter et retirer des relations ; auto-dépendances,
    doublons et cycles sont empêchés côté client puis rejetés côté domaine.
 7. Déplacer vers `Done` avec une dépendance ouverte est rejeté sans acquittement explicite, recharge
    l'état autoritatif et ne modifie pas le DAG.
-8. L'activité affiche les faits Ticket persistés et reste distincte des Threads et Messages du
-   Channel.
+8. L'activité affiche les faits Ticket persistés et reste distincte du transcript d'un Thread.
 9. L'URL partage le Ticket ouvert, la recherche et le filtre de priorité ; fermer le Dialog
    conserve les autres paramètres et restitue le focus.
 10. En vue complète, le réordonnancement fonctionne au pointeur et au clavier. En vue filtrée, il

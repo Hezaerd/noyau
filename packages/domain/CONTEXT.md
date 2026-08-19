@@ -1,17 +1,28 @@
 # @noyau/domain
 
-Langage métier du tracker Kanban Ticket v1.
+Langage métier de l'Environment local-first : Tableau, Tickets et conversations provider.
 
 ## Langage
 
+**Environment**:
+Autorité locale unique d'une installation : Projects, store et providers colocalisés.
+_À éviter_ : Studio Server, Runtime Node, instance VPS
+
+**Project**:
+Dossier de travail relié à Noyau, possédant un Tableau et des Threads.
+_À éviter_ : repository, workspace Git, Mission
+
+**WorkspaceRoot**:
+Chemin du dossier existant sur la machine où Noyau et Cursor travaillent.
+_À éviter_ : worktree, sandbox, Attempt
+
 **Tableau**:
-Projection Kanban unique d'un projet, composée de colonnes librement ordonnées entre lesquelles les
-tickets sont déplacés.
+Projection Kanban unique d'un Project, composée de colonnes ordonnées.
 _À éviter_ : Board multiple, liste de tâches
 
 **Colonne Done**:
-Colonne terminale unique d'un tableau. Son identité est native et protégée, tandis que son nom, sa
-couleur et sa position sont configurables.
+Colonne terminale unique d'un Tableau. Identité native et protégée ; nom, couleur et position
+configurables.
 _À éviter_ : colonne ordinaire, statut de Ticket
 
 **Ticket**:
@@ -19,22 +30,35 @@ _À éviter_ : colonne ordinaire, statut de Ticket
 _À éviter_ : Task, Mission, checklist, unité d'exécution
 
 **Dépendance Ticket**:
-Relation orientée dans laquelle un Ticket dépend d'un autre Ticket ; l'ensemble forme un DAG.
+Relation orientée dans laquelle un Ticket dépend d'un autre ; l'ensemble forme un DAG.
 _À éviter_ : sous-ticket, checklist, ordre de colonne
 
-**Étiquette**:
-Classification configurable dans le périmètre d'un projet et attachable à un ticket. L'étiquette
-native `need-human` signale visuellement un besoin humain sans déclencher de comportement métier.
-_À éviter_ : statut, type de ticket
+**TicketThread**:
+Lien optionnel plusieurs-à-plusieurs entre un Ticket et un Thread du même Project.
+_À éviter_ : sourceThreadId, Thread dédié, Workbench
+
+**Thread**:
+Conversation provider d'un Project, titrée, au Provider immuable.
+_À éviter_ : Channel, Message, forum, Workbench
+
+**Session**:
+Projection `0..1` du runtime provider sur un Thread (`status`, `lastError`, `resumeCursor`).
+_À éviter_ : Execution, Attempt, AgentRun, ProviderBinding
+
+**Turn**:
+Unité append-only de travail agent dans un Thread. `latestTurn` vaut
+`running | interrupted | completed | error`.
+_À éviter_ : Attempt, requested, lost, failed
+
+**runtimeMode**:
+Politique d'outils du Thread :
+`approval-required | auto-accept-edits | auto | full-access`.
+_À éviter_ : permissionMode, AgentProfile
 
 **Responsable**:
-Acteur unique et optionnel qui porte la responsabilité principale d'un Ticket.
+Acteur unique et optionnel qui porte la responsabilité principale d'un Ticket. Masqué de l'UI v0.1.
 _À éviter_ : participant, exécutant
 
-**Participant**:
-Acteur associé explicitement à un Ticket sans en porter la responsabilité principale.
-_À éviter_ : responsable, abonné implicite
-
 **Ticket archivé**:
-Ticket retiré du tableau actif tout en conservant son contenu, ses relations et son historique.
+Ticket retiré du Tableau actif tout en conservant son contenu, ses relations et son historique.
 _À éviter_ : ticket supprimé, ticket terminé

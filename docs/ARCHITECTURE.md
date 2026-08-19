@@ -1,365 +1,364 @@
 # Noyau — contexte d'architecture
 
-Ce document décrit l'architecture active de Noyau et l'ordre de construction recommandé. La v1 est
-définie par l'[ADR-0010](adr/0010-prioriser-la-boucle-ticket-v1.md) : elle priorise une boucle
-Ticket complète avant toute surface agent.
+Ce document décrit l'architecture **acceptée** de Noyau local-first v0.1
+([ADR-0011](adr/0011-noyau-local-first-v0.1.md)). Les décisions vivent dans les tickets de
+[Spécifier Noyau local-first v0.1](https://github.com/Hezaerd/noyau/issues/54) ; le repli qui gagne
+en cas de conflit est [Replier les décisions v0.1 sur le modèle t3code](https://github.com/Hezaerd/noyau/issues/71).
+
+**État du repo.** La spec est lockée. L'arbre actuel peut encore contenir le modèle précédent
+(PostgreSQL / PGlite, outbox SQL, `Channel` / `Message`, `sourceThreadId`, Workbench). Ne pas
+étendre ces formes. Les implémenter, les migrer ou les supprimer fait partie du rewrite v0.1, pas
+d'une compatibilité à préserver.
 
 ## Vision
 
-Noyau est le socle durable d'un LifeOS personnel. Sa première version permet de piloter les projets
-depuis un client React distribué principalement comme application desktop.
+Noyau est un Environment desktop local de gestion de projet et de pilotage de coding agents,
+calqué sur l'architecture t3code. Une installation possède une seule autorité : Noyau Server,
+SQLite, les dossiers projet et Cursor sur la même machine.
 
-Chaque projet peut disposer :
+La v0.1 vise ce parcours durable :
 
-- d'un ou plusieurs dépôts GitHub associés ;
-- d'un espace de discussion générique composé de `Channel`, `Thread` et `Message` ;
-- d'un Tableau Kanban unique pour organiser des Tickets ;
-- d'un historique système durable et autoritatif.
+1. relier un dossier existant à un Project ;
+2. atterrir sur le Tableau du projet ;
+3. créer un Thread titré, choisir Cursor, streamer un Turn ;
+4. lier optionnellement ce Thread à un Ticket ;
+5. redémarrer l'application et retrouver le Tableau, le Thread, le transcript et `lastError` ;
+6. poursuivre par un nouveau Turn (`session/load`), sans rejouer le prompt.
 
-La v1 vise d'abord une boucle logique Trello-like : créer un Ticket avec un titre, enrichir ses
-détails, le déplacer, relier ses dépendances, observer son activité, le terminer ou le rouvrir. La
-description utilise GitHub Flavored Markdown (GFMD) ; priorité et échéance sont optionnelles.
-
-La vision d'agents remplaçables, dont Hermes pourrait être un adaptateur, reste un horizon post-v1.
-Elle ne définit actuellement ni entité active, ni surface UI, ni futur modèle d'exécution. Noyau
-doit d'abord prouver son tracker et sa durabilité.
+Cible de sortie : macOS et Windows natif. Linux, WSL, client web distribué et mobile sont différés.
 
 ## Stack
 
-- monorepo TypeScript 7 avec Bun comme package manager et runtime initial ;
+- monorepo TypeScript 7, Bun comme package manager ;
 - Vite+ comme toolchain unique, configuré dans le `vite.config.ts` racine ;
-- Effect côté serveur et domaine lorsque ses erreurs typées, `Schema`, services et `Layer`
-  apportent une frontière claire ;
-- PostgreSQL comme source de vérité sur VPS et PGlite persistante comme implémentation embarquée du
-  même dialecte pour le profil local géré ;
-- renderer React avec Vite et TanStack Router dans `apps/web`, partagé entre navigateur et
-  `Noyau Desktop` ;
-- shell Electron introduit après validation de la frontière locale/distante, sans état métier
-  autoritatif ;
-- serveur unique `apps/server` sur Bun, avec Effect RPC sur WebSocket comme frontière client
-  (ADR-0003) ;
-- GitHub comme unique forge (ADR-0006).
+- Effect côté serveur et domaine lorsque `Schema`, services et `Layer` portent une frontière ;
+- `node:sqlite` comme unique store v0.1 ([ADR-0012](adr/0012-sqlite-locale-et-txqueue.md)) ;
+- renderer React dans `apps/web`, partagé par `Noyau Desktop` ;
+- `apps/desktop` : Electron supervise le serveur enfant (`ELECTRON_RUN_AS_NODE`) ;
+- `apps/server` : même bundle que l'entrée autonome `noyau serve` ;
+- Effect RPC sur WebSocket loopback ([ADR-0003](adr/0003-frontiere-client-effect-rpc-websocket.md)) ;
+- Cursor ACP local comme unique provider réel ([ADR-0013](adr/0013-session-projetee-et-cursor.md)).
 
 Effect n'est pas imposé à l'état local ni au rendu React.
 
 ## Principe d'architecture
 
-Noyau est un control plane durable construit d'abord comme un modular monolith :
+Noyau reste un modular monolith. La frontière client/serveur est la seule contrainte conservée
+pour un futur distant ; elle n'ouvre aucun profil VPS en v0.1.
 
 ```text
-                    +-----------------------------+
-                    |       Noyau Desktop         |
-                    | renderer React + superviseur|
-                    +--------------+--------------+
-                                   |
-                    Effect RPC sur WebSocket
-                                   |
-+--------------+       +-----------v------------+
-|    GitHub    +------>|      Noyau Server      |
-| webhooks     |       | commandes + projections|
-+--------------+       | outbox + reactors      |
-                       +-----------+------------+
-                                   |
-                            +------v-------+
-                            | Store SQL    |
-                            | PG ou PGlite |
-                            +--------------+
+Noyau Desktop (Electron main)
+  └─ Noyau Server enfant (Node)
+       ├─ SQLite (journal, receipts, projections)
+       ├─ WorkspaceRoot des Projects
+       ├─ processus Cursor ACP (handle + Scope)
+       └─ transcripts et resumeCursor
+
+Renderer React
+  └─ Effect RPC WebSocket loopback ──► Noyau Server
 ```
 
 Le flux autoritatif est :
 
 ```text
 CommandRequest décodée
-  -> Command enrichie par le serveur
+  -> Command enrichie (acteur hors payload)
   -> decider pur
-  -> transaction SQL (event + receipt + projection + outbox)
-  -> snapshot puis flux d'événements ordonné
+  -> transaction SQLite (event + receipt + projection)
+  -> swap du read model, publish
+  -> reactors TxQueue (effets provider, après commit)
+  -> snapshot puis flux (subscribeShell / subscribeProject / subscribeThread)
 ```
 
-Le store SQL reste la source de vérité. Une `Queue`, un `PubSub`, un WebSocket ou un état React ne
-remplace jamais le journal, les projections et l'outbox transactionnelle.
+Le journal SQLite et les receipts portent la durabilité. Une `Queue` ou un `PubSub` n'est jamais
+une source de vérité. La `TxQueue` n'est pas une outbox de reprise : au boot elle est vide.
 
-## Topologie de déploiement
+## Topologie
 
-Noyau conserve une seule frontière client/serveur et deux profils de données (ADR-0009) :
+Un profil Electron possède un seul Environment, partagé par ses fenêtres.
 
-1. **Distant** : `Noyau Desktop` charge son renderer local puis se connecte directement, via
-   Tailscale Serve, à `noyau serve` sur un VPS possédant PostgreSQL.
-2. **Local géré** : Electron lance et supervise le même `noyau serve` sur loopback. Le serveur
-   possède seul une PGlite persistante. Le renderer utilise le même contrat RPC, les mêmes
-   commandes, snapshots et curseurs que dans le profil distant.
+- Electron lance le bundle serveur, lui transmet par fd3 le répertoire de données OS, un port
+  loopback éphémère, un token bearer propre au lancement et la version du bootstrap.
+- Le renderer n'utilise que l'Effect RPC pour le métier. Le preload reste limité aux capacités
+  desktop. Aucun raccourci IPC métier.
+- L'application n'est prête qu'après migrations SQLite, reconstruction des projections, passe de
+  recovery Session, démarrage des reactors et probe RPC.
+- Le serveur suit Electron : backoff borné, état `degraded` après échecs répétés, arrêt interne
+  puis `forceKillAfter` 2 s. Quitter pendant un Turn actif exige confirmation et interruption.
+- Un Project référence un dossier déjà présent sur la machine. Noyau et Cursor y travaillent
+  directement. Worktrees obligatoires et provenance Git par Turn sont différés.
+- L'acteur v0.1 est local, bootstrapé. Le token de lancement accorde tous les scopes déclarés.
+- Le mode dev peut lancer le serveur à part pour le hot reload, avec le même bootstrap, SQLite
+  et RPC. Un smoke test couvre le vrai child Electron.
 
-Chaque serveur est une autorité indépendante avec une identité stable et sa propre base. Noyau ne
-synchronise ni ne fédère les journaux de plusieurs instances. Les parties d'ADR-0009 concernant un
-runtime agent ne font pas partie de la tranche v1 définie par ADR-0010.
+Packaging, installation, mise à jour, logs et réparation du serveur enfant restent un effort
+ultérieur. Ils ne bloquent pas la boucle durable.
 
-## Responsabilités v1
+## Responsabilités v0.1
 
 ### Noyau Server
 
 Noyau Server possède :
 
-- l'identité vérifiée de l'acteur à la frontière RPC ;
-- les projets et leurs dépôts ;
-- les `Channel`, `Thread` et `Message` génériques ;
-- les colonnes, Tickets et dépendances du Tableau ;
-- les commandes enrichies, événements, receipts, projections et l'outbox ;
-- l'activité système autoritative de chaque Ticket.
+- l'Environment local et l'identité de l'acteur à la frontière RPC ;
+- les Projects, leur `WorkspaceRoot`, le Tableau et les Tickets ;
+- les Threads, Turns, Sessions projetées et transcripts ;
+- les commandes enrichies, événements, receipts et projections ;
+- l'adaptateur Cursor et les handles des processus spawnés ;
+- les reactors `TxQueue` pour les effets provider.
 
-Il sérialise les décisions visant un même Tableau, vérifie les invariants et ne fait confiance à
-aucune métadonnée d'acteur fournie par le navigateur.
+Il sérialise les décisions sous un worker unique. Il ne fait confiance à aucune métadonnée
+d'acteur fournie par le renderer.
+
+### Noyau Desktop
+
+Electron est client et superviseur. Il ne possède ni SQLite, ni transcript, ni handle
+`cursor-agent`. Il connaît le PID du serveur. Après mort du serveur, pas de sweep d'orphelins.
 
 ### Web
 
-Le renderer présente les projections du serveur et soumet des intentions décodées. Il peut rejouer
-des commandes réversibles de façon optimiste, mais le snapshot et les événements du serveur
-restent autoritatifs.
+Le renderer présente les projections et soumet des `CommandRequest`. Tableau-first : au restart,
+le Tableau du dernier projet. Sidebar = Threads titrés. `lastError` est visible. Le lien
+Ticket–Thread est éditable aux deux bouts.
 
-Le responsable est conservé dans le modèle durable. Il n'est ni affiché ni éditable dans l'UI v1.
+Le responsable reste dans le modèle Ticket. Il n'est ni affiché ni éditable dans l'UI v0.1.
 
-### Forum
+### Cursor
 
-`Channel`, `Thread` et `Message` restent des concepts génériques. Un Ticket peut référencer un
-Thread d'origine par `sourceThreadId` et un Message peut être lié à un Ticket, mais aucun Thread
-dédié n'est créé automatiquement. Le terme et la surface « Workbench » sont supprimés.
+Détection : `cursor-agent` dans le `PATH` (`cursor-agent.exe` sous Windows), sinon chemin
+configuré. Le handshake ACP est la source de vérité. Capacités obligatoires absentes → provider
+inactif. Credentials Cursor restent locaux. Usage promis absent du contrat v0.1.
 
-La conversation n'est pas l'audit. L'activité Ticket est une lecture autoritative des événements
-pertinents, distincte de l'affichage des messages d'un Channel.
-
-## Modèle de domaine v1
+## Modèle de domaine v0.1
 
 ```text
-Project
- |- Repository
- |- Channel
- |   `- Thread
- |       `- Message
- |- KanbanColumn
- `- Ticket
-     `- TicketDependency
+Environment
+└─ Project*
+   ├─ WorkspaceRoot
+   ├─ Board (projection unique)
+   │  └─ Ticket*
+   │       └─ TicketDependency*
+   └─ Thread*
+      ├─ title
+      ├─ Provider (immuable, cursor)
+      ├─ runtimeMode
+      ├─ Session?
+      └─ Turn* (append-only, latestTurn)
+
+Ticket * ── TicketThread(ticketId, threadId) ── * Thread
 ```
 
-Le Tableau n'est pas une entité autonome : il est la projection ordonnée des colonnes, Tickets et
-relations de dépendance d'un projet.
+Le Tableau n'est pas une entité autonome : c'est la projection ordonnée des colonnes, Tickets et
+dépendances d'un Project.
 
-Le noyau SQL actif comprend :
+`Channel`, `Message`, Workbench, `Execution`, `Attempt` et `AgentRun` ne font pas partie du
+modèle actif. Un Thread n'est pas une discussion de forum : c'est une conversation provider.
 
-- le journal d'événements, les receipts, les têtes d'agrégat et l'outbox ;
-- les projections de colonnes et de Tickets ;
-- les relations de dépendance Ticket ;
-- les lectures de snapshot, de flux projet et d'activité Ticket.
+Les identités importantes sont opaques et brandées. Toute donnée de frontière est décodée avec
+`Effect.Schema`.
 
-Les identités importantes sont opaques et brandées. Toute donnée qui traverse une frontière de
-processus ou de confiance est décodée avec `Effect.Schema`.
-
-Les anciennes données pré-v1 n'imposent aucune compatibilité. Un reset ou une purge est accepté
-pour supprimer les formes abandonnées plutôt que maintenir une migration artificielle.
-
-## Ticket v1
+## Ticket
 
 Un Ticket est un élément de travail durable et plat. Il porte :
 
 - un titre non vide, seul champ requis à la création ;
-- une description optionnelle stockée comme texte et rendue en GFMD ;
-- une priorité optionnelle : `low`, `normal`, `high` ou `urgent` ; l'absence est représentée par
-  `none` dans la projection ;
+- une description optionnelle, texte rendu en GFMD ;
+- une priorité optionnelle : `low`, `normal`, `high` ou `urgent` ; l'absence vaut `none` ;
 - une échéance UTC optionnelle ;
 - une colonne et un rang partagé ;
-- un booléen `done`, un archivage optionnel et la dernière colonne active utile à la réouverture ;
-- un responsable durable optionnel, masqué de l'UI v1 ;
-- un `sourceThreadId` optionnel et immuable lorsqu'il vient d'une discussion ;
-- des dépendances vers d'autres Tickets.
+- un booléen `done`, un archivage optionnel et la dernière colonne active ;
+- un responsable durable optionnel, masqué de l'UI v0.1 ;
+- des dépendances vers d'autres Tickets ;
+- des liens optionnels `TicketThread` (plusieurs-à-plusieurs). Plus de `sourceThreadId` immuable.
 
-Un Ticket ne contient ni sous-ticket, ni checklist, ni todolist. Tout travail distinct devient un
-Ticket relié. Il ne contient pas non plus de Workbench ou de cycle technique agent.
+Un Ticket ne contient ni sous-ticket, ni checklist, ni todolist, ni état agent. Tout travail
+distinct devient un Ticket relié. L'état agent vit sur le Thread / la Session.
 
 ### Dépendances
 
-La relation orientée `ticketId -> dependsOnTicketId` signifie que le premier Ticket est bloqué par
-le second. Les relations doivent former un graphe acyclique dirigé :
-
-- un Ticket ne dépend jamais de lui-même ;
-- une relation ne peut pas être dupliquée ;
-- tout ajout qui créerait un cycle est rejeté ;
-- le Dialog permet d'éditer les deux lectures `Bloqué par` et `Bloque` ;
-- un prérequis non terminé produit le badge dérivé `Bloqué` sur la carte ;
-- terminer ou archiver malgré des prérequis ouverts exige une confirmation explicite ;
-- aucune dépendance ne déplace automatiquement une carte.
+La relation `ticketId -> dependsOnTicketId` signifie que le premier Ticket est bloqué par le
+second. L'ensemble forme un DAG : pas d'auto-dépendance, pas de doublon, pas de cycle. Le Dialog
+édite `Bloqué par` et `Bloque`. Un prérequis ouvert produit le badge `Bloqué`. Terminer malgré
+des prérequis ouverts exige une confirmation. Aucune dépendance ne déplace une carte.
 
 ### Cycle de vie
 
-Chaque projet possède une colonne terminale `Done`, native et protégée. Son nom, sa couleur et sa
-position restent configurables.
+Chaque projet a une colonne terminale `Done`, native et protégée. Nom, couleur et position restent
+configurables.
 
-- Créer un Ticket dans `Done` est interdit.
-- Déplacer un Ticket vers `Done` le termine.
-- Sortir un Ticket de `Done` le rouvre.
-- `ticket.complete` déplace vers `Done`.
-- `ticket.reopen` restaure la dernière colonne active.
-- Un Ticket archivé quitte le Tableau actif mais conserve son contenu, ses relations et son audit.
-- Restaurer un Ticket le replace dans une colonne valide.
-- La suppression d'une colonne référencée exige une destination active non terminale ; toutes les
-  références sont retargetées dans la même décision.
+- Créer dans `Done` est interdit.
+- Déplacer vers `Done` termine. Sortir de `Done` rouvre.
+- `ticket.complete` / `ticket.reopen` suivent ces invariants.
+- Un Ticket archivé quitte le Tableau actif. Restaurer le replace dans une colonne valide.
 
-L'ordre des Tickets est partagé et durable dans chaque colonne. Le client demande une position par
-ancres voisines ; le domaine calcule le rang canonique.
+L'ordre des Tickets est partagé et durable. Le client demande une position par ancres ; le
+domaine calcule le rang canonique.
 
-## Commandes v1
+Le détail UX reste dans [`docs/design/kanban-ux.md`](design/kanban-ux.md).
 
-Commandes publiques Ticket :
+## Thread, Session et Turn
 
-- `ticket.create`
-- `ticket.update`
-- `ticket.move`
-- `ticket.complete`
-- `ticket.reopen`
-- `ticket.archive`
-- `ticket.restore`
-- `ticket.assign` — contrat durable, sans surface UI v1
-- `ticket.dependency.add`
-- `ticket.dependency.remove`
+- **Thread** : titre obligatoire (seed = premier prompt, régénération t3code). Provider fixé à la
+  création. `runtimeMode` :
+  `approval-required | auto-accept-edits | auto | full-access` (défaut `full-access`).
+  Statut `active | archived`. Un Thread archivé doit être restauré avant un nouveau Turn.
+- **Session** : projection `0..1`. `status` :
+  `idle | starting | running | ready | interrupted | stopped | error`, plus `lastError`,
+  `activeTurnId`, `runtimeMode`, `resumeCursor`.
+- **Turn** : append-only. Un seul Turn actif par Thread. `latestTurn.state` =
+  `running | interrupted | completed | error`. Settlement = la Session quitte `running`
+  (`ready`/`idle` → `completed` ; `error` → `error` ; `interrupted`/`stopped` → `interrupted`).
+- **`resumeCursor`** : `{ schemaVersion: 1, sessionId }`. Opaque. `schemaVersion` ≠ 1 ou load en
+  échec → `session/new` en place. Pas de `cwdLastBound`.
+- **Transcript** : projection du Turn. Chaque réception normalisée est un fait persisté dès
+  arrivée. Un Turn terminal n'est jamais réécrit. Images rejetées (coupe v0.1).
+- **Reprise** : nouveau Turn, nouveau subprocess, `session/load` avec le `WorkspaceRoot` courant.
+  Aucun prompt rejoué. `end_turn` seul complète. Autre `stopReason` → `interrupted`. Rupture
+  stdio / process mort → Session `error` + `lastError`. Jamais `completed` par inférence.
+- **Boot** : avant readiness, sans I/O Cursor, toute Session encore `starting` / `running` →
+  `error` + `lastError` (rupture). Ça settle `latestTurn` en `error`. `resumeCursor` inchangé.
+- **Appartenance process** : handle capturé au spawn, lié au `Scope` du serveur. `child.kill()`
+  sur ce handle. Pas de sweep, pas de registre, pas de scan par nom.
 
-Commandes publiques de colonne :
+Mapping Cursor de `runtimeMode` : `approval-required` essaie `ask` puis implement. `full-access`
+auto-répond `allow_always` / `allow_once`. La politique locale Cursor reste un niveau inférieur.
+L'UI expose les quatre valeurs.
 
-- `kanbanColumn.create`
-- `kanbanColumn.update`
-- `kanbanColumn.move`
-- `kanbanColumn.delete`
+Un Project indisponible refuse la commande. `session.stop` arrête la Session.
 
-`board.initialize` est une commande système émise à la création d'un projet.
+## Commandes v0.1
 
-À la frontière RPC, le client choisit `commandId` et peut fournir un `causationId`. Le serveur ajoute
-et vérifie `projectId`, `actorId`, `correlationId`, l'horodatage et la version de schéma. Chaque
-retry strictement identique reçoit le receipt durable original ; réutiliser un `commandId` avec un
-autre contenu ou scope est un conflit.
+À la frontière : une méthode `orchestration.dispatchCommand`. `commandId` brandé, receipt
+durable. Accepté → `{ sequence }`. Rejeté → erreur taguée, même erreur au retry. Réutiliser un
+`commandId` sur un autre agrégat est un conflit.
 
-## Événements, activité et durabilité
+Commandes client :
 
-PostgreSQL et PGlite utilisent le même journal append-only, les mêmes receipts, projections et
-outbox transactionnelle. Dans une seule transaction, Noyau :
+- Project : create, meta, rebind, delete ;
+- Tableau : colonnes et Tickets (create / update / move / complete / reopen / archive / restore,
+  dépendances) ;
+- Thread : create, archive, meta, `runtimeMode` ;
+- Turn : `thread.turn.start`, `thread.turn.interrupt` ;
+- `approval.respond`, `user-input.respond`, `session.stop`.
 
-1. vérifie l'idempotence et la causalité ;
-2. rejoue l'état de l'agrégat ;
-3. exécute le decider pur ;
-4. persiste événements, receipt, projection et outbox.
+`ticket.assign` reste un contrat durable sans surface UI.
 
-Les commandes du Tableau sont sérialisées sous l'agrégat projet, car l'ordre des colonnes et
-Tickets ainsi que le DAG exigent une vue cohérente de l'ensemble.
+Hors contrat : checkpoints, diffs, snooze, pin, settle, terminal, pairing, relay, usage.
 
-Le client lit d'abord un `BoardSnapshot` cohérent avec son `EventCursor`, puis reprend un flux RPC
-filtré par projet. Le curseur est opaque, versionné et lié au projet. Le flux est ordonné et livré
-au moins une fois ; le client déduplique par `eventId`. Une reconnexion repart du dernier curseur,
-jamais de l'état du WebSocket.
+Les deltas ACP, tool updates, permissions et fins de Turn sont des **commandes internes**
+(ingestion). Le renderer ne les soumet pas.
 
-`GetTicketActivity` renvoie un historique borné des faits liés au Ticket, du plus récent au plus
-ancien. Cette activité inclut les mutations du Ticket et de ses dépendances ; elle ne remplace ni
-ne fusionne les conversations du Channel.
+## Durabilité
 
-## UI du Tableau
+`node:sqlite`, WAL, un seul possesseur. Migrations `Migrator` Effect, SQL numéroté, au boot
+**avant** recovery. Échec de migration → pas de readiness.
 
-La carte reste compacte : priorité, titre, échéance éventuelle et badge `Bloqué` dérivé. Aucun
-responsable, checklist, état agent ou pourcentage inventé n'y apparaît.
+Dans une transaction :
 
-Le Dialog Ticket suit strictement :
+1. vérifier l'idempotence ;
+2. rejouer l'état de l'agrégat ;
+3. exécuter le decider pur ;
+4. persister événements, receipt et projection.
 
-1. **Détails** : titre, priorité, échéance et description GFMD ;
-2. **Dépendances** : `Bloqué par` et `Bloque`, éditables sous invariant de DAG ;
-3. **Activité système** : audit autoritatif fourni par le serveur.
+Après commit : swap du read model, publish, puis reactors `TxQueue`. Les appels Cursor
+(`session/new`, `load`, `prompt`, `cancel`, réponses) partent du reactor d'intent.
 
-Les interactions optimistes sont une projection locale temporaire. Après acceptation, rejet ou
-événement distant, le client recharge le snapshot autoritatif. Une file hors ligne et le replay de
-commandes concurrentes restent différés.
+Sauvegarde : copie unique `db` + `-wal` + `-shm` avant une update ; snapshot à chaud par
+`VACUUM INTO`.
 
-La spécification détaillée est dans [`docs/design/kanban-ux.md`](design/kanban-ux.md).
+## RPC et flux
 
-## Agents et Hermes — horizon post-v1
+Après readiness : upgrade WebSocket avec le bearer de lancement. L'acteur vient du middleware,
+pas du payload. Connecté = socket ouverte **et** `server.getConfig` OK. `server.probe` pour les
+wakeups.
 
-Les agents, Hermes, l'orchestration, les budgets, les approbations agent et les espaces de travail
-isolés sont différés. Les anciennes entités `Execution`, `Attempt` et `AgentRun` ne font partie ni
-du protocole, ni du domaine, ni de la base, ni de l'UI v1.
+Trois server streams, protocole t3code (`snapshot` | `event` | `synchronized`) :
 
-ADR-0007 conserve l'historique des contraintes envisagées pour une intégration Hermes locale ou via
-Tailscale. Il ne suffit pas à définir un contrat actif. Après validation de Ticket v1, le besoin
-agent sera requalifié depuis les usages observés ; aucun modèle d'entités, de retries, de worktrees
-ou de permissions n'est imposé maintenant.
+| Méthode | Snapshot | Live |
+| --- | --- | --- |
+| `subscribeShell` | Environment : projects + thread shells | upsert/remove légers, coalescé |
+| `subscribeProject(projectId)` | Board + tickets / colonnes | faits ticket / colonne, par événement |
+| `subscribeThread(threadId)` | Thread + Turns + transcript | deltas de Turn, par événement |
 
-Toute future intégration devra néanmoins préserver les invariants généraux :
+Curseur : `afterSequence` numérique global, pas un `EventCursor` opaque par projet. Gap `< 0`
+ou `> 1000` → snapshot frais. Live buffer attaché avant snapshot / catch-up. Le client déduplique
+par `sequence`.
 
-- Noyau reste l'autorité durable ;
-- les effets externes passent par des ports et des reactors idempotents ;
-- les permissions ne sont jamais déduites d'un prompt ou d'un rôle affiché ;
-- l'outbox SQL reste la source de reprise après crash ;
-- le contenu externe est traité comme non fiable.
+`getConfig` annonce les versions bundle / serveur / schéma DB. Desktop et `server.asar` sont
+livrés ensemble : un mismatch est un diagnostic, pas une négociation de protocole.
 
-## Git, n8n et autres intégrations — horizon
+Le WebSocket n'est jamais la source du curseur. Transport down → le superviseur client remplace
+la session RPC. Une erreur métier ne démonte pas le transport.
 
-Les dépôts d'un projet restent des dépôts GitHub (ADR-0006). Les automatisations n8n et les actions
-Git avancées ne font pas partie de la première boucle Ticket. Lorsqu'elles seront introduites, elles
-devront consommer l'outbox ou soumettre des commandes typées, rester idempotentes et ne jamais
-posséder l'état métier.
+L'activité Ticket est la lecture des faits Ticket persistés. Elle ne fusionne pas le transcript
+d'un Thread.
 
-## Structure active du monorepo
+## UI
+
+- Tableau-first. Sidebar = Threads titrés. Restart = Tableau du dernier projet.
+- Carte Ticket : priorité, titre, échéance, badge `Bloqué`. Pas de responsable, pas d'état agent.
+- Dialog Ticket : Détails, Dépendances, Threads liés, Activité système.
+- Session `error` : `lastError` visible. Interrupt humain : `interrupted` (« You stopped »).
+  Plus de badge `lost`.
+- Relier un dossier existant. Pas de création de worktree.
+
+Les interactions optimistes restent une projection locale temporaire. Après acceptation, rejet
+ou événement distant, le snapshot autoritatif gagne.
+
+## Hors périmètre v0.1
+
+- Studio Server, Runtime Nodes, VPS, connexion distante, fédération d'Environments ;
+- comptes, pairing, permissions projet, présence ;
+- Claude, Codex, harnais générique, usage promis ;
+- worktrees, checkpoints, provenance Git par Turn ;
+- n8n, terminal intégré, automatisation de PR ;
+- Linux, WSL, client web distribué, mobile ;
+- packaging / MAJ / réparation desktop (effort suivant) ;
+- migration des bases PostgreSQL / PGlite actuelles.
+
+## Structure du monorepo
 
 ```text
 apps/
   web/       # renderer React partagé
   server/    # frontière RPC et composition du control plane
+  desktop/   # Electron : superviseur + chrome, sans état métier
 
 packages/
   domain/    # deciders et projectors purs
   protocol/  # contrats Schema, RPC, commandes et événements
-  database/  # journal, receipts, outbox et projections SQL
+  database/  # journal SQLite, receipts, projections
   config/    # configuration TypeScript partagée
 ```
 
-`apps/desktop` sera introduit lorsque le même parcours RPC aura été validé contre PostgreSQL et
-PGlite. Un package n'est créé que lorsqu'une frontière réelle et testée le justifie.
+Un package n'est créé que lorsqu'une frontière réelle et testée le justifie.
 
-## Première tranche verticale
+## Ordre d'implémentation
 
-Le premier objectif fonctionnel est ce parcours durable :
-
-1. initialiser le Tableau d'un projet avec `Backlog`, `En cours` et `Done` ;
-2. créer un Ticket avec un titre dans une colonne non terminale ;
-3. modifier son titre, sa description GFMD, sa priorité et son échéance ;
-4. créer et retirer des dépendances sans permettre de cycle ;
-5. afficher `Bloqué` tant qu'un prérequis reste ouvert ;
-6. déplacer et réordonner le Ticket ;
-7. terminer, rouvrir, archiver et restaurer le Ticket selon les invariants ;
-8. consulter son activité système autoritative ;
-9. reprendre le snapshot puis le flux projet après reconnexion.
-
-Ce scénario doit continuer à fonctionner après redémarrage du serveur. Il ne dépend d'aucun agent.
-
-## Ordre d'implémentation recommandé
-
-1. Contrats `Project`, `Channel`, `Thread`, `Message`, `Ticket`, colonnes et dépendances.
-2. Decider et projector purs du Tableau, y compris le DAG et la colonne `Done`.
-3. Store SQL, migrations, journal, receipts, projections et outbox.
-4. Frontière Effect RPC : soumission de commandes, snapshot, activité Ticket et flux projet.
-5. Tableau React : colonnes, cartes, création, déplacement, recherche et filtre de priorité.
-6. Dialog Ticket : Détails, Dépendances, Activité.
-7. Archivage, restauration, accessibilité et réconciliation optimiste complète.
-8. Profil PGlite persistant soumis aux mêmes migrations et contrats que PostgreSQL.
-9. `Noyau Desktop` : renderer partagé et supervision du profil local.
-10. Discussion générique et création d'un Ticket depuis un Thread source.
-11. Réévaluation post-v1 des intégrations Git, n8n et agents à partir des usages réels.
+1. Contrats et deciders : Environment, Project, Board, Ticket, Thread, Session, Turn,
+   `TicketThread`.
+2. Store `node:sqlite` : txn event + receipt + projection, `TxQueue`, WAL, Migrator.
+3. Electron + serveur Node : fd3, readiness, backoff / `degraded`, grâce 2 s.
+4. RPC : `dispatchCommand`, `subscribeShell` / `subscribeProject` / `subscribeThread`.
+5. Adaptateur Cursor ACP : handshake, `session/new` / `load`, mapping `runtimeMode`.
+6. UI Tableau-first, sidebar Threads, `lastError`, lien Ticket–Thread, reprise après restart.
 
 ## Choix encore ouverts
 
-Ces décisions attendent un besoin de tranche verticale :
+Attendent un effort ultérieur, pas cette coupe :
 
-- stockage objet local ou S3-compatible ;
-- système de secrets et credential broker ;
-- forme éventuelle d'une intégration agent post-v1.
+- packaging, installation, mise à jour, logs et réparation du serveur enfant ;
+- stockage objet ;
+- secrets / credential broker au-delà du token de lancement ;
+- forme d'un futur Environment distant.
 
 ## Règles pour les agents qui travaillent sur le repo
 
 - Lire ce document et les ADR applicables avant toute modification structurelle.
-- Préserver le modular monolith tant qu'une séparation de déploiement n'est pas nécessaire.
-- Faire passer toute donnée de frontière par un schéma runtime.
-- Garder les deciders purs et les effets externes dans des reactors.
-- Écrire les opérations externes de façon idempotente.
-- Ne pas confondre Message, activité Ticket et événement de domaine.
-- Ne pas réintroduire checklist, Workbench ou modèle agent sans nouvelle décision explicite.
-- Préférer une tranche verticale fonctionnelle à des packages vides.
+- En cas de conflit entre un ticket wayfinder et un autre, le repli [#71](https://github.com/Hezaerd/noyau/issues/71) gagne.
+- Préserver le modular monolith et la frontière RPC. Pas d'IPC métier.
+- Garder les deciders purs. Les effets Cursor partent des reactors après commit.
+- Ne pas traiter la `TxQueue` comme une outbox de reprise.
+- Ne pas réintroduire `Channel`, `Message`, Workbench, `Execution`, `Attempt`, outbox SQL,
+  PGlite, Hermes ou un sweep d'orphelins.
+- Ne pas étendre les formes encore présentes dans le code si elles contredisent cette spec.
