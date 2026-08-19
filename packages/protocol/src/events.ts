@@ -1,72 +1,28 @@
 import { Schema } from "effect"
 
-import { MessageKind } from "./entities/message"
 import {
   ActorId,
   CommandId,
   CorrelationId,
   EventId,
-  MessageId,
   ProjectId,
   SchemaVersion,
-  ThreadId,
-  TicketId,
+  Sequence,
 } from "./ids"
-import {
-  KanbanColumnCreated,
-  KanbanColumnDeleted,
-  KanbanColumnMoved,
-  KanbanColumnUpdated,
-  TicketArchived,
-  TicketAssigned,
-  TicketCompleted,
-  TicketCreated,
-  TicketDependencyAdded,
-  TicketDependencyRemoved,
-  TicketMoved,
-  TicketReopened,
-  TicketRestored,
-  TicketUpdated,
-} from "./ticket/events"
+import { ProjectEvent } from "./project/events"
+import { TicketEvent } from "./ticket/events"
+import { ThreadEvent } from "./thread/events"
 
-export const MessageSent = Schema.TaggedStruct("message.sent", {
-  messageId: MessageId,
-  threadId: ThreadId,
-  kind: MessageKind,
-  body: Schema.NonEmptyString,
-  replyTo: Schema.optionalKey(MessageId),
-  ticketId: Schema.optionalKey(TicketId),
-})
-export type MessageSent = (typeof MessageSent)["Type"]
-
-export const MessageEvent = Schema.Union([MessageSent])
-export type MessageEvent = (typeof MessageEvent)["Type"]
-
-export const DomainEvent = Schema.Union([
-  MessageSent,
-  TicketCreated,
-  TicketMoved,
-  TicketCompleted,
-  TicketReopened,
-  TicketArchived,
-  TicketRestored,
-  TicketAssigned,
-  TicketUpdated,
-  TicketDependencyAdded,
-  TicketDependencyRemoved,
-  KanbanColumnCreated,
-  KanbanColumnUpdated,
-  KanbanColumnMoved,
-  KanbanColumnDeleted,
-])
+export const DomainEvent = Schema.Union([ProjectEvent, TicketEvent, ThreadEvent])
 export type DomainEvent = (typeof DomainEvent)["Type"]
 
 /**
- * Événement tel que persisté dans le journal append-only. `causationId`
- * référence la commande dont le decider a produit ce fait.
+ * Fait persisté dans le journal append-only. `sequence` est le curseur global.
+ * `causationId` référence la commande dont le decider a produit ce fait.
  */
 export const EventEnvelope = Schema.Struct({
   eventId: EventId,
+  sequence: Sequence,
   projectId: ProjectId,
   actorId: ActorId,
   correlationId: CorrelationId,

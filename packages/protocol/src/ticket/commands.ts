@@ -37,10 +37,10 @@ export const TicketPlacement = Schema.Struct({
 export type TicketPlacement = (typeof TicketPlacement)["Type"]
 
 const ticketCreatePayload = Schema.Struct({
+  projectId: ProjectId,
   ticketId: TicketId,
   title: Schema.NonEmptyString,
   placement: TicketPlacement,
-  sourceThreadId: Schema.optionalKey(ThreadId),
 })
 
 const ticketMovePayload = {
@@ -80,6 +80,11 @@ const ticketDependencyPayload = Schema.Struct({
     expected: "ticketId and dependsOnTicketId to be different",
   }),
 )
+
+const ticketThreadPayload = Schema.Struct({
+  ticketId: TicketId,
+  threadId: ThreadId,
+})
 
 const columnCreatePayload = {
   columnId: KanbanColumnId,
@@ -141,6 +146,8 @@ export const TicketDependencyRemoveRequest = request(
   "ticket.dependency.remove",
   ticketDependencyPayload,
 )
+export const TicketThreadLinkRequest = request("ticket.thread.link", ticketThreadPayload)
+export const TicketThreadUnlinkRequest = request("ticket.thread.unlink", ticketThreadPayload)
 export const KanbanColumnCreateRequest = request(
   "kanbanColumn.create",
   Schema.Struct(columnCreatePayload),
@@ -169,6 +176,8 @@ export const TicketCommandRequest = Schema.Union([
   TicketUpdateRequest,
   TicketDependencyAddRequest,
   TicketDependencyRemoveRequest,
+  TicketThreadLinkRequest,
+  TicketThreadUnlinkRequest,
   KanbanColumnCreateRequest,
   KanbanColumnUpdateRequest,
   KanbanColumnMoveRequest,
@@ -187,6 +196,8 @@ export const TicketAssign = command("ticket.assign", Schema.Struct(ticketAssignP
 export const TicketUpdate = command("ticket.update", Schema.Struct(ticketUpdatePayload))
 export const TicketDependencyAdd = command("ticket.dependency.add", ticketDependencyPayload)
 export const TicketDependencyRemove = command("ticket.dependency.remove", ticketDependencyPayload)
+export const TicketThreadLink = command("ticket.thread.link", ticketThreadPayload)
+export const TicketThreadUnlink = command("ticket.thread.unlink", ticketThreadPayload)
 export const KanbanColumnCreate = command("kanbanColumn.create", Schema.Struct(columnCreatePayload))
 export const KanbanColumnUpdate = command("kanbanColumn.update", Schema.Struct(columnUpdatePayload))
 export const KanbanColumnMove = command("kanbanColumn.move", Schema.Struct(columnMovePayload))
@@ -205,6 +216,8 @@ export const TicketCommand = Schema.Union([
   TicketUpdate,
   TicketDependencyAdd,
   TicketDependencyRemove,
+  TicketThreadLink,
+  TicketThreadUnlink,
   KanbanColumnCreate,
   KanbanColumnUpdate,
   KanbanColumnMove,

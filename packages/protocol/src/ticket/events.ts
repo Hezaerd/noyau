@@ -8,7 +8,6 @@ export const TicketCreated = Schema.TaggedStruct("ticket.created", {
   columnId: KanbanColumnId,
   rank: KanbanRank,
   title: Schema.NonEmptyString,
-  sourceThreadId: Schema.optionalKey(ThreadId),
 })
 export type TicketCreated = (typeof TicketCreated)["Type"]
 
@@ -74,6 +73,18 @@ export const TicketDependencyRemoved = Schema.TaggedStruct("ticket.dependency.re
 })
 export type TicketDependencyRemoved = (typeof TicketDependencyRemoved)["Type"]
 
+export const TicketThreadLinked = Schema.TaggedStruct("ticket.thread.linked", {
+  ticketId: TicketId,
+  threadId: ThreadId,
+})
+export type TicketThreadLinked = (typeof TicketThreadLinked)["Type"]
+
+export const TicketThreadUnlinked = Schema.TaggedStruct("ticket.thread.unlinked", {
+  ticketId: TicketId,
+  threadId: ThreadId,
+})
+export type TicketThreadUnlinked = (typeof TicketThreadUnlinked)["Type"]
+
 export const KanbanColumnCreated = Schema.TaggedStruct("kanbanColumn.created", {
   columnId: KanbanColumnId,
   name: Schema.NonEmptyString,
@@ -105,6 +116,13 @@ export const KanbanColumnDeleted = Schema.TaggedStruct("kanbanColumn.deleted", {
 })
 export type KanbanColumnDeleted = (typeof KanbanColumnDeleted)["Type"]
 
+export const BoardInitialized = Schema.TaggedStruct("board.initialized", {
+  backlogColumnId: KanbanColumnId,
+  activeColumnId: KanbanColumnId,
+  doneColumnId: KanbanColumnId,
+})
+export type BoardInitialized = (typeof BoardInitialized)["Type"]
+
 export const TicketEvent = Schema.Union([
   TicketCreated,
   TicketMoved,
@@ -116,9 +134,12 @@ export const TicketEvent = Schema.Union([
   TicketUpdated,
   TicketDependencyAdded,
   TicketDependencyRemoved,
+  TicketThreadLinked,
+  TicketThreadUnlinked,
   KanbanColumnCreated,
   KanbanColumnUpdated,
   KanbanColumnMoved,
   KanbanColumnDeleted,
+  BoardInitialized,
 ])
 export type TicketEvent = (typeof TicketEvent)["Type"]

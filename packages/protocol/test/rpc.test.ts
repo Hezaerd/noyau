@@ -1,64 +1,119 @@
 import { describe, expect, it } from "@effect/vitest"
+import { ClientCommandRequest } from "@noyau/protocol/commands"
 import {
   ControlPlaneRpcs,
-  GetBoardSnapshot,
-  GetTicketActivity,
-  SubmitTicketCommand,
+  DispatchCommand,
+  GetConfig,
+  Probe,
+  RPC_METHODS,
+  requiresFreshSnapshot,
+  SubscribeProject,
+  SubscribeShell,
+  SubscribeThread,
 } from "@noyau/protocol/rpc"
 import { Schema } from "effect"
 
 describe("ControlPlaneRpcs", () => {
-  it("expose la commande, le snapshot, l'activité Ticket et le flux projet", () => {
+  it("expose dispatchCommand, getConfig, probe et les trois streams", () => {
     expect([...ControlPlaneRpcs.requests.keys()].toSorted()).toEqual([
-      "GetBoardSnapshot",
-      "GetTicketActivity",
-      "SubmitTicketCommand",
-      "SubscribeProjectEvents",
-    ])
+      RPC_METHODS.dispatchCommand,
+      RPC_METHODS.subscribeProject,
+      RPC_METHODS.subscribeShell,
+      RPC_METHODS.subscribeThread,
+      RPC_METHODS.getConfig,
+      RPC_METHODS.probe,
+    ].toSorted())
   })
 
-  it("décode une soumission ticket.create sans identité cliente", () => {
-    const payload = Schema.decodeSync(SubmitTicketCommand.payloadSchema)({
-      projectId: "10000000-0000-4000-8000-000000000001",
-      request: {
-        _tag: "ticket.create",
-        commandId: "20000000-0000-4000-8000-000000000001",
-        payload: {
-          ticketId: "30000000-0000-4000-8000-000000000001",
-          title: "Migrer la frontière",
-          placement: {
-            columnId: "50000000-0000-4000-8000-000000000001",
-          },
-        },
+  it("n'exporte plus les méthodes v1", () => {
+    const keys = new Set(ControlPlaneRpcs.requests.keys())
+    expect(keys.has("SubmitTicketCommand")).toBe(false)
+    expect(keys.has("GetBoardSnapshot")).toBe(false)
+    expect(keys.has("GetTicketActivity")).toBe(false)
+    expect(keys.has("SubscribeProjectEvents")).toBe(false)
+  })
+
+  it("décode dispatchCommand sans identité cliente", () => {
+    const payload = Schema.decodeSync(DispatchCommand.payloadSchema)({
+      _tag: "project.create",
+      commandId: "20000000-0000-4000-8000-000000000001",
+      payload: {
+        projectId: "10000000-0000-4000-8000-000000000001",
+        name: "Noyau",
+        workspaceRoot: "/Users/hezaerd/noyau",
       },
     })
 
-    expect(payload.request._tag).toBe("ticket.create")
+    expect(payload._tag).toBe("project.create")
     expect(payload).not.toHaveProperty("actorId")
+    expect(Schema.isSchema(ClientCommandRequest)).toBe(true)
   })
 
-  it("exige seulement le projectId pour le snapshot", () => {
+  it("décode getConfig et probe", () => {
+    expect(Schema.decodeSync(GetConfig.payloadSchema)({})).toEqual({})
     expect(
-      Schema.decodeSync(GetBoardSnapshot.payloadSchema)({
+      Schema.decodeSync(GetConfig.successSchema)({
+        environmentId: "10000000-0000-4000-8000-000000000099",
+        bundleVersion: "0.1.0",
+        serverVersion: "0.1.0",
+        databaseSchemaVersion: 1,
+      }).databaseSchemaVersion,
+    ).toBe(1)
+    expect(Schema.decodeSync(Probe.payloadSchema)({})).toEqual({})
+    expect(Schema.decodeSync(Probe.successSchema)({})).toEqual({})
+  })
+
+  it("décode afterSequence sur les trois subscribes", () => {
+    expect(Schema.decodeSync(SubscribeShell.payloadSchema)({ afterSequence: 4 })).toEqual({
+      afterSequence: 4,
+    })
+    expect(
+      Schema.decodeSync(SubscribeProject.payloadSchema)({
         projectId: "10000000-0000-4000-8000-000000000001",
+        afterSequence: 0,
+      }).afterSequence,
+    ).toBe(0)
+    expect(
+      Schema.decodeSync(SubscribeThread.payloadSchema)({
+        threadId: "20000000-0000-4000-8000-000000000001",
       }),
     ).toEqual({
-      projectId: "10000000-0000-4000-8000-000000000001",
+      threadId: "20000000-0000-4000-8000-000000000001",
     })
   })
 
-  it("borne la lecture d'activité à 100 événements", () => {
-    const payload = {
-      projectId: "10000000-0000-4000-8000-000000000001",
-      ticketId: "30000000-0000-4000-8000-000000000001",
-    }
+  it("demande un snapshot frais hors [0, 1000]", () => {
+    expect(requiresFreshSnapshot(0)).toBe(false)
+    expect(requiresFreshSnapshot(1000)).toBe(false)
+    expect(requiresFreshSnapshot(-1)).toBe(true)
+    expect(requiresFreshSnapshot(1001)).toBe(true)
+  })
 
-    expect(Schema.decodeSync(GetTicketActivity.payloadSchema)(payload)).toEqual(payload)
-    expect(
-      Schema.decodeSync(GetTicketActivity.payloadSchema)({ ...payload, limit: 100 }).limit,
-    ).toBe(100)
-    expect(() =>
-      Schema.decodeSync(GetTicketActivity.payloadSchema)({ ...payload, limit: 101 }),
-    ).toThrow()
+  it("round-trip un frame snapshot | event | synchronized", () => {
+    const synchronized = Schema.decodeSync(SubscribeShell.successSchema)({
+      kind: "synchronized",
+    })
+    expect(synchronized.kind).toBe("synchronized")
+
+    const snapshot = Schema.decodeUnknownSync(SubscribeProject.successSchema)({
+      kind: "snapshot",
+      snapshot: {
+        snapshotSequence: 1,
+        projectId: "10000000-0000-4000-8000-000000000001",
+        project: {
+          id: "10000000-0000-4000-8000-000000000001",
+          name: "Noyau",
+          workspaceRoot: "/tmp/noyau",
+          available: true,
+          createdAt: "2026-08-19T12:00:00.000Z",
+          updatedAt: "2026-08-19T12:00:00.000Z",
+        },
+        columns: [],
+        tickets: [],
+        ticketDependencies: [],
+        ticketThreads: [],
+      },
+    })
+    expect(snapshot.kind).toBe("snapshot")
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { BoardSnapshot } from "@noyau/protocol/board"
-import { Command } from "@noyau/protocol/commands"
+import { ClientCommandRequest, Command } from "@noyau/protocol/commands"
 import { KanbanRank } from "@noyau/protocol/entities/kanban-column"
 import { Ticket } from "@noyau/protocol/entities/ticket"
 import { DomainEvent, EventEnvelope } from "@noyau/protocol/events"
@@ -18,15 +18,11 @@ const ids = {
   project: "3f8f0d70-1111-4000-8000-000000000001",
   column: "3f8f0d70-1111-4000-8000-000000000002",
   ticket: "3f8f0d70-1111-4000-8000-000000000003",
-  sourceThread: "3f8f0d70-1111-4000-8000-000000000004",
+  thread: "3f8f0d70-1111-4000-8000-000000000004",
   command: "3f8f0d70-1111-4000-8000-000000000005",
   correlation: "3f8f0d70-1111-4000-8000-000000000006",
   event: "3f8f0d70-1111-4000-8000-000000000007",
-  activeColumn: "3f8f0d70-1111-4000-8000-000000000008",
-  doneColumn: "3f8f0d70-1111-4000-8000-000000000009",
   dependency: "3f8f0d70-1111-4000-8000-000000000010",
-  legacyWorkbench: "3f8f0d70-1111-4000-8000-000000000011",
-  legacyExecution: "3f8f0d70-1111-4000-8000-000000000012",
 } as const
 
 const commandMeta = {
@@ -46,31 +42,37 @@ const ticket = {
   title: "Implement the board",
   priority: "normal",
   done: false,
-  participantIds: [],
-  labelIds: [],
-  attachmentIds: [],
-  sourceThreadId: ids.sourceThread,
+  createdAt: "2026-08-13T12:00:00.000Z",
+  updatedAt: "2026-08-13T12:00:00.000Z",
+} as const
+
+const project = {
+  id: ids.project,
+  name: "Noyau",
+  workspaceRoot: "/Users/hezaerd/noyau",
+  available: true,
   createdAt: "2026-08-13T12:00:00.000Z",
   updatedAt: "2026-08-13T12:00:00.000Z",
 } as const
 
 describe("TicketCommandRequest", () => {
-  it("accepte une création légère avec titre, position et source optionnelle", () => {
+  it("accepte une création légère avec titre et position, sans sourceThreadId", () => {
     const request = Effect.runSync(
       decodeTicketCommandRequest({
         _tag: "ticket.create",
         commandId: ids.command,
         payload: {
+          projectId: ids.project,
           ticketId: ids.ticket,
           title: "Implement the board",
           placement: { columnId: ids.column },
-          sourceThreadId: ids.sourceThread,
         },
       }),
     )
 
     expect(request._tag).toBe("ticket.create")
-    expect(request.payload).not.toHaveProperty("workbenchThreadId")
+    expect(request.payload).not.toHaveProperty("sourceThreadId")
+    expect(request).not.toHaveProperty("actorId")
   })
 
   it("retire les métadonnées possédées par le control plane", () => {
@@ -95,21 +97,22 @@ describe("TicketCommandRequest", () => {
     })
   })
 
-  it("retire execution.start du protocole actif", () => {
-    const executionStart = {
-      _tag: "execution.start",
-      commandId: ids.command,
-      payload: {
-        executionId: ids.legacyExecution,
-        ticketId: ids.ticket,
-      },
-    }
+  it.each(["ticket.thread.link", "ticket.thread.unlink"] as const)(
+    "expose %s dans les unions request, Ticket et globale",
+    (tag) => {
+      const request = {
+        _tag: tag,
+        commandId: ids.command,
+        payload: { ticketId: ids.ticket, threadId: ids.thread },
+      }
+      const enriched = { ...request, ...commandMeta }
 
-    expect(() => Schema.decodeUnknownSync(TicketCommandRequest)(executionStart)).toThrow()
-    expect(() =>
-      Schema.decodeUnknownSync(TicketCommand)({ ...executionStart, ...commandMeta }),
-    ).toThrow()
-  })
+      expect(Schema.decodeSync(TicketCommandRequest)(request)._tag).toBe(tag)
+      expect(Schema.decodeSync(TicketCommand)(enriched)._tag).toBe(tag)
+      expect(Schema.decodeSync(Command)(enriched)._tag).toBe(tag)
+      expect(Schema.decodeSync(ClientCommandRequest)(request)._tag).toBe(tag)
+    },
+  )
 })
 
 describe("Ticket dependencies and entities", () => {
@@ -147,21 +150,23 @@ describe("Ticket dependencies and entities", () => {
     },
   )
 
-  it("décode un Ticket v1 sans checklist ni Workbench", () => {
+  it("décode un Ticket sans sourceThreadId ni checklist", () => {
     const decoded = Schema.decodeUnknownSync(Ticket)({
       ...ticket,
+      sourceThreadId: ids.thread,
       checklist: [],
-      workbenchThreadId: ids.legacyWorkbench,
     })
 
     expect(decoded.done).toBe(false)
+    expect(decoded).not.toHaveProperty("sourceThreadId")
     expect(decoded).not.toHaveProperty("checklist")
-    expect(decoded).not.toHaveProperty("workbenchThreadId")
   })
 
-  it("décode un snapshot avec les relations du DAG", () => {
+  it("décode un snapshot Board avec sequence et TicketThread", () => {
     const snapshot = Schema.decodeSync(BoardSnapshot)({
+      snapshotSequence: 12,
       projectId: ids.project,
+      project,
       columns: [
         {
           id: ids.column,
@@ -176,10 +181,24 @@ describe("Ticket dependencies and entities", () => {
       ],
       tickets: [ticket],
       ticketDependencies: [dependencyPayload],
-      cursor: "v1:opaque",
+      ticketThreads: [{ ticketId: ids.ticket, threadId: ids.thread }],
     })
 
-    expect(snapshot.ticketDependencies).toEqual([dependencyPayload])
+    expect(snapshot.snapshotSequence).toBe(12)
+    expect(snapshot.ticketThreads).toEqual([{ ticketId: ids.ticket, threadId: ids.thread }])
+    expect(snapshot).not.toHaveProperty("cursor")
+  })
+
+  it("rejette un BoardSnapshot encore porté par EventCursor", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(BoardSnapshot)({
+        projectId: ids.project,
+        columns: [],
+        tickets: [],
+        ticketDependencies: [],
+        cursor: "v1:opaque",
+      }),
+    ).toThrow()
   })
 
   it.each(["a0", "b00", "a0V", "Zz"])("accepte le KanbanRank canonique %s", (rank) => {
@@ -232,9 +251,10 @@ describe("Ticket update description", () => {
 })
 
 describe("Ticket envelopes", () => {
-  it("tolère puis retire l'ancien workbenchThreadId d'un ticket.created", () => {
+  it("round-trip un ticket.created sans sourceThreadId", () => {
     const envelope = Schema.decodeUnknownSync(EventEnvelope)({
       eventId: ids.event,
+      sequence: 3,
       projectId: ids.project,
       actorId: "human:hezaerd",
       correlationId: ids.correlation,
@@ -247,23 +267,26 @@ describe("Ticket envelopes", () => {
         columnId: ids.column,
         rank: "a0",
         title: "Implement the board",
-        workbenchThreadId: ids.legacyWorkbench,
+        sourceThreadId: ids.thread,
       },
     })
 
     expect(envelope.event._tag).toBe("ticket.created")
-    expect(envelope.event).not.toHaveProperty("workbenchThreadId")
+    expect(envelope.event).not.toHaveProperty("sourceThreadId")
+    expect(Schema.encodeSync(EventEnvelope)(envelope).sequence).toBe(3)
   })
 
-  it.each(["execution.started", "attempt.created"])("rejette l'ancien fait %s", (tag) => {
-    expect(() =>
-      Schema.decodeUnknownSync(DomainEvent)({
-        _tag: tag,
-        executionId: ids.legacyExecution,
-        ticketId: ids.ticket,
-      }),
-    ).toThrow()
-  })
+  it.each(["message.sent", "execution.started", "channel.created"])(
+    "rejette l'ancien fait %s",
+    (tag) => {
+      expect(() =>
+        Schema.decodeUnknownSync(DomainEvent)({
+          _tag: tag,
+          ticketId: ids.ticket,
+        }),
+      ).toThrow()
+    },
+  )
 })
 
 describe("Ticket rejection contracts", () => {
@@ -273,18 +296,8 @@ describe("Ticket rejection contracts", () => {
       ticketId: ids.ticket,
       dependsOnTicketId: ids.dependency,
     },
-    {
-      _tag: "TicketDependencyNotFound",
-      ticketId: ids.ticket,
-      dependsOnTicketId: ids.dependency,
-    },
-    { _tag: "TicketSelfDependency", ticketId: ids.ticket },
-    {
-      _tag: "TicketDependencyCycle",
-      ticketId: ids.ticket,
-      dependsOnTicketId: ids.dependency,
-    },
-  ])("décode l'erreur de dépendance $_tag", (error) => {
+    { _tag: "TicketThreadProjectMismatch", ticketId: ids.ticket, threadId: ids.thread },
+  ])("décode l'erreur $_tag", (error) => {
     expect(Schema.decodeUnknownSync(TicketRejection)(error)._tag).toBe(error._tag)
   })
 })

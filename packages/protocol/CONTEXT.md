@@ -25,6 +25,14 @@ Curseur numérique global depuis lequel un client reprend un stream. Un gap hors
 demande un snapshot frais.
 _À éviter_ : EventCursor, offset SQL, position WebSocket
 
+**resumeCursor**:
+`{ schemaVersion: 1, sessionId }` opaque pour `session/load`. La Session n'a pas d'id métier.
+_À éviter_ : cwdLastBound, ProviderBinding
+
+**TicketThread**:
+Lien optionnel plusieurs-à-plusieurs entre un Ticket et un Thread du même Project.
+_À éviter_ : sourceThreadId, Thread dédié
+
 **EventEnvelope**:
 Fait de domaine accompagné de son identité, son acteur, sa causalité, sa corrélation et son instant.
 _À éviter_ : événement brut, message réseau

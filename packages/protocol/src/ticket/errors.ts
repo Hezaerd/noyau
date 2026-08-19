@@ -1,4 +1,4 @@
-import { KanbanColumnId, TicketId } from "@noyau/protocol/ids"
+import { KanbanColumnId, ThreadId, TicketId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
 export class TicketAlreadyExists extends Schema.TaggedError<TicketAlreadyExists>()(
@@ -91,12 +91,9 @@ export class TicketAlreadyArchived extends Schema.TaggedError<TicketAlreadyArchi
   { ticketId: TicketId },
 ) {}
 
-export class TicketNotArchived extends Schema.TaggedError<TicketNotArchived>()(
-  "TicketNotArchived",
-  {
-    ticketId: TicketId,
-  },
-) {}
+export class TicketNotArchived extends Schema.TaggedError<TicketNotArchived>()("TicketNotArchived", {
+  ticketId: TicketId,
+}) {}
 
 export class TicketAlreadyCompleted extends Schema.TaggedError<TicketAlreadyCompleted>()(
   "TicketAlreadyCompleted",
@@ -111,6 +108,30 @@ export class TicketNotCompleted extends Schema.TaggedError<TicketNotCompleted>()
 export class OpenDependenciesConfirmationRequired extends Schema.TaggedError<OpenDependenciesConfirmationRequired>()(
   "OpenDependenciesConfirmationRequired",
   { ticketId: TicketId },
+) {}
+
+export class TicketThreadAlreadyLinked extends Schema.TaggedError<TicketThreadAlreadyLinked>()(
+  "TicketThreadAlreadyLinked",
+  {
+    ticketId: TicketId,
+    threadId: ThreadId,
+  },
+) {}
+
+export class TicketThreadNotLinked extends Schema.TaggedError<TicketThreadNotLinked>()(
+  "TicketThreadNotLinked",
+  {
+    ticketId: TicketId,
+    threadId: ThreadId,
+  },
+) {}
+
+export class TicketThreadProjectMismatch extends Schema.TaggedError<TicketThreadProjectMismatch>()(
+  "TicketThreadProjectMismatch",
+  {
+    ticketId: TicketId,
+    threadId: ThreadId,
+  },
 ) {}
 
 export const TicketRejection = Schema.Union([
@@ -133,5 +154,8 @@ export const TicketRejection = Schema.Union([
   TicketAlreadyCompleted,
   TicketNotCompleted,
   OpenDependenciesConfirmationRequired,
+  TicketThreadAlreadyLinked,
+  TicketThreadNotLinked,
+  TicketThreadProjectMismatch,
 ])
 export type TicketRejection = (typeof TicketRejection)["Type"]
