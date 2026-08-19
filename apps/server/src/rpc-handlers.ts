@@ -8,7 +8,7 @@ import { readProjectEventHighWater, readProjectEvents } from "@noyau/database/pr
 import { CurrentActor, ServiceUnavailable } from "@noyau/protocol/errors"
 import { ActorId, CommandId, KanbanColumnId, type ProjectId } from "@noyau/protocol/ids"
 import { ControlPlaneRpcs, ProjectEvent } from "@noyau/protocol/rpc"
-import { Crypto, Effect, Stream } from "effect"
+import { Crypto, Effect, References, Stream } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { ServerConfig } from "./config"
@@ -24,9 +24,10 @@ const databaseErrors = {
   SchemaError: Effect.die,
 } as const
 
-const readInitializedBoard = Effect.fn("ControlPlane.readInitializedBoard")(function* (
-  projectId: ProjectId,
-) {
+const readInitializedBoard = Effect.fn("board.ensureInitialized")(function* (projectId: ProjectId) {
+  yield* Effect.annotateCurrentSpan({
+    "noyau.project_id": projectId,
+  })
   const snapshot = yield* readProjectBoardSnapshot(projectId)
   if (snapshot.columns.length > 0) {
     return snapshot
@@ -55,26 +56,30 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
   SubmitTicketCommand: ({ projectId, request }) =>
     Effect.gen(function* () {
       const actorId = yield* CurrentActor
+      yield* Effect.annotateCurrentSpan({
+        "noyau.actor_id": actorId,
+        "noyau.command_id": request.commandId,
+        "noyau.command_type": request._tag,
+        "noyau.project_id": projectId,
+      })
       const receipt = yield* executeTicketCommandRequest({
         request,
         projectId,
         actorId,
       }).pipe(Effect.catchTags(databaseErrors))
-
-      yield* Effect.logInfo("Ticket command completed").pipe(
-        Effect.annotateLogs({
-          actorId,
-          commandId: request.commandId,
-          commandType: request._tag,
-          outcome: receipt.response._tag,
-          projectId,
-        }),
-      )
+      yield* Effect.annotateCurrentSpan({
+        "noyau.outcome": receipt.response._tag,
+      })
       return receipt
     }),
 
   GetBoardSnapshot: ({ projectId }) =>
-    readInitializedBoard(projectId).pipe(
+    Effect.gen(function* () {
+      yield* Effect.annotateCurrentSpan({
+        "noyau.project_id": projectId,
+      })
+      return yield* readInitializedBoard(projectId)
+    }).pipe(
       Effect.catchTags({
         ...databaseErrors,
         CommandIdConflict: unavailable,
@@ -84,11 +89,20 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     ),
 
   GetTicketActivity: ({ limit, projectId, ticketId }) =>
-    readTicketActivity(projectId, ticketId, limit).pipe(Effect.catchTags(databaseErrors)),
+    Effect.gen(function* () {
+      yield* Effect.annotateCurrentSpan({
+        "noyau.project_id": projectId,
+        "noyau.ticket_id": ticketId,
+      })
+      return yield* readTicketActivity(projectId, ticketId, limit)
+    }).pipe(Effect.catchTags(databaseErrors)),
 
   SubscribeProjectEvents: ({ cursor, projectId }) =>
     Stream.unwrap(
       Effect.gen(function* () {
+        yield* Effect.annotateCurrentSpan({
+          "noyau.project_id": projectId,
+        })
         const config = yield* ServerConfig
         const sql = yield* SqlClient
         const highWater = yield* readProjectEventHighWater(projectId).pipe(
@@ -117,6 +131,7 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
             }),
           ),
           Stream.provideService(SqlClient, sql),
+          Stream.provideService(References.TracerEnabled, false),
           Stream.catchTags({
             SchemaError: (error) => Stream.die(error),
             SqlError: (error) => Stream.fromEffect(unavailable(error)),

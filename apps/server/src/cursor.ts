@@ -14,7 +14,7 @@ const decodeCursorParts = Schema.decodeUnknownEffect(CursorParts)
 export const encodeEventCursor = (projectId: ProjectId, position: bigint): EventCursor =>
   EventCursor.make(`v1.${projectId}.${position}`)
 
-export const decodeEventCursor = Effect.fn("decodeEventCursor")(function* (
+export const decodeEventCursor = Effect.fnUntraced(function* (
   cursor: EventCursor | string,
   expectedProjectId: ProjectId,
   highWater: bigint,

@@ -17,6 +17,13 @@ import { TicketEvent } from "@noyau/protocol/ticket/events"
 import { Crypto, DateTime, Effect, Option, Result, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
+import {
+  boardSnapshotReadSpan,
+  commandExecuteSpan,
+  observeCommand,
+  ticketActivityReadSpan,
+} from "./observability"
+
 const BoardInitializeRequest = Schema.TaggedStruct("board.initialize", {
   commandId: CommandId,
   causationId: Schema.optionalKey(EventId),
@@ -263,7 +270,11 @@ interface JournaledBoardCommand {
   readonly actorId: ActorId
 }
 
-const executeJournaledBoardCommand = ({ request, projectId, actorId }: JournaledBoardCommand) =>
+const executeJournaledBoardCommandUntraced = ({
+  request,
+  projectId,
+  actorId,
+}: JournaledBoardCommand) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient
     const crypto = yield* Crypto.Crypto
@@ -467,6 +478,24 @@ const executeJournaledBoardCommand = ({ request, projectId, actorId }: Journaled
     )
   })
 
+const executeJournaledBoardCommand = (input: JournaledBoardCommand) =>
+  observeCommand(
+    input.request._tag,
+    Effect.gen(function* () {
+      yield* Effect.annotateCurrentSpan({
+        "noyau.command_type": input.request._tag,
+        "noyau.command_id": input.request.commandId,
+        "noyau.project_id": input.projectId,
+        "noyau.actor_id": input.actorId,
+      })
+      const receipt = yield* executeJournaledBoardCommandUntraced(input)
+      yield* Effect.annotateCurrentSpan({
+        "noyau.outcome": receipt.response._tag,
+      })
+      return receipt
+    }).pipe(Effect.withSpan(commandExecuteSpan)),
+  )
+
 /** Exécute une request Ticket publique dans la transaction durable du Tableau. */
 export const executeTicketCommandRequest = ({
   request,
@@ -511,13 +540,17 @@ export const executeBoardInitialize = (input: BoardInitializeInput) => {
 }
 
 /** Lit le Tableau et son curseur dans un snapshot PostgreSQL cohérent. */
-export const readProjectBoardSnapshot = (projectId: ProjectId) =>
-  Effect.gen(function* () {
-    const sql = yield* SqlClient
-    return yield* sql.withTransaction(
-      Effect.gen(function* () {
-        yield* sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`
-        const columnRows = yield* sql`
+export const readProjectBoardSnapshot = Effect.fn(boardSnapshotReadSpan)(function* (
+  projectId: ProjectId,
+) {
+  yield* Effect.annotateCurrentSpan({
+    "noyau.project_id": projectId,
+  })
+  const sql = yield* SqlClient
+  return yield* sql.withTransaction(
+    Effect.gen(function* () {
+      yield* sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`
+      const columnRows = yield* sql`
           SELECT jsonb_build_object(
             'id', id,
             'projectId', project_id,
@@ -532,13 +565,11 @@ export const readProjectBoardSnapshot = (projectId: ProjectId) =>
           WHERE project_id = ${projectId}
           ORDER BY rank, id
         `
-        const columns = yield* Effect.forEach(columnRows, (row) =>
-          decodeEntityRow(row).pipe(
-            Effect.flatMap((decoded) => decodeKanbanColumn(decoded.entity)),
-          ),
-        )
+      const columns = yield* Effect.forEach(columnRows, (row) =>
+        decodeEntityRow(row).pipe(Effect.flatMap((decoded) => decodeKanbanColumn(decoded.entity))),
+      )
 
-        const ticketRows = yield* sql`
+      const ticketRows = yield* sql`
           SELECT jsonb_strip_nulls(jsonb_build_object(
             'id', id,
             'projectId', project_id,
@@ -563,11 +594,11 @@ export const readProjectBoardSnapshot = (projectId: ProjectId) =>
           WHERE project_id = ${projectId}
           ORDER BY column_id, rank, id
         `
-        const tickets = yield* Effect.forEach(ticketRows, (row) =>
-          decodeEntityRow(row).pipe(Effect.flatMap((decoded) => decodeTicket(decoded.entity))),
-        )
+      const tickets = yield* Effect.forEach(ticketRows, (row) =>
+        decodeEntityRow(row).pipe(Effect.flatMap((decoded) => decodeTicket(decoded.entity))),
+      )
 
-        const dependencyRows = yield* sql`
+      const dependencyRows = yield* sql`
           SELECT jsonb_build_object(
             'ticketId', ticket_id,
             'dependsOnTicketId', prerequisite_ticket_id
@@ -576,13 +607,13 @@ export const readProjectBoardSnapshot = (projectId: ProjectId) =>
           WHERE project_id = ${projectId}
           ORDER BY ticket_id, prerequisite_ticket_id
         `
-        const ticketDependencies = yield* Effect.forEach(dependencyRows, (row) =>
-          decodeEntityRow(row).pipe(
-            Effect.flatMap((decoded) => decodeTicketDependency(decoded.entity)),
-          ),
-        )
+      const ticketDependencies = yield* Effect.forEach(dependencyRows, (row) =>
+        decodeEntityRow(row).pipe(
+          Effect.flatMap((decoded) => decodeTicketDependency(decoded.entity)),
+        ),
+      )
 
-        const positionRows = yield* sql`
+      const positionRows = yield* sql`
           SELECT COALESCE(
             (
               SELECT position
@@ -592,24 +623,31 @@ export const readProjectBoardSnapshot = (projectId: ProjectId) =>
             0
           )::text AS position
         `
-        const position = (yield* decodePositionRow(positionRows[0])).position
-        return BoardSnapshot.make({
-          projectId,
-          columns,
-          tickets,
-          ticketDependencies,
-          cursor: EventCursor.make(`v1.${projectId}.${position}`),
-        })
-      }),
-    )
-  })
+      const position = (yield* decodePositionRow(positionRows[0])).position
+      return BoardSnapshot.make({
+        projectId,
+        columns,
+        tickets,
+        ticketDependencies,
+        cursor: EventCursor.make(`v1.${projectId}.${position}`),
+      })
+    }),
+  )
+})
 
 /** Lit les faits Ticket autoritatifs du plus récent au plus ancien. */
-export const readTicketActivity = (projectId: ProjectId, ticketId: TicketId, requestedLimit = 50) =>
-  Effect.gen(function* () {
-    const sql = yield* SqlClient
-    const limit = Math.max(1, Math.min(requestedLimit, 100))
-    const rows = yield* sql`
+export const readTicketActivity = Effect.fn(ticketActivityReadSpan)(function* (
+  projectId: ProjectId,
+  ticketId: TicketId,
+  requestedLimit = 50,
+) {
+  yield* Effect.annotateCurrentSpan({
+    "noyau.project_id": projectId,
+    "noyau.ticket_id": ticketId,
+  })
+  const sql = yield* SqlClient
+  const limit = Math.max(1, Math.min(requestedLimit, 100))
+  const rows = yield* sql`
       SELECT jsonb_build_object(
         'eventId', event_id,
         'projectId', project_id,
@@ -629,7 +667,7 @@ export const readTicketActivity = (projectId: ProjectId, ticketId: TicketId, req
       LIMIT ${limit}
     `
 
-    return yield* Effect.forEach(rows, (row) =>
-      decodeEntityRow(row).pipe(Effect.flatMap((decoded) => decodeEventEnvelope(decoded.entity))),
-    )
-  })
+  return yield* Effect.forEach(rows, (row) =>
+    decodeEntityRow(row).pipe(Effect.flatMap((decoded) => decodeEventEnvelope(decoded.entity))),
+  )
+})

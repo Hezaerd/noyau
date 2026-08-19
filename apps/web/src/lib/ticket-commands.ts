@@ -14,12 +14,12 @@ import {
 } from "@noyau/protocol/ticket/commands"
 import { Crypto, Effect, Schema } from "effect"
 
-const uuid = Effect.fn("TicketCommands.uuid")(function* () {
+const uuid = Effect.fnUntraced(function* () {
   const crypto = yield* Crypto.Crypto
   return yield* crypto.randomUUIDv4
 })
 
-export const makeTicketCreateRequest = Effect.fn("TicketCommands.ticketCreate")(function* (input: {
+export const makeTicketCreateRequest = Effect.fnUntraced(function* (input: {
   readonly title: string
   readonly placement: TicketPlacement
 }) {
@@ -34,7 +34,7 @@ export const makeTicketCreateRequest = Effect.fn("TicketCommands.ticketCreate")(
   })
 })
 
-export const makeTicketMoveRequest = Effect.fn("TicketCommands.ticketMove")(function* (input: {
+export const makeTicketMoveRequest = Effect.fnUntraced(function* (input: {
   readonly ticketId: TicketId
   readonly placement: TicketPlacement
 }) {
@@ -44,7 +44,7 @@ export const makeTicketMoveRequest = Effect.fn("TicketCommands.ticketMove")(func
   })
 })
 
-export const makeTicketAssignRequest = Effect.fn("TicketCommands.ticketAssign")(function* (
+export const makeTicketAssignRequest = Effect.fnUntraced(function* (
   input: (typeof TicketAssignRequest)["Type"]["payload"],
 ) {
   return TicketAssignRequest.make({
@@ -53,7 +53,7 @@ export const makeTicketAssignRequest = Effect.fn("TicketCommands.ticketAssign")(
   })
 })
 
-export const makeTicketUpdateRequest = Effect.fn("TicketCommands.ticketUpdate")(function* (input: {
+export const makeTicketUpdateRequest = Effect.fnUntraced(function* (input: {
   readonly ticketId: TicketId
   readonly title?: string
   readonly description?: string | null
@@ -72,56 +72,54 @@ export const makeTicketUpdateRequest = Effect.fn("TicketCommands.ticketUpdate")(
   })
 })
 
-export const makeTicketDependencyAddRequest = Effect.fn("TicketCommands.ticketDependencyAdd")(
-  function* (input: (typeof TicketDependencyAddRequest)["Type"]["payload"]) {
-    return TicketDependencyAddRequest.make({
-      commandId: CommandId.make(yield* uuid()),
-      payload: input,
-    })
-  },
-)
+export const makeTicketDependencyAddRequest = Effect.fnUntraced(function* (
+  input: (typeof TicketDependencyAddRequest)["Type"]["payload"],
+) {
+  return TicketDependencyAddRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
+  })
+})
 
-export const makeTicketDependencyRemoveRequest = Effect.fn("TicketCommands.ticketDependencyRemove")(
-  function* (input: (typeof TicketDependencyRemoveRequest)["Type"]["payload"]) {
-    return TicketDependencyRemoveRequest.make({
-      commandId: CommandId.make(yield* uuid()),
-      payload: input,
-    })
-  },
-)
+export const makeTicketDependencyRemoveRequest = Effect.fnUntraced(function* (
+  input: (typeof TicketDependencyRemoveRequest)["Type"]["payload"],
+) {
+  return TicketDependencyRemoveRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
+  })
+})
 
-export const makeKanbanColumnCreateRequest = Effect.fn("TicketCommands.kanbanColumnCreate")(
-  function* (input: {
-    readonly name: string
-    readonly color: string
-    readonly beforeColumnId?: KanbanColumnId
-    readonly afterColumnId?: KanbanColumnId
-  }) {
-    const [commandId, columnId] = yield* Effect.all([uuid(), uuid()])
-    return KanbanColumnCreateRequest.make({
-      commandId: CommandId.make(commandId),
-      payload: {
-        ...input,
-        columnId: KanbanColumnId.make(columnId),
-      },
-    })
-  },
-)
+export const makeKanbanColumnCreateRequest = Effect.fnUntraced(function* (input: {
+  readonly name: string
+  readonly color: string
+  readonly beforeColumnId?: KanbanColumnId
+  readonly afterColumnId?: KanbanColumnId
+}) {
+  const [commandId, columnId] = yield* Effect.all([uuid(), uuid()])
+  return KanbanColumnCreateRequest.make({
+    commandId: CommandId.make(commandId),
+    payload: {
+      ...input,
+      columnId: KanbanColumnId.make(columnId),
+    },
+  })
+})
 
-export const makeKanbanColumnUpdateRequest = Effect.fn("TicketCommands.kanbanColumnUpdate")(
-  function* (input: (typeof KanbanColumnUpdateRequest)["Type"]["payload"]) {
-    return KanbanColumnUpdateRequest.make({
-      commandId: CommandId.make(yield* uuid()),
-      payload: input,
-    })
-  },
-)
+export const makeKanbanColumnUpdateRequest = Effect.fnUntraced(function* (
+  input: (typeof KanbanColumnUpdateRequest)["Type"]["payload"],
+) {
+  return KanbanColumnUpdateRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
+  })
+})
 
-export const makeKanbanColumnDeleteRequest = Effect.fn("TicketCommands.kanbanColumnDelete")(
-  function* (input: (typeof KanbanColumnDeleteRequest)["Type"]["payload"]) {
-    return KanbanColumnDeleteRequest.make({
-      commandId: CommandId.make(yield* uuid()),
-      payload: input,
-    })
-  },
-)
+export const makeKanbanColumnDeleteRequest = Effect.fnUntraced(function* (
+  input: (typeof KanbanColumnDeleteRequest)["Type"]["payload"],
+) {
+  return KanbanColumnDeleteRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
+  })
+})

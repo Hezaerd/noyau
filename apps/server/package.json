@@ -7,6 +7,7 @@
     "./config": "./src/config.ts",
     "./cursor": "./src/cursor.ts",
     "./identity": "./src/identity.ts",
+    "./observability": "./src/observability.ts",
     "./rpc-handlers": "./src/rpc-handlers.ts",
     "./server": "./src/server.ts"
   },

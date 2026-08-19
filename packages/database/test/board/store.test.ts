@@ -22,7 +22,7 @@ import {
   TicketCommandRequest,
   type TicketCommandRequest as TicketCommandRequestType,
 } from "@noyau/protocol/ticket/commands"
-import { Crypto, Effect, Layer, Schema } from "effect"
+import { Crypto, Effect, Layer, Schema, Tracer } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 const testCrypto = () => {
@@ -593,6 +593,34 @@ describe("board store", () => {
         )
         assert.strictEqual(first.cursor, `v1.${firstProject}.4`)
         assert.strictEqual(second.cursor, `v1.${secondProject}.4`)
+      }),
+    )
+
+    it.effect("ouvre une span command.execute et board.snapshot.read", () =>
+      Effect.gen(function* () {
+        const projectId = project(10)
+        const spanNames: Array<string> = []
+        const tracer = Tracer.make({
+          span: (options) => {
+            const span = new Tracer.NativeSpan(options)
+            const end = span.end.bind(span)
+            span.end = (endTime, exit) => {
+              end(endTime, exit)
+              if (span.sampled) {
+                spanNames.push(span.name)
+              }
+            }
+            return span
+          },
+        })
+
+        yield* initialize(projectId, command(70), column(61), column(62), column(63)).pipe(
+          Effect.withTracer(tracer),
+        )
+        yield* readProjectBoardSnapshot(projectId).pipe(Effect.withTracer(tracer))
+
+        assert.ok(spanNames.includes("command.execute"))
+        assert.ok(spanNames.includes("board.snapshot.read"))
       }),
     )
   })
