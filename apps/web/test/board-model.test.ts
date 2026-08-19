@@ -2,12 +2,15 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   addColumn,
+  applyTicketDrop,
   createTicket,
   dependenciesForTicket,
   dependentsForTicket,
+  destinationIndexAfterDrop,
   initialBoardState,
   moveTicket,
   parseBoardSearch,
+  placeTicketAt,
   reorderTicket,
   ticketDependencyIssue,
   ticketsInColumn,
@@ -66,6 +69,105 @@ describe("local board preview model", () => {
       "ticket-sheet",
     ])
     expect(ticketsInColumn(next, "column-active")).toHaveLength(2)
+  })
+
+  it("inserts a cross-column drop under the hovered ticket", () => {
+    const next = applyTicketDrop(
+      initialBoardState,
+      "ticket-projection",
+      "column-active",
+      "ticket-board-ui",
+      true,
+    )
+
+    expect(ticketsInColumn(next, "column-active").map((ticket) => ticket.id)).toEqual([
+      "ticket-board-ui",
+      "ticket-projection",
+      "ticket-reconciliation",
+    ])
+  })
+
+  it("moves the top ticket of a column onto the middle or last card", () => {
+    const toMiddle = applyTicketDrop(
+      initialBoardState,
+      "ticket-projection",
+      "column-backlog",
+      "ticket-http",
+      false,
+    )
+    expect(ticketsInColumn(toMiddle, "column-backlog").map((ticket) => ticket.id)).toEqual([
+      "ticket-http",
+      "ticket-projection",
+      "ticket-sheet",
+    ])
+
+    const toLast = applyTicketDrop(
+      initialBoardState,
+      "ticket-projection",
+      "column-backlog",
+      "ticket-sheet",
+      false,
+    )
+    expect(ticketsInColumn(toLast, "column-backlog").map((ticket) => ticket.id)).toEqual([
+      "ticket-http",
+      "ticket-sheet",
+      "ticket-projection",
+    ])
+  })
+
+  it("keeps a drop on the dragged ticket itself", () => {
+    const next = applyTicketDrop(
+      initialBoardState,
+      "ticket-projection",
+      "column-backlog",
+      "ticket-projection",
+      true,
+    )
+
+    expect(next).toBe(initialBoardState)
+  })
+
+  it("computes drop indexes for same-column arrayMove and cross-column insertAfter", () => {
+    const column = [{ id: "a" }, { id: "b" }, { id: "c" }]
+
+    expect(
+      destinationIndexAfterDrop({
+        destinationTickets: column,
+        draggedTicketId: "a",
+        overTicketId: "b",
+        insertAfter: false,
+      }),
+    ).toBe(1)
+    expect(
+      destinationIndexAfterDrop({
+        destinationTickets: column,
+        draggedTicketId: "a",
+        overTicketId: "c",
+        insertAfter: false,
+      }),
+    ).toBe(2)
+    expect(
+      destinationIndexAfterDrop({
+        destinationTickets: column,
+        draggedTicketId: "x",
+        overTicketId: "a",
+        insertAfter: true,
+      }),
+    ).toBe(1)
+    expect(
+      destinationIndexAfterDrop({
+        destinationTickets: column,
+        draggedTicketId: "a",
+        overTicketId: undefined,
+        insertAfter: false,
+      }),
+    ).toBe(2)
+  })
+
+  it("is a no-op when the ticket is already at the requested index", () => {
+    expect(placeTicketAt(initialBoardState, "ticket-projection", "column-backlog", 0)).toBe(
+      initialBoardState,
+    )
   })
 
   it("filters by query and priority", () => {

@@ -81,6 +81,7 @@ import {
   type ExecutableBoardAction,
 } from "@/lib/board-actions"
 import {
+  applyTicketDrop,
   isFiltered,
   isTicketPriority,
   moveTicket,
@@ -594,6 +595,33 @@ function BoardColumnView({
   )
 }
 
+const COLUMN_DROPPABLE_PREFIX = "column:"
+
+const isBelowOverItem = (
+  active: DragEndEvent["active"],
+  over: NonNullable<DragEndEvent["over"]>,
+): boolean => {
+  const translated = active.rect.current.translated
+  if (translated === null) {
+    return false
+  }
+  return translated.top + translated.height / 2 > over.rect.top + over.rect.height / 2
+}
+
+const parseOverTarget = (
+  board: BoardState,
+  overId: string,
+): { readonly columnId: string; readonly overTicketId?: string } | undefined => {
+  if (overId.startsWith(COLUMN_DROPPABLE_PREFIX)) {
+    return { columnId: overId.slice(COLUMN_DROPPABLE_PREFIX.length) }
+  }
+  const overTicket = board.tickets.find((ticket) => ticket.id === overId)
+  if (overTicket === undefined) {
+    return undefined
+  }
+  return { columnId: overTicket.columnId, overTicketId: overTicket.id }
+}
+
 const focusTicket = (boardRef: RefObject<HTMLElement | null>, ticketId: string | undefined) => {
   if (ticketId === undefined) {
     return
@@ -918,55 +946,74 @@ export function BoardPage({
 
     setState((current) => {
       const source = current.tickets.find((ticket) => ticket.id === ticketId)
-      const overTicket = current.tickets.find((ticket) => ticket.id === overId)
-      const destinationColumnId = overId.startsWith("column:")
-        ? overId.slice("column:".length)
-        : overTicket?.columnId
-
-      if (
-        source === undefined ||
-        destinationColumnId === undefined ||
-        destinationColumnId === source.columnId
-      ) {
+      const target = parseOverTarget(current, overId)
+      if (source === undefined || target === undefined || target.columnId === source.columnId) {
         return current
       }
 
-      return moveTicket(current, ticketId, destinationColumnId, overTicket?.id)
+      return applyTicketDrop(
+        current,
+        ticketId,
+        target.columnId,
+        target.overTicketId,
+        isBelowOverItem(active, over),
+      )
     })
   }
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    const origin = dragStartStateRef.current ?? state
     setDraggedTicketId(undefined)
     dragStartStateRef.current = undefined
     if (over === null) {
+      setState(origin)
       return
     }
     const ticketId = String(active.id)
-    const source = state.tickets.find((ticket) => ticket.id === ticketId)
+    const source = origin.tickets.find((ticket) => ticket.id === ticketId)
     if (source === undefined) {
+      setState(origin)
       return
     }
-    const overId = String(over.id)
-    const overTicket = state.tickets.find((ticket) => ticket.id === overId)
-    const destinationColumnId = overId.startsWith("column:")
-      ? overId.slice("column:".length)
-      : overTicket?.columnId
-    if (destinationColumnId === undefined) {
+    if (String(over.id) === ticketId) {
+      setState(state)
+      setActiveTicketId(ticketId)
+      if (state !== origin) {
+        const preview = state.tickets.find((ticket) => ticket.id === ticketId)
+        const column = state.columns.find((candidate) => candidate.id === preview?.columnId)
+        persistTicketPlacement(
+          state,
+          ticketId,
+          `Ticket déplacé vers ${column?.name ?? "la colonne cible"}, position ${(preview?.position ?? 0) + 1}.`,
+        )
+      }
       return
     }
-    if (filtered && destinationColumnId === source.columnId) {
+    const target = parseOverTarget(origin, String(over.id))
+    if (target === undefined) {
+      setState(origin)
+      return
+    }
+    if (filtered && target.columnId === source.columnId) {
+      setState(origin)
       setAnnouncement("Le réordonnancement est désactivé dans une vue filtrée.")
       return
     }
-    const next = moveTicket(
-      state,
-      ticketId,
-      destinationColumnId,
-      filtered || overTicket === undefined ? undefined : overTicket.id,
-    )
+    const next = filtered
+      ? moveTicket(origin, ticketId, target.columnId)
+      : applyTicketDrop(
+          origin,
+          ticketId,
+          target.columnId,
+          target.overTicketId,
+          isBelowOverItem(active, over),
+        )
     setState(next)
     setActiveTicketId(ticketId)
-    const column = next.columns.find((candidate) => candidate.id === destinationColumnId)
+    if (next === origin) {
+      return
+    }
+    const column = next.columns.find((candidate) => candidate.id === target.columnId)
     const moved = next.tickets.find((ticket) => ticket.id === ticketId)
     persistTicketPlacement(
       next,

@@ -199,6 +199,104 @@ const reindexColumn = (
   })
 }
 
+const sameTicketOrder = (
+  left: ReadonlyArray<Pick<BoardTicket, "id">>,
+  right: ReadonlyArray<Pick<BoardTicket, "id">>,
+): boolean =>
+  left.length === right.length && left.every((ticket, index) => ticket.id === right[index]?.id)
+
+export const destinationIndexAfterDrop = (input: {
+  readonly destinationTickets: ReadonlyArray<Pick<BoardTicket, "id">>
+  readonly draggedTicketId: string
+  readonly overTicketId: string | undefined
+  readonly insertAfter: boolean
+}): number => {
+  const withoutDragged = input.destinationTickets.filter(
+    (ticket) => ticket.id !== input.draggedTicketId,
+  )
+  const draggedInDestination = withoutDragged.length !== input.destinationTickets.length
+
+  if (input.overTicketId === undefined) {
+    return withoutDragged.length
+  }
+
+  if (input.overTicketId === input.draggedTicketId) {
+    const currentIndex = input.destinationTickets.findIndex(
+      (ticket) => ticket.id === input.draggedTicketId,
+    )
+    return currentIndex < 0 ? withoutDragged.length : currentIndex
+  }
+
+  const overIndex = input.destinationTickets.findIndex((ticket) => ticket.id === input.overTicketId)
+  if (overIndex < 0) {
+    return withoutDragged.length
+  }
+
+  if (draggedInDestination) {
+    return Math.min(overIndex, withoutDragged.length)
+  }
+
+  return input.insertAfter ? overIndex + 1 : overIndex
+}
+
+export const placeTicketAt = (
+  state: BoardState,
+  ticketId: string,
+  destinationColumnId: string,
+  destinationIndex: number,
+): BoardState => {
+  const ticket = state.tickets.find((candidate) => candidate.id === ticketId)
+  const destination = state.columns.find((column) => column.id === destinationColumnId)
+  if (ticket === undefined || destination === undefined) {
+    return state
+  }
+
+  const withoutTicket = state.tickets.filter((candidate) => candidate.id !== ticketId)
+  const destinationTickets = withoutTicket
+    .filter((candidate) => candidate.columnId === destinationColumnId)
+    .toSorted((left, right) => left.position - right.position)
+  const insertionIndex = Math.min(Math.max(destinationIndex, 0), destinationTickets.length)
+  const movedTicket: BoardTicket = {
+    ...ticket,
+    columnId: destinationColumnId,
+    position: insertionIndex,
+  }
+  const orderedDestination = destinationTickets.toSpliced(insertionIndex, 0, movedTicket)
+
+  if (
+    ticket.columnId === destinationColumnId &&
+    sameTicketOrder(ticketsInColumn(state, destinationColumnId), orderedDestination)
+  ) {
+    return state
+  }
+
+  const destinationIds = new Set(orderedDestination.map((candidate) => candidate.id))
+  const untouched = withoutTicket.filter((candidate) => !destinationIds.has(candidate.id))
+  let nextTickets: ReadonlyArray<BoardTicket> = [
+    ...untouched,
+    ...orderedDestination.map((candidate, position) => Object.assign({}, candidate, { position })),
+  ]
+  nextTickets = reindexColumn(nextTickets, ticket.columnId)
+
+  return { ...state, tickets: nextTickets }
+}
+
+export const applyTicketDrop = (
+  state: BoardState,
+  ticketId: string,
+  destinationColumnId: string,
+  overTicketId: string | undefined,
+  insertAfter: boolean,
+): BoardState => {
+  const destinationIndex = destinationIndexAfterDrop({
+    destinationTickets: ticketsInColumn(state, destinationColumnId),
+    draggedTicketId: ticketId,
+    overTicketId,
+    insertAfter,
+  })
+  return placeTicketAt(state, ticketId, destinationColumnId, destinationIndex)
+}
+
 export const moveTicket = (
   state: BoardState,
   ticketId: string,
@@ -211,30 +309,15 @@ export const moveTicket = (
     return state
   }
 
-  const withoutTicket = state.tickets.filter((candidate) => candidate.id !== ticketId)
-  const destinationTickets = withoutTicket
-    .filter((candidate) => candidate.columnId === destinationColumnId)
-    .toSorted((left, right) => left.position - right.position)
+  const destinationTickets = ticketsInColumn(state, destinationColumnId).filter(
+    (candidate) => candidate.id !== ticketId,
+  )
   const requestedIndex =
     beforeTicketId === undefined
       ? destinationTickets.length
       : destinationTickets.findIndex((candidate) => candidate.id === beforeTicketId)
   const insertionIndex = requestedIndex < 0 ? destinationTickets.length : requestedIndex
-  const movedTicket: BoardTicket = {
-    ...ticket,
-    columnId: destinationColumnId,
-    position: insertionIndex,
-  }
-  const orderedDestination = destinationTickets.toSpliced(insertionIndex, 0, movedTicket)
-  const destinationIds = new Set(orderedDestination.map((candidate) => candidate.id))
-  const untouched = withoutTicket.filter((candidate) => !destinationIds.has(candidate.id))
-  let nextTickets: ReadonlyArray<BoardTicket> = [
-    ...untouched,
-    ...orderedDestination.map((candidate, position) => Object.assign({}, candidate, { position })),
-  ]
-  nextTickets = reindexColumn(nextTickets, ticket.columnId)
-
-  return { ...state, tickets: nextTickets }
+  return placeTicketAt(state, ticketId, destinationColumnId, insertionIndex)
 }
 
 export const reorderTicket = (
