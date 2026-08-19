@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./board/observability": "./src/board/observability.ts",
     "./board/store": "./src/board/store.ts",
     "./migrations": "./src/migrations.ts",
     "./project-stream": "./src/project-stream.ts"

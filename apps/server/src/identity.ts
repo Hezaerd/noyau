@@ -28,6 +28,12 @@ export const devIdentityLayer = Layer.effect(
       })
     }
     const actorId = yield* decodeDevActorId(config.devActorId ?? "human:developer")
+    yield* Effect.logInfo("Dev identity enabled").pipe(
+      Effect.annotateLogs({
+        actorId,
+        environment: config.environment,
+      }),
+    )
 
     return NoyauRpcIdentity.of((effect) => Effect.provideService(effect, CurrentActor, actorId))
   }),

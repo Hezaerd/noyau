@@ -9,6 +9,7 @@ import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { ServerConfig, serverConfigLayer } from "./config"
 import { devIdentityLayer } from "./identity"
+import { loggerLayer } from "./observability"
 import { rpcHandlersLayer } from "./rpc-handlers"
 
 export class MigrationsReady extends Context.Service<
@@ -30,6 +31,8 @@ export const postgresLayer = PgClient.layerFrom(
 export const migrationsReadyLayer = Layer.effect(
   MigrationsReady,
   runMigrations.pipe(
+    Effect.tap(() => Effect.logInfo("Migrations completed")),
+    Effect.tapCause((cause) => Effect.logError("Migrations failed", cause)),
     Effect.as(MigrationsReady.of({ completed: true })),
     Effect.withSpan("server.migrations"),
   ),
@@ -69,6 +72,13 @@ export const bunServerLayer = Layer.mergeAll(
     Effect.gen(function* () {
       const config = yield* ServerConfig
       yield* MigrationsReady
+      yield* Effect.logInfo("Noyau Server listening").pipe(
+        Effect.annotateLogs({
+          environment: config.environment,
+          host: config.host,
+          port: config.port,
+        }),
+      )
       return yield* BunHttpServer.make({
         hostname: config.host,
         port: config.port,
@@ -86,4 +96,5 @@ const infrastructureLayer = migrationsReadyLayer.pipe(
 export const serverLayer = HttpRouter.serve(serverRoutesLayer).pipe(
   Layer.provide(bunServerLayer),
   Layer.provide(infrastructureLayer),
+  Layer.provide(loggerLayer.pipe(Layer.provide(serverConfigLayer))),
 )

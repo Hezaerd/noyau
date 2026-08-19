@@ -64,6 +64,9 @@ const runOperation = async <A, E>(
 const getBoardSnapshot = Effect.fn("ControlPlaneClient.getBoardSnapshot")(function* (
   projectId: ProjectId,
 ) {
+  yield* Effect.annotateCurrentSpan({
+    "noyau.project_id": projectId,
+  })
   const client = yield* ControlPlaneClient
   return yield* client.GetBoardSnapshot({ projectId })
 })
@@ -72,6 +75,10 @@ const getTicketActivity = Effect.fn("ControlPlaneClient.getTicketActivity")(func
   projectId: ProjectId,
   ticketId: TicketId,
 ) {
+  yield* Effect.annotateCurrentSpan({
+    "noyau.project_id": projectId,
+    "noyau.ticket_id": ticketId,
+  })
   const client = yield* ControlPlaneClient
   return yield* client.GetTicketActivity({ projectId, ticketId })
 })
@@ -80,6 +87,11 @@ const submitCommand = Effect.fn("ControlPlaneClient.submitTicketCommand")(functi
   projectId: ProjectId,
   request: TicketCommandRequest,
 ) {
+  yield* Effect.annotateCurrentSpan({
+    "noyau.command_id": request.commandId,
+    "noyau.command_type": request._tag,
+    "noyau.project_id": projectId,
+  })
   const client = yield* ControlPlaneClient
   return yield* client.SubmitTicketCommand({ projectId, request })
 })
@@ -112,11 +124,17 @@ export const subscribeProjectEvents = (
   onError: (details: string) => void,
 ) => {
   const stream = Effect.gen(function* () {
+    yield* Effect.annotateCurrentSpan({
+      "noyau.project_id": projectId,
+    })
     const client = yield* ControlPlaneClient
     return yield* client
       .SubscribeProjectEvents({ projectId, cursor })
       .pipe(Stream.runForEach((event) => Effect.sync(() => onEvent(event))))
-  }).pipe(Effect.tapCause((cause) => Effect.sync(() => onError(Cause.pretty(cause)))))
+  }).pipe(
+    Effect.withSpan("ControlPlaneClient.subscribeProjectEvents"),
+    Effect.tapCause((cause) => Effect.sync(() => onError(Cause.pretty(cause)))),
+  )
   const fiber = runtime.runFork(stream)
 
   return () => {
