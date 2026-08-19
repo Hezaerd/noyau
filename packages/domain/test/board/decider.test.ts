@@ -2,9 +2,9 @@ import { describe, expect, it } from "@effect/vitest"
 import { decide } from "@noyau/domain/board/decider"
 import { emptyBoardState, evolve, type BoardState } from "@noyau/domain/board/projector"
 import { KanbanRank } from "@noyau/protocol/entities/kanban-column"
-import { ExecutionId, TicketId } from "@noyau/protocol/ids"
+import { TicketId } from "@noyau/protocol/ids"
 import { TicketCommand, TicketDependencyAdd } from "@noyau/protocol/ticket/commands"
-import { ExecutionCompleted, type TicketEvent } from "@noyau/protocol/ticket/events"
+import type { TicketEvent } from "@noyau/protocol/ticket/events"
 import { Result, Schema } from "effect"
 
 const ids = {
@@ -14,15 +14,11 @@ const ids = {
   done: "3f8f0d70-1111-4000-8000-000000000004",
   ticket: "3f8f0d70-1111-4000-8000-000000000005",
   ticket2: "3f8f0d70-1111-4000-8000-000000000006",
-  thread: "3f8f0d70-1111-4000-8000-000000000007",
-  execution: "3f8f0d70-1111-4000-8000-000000000008",
-  profile: "3f8f0d70-1111-4000-8000-000000000009",
   command: "3f8f0d70-1111-4000-8000-000000000010",
   correlation: "3f8f0d70-1111-4000-8000-000000000011",
   missing: "3f8f0d70-1111-4000-8000-000000000012",
   ticket3: "3f8f0d70-1111-4000-8000-000000000013",
   ticket4: "3f8f0d70-1111-4000-8000-000000000014",
-  execution2: "3f8f0d70-1111-4000-8000-000000000015",
   column: "3f8f0d70-1111-4000-8000-000000000016",
 } as const
 
@@ -37,8 +33,6 @@ const meta = {
 
 const command = Schema.decodeUnknownSync(TicketCommand)
 const dependencyCommand = Schema.decodeUnknownSync(TicketDependencyAdd)
-const executionId = Schema.decodeSync(ExecutionId)(ids.execution)
-const execution2Id = Schema.decodeSync(ExecutionId)(ids.execution2)
 const ticketId = Schema.decodeSync(TicketId)(ids.ticket)
 const ticket2Id = Schema.decodeSync(TicketId)(ids.ticket2)
 const ticket3Id = Schema.decodeSync(TicketId)(ids.ticket3)
@@ -98,7 +92,6 @@ const createTicket = (
         ...meta,
         payload: {
           ticketId: id,
-          workbenchThreadId: ids.thread,
           title: `Ticket ${id}`,
           placement,
         },
@@ -118,29 +111,6 @@ const addDependency = (
         _tag: "ticket.dependency.add",
         ...meta,
         payload: { ticketId: id, dependsOnTicketId: dependsOnId },
-      }),
-    ),
-  )
-
-const startExecution = (
-  state: BoardState,
-  id: string,
-  execution: string,
-): ReadonlyArray<TicketEvent> =>
-  success(
-    decide(
-      state,
-      command({
-        _tag: "execution.start",
-        ...meta,
-        payload: {
-          executionId: execution,
-          ticketId: id,
-          expectedOutcome: "A working board",
-          agentProfileId: ids.profile,
-          budget: { maxTokens: 10_000, timeoutSeconds: 1_800 },
-          toolPolicy: { allowed: ["read", "edit"] },
-        },
       }),
     ),
   )
@@ -318,7 +288,6 @@ describe("Done coherence", () => {
           ...meta,
           payload: {
             ticketId: ids.ticket,
-            workbenchThreadId: ids.thread,
             title: "Already done",
             placement: { columnId: ids.done },
           },
@@ -483,53 +452,55 @@ describe("Done coherence", () => {
 })
 
 describe("destructive guards", () => {
-  it("interrompt toutes les exécutions actives avant de clôturer", () => {
-    const state = stateWithTicket()
-    const withFirstExecution = apply(state, startExecution(state, ids.ticket, ids.execution))
-    const guarded = apply(
-      withFirstExecution,
-      startExecution(withFirstExecution, ids.ticket, ids.execution2),
-    )
-    const error = failure(
-      decide(
-        guarded,
-        command({
-          _tag: "ticket.complete",
-          ...meta,
-          payload: { ticketId: ids.ticket },
-        }),
-      ),
-    )
+  it("exige puis accepte l'ack des dépendances ouvertes pour complete, move vers Done et archive", () => {
+    const withFirst = stateWithTicket()
+    const withSecond = apply(withFirst, createTicket(withFirst, ids.ticket2))
+    const blocked = apply(withSecond, addDependency(withSecond, ids.ticket, ids.ticket2))
+    const unacknowledged = [
+      command({
+        _tag: "ticket.complete",
+        ...meta,
+        payload: { ticketId: ids.ticket },
+      }),
+      command({
+        _tag: "ticket.move",
+        ...meta,
+        payload: { ticketId: ids.ticket, placement: { columnId: ids.done } },
+      }),
+      command({
+        _tag: "ticket.archive",
+        ...meta,
+        payload: { ticketId: ids.ticket },
+      }),
+    ]
+    const acknowledged = [
+      command({
+        _tag: "ticket.complete",
+        ...meta,
+        payload: { ticketId: ids.ticket, acknowledgeOpenDependencies: true },
+      }),
+      command({
+        _tag: "ticket.move",
+        ...meta,
+        payload: {
+          ticketId: ids.ticket,
+          placement: { columnId: ids.done },
+          acknowledgeOpenDependencies: true,
+        },
+      }),
+      command({
+        _tag: "ticket.archive",
+        ...meta,
+        payload: { ticketId: ids.ticket, acknowledgeOpenDependencies: true },
+      }),
+    ]
 
-    expect(error).toMatchObject({
-      _tag: "ActiveExecutionConfirmationRequired",
-      executionIds: [ids.execution, ids.execution2],
-    })
-
-    const events = success(
-      decide(
-        guarded,
-        command({
-          _tag: "ticket.complete",
-          ...meta,
-          payload: { ticketId: ids.ticket, interruptActiveExecution: true },
-        }),
-      ),
-    )
-    const completed = apply(guarded, events)
-
-    expect(events.map((event) => event._tag)).toEqual([
-      "execution.interrupted",
-      "execution.interrupted",
-      "ticket.completed",
-    ])
-    expect(
-      events
-        .filter((event) => event._tag === "execution.interrupted")
-        .map((event) => event.executionId),
-    ).toEqual([executionId, execution2Id])
-    expect(completed.tickets[0]?.activeExecutionIds).toEqual([])
-    expect(completed.executionIds).toEqual([executionId, execution2Id])
+    for (const candidate of unacknowledged) {
+      expect(failure(decide(blocked, candidate))._tag).toBe("OpenDependenciesConfirmationRequired")
+    }
+    for (const candidate of acknowledged) {
+      expect(success(decide(blocked, candidate))).toHaveLength(1)
+    }
   })
 
   it("refuse de supprimer Done", () => {
@@ -650,42 +621,6 @@ describe("destructive guards", () => {
       _tag: "DoneColumnDestinationForbidden",
       destinationColumnId: ids.done,
     })
-  })
-})
-
-describe("execution.start", () => {
-  it("refuse une exécution pour un Ticket bloqué", () => {
-    const withFirst = stateWithTicket()
-    const withSecond = apply(withFirst, createTicket(withFirst, ids.ticket2))
-    const blocked = apply(withSecond, addDependency(withSecond, ids.ticket, ids.ticket2))
-    const error = failure(
-      decide(
-        blocked,
-        command({
-          _tag: "execution.start",
-          ...meta,
-          payload: {
-            executionId: ids.execution,
-            ticketId: ids.ticket,
-            expectedOutcome: "A working board",
-            agentProfileId: ids.profile,
-            budget: { maxTokens: 10_000, timeoutSeconds: 1_800 },
-            toolPolicy: { allowed: ["read", "edit"] },
-          },
-        }),
-      ),
-    )
-
-    expect(error._tag).toBe("ExecutionBlockedByDependencies")
-  })
-
-  it("retire une exécution terminale de l'ensemble actif sans libérer son identifiant", () => {
-    const state = stateWithTicket()
-    const started = apply(state, startExecution(state, ids.ticket, ids.execution))
-    const completed = evolve(started, ExecutionCompleted.make({ executionId, ticketId }))
-
-    expect(completed.tickets[0]?.activeExecutionIds).toEqual([])
-    expect(completed.executionIds).toEqual([executionId])
   })
 })
 

@@ -1,11 +1,11 @@
 import { decide } from "@noyau/domain/board/decider"
 import { replay } from "@noyau/domain/board/projector"
-import { BoardSnapshot, EventCursor } from "@noyau/protocol/board"
-import { Execution, ToolPolicy } from "@noyau/protocol/entities/execution"
+import { BoardSnapshot, EventCursor, TicketDependency } from "@noyau/protocol/board"
 import { KanbanColumn } from "@noyau/protocol/entities/kanban-column"
 import { Ticket } from "@noyau/protocol/entities/ticket"
 import { CommandIdConflict, InvalidCausation } from "@noyau/protocol/errors"
-import type { ActorId, ProjectId } from "@noyau/protocol/ids"
+import { EventEnvelope } from "@noyau/protocol/events"
+import type { ActorId, ProjectId, TicketId } from "@noyau/protocol/ids"
 import { CommandId, CorrelationId, EventId, KanbanColumnId } from "@noyau/protocol/ids"
 import { type TicketReceipt, TicketReceiptResponse } from "@noyau/protocol/receipts"
 import {
@@ -35,20 +35,19 @@ const TicketEventJson = Schema.fromJsonString(TicketEvent)
 const TicketCommandJson = Schema.fromJsonString(TicketCommand)
 const CanonicalBoardRequestJson = Schema.fromJsonString(CanonicalBoardRequest)
 const TicketReceiptResponseJson = Schema.fromJsonString(TicketReceiptResponse)
-const ToolPolicyJson = Schema.fromJsonString(ToolPolicy)
 
 const decodeTicketEvent = Schema.decodeUnknownEffect(TicketEvent)
 const decodeTicketCommand = Schema.decodeUnknownEffect(TicketCommand)
 const decodeTicketReceiptResponse = Schema.decodeUnknownEffect(TicketReceiptResponse)
 const decodeKanbanColumn = Schema.decodeUnknownEffect(KanbanColumn)
 const decodeTicket = Schema.decodeUnknownEffect(Ticket)
-const decodeExecution = Schema.decodeUnknownEffect(Execution)
+const decodeTicketDependency = Schema.decodeUnknownEffect(TicketDependency)
+const decodeEventEnvelope = Schema.decodeUnknownEffect(EventEnvelope)
 const encodeCanonicalBoardRequest = Schema.encodeEffect(CanonicalBoardRequest)
 const encodeTicketEventJson = Schema.encodeEffect(TicketEventJson)
 const encodeTicketCommandJson = Schema.encodeEffect(TicketCommandJson)
 const encodeCanonicalBoardRequestJson = Schema.encodeEffect(CanonicalBoardRequestJson)
 const encodeTicketReceiptResponseJson = Schema.encodeEffect(TicketReceiptResponseJson)
-const encodeToolPolicyJson = Schema.encodeEffect(ToolPolicyJson)
 
 const PresenceRow = Schema.Struct({ present: Schema.Boolean })
 const MatchRow = Schema.Struct({ matches: Schema.Boolean })
@@ -158,11 +157,11 @@ const applyProjection = (sql: SqlClient, projectId: ProjectId, event: TicketEven
         INSERT INTO tickets (
           id, project_id, column_id, rank, title, description, priority, due_at,
           done, archived_at, last_active_column_id, assignee_id,
-          workbench_thread_id, source_thread_id, created_at, updated_at
+          source_thread_id, created_at, updated_at
         ) VALUES (
           ${event.ticketId}, ${projectId}, ${event.columnId}, ${event.rank},
           ${event.title}, ${null}, 'none', ${null}, false, ${null}, ${null}, ${null},
-          ${event.workbenchThreadId}, ${event.sourceThreadId ?? null}, ${now}, ${now}
+          ${event.sourceThreadId ?? null}, ${now}, ${now}
         )
       `
     case "ticket.moved":
@@ -255,35 +254,6 @@ const applyProjection = (sql: SqlClient, projectId: ProjectId, event: TicketEven
           AND ticket_id = ${event.ticketId}
           AND prerequisite_ticket_id = ${event.dependsOnTicketId}
       `
-    case "execution.started":
-      return Effect.gen(function* () {
-        const toolPolicy = yield* encodeToolPolicyJson(event.toolPolicy)
-        yield* sql`
-          INSERT INTO executions (
-            id, project_id, ticket_id, expected_outcome, agent_profile_id,
-            max_tokens, timeout_seconds, tool_policy, created_at
-          ) VALUES (
-            ${event.executionId}, ${projectId}, ${event.ticketId},
-            ${event.expectedOutcome}, ${event.agentProfileId},
-            ${event.budget.maxTokens}, ${event.budget.timeoutSeconds},
-            ${toolPolicy}::jsonb, ${now}
-          )
-        `
-      })
-    case "execution.completed":
-    case "execution.failed":
-    case "execution.cancelled":
-    case "execution.interrupted":
-    case "attempt.created":
-    case "attempt.leased":
-    case "attempt.started":
-    case "attempt.waitingHuman":
-    case "attempt.waitingAgent":
-    case "attempt.verifying":
-    case "attempt.completed":
-    case "attempt.failed":
-    case "attempt.cancelled":
-      return Effect.void
   }
 }
 
@@ -584,9 +554,7 @@ export const readProjectBoardSnapshot = (projectId: ProjectId) =>
             'assigneeId', assignee_id,
             'participantIds', jsonb_build_array(),
             'labelIds', jsonb_build_array(),
-            'checklist', jsonb_build_array(),
             'attachmentIds', jsonb_build_array(),
-            'workbenchThreadId', workbench_thread_id,
             'sourceThreadId', source_thread_id,
             'createdAt', created_at,
             'updatedAt', updated_at
@@ -597,6 +565,21 @@ export const readProjectBoardSnapshot = (projectId: ProjectId) =>
         `
         const tickets = yield* Effect.forEach(ticketRows, (row) =>
           decodeEntityRow(row).pipe(Effect.flatMap((decoded) => decodeTicket(decoded.entity))),
+        )
+
+        const dependencyRows = yield* sql`
+          SELECT jsonb_build_object(
+            'ticketId', ticket_id,
+            'dependsOnTicketId', prerequisite_ticket_id
+          ) AS entity
+          FROM ticket_dependencies
+          WHERE project_id = ${projectId}
+          ORDER BY ticket_id, prerequisite_ticket_id
+        `
+        const ticketDependencies = yield* Effect.forEach(dependencyRows, (row) =>
+          decodeEntityRow(row).pipe(
+            Effect.flatMap((decoded) => decodeTicketDependency(decoded.entity)),
+          ),
         )
 
         const positionRows = yield* sql`
@@ -614,36 +597,39 @@ export const readProjectBoardSnapshot = (projectId: ProjectId) =>
           projectId,
           columns,
           tickets,
+          ticketDependencies,
           cursor: EventCursor.make(`v1.${projectId}.${position}`),
         })
       }),
     )
   })
 
-/** Charge les intentions agent séparément du snapshot compact du Tableau. */
-export const readProjectExecutions = (projectId: ProjectId) =>
+/** Lit les faits Ticket autoritatifs du plus récent au plus ancien. */
+export const readTicketActivity = (projectId: ProjectId, ticketId: TicketId, requestedLimit = 50) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient
+    const limit = Math.max(1, Math.min(requestedLimit, 100))
     const rows = yield* sql`
       SELECT jsonb_build_object(
-        'id', id,
-        'ticketId', ticket_id,
+        'eventId', event_id,
         'projectId', project_id,
-        'expectedOutcome', expected_outcome,
-        'agentProfileId', agent_profile_id,
-        'budget', jsonb_build_object(
-          'maxTokens', max_tokens,
-          'timeoutSeconds', timeout_seconds
-        ),
-        'toolPolicy', tool_policy,
-        'createdAt', created_at
+        'actorId', actor_id,
+        'correlationId', correlation_id,
+        'causationId', causation_id,
+        'occurredAt', occurred_at,
+        'schemaVersion', schema_version,
+        'event', event
       ) AS entity
-      FROM executions
+      FROM events
       WHERE project_id = ${projectId}
-      ORDER BY created_at, id
+        AND event ->> '_tag' LIKE 'ticket.%'
+        AND event ? 'ticketId'
+        AND event ->> 'ticketId' = ${ticketId}::text
+      ORDER BY project_position DESC
+      LIMIT ${limit}
     `
 
     return yield* Effect.forEach(rows, (row) =>
-      decodeEntityRow(row).pipe(Effect.flatMap((decoded) => decodeExecution(decoded.entity))),
+      decodeEntityRow(row).pipe(Effect.flatMap((decoded) => decodeEventEnvelope(decoded.entity))),
     )
   })

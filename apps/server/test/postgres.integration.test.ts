@@ -6,14 +6,7 @@ import {
   readProjectBoardSnapshot,
 } from "@noyau/database/board/store"
 import { migrationsLayer } from "@noyau/database/migrations"
-import {
-  ActorId,
-  CommandId,
-  KanbanColumnId,
-  ProjectId,
-  ThreadId,
-  TicketId,
-} from "@noyau/protocol/ids"
+import { ActorId, CommandId, KanbanColumnId, ProjectId, TicketId } from "@noyau/protocol/ids"
 import { TicketCreateRequest } from "@noyau/protocol/ticket/commands"
 import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
 import { serverRoutesLayer } from "@noyau/server/server"
@@ -91,7 +84,6 @@ layer(databaseLayer(), { timeout: "120 seconds" })((it) => {
         commandId: CommandId.make("30000000-0000-4000-8000-000000000002"),
         payload: {
           ticketId: TicketId.make("40000000-0000-4000-8000-000000000001"),
-          workbenchThreadId: ThreadId.make("50000000-0000-4000-8000-000000000001"),
           title: "PostgreSQL Ticket",
           placement: { columnId: backlogColumnId },
         },

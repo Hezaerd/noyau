@@ -2,7 +2,7 @@ import {
   executeBoardInitialize,
   executeTicketCommandRequest,
   readProjectBoardSnapshot,
-  readProjectExecutions,
+  readTicketActivity,
 } from "@noyau/database/board/store"
 import { readProjectEventHighWater, readProjectEvents } from "@noyau/database/project-stream"
 import { CurrentActor, ServiceUnavailable } from "@noyau/protocol/errors"
@@ -83,8 +83,8 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
       }),
     ),
 
-  GetProjectExecutions: ({ projectId }) =>
-    readProjectExecutions(projectId).pipe(Effect.catchTags(databaseErrors)),
+  GetTicketActivity: ({ limit, projectId, ticketId }) =>
+    readTicketActivity(projectId, ticketId, limit).pipe(Effect.catchTags(databaseErrors)),
 
   SubscribeProjectEvents: ({ cursor, projectId }) =>
     Stream.unwrap(

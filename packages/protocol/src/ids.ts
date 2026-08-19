@@ -26,23 +26,11 @@ export type TicketId = (typeof TicketId)["Type"]
 export const LabelId = Uuid.pipe(Schema.brand("LabelId"))
 export type LabelId = (typeof LabelId)["Type"]
 
-export const ChecklistItemId = Uuid.pipe(Schema.brand("ChecklistItemId"))
-export type ChecklistItemId = (typeof ChecklistItemId)["Type"]
-
 export const AttachmentId = Uuid.pipe(Schema.brand("AttachmentId"))
 export type AttachmentId = (typeof AttachmentId)["Type"]
 
 export const AgentProfileId = Uuid.pipe(Schema.brand("AgentProfileId"))
 export type AgentProfileId = (typeof AgentProfileId)["Type"]
-
-export const ExecutionId = Uuid.pipe(Schema.brand("ExecutionId"))
-export type ExecutionId = (typeof ExecutionId)["Type"]
-
-export const AttemptId = Uuid.pipe(Schema.brand("AttemptId"))
-export type AttemptId = (typeof AttemptId)["Type"]
-
-export const AgentRunId = Uuid.pipe(Schema.brand("AgentRunId"))
-export type AgentRunId = (typeof AgentRunId)["Type"]
 
 export const ArtifactId = Uuid.pipe(Schema.brand("ArtifactId"))
 export type ArtifactId = (typeof ArtifactId)["Type"]

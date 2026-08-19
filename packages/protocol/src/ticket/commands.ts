@@ -1,13 +1,10 @@
-import { ExecutionBudget, ToolPolicy } from "@noyau/protocol/entities/execution"
 import { KanbanColumnColor } from "@noyau/protocol/entities/kanban-column"
 import { TicketPriority } from "@noyau/protocol/entities/ticket"
 import {
   ActorId,
-  AgentProfileId,
   CommandId,
   CorrelationId,
   EventId,
-  ExecutionId,
   KanbanColumnId,
   ProjectId,
   SchemaVersion,
@@ -41,25 +38,15 @@ export type TicketPlacement = (typeof TicketPlacement)["Type"]
 
 const ticketCreatePayload = Schema.Struct({
   ticketId: TicketId,
-  workbenchThreadId: ThreadId,
   title: Schema.NonEmptyString,
   placement: TicketPlacement,
   sourceThreadId: Schema.optionalKey(ThreadId),
-}).check(
-  Schema.makeFilter(
-    (value) =>
-      value.sourceThreadId === undefined || value.workbenchThreadId !== value.sourceThreadId,
-    {
-      expected: "workbenchThreadId and sourceThreadId to be different",
-    },
-  ),
-)
+})
 
 const ticketMovePayload = {
   ticketId: TicketId,
   placement: TicketPlacement,
   acknowledgeOpenDependencies: Schema.optionalKey(Schema.Boolean),
-  interruptActiveExecution: Schema.optionalKey(Schema.Boolean),
 } as const
 
 const ticketIdPayload = {
@@ -69,7 +56,6 @@ const ticketIdPayload = {
 const ticketClosePayload = {
   ticketId: TicketId,
   acknowledgeOpenDependencies: Schema.optionalKey(Schema.Boolean),
-  interruptActiveExecution: Schema.optionalKey(Schema.Boolean),
 } as const
 
 const ticketAssignPayload = {
@@ -94,15 +80,6 @@ const ticketDependencyPayload = Schema.Struct({
     expected: "ticketId and dependsOnTicketId to be different",
   }),
 )
-
-const executionStartPayload = {
-  executionId: ExecutionId,
-  ticketId: TicketId,
-  expectedOutcome: Schema.NonEmptyString,
-  agentProfileId: AgentProfileId,
-  budget: ExecutionBudget,
-  toolPolicy: ToolPolicy,
-} as const
 
 const columnCreatePayload = {
   columnId: KanbanColumnId,
@@ -164,10 +141,6 @@ export const TicketDependencyRemoveRequest = request(
   "ticket.dependency.remove",
   ticketDependencyPayload,
 )
-export const ExecutionStartRequest = request(
-  "execution.start",
-  Schema.Struct(executionStartPayload),
-)
 export const KanbanColumnCreateRequest = request(
   "kanbanColumn.create",
   Schema.Struct(columnCreatePayload),
@@ -196,7 +169,6 @@ export const TicketCommandRequest = Schema.Union([
   TicketUpdateRequest,
   TicketDependencyAddRequest,
   TicketDependencyRemoveRequest,
-  ExecutionStartRequest,
   KanbanColumnCreateRequest,
   KanbanColumnUpdateRequest,
   KanbanColumnMoveRequest,
@@ -215,7 +187,6 @@ export const TicketAssign = command("ticket.assign", Schema.Struct(ticketAssignP
 export const TicketUpdate = command("ticket.update", Schema.Struct(ticketUpdatePayload))
 export const TicketDependencyAdd = command("ticket.dependency.add", ticketDependencyPayload)
 export const TicketDependencyRemove = command("ticket.dependency.remove", ticketDependencyPayload)
-export const ExecutionStart = command("execution.start", Schema.Struct(executionStartPayload))
 export const KanbanColumnCreate = command("kanbanColumn.create", Schema.Struct(columnCreatePayload))
 export const KanbanColumnUpdate = command("kanbanColumn.update", Schema.Struct(columnUpdatePayload))
 export const KanbanColumnMove = command("kanbanColumn.move", Schema.Struct(columnMovePayload))
@@ -234,7 +205,6 @@ export const TicketCommand = Schema.Union([
   TicketUpdate,
   TicketDependencyAdd,
   TicketDependencyRemove,
-  ExecutionStart,
   KanbanColumnCreate,
   KanbanColumnUpdate,
   KanbanColumnMove,

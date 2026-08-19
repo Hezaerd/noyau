@@ -1,13 +1,13 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import type { AgentProfileId } from "@noyau/protocol/ids"
-import { CommandId, ExecutionId, KanbanColumnId, ThreadId, TicketId } from "@noyau/protocol/ids"
+import { CommandId, KanbanColumnId, TicketId } from "@noyau/protocol/ids"
 import {
-  ExecutionStartRequest,
   KanbanColumnCreateRequest,
   KanbanColumnDeleteRequest,
   KanbanColumnUpdateRequest,
   TicketAssignRequest,
   TicketCreateRequest,
+  TicketDependencyAddRequest,
+  TicketDependencyRemoveRequest,
   TicketMoveRequest,
   TicketUpdateRequest,
   type TicketPlacement,
@@ -23,12 +23,11 @@ export const makeTicketCreateRequest = Effect.fn("TicketCommands.ticketCreate")(
   readonly title: string
   readonly placement: TicketPlacement
 }) {
-  const [commandId, ticketId, workbenchThreadId] = yield* Effect.all([uuid(), uuid(), uuid()])
+  const [commandId, ticketId] = yield* Effect.all([uuid(), uuid()])
   return TicketCreateRequest.make({
     commandId: CommandId.make(commandId),
     payload: {
       ticketId: TicketId.make(ticketId),
-      workbenchThreadId: ThreadId.make(workbenchThreadId),
       title: input.title,
       placement: input.placement,
     },
@@ -73,28 +72,20 @@ export const makeTicketUpdateRequest = Effect.fn("TicketCommands.ticketUpdate")(
   })
 })
 
-export const makeExecutionStartRequest = Effect.fn("TicketCommands.executionStart")(
-  function* (input: {
-    readonly ticketId: TicketId
-    readonly expectedOutcome: string
-    readonly agentProfileId: AgentProfileId
-  }) {
-    const [commandId, executionId] = yield* Effect.all([uuid(), uuid()])
-    return ExecutionStartRequest.make({
-      commandId: CommandId.make(commandId),
-      payload: {
-        executionId: ExecutionId.make(executionId),
-        ticketId: input.ticketId,
-        expectedOutcome: input.expectedOutcome,
-        agentProfileId: input.agentProfileId,
-        budget: {
-          maxTokens: 50_000,
-          timeoutSeconds: 3_600,
-        },
-        toolPolicy: {
-          allowed: ["repository.read", "repository.write", "tests.run"],
-        },
-      },
+export const makeTicketDependencyAddRequest = Effect.fn("TicketCommands.ticketDependencyAdd")(
+  function* (input: (typeof TicketDependencyAddRequest)["Type"]["payload"]) {
+    return TicketDependencyAddRequest.make({
+      commandId: CommandId.make(yield* uuid()),
+      payload: input,
+    })
+  },
+)
+
+export const makeTicketDependencyRemoveRequest = Effect.fn("TicketCommands.ticketDependencyRemove")(
+  function* (input: (typeof TicketDependencyRemoveRequest)["Type"]["payload"]) {
+    return TicketDependencyRemoveRequest.make({
+      commandId: CommandId.make(yield* uuid()),
+      payload: input,
     })
   },
 )

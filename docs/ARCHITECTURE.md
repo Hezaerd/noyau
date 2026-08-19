@@ -1,57 +1,50 @@
 # Noyau — contexte d'architecture
 
-Ce document sert de contexte de passation pour les agents qui contribueront au projet Noyau.
-Il décrit la vision, les décisions d'architecture et l'ordre de construction recommandé. Il ne
-constitue pas encore une spécification figée : les choix marqués « à décider » doivent être
-confirmés avant leur implémentation.
+Ce document décrit l'architecture active de Noyau et l'ordre de construction recommandé. La v1 est
+définie par l'[ADR-0010](adr/0010-prioriser-la-boucle-ticket-v1.md) : elle priorise une boucle
+Ticket complète avant toute surface agent.
 
 ## Vision
 
-Noyau est le socle d'un LifeOS personnel permettant de piloter des projets et des agents depuis
-un client React, distribué principalement comme application desktop.
+Noyau est le socle durable d'un LifeOS personnel. Sa première version permet de piloter les projets
+depuis un client React distribué principalement comme application desktop.
 
-Chaque projet doit disposer :
+Chaque projet peut disposer :
 
 - d'un ou plusieurs dépôts GitHub associés ;
-- d'un espace de discussion de type channel/forum ;
-- d'un tableau Kanban unique pour organiser des tickets humains-agents ;
-- d'un historique durable des décisions, messages, exécutions et artefacts ;
-- de workflows n8n que les agents peuvent proposer et tester sous contrôle.
+- d'un espace de discussion générique composé de `Channel`, `Thread` et `Message` ;
+- d'un Tableau Kanban unique pour organiser des Tickets ;
+- d'un historique système durable et autoritatif.
 
-Un projet peut fonctionner sans agent ou utiliser les profils d'agents configurés par ses
-utilisateurs. Un profil peut notamment jouer un rôle d'orchestration, mais ce rôle ne crée ni type
-d'entité ni permission implicite. Noyau possède l'état durable, les permissions et les règles ;
-Hermes est un moteur d'exécution d'agents remplaçable.
+La v1 vise d'abord une boucle logique Trello-like : créer un Ticket avec un titre, enrichir ses
+détails, le déplacer, relier ses dépendances, observer son activité, le terminer ou le rouvrir. La
+description utilise GitHub Flavored Markdown (GFMD) ; priorité et échéance sont optionnelles.
 
-## Stack souhaitée
+La vision d'agents remplaçables, dont Hermes pourrait être un adaptateur, reste un horizon post-v1.
+Elle ne définit actuellement ni entité active, ni surface UI, ni futur modèle d'exécution. Noyau
+doit d'abord prouver son tracker et sa durabilité.
 
-- monorepo TypeScript 7 ;
-- Bun est actuellement le package manager/runtime initial du dépôt ;
-- Vite+ comme toolchain unique : Vite, Rolldown, Vitest, Oxlint, Oxfmt, tsdown et Vite Task
-  épinglés ensemble, configurés dans un `vite.config.ts` racine ;
-- Effect autant que pertinent côté serveur et domaine ;
-- PostgreSQL comme source de vérité sur VPS ; PGlite persistante comme implémentation embarquée du
+## Stack
+
+- monorepo TypeScript 7 avec Bun comme package manager et runtime initial ;
+- Vite+ comme toolchain unique, configuré dans le `vite.config.ts` racine ;
+- Effect côté serveur et domaine lorsque ses erreurs typées, `Schema`, services et `Layer`
+  apportent une frontière claire ;
+- PostgreSQL comme source de vérité sur VPS et PGlite persistante comme implémentation embarquée du
   même dialecte pour le profil local géré ;
-- renderer React avec Vite et TanStack Router dans `apps/web`, partagé entre le navigateur et
+- renderer React avec Vite et TanStack Router dans `apps/web`, partagé entre navigateur et
   `Noyau Desktop` ;
-- shell Electron dans `apps/desktop`, introduit seulement lorsque la frontière locale/distance est
-  testée ; il supervise une instance locale ou se connecte directement à une instance distante,
-  sans posséder l'état métier ;
-- serveur unique (`apps/server`) sur le runtime Bun ; frontière client en Effect RPC sur WebSocket
+- shell Electron introduit après validation de la frontière locale/distante, sans état métier
+  autoritatif ;
+- serveur unique `apps/server` sur Bun, avec Effect RPC sur WebSocket comme frontière client
   (ADR-0003) ;
-- Hermes Agent comme runtime prioritaire, colocalisé avec le serveur dans les deux profils initiaux ;
-  le port `AgentRuntime` conserve la possibilité d'une instance distante (ADR-0007, ADR-0009) ;
-- n8n comme moteur d'automatisations déterministes ;
-- GitHub comme unique forge (ADR-0006) ;
-- OpenTelemetry pour les traces, métriques et corrélations.
+- GitHub comme unique forge (ADR-0006).
 
-Effect doit notamment servir pour les erreurs typées, `Schema`, les services et `Layer`, la
-concurrence structurée, les retries, les timeouts, la configuration et l'observabilité. Il n'est
-pas nécessaire de forcer Effect dans l'état local des composants React.
+Effect n'est pas imposé à l'état local ni au rendu React.
 
 ## Principe d'architecture
 
-Noyau doit être construit comme un control plane durable autour de runtimes isolés.
+Noyau est un control plane durable construit d'abord comme un modular monolith :
 
 ```text
                     +-----------------------------+
@@ -59,89 +52,81 @@ Noyau doit être construit comme un control plane durable autour de runtimes iso
                     | renderer React + superviseur|
                     +--------------+--------------+
                                    |
-                    Effect RPC (WebSocket)
-                    loopback ou Tailscale Serve
+                    Effect RPC sur WebSocket
                                    |
 +--------------+       +-----------v------------+
 |    GitHub    +------>|      Noyau Server      |
 | webhooks     |       | commandes + projections|
-+--------------+       | outbox + scheduler     |
-                       +---------+---------+
-                                 |
-                  +--------------+--------------+
-                  |                             |
-           +------v-------+              +------v-------+
-           | Store SQL    |              | AgentRuntime |
-           | PG ou PGlite |              | Hermes       |
-           +--------------+              +------+-------+
-                                                |
-                                      Attempt + worktree isolé
++--------------+       | outbox + reactors      |
+                       +-----------+------------+
+                                   |
+                            +------v-------+
+                            | Store SQL    |
+                            | PG ou PGlite |
+                            +--------------+
 ```
 
-Commencer par un modular monolith : un seul processus serveur — frontière RPC, engine de
-commandes, reactors et scheduler — plus son store SQL, Hermes et n8n (ADR-0004, ADR-0009). Ne pas
-introduire Kafka, Kubernetes ou une constellation de microservices au début.
+Le flux autoritatif est :
+
+```text
+CommandRequest décodée
+  -> Command enrichie par le serveur
+  -> decider pur
+  -> transaction SQL (event + receipt + projection + outbox)
+  -> snapshot puis flux d'événements ordonné
+```
+
+Le store SQL reste la source de vérité. Une `Queue`, un `PubSub`, un WebSocket ou un état React ne
+remplace jamais le journal, les projections et l'outbox transactionnelle.
 
 ## Topologie de déploiement
 
-Noyau possède une seule frontière client/serveur et deux profils initiaux (ADR-0009) :
+Noyau conserve une seule frontière client/serveur et deux profils de données (ADR-0009) :
 
 1. **Distant** : `Noyau Desktop` charge son renderer local puis se connecte directement, via
-   Tailscale Serve, à `noyau serve` sur un VPS. PostgreSQL et Hermes tournent sur ce VPS.
+   Tailscale Serve, à `noyau serve` sur un VPS possédant PostgreSQL.
 2. **Local géré** : Electron lance et supervise le même `noyau serve` sur loopback. Le serveur
-   possède seul une PGlite persistante et un Hermes local. Le renderer utilise exactement le même
-   Effect RPC, l'authentification, les commandes, snapshots et curseurs que dans le profil distant.
+   possède seul une PGlite persistante. Le renderer utilise le même contrat RPC, les mêmes
+   commandes, snapshots et curseurs que dans le profil distant.
 
-Chaque serveur local ou distant est une autorité indépendante avec une identité stable et sa propre
-base. Le client peut connaître plusieurs instances, mais Noyau ne synchronise ni ne fédère leurs
-journaux. Dans le profil distant, aucun serveur Noyau local ne sert de proxy.
+Chaque serveur est une autorité indépendante avec une identité stable et sa propre base. Noyau ne
+synchronise ni ne fédère les journaux de plusieurs instances. Les parties d'ADR-0009 concernant un
+runtime agent ne font pas partie de la tranche v1 définie par ADR-0010.
 
-Sont volontairement différés :
+## Responsabilités v1
 
-- Noyau local avec Hermes distant ;
-- lancement ou tunnel SSH géré par le desktop ;
-- Cloudflare Tunnel et un relay hébergé ;
-- synchronisation ou migration continue entre une instance locale et une instance distante ;
-- application mobile native.
+### Noyau Server
 
-Les dépôts projet restent des dépôts GitHub (ADR-0006). Le port `AgentRuntime` préserve la
-possibilité future d'un Hermes distant (ADR-0007), sans l'introduire dans les deux profils initiaux.
+Noyau Server possède :
 
-## Responsabilités
+- l'identité vérifiée de l'acteur à la frontière RPC ;
+- les projets et leurs dépôts ;
+- les `Channel`, `Thread` et `Message` génériques ;
+- les colonnes, Tickets et dépendances du Tableau ;
+- les commandes enrichies, événements, receipts, projections et l'outbox ;
+- l'activité système autoritative de chaque Ticket.
 
-### Noyau
+Il sérialise les décisions visant un même Tableau, vérifie les invariants et ne fait confiance à
+aucune métadonnée d'acteur fournie par le navigateur.
 
-Noyau possède :
+### Web
 
-- projets, dépôts et channels ;
-- tableau Kanban, tickets, dépendances, exécutions et tentatives ;
-- messages et questions ;
-- profils d'agents ;
-- politiques d'autonomie et permissions ;
-- approbations humaines ;
-- budgets de temps et de tokens ;
-- événements, journaux et artefacts ;
-- versions des prompts, outils et profils ;
-- propositions et versions de workflows n8n.
+Le renderer présente les projections du serveur et soumet des intentions décodées. Il peut rejouer
+des commandes réversibles de façon optimiste, mais le snapshot et les événements du serveur
+restent autoritatifs.
 
-### Profils d'agents
+Le responsable est conservé dans le modèle durable. Il n'est ni affiché ni éditable dans l'UI v1.
 
-Les profils d'agents sont configurés par les utilisateurs ; aucun agent ni orchestrateur n'est
-natif ou obligatoire. Un profil peut lire le contexte ciblé d'un projet, proposer un plan, créer des
-tickets reliés par un DAG de dépendances ou coordonner d'autres profils seulement lorsque ses
-capability grants l'y autorisent. Son rôle affiché ne lui confère aucun droit.
+### Forum
 
-Chaque agent travaille dans un `AgentRun` appartenant à un `Attempt` isolé. L'exécution qui porte
-l'intention définit un résultat attendu, un budget et une politique d'outils ; le run reçoit un
-contexte minimal et des capacités temporaires. Un profil orchestrateur devrait utiliser les
-commandes du control plane plutôt qu'un terminal et ne possède jamais l'état de l'orchestration.
+`Channel`, `Thread` et `Message` restent des concepts génériques. Un Ticket peut référencer un
+Thread d'origine par `sourceThreadId` et un Message peut être lié à un Ticket, mais aucun Thread
+dédié n'est créé automatiquement. Le terme et la surface « Workbench » sont supprimés.
 
-### n8n
+La conversation n'est pas l'audit. L'activité Ticket est une lecture autoritative des événements
+pertinents, distincte de l'affichage des messages d'un Channel.
 
-n8n exécute les automatisations répétables : intégrations, webhooks, synchronisations et tâches
-planifiées. Il ne doit pas devenir l'orchestrateur principal du raisonnement multi-agent.
-
-## Modèle de domaine initial
+## Modèle de domaine v1
 
 ```text
 Project
@@ -150,479 +135,231 @@ Project
  |   `- Thread
  |       `- Message
  |- KanbanColumn
- |- Label
- |- WorkflowProposal
  `- Ticket
-     |- TicketDependency
-     |- ChecklistItem
-     |- TicketLabel
-     |- Participant
-     |- Subscription
-     |- TicketThread
-     |- Attachment
-     `- Execution
-         |- Attempt
-         |   |- AgentRun
-         |   `- Artifact
-         `- Approval
+     `- TicketDependency
 ```
 
-Entités/tableaux à prévoir :
+Le Tableau n'est pas une entité autonome : il est la projection ordonnée des colonnes, Tickets et
+relations de dépendance d'un projet.
 
-- `projects`
-- `repositories`
-- `channels`
-- `threads`
-- `messages`
-- `kanban_columns`
-- `labels`
-- `tickets`
-- `ticket_dependencies`
-- `ticket_labels`
-- `ticket_participants`
-- `ticket_subscriptions`
-- `checklist_items`
-- `attachments`
-- `executions`
-- `attempts`
-- `agent_profiles`
-- `agent_runs`
-- `artifacts`
-- `approvals`
-- `capability_grants`
-- `workflow_definitions`
-- `workflow_versions`
-- `workflow_deployments`
-- `events`
-- `outbox`
+Le noyau SQL actif comprend :
 
-Toutes les identités importantes doivent utiliser des identifiants opaques et brandés. Tous les
-payloads entrant ou sortant d'un processus doivent être décodés avec `Effect.Schema`.
+- le journal d'événements, les receipts, les têtes d'agrégat et l'outbox ;
+- les projections de colonnes et de Tickets ;
+- les relations de dépendance Ticket ;
+- les lectures de snapshot, de flux projet et d'activité Ticket.
 
-## Tracker Kanban
+Les identités importantes sont opaques et brandées. Toute donnée qui traverse une frontière de
+processus ou de confiance est décodée avec `Effect.Schema`.
 
-Chaque projet possède exactement un tableau. Le tableau n'est pas une entité autonome : c'est la
-projection ordonnée des colonnes et tickets du projet.
+Les anciennes données pré-v1 n'imposent aucune compatibilité. Un reset ou une purge est accepté
+pour supprimer les formes abandonnées plutôt que maintenir une migration artificielle.
 
-- Les colonnes ordinaires sont librement nommées, ordonnées, créées et supprimées. Supprimer une
-  colonne exige une destination active et non terminale ; `Done` ne doit jamais être acceptée. Dans
-  la même transaction, Noyau déplace les tickets actifs et re-cible toutes les références vers la
-  destination, notamment le `columnId` des tickets archivés et le `lastActiveColumnId` des tickets
-  terminés. Aucune colonne supprimée ne doit rester référencée.
-- Une colonne terminale `Done` possède une identité système unique et protégée ; son nom, sa couleur
-  et sa position restent configurables.
-- Chaque ticket possède un booléen `done`, source de vérité de sa clôture. Le toggle et les
-  déplacements vers ou hors de la colonne `Done` restent bidirectionnellement cohérents. Une
-  réouverture par toggle restaure le `lastActiveColumnId`, qui doit toujours désigner une colonne
-  active et non terminale.
-- L'ordre des tickets est partagé et durable dans chaque colonne. Les déplacements entre colonnes
-  sont libres.
-- Un ticket est plat : pas de sous-ticket. Une checklist reste interne ; un élément qui exige un
-  responsable, une dépendance ou une exécution devient un ticket.
-- Les dépendances forment un DAG. Un prérequis ouvert ajoute un badge `blocked-by` dérivé et empêche
-  de lancer une nouvelle exécution, sans déplacer automatiquement la carte. Une clôture manuelle
-  reste possible après avertissement. Si un prérequis est rouvert pendant une exécution dépendante,
-  Noyau signale le blocage sans interrompre automatiquement le run déjà lancé.
-- Un ticket archivé quitte le tableau actif mais conserve relations et historique. Il reste
-  recherchable et restaurable dans son `columnId`, qui doit toujours désigner une colonne active et
-  non terminale. La suppression définitive est une action distincte et protégée.
+## Ticket v1
 
-Le ticket exige seulement un titre. Il peut aussi porter une description, une priorité
-(`none`, `low`, `normal`, `high`, `urgent`), une échéance, une checklist, des étiquettes, un
-responsable unique et plusieurs participants explicites. Le responsable est un humain ou un profil
-d'agent persistant — jamais un run. La participation ne confère aucun droit implicite.
-L'étiquette native protégée `need-human` est un signal visuel manuel sans effet métier ; mentions,
-questions explicites et abonnements déclenchent les notifications. Responsable et participants sont
-abonnés par défaut avec opt-out.
+Un Ticket est un élément de travail durable et plat. Il porte :
 
-Quand plusieurs tickets sont exécutables, l'ordonnancement par défaut considère successivement la
-priorité, l'échéance puis l'ordre visuel de la carte dans sa colonne.
+- un titre non vide, seul champ requis à la création ;
+- une description optionnelle stockée comme texte et rendue en GFMD ;
+- une priorité optionnelle : `low`, `normal`, `high` ou `urgent` ; l'absence est représentée par
+  `none` dans la projection ;
+- une échéance UTC optionnelle ;
+- une colonne et un rang partagé ;
+- un booléen `done`, un archivage optionnel et la dernière colonne active utile à la réouverture ;
+- un responsable durable optionnel, masqué de l'UI v1 ;
+- un `sourceThreadId` optionnel et immuable lorsqu'il vient d'une discussion ;
+- des dépendances vers d'autres Tickets.
 
-Chaque ticket possède un thread de travail dédié et peut référencer un thread source optionnel et
-immuable. Les pièces jointes utilisateur appartiennent au ticket ; les artefacts versionnés
-appartiennent aux attempts mais restent visibles depuis la carte.
+Un Ticket ne contient ni sous-ticket, ni checklist, ni todolist. Tout travail distinct devient un
+Ticket relié. Il ne contient pas non plus de Workbench ou de cycle technique agent.
 
-## Cycles de vie du ticket et de l'exécution
+### Dépendances
 
-Le ticket suit sa colonne, son booléen `done` et son éventuel archivage ; il ne reprend jamais les
-états techniques d'un agent. Terminer ou archiver un ticket avec des exécutions actives exige une
-confirmation puis l'interruption de chacune d'elles. Un fait d'interruption doit être émis pour
-chaque exécution active, et tous ces faits doivent précéder le fait de clôture ou d'archivage. Les
-exécutions dont le statut dérivé est déjà `completed`, `failed` ou `cancelled` ne reçoivent aucun
-fait d'interruption. Une réassignation n'interrompt pas les exécutions existantes. Un ticket terminé
-ou archivé doit être rouvert ou restauré avant tout nouveau lancement.
+La relation orientée `ticketId -> dependsOnTicketId` signifie que le premier Ticket est bloqué par
+le second. Les relations doivent former un graphe acyclique dirigé :
 
-Une `Execution` est une intention durable de contribution agent, distincte de l'assignation du
-ticket. La lancer est une commande explicite contrôlée par une capability grant. Elle porte un
-résultat attendu libre, un budget et une politique d'outils. Plusieurs exécutions aux résultats
-attendus distincts peuvent contribuer parallèlement au même ticket sans partager branche, worktree
-ou état implicite.
+- un Ticket ne dépend jamais de lui-même ;
+- une relation ne peut pas être dupliquée ;
+- tout ajout qui créerait un cycle est rejeté ;
+- le Dialog permet d'éditer les deux lectures `Bloqué par` et `Bloque` ;
+- un prérequis non terminé produit le badge dérivé `Bloqué` sur la carte ;
+- terminer ou archiver malgré des prérequis ouverts exige une confirmation explicite ;
+- aucune dépendance ne déplace automatiquement une carte.
 
-```text
-Execution
- `- Attempt 1 -> leased -> running
-                           |- waiting_human
-                           |- waiting_agent
-                           |- verifying -> completed
-                           `- failed / cancelled
- `- Attempt 2 -> ... (retry)
-```
+### Cycle de vie
 
-Chaque retry crée un nouvel `Attempt`, propriétaire de son worktree et de sa branche. Un `Attempt`
-contient un `AgentRun` principal et peut contenir des `AgentRun` auxiliaires tracés, qui partagent
-tous cet espace de travail. Le cycle technique (`leased`, `running`, `waiting_human`,
-`waiting_agent`, `verifying`, `completed`, `failed`, `cancelled`), la `lease` et les réveils
-appartiennent à l'`Attempt`. Le statut de l'`Execution` est une projection dérivée de ses tentatives,
-jamais une seconde machine d'état. La réussite d'une exécution produit un rapport mais ne clôt
-jamais automatiquement le ticket : un humain ou un agent autorisé le fait par une commande séparée
-selon la politique du projet. Une approbation vise une action précise de l'exécution, réveille
-l'`Attempt` concerné et reste visible depuis le ticket.
+Chaque projet possède une colonne terminale `Done`, native et protégée. Son nom, sa couleur et sa
+position restent configurables.
 
-Le LLM ne modifie jamais directement ces états ni la base de données. Il appelle une commande typée,
-le control plane vérifie les droits et les invariants, écrit l'événement, puis déclenche la suite.
+- Créer un Ticket dans `Done` est interdit.
+- Déplacer un Ticket vers `Done` le termine.
+- Sortir un Ticket de `Done` le rouvre.
+- `ticket.complete` déplace vers `Done`.
+- `ticket.reopen` restaure la dernière colonne active.
+- Un Ticket archivé quitte le Tableau actif mais conserve son contenu, ses relations et son audit.
+- Restaurer un Ticket le replace dans une colonne valide.
+- La suppression d'une colonne référencée exige une destination active non terminale ; toutes les
+  références sont retargetées dans la même décision.
 
-À la frontière RPC, le client soumet une `CommandRequest` avec un `commandId`, une commande, son
-payload et éventuellement l'événement qui l'a causée. Le control plane possède et ajoute
-`projectId`, `actorId`, l'horodatage et la version de schéma. Il dérive la corrélation de la causalité
-vérifiée, ou utilise `commandId` comme racine.
+L'ordre des Tickets est partagé et durable dans chaque colonne. Le client demande une position par
+ancres voisines ; le domaine calcule le rang canonique.
 
-Commandes initiales envisagées :
+## Commandes v1
+
+Commandes publiques Ticket :
 
 - `ticket.create`
-- `ticket.assign`
+- `ticket.update`
 - `ticket.move`
 - `ticket.complete`
 - `ticket.reopen`
 - `ticket.archive`
-- `execution.start`
-- `execution.retry`
-- `agent.interrupt`
-- `message.send`
-- `question.ask`
-- `report.submit`
-- `approval.request`
-- `workflow.propose`
-- `workflow.validate`
-- `workflow.request_publish`
+- `ticket.restore`
+- `ticket.assign` — contrat durable, sans surface UI v1
+- `ticket.dependency.add`
+- `ticket.dependency.remove`
 
-Chaque commande et événement doit inclure au minimum :
+Commandes publiques de colonne :
 
-- un identifiant unique ;
-- `projectId` ;
-- `actorId` ;
-- `correlationId` ;
-- `causationId` si applicable ;
-- un horodatage ;
-- une version de schéma.
+- `kanbanColumn.create`
+- `kanbanColumn.update`
+- `kanbanColumn.move`
+- `kanbanColumn.delete`
 
-## Événements et durabilité
+`board.initialize` est une commande système émise à la création d'un projet.
 
-Le store SQL possédé par `Noyau Server` est la source de vérité : PostgreSQL dans le profil distant,
-PGlite dans le profil local géré. Les deux utilisent le même journal append-only, les receipts, les
-projections et un transactional outbox pour publier les effets secondaires sans perdre
-d'événements.
+À la frontière RPC, le client choisit `commandId` et peut fournir un `causationId`. Le serveur ajoute
+et vérifie `projectId`, `actorId`, `correlationId`, l'horodatage et la version de schéma. Chaque
+retry strictement identique reçoit le receipt durable original ; réutiliser un `commandId` avec un
+autre contenu ou scope est un conflit.
 
-La commande enrichie et sa request canonique sont persistées avec leur scope avant décision, dans la
-même transaction que le receipt et les événements éventuels. Un retry identique rend le receipt
-original ; réutiliser un `commandId` avec un autre contenu, projet ou acteur est un conflit.
+## Événements, activité et durabilité
 
-Sur PostgreSQL, les commandes visant le même agrégat sont sérialisées par un verrou de ligne durable.
-En local, l'unique processus propriétaire et l'unique connexion PGlite sérialisent les transactions ;
-PGlite n'est jamais partagée entre processus. Chaque événement porte une version d'agrégat unique.
-Le flux client est ordonné par une position transactionnelle propre au projet : une séquence SQL ne
-constitue pas un ordre de commit et ne doit pas servir de curseur.
+PostgreSQL et PGlite utilisent le même journal append-only, les mêmes receipts, projections et
+outbox transactionnelle. Dans une seule transaction, Noyau :
 
-Le client lit d'abord un snapshot cohérent avec son `EventCursor`, puis reprend un server stream
-RPC filtré par projet. Le curseur est opaque, versionné et lié au projet. Le flux garantit l'ordre
-et une livraison au moins une fois ; le client déduplique avec `eventId`. Le WebSocket est un
-transport : une reconnexion reprend du dernier curseur, jamais de l'état du socket. Le polling du
-journal est durable ; `LISTEN/NOTIFY` pourra accélérer le réveil sans devenir source de vérité.
+1. vérifie l'idempotence et la causalité ;
+2. rejoue l'état de l'agrégat ;
+3. exécute le decider pur ;
+4. persiste événements, receipt, projection et outbox.
 
-Pour un premier déploiement sur un VPS :
+Les commandes du Tableau sont sérialisées sous l'agrégat projet, car l'ordre des colonnes et
+Tickets ainsi que le DAG exigent une vue cohérente de l'ensemble.
 
-- PostgreSQL stocke l'état, les événements et les leases ;
-- les workers réclament un attempt avec verrouillage et expiration de lease ;
-- `LISTEN/NOTIFY` peut accélérer le réveil, mais ne doit jamais être la source de durabilité ;
-- toutes les commandes susceptibles d'être répétées ont une clé d'idempotence.
+Le client lit d'abord un `BoardSnapshot` cohérent avec son `EventCursor`, puis reprend un flux RPC
+filtré par projet. Le curseur est opaque, versionné et lié au projet. Le flux est ordonné et livré
+au moins une fois ; le client déduplique par `eventId`. Une reconnexion repart du dernier curseur,
+jamais de l'état du WebSocket.
 
-Dans le profil local, PGlite utilise la durabilité stricte, un chemin de données appartenant à
-l'instance et un seul processus serveur. Les mêmes tests de contrat couvrent les deux stores ; les
-tests de contention multi-connexion restent exécutés sur PostgreSQL réel.
+`GetTicketActivity` renvoie un historique borné des faits liés au Ticket, du plus récent au plus
+ancien. Cette activité inclut les mutations du Ticket et de ses dépendances ; elle ne remplace ni
+ne fusionne les conversations du Channel.
 
-Prévoir une abstraction `WorkflowEngine`, implémentée dans le store SQL : leases avec expiration,
-timers persistés et reprise après crash. Les attentes humaines et inter-agents sont des états de
-l'`Attempt` (`waiting_human`, `waiting_agent`) réveillés par événement, jamais des processus bloqués
-en mémoire. Cette machine à états des tentatives doit donc assumer elle-même retries, timeouts et
-réveils différés ; le statut de l'`Execution` reste une projection de ses tentatives. Le port
-`WorkflowEngine` protège un éventuel remplacement futur si les graphes d'exécutions deviennent trop
-complexes.
+## UI du Tableau
 
-## Forum et communication inter-agents
+La carte reste compacte : priorité, titre, échéance éventuelle et badge `Bloqué` dérivé. Aucun
+responsable, checklist, état agent ou pourcentage inventé n'y apparaît.
 
-Le forum est une projection lisible de l'activité, pas le contexte brut du LLM.
+Le Dialog Ticket suit strictement :
 
-Un message doit pouvoir référencer :
+1. **Détails** : titre, priorité, échéance et description GFMD ;
+2. **Dépendances** : `Bloqué par` et `Bloque`, éditables sous invariant de DAG ;
+3. **Activité système** : audit autoritatif fourni par le serveur.
 
-- `projectId` ;
-- `ticketId` ;
-- `executionId` ;
-- `runId` ;
-- auteur et audience ;
-- `replyTo` ;
-- `correlationId` ;
-- un type : `message`, `question`, `report`, `decision` ou `alert`.
+Les interactions optimistes sont une projection locale temporaire. Après acceptation, rejet ou
+événement distant, le client recharge le snapshot autoritatif. Une file hors ligne et le replay de
+commandes concurrentes restent différés.
 
-Les agents ne s'appellent pas directement. Ils communiquent via Noyau :
+La spécification détaillée est dans [`docs/design/kanban-ux.md`](design/kanban-ux.md).
 
-```text
-Agent A -> message.send(to: Agent B)
-        -> événement persistant
-        -> scheduler réveille Agent B
-        -> réponse persistée
-        -> Agent A reprend
-```
+## Agents et Hermes — horizon post-v1
 
-Cette médiation empêche les tempêtes de délégation, conserve l'audit et permet de suspendre une
-exécution pendant une question.
+Les agents, Hermes, l'orchestration, les budgets, les approbations agent et les espaces de travail
+isolés sont différés. Les anciennes entités `Execution`, `Attempt` et `AgentRun` ne font partie ni
+du protocole, ni du domaine, ni de la base, ni de l'UI v1.
 
-Ne jamais injecter tout l'historique du forum dans un prompt. Construire un `ContextPack` versionné et
-ciblé contenant seulement : ticket, résultat attendu de l'exécution, décisions pertinentes, résumé
-des échanges, fichiers utiles et capacités disponibles. Pas de magasin mémoire externe (Mem0) : le
-`ContextPack` se limite à l'état Noyau (ADR-0005).
+ADR-0007 conserve l'historique des contraintes envisagées pour une intégration Hermes locale ou via
+Tailscale. Il ne suffit pas à définir un contrat actif. Après validation de Ticket v1, le besoin
+agent sera requalifié depuis les usages observés ; aucun modèle d'entités, de retries, de worktrees
+ou de permissions n'est imposé maintenant.
 
-## Intégration Hermes
+Toute future intégration devra néanmoins préserver les invariants généraux :
 
-Hermes est le premier adaptateur d'un port générique :
+- Noyau reste l'autorité durable ;
+- les effets externes passent par des ports et des reactors idempotents ;
+- les permissions ne sont jamais déduites d'un prompt ou d'un rôle affiché ;
+- l'outbox SQL reste la source de reprise après crash ;
+- le contenu externe est traité comme non fiable.
 
-```ts
-interface AgentRuntime {
-  readonly start: (input: AgentRunInput) => Effect.Effect<RunHandle, AgentRuntimeError>
+## Git, n8n et autres intégrations — horizon
 
-  readonly interrupt: (runId: AgentRunId) => Effect.Effect<void, AgentRuntimeError>
+Les dépôts d'un projet restent des dépôts GitHub (ADR-0006). Les automatisations n8n et les actions
+Git avancées ne font pas partie de la première boucle Ticket. Lorsqu'elles seront introduites, elles
+devront consommer l'outbox ou soumettre des commandes typées, rester idempotentes et ne jamais
+posséder l'état métier.
 
-  readonly events: (runId: AgentRunId) => Stream.Stream<AgentEvent, AgentRuntimeError>
-}
-```
-
-Noyau adresse une instance Hermes, pas un cluster : soit le processus tourne sur la même machine
-que le serveur, soit il est joignable par Tailscale (ADR-0007). Chaque `Attempt` possède exactement
-une branche et un worktree, partagés par tous ses `AgentRun`. Hermes peut isoler leurs processus ou
-containers sur cet hôte, mais ne doit pas créer un espace de travail par `AgentRun`. Deux `Attempt`
-distincts ne doivent jamais partager une branche ou un worktree. Utiliser l'API HTTP publique et
-streamée d'Hermes plutôt que les WebSockets internes de son dashboard. Créer un MCP ou plugin Noyau
-exposant uniquement les commandes autorisées aux agents.
-
-Ne pas baser l'architecture de Noyau sur `delegate_task` : les sous-agents Hermes sont adaptés aux
-sous-tâches temporaires mais pas à la collaboration durable souhaitée. Noyau doit lancer des runs
-Hermes indépendants et considérer Hermes comme remplaçable.
-
-Pour chaque `Attempt` :
-
-- exiger un checkout ou `git worktree` dédié sur l'hôte Hermes ;
-- utiliser une branche dédiée ;
-- partager cet espace de travail entre l'`AgentRun` principal et ses `AgentRun` auxiliaires ;
-- détruire ou archiver proprement l'espace de travail à la fin.
-
-Pour chaque `AgentRun` :
-
-- isoler le processus ou le container si nécessaire, sans créer de branche ni de worktree
-  supplémentaire ;
-- injecter un profil, un prompt et une liste de capacités versionnés ;
-- limiter CPU, mémoire, durée, tokens et profondeur de délégation ;
-- ne jamais monter le socket Docker dans l'environnement du run ;
-- journaliser les appels d'outils en redigeant les secrets ;
-- détruire proprement l'environnement d'exécution à la fin.
-
-## Git et artefacts
-
-Les dépôts d'un projet sont des dépôts GitHub (ADR-0006). Webhooks, pull requests et le port
-`GitRuntime` parlent à GitHub ; pas d'autre forge en v1.
-
-Un agent de code ne travaille jamais directement sur la branche principale.
-
-Flux recommandé :
-
-```text
-Ticket
- -> Execution
- -> Attempt + worktree + branche dédiée
- -> changements
- -> format/lint/typecheck/tests
- -> rapport et diff
- -> review agent
- -> approbation
- -> pull request
-```
-
-Les artefacts peuvent être des patches, commits, rapports, logs de tests, captures ou fichiers. Les
-gros blobs doivent être placés dans un stockage objet à terme ; le store SQL conserve leurs
-métadonnées et sommes de contrôle.
-
-## Workflows n8n créés par les agents
-
-Les agents ne reçoivent jamais une clé d'administration n8n. Ils utilisent un gateway restreint :
-
-- `workflow.inspect`
-- `workflow.draft`
-- `workflow.validate`
-- `workflow.test`
-- `workflow.diff`
-- `workflow.request_publish`
-
-Cycle de promotion :
-
-```text
-proposition agent
- -> définition JSON versionnée dans Git
- -> validation du schéma
- -> contrôle des nodes et expressions
- -> installation dans n8n-dev
- -> exécution sur fixtures
- -> revue humaine ou agent autorisé
- -> pull request
- -> promotion vers n8n-prod
-```
-
-Séparer n8n-dev et n8n-prod : bases, réseaux, API keys et credentials distincts. Les credentials sont
-référencés par alias, par exemple `credential://github/noyau`, et ne sont jamais renvoyés en clair à
-l'agent.
-
-Au départ, bloquer les nodes permettant l'exécution arbitraire, l'accès au filesystem, les community
-nodes non audités et les sorties réseau non autorisées. La publication en production nécessite une
-approbation explicite.
-
-## Politique d'autonomie
-
-Définir des niveaux configurables par projet :
-
-```text
-0  proposer uniquement
-1  lire et planifier
-2  modifier une branche et tester
-3  créer un workflow ou une PR en brouillon
-4  publier après approbation
-5  exécuter automatiquement dans un périmètre pré-approuvé
-```
-
-Toujours exiger une approbation pour :
-
-- suppression ou action difficilement réversible ;
-- dépense ou engagement financier ;
-- publication externe ;
-- accès à un nouveau secret ;
-- modification d'infrastructure ;
-- merge ou déploiement en production hors politique explicite.
-
-Les permissions doivent être des capacités étroites, temporaires et attachées à un run. Un agent ne
-doit pas déduire une permission de son rôle ou de son prompt.
-
-## Sécurité
-
-Considérer le contenu des repos, issues, pages web, emails et webhooks comme non fiable et susceptible
-de contenir du prompt injection.
-
-Invariants :
-
-- séparer instructions système, contexte de confiance et contenu externe ;
-- ne jamais exposer un secret en clair au modèle ;
-- filtrer les outils par run ;
-- contrôler les sorties réseau ;
-- limiter ressources, durée, coût et récursion ;
-- conserver un audit append-only ;
-- rendre les actions externes idempotentes ;
-- fournir un kill switch par run, exécution, ticket et projet ;
-- versionner prompts, profils, modèles et manifestes d'outils ;
-- conserver l'entrée exacte d'un run pour pouvoir l'évaluer ou l'expliquer, sans prétendre rejouer
-  un LLM de manière déterministe.
-
-## Structure de monorepo proposée
+## Structure active du monorepo
 
 ```text
 apps/
   web/       # renderer React partagé
-  desktop/   # shell Electron et supervision de l'instance locale
-  server/    # frontière RPC, engine de commandes, reactors, scheduler
+  server/    # frontière RPC et composition du control plane
 
 packages/
-  domain/
-  protocol/
-  database/
-  orchestration/
-  agent-runtime/
-  agent-hermes/
-  git-runtime/
-  n8n-gateway/
-  policy/
-  observability/
-  testing/
-
-infra/
-  compose/
-  migrations/
-  images/
+  domain/    # deciders et projectors purs
+  protocol/  # contrats Schema, RPC, commandes et événements
+  database/  # journal, receipts, outbox et projections SQL
+  config/    # configuration TypeScript partagée
 ```
 
-Ne pas créer tous les packages dès le premier commit. Introduire un package lorsqu'une frontière est
-réelle et testée. Le socle actuel reste `web`, `server`, `domain`, `protocol` et `database` ;
-`apps/desktop` n'est créé qu'après validation du même parcours RPC contre les profils PostgreSQL et
-PGlite. `infra/relay` et `apps/mobile` restent différés (ADR-0009).
+`apps/desktop` sera introduit lorsque le même parcours RPC aura été validé contre PostgreSQL et
+PGlite. Un package n'est créé que lorsqu'une frontière réelle et testée le justifie.
 
 ## Première tranche verticale
 
-Le premier objectif fonctionnel n'est pas « avoir tous les agents ». C'est ce parcours complet :
+Le premier objectif fonctionnel est ce parcours durable :
 
-1. connecter un dépôt GitHub à un projet ;
-2. poster une demande dans son channel ;
-3. faire produire un plan typé par un profil orchestrateur configuré ;
-4. créer directement deux tickets avec une dépendance sur le tableau du projet ;
-5. lancer deux exécutions indépendantes dans des worktrees ;
-6. laisser un agent poser une question visible dans l'interface ;
-7. reprendre l'exécution après la réponse ;
-8. exécuter formatage, lint, typecheck et tests ;
-9. faire produire un rapport et un diff ;
-10. proposer une pull request après approbation.
+1. initialiser le Tableau d'un projet avec `Backlog`, `En cours` et `Done` ;
+2. créer un Ticket avec un titre dans une colonne non terminale ;
+3. modifier son titre, sa description GFMD, sa priorité et son échéance ;
+4. créer et retirer des dépendances sans permettre de cycle ;
+5. afficher `Bloqué` tant qu'un prérequis reste ouvert ;
+6. déplacer et réordonner le Ticket ;
+7. terminer, rouvrir, archiver et restaurer le Ticket selon les invariants ;
+8. consulter son activité système autoritative ;
+9. reprendre le snapshot puis le flux projet après reconnexion.
 
-Ce scénario doit continuer à fonctionner après le redémarrage du serveur.
+Ce scénario doit continuer à fonctionner après redémarrage du serveur. Il ne dépend d'aucun agent.
 
 ## Ordre d'implémentation recommandé
 
-1. Configurations monorepo et conventions TypeScript/Effect.
-2. Schémas `Project`, `Repository`, `Channel`, `Message`, `Ticket`, `Execution`, `Attempt` et
-   configuration Kanban.
-3. Store SQL, migrations, event log et outbox sur PostgreSQL.
-4. Frontière Effect RPC sur WebSocket : commandes, snapshots et flux d'événements.
-5. Interface projet/channel/tableau Kanban minimale.
-6. Entrée `noyau serve`, readiness, appairage, sessions et compatibilité de protocole.
-7. Port `AgentRuntime` et adaptateur Hermes colocalisé pour un run isolé sur VPS.
-8. Profil PGlite persistant soumis aux mêmes migrations et tests de contrat.
-9. `Noyau Desktop` : renderer partagé, connexion distante et supervision du profil local.
-10. Worktrees, artefacts, interruption et reprise.
-11. Plan structuré par un profil orchestrateur, dépendances de tickets et scheduler d'exécutions.
-12. Questions, rapports et approbations.
-13. Review agent, tests et création de pull request.
-14. Gateway n8n-dev puis promotion contrôlée.
-15. Budgets, traces, évaluations, politiques avancées et hardening.
+1. Contrats `Project`, `Channel`, `Thread`, `Message`, `Ticket`, colonnes et dépendances.
+2. Decider et projector purs du Tableau, y compris le DAG et la colonne `Done`.
+3. Store SQL, migrations, journal, receipts, projections et outbox.
+4. Frontière Effect RPC : soumission de commandes, snapshot, activité Ticket et flux projet.
+5. Tableau React : colonnes, cartes, création, déplacement, recherche et filtre de priorité.
+6. Dialog Ticket : Détails, Dépendances, Activité.
+7. Archivage, restauration, accessibilité et réconciliation optimiste complète.
+8. Profil PGlite persistant soumis aux mêmes migrations et contrats que PostgreSQL.
+9. `Noyau Desktop` : renderer partagé et supervision du profil local.
+10. Discussion générique et création d'un Ticket depuis un Thread source.
+11. Réévaluation post-v1 des intégrations Git, n8n et agents à partir des usages réels.
 
 ## Choix encore ouverts
 
-Ces décisions doivent être prises au moment où elles deviennent nécessaires :
+Ces décisions attendent un besoin de tranche verticale :
 
-- stockage objet local/S3-compatible pour les artefacts ;
-- système de secrets et credential broker.
-
-Éviter de décider ces points uniquement pour remplir le scaffold. Chaque choix doit être justifié par
-la première tranche verticale et protégé derrière un port lorsque le remplacement est plausible.
+- stockage objet local ou S3-compatible ;
+- système de secrets et credential broker ;
+- forme éventuelle d'une intégration agent post-v1.
 
 ## Règles pour les agents qui travaillent sur le repo
 
-- Lire ce document avant toute modification structurelle.
+- Lire ce document et les ADR applicables avant toute modification structurelle.
 - Préserver le modular monolith tant qu'une séparation de déploiement n'est pas nécessaire.
 - Faire passer toute donnée de frontière par un schéma runtime.
-- Ne jamais donner au LLM un accès direct au store SQL, Git, Docker, n8n ou aux secrets.
-- Ajouter les invariants métier au domaine, pas uniquement dans les prompts.
+- Garder les deciders purs et les effets externes dans des reactors.
 - Écrire les opérations externes de façon idempotente.
-- Ne pas confondre message de forum, contexte de modèle et événement de domaine.
-- Toute exécution autonome doit avoir un résultat attendu, un budget, une politique d'outils, un
-  timeout et un kill switch.
-- Toute fonctionnalité critique doit être testable sans appeler un vrai modèle LLM.
-- Préférer une tranche verticale fonctionnelle à une arborescence exhaustive de packages vides.
+- Ne pas confondre Message, activité Ticket et événement de domaine.
+- Ne pas réintroduire checklist, Workbench ou modèle agent sans nouvelle décision explicite.
+- Préférer une tranche verticale fonctionnelle à des packages vides.

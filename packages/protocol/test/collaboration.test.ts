@@ -10,18 +10,14 @@ const ids = {
   thread: "20000000-0000-4000-8000-000000000001",
   message: "30000000-0000-4000-8000-000000000001",
   ticket: "40000000-0000-4000-8000-000000000001",
-  execution: "50000000-0000-4000-8000-000000000001",
-  run: "60000000-0000-4000-8000-000000000001",
   command: "70000000-0000-4000-8000-000000000001",
   correlation: "80000000-0000-4000-8000-000000000001",
 } as const
 
 describe("collaboration protocol", () => {
-  it("relie les messages aux Tickets, Executions et AgentRuns", () => {
+  it("relie les messages à un Ticket sans corrélation d'exécution", () => {
     const references = {
       ticketId: ids.ticket,
-      executionId: ids.execution,
-      runId: ids.run,
     }
     const command = Schema.decodeSync(Command)({
       _tag: "message.send",

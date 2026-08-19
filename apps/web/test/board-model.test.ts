@@ -3,10 +3,13 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   addColumn,
   createTicket,
+  dependenciesForTicket,
+  dependentsForTicket,
   initialBoardState,
   moveTicket,
   parseBoardSearch,
   reorderTicket,
+  ticketDependencyIssue,
   ticketsInColumn,
   updateTicket,
   visibleTickets,
@@ -25,7 +28,6 @@ describe("board search", () => {
     ).toEqual({
       ticket: "ticket-board-ui",
       q: "interface",
-      assignee: "agent:claude",
       priority: "urgent",
     })
 
@@ -66,10 +68,9 @@ describe("local board preview model", () => {
     expect(ticketsInColumn(next, "column-active")).toHaveLength(2)
   })
 
-  it("filters by query, assignee, and priority", () => {
+  it("filters by query and priority", () => {
     const visible = visibleTickets(initialBoardState, "column-active", {
       query: "interface",
-      assignee: "agent:claude",
       priority: "high",
     })
 
@@ -87,15 +88,29 @@ describe("local board preview model", () => {
     ])
   })
 
-  it("clears optional metadata instead of retaining undefined properties", () => {
+  it("clears an optional due date instead of retaining an undefined property", () => {
     const next = updateTicket(initialBoardState, "ticket-sheet", {
       dueAt: undefined,
-      assigneeId: undefined,
     })
     const ticket = next.tickets.find((candidate) => candidate.id === "ticket-sheet")
 
     expect(ticket).toBeDefined()
     expect(Object.hasOwn(ticket ?? {}, "dueAt")).toBe(false)
-    expect(Object.hasOwn(ticket ?? {}, "assigneeId")).toBe(false)
+  })
+
+  it("calculates both directions of the dependency DAG", () => {
+    expect(dependenciesForTicket(initialBoardState, "ticket-projection")).toEqual(["ticket-http"])
+    expect(dependentsForTicket(initialBoardState, "ticket-http")).toEqual(["ticket-projection"])
+  })
+
+  it("rejects self, duplicate, and cyclic dependency edges", () => {
+    expect(ticketDependencyIssue(initialBoardState, "ticket-http", "ticket-http")).toBe("self")
+    expect(ticketDependencyIssue(initialBoardState, "ticket-projection", "ticket-http")).toBe(
+      "duplicate",
+    )
+    expect(ticketDependencyIssue(initialBoardState, "ticket-http", "ticket-projection")).toBe(
+      "cycle",
+    )
+    expect(ticketDependencyIssue(initialBoardState, "ticket-sheet", "ticket-http")).toBeUndefined()
   })
 })

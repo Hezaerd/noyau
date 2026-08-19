@@ -20,13 +20,8 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import type { EventCursor } from "@noyau/protocol/board"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import {
-  ActorId,
-  AgentProfileId,
-  KanbanColumnId,
-  type ProjectId,
-  TicketId,
-} from "@noyau/protocol/ids"
+import type { EventEnvelope } from "@noyau/protocol/events"
+import { KanbanColumnId, type ProjectId, TicketId } from "@noyau/protocol/ids"
 import type { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
@@ -34,10 +29,7 @@ import { fr } from "date-fns/locale"
 import type { Crypto } from "effect"
 import { type Effect } from "effect"
 import {
-  BotIcon,
   CalendarIcon,
-  CheckCircleIcon,
-  CircleAlertIcon,
   CircleIcon,
   EllipsisIcon,
   FunnelIcon,
@@ -46,7 +38,6 @@ import {
   PlusIcon,
   SearchIcon,
   Trash2Icon,
-  UserIcon,
   XIcon,
 } from "lucide-react"
 import {
@@ -62,7 +53,6 @@ import {
 
 import { type AppPaletteAction, useAppPaletteActions } from "@/components/app-palette-context"
 import { TicketDialog } from "@/components/board/TicketDialog"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -90,17 +80,14 @@ import {
   type ExecutableBoardAction,
 } from "@/lib/board-actions"
 import {
-  appendWorkbenchMessage,
-  boardActors,
   isFiltered,
   isTicketPriority,
   moveTicket,
   moveTicketToAdjacentColumn,
   priorities,
   reorderTicket,
-  startExecution,
+  ticketDependencyIssue,
   ticketsInColumn,
-  toggleChecklistItem,
   updateTicket,
   visibleTickets,
   type BoardColumn,
@@ -110,20 +97,20 @@ import {
   type BoardState,
   type BoardTicket,
 } from "@/lib/board-model"
-import { boardStateFromSnapshot, withExecutionSummaries } from "@/lib/board-snapshot"
+import { boardStateFromSnapshot } from "@/lib/board-snapshot"
 import {
   buildAndSubmitTicketCommand,
   loadBoardSnapshot,
-  loadProjectExecutions,
+  loadTicketActivity,
   subscribeProjectEvents,
 } from "@/lib/control-plane"
 import {
-  makeExecutionStartRequest,
   makeKanbanColumnCreateRequest,
   makeKanbanColumnDeleteRequest,
   makeKanbanColumnUpdateRequest,
-  makeTicketAssignRequest,
   makeTicketCreateRequest,
+  makeTicketDependencyAddRequest,
+  makeTicketDependencyRemoveRequest,
   makeTicketMoveRequest,
   makeTicketUpdateRequest,
 } from "@/lib/ticket-commands"
@@ -144,27 +131,6 @@ const priorityStyles = {
   high: "text-warning",
   urgent: "text-destructive",
 } satisfies Record<TicketPriority, string>
-
-const attentionLabels = {
-  blocked: "Bloqué",
-  question: "Question",
-  approval: "Approbation",
-  failure: "Échec",
-} as const
-
-const attentionStyles = {
-  blocked: "border-warning/20 bg-warning/10 text-warning-foreground",
-  question: "border-info/20 bg-info/10 text-info-foreground",
-  approval: "border-primary/20 bg-primary/10 text-primary",
-  failure: "border-destructive/20 bg-destructive/10 text-destructive-foreground",
-} as const
-
-const executionLabels = {
-  running: "En cours",
-  waiting: "Attend une réponse",
-  verifying: "Vérification",
-  failed: "Échec",
-} as const
 
 interface BoardPageProps {
   readonly projectId: ProjectId
@@ -272,10 +238,20 @@ function TicketCard({
     id: ticket.id,
     disabled: overlay,
   })
-  const actor = state.actors.find((candidate) => candidate.id === ticket.assigneeId)
   const column = state.columns.find((candidate) => candidate.id === ticket.columnId)
   const due = dueLabel(ticket, column?.done ?? false)
-  const checklistDone = ticket.checklist.filter((item) => item.done).length
+  const openDependencyCount = state.ticketDependencies.filter((dependency) => {
+    if (dependency.ticketId !== ticket.id) {
+      return false
+    }
+    const prerequisite = state.tickets.find(
+      (candidate) => candidate.id === dependency.dependsOnTicketId,
+    )
+    const prerequisiteColumn = state.columns.find(
+      (candidate) => candidate.id === prerequisite?.columnId,
+    )
+    return prerequisiteColumn?.done !== true
+  }).length
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -327,72 +303,26 @@ function TicketCard({
             </span>
           </div>
 
-          {ticket.attention === undefined ? null : (
-            <Badge
-              variant="outline"
-              className={cn(
-                "mt-3 rounded-md px-1.5 text-[0.58rem]",
-                attentionStyles[ticket.attention],
+          {openDependencyCount === 0 && due === undefined ? null : (
+            <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
+              {openDependencyCount === 0 ? null : (
+                <Badge variant="outline" className="h-5 rounded-full px-1.5 text-[0.6rem]">
+                  Bloqué
+                </Badge>
               )}
-            >
-              <CircleAlertIcon />
-              {attentionLabels[ticket.attention]}
-            </Badge>
-          )}
-
-          {ticket.execution === undefined ? null : (
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/55 px-2.5 py-2">
-              <BotIcon className="size-3.5 shrink-0 text-primary" />
-              <p className="min-w-0 flex-1 truncate text-[0.65rem] text-muted-foreground">
-                {ticket.execution.count} exécution{ticket.execution.count > 1 ? "s" : ""} ·{" "}
-                <span className="text-foreground">{executionLabels[ticket.execution.status]}</span>
-              </p>
-            </div>
-          )}
-
-          {ticket.labels.length === 0 ? null : (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {ticket.labels.slice(0, 3).map((label) => (
+              {due === undefined ? null : (
                 <span
-                  key={label}
-                  className="rounded-md bg-secondary px-1.5 py-0.5 text-[0.58rem] text-muted-foreground"
+                  className={cn(
+                    "flex items-center gap-1 text-[0.6rem] text-muted-foreground",
+                    due.late && "text-destructive",
+                  )}
                 >
-                  {label}
+                  <CalendarIcon className="size-3" />
+                  {due.label}
                 </span>
-              ))}
+              )}
             </div>
           )}
-
-          <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
-            {actor === undefined ? (
-              <span className="grid size-5 place-items-center rounded-md border border-dashed text-muted-foreground/50">
-                <UserIcon className="size-2.5" />
-              </span>
-            ) : (
-              <Avatar className="size-5 rounded-md">
-                <AvatarFallback className="rounded-md bg-primary/12 text-[0.5rem] font-semibold text-primary">
-                  {actor.initials}
-                </AvatarFallback>
-              </Avatar>
-            )}
-            {due === undefined ? null : (
-              <span
-                className={cn(
-                  "flex items-center gap-1 text-[0.6rem] text-muted-foreground",
-                  due.late && "text-destructive",
-                )}
-              >
-                <CalendarIcon className="size-3" />
-                {due.label}
-              </span>
-            )}
-            {ticket.checklist.length === 0 ? null : (
-              <span className="ml-auto flex items-center gap-1 text-[0.6rem] text-muted-foreground">
-                <CheckCircleIcon className="size-3" />
-                {checklistDone}/{ticket.checklist.length}
-              </span>
-            )}
-          </div>
         </button>
       </ContextMenuTrigger>
       <ContextMenuPopup align="start" className="w-48">
@@ -683,13 +613,16 @@ export function BoardPage({
   onCloseTicket,
 }: BoardPageProps) {
   const [state, setState] = useState<BoardState>({
-    actors: boardActors,
     columns: [],
     tickets: [],
+    ticketDependencies: [],
   })
   const [cursor, setCursor] = useState<EventCursor>()
   const [controlPlaneError, setControlPlaneError] = useState<string>()
   const [loading, setLoading] = useState(true)
+  const [ticketActivity, setTicketActivity] = useState<ReadonlyArray<EventEnvelope>>([])
+  const [ticketActivityLoading, setTicketActivityLoading] = useState(false)
+  const [ticketActivityError, setTicketActivityError] = useState<string>()
   const [activeTicketId, setActiveTicketId] = useState<string | undefined>(state.tickets[0]?.id)
   const [draggedTicketId, setDraggedTicketId] = useState<string>()
   const [creatingColumnId, setCreatingColumnId] = useState<string>()
@@ -703,22 +636,19 @@ export function BoardPage({
   const boardRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const dragStartStateRef = useRef<BoardState | undefined>(undefined)
+  const activityRequestRef = useRef(0)
   const filters: BoardFilters = {
     query: search.q ?? "",
-    ...(search.assignee !== undefined && { assignee: search.assignee }),
     ...(search.priority !== undefined && { priority: search.priority }),
   }
   const filtered = isFiltered(filters)
   const selectedTicket = state.tickets.find((ticket) => ticket.id === search.ticket)
+  const selectedTicketId = selectedTicket?.id
   const draggedTicket = state.tickets.find((ticket) => ticket.id === draggedTicketId)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
-  const assigneeOptions = [
-    { value: "all", label: "Tous les responsables" },
-    ...state.actors.map((actor) => ({ value: actor.id, label: actor.name })),
-  ]
   const priorityOptions = [
     { value: "all", label: "Toutes les priorités" },
     ...priorities
@@ -727,32 +657,54 @@ export function BoardPage({
   ]
 
   const refreshBoard = useCallback(async () => {
-    const [snapshot, executions] = await Promise.all([
-      loadBoardSnapshot(projectId),
-      loadProjectExecutions(projectId),
-    ])
+    const snapshot = await loadBoardSnapshot(projectId)
     if (!snapshot.ok) {
       setControlPlaneError(snapshot.details)
       setLoading(false)
       return false
     }
-    if (!executions.ok) {
-      setControlPlaneError(executions.details)
-      setLoading(false)
-      return false
-    }
-    setState((current) =>
-      withExecutionSummaries(boardStateFromSnapshot(snapshot.value, current), executions.value),
-    )
+    setState(boardStateFromSnapshot(snapshot.value))
     setCursor((current) => current ?? snapshot.value.cursor)
     setControlPlaneError(undefined)
     setLoading(false)
     return true
   }, [projectId])
 
+  const refreshTicketActivity = useCallback(
+    async (ticketId: string) => {
+      const requestId = activityRequestRef.current + 1
+      activityRequestRef.current = requestId
+      setTicketActivityLoading(true)
+      const result = await loadTicketActivity(projectId, TicketId.make(ticketId))
+      if (activityRequestRef.current !== requestId) {
+        return false
+      }
+      setTicketActivityLoading(false)
+      if (!result.ok) {
+        setTicketActivityError(result.details)
+        return false
+      }
+      setTicketActivity(result.value)
+      setTicketActivityError(undefined)
+      return true
+    },
+    [projectId],
+  )
+
   useEffect(() => {
     void refreshBoard()
   }, [refreshBoard])
+
+  useEffect(() => {
+    if (selectedTicketId === undefined) {
+      activityRequestRef.current += 1
+      setTicketActivity([])
+      setTicketActivityError(undefined)
+      setTicketActivityLoading(false)
+      return
+    }
+    void refreshTicketActivity(selectedTicketId)
+  }, [refreshTicketActivity, selectedTicketId])
 
   useEffect(() => {
     if (cursor === undefined) {
@@ -763,10 +715,13 @@ export function BoardPage({
       cursor,
       () => {
         void refreshBoard()
+        if (selectedTicketId !== undefined) {
+          void refreshTicketActivity(selectedTicketId)
+        }
       },
       setControlPlaneError,
     )
-  }, [cursor, projectId, refreshBoard])
+  }, [cursor, projectId, refreshBoard, refreshTicketActivity, selectedTicketId])
 
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
@@ -798,6 +753,9 @@ export function BoardPage({
     setControlPlaneError(undefined)
     setAnnouncement(successMessage)
     await refreshBoard()
+    if (selectedTicketId !== undefined) {
+      await refreshTicketActivity(selectedTicketId)
+    }
     return true
   }
 
@@ -1020,8 +978,7 @@ export function BoardPage({
     )
   }
 
-  const clearFilters = () =>
-    onSearchChange({ q: undefined, assignee: undefined, priority: undefined }, true)
+  const clearFilters = () => onSearchChange({ q: undefined, priority: undefined }, true)
 
   const createInColumn = (columnId: string, title: string) => {
     setCreatingColumnId(undefined)
@@ -1086,7 +1043,7 @@ export function BoardPage({
       ...state.tickets.map((ticket): AppPaletteAction => ({
         id: `ticket.open.${ticket.id}`,
         label: ticket.title,
-        searchValue: `${ticket.title} ${ticket.labels.join(" ")}`,
+        searchValue: `${ticket.title} ${ticket.description}`,
         category: "ticket",
         icon: <CircleIcon className={priorityStyles[ticket.priority]} />,
         execute: () => onOpenTicket(ticket.id),
@@ -1151,34 +1108,6 @@ export function BoardPage({
                 /
               </kbd>
             </div>
-
-            <Select
-              items={assigneeOptions}
-              value={search.assignee ?? "all"}
-              onValueChange={(value) =>
-                onSearchChange(
-                  { assignee: value === null || value === "all" ? undefined : value },
-                  true,
-                )
-              }
-            >
-              <SelectTrigger size="default" className="w-auto">
-                <UserIcon />
-                <SelectValue>
-                  {search.assignee === undefined
-                    ? "Responsable"
-                    : (state.actors.find((actor) => actor.id === search.assignee)?.name ??
-                      "Responsable")}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectPopup>
-                {assigneeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectPopup>
-            </Select>
 
             <Select
               items={priorityOptions}
@@ -1370,7 +1299,11 @@ export function BoardPage({
 
       <TicketDialog
         ticket={selectedTicket}
-        actors={state.actors}
+        tickets={state.tickets}
+        ticketDependencies={state.ticketDependencies}
+        activity={ticketActivity}
+        activityLoading={ticketActivityLoading}
+        {...(ticketActivityError === undefined ? {} : { activityError: ticketActivityError })}
         focusTitle={renamingTicketId === selectedTicket?.id}
         onClose={() => {
           const ticketId = selectedTicket?.id
@@ -1400,19 +1333,6 @@ export function BoardPage({
         onTitleFocusComplete={() => setRenamingTicketId(undefined)}
         onUpdate={(ticketId, patch) => {
           setState((current) => updateTicket(current, ticketId, patch))
-          if ("assigneeId" in patch) {
-            const assignment =
-              patch.assigneeId === undefined
-                ? { ticketId: TicketId.make(ticketId) }
-                : {
-                    ticketId: TicketId.make(ticketId),
-                    assigneeId: ActorId.make(patch.assigneeId),
-                  }
-            void runCommand(
-              makeTicketAssignRequest(assignment),
-              "Responsable du ticket mis à jour.",
-            )
-          }
           const hasDetails =
             patch.title !== undefined ||
             patch.description !== undefined ||
@@ -1438,23 +1358,28 @@ export function BoardPage({
             void runCommand(makeTicketUpdateRequest(updateInput), "Détails du ticket mis à jour.")
           }
         }}
-        onToggleChecklist={(ticketId, itemId) =>
-          setState((current) => toggleChecklistItem(current, ticketId, itemId))
-        }
-        onStartExecution={(ticketId, input) => {
-          setState((current) => startExecution(current, ticketId, input.profileName))
+        onAddDependency={(ticketId, dependsOnTicketId) => {
+          if (ticketDependencyIssue(state, ticketId, dependsOnTicketId) !== undefined) {
+            setAnnouncement("Cette dépendance créerait un doublon ou un cycle.")
+            return
+          }
           void runCommand(
-            makeExecutionStartRequest({
+            makeTicketDependencyAddRequest({
               ticketId: TicketId.make(ticketId),
-              expectedOutcome: input.outcome,
-              agentProfileId: AgentProfileId.make(input.profileId),
+              dependsOnTicketId: TicketId.make(dependsOnTicketId),
             }),
-            `Exécution lancée avec ${input.profileName}.`,
+            "Dépendance ajoutée.",
           )
         }}
-        onReply={(ticketId, message) =>
-          setState((current) => appendWorkbenchMessage(current, ticketId, message))
-        }
+        onRemoveDependency={(ticketId, dependsOnTicketId) => {
+          void runCommand(
+            makeTicketDependencyRemoveRequest({
+              ticketId: TicketId.make(ticketId),
+              dependsOnTicketId: TicketId.make(dependsOnTicketId),
+            }),
+            "Dépendance retirée.",
+          )
+        }}
       />
     </main>
   )

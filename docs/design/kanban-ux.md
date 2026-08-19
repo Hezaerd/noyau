@@ -2,193 +2,137 @@
 
 ## Statut et portée
 
-Cette spécification traduit le modèle validé dans l'ADR-0008 en expérience desktop. Elle décrit le
-Tableau, le Dialog Ticket, l'Inbox et leurs interactions avec le Channel. Elle ne redéfinit ni les
-invariants du domaine ni les cycles de vie d'exécution.
+Cette spécification décrit la boucle Ticket v1 décidée par
+[ADR-0010](../adr/0010-prioriser-la-boucle-ticket-v1.md). Elle couvre le Tableau, ses cartes et le
+Dialog Ticket. Le serveur reste autoritaire pour les invariants, l'ordre, le DAG de dépendances et
+l'activité système.
 
-La première version optimise le travail d'un humain qui supervise une flotte optionnelle d'agents.
-Un projet peut aussi fonctionner sans agent. Aucun orchestrateur n'est natif : un profil comme
-Marion appartient à la configuration de son utilisateur.
+La v1 optimise un usage humain Trello-like. Elle n'expose aucune surface agent. Le responsable
+reste dans le modèle durable mais est volontairement absent de l'interface.
 
 ## Principes
 
-1. **Attention avant activité** : l'Inbox montre d'abord ce qui nécessite une intervention, puis le
-   Tableau donne la situation globale.
-2. **Trello dans l'espace, Linear dans l'interaction** : colonnes et drag-and-drop restent
-   intuitifs ; sélection, raccourcis et palette accélèrent le travail expert.
-3. **Ticket léger, exécution explicite** : assigner un agent ne lance rien. Une exécution possède
-   toujours son résultat attendu, son budget et sa politique d'outils.
-4. **Optimisme par défaut** : toute commande réversible et applicable rejoint une file ordonnée
-   corrélée par `commandId`. L'état affiché est toujours recalculé depuis la projection serveur
-   confirmée, sur laquelle l'interface rejoue les commandes encore en attente.
-5. **Information progressive** : les cartes restent scannables ; le Dialog concentre le détail.
-6. **Conversation et audit séparés** : le Workbench reste une conversation ; les faits système
-   vivent dans une timeline distincte.
-7. **Accessibilité équivalente** : toute opération de pointeur possède une voie clavier et un retour
-   annoncé.
+1. **Ticket léger** : le titre suffit à créer ; priorité, échéance et description sont ajoutées au
+   besoin.
+2. **Information progressive** : la carte reste scannable ; le Dialog concentre les détails.
+3. **Dépendances explicites** : les liens entre Tickets remplacent checklists et todolists.
+4. **Serveur autoritaire** : l'optimisme masque la latence sans devenir une seconde source de
+   vérité.
+5. **Conversation et audit séparés** : le Channel contient les discussions génériques ; l'activité
+   du Ticket expose les faits système autoritatifs.
+6. **Accessibilité équivalente** : toute opération de pointeur possède une voie clavier et un
+   retour annoncé.
 
-## Architecture de navigation
+## Navigation
 
-### Destinations principales
+### Destinations
 
-- `Inbox` : questions, approbations, échecs et blocages exigeant l'humain.
-- `Tableau` : vue en colonnes du projet.
-- `Channel` : chat général du projet contenant ses Threads.
+- `Tableau` : vue en colonnes des Tickets du projet.
+- `Channel` : discussion générique composée de Threads et Messages.
 
-Le Tableau et le Channel sont complémentaires, mais ne sont pas deux vues des mêmes éléments. Un
-Ticket possède un Workbench, c'est-à-dire un Thread ordinaire du Channel dédié au travail du Ticket.
-Il peut aussi référencer un Thread source distinct et immuable.
+Un Ticket peut référencer un Thread d'origine par `sourceThreadId`, mais il ne possède pas de Thread
+dédié. Aucun Workbench n'est créé ou affiché.
 
 ### URL
 
-Route du Tableau :
+Le Tableau utilise :
 
 ```text
 /projects/:projectId/board
 ```
 
-Le Dialog Ticket est un état partageable du Tableau :
+Le Dialog Ticket, la recherche et le filtre de priorité sont partageables :
 
 ```text
-/projects/:projectId/board?ticket=:ticketId
+/projects/:projectId/board?ticket=:ticketId&q=:query&priority=:value
 ```
 
-La recherche et les filtres sont aussi encodés dans les search params :
+TanStack Router valide les search params. Le responsable n'est pas un filtre v1.
 
-```text
-/projects/:projectId/board?ticket=:ticketId&q=:query&assignee=:id&priority=:value
-```
+Ouvrir une carte ajoute `ticket` à l'URL. Fermer le Dialog retire uniquement ce paramètre et
+conserve recherche et priorité. Le scroll, la carte active et l'origine d'ouverture restent
+éphémères.
 
-TanStack Router doit valider les search params. Ouvrir un Ticket depuis le Tableau sans Dialog fait
-un `push` depuis l'URL courante. L'application n'utilise Back pour fermer le Dialog que si l'entrée
-précédente est le même Tableau, avec les mêmes filtres et sans `ticket` ; Forward peut alors rouvrir
-le Dialog. Dans tous les autres cas, notamment un lien direct ou une arrivée depuis l'Inbox, fermer
-le Dialog fait un `replace` qui retire uniquement `ticket` et conserve les filtres. Un `replace` ne
-crée aucune entrée que Forward pourrait rouvrir, et le bouton Back natif reste fidèle à l'historique
-réel au lieu d'être détourné pour fermer un deep link.
+À la fermeture, le focus revient :
 
-Le scroll, la carte active et l'origine d'ouverture restent éphémères. Ils ne polluent pas l'URL. À
-la fermeture, le focus revient :
-
-1. à la carte d'origine si elle est encore présente dans la vue ;
-2. sinon à la première carte visible de la colonne du Ticket ;
-3. sinon au titre `Tableau`.
-
-Cette règle couvre une ouverture depuis l'Inbox ou un deep link, ainsi qu'un Ticket supprimé,
-archivé ou masqué par la recherche ou les filtres.
+1. à la carte d'origine si elle reste visible ;
+2. à une carte visible de sa colonne ;
+3. au titre `Tableau`.
 
 ## Tableau
 
 ### Structure
 
-- Un header compact contient le titre `Tableau`, la recherche, les filtres actifs et le menu global.
-  Le trigger visible de la Palette appartient à la sidebar commune.
-- Les colonnes ont une largeur stable de 288 à 320 px et occupent la hauteur disponible.
-- Le Tableau défile horizontalement au trackpad, avec `Shift+molette` et au clavier.
-- Les colonnes ne se replient pas et ne se compressent pas pour tenir à l'écran.
+- Un header compact contient le titre, la recherche, le filtre de priorité et les actions du
+  Tableau.
+- Les colonnes ont une largeur stable et défilent horizontalement.
 - Un nouveau projet reçoit `Backlog`, `En cours` et la colonne système `Done`.
-- Une action `Ajouter une colonne` termine la rangée.
+- Les colonnes ordinaires peuvent être créées, renommées, colorées et supprimées.
+- `Done` peut être renommée et colorée, mais pas supprimée.
+- Supprimer une colonne référencée demande une destination non terminale ; `Done` n'est jamais
+  proposée.
+- Le compteur d'une colonne indique le total, ou `visible/total` avec un filtre actif.
 
-L'en-tête d'une colonne affiche son nom, sa couleur, son compteur et son menu. Sans filtre, le
-compteur est simple. Avec un filtre actif, il devient `visible sur total`.
+### Cartes v1
 
-Le menu d'une colonne ordinaire permet de renommer, colorer et supprimer. Dans le menu de `Done`,
-l'action `Supprimer` est absente, et non grisée ; renommer, colorer et déplacer son en-tête restent
-permis. Supprimer une colonne non vide demande une destination non terminale. Le sélecteur n'inclut
-jamais `Done`, conformément à la couche domaine qui rejette aussi cette destination.
+Une carte affiche :
 
-### Cartes
-
-Une carte affiche toujours :
-
+- la priorité par une icône discrète ;
 - le titre ;
-- le responsable, s'il existe ;
-- la priorité ;
-- l'échéance ;
-- les étiquettes.
+- l'échéance lorsqu'elle existe ;
+- le badge `Bloqué` lorsqu'au moins un prérequis n'est pas terminé.
 
-Elle ajoute seulement quand ils s'appliquent :
+L'échéance utilise une date locale compacte. Une carte non terminée ajoute `Bientôt` à trois jours
+ou moins et `En retard` après la date. Une carte dans `Done` n'est jamais marquée en retard.
 
-- un badge textuel `Bloqué`, `Question`, `Approbation` ou `Échec` ;
-- l'agrégat des exécutions actives : leur nombre, les profils concernés et le statut qui demande le
-  plus d'attention ;
-- la progression de checklist.
+La carte n'affiche pas :
 
-La priorité d'attention des états existants est déterministe :
-`Échec` > `Attend une réponse` > `Vérification` > `En cours`. Cet ordre constitue seulement un
-agrégat d'affichage ; il ne crée aucun nouvel état métier. Avec plusieurs exécutions actives, la
-carte affiche par exemple `3 exécutions · Attend une réponse`, même si une autre est `En cours`. Le
-compteur reste explicite lorsqu'une seule exécution est active.
+- le responsable ;
+- de checklist ou de progression ;
+- d'exécution, de run ou d'état agent ;
+- de Workbench ;
+- de pourcentage de progression inventé.
 
-La couleur complète de la carte ne porte jamais un état. La priorité utilise une petite icône
-colorée avec tooltip et texte accessible. L'échéance affiche une date locale compacte, puis des
-états explicites `Bientôt` et `En retard`. Un Ticket terminé n'est jamais signalé en retard.
-
-Les dépendances n'ajoutent aucune ligne entre les cartes. Un prérequis ouvert produit le badge
-`Bloqué`; le détail vit dans le Dialog.
-
-### Drag-and-drop
-
-Le drag-and-drop est le geste principal de déplacement. Il commence après un seuil de mouvement afin
-qu'un clic normal ouvre toujours le Ticket.
-
-Pendant le drag :
-
-- la carte conserve une représentation lisible ;
-- sans filtre, un placeholder montre précisément sa future position ;
-- les cibles possibles restent nettes pendant le scroll horizontal ;
-- la colonne survolée fournit un retour visuel sans animation continue.
-
-Au drop, la carte adopte immédiatement sa nouvelle position par replay de la commande en attente.
-Le serveur reste autoritaire. Une projection ou un rejet recalcule l'affichage selon la règle
-générale de réconciliation, sans effacer les commandes plus récentes, et un message explique tout
-changement visible.
-
-Déposer dans `Done` clôt immédiatement le Ticket lorsqu'aucune exécution n'est active. Des
-dépendances ouvertes provoquent un avertissement non bloquant avant le drop final. Si des exécutions
-sont actives, une confirmation bloquante nomme leur nombre avant d'appliquer la clôture, puis
-l'opération demande l'interruption de chacune d'elles. Sortir de `Done` rouvre le Ticket.
-
-Une vue passe en mode filtré dès qu'un filtre est actif ou qu'une recherche masque au moins un
-Ticket. Dans ce mode :
-
-- le réordonnancement intra-colonne est désactivé, par drag comme au clavier ;
-- le déplacement inter-colonnes reste permis et insère le Ticket en fin de la colonne cible
-  complète, pas à une position relative aux seules cartes visibles ;
-- la cible montre la colonne, sans placeholder de position précise.
-
-Si le déplacement fait sortir le Ticket de la vue, l'annonce devient par exemple
-`Ticket déplacé vers En cours, en fin de colonne ; il n'est plus visible dans la vue filtrée`.
-Le focus passe à la carte visible suivante dans la colonne source, à la précédente s'il n'y en a
-pas, puis à l'en-tête de la colonne cible si la source ne contient plus de carte visible.
+Les dépendances ne dessinent aucune ligne entre les cartes. Leur détail et leur édition vivent dans
+le Dialog.
 
 ### Création rapide
 
-Chaque colonne non terminale termine sa liste par `Ajouter un ticket` ; `Done` n'affiche jamais ce
-CTA. La création inline exige seulement un titre. `c` déclenche le même flux dans une colonne
-non terminale active. Si `Done` est active ou si aucune colonne ne l'est, le raccourci demande une
-colonne non terminale. Après création optimiste, le Dialog peut être ouvert pour enrichir le Ticket.
-La création déclenchée depuis la Palette choisit une colonne non terminale. Ce choix UI ne remplace
-pas l'invariant métier : le serveur refuse toute création qui cible `Done`.
+Chaque colonne non terminale termine sa liste par `Ajouter un ticket`. La création inline exige un
+titre non vide. `Done` ne propose pas ce CTA et le serveur refuse aussi toute création qui la cible.
 
-Un premier Tableau vide n'utilise aucun faux Ticket. Il montre les CTA inline des colonnes
-non terminales et un court rappel de `c`, `Cmd/Ctrl+K` et du drag-and-drop, retiré après la première
-création.
+Après création, le Ticket peut être ouvert immédiatement pour ajouter sa description, sa priorité,
+son échéance et ses dépendances.
 
-### Recherche et filtres
+### Déplacement et ordre
 
-Une barre compacte au-dessus du Tableau expose la recherche et les filtres actifs. `/` lui donne le
-focus ; la Palette globale expose aussi l'Action `Rechercher`.
+Le drag-and-drop est le geste principal. Un clic normal ouvre le Ticket ; le drag commence après un
+seuil de mouvement.
 
-Les Tickets qui ne correspondent pas disparaissent. Chaque colonne garde un compteur
-`visible sur total` et l'interface propose clairement `Effacer les filtres`. Les URLs suffisent pour
-partager une vue ; les vues filtrées nommées sont hors v1. Dès que la vue est en mode filtré, l'ordre
-des seules cartes visibles est ambigu : le réordonnancement intra-colonne est donc indisponible,
-tandis qu'un déplacement inter-colonnes insère en fin de la colonne cible complète.
+Au drop, le client affiche immédiatement la position demandée puis soumet une commande par ancres.
+Le serveur calcule le rang canonique. Après acceptation ou rejet, le client recharge le snapshot
+autoritatif.
 
-### Sélection et clavier
+Déposer un Ticket sans prérequis ouvert dans `Done` le termine. Si des dépendances restent ouvertes,
+le serveur rejette le déplacement sans acquittement explicite et le snapshot remet la carte à sa
+place autoritative. La surface de confirmation permettant de forcer cette clôture n'appartient pas
+à la première UI. Sortir un Ticket de `Done` le rouvre.
 
-Le Tableau maintient une seule carte active, avec focus visible :
+Une vue est filtrée lorsqu'une recherche ou un filtre de priorité masque des Tickets. Dans ce mode :
+
+- le réordonnancement intra-colonne est désactivé ;
+- le déplacement inter-colonnes reste possible et insère en fin de la colonne complète ;
+- aucune position relative aux seules cartes visibles n'est annoncée.
+
+### Recherche et filtre
+
+La recherche porte sur le titre et la description. Le filtre porte sur la priorité. Les Tickets non
+correspondants disparaissent sans modifier l'ordre durable.
+
+L'interface expose `Effacer les filtres`. Les vues filtrées nommées et les filtres par responsable
+sont hors v1.
+
+### Clavier
 
 | Action | Raccourci |
 | --- | --- |
@@ -199,255 +143,151 @@ Le Tableau maintient une seule carte active, avec focus visible :
 | Réordonner | `Alt+Shift+↑` / `Alt+Shift+↓` |
 | Changer de colonne | `Alt+Shift+←` / `Alt+Shift+→` |
 | Rechercher | `/` |
-| Ouvrir la palette | `Cmd/Ctrl+K` |
-| Annuler le dernier déplacement en attente | `Cmd/Ctrl+Z` |
+| Ouvrir la Palette | `Cmd/Ctrl+K` |
 
-TanStack Hotkeys centralise les bindings, leurs scopes et leur présentation. La Palette est globale
-à l'application et s'ouvre avec `Cmd/Ctrl+K` ou son trigger dans la sidebar. Son Catalogue réunit :
-
-1. les Récents encore applicables ;
-2. les Actions de la page courante ;
-3. la Navigation vers `Inbox`, `Tableau` et `Channel`, à l'exception de la page courante.
-
-Le Tableau contribue `Créer un ticket` et `Rechercher` en v1. Dès qu'une query est saisie, un groupe
-`Tickets` recherche localement dans leurs titres et labels ; choisir un résultat ouvre son Dialog.
-Ce groupe reste absent à query vide et ses ouvertures ne deviennent pas des Récents. Les destinations
-de déplacement restent accessibles par interaction directe ou raccourci. Un Récent est ajouté
-uniquement après exécution d'une Action depuis la Palette, stocké localement comme préférence UI non
-autoritative et affiché seulement si son Action appartient encore au Catalogue courant. Les neuf
-premiers résultats visibles sont directement activables avec `Cmd+1` à `Cmd+9` sur macOS, ou
-`Alt+1` à `Alt+9` ailleurs.
-
-Les raccourcis du Tableau ne sont actifs que lorsque le focus est dans sa zone, hors `input`,
-`textarea`, contenu `contenteditable`, contrôle interactif et overlay. Les Dialogs
-prennent leur propre contexte clavier et neutralisent tous les raccourcis du Tableau. `Escape` ferme
-le Dialog Ticket selon la règle d'historique et restitue le focus selon la chaîne de fallback définie pour
-la navigation. Le réordonnancement par `Alt+Shift+↑` / `Alt+Shift+↓` est désactivé en mode filtré ;
-le changement de colonne reste permis et insère alors en fin de colonne.
-
-La sélection multiple est hors v1.
+Les raccourcis du Tableau sont inactifs depuis un champ, un contrôle interactif ou un overlay. Le
+Dialog possède son propre contexte clavier. La sélection multiple est hors v1.
 
 ## Dialog Ticket
 
-### Comportement
+### Structure
 
-Le composant coss `Dialog` s'ouvre au centre et reste contrôlé par `ticket` dans l'URL. Sa largeur
-desktop accueille les métadonnées sur trois colonnes, tandis que le panneau central gère le contenu
-long par défilement. Base UI conserve le focus trap, `Escape` et le titre accessible. La restitution du focus est
-pilotée par le Tableau pour appliquer son fallback, sans tenter de cibler un élément supprimé,
-archivé ou filtré.
+Le Dialog est contrôlé par le paramètre `ticket` de l'URL. Son contenu suit strictement cet ordre :
 
-Le contenu suit cet ordre :
+1. **Détails**
+2. **Dépendances**
+3. **Activité système**
 
-1. détails et métadonnées ;
-2. exécutions ;
-3. Workbench ;
-4. activité système.
+Aucune section Responsable, Checklist, Exécution ou Workbench n'existe en v1.
 
-Les sections secondaires sont repliables, mais aucune information exigeant l'humain ne doit être
-cachée par défaut.
+### Détails
 
-### Édition
+Le titre est toujours visible, requis et éditable inline. Une valeur vide est refusée avec le
+message `Le titre est requis`.
 
-- Titre et champs courts : édition inline, sauvegarde optimiste au blur ou avec `Enter`.
-- Description : GitHub Flavored Markdown, rendu par défaut, édition explicite et sauvegarde avec
-  `Cmd/Ctrl+Enter`.
-- Responsable, participants, labels et priorité : sauvegarde immédiate à la sélection.
-- Checklist : interactions optimistes ; un item peut être converti en Ticket via une action dédiée.
+La section Détails contient :
 
-Le sélecteur de responsable regroupe `Humains` et `Agents`, avec recherche. Le responsable est
-unique. Le sélecteur de participants réutilise ces groupes en choix multiple. Responsable et
-participants sont abonnés par défaut avec opt-out.
+- **Priorité** : `Aucune`, `Basse`, `Normale`, `Haute`, `Urgente` ;
+- **Échéance** : date optionnelle, sélectionnable et effaçable ;
+- **Description** : texte optionnel édité explicitement puis rendu en GitHub Flavored Markdown.
 
-Les profils affichent avatar, nom et rôle, par exemple `Marion · Orchestratrice`. Le rôle est une
-configuration visuelle, jamais une permission implicite.
+Le rendu GFMD accepte notamment titres, listes, liens, tableaux, citations et blocs de code. Le HTML
+brut n'est pas interprété. `Cmd/Ctrl+Enter` enregistre la description.
+
+La priorité et l'échéance sont enregistrées à la sélection. Le titre est enregistré au blur ou avec
+`Enter`.
 
 ### Dépendances
 
-Le Dialog distingue `Bloqué par` et `Bloque`. Une recherche de Tickets permet d'ajouter une relation.
-La création d'un cycle est rejetée avec une explication locale.
+La section distingue :
 
-`Convertir en ticket` sur un item de checklist crée un Ticket lié, marque l'item comme converti et
-ouvre le nouveau Ticket.
+- `Bloqué par` : prérequis du Ticket courant ;
+- `Bloque` : Tickets qui dépendent du Ticket courant.
 
-### Exécutions
+Chaque côté permet d'ajouter et retirer une relation. Les sélecteurs montrent les Tickets du projet
+et désactivent les choix invalides avec une raison :
 
-Assigner un profil d'agent ne lance pas d'exécution. Le CTA `Lancer une exécution` ouvre un second
-Dialog avec :
+- `Ticket courant` pour une auto-dépendance ;
+- `Déjà lié` pour un doublon ;
+- `Créerait un cycle` pour une relation qui violerait le DAG.
 
-- résultat attendu obligatoire ;
-- profil d'agent ;
-- budget hérité ;
-- politique d'outils héritée ;
-- section `Paramètres avancés` pour inspecter ou modifier les valeurs héritées.
+Le client prévient les erreurs évidentes, mais le domaine valide à nouveau l'absence
+d'auto-dépendance, de doublon et de cycle. Toute modification réussie rejoint l'activité système.
 
-Le CTA final porte le même libellé explicite. Toutes les exécutions actives ou passées restent
-consultables dans le Dialog Ticket avec leurs Attempts, rapports et artefacts en détail progressif.
-Quand plusieurs exécutions sont actives, le Dialog les liste séparément et reprend en tête le compteur et
-le statut agrégé de la carte selon la priorité d'attention déterministe.
+### Activité système
 
-### Workbench
+L'activité est chargée depuis la lecture serveur bornée du Ticket et ordonnée du plus récent au plus
+ancien. Chaque entrée affiche l'acteur, le fait lisible et l'horodatage.
 
-Le Workbench affiche la conversation complète de son Thread et permet de répondre sans quitter le
-Ticket. `Ouvrir dans le Channel` affiche ce même Thread dans le contexte du chat général.
+Elle couvre notamment :
 
-L'identité conversationnelle d'un agent est son profil (`avatar + nom + rôle`), jamais son
-AgentRun. Le Thread source éventuel est présenté séparément comme origine immuable.
+- création et modification des détails ;
+- déplacement, terminaison et réouverture ;
+- archivage et restauration ;
+- changement durable de responsable, même si le champ est masqué de l'UI ;
+- ajout ou retrait d'une dépendance ;
 
-### Activité
+L'activité est autoritative : elle provient des événements persistés. Elle reste distincte du
+Channel et ne transforme pas les Messages en commentaires de Ticket. Un état de chargement, une
+erreur explicite et un état vide sont prévus.
 
-La timeline système est séparée et repliée par défaut. Elle contient déplacements, assignations,
-changements de priorité, exécutions, approbations, archivage et restauration. Elle détaille aussi le
-résultat d'une interruption groupée : exécutions interrompues, exécutions encore actives et motif de
-l'échec. En cas de résultat partiel, cette entrée reste visible sans déplier manuellement la section.
-La timeline ne se mélange jamais aux messages du Workbench.
+## Channel et source
 
-### Archivage et suppression
+`Channel`, `Thread` et `Message` sont génériques. Un flux de création depuis un Thread peut :
 
-Archiver retire le Ticket du Tableau actif et propose brièvement `Annuler`. Comme la clôture,
-l'archivage avec des exécutions actives exige d'abord une confirmation qui en indique le nombre.
-Après confirmation, il retire le Ticket puis tente de toutes les interrompre. La clôture ou
-l'archivage reste effectif si certaines interruptions échouent : la timeline distingue les
-exécutions interrompues de celles encore actives, l'Inbox signale l'échec, et les deux surfaces
-proposent `Réessayer d'interrompre` pour les seules exécutions restantes. Les archives sont une vue
-compacte et recherchable accessible depuis le menu global du Tableau. Elles permettent restauration
-et suppression définitive.
+1. préremplir le titre et la description ;
+2. enregistrer le Thread d'origine comme `sourceThreadId` immuable ;
+3. choisir une colonne non terminale ;
+4. ouvrir le nouveau Ticket dans le Tableau.
 
-La suppression définitive n'est disponible que depuis les archives et exige une confirmation
-renforcée expliquant son effet sur les relations conservées.
-
-## Channel et création liée
-
-Le menu d'un message ou d'un Thread proposera `Créer un ticket`. Le Channel ne contribue encore
-aucune Action à la Palette en v1. Le flux de création liée :
-
-1. préremplit titre et description ;
-2. conserve le Thread d'origine comme source immuable ;
-3. demande une colonne non terminale, sans proposer `Done` ;
-4. crée un Workbench distinct pour le nouveau Ticket ;
-5. ouvre le Ticket dans le Tableau.
-
-Le serveur applique la même interdiction de création dans `Done` que pour les flux du Tableau.
-
-Les commandes conversationnelles et slash commands sont hors périmètre.
-
-## Inbox
-
-L'Inbox agrège seulement les éléments demandant une action :
-
-- question explicite ;
-- approbation ;
-- échec nécessitant une décision ;
-- interruption partielle après clôture ou archivage, avec la liste des exécutions encore actives et
-  l'action `Réessayer d'interrompre` ;
-- blocage nécessitant l'humain ;
-- mention ou notification issue d'un abonnement.
-
-L'étiquette `need-human` reste un signal manuel, visuel et filtrable ; elle n'alimente pas l'Inbox à
-elle seule.
-
-Cliquer une attention navigue vers le Tableau avec le Dialog ouvert et place le focus sur la section
-concernée. Cette arrivée ne prétend pas avoir une entrée précédente du même Tableau : fermer le
-Dialog utilise `replace`, puis applique le fallback de focus.
+Ce flux ne crée aucun Thread supplémentaire. La conversation continue dans le Channel ; les faits
+système restent dans l'activité du Ticket.
 
 ## Optimisme, temps réel et erreurs
 
-### Règle générale
+Le client applique immédiatement les éditions et déplacements simples, puis soumet la commande avec
+son `commandId`. Les créations et relations attendent le snapshot suivant. Une acceptation ou un
+rejet déclenche un rechargement du `BoardSnapshot` ; le snapshot redevient alors l'état affiché
+autoritatif. Un événement du flux projet déclenche aussi le rechargement du Tableau et, si le Dialog
+est ouvert, de son activité.
 
-Le client maintient trois notions distinctes :
+Une reconnexion charge un snapshot cohérent puis reprend le flux depuis son curseur. Le WebSocket
+n'est jamais une source de vérité.
 
-- l'état confirmé, issu de la dernière projection serveur autoritaire ;
-- une file ordonnée de commandes optimistes en attente, chacune corrélée par son `commandId` ;
-- l'état affiché, obtenu uniquement en rejouant cette file sur l'état confirmé.
-
-Pour toute action applicable :
-
-1. ajouter la commande idempotente à la fin de la file pending et la soumettre ;
-2. rejouer dans l'ordre toutes les commandes pending sur l'état confirmé, puis afficher le résultat ;
-3. à chaque projection serveur, y compris après reconnexion, remplacer l'état confirmé ;
-4. retirer seulement les commandes explicitement acquittées ou rejetées d'après leur `commandId` ;
-5. rejouer dans l'ordre les commandes restantes sur la nouvelle base et recalculer l'affichage.
-
-Ainsi, après deux déplacements pending `M1` puis `M2`, une projection qui confirme `M1` retire
-uniquement `M1` et rejoue `M2` : la carte ne régresse jamais visuellement vers la destination de
-`M1`. Si `M1` est rejetée, le client retire uniquement `M1`, adopte la nouvelle projection confirmée
-et réapplique `M2` sur cette base. Une projection ne remplace donc jamais directement l'état affiché
-et ne vide jamais toute la file par simple correspondance d'entité.
-
-Les succès ordinaires restent silencieux. Une action anormalement lente affiche
-`Synchronisation…` près de l'élément. Un échec reste visible jusqu'à compréhension ou résolution.
-
-Les changements distants rejoignent immédiatement l'état confirmé avec une transition brève et
-l'identité de leur auteur. L'état affiché les montre après replay ; une commande pending plus récente
-peut donc continuer à prévaloir localement. Ils ne génèrent pas de toast systématique.
-
-En reconnexion ou mode dégradé, un bandeau discret explique l'état. Les mutations optimistes non
-confirmées restent marquées en attente. Le snapshot de reprise devient la nouvelle base confirmée ;
-seules les commandes dont le `commandId` est acquitté ou rejeté en sont retirées avant le replay.
-
-### Annulation
-
-`Cmd/Ctrl+Z` est disponible seulement dans la zone du Tableau, hors contrôle éditable ou interactif,
-et cible le dernier déplacement encore présent dans la file pending. Il ajoute à la suite une
-commande de déplacement inverse avec son propre `commandId`, afin que la réconciliation conserve
-l'ordre des faits déjà soumis. Il ne rembobine ni la projection confirmée ni un changement distant.
-Sans déplacement pending, il ne fait rien et annonce `Aucun déplacement en attente à annuler`.
-L'archivage propose une action temporaire `Annuler`. Les autres commandes métier utilisent leurs
-commandes inverses explicites ; il n'existe pas d'undo générique.
+La file durable hors ligne, le replay de plusieurs commandes locales concurrentes et l'undo
+générique sont hors de cette première UI. Un rejet affiche son motif métier, recharge le snapshot
+et restitue un focus cohérent.
 
 ## Accessibilité
 
 - Toute carte, colonne, cible de drop et commande possède un nom accessible.
-- Le drag-and-drop dispose des mêmes opérations au clavier, sous les mêmes restrictions de filtre.
-- Sans filtre, les annonces décrivent cible et position, par exemple
-  `Ticket déplacé vers En cours, position 2`.
-- En mode filtré, elles omettent toute position ambiguë et annoncent
-  `Ticket déplacé vers En cours, en fin de colonne`.
-- Si le Ticket sort de la vue filtrée, l'annonce le précise et le focus suit la règle déterministe
-  carte suivante, carte précédente, puis en-tête de la colonne cible.
-- Un rejet serveur produit une annonce équivalente et restitue un focus cohérent.
-- Couleur, animation et position ne portent jamais seules une information.
-- Les badges utilisent une icône et un libellé explicite.
-- Le focus reste visible et suit le fallback carte d'origine, première carte visible de sa colonne,
-  puis titre `Tableau` après fermeture du Dialog.
-- Les raccourcis sont découvrables dans les menus, tooltips et la palette.
+- Le drag-and-drop dispose d'opérations clavier équivalentes.
+- Sans filtre, les annonces décrivent la colonne et la position.
+- En mode filtré, elles annoncent la fin de colonne sans position ambiguë.
+- Couleur, icône, animation et position ne portent jamais seules une information.
+- Le badge `Bloqué` possède un libellé explicite.
+- Le focus reste visible et suit le fallback documenté après fermeture du Dialog.
+- Les raccourcis sont découvrables dans les menus et la Palette.
 
-## Hors périmètre de la première version
+## Hors périmètre v1
 
-- expérience mobile complète ;
+- responsable visible ou éditable ;
+- checklist, todolist et conversion d'un item ;
+- Workbench ou Thread dédié au Ticket ;
+- exécution, tentative, run, agent ou orchestrateur ;
+- Inbox d'approbations ou d'attentes agent ;
 - sélection multiple et actions groupées ;
-- colonnes repliables ou redimensionnables ;
 - vue graphe des dépendances ;
 - vues filtrées sauvegardées ;
-- raccourcis personnalisables ;
+- filtres par responsable ou label ;
+- réordonnancement des colonnes ;
+- file hors ligne et replay de commandes concurrentes ;
+- undo générique ;
+- expérience mobile complète ;
 - slash commands dans le Channel ;
-- pourcentage de progression agent inventé ;
-- agent ou orchestrateur intégré à Noyau.
+- surfaces d'archives et suppression définitive.
+
+Les commandes durables d'archivage et de restauration peuvent exister sans imposer leur surface à la
+première UI.
 
 ## Critères d'acceptation UX
 
-1. Un utilisateur peut créer, ouvrir, déplacer, clôturer et rouvrir un Ticket au pointeur comme au
-   clavier ; la création ne propose jamais `Done` et le serveur la refuse si elle le cible.
-2. `Done` ne propose pas `Supprimer`, et ni l'UI ni le domaine n'acceptent `Done` comme destination
-   lors de la suppression d'une autre colonne.
-3. En vue complète, un utilisateur peut réordonner un Ticket au pointeur comme au clavier. En mode
-   filtré, ce réordonnancement est désactivé, mais un déplacement inter-colonnes reste possible en
-   fin de colonne et reçoit une annonce sans position ambiguë.
-4. L'URL partage Tableau, Ticket ouvert, recherche et filtres. Back ne ferme le Dialog que depuis un
-   vrai `push` du même Tableau ; les autres fermetures utilisent `replace`, et le focus suit le
-   fallback documenté.
-5. Confirmer ou rejeter `M1` alors que `M2` reste pending conserve l'effet affiché de `M2` après
-   replay sur la nouvelle projection confirmée, y compris après reconnexion.
-6. Une clôture ou un archivage confirme puis interrompt toutes les exécutions actives. Un résultat
-   partiel distingue les exécutions interrompues et encore actives dans la timeline et l'Inbox, avec
-   une action pour réessayer.
-7. Une attention Inbox ouvre directement la bonne section du Ticket.
-8. Le Workbench montre le même Thread que le Channel sans fusionner conversation et activité.
-9. Assigner un agent ne lance rien ; le lancement exige un résultat attendu dans un Dialog.
-10. Un projet sans agent ne présente aucune dépendance UX à un orchestrateur.
-11. Les opérations DnD sont annoncées et réalisables au clavier sous les mêmes règles de filtre, et
-    les raccourcis du Tableau ne s'activent jamais depuis un champ, un contrôle ou un overlay.
-12. `Cmd/Ctrl+K` ouvre la Palette depuis toute page ; elle affiche les Récents applicables, les
-    Actions de la page puis les destinations de Navigation sans dupliquer la page courante.
-13. Sur le Tableau, saisir un titre ou un label fait apparaître les Tickets correspondants sans
-    afficher le catalogue complet à query vide ; choisir un résultat ouvre son Dialog.
+1. Un Ticket peut être créé avec son seul titre dans toute colonne non terminale ; ni l'UI ni le
+   domaine n'acceptent une création dans `Done`.
+2. Une carte affiche le titre, la priorité, l'échéance éventuelle et `Bloqué` si un prérequis est
+   ouvert, sans responsable, checklist ni état agent.
+3. Le Dialog présente exactement Détails, Dépendances puis Activité système.
+4. Le titre vide est refusé ; la description est éditable et rendue en GFMD sans HTML brut.
+5. Priorité et échéance peuvent être définies puis effacées sans perdre les autres détails.
+6. `Bloqué par` et `Bloque` permettent d'ajouter et retirer des relations ; auto-dépendances,
+   doublons et cycles sont empêchés côté client puis rejetés côté domaine.
+7. Déplacer vers `Done` avec une dépendance ouverte est rejeté sans acquittement explicite, recharge
+   l'état autoritatif et ne modifie pas le DAG.
+8. L'activité affiche les faits Ticket persistés et reste distincte des Threads et Messages du
+   Channel.
+9. L'URL partage le Ticket ouvert, la recherche et le filtre de priorité ; fermer le Dialog
+   conserve les autres paramètres et restitue le focus.
+10. En vue complète, le réordonnancement fonctionne au pointeur et au clavier. En vue filtrée, il
+    est désactivé, mais le déplacement inter-colonnes reste possible en fin de colonne.
+11. Une commande rejetée recharge le snapshot et annule l'état optimiste correspondant.
+12. Une reconnexion recharge le snapshot puis reprend le flux ordonné depuis son curseur.

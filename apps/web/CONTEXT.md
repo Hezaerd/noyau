@@ -1,35 +1,43 @@
 # @noyau/web
 
-Langage de l'interface de collaboration et de supervision des projets Noyau.
+Langage de l'interface humaine des projets et Tickets Noyau.
 
 ## Langage
 
 **Tableau**:
-Vue Kanban unique d'un projet, composée de colonnes ordonnées et de tickets.
+Vue Kanban unique d'un projet, composée de colonnes ordonnées et de Tickets.
 _À éviter_ : Kanban, liste de tâches
 
 **Ticket**:
-Élément de travail affiché comme une carte dans le Tableau.
+Élément de travail durable affiché comme une carte dans le Tableau et détaillé dans un Dialog.
 _À éviter_ : tâche, carte, exécution
 
+**Responsable**:
+Acteur durable optionnel d'un Ticket, volontairement absent de l'interface v1.
+_À éviter_ : exécutant, participant
+
+**Dépendance**:
+Relation orientée entre deux Tickets, présentée comme `Bloqué par` ou `Bloque`.
+_À éviter_ : sous-ticket, checklist, todolist
+
+**Activité système**:
+Historique autoritatif des faits d'un Ticket, affiché séparément des conversations.
+_À éviter_ : commentaire, Channel, historique local
+
 **Channel**:
-Canal de discussion général d'un projet.
-_À éviter_ : forum, Workbench
+Canal de discussion générique d'un projet.
+_À éviter_ : activité système, espace de Ticket
 
 **Thread**:
-Discussion isolée au sein d'un Channel.
-_À éviter_ : Channel, commentaire de ticket
-
-**Workbench**:
-Nom affiché du Thread dédié à la collaboration opérationnelle sur un Ticket.
-_À éviter_ : nouvelle entité de conversation, espace d'exécution
+Discussion isolée au sein d'un Channel, éventuellement référencée comme source d'un Ticket.
+_À éviter_ : Channel, commentaire de Ticket
 
 **Palette**:
-Overlay clavier searchable de l'app. Elle propose navigation, verbes de la page et Récents, puis les Tickets du Tableau lorsqu'une recherche est saisie.
+Overlay clavier searchable de l'app qui propose navigation, Actions et résultats contextuels.
 _À éviter_ : Command, Command palette, Spotlight, Menu
 
 **Action**:
-Entrée choisissable du catalogue UI de l'app. Ce n'est pas une Command.
+Entrée choisissable du catalogue UI de l'app. Ce n'est pas une Command du control plane.
 _À éviter_ : Command, BoardCommand, commande
 
 **BoardAction**:
@@ -37,17 +45,13 @@ Action dont la cible appartient au Tableau.
 _À éviter_ : BoardCommand
 
 **Contexte d'activation**:
-Page courante, qui détermine les verbes proposés par la Palette.
+Page courante qui détermine les verbes proposés par la Palette.
 _À éviter_ : context, focus, mode, intelligence, sélection
 
 **Récent**:
-Action déjà déclenchée, proposée si elle reste applicable dans le contexte d'activation courant.
+Action déjà déclenchée, proposée si elle reste applicable au contexte d'activation courant.
 _À éviter_ : history, shortcut, historique
 
 **Catalogue**:
-Union des Actions du socle de navigation, des verbes de la page courante et des résultats recherchables propres à cette page.
+Union des Actions de navigation, des verbes de la page courante et de ses résultats recherchables.
 _À éviter_ : registry, command list
-
-Le Tableau charge un `BoardSnapshot`, soumet des `TicketCommandRequest` et reprend le flux projet
-sur Effect RPC WebSocket. L'identité courante appartient à la frontière serveur ; l'UI ne fournit
-ni acteur sandbox ni métadonnée d'enrichissement de commande.
