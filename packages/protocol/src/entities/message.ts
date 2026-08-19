@@ -1,8 +1,6 @@
 import {
   ActorId,
-  AgentRunId,
   CorrelationId,
-  ExecutionId,
   MessageId,
   ProjectId,
   ThreadId,
@@ -23,7 +21,5 @@ export class Message extends Schema.Class<Message>("@noyau/protocol/entities/Mes
   replyTo: Schema.optionalKey(MessageId),
   correlationId: Schema.optionalKey(CorrelationId),
   ticketId: Schema.optionalKey(TicketId),
-  executionId: Schema.optionalKey(ExecutionId),
-  runId: Schema.optionalKey(AgentRunId),
   createdAt: Schema.DateTimeUtcFromString,
 }) {}

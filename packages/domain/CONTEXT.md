@@ -1,42 +1,26 @@
 # @noyau/domain
 
-Langage métier du tracker Kanban humains-agents et de ses exécutions isolées.
+Langage métier du tracker Kanban Ticket v1.
 
 ## Langage
 
 **Tableau**:
 Projection Kanban unique d'un projet, composée de colonnes librement ordonnées entre lesquelles les
 tickets sont déplacés.
-_À éviter_ : Board multiple, workflow d'exécution
+_À éviter_ : Board multiple, liste de tâches
 
 **Colonne Done**:
 Colonne terminale unique d'un tableau. Son identité est native et protégée, tandis que son nom, sa
 couleur et sa position sont configurables.
-_À éviter_ : colonne ordinaire, statut d'exécution
+_À éviter_ : colonne ordinaire, statut de Ticket
 
 **Ticket**:
-Élément de travail durable organisé sur un tableau, qu'il soit non assigné ou confié à un humain,
-ou à un profil d'agent.
-_À éviter_ : Task, Mission, unité d'exécution
+Élément de travail durable et plat organisé sur un Tableau.
+_À éviter_ : Task, Mission, checklist, unité d'exécution
 
-**AgentProfile**:
-Configuration persistante d'un agent, incluant son identité affichée et son rôle sans conférer de
-permission implicite.
-_À éviter_ : agent système, AgentRun
-
-**Execution**:
-Intention durable de faire contribuer un ou plusieurs agents à un ticket avec un résultat attendu,
-un budget et une politique d'outils.
-_À éviter_ : Ticket, tâche, AgentRun
-
-**Attempt**:
-Tentative isolée de réaliser une exécution. Chaque retry crée un nouvel Attempt avec son propre
-environnement de travail.
-_À éviter_ : Execution, AgentRun, retry mutable
-
-**AgentRun**:
-Invocation concrète d'un agent au sein d'un Attempt, comme run principal ou auxiliaire.
-_À éviter_ : Execution, Attempt
+**Dépendance Ticket**:
+Relation orientée dans laquelle un Ticket dépend d'un autre Ticket ; l'ensemble forme un DAG.
+_À éviter_ : sous-ticket, checklist, ordre de colonne
 
 **Étiquette**:
 Classification configurable dans le périmètre d'un projet et attachable à un ticket. L'étiquette
@@ -44,11 +28,11 @@ native `need-human` signale visuellement un besoin humain sans déclencher de co
 _À éviter_ : statut, type de ticket
 
 **Responsable**:
-Acteur unique qui porte la responsabilité principale d'un ticket.
+Acteur unique et optionnel qui porte la responsabilité principale d'un Ticket.
 _À éviter_ : participant, exécutant
 
 **Participant**:
-Acteur associé explicitement à un ticket sans en porter la responsabilité principale.
+Acteur associé explicitement à un Ticket sans en porter la responsabilité principale.
 _À éviter_ : responsable, abonné implicite
 
 **Ticket archivé**:

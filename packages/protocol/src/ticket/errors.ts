@@ -1,4 +1,4 @@
-import { ExecutionId, KanbanColumnId, TicketId } from "@noyau/protocol/ids"
+import { KanbanColumnId, TicketId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
 export class TicketAlreadyExists extends Schema.TaggedError<TicketAlreadyExists>()(
@@ -113,32 +113,6 @@ export class OpenDependenciesConfirmationRequired extends Schema.TaggedError<Ope
   { ticketId: TicketId },
 ) {}
 
-export class ActiveExecutionConfirmationRequired extends Schema.TaggedError<ActiveExecutionConfirmationRequired>()(
-  "ActiveExecutionConfirmationRequired",
-  {
-    ticketId: TicketId,
-    executionIds: Schema.NonEmptyArray(ExecutionId),
-  },
-) {}
-
-export class ExecutionAlreadyExists extends Schema.TaggedError<ExecutionAlreadyExists>()(
-  "ExecutionAlreadyExists",
-  { executionId: ExecutionId },
-) {}
-
-export class ExecutionBlockedByDependencies extends Schema.TaggedError<ExecutionBlockedByDependencies>()(
-  "ExecutionBlockedByDependencies",
-  { ticketId: TicketId },
-) {}
-
-export class ExecutionForbiddenForTicket extends Schema.TaggedError<ExecutionForbiddenForTicket>()(
-  "ExecutionForbiddenForTicket",
-  {
-    ticketId: TicketId,
-    reason: Schema.Literals(["completed", "archived"]),
-  },
-) {}
-
 export const TicketRejection = Schema.Union([
   TicketAlreadyExists,
   TicketNotFound,
@@ -159,9 +133,5 @@ export const TicketRejection = Schema.Union([
   TicketAlreadyCompleted,
   TicketNotCompleted,
   OpenDependenciesConfirmationRequired,
-  ActiveExecutionConfirmationRequired,
-  ExecutionAlreadyExists,
-  ExecutionBlockedByDependencies,
-  ExecutionForbiddenForTicket,
 ])
 export type TicketRejection = (typeof TicketRejection)["Type"]

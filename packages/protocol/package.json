@@ -13,7 +13,6 @@
     "./entities/message": "./src/entities/message.ts",
     "./entities/kanban-column": "./src/entities/kanban-column.ts",
     "./entities/ticket": "./src/entities/ticket.ts",
-    "./entities/execution": "./src/entities/execution.ts",
     "./commands": "./src/commands.ts",
     "./events": "./src/events.ts",
     "./ticket/commands": "./src/ticket/commands.ts",

@@ -11,16 +11,15 @@ Frontière qui authentifie, enrichit et remet une `CommandRequest` au modèle de
 _À éviter_ : contrôleur CRUD, mutation endpoint
 
 **BoardSnapshot**:
-Vue cohérente des colonnes et tickets actifs d'un projet accompagnée de l'`EventCursor`
-représentant le même instant logique. Les exécutions sont chargées séparément à l'ouverture d'un
-ticket.
-_À éviter_ : liste de tâches, état d'exécution
+Vue cohérente des colonnes, tickets et relations du DAG d'un projet accompagnée de l'`EventCursor`
+représentant le même instant logique.
+_À éviter_ : liste de tâches
+
+**TicketActivity**:
+Historique borné des faits Ticket autoritatifs, ordonné du plus récent au plus ancien.
+_À éviter_ : journal SQL, flux projet
 
 **ProjectEventFeed**:
 Suite ordonnée d'`EventEnvelope` d'un projet, livrée au moins une fois et reprise avec un
 `EventCursor`.
 _À éviter_ : WebSocket, bus d'événements
-
-La frontière applicative est `ControlPlaneRpcs` sur WebSocket. En développement, le serveur fournit
-l'acteur configuré par `NOYAU_DEV_ACTOR_ID` ; aucun identifiant choisi par le navigateur ne devient
-une identité vérifiée.

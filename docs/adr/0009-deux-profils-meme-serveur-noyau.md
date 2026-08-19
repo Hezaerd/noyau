@@ -6,6 +6,10 @@ Statut : accepté — remplace la topologie de distribution de l'ADR-0004.
 
 ---
 
+> **Portée v1 :** l'ADR-0010 conserve les deux profils serveur et stockage, mais diffère toute
+> intégration Hermes. Les mentions Hermes ci-dessous documentent l'intention historique, pas une
+> composante active de Ticket v1.
+
 Noyau adopte un seul modèle client/serveur et deux profils de déploiement. `Noyau Desktop` est le
 client Electron qui réutilise le renderer React ; il ne possède jamais l'état métier. `Noyau Server`
 est le modular monolith lancé par `noyau serve` et reste l'unique autorité durable : commandes,

@@ -3,11 +3,9 @@ import { Schema } from "effect"
 import { MessageKind } from "./entities/message"
 import {
   ActorId,
-  AgentRunId,
   CommandId,
   CorrelationId,
   EventId,
-  ExecutionId,
   MessageId,
   ProjectId,
   SchemaVersion,
@@ -16,7 +14,6 @@ import {
 } from "./ids"
 import {
   BoardInitialize,
-  ExecutionStart,
   KanbanColumnCreate,
   KanbanColumnDelete,
   KanbanColumnMove,
@@ -57,8 +54,6 @@ export const MessageSend = Schema.TaggedStruct("message.send", {
     body: Schema.NonEmptyString,
     replyTo: Schema.optionalKey(MessageId),
     ticketId: Schema.optionalKey(TicketId),
-    executionId: Schema.optionalKey(ExecutionId),
-    runId: Schema.optionalKey(AgentRunId),
   }),
 })
 export type MessageSend = (typeof MessageSend)["Type"]
@@ -75,7 +70,6 @@ export const Command = Schema.Union([
   TicketUpdate,
   TicketDependencyAdd,
   TicketDependencyRemove,
-  ExecutionStart,
   KanbanColumnCreate,
   KanbanColumnUpdate,
   KanbanColumnMove,

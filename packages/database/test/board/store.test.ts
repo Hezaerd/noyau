@@ -4,6 +4,7 @@ import {
   executeBoardInitialize,
   executeTicketCommandRequest,
   readProjectBoardSnapshot,
+  readTicketActivity,
 } from "@noyau/database/board/store"
 import { migrationsLayer } from "@noyau/database/migrations"
 import { readProjectEvents } from "@noyau/database/project-stream"
@@ -11,13 +12,10 @@ import { KanbanColumn } from "@noyau/protocol/entities/kanban-column"
 import { Ticket } from "@noyau/protocol/entities/ticket"
 import {
   ActorId,
-  AgentProfileId,
   CommandId,
   CorrelationId,
-  ExecutionId,
   KanbanColumnId,
   ProjectId,
-  ThreadId,
   TicketId,
 } from "@noyau/protocol/ids"
 import {
@@ -51,10 +49,7 @@ const uuid = (prefix: string, suffix: number) =>
 const project = (suffix: number) => ProjectId.make(uuid("aaaaaaaa", suffix))
 const column = (suffix: number) => KanbanColumnId.make(uuid("bbbbbbbb", suffix))
 const ticket = (suffix: number) => TicketId.make(uuid("cccccccc", suffix))
-const thread = (suffix: number) => ThreadId.make(uuid("dddddddd", suffix))
 const command = (suffix: number) => CommandId.make(uuid("eeeeeeee", suffix))
-const execution = (suffix: number) => ExecutionId.make(uuid("ffffffff", suffix))
-const profile = (suffix: number) => AgentProfileId.make(uuid("99999999", suffix))
 
 const human = ActorId.make("human:hezaerd")
 const agent = ActorId.make("agent:marion")
@@ -85,7 +80,6 @@ const initialize = (
 const createTicket = (
   commandId: CommandId,
   ticketId: TicketId,
-  workbenchThreadId: ThreadId,
   columnId: KanbanColumnId,
   title = "Ticket",
 ) =>
@@ -94,7 +88,6 @@ const createTicket = (
     commandId,
     payload: {
       ticketId,
-      workbenchThreadId,
       title,
       placement: { columnId },
     },
@@ -227,11 +220,11 @@ describe("board store", () => {
 
         const ticketId = ticket(10)
         const createCommand = command(12)
-        const original = createTicket(createCommand, ticketId, thread(10), backlog, "Original")
+        const original = createTicket(createCommand, ticketId, backlog, "Original")
         yield* execute(projectId, original)
 
         const payloadConflict = yield* Effect.flip(
-          execute(projectId, createTicket(createCommand, ticketId, thread(10), backlog, "Modifié")),
+          execute(projectId, createTicket(createCommand, ticketId, backlog, "Modifié")),
         )
         const actorConflict = yield* Effect.flip(execute(projectId, original, agent))
         const projectConflict = yield* Effect.flip(execute(project(3), original))
@@ -261,7 +254,7 @@ describe("board store", () => {
         }
 
         const create = request({
-          ...createTicket(command(21), ticket(20), thread(20), backlog),
+          ...createTicket(command(21), ticket(20), backlog),
           causationId,
         })
         yield* execute(projectId, create)
@@ -272,7 +265,7 @@ describe("board store", () => {
           execute(
             otherProjectId,
             request({
-              ...createTicket(command(22), ticket(21), thread(21), column(24)),
+              ...createTicket(command(22), ticket(21), column(24)),
               causationId,
             }),
           ),
@@ -281,7 +274,7 @@ describe("board store", () => {
       }),
     )
 
-    it.effect("projette toutes les commandes Ticket, dépendance et execution.start", () =>
+    it.effect("projette les commandes Ticket, le DAG et l'activité autoritative", () =>
       Effect.gen(function* () {
         const projectId = project(6)
         const backlog = column(31)
@@ -290,14 +283,8 @@ describe("board store", () => {
         const firstTicket = ticket(30)
         const secondTicket = ticket(31)
         yield* initialize(projectId, command(30), backlog, active, done)
-        yield* execute(
-          projectId,
-          createTicket(command(31), firstTicket, thread(30), backlog, "Premier"),
-        )
-        yield* execute(
-          projectId,
-          createTicket(command(32), secondTicket, thread(31), backlog, "Prérequis"),
-        )
+        yield* execute(projectId, createTicket(command(31), firstTicket, backlog, "Premier"))
+        yield* execute(projectId, createTicket(command(32), secondTicket, backlog, "Prérequis"))
 
         yield* execute(
           projectId,
@@ -338,25 +325,10 @@ describe("board store", () => {
           }),
         )
 
-        const blockedRequest = request({
-          _tag: "execution.start",
-          commandId: command(37),
-          payload: {
-            executionId: execution(30),
-            ticketId: firstTicket,
-            expectedOutcome: "Une migration durable",
-            agentProfileId: profile(30),
-            budget: { maxTokens: 20_000, timeoutSeconds: 1_800 },
-            toolPolicy: { allowed: ["read", "edit"] },
-          },
-        })
-        const blocked = yield* execute(projectId, blockedRequest)
-        const blockedRetry = yield* execute(projectId, blockedRequest)
-        assert.deepStrictEqual(blockedRetry, blocked)
-        assert.strictEqual(blocked.response._tag, "rejected")
-        if (blocked.response._tag === "rejected") {
-          assert.strictEqual(blocked.response.error._tag, "ExecutionBlockedByDependencies")
-        }
+        const withDependency = yield* readProjectBoardSnapshot(projectId)
+        assert.deepStrictEqual(withDependency.ticketDependencies, [
+          { ticketId: firstTicket, dependsOnTicketId: secondTicket },
+        ])
 
         yield* execute(
           projectId,
@@ -366,41 +338,18 @@ describe("board store", () => {
             payload: { ticketId: firstTicket, dependsOnTicketId: secondTicket },
           }),
         )
-        yield* execute(
-          projectId,
-          request({
-            ...blockedRequest,
-            commandId: command(39),
-          }),
-        )
-
-        const confirmation = yield* execute(
-          projectId,
-          request({
-            _tag: "ticket.complete",
-            commandId: command(40),
-            payload: { ticketId: firstTicket },
-          }),
-        )
-        assert.strictEqual(confirmation.response._tag, "rejected")
-        if (confirmation.response._tag === "rejected") {
-          assert.strictEqual(
-            confirmation.response.error._tag,
-            "ActiveExecutionConfirmationRequired",
-          )
-        }
 
         const completed = yield* execute(
           projectId,
           request({
             _tag: "ticket.complete",
             commandId: command(41),
-            payload: { ticketId: firstTicket, interruptActiveExecution: true },
+            payload: { ticketId: firstTicket },
           }),
         )
         assert.strictEqual(completed.response._tag, "accepted")
         if (completed.response._tag === "accepted") {
-          assert.strictEqual(completed.response.eventIds.length, 2)
+          assert.strictEqual(completed.response.eventIds.length, 1)
         }
 
         let snapshot = yield* readProjectBoardSnapshot(projectId)
@@ -417,7 +366,6 @@ describe("board store", () => {
           assert.strictEqual(projected.lastActiveColumnId, active)
           assert.deepStrictEqual(projected.participantIds, [])
           assert.deepStrictEqual(projected.labelIds, [])
-          assert.deepStrictEqual(projected.checklist, [])
           assert.deepStrictEqual(projected.attachmentIds, [])
         }
 
@@ -480,25 +428,17 @@ describe("board store", () => {
           assert.strictEqual(restored.columnId, active)
         }
 
-        const sql = yield* SqlClient
-        const executions = yield* sql<{
-          expected_outcome: string
-          max_tokens: number
-          timeout_seconds: number
-          tool_policy: { allowed: Array<string> }
-        }>`
-          SELECT expected_outcome, max_tokens, timeout_seconds, tool_policy
-          FROM executions
-          WHERE project_id = ${projectId} AND id = ${execution(30)}
-        `
-        assert.deepStrictEqual(executions, [
-          {
-            expected_outcome: "Une migration durable",
-            max_tokens: 20_000,
-            timeout_seconds: 1_800,
-            tool_policy: { allowed: ["read", "edit"] },
-          },
-        ])
+        const activity = yield* readTicketActivity(projectId, firstTicket, 3)
+        assert.deepStrictEqual(
+          activity.map((envelope) => envelope.event._tag),
+          ["ticket.restored", "ticket.archived", "ticket.assigned"],
+        )
+        assert.isTrue(
+          activity.every(
+            (envelope) => "ticketId" in envelope.event && envelope.event.ticketId === firstTicket,
+          ),
+        )
+        assert.deepStrictEqual(yield* readTicketActivity(projectId, firstTicket, 1), [activity[0]])
       }),
     )
 
@@ -548,7 +488,7 @@ describe("board store", () => {
 
           yield* execute(
             projectId,
-            createTicket(command(54), completedTicket, thread(40), temporary, "Terminé"),
+            createTicket(command(54), completedTicket, temporary, "Terminé"),
           )
           yield* execute(
             projectId,
@@ -558,10 +498,7 @@ describe("board store", () => {
               payload: { ticketId: completedTicket },
             }),
           )
-          yield* execute(
-            projectId,
-            createTicket(command(56), archivedTicket, thread(41), temporary, "Archivé"),
-          )
+          yield* execute(projectId, createTicket(command(56), archivedTicket, temporary, "Archivé"))
           yield* execute(
             projectId,
             request({
@@ -570,10 +507,7 @@ describe("board store", () => {
               payload: { ticketId: archivedTicket },
             }),
           )
-          yield* execute(
-            projectId,
-            createTicket(command(58), activeTicket, thread(42), temporary, "Actif"),
-          )
+          yield* execute(projectId, createTicket(command(58), activeTicket, temporary, "Actif"))
 
           const deleted = yield* execute(
             projectId,
@@ -644,14 +578,8 @@ describe("board store", () => {
         const sharedTicket = ticket(50)
         yield* initialize(firstProject, command(60), backlog, active, done)
         yield* initialize(secondProject, command(61), backlog, active, done)
-        yield* execute(
-          firstProject,
-          createTicket(command(62), sharedTicket, thread(50), backlog, "Premier"),
-        )
-        yield* execute(
-          secondProject,
-          createTicket(command(63), sharedTicket, thread(50), backlog, "Second"),
-        )
+        yield* execute(firstProject, createTicket(command(62), sharedTicket, backlog, "Premier"))
+        yield* execute(secondProject, createTicket(command(63), sharedTicket, backlog, "Second"))
 
         const first = yield* readProjectBoardSnapshot(firstProject)
         const second = yield* readProjectBoardSnapshot(secondProject)

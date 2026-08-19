@@ -1,43 +1,40 @@
 # Noyau — guide agents
 
-Control plane durable pour un LifeOS personnel : projets, forum, tickets Kanban, agents Hermes,
-n8n.
+Control plane durable pour un LifeOS personnel : projets, forum et tickets Kanban.
 Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision structurante.
 
 ## Glossaire
 
-| Terme                | Sens                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------ |
-| **Noyau**            | Control plane : état, permissions, commandes, événements, projections.                     |
-| **Noyau Desktop**    | Client Electron et superviseur local ; ne possède aucun état métier autoritatif.           |
-| **Noyau Server**     | Instance locale ou VPS du control plane ; unique autorité durable de sa base.              |
-| **Hermes**           | Premier adaptateur du port `AgentRuntime` ; run isolé, instance locale ou Tailscale.       |
-| **AgentProfile**     | Configuration persistante d'un agent ; rôle affiché sans privilège implicite.              |
-| **Tableau**          | Projection Kanban unique d'un projet ; colonnes libres et ordre partagé.                   |
-| **Ticket**           | Élément de travail durable, assignable à un humain ou à un profil d'agent.                 |
-| **Execution**        | Intention agent bornée pour un ticket ; résultat attendu, budget et politique d'outils.    |
-| **Attempt**          | Tentative isolée d'une exécution ; porte worktree, artefacts et runs.                      |
-| **AgentRun**         | Invocation concrète d'un agent dans une tentative.                                         |
-| **Command**          | Entrée typée (`commandId`, `actorId`, `projectId`, `correlationId`) persistée avant effet. |
-| **Event**            | Fait immuable produit par un decider pur à partir d'une commande.                          |
-| **Projection**       | Vue dérivée (forum, tickets, runs) reconstruite depuis le journal d'événements.            |
-| **Reactor**          | Consommateur durable de l'outbox (scheduler, Hermes, Git, n8n).                            |
-| **Outbox**           | File transactionnelle du store SQL ; seule source de reprise après crash.                  |
-| **Lease**            | Verrou temporaire avec expiration pour réclamer un attempt entre workers.                  |
-| **Receipt**          | Preuve d'idempotence d'une commande ; réponse stable aux retries.                          |
-| **ContextPack**      | Contexte LLM versionné, tiré des projections Noyau ; jamais l'historique brut du forum.    |
-| **Capability grant** | Permission étroite, temporaire, attachée à un run — pas au rôle ni au prompt.              |
-| **Approval**         | Approbation humaine d'une action précise liée à une exécution.                             |
+| Terme                 | Sens                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| **Noyau**             | Control plane : état, permissions, commandes, événements et projections.                   |
+| **Noyau Desktop**     | Client Electron et superviseur local ; ne possède aucun état métier autoritatif.           |
+| **Noyau Server**      | Instance locale ou VPS du control plane ; unique autorité durable de sa base.              |
+| **Tableau**           | Projection Kanban unique d'un projet ; colonnes libres et ordre partagé.                   |
+| **Ticket**            | Élément de travail durable : titre, détails, cycle Kanban, audit et dépendances.           |
+| **Responsable**       | Acteur durable optionnel d'un Ticket ; conservé dans le modèle, masqué de l'UI v1.         |
+| **Dépendance Ticket** | Relation orientée « dépend de » ; l'ensemble des relations forme un DAG.                   |
+| **Channel**           | Canal de discussion générique d'un projet.                                                 |
+| **Thread**            | Discussion générique dans un Channel ; peut être la source immuable d'un Ticket.           |
+| **Message**           | Contribution à un Thread, éventuellement liée à un Ticket.                                 |
+| **TicketActivity**    | Historique autoritatif borné des faits d'un Ticket, distinct d'un Channel.                 |
+| **Command**           | Entrée typée (`commandId`, `actorId`, `projectId`, `correlationId`) persistée avant effet. |
+| **Event**             | Fait immuable produit par un decider pur à partir d'une commande.                          |
+| **Projection**        | Vue dérivée reconstruite depuis le journal d'événements.                                   |
+| **Reactor**           | Consommateur durable de l'outbox pour produire un effet externe.                           |
+| **Outbox**            | File transactionnelle du store SQL ; seule source de reprise après crash.                  |
+| **Receipt**           | Preuve d'idempotence d'une commande ; réponse stable aux retries.                          |
 
-Modèle cible : `Project → Ticket → Execution → Attempt → AgentRun`. Forum
-(`Channel/Thread/Message`) séparé ; chaque ticket possède son thread et peut référencer un thread
-source.
+Modèle v1 : `Project → Tableau → Ticket → TicketDependency`. Le forum
+(`Channel/Thread/Message`) reste générique ; un Ticket peut seulement référencer un Thread source.
+Checklists, todolists, Workbench, `Execution`, `Attempt` et surfaces agent ne font pas partie des
+couches actives. Agents et Hermes sont un horizon post-v1 sans modèle engagé (ADR-0010).
 
 ## Flux cible
 
 ```text
 Command (Schema) → Decider pur → Transaction SQL (event + receipt + projection + outbox)
-  → Reactors durables → Ports runtime (AgentRuntime, WorkflowEngine, GitRuntime)
+  → Reactors durables pour les effets externes
   → Snapshot + deltas (Effect RPC sur WebSocket, flux ordonné — ADR-0003)
 ```
 
@@ -193,24 +190,23 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 
 ## Pièges fréquents
 
-| Piège                                         | Choix Noyau                                            |
-| --------------------------------------------- | ------------------------------------------------------ |
-| `Queue` / `PubSub` comme source de vérité     | Store SQL + outbox transactionnelle                    |
-| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                     |
-| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`              |
-| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                          |
-| `Context.Tag` par instance de runtime         | Registry singleton + adaptateur en valeur              |
-| Effect Atom dans React                        | Effect aux frontières ; état UI React idiomatique      |
-| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements               |
-| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`, `runtime`    |
-| Approvals ou états `waiting_*` en mémoire     | Entités persistées ; réveil par événement              |
-| Mem0 / port `MemoryStore`                     | Pas en v1 ; ContextPack depuis l'état Noyau (ADR-0005) |
-| Forge Git autre que GitHub                    | GitHub seulement (ADR-0006)                            |
-| Cluster de containers Hermes                  | Instance locale ou Tailscale (ADR-0007)                |
-| Autonomie `full-access` par défaut            | Niveau 0–1 ; capability grants par run                 |
-| Package ou workspace sans frontière testée    | Attendre une frontière réelle                          |
-| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                           |
-| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                         |
+| Piège                                         | Choix Noyau                                       |
+| --------------------------------------------- | ------------------------------------------------- |
+| `Queue` / `PubSub` comme source de vérité     | Store SQL + outbox transactionnelle               |
+| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                |
+| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`         |
+| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                     |
+| `Context.Tag` par instance dynamique          | Registry singleton + adaptateur en valeur         |
+| Effect Atom dans React                        | Effect aux frontières ; état UI React idiomatique |
+| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements          |
+| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`          |
+| Checklist ou todolist dans un Ticket          | Tickets liés par un DAG                           |
+| Thread dédié ou Workbench par Ticket          | Forum générique + `sourceThreadId` optionnel      |
+| `Execution` / `Attempt` réintroduits en v1    | Nouvelle décision explicite après validation v1   |
+| Forge Git autre que GitHub                    | GitHub seulement (ADR-0006)                       |
+| Package ou workspace sans frontière testée    | Attendre une frontière réelle                     |
+| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                      |
+| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                    |
 
 ## Opérations dangereuses
 

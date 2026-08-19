@@ -5,6 +5,7 @@ import {
   initMigration,
   kanbanTicketMigration,
   removeLegacyTaskMigration,
+  ticketV1FoundationMigration,
 } from "@noyau/database/migrations"
 import { Effect, Exit } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
@@ -219,6 +220,196 @@ describe("migrations", () => {
         `
         assert.strictEqual(legacyTables[0]?.total, 0)
         assert.strictEqual(legacyEvents[0]?.total, 0)
+      }),
+    )
+  })
+
+  layer(PgliteClient.layer({}), { timeout: "30 seconds" })((it) => {
+    it.effect("purge Execution/Attempt et retire les projections pré-v1", () =>
+      Effect.gen(function* () {
+        yield* initMigration
+        yield* durableCommandJournalMigration
+        yield* kanbanTicketMigration
+        yield* removeLegacyTaskMigration
+
+        const sql = yield* SqlClient
+        const projectId = "aaaaaaaa-0000-4000-8000-000000000601"
+        const columnId = "bbbbbbbb-0000-4000-8000-000000000601"
+        const ticketId = "cccccccc-0000-4000-8000-000000000601"
+        const executionId = "dddddddd-0000-4000-8000-000000000601"
+        const attemptId = "eeeeeeee-0000-4000-8000-000000000601"
+        const executionCommandId = "11111111-0000-4000-8000-000000000601"
+        const confirmationCommandId = "11111111-0000-4000-8000-000000000602"
+        const ticketCommandId = "11111111-0000-4000-8000-000000000603"
+
+        yield* sql`
+          INSERT INTO kanban_columns (
+            id, project_id, name, color, rank, done, created_at, updated_at
+          ) VALUES (
+            ${columnId}, ${projectId}, 'Backlog', '#6D5BD0', 'a0', false,
+            '2026-08-13T12:00:00.000Z', '2026-08-13T12:00:00.000Z'
+          )
+        `
+        yield* insertTicket({
+          id: ticketId,
+          projectId,
+          columnId,
+          rank: "a0",
+          title: "Ticket pré-v1",
+          workbenchThreadId: "ffffffff-0000-4000-8000-000000000601",
+        })
+        yield* sql`
+          INSERT INTO executions (
+            id, project_id, ticket_id, expected_outcome, agent_profile_id,
+            max_tokens, timeout_seconds, tool_policy, created_at
+          ) VALUES (
+            ${executionId}, ${projectId}, ${ticketId}, 'Outcome',
+            '99999999-0000-4000-8000-000000000601',
+            1000, 60, '{"allowed":[]}'::jsonb, '2026-08-13T12:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO attempts (
+            id, project_id, execution_id, attempt_number, status, created_at, updated_at
+          ) VALUES (
+            ${attemptId}, ${projectId}, ${executionId}, 1, 'pending',
+            '2026-08-13T12:00:00.000Z', '2026-08-13T12:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO checklist_items (
+            id, project_id, ticket_id, title, completed, rank
+          ) VALUES (
+            '22222222-0000-4000-8000-000000000601',
+            ${projectId}, ${ticketId}, 'Legacy', false, 'a0'
+          )
+        `
+
+        yield* sql`
+          INSERT INTO commands (
+            command_id, request, project_id, actor_id, command, created_at
+          ) VALUES
+            (
+              ${executionCommandId}, '{"_tag":"execution.start"}'::jsonb, ${projectId},
+              'human:test', '{"_tag":"execution.start","payload":{}}'::jsonb,
+              '2026-08-13T12:00:00.000Z'
+            ),
+            (
+              ${confirmationCommandId}, '{"_tag":"ticket.complete"}'::jsonb, ${projectId},
+              'human:test', '{"_tag":"ticket.complete","payload":{}}'::jsonb,
+              '2026-08-13T12:01:00.000Z'
+            ),
+            (
+              ${ticketCommandId}, '{"_tag":"ticket.complete"}'::jsonb, ${projectId},
+              'human:test',
+              '{"_tag":"ticket.complete","payload":{"interruptActiveExecution":true}}'::jsonb,
+              '2026-08-13T12:02:00.000Z'
+            )
+        `
+        yield* sql`
+          INSERT INTO receipts (command_id, response, created_at) VALUES
+            (
+              ${executionCommandId}, '{"_tag":"accepted","eventIds":[]}'::jsonb,
+              '2026-08-13T12:00:00.000Z'
+            ),
+            (
+              ${confirmationCommandId},
+              '{"_tag":"rejected","error":{"_tag":"ActiveExecutionConfirmationRequired","ticketId":"cccccccc-0000-4000-8000-000000000601","executionIds":["dddddddd-0000-4000-8000-000000000601"]}}'::jsonb,
+              '2026-08-13T12:01:00.000Z'
+            ),
+            (
+              ${ticketCommandId},
+              '{"_tag":"accepted","eventIds":["33333333-0000-4000-8000-000000000601","33333333-0000-4000-8000-000000000602"]}'::jsonb,
+              '2026-08-13T12:02:00.000Z'
+            )
+        `
+        yield* sql`
+          INSERT INTO events (
+            event_id, project_id, actor_id, correlation_id, causation_id,
+            occurred_at, schema_version, aggregate_type, aggregate_id,
+            aggregate_version, project_position, event
+          ) VALUES
+            (
+              '33333333-0000-4000-8000-000000000601', ${projectId}, 'human:test',
+              '44444444-0000-4000-8000-000000000601', ${ticketCommandId},
+              '2026-08-13T12:00:00.000Z', 1, 'board', ${projectId}, 1, 1,
+              '{"_tag":"ticket.created","ticketId":"cccccccc-0000-4000-8000-000000000601","columnId":"bbbbbbbb-0000-4000-8000-000000000601","rank":"a0","title":"Ticket pré-v1","workbenchThreadId":"ffffffff-0000-4000-8000-000000000601"}'::jsonb
+            ),
+            (
+              '33333333-0000-4000-8000-000000000602', ${projectId}, 'human:test',
+              '44444444-0000-4000-8000-000000000601', ${executionCommandId},
+              '2026-08-13T12:01:00.000Z', 1, 'board', ${projectId}, 2, 2,
+              '{"_tag":"execution.started","executionId":"dddddddd-0000-4000-8000-000000000601","ticketId":"cccccccc-0000-4000-8000-000000000601"}'::jsonb
+            ),
+            (
+              '33333333-0000-4000-8000-000000000603', ${projectId}, 'human:test',
+              '44444444-0000-4000-8000-000000000601', ${executionCommandId},
+              '2026-08-13T12:02:00.000Z', 1, 'attempt', ${attemptId}, 1, 3,
+              '{"_tag":"attempt.created","attemptId":"eeeeeeee-0000-4000-8000-000000000601","executionId":"dddddddd-0000-4000-8000-000000000601","number":1}'::jsonb
+            )
+        `
+        yield* sql`
+          INSERT INTO outbox (event_sequence, created_at)
+          SELECT sequence, '2026-08-13T12:00:00.000Z'
+          FROM events
+        `
+        yield* sql`
+          INSERT INTO aggregate_heads (
+            project_id, aggregate_type, aggregate_id, version
+          ) VALUES
+            (${projectId}, 'board', ${projectId}, 2),
+            (${projectId}, 'attempt', ${attemptId}, 1)
+        `
+
+        yield* ticketV1FoundationMigration
+
+        const eventTags = yield* sql<{ tag: string }>`
+          SELECT event ->> '_tag' AS tag FROM events ORDER BY project_position
+        `
+        const commandTags = yield* sql<{ tag: string }>`
+          SELECT command ->> '_tag' AS tag FROM commands ORDER BY created_at
+        `
+        const receipts = yield* sql<{
+          command_id: string
+          response: { _tag: string; eventIds: Array<string> }
+        }>`
+          SELECT command_id::text, response FROM receipts ORDER BY created_at
+        `
+        const outboxCount = yield* sql<{ total: number }>`
+          SELECT count(*)::int AS total FROM outbox
+        `
+        const removedTables = yield* sql<{ table_name: string }>`
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name IN ('attempts', 'executions', 'checklist_items')
+        `
+        const removedColumns = yield* sql<{ column_name: string }>`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'tickets'
+            AND column_name = 'workbench_thread_id'
+        `
+        const heads = yield* sql<{ aggregate_type: string }>`
+          SELECT aggregate_type FROM aggregate_heads ORDER BY aggregate_type
+        `
+
+        assert.deepStrictEqual(eventTags, [{ tag: "ticket.created" }])
+        assert.deepStrictEqual(commandTags, [{ tag: "ticket.complete" }])
+        assert.deepStrictEqual(receipts, [
+          {
+            command_id: ticketCommandId,
+            response: {
+              _tag: "accepted",
+              eventIds: ["33333333-0000-4000-8000-000000000601"],
+            },
+          },
+        ])
+        assert.strictEqual(outboxCount[0]?.total, 1)
+        assert.deepStrictEqual(removedTables, [])
+        assert.deepStrictEqual(removedColumns, [])
+        assert.deepStrictEqual(heads, [{ aggregate_type: "board" }])
       }),
     )
   })

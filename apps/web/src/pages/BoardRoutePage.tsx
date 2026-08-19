@@ -9,7 +9,7 @@ const routeId = "/projects/$projectId/board" as const
 
 const applySearchPatch = (current: BoardSearch, patch: BoardSearchPatch): BoardSearch => {
   const next = Object.assign({}, current)
-  for (const key of ["ticket", "q", "assignee", "priority"] as const) {
+  for (const key of ["ticket", "q", "priority"] as const) {
     if (!(key in patch)) {
       continue
     }

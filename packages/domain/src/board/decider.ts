@@ -5,13 +5,9 @@ import {
 import type { KanbanColumnId, TicketId } from "@noyau/protocol/ids"
 import type { TicketCommand } from "@noyau/protocol/ticket/commands"
 import {
-  ActiveExecutionConfirmationRequired,
   ColumnDestinationRequired,
   DoneColumnCreationForbidden,
   DoneColumnDestinationForbidden,
-  ExecutionAlreadyExists,
-  ExecutionBlockedByDependencies,
-  ExecutionForbiddenForTicket,
   InvalidColumnPlacement,
   InvalidTicketPlacement,
   KanbanColumnAlreadyExists,
@@ -30,8 +26,6 @@ import {
   TicketNotFound,
 } from "@noyau/protocol/ticket/errors"
 import {
-  ExecutionInterrupted,
-  ExecutionStarted,
   KanbanColumnCreated,
   KanbanColumnDeleted,
   KanbanColumnMoved,
@@ -54,13 +48,9 @@ import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing"
 import type { BoardState, ColumnState, TicketState } from "./projector"
 
 export type BoardDecisionError =
-  | ActiveExecutionConfirmationRequired
   | ColumnDestinationRequired
   | DoneColumnCreationForbidden
   | DoneColumnDestinationForbidden
-  | ExecutionAlreadyExists
-  | ExecutionBlockedByDependencies
-  | ExecutionForbiddenForTicket
   | InvalidColumnPlacement
   | InvalidTicketPlacement
   | KanbanColumnAlreadyExists
@@ -254,7 +244,6 @@ const requireTicket = (
 const requireCloseConfirmation = (
   ticket: TicketState,
   acknowledgeOpenDependencies: boolean | undefined,
-  interruptActiveExecution: boolean | undefined,
 ): Result.Result<void, BoardDecisionError> => {
   if (ticket.openDependencyIds.length > 0 && acknowledgeOpenDependencies !== true) {
     return Result.fail(
@@ -263,22 +252,8 @@ const requireCloseConfirmation = (
       }),
     )
   }
-  const [firstExecutionId, ...remainingExecutionIds] = ticket.activeExecutionIds
-  if (firstExecutionId !== undefined && interruptActiveExecution !== true) {
-    return Result.fail(
-      new ActiveExecutionConfirmationRequired({
-        ticketId: ticket.ticketId,
-        executionIds: [firstExecutionId, ...remainingExecutionIds],
-      }),
-    )
-  }
   return Result.succeed(undefined)
 }
-
-const interruptionEvents = (ticket: TicketState): ReadonlyArray<TicketEvent> =>
-  ticket.activeExecutionIds.map((executionId) =>
-    ExecutionInterrupted.make({ executionId, ticketId: ticket.ticketId }),
-  )
 
 const hasDependencyPath = (
   state: BoardState,
@@ -476,7 +451,6 @@ export const decide = (
             columnId: command.payload.placement.columnId,
             rank: newRank,
             title: command.payload.title,
-            workbenchThreadId: command.payload.workbenchThreadId,
           }
           if (command.payload.sourceThreadId !== undefined) {
             Object.assign(created, { sourceThreadId: command.payload.sourceThreadId })
@@ -494,11 +468,7 @@ export const decide = (
           const target = findColumn(state, command.payload.placement.columnId)
           const confirmation =
             target?.done === true && !ticket.done
-              ? requireCloseConfirmation(
-                  ticket,
-                  command.payload.acknowledgeOpenDependencies,
-                  command.payload.interruptActiveExecution,
-                )
+              ? requireCloseConfirmation(ticket, command.payload.acknowledgeOpenDependencies)
               : Result.succeed(undefined)
           return confirmation.pipe(
             Result.flatMap(() =>
@@ -513,7 +483,6 @@ export const decide = (
             Result.map((newRank) => {
               if (target?.done === true && !ticket.done) {
                 return [
-                  ...interruptionEvents(ticket),
                   TicketCompleted.make({
                     ticketId: ticket.ticketId,
                     previousColumnId: ticket.columnId,
@@ -555,14 +524,9 @@ export const decide = (
           if (done === undefined) {
             return Result.fail(new KanbanColumnNotFound({ columnId: ticket.columnId }))
           }
-          return requireCloseConfirmation(
-            ticket,
-            command.payload.acknowledgeOpenDependencies,
-            command.payload.interruptActiveExecution,
-          ).pipe(
+          return requireCloseConfirmation(ticket, command.payload.acknowledgeOpenDependencies).pipe(
             Result.flatMap(() => ticketRank(state, done.columnId, undefined, undefined)),
             Result.map((newRank) => [
-              ...interruptionEvents(ticket),
               TicketCompleted.make({
                 ticketId: ticket.ticketId,
                 previousColumnId: ticket.columnId,
@@ -598,15 +562,8 @@ export const decide = (
         Result.flatMap((ticket) =>
           ticket.archived
             ? Result.fail(new TicketAlreadyArchived({ ticketId: ticket.ticketId }))
-            : requireCloseConfirmation(
-                ticket,
-                command.payload.acknowledgeOpenDependencies,
-                command.payload.interruptActiveExecution,
-              ).pipe(
-                Result.map(() => [
-                  ...interruptionEvents(ticket),
-                  TicketArchived.make({ ticketId: ticket.ticketId }),
-                ]),
+            : requireCloseConfirmation(ticket, command.payload.acknowledgeOpenDependencies).pipe(
+                Result.map(() => [TicketArchived.make({ ticketId: ticket.ticketId })]),
               ),
         ),
       )
@@ -675,27 +632,5 @@ export const decide = (
         ? Result.succeed([TicketDependencyRemoved.make({ ticketId, dependsOnTicketId })])
         : Result.fail(new TicketDependencyNotFound({ ticketId, dependsOnTicketId }))
     }
-    case "execution.start":
-      return requireTicket(state, command.payload.ticketId).pipe(
-        Result.flatMap((ticket): Result.Result<ReadonlyArray<TicketEvent>, BoardDecisionError> => {
-          if (state.executionIds.includes(command.payload.executionId)) {
-            return Result.fail(
-              new ExecutionAlreadyExists({ executionId: command.payload.executionId }),
-            )
-          }
-          if (ticket.archived || ticket.done) {
-            return Result.fail(
-              new ExecutionForbiddenForTicket({
-                ticketId: ticket.ticketId,
-                reason: ticket.archived ? "archived" : "completed",
-              }),
-            )
-          }
-          if (ticket.openDependencyIds.length > 0) {
-            return Result.fail(new ExecutionBlockedByDependencies({ ticketId: ticket.ticketId }))
-          }
-          return Result.succeed([ExecutionStarted.make(command.payload)])
-        }),
-      )
   }
 }

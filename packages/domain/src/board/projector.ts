@@ -1,5 +1,5 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import type { ActorId, ExecutionId, KanbanColumnId, TicketId } from "@noyau/protocol/ids"
+import type { ActorId, KanbanColumnId, TicketId } from "@noyau/protocol/ids"
 import type { TicketEvent } from "@noyau/protocol/ticket/events"
 
 export interface ColumnState {
@@ -20,7 +20,6 @@ export interface TicketState {
   readonly lastActiveColumnId?: KanbanColumnId
   readonly assigneeId?: ActorId
   readonly openDependencyIds: ReadonlyArray<TicketId>
-  readonly activeExecutionIds: ReadonlyArray<ExecutionId>
 }
 
 export interface TicketDependencyState {
@@ -32,14 +31,12 @@ export interface BoardState {
   readonly columns: ReadonlyArray<ColumnState>
   readonly tickets: ReadonlyArray<TicketState>
   readonly dependencies: ReadonlyArray<TicketDependencyState>
-  readonly executionIds: ReadonlyArray<ExecutionId>
 }
 
 export const emptyBoardState: BoardState = {
   columns: [],
   tickets: [],
   dependencies: [],
-  executionIds: [],
 }
 
 const updateTicket = (
@@ -77,16 +74,6 @@ const withDerivedOpenDependencies = (state: BoardState): BoardState => ({
       .map((dependency) => dependency.dependsOnTicketId),
   })),
 })
-
-const removeActiveExecution = (
-  state: BoardState,
-  ticketId: TicketId,
-  executionId: ExecutionId,
-): BoardState =>
-  updateTicket(state, ticketId, (ticket) => ({
-    ...ticket,
-    activeExecutionIds: ticket.activeExecutionIds.filter((activeId) => activeId !== executionId),
-  }))
 
 export const evolve = (state: BoardState, event: TicketEvent): BoardState => {
   switch (event._tag) {
@@ -148,7 +135,6 @@ export const evolve = (state: BoardState, event: TicketEvent): BoardState => {
             done: false,
             archived: false,
             openDependencyIds: [],
-            activeExecutionIds: [],
           },
         ],
       }
@@ -226,33 +212,6 @@ export const evolve = (state: BoardState, event: TicketEvent): BoardState => {
             dependency.dependsOnTicketId !== event.dependsOnTicketId,
         ),
       })
-    case "execution.started":
-      return {
-        ...updateTicket(state, event.ticketId, (ticket) => ({
-          ...ticket,
-          activeExecutionIds: ticket.activeExecutionIds.includes(event.executionId)
-            ? ticket.activeExecutionIds
-            : [...ticket.activeExecutionIds, event.executionId],
-        })),
-        executionIds: state.executionIds.includes(event.executionId)
-          ? state.executionIds
-          : [...state.executionIds, event.executionId],
-      }
-    case "execution.completed":
-    case "execution.failed":
-    case "execution.cancelled":
-    case "execution.interrupted":
-      return removeActiveExecution(state, event.ticketId, event.executionId)
-    case "attempt.created":
-    case "attempt.leased":
-    case "attempt.started":
-    case "attempt.waitingHuman":
-    case "attempt.waitingAgent":
-    case "attempt.verifying":
-    case "attempt.completed":
-    case "attempt.failed":
-    case "attempt.cancelled":
-      return state
   }
 }
 

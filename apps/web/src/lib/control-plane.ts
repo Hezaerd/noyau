@@ -1,6 +1,6 @@
 import type { BoardSnapshot, EventCursor } from "@noyau/protocol/board"
-import type { Execution } from "@noyau/protocol/entities/execution"
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { EventEnvelope } from "@noyau/protocol/events"
+import type { ProjectId, TicketId } from "@noyau/protocol/ids"
 import type { TicketReceipt } from "@noyau/protocol/receipts"
 import { ControlPlaneRpcs, type ProjectEvent } from "@noyau/protocol/rpc"
 import type { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
@@ -68,11 +68,12 @@ const getBoardSnapshot = Effect.fn("ControlPlaneClient.getBoardSnapshot")(functi
   return yield* client.GetBoardSnapshot({ projectId })
 })
 
-const getProjectExecutions = Effect.fn("ControlPlaneClient.getProjectExecutions")(function* (
+const getTicketActivity = Effect.fn("ControlPlaneClient.getTicketActivity")(function* (
   projectId: ProjectId,
+  ticketId: TicketId,
 ) {
   const client = yield* ControlPlaneClient
-  return yield* client.GetProjectExecutions({ projectId })
+  return yield* client.GetTicketActivity({ projectId, ticketId })
 })
 
 const submitCommand = Effect.fn("ControlPlaneClient.submitTicketCommand")(function* (
@@ -87,10 +88,11 @@ export const loadBoardSnapshot = (
   projectId: ProjectId,
 ): Promise<ControlPlaneResult<BoardSnapshot>> => runOperation(getBoardSnapshot(projectId))
 
-export const loadProjectExecutions = (
+export const loadTicketActivity = (
   projectId: ProjectId,
-): Promise<ControlPlaneResult<ReadonlyArray<Execution>>> =>
-  runOperation(getProjectExecutions(projectId))
+  ticketId: TicketId,
+): Promise<ControlPlaneResult<ReadonlyArray<EventEnvelope>>> =>
+  runOperation(getTicketActivity(projectId, ticketId))
 
 export const submitTicketCommand = (
   projectId: ProjectId,

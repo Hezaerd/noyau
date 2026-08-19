@@ -406,11 +406,93 @@ export const removeLegacyTaskMigration = Effect.gen(function* () {
   yield* sql`DROP TABLE tasks`
 })
 
+/**
+ * Bascule destructive vers Ticket v1. Les faits Ticket restent dans le
+ * journal ; seuls les contrats Execution/Attempt désormais indécodables sont
+ * purgés avant de retirer leurs projections.
+ */
+export const ticketV1FoundationMigration = Effect.gen(function* () {
+  const sql = yield* SqlClient
+
+  yield* sql`
+    DELETE FROM outbox
+    WHERE event_sequence IN (
+      SELECT sequence
+      FROM events
+      WHERE aggregate_type IN ('execution', 'attempt')
+        OR event ->> '_tag' LIKE 'execution.%'
+        OR event ->> '_tag' LIKE 'attempt.%'
+    )
+  `
+
+  yield* sql`
+    UPDATE receipts
+    SET response = jsonb_set(
+      response,
+      '{eventIds}',
+      COALESCE(
+        (
+          SELECT jsonb_agg(entry.event_id)
+          FROM jsonb_array_elements_text(response -> 'eventIds') AS entry(event_id)
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM events
+            WHERE events.event_id::text = entry.event_id
+              AND (
+                aggregate_type IN ('execution', 'attempt')
+                OR event ->> '_tag' LIKE 'execution.%'
+                OR event ->> '_tag' LIKE 'attempt.%'
+              )
+          )
+        ),
+        '[]'::jsonb
+      )
+    )
+    WHERE response ->> '_tag' = 'accepted'
+      AND jsonb_typeof(response -> 'eventIds') = 'array'
+  `
+
+  yield* sql`
+    WITH purged_commands AS (
+      DELETE FROM commands
+      WHERE command ->> '_tag' LIKE 'execution.%'
+        OR command ->> '_tag' LIKE 'attempt.%'
+        OR command_id IN (
+          SELECT command_id
+          FROM receipts
+          WHERE response #>> '{error,_tag}' = 'ActiveExecutionConfirmationRequired'
+        )
+      RETURNING command_id
+    )
+    DELETE FROM receipts
+    WHERE command_id IN (SELECT command_id FROM purged_commands)
+      OR response #>> '{error,_tag}' = 'ActiveExecutionConfirmationRequired'
+  `
+
+  yield* sql`
+    DELETE FROM events
+    WHERE aggregate_type IN ('execution', 'attempt')
+      OR event ->> '_tag' LIKE 'execution.%'
+      OR event ->> '_tag' LIKE 'attempt.%'
+  `
+
+  yield* sql`
+    DELETE FROM aggregate_heads
+    WHERE aggregate_type IN ('execution', 'attempt')
+  `
+
+  yield* sql`DROP TABLE attempts`
+  yield* sql`DROP TABLE executions`
+  yield* sql`DROP TABLE checklist_items`
+  yield* sql`ALTER TABLE tickets DROP COLUMN workbench_thread_id`
+})
+
 export const migrations: Migrator.Loader = Migrator.fromRecord({
   "1_init": initMigration,
   "2_durable_command_journal": durableCommandJournalMigration,
   "3_kanban_ticket": kanbanTicketMigration,
   "4_remove_legacy_task": removeLegacyTaskMigration,
+  "5_ticket_v1_foundation": ticketV1FoundationMigration,
 })
 
 /** Applique les migrations en attente avec le `SqlClient` du contexte. */
