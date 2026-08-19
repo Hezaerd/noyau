@@ -64,6 +64,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { Input } from "@/components/ui/input"
+import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
   Menu,
   MenuGroup,
@@ -183,9 +184,7 @@ const renderBoardActionContextMenuItem = (action: ExecutableBoardAction) => (
   >
     <BoardActionIcon action={action} />
     {action.label}
-    {action.shortcut === undefined ? null : (
-      <ContextMenuShortcut>{action.shortcut}</ContextMenuShortcut>
-    )}
+    {action.shortcut === undefined ? null : <ContextMenuShortcut hotkey={action.shortcut} />}
   </ContextMenuItem>
 )
 
@@ -1104,9 +1103,10 @@ export function BoardPage({
                 placeholder="Rechercher un ticket…"
                 className="pl-9"
               />
-              <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border px-1.5 py-0.5 text-[0.58rem] text-muted-foreground">
-                /
-              </kbd>
+              <KeyboardShortcut
+                hotkey="/"
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-[0.58rem]"
+              />
             </div>
 
             <Select

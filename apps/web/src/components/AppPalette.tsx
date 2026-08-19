@@ -23,6 +23,7 @@ import {
   CommandPanel,
   CommandShortcut,
 } from "@/components/ui/command"
+import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
   buildPaletteGroups,
   filterPaletteGroups,
@@ -32,6 +33,11 @@ import {
   serializeRecentActionIds,
   updateRecentActionIds,
 } from "@/lib/app-palette"
+import {
+  getHotkeysPlatform,
+  paletteItemHotkey,
+  paletteItemModifierPressed,
+} from "@/lib/keyboard-shortcut"
 
 const RECENT_ACTIONS_STORAGE_KEY = "noyau.palette.recent-actions"
 
@@ -153,13 +159,16 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     () => groups.flatMap((group) => group.items).slice(0, 9),
     [groups],
   )
-  const shortcutModifier = navigator.platform.startsWith("Mac") ? "⌘" : "Alt"
+  const hotkeysPlatform = getHotkeysPlatform()
   const shortcutByActionId = useMemo(
     () =>
       new Map(
-        numberedActions.map((action, index) => [action.id, `${shortcutModifier}${index + 1}`]),
+        numberedActions.map((action, index) => [
+          action.id,
+          paletteItemHotkey(index, hotkeysPlatform),
+        ]),
       ),
-    [numberedActions, shortcutModifier],
+    [hotkeysPlatform, numberedActions],
   )
 
   const executeAction = useCallback((action: AppPaletteAction): void => {
@@ -184,7 +193,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     }
     const handleNumberShortcut = (event: KeyboardEvent) => {
       const shortcutIndex = paletteShortcutIndex(event.code)
-      const modifierPressed = shortcutModifier === "⌘" ? event.metaKey : event.altKey
+      const modifierPressed = paletteItemModifierPressed(event, hotkeysPlatform)
       if (
         event.defaultPrevented ||
         event.repeat ||
@@ -203,7 +212,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
 
     window.addEventListener("keydown", handleNumberShortcut)
     return () => window.removeEventListener("keydown", handleNumberShortcut)
-  }, [executeAction, numberedActions, open, shortcutModifier])
+  }, [executeAction, hotkeysPlatform, numberedActions, open])
 
   return (
     <AppPaletteContext.Provider value={context}>
@@ -232,7 +241,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
                           </span>
                           <span className="truncate">{action.label}</span>
                           {shortcutByActionId.has(action.id) ? (
-                            <CommandShortcut>{shortcutByActionId.get(action.id)}</CommandShortcut>
+                            <CommandShortcut hotkey={shortcutByActionId.get(action.id)!} />
                           ) : null}
                         </CommandItem>
                       )}
@@ -243,14 +252,18 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
             </Command>
           </CommandPanel>
           <CommandFooter>
-            <span>
-              <kbd>↑↓</kbd> Naviguer
+            <span className="inline-flex items-center gap-1">
+              <KeyboardShortcut hotkey="ArrowUp" />
+              <KeyboardShortcut hotkey="ArrowDown" />
+              Naviguer
             </span>
-            <span>
-              <kbd>↵</kbd> Choisir
+            <span className="inline-flex items-center gap-1">
+              <KeyboardShortcut hotkey="Enter" />
+              Choisir
             </span>
-            <span>
-              <kbd>Esc</kbd> Fermer
+            <span className="inline-flex items-center gap-1">
+              <KeyboardShortcut hotkey="Escape" />
+              Fermer
             </span>
           </CommandFooter>
         </CommandDialogPopup>
