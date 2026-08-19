@@ -1,12 +1,8 @@
 import { Schema } from "effect"
 
 import { ProjectCommand, ProjectCommandRequest } from "./project/commands"
+import { ClientThreadCommand, InternalThreadCommand, ThreadCommandRequest } from "./thread/commands"
 import { TicketCommand, TicketCommandRequest } from "./ticket/commands"
-import {
-  ClientThreadCommand,
-  InternalThreadCommand,
-  ThreadCommandRequest,
-} from "./thread/commands"
 
 /** Intention soumise par le renderer. L'acteur n'est pas dans le payload. */
 export const ClientCommandRequest = Schema.Union([

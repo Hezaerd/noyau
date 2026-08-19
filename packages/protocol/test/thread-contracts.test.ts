@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { ClientCommandRequest, Command } from "@noyau/protocol/commands"
-import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { ResumeCursor, Session } from "@noyau/protocol/entities/session"
 import { Thread } from "@noyau/protocol/entities/thread"
+import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { EventEnvelope } from "@noyau/protocol/events"
 import { Receipt } from "@noyau/protocol/receipts"
 import {
@@ -38,7 +38,7 @@ const resumeCursor = {
 
 describe("resumeCursor", () => {
   it("décode et réencode { schemaVersion: 1, sessionId }", () => {
-    const decoded = Schema.decodeUnknownSync(ResumeCursor)(resumeCursor)
+    const decoded = Schema.decodeSync(ResumeCursor)(resumeCursor)
     expect(Schema.encodeSync(ResumeCursor)(decoded)).toEqual(resumeCursor)
   })
 
@@ -81,7 +81,7 @@ describe("Thread and Session entities", () => {
   })
 
   it("décode une Session projetée sans id métier", () => {
-    const session = Schema.decodeUnknownSync(Session)({
+    const session = Schema.decodeSync(Session)({
       threadId: ids.thread,
       status: "error",
       lastError: "rupture",
@@ -162,10 +162,10 @@ describe("Thread commands", () => {
       },
     }
 
-    const decoded = Schema.decodeUnknownSync(ThreadCommandRequest)(request)
+    const decoded = Schema.decodeSync(ThreadCommandRequest)(request)
     expect(decoded).not.toHaveProperty("actorId")
     expect(Schema.encodeSync(ThreadCommandRequest)(decoded)).toEqual(request)
-    expect(Schema.decodeUnknownSync(ClientCommandRequest)(request)._tag).toBe("thread.turn.start")
+    expect(Schema.decodeSync(ClientCommandRequest)(request)._tag).toBe("thread.turn.start")
   })
 
   it("rejette un payload image sur thread.turn.start", () => {
@@ -216,7 +216,9 @@ describe("Thread commands", () => {
     expect(() => Schema.decodeUnknownSync(ClientCommandRequest)(internal)).toThrow()
 
     const enriched = { ...internal, ...commandMeta }
-    expect(Schema.decodeUnknownSync(InternalThreadCommand)(enriched)._tag).toBe("thread.session.set")
+    expect(Schema.decodeUnknownSync(InternalThreadCommand)(enriched)._tag).toBe(
+      "thread.session.set",
+    )
     expect(Schema.decodeUnknownSync(Command)(enriched)._tag).toBe("thread.session.set")
   })
 
@@ -273,7 +275,7 @@ describe("Thread commands", () => {
 
 describe("Thread events and receipts", () => {
   it("round-trip un événement de Session et un receipt accepté à sequence", () => {
-    const envelope = Schema.decodeUnknownSync(EventEnvelope)({
+    const envelope = Schema.decodeSync(EventEnvelope)({
       eventId: ids.event,
       sequence: 44,
       projectId: ids.project,
@@ -299,7 +301,7 @@ describe("Thread events and receipts", () => {
 
     expect(Schema.encodeSync(EventEnvelope)(envelope).sequence).toBe(44)
 
-    const receipt = Schema.decodeUnknownSync(Receipt)({
+    const receipt = Schema.decodeSync(Receipt)({
       commandId: ids.command,
       response: { _tag: "accepted", sequence: 44 },
     })

@@ -1,8 +1,4 @@
-import {
-  Environment,
-  Provider,
-  WorkspaceRoot,
-} from "@noyau/protocol/entities/environment"
+import { Environment, Provider, WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { SessionStatus } from "@noyau/protocol/entities/session"
 import { ThreadStatus } from "@noyau/protocol/entities/thread"

@@ -91,9 +91,12 @@ export class TicketAlreadyArchived extends Schema.TaggedError<TicketAlreadyArchi
   { ticketId: TicketId },
 ) {}
 
-export class TicketNotArchived extends Schema.TaggedError<TicketNotArchived>()("TicketNotArchived", {
-  ticketId: TicketId,
-}) {}
+export class TicketNotArchived extends Schema.TaggedError<TicketNotArchived>()(
+  "TicketNotArchived",
+  {
+    ticketId: TicketId,
+  },
+) {}
 
 export class TicketAlreadyCompleted extends Schema.TaggedError<TicketAlreadyCompleted>()(
   "TicketAlreadyCompleted",

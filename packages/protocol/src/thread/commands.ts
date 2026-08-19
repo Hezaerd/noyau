@@ -117,7 +117,10 @@ export const ThreadTurnInterruptRequest = request(
   "thread.turn.interrupt",
   Schema.Struct(turnInterruptPayload),
 )
-export const ApprovalRespondRequest = request("approval.respond", Schema.Struct(approvalRespondPayload))
+export const ApprovalRespondRequest = request(
+  "approval.respond",
+  Schema.Struct(approvalRespondPayload),
+)
 export const UserInputRespondRequest = request(
   "user-input.respond",
   Schema.Struct(userInputRespondPayload),
@@ -153,7 +156,10 @@ export const ThreadTurnInterrupt = command(
   Schema.Struct(turnInterruptPayload),
 )
 export const ApprovalRespond = command("approval.respond", Schema.Struct(approvalRespondPayload))
-export const UserInputRespond = command("user-input.respond", Schema.Struct(userInputRespondPayload))
+export const UserInputRespond = command(
+  "user-input.respond",
+  Schema.Struct(userInputRespondPayload),
+)
 export const SessionStop = command("session.stop", Schema.Struct(threadIdPayload))
 
 export const ClientThreadCommand = Schema.Union([

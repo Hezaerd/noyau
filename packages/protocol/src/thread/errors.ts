@@ -14,14 +14,20 @@ export class ThreadArchived extends Schema.TaggedError<ThreadArchived>()("Thread
   threadId: ThreadId,
 }) {}
 
-export class ThreadNotArchived extends Schema.TaggedError<ThreadNotArchived>()("ThreadNotArchived", {
-  threadId: ThreadId,
-}) {}
+export class ThreadNotArchived extends Schema.TaggedError<ThreadNotArchived>()(
+  "ThreadNotArchived",
+  {
+    threadId: ThreadId,
+  },
+) {}
 
-export class TurnAlreadyActive extends Schema.TaggedError<TurnAlreadyActive>()("TurnAlreadyActive", {
-  threadId: ThreadId,
-  turnId: TurnId,
-}) {}
+export class TurnAlreadyActive extends Schema.TaggedError<TurnAlreadyActive>()(
+  "TurnAlreadyActive",
+  {
+    threadId: ThreadId,
+    turnId: TurnId,
+  },
+) {}
 
 export class TurnNotFound extends Schema.TaggedError<TurnNotFound>()("TurnNotFound", {
   threadId: ThreadId,
@@ -41,9 +47,12 @@ export class ApprovalRequestNotFound extends Schema.TaggedError<ApprovalRequestN
   },
 ) {}
 
-export class SessionNotRunning extends Schema.TaggedError<SessionNotRunning>()("SessionNotRunning", {
-  threadId: ThreadId,
-}) {}
+export class SessionNotRunning extends Schema.TaggedError<SessionNotRunning>()(
+  "SessionNotRunning",
+  {
+    threadId: ThreadId,
+  },
+) {}
 
 export const ThreadRejection = Schema.Union([
   ThreadAlreadyExists,

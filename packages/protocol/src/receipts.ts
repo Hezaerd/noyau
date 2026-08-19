@@ -1,6 +1,6 @@
 import { ProjectRejection } from "@noyau/protocol/project/errors"
-import { TicketRejection } from "@noyau/protocol/ticket/errors"
 import { ThreadRejection } from "@noyau/protocol/thread/errors"
+import { TicketRejection } from "@noyau/protocol/ticket/errors"
 import { Schema } from "effect"
 
 import { CommandId, Sequence } from "./ids"

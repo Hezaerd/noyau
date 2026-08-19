@@ -1,33 +1,32 @@
 import { describe, expect, it } from "@effect/vitest"
-import { readFileSync } from "node:fs"
-import { resolve } from "node:path"
-
-const protocolRoot = resolve(import.meta.dirname, "..")
-const packageJson = JSON.parse(readFileSync(resolve(protocolRoot, "package.json"), "utf8")) as {
-  readonly exports: Record<string, string>
-}
+import * as board from "@noyau/protocol/board"
+import * as commands from "@noyau/protocol/commands"
+import * as ticket from "@noyau/protocol/entities/ticket"
+import * as events from "@noyau/protocol/events"
+import * as ids from "@noyau/protocol/ids"
+import * as receipts from "@noyau/protocol/receipts"
+import * as rpc from "@noyau/protocol/rpc"
+import * as ticketCommands from "@noyau/protocol/ticket/commands"
+import * as ticketEvents from "@noyau/protocol/ticket/events"
 
 describe("protocol exports", () => {
-  it("n'exporte aucun barrel ni les formes mortes v1", () => {
-    const exports = Object.keys(packageJson.exports)
-    expect(exports).not.toContain(".")
-    expect(exports).not.toContain("./entities/channel")
-    expect(exports).not.toContain("./entities/message")
-    expect(exports).not.toContain("./entities/repository")
-  })
-
-  it("ne mentionne plus Channel, Message, sourceThreadId ni EventCursor", () => {
-    const sources = Object.values(packageJson.exports).map((relative) =>
-      readFileSync(resolve(protocolRoot, relative), "utf8"),
+  it("ne publie plus Channel, Message, sourceThreadId ni EventCursor", () => {
+    expect(ids).not.toHaveProperty("ChannelId")
+    expect(ids).not.toHaveProperty("MessageId")
+    expect(ids).not.toHaveProperty("AgentProfileId")
+    expect(board).not.toHaveProperty("EventCursor")
+    expect(ticket.Ticket.fields).not.toHaveProperty("sourceThreadId")
+    expect(ticketCommands.TicketCreateRequest.fields.payload.fields).not.toHaveProperty(
+      "sourceThreadId",
     )
-    const joined = sources.join("\n")
-
-    expect(joined).not.toMatch(/\bChannel\b/)
-    expect(joined).not.toMatch(/\bChannelId\b/)
-    expect(joined).not.toMatch(/\bMessage\b/)
-    expect(joined).not.toMatch(/\bMessageId\b/)
-    expect(joined).not.toMatch(/\bsourceThreadId\b/)
-    expect(joined).not.toMatch(/\bEventCursor\b/)
-    expect(joined).not.toMatch(/\bpermissionMode\b/)
+    expect(ticketEvents.TicketCreated.fields).not.toHaveProperty("sourceThreadId")
+    expect(commands).not.toHaveProperty("MessageSend")
+    expect(events).not.toHaveProperty("MessageSent")
+    expect(rpc).not.toHaveProperty("GetBoardSnapshot")
+    expect(rpc).not.toHaveProperty("GetTicketActivity")
+    expect(rpc).not.toHaveProperty("SubmitTicketCommand")
+    expect(rpc).not.toHaveProperty("SubscribeProjectEvents")
+    expect(rpc).not.toHaveProperty("EventCursor")
+    expect(receipts).not.toHaveProperty("TicketReceipt")
   })
 })

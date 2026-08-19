@@ -5,8 +5,10 @@ import {
   DispatchCommand,
   GetConfig,
   Probe,
+  ProjectStreamItem,
   RPC_METHODS,
   requiresFreshSnapshot,
+  ShellStreamItem,
   SubscribeProject,
   SubscribeShell,
   SubscribeThread,
@@ -15,14 +17,16 @@ import { Schema } from "effect"
 
 describe("ControlPlaneRpcs", () => {
   it("expose dispatchCommand, getConfig, probe et les trois streams", () => {
-    expect([...ControlPlaneRpcs.requests.keys()].toSorted()).toEqual([
-      RPC_METHODS.dispatchCommand,
-      RPC_METHODS.subscribeProject,
-      RPC_METHODS.subscribeShell,
-      RPC_METHODS.subscribeThread,
-      RPC_METHODS.getConfig,
-      RPC_METHODS.probe,
-    ].toSorted())
+    expect([...ControlPlaneRpcs.requests.keys()].toSorted()).toEqual(
+      [
+        RPC_METHODS.dispatchCommand,
+        RPC_METHODS.subscribeProject,
+        RPC_METHODS.subscribeShell,
+        RPC_METHODS.subscribeThread,
+        RPC_METHODS.getConfig,
+        RPC_METHODS.probe,
+      ].toSorted(),
+    )
   })
 
   it("n'exporte plus les méthodes v1", () => {
@@ -90,12 +94,12 @@ describe("ControlPlaneRpcs", () => {
   })
 
   it("round-trip un frame snapshot | event | synchronized", () => {
-    const synchronized = Schema.decodeSync(SubscribeShell.successSchema)({
+    const synchronized = Schema.decodeSync(ShellStreamItem)({
       kind: "synchronized",
     })
     expect(synchronized.kind).toBe("synchronized")
 
-    const snapshot = Schema.decodeUnknownSync(SubscribeProject.successSchema)({
+    const snapshot = Schema.decodeSync(ProjectStreamItem)({
       kind: "snapshot",
       snapshot: {
         snapshotSequence: 1,
