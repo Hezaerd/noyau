@@ -1,3 +1,5 @@
+import { getHotkeysPlatform } from "@/lib/keyboard-shortcut"
+
 export const APPEARANCE_PREFERENCES = ["system", "light", "dark"] as const
 
 export type AppearancePreference = (typeof APPEARANCE_PREFERENCES)[number]
@@ -24,13 +26,14 @@ declare global {
 }
 
 export const getDesktopPlatformClassNames = (platform: string): readonly string[] => {
-  if (platform.startsWith("Mac")) {
-    return ["electron", "electron-macos"]
+  switch (getHotkeysPlatform(platform)) {
+    case "mac":
+      return ["electron", "electron-macos"]
+    case "windows":
+      return ["electron", "electron-windows"]
+    default:
+      return ["electron", "electron-linux"]
   }
-  if (platform.startsWith("Win")) {
-    return ["electron", "electron-windows"]
-  }
-  return ["electron", "electron-linux"]
 }
 
 const getWindowControlsOverlay = (): WindowControlsOverlayLike | undefined =>
@@ -41,7 +44,7 @@ export const syncDocumentDesktopChrome = (): (() => void) => {
     return () => undefined
   }
 
-  const platformClassNames = getDesktopPlatformClassNames(navigator.platform)
+  const platformClassNames = getDesktopPlatformClassNames(window.noyauDesktop.platform)
   const overlay = getWindowControlsOverlay()
   const syncOverlayClass = () => {
     document.documentElement.classList.toggle("wco", overlay?.visible === true)

@@ -10,14 +10,26 @@ import {
 describe("keyboard-shortcut", () => {
   it.each([
     ["MacIntel", "mac"],
+    ["Macintosh", "mac"],
+    ["macOS", "mac"],
+    ["darwin", "mac"],
     ["Win32", "windows"],
+    ["Windows", "windows"],
+    ["win32", "windows"],
     ["Linux x86_64", "linux"],
+    ["linux", "linux"],
   ] as const)("maps %s to hotkeys platform %s", (platform, hotkeysPlatform) => {
     expect(getHotkeysPlatform(platform)).toBe(hotkeysPlatform)
   })
 
   it("formats command palette shortcut for macOS", () => {
     expect(getShortcutSegments(HOTKEY_COMMAND_PALETTE, "mac")).toEqual(["⌘", "K"])
+  })
+
+  it("formats Electron darwin platform as macOS shortcuts", () => {
+    const platform = getHotkeysPlatform("darwin")
+    expect(getShortcutSegments(HOTKEY_COMMAND_PALETTE, platform)).toEqual(["⌘", "K"])
+    expect(paletteItemHotkey(0, platform)).toBe("Mod+1")
   })
 
   it("formats command palette shortcut for Windows", () => {

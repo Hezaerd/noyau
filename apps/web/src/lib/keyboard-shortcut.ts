@@ -4,13 +4,40 @@ export const HOTKEY_COMMAND_PALETTE = "Mod+K" as const
 
 export type HotkeysPlatform = "mac" | "windows" | "linux"
 
-export const getDesktopPlatform = (): string => window.noyauDesktop?.platform ?? navigator.platform
+declare global {
+  interface Navigator {
+    readonly userAgentData?: {
+      readonly platform?: string
+    }
+  }
+}
+
+const getBrowserPlatformHint = (): string => {
+  const userAgentPlatform = navigator.userAgentData?.platform
+  if (userAgentPlatform !== undefined && userAgentPlatform.length > 0) {
+    return userAgentPlatform
+  }
+  if (navigator.platform.length > 0) {
+    return navigator.platform
+  }
+  return navigator.userAgent
+}
+
+export const getDesktopPlatform = (): string =>
+  window.noyauDesktop?.platform ?? getBrowserPlatformHint()
 
 export const getHotkeysPlatform = (platform = getDesktopPlatform()): HotkeysPlatform => {
-  if (platform.startsWith("Mac")) {
+  const normalized = platform.toLowerCase()
+  if (
+    normalized === "darwin" ||
+    normalized.includes("mac") ||
+    normalized.includes("iphone") ||
+    normalized.includes("ipad") ||
+    normalized.includes("ipod")
+  ) {
     return "mac"
   }
-  if (platform.startsWith("Win")) {
+  if (normalized === "win32" || normalized.includes("win")) {
     return "windows"
   }
   return "linux"
