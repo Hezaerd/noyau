@@ -86,7 +86,7 @@ const emitLiveUpdates = () => {
       kind: "search",
       status: "completed",
       rawInput: { query: "mentions légales" },
-      rawOutput: { content: "---\\nimport PageHero from \\\"../components/PageHero.astro\\\"\\n" },
+      rawOutput: { content: '---\\nimport PageHero from \\"../components/PageHero.astro\\"\\n' },
     },
   })
 }
