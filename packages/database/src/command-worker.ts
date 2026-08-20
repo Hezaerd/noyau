@@ -6,19 +6,8 @@ import type {
   ProjectId,
   SchemaVersion,
 } from "@noyau/protocol/ids"
-import {
-  Crypto,
-  DateTime,
-  Deferred,
-  Effect,
-  Option,
-  PubSub,
-  Queue,
-  Result,
-  Schema,
-  Scope,
-  Stream,
-} from "effect"
+import type { Scope } from "effect"
+import { Crypto, DateTime, Deferred, Effect, PubSub, Queue, Result, Schema, Stream } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 import type { SqlError } from "effect/unstable/sql/SqlError"
 
@@ -52,27 +41,11 @@ export interface PersistedEvent<Event> {
   readonly event: Event
 }
 
-export type DurableReceipt<Rejection> = {
+export interface DurableReceipt<Rejection> {
   readonly commandId: string
   readonly response:
-    | {
-        readonly _tag: "accepted"
-        readonly sequence: number
-      }
-    | {
-        readonly _tag: "rejected"
-        readonly error: Rejection
-      }
-}
-
-interface CommandEnvelope<Command, Rejection, Error> {
-  readonly command: Command
-  readonly result: Deferred.Deferred<DurableReceipt<Rejection>, Error>
-}
-
-interface Committed<State, Event> {
-  readonly state: State
-  readonly events: ReadonlyArray<PersistedEvent<Event>>
+    | { readonly _tag: "accepted"; readonly sequence: number }
+    | { readonly _tag: "rejected"; readonly error: Rejection }
 }
 
 export interface CommandWorker<Command, Event, State, Rejection, Error> {
@@ -88,28 +61,33 @@ export interface CommandWorker<Command, Event, State, Rejection, Error> {
 }
 
 export interface CommandWorkerOptions<
-  CommandSchema extends Schema.Top,
-  EventSchema extends Schema.Top,
-  RejectionSchema extends Schema.Top,
+  Command,
+  Event,
+  Rejection,
   State,
   ProjectionError,
   ProjectionRequirements,
 > {
-  readonly commandSchema: CommandSchema
-  readonly eventSchema: EventSchema
-  readonly rejectionSchema: RejectionSchema
-  readonly metadata: (command: CommandSchema["Type"]) => DurableCommand
-  readonly aggregate: (command: CommandSchema["Type"]) => AggregateRef
+  readonly commandSchema: Schema.Codec<Command, unknown>
+  readonly eventSchema: Schema.Codec<Event, unknown>
+  readonly rejectionSchema: Schema.Codec<Rejection, unknown>
+  readonly metadata: (command: Command) => DurableCommand
+  readonly aggregate: (command: Command) => AggregateRef
   readonly initialState: (aggregate: AggregateRef) => State
   readonly decide: (
     state: State,
-    command: CommandSchema["Type"],
-  ) => Result.Result<ReadonlyArray<EventSchema["Type"]>, RejectionSchema["Type"]>
-  readonly evolve: (state: State, event: EventSchema["Type"]) => State
+    command: Command,
+  ) => Result.Result<ReadonlyArray<Event>, Rejection>
+  readonly evolve: (state: State, event: Event) => State
   readonly project: (
-    event: PersistedEvent<EventSchema["Type"]>,
+    event: PersistedEvent<Event>,
   ) => Effect.Effect<void, ProjectionError, SqlClient | ProjectionRequirements>
-  readonly reactor: DrainableWorker<PersistedEvent<EventSchema["Type"]>>
+  readonly reactor: DrainableWorker<PersistedEvent<Event>>
+}
+
+interface CommandEnvelope<Command, Rejection, Error> {
+  readonly command: Command
+  readonly result: Deferred.Deferred<DurableReceipt<Rejection>, Error>
 }
 
 const ReceiptRow = Schema.Struct({
@@ -121,53 +99,48 @@ const ReceiptRow = Schema.Struct({
 
 const EventRow = Schema.Struct({
   event_id: Schema.String,
-  sequence: Schema.Number,
+  sequence: Schema.Int,
   project_id: Schema.String,
   actor_id: Schema.String,
   correlation_id: Schema.String,
   causation_id: Schema.String,
   occurred_at: Schema.String,
-  schema_version: Schema.Number,
+  schema_version: Schema.Int,
   aggregate_kind: Schema.String,
   aggregate_id: Schema.String,
-  aggregate_version: Schema.Number,
+  aggregate_version: Schema.Int,
   event: Schema.String,
 })
 
-const VersionRow = Schema.Struct({ version: Schema.Number })
-const SequenceRow = Schema.Struct({ sequence: Schema.Number })
+const VersionRow = Schema.Struct({ version: Schema.Int })
+const SequenceRow = Schema.Struct({ sequence: Schema.Int })
 
-const decodeReceiptRow = Schema.decodeUnknownEffect(ReceiptRow)
-const decodeEventRow = Schema.decodeUnknownEffect(EventRow)
-const decodeVersionRow = Schema.decodeUnknownEffect(VersionRow)
-const decodeSequenceRow = Schema.decodeUnknownEffect(SequenceRow)
+const decodeReceiptRow = Schema.decodeEffect(ReceiptRow)
+const decodeEventRow = Schema.decodeEffect(EventRow)
+const decodeVersionRow = Schema.decodeEffect(VersionRow)
+const decodeSequenceRow = Schema.decodeEffect(SequenceRow)
+const decodeOccurredAt = Schema.decodeEffect(Schema.DateTimeUtcFromString)
 
 const aggregateKey = ({ kind, id }: AggregateRef) => `${kind}\u0000${id}`
 
 export const makeCommandWorker = <
-  CommandSchema extends Schema.Top,
-  EventSchema extends Schema.Top,
-  RejectionSchema extends Schema.Top,
+  Command,
+  Event,
+  Rejection,
   State,
   ProjectionError,
   ProjectionRequirements,
 >(
   options: CommandWorkerOptions<
-    CommandSchema,
-    EventSchema,
-    RejectionSchema,
+    Command,
+    Event,
+    Rejection,
     State,
     ProjectionError,
     ProjectionRequirements
   >,
 ): Effect.Effect<
-  CommandWorker<
-    CommandSchema["Type"],
-    EventSchema["Type"],
-    State,
-    RejectionSchema["Type"],
-    CommandIdConflict | ProjectionError | SqlError
-  >,
+  CommandWorker<Command, Event, State, Rejection, CommandIdConflict | ProjectionError | SqlError>,
   never,
   Scope.Scope | SqlClient | Crypto.Crypto | ProjectionRequirements
 > =>
@@ -175,23 +148,23 @@ export const makeCommandWorker = <
     const sql = yield* SqlClient
     const crypto = yield* Crypto.Crypto
     const states = new Map<string, State>()
-    const eventPubSub = yield* PubSub.unbounded<PersistedEvent<EventSchema["Type"]>>()
+    const eventPubSub = yield* PubSub.unbounded<PersistedEvent<Event>>()
 
-    const commandJson = Schema.fromJsonString(options.commandSchema)
-    const eventJson = Schema.fromJsonString(options.eventSchema)
+    const encodeCommand = Schema.encodeEffect(Schema.fromJsonString(options.commandSchema))
+    const encodeEvent = Schema.encodeEffect(Schema.fromJsonString(options.eventSchema))
+    const decodeEvent = Schema.decodeEffect(Schema.fromJsonString(options.eventSchema))
     const responseSchema = Schema.Union([
-      Schema.TaggedStruct("accepted", { sequence: Schema.Number }),
+      Schema.TaggedStruct("accepted", { sequence: Schema.Int }),
       Schema.TaggedStruct("rejected", { error: options.rejectionSchema }),
     ])
     const responseJson = Schema.fromJsonString(responseSchema)
-    const encodeCommand = Schema.encodeEffect(commandJson)
-    const encodeEvent = Schema.encodeEffect(eventJson)
-    const decodeEvent = Schema.decodeUnknownEffect(eventJson)
     const encodeResponse = Schema.encodeEffect(responseJson)
-    const decodeResponse = Schema.decodeUnknownEffect(responseJson)
+    const decodeResponse = Schema.decodeEffect(responseJson)
 
-    const rowToEvent = Effect.fn("CommandWorker.rowToEvent")(function* (input: unknown) {
-      const row = yield* decodeEventRow(input).pipe(Effect.orDie)
+    const rowToEvent = Effect.fn("CommandWorker.rowToEvent")(function* (
+      input: (typeof EventRow)["Encoded"],
+    ) {
+      const row = yield* decodeEventRow(input)
       return {
         eventId: row.event_id,
         sequence: row.sequence,
@@ -199,25 +172,23 @@ export const makeCommandWorker = <
         actorId: row.actor_id,
         correlationId: row.correlation_id,
         causationId: row.causation_id,
-        occurredAt: yield* Schema.decodeUnknownEffect(Schema.DateTimeUtcFromString)(
-          row.occurred_at,
-        ).pipe(Effect.orDie),
+        occurredAt: yield* decodeOccurredAt(row.occurred_at),
         schemaVersion: row.schema_version,
         aggregate: {
           kind: row.aggregate_kind,
           id: row.aggregate_id,
         },
         aggregateVersion: row.aggregate_version,
-        event: yield* decodeEvent(row.event).pipe(Effect.orDie),
-      } satisfies PersistedEvent<EventSchema["Type"]>
-    })
+        event: yield* decodeEvent(row.event),
+      } satisfies PersistedEvent<Event>
+    }, Effect.orDie)
 
     const loadState = Effect.fn("CommandWorker.loadState")(function* (aggregate: AggregateRef) {
       const cached = states.get(aggregateKey(aggregate))
       if (cached !== undefined) {
         return cached
       }
-      const rows = yield* sql`
+      const rows = yield* sql<(typeof EventRow)["Encoded"]>`
         SELECT
           event_id, sequence, project_id, actor_id, correlation_id, causation_id,
           occurred_at, schema_version, aggregate_kind, aggregate_id,
@@ -236,10 +207,10 @@ export const makeCommandWorker = <
     })
 
     const persistReceipt = (
-      command: DurableCommand,
+      metadata: DurableCommand,
       aggregate: AggregateRef,
       encodedCommand: string,
-      response: DurableReceipt<RejectionSchema["Type"]>["response"],
+      response: DurableReceipt<Rejection>["response"],
     ) =>
       Effect.gen(function* () {
         const encodedResponse = yield* encodeResponse(response).pipe(Effect.orDie)
@@ -247,29 +218,39 @@ export const makeCommandWorker = <
           INSERT INTO receipts (
             command_id, aggregate_kind, aggregate_id, command, response, created_at
           ) VALUES (
-            ${command.commandId}, ${aggregate.kind}, ${aggregate.id}, ${encodedCommand},
-            ${encodedResponse}, ${DateTime.formatIso(command.issuedAt)}
+            ${metadata.commandId}, ${aggregate.kind}, ${aggregate.id}, ${encodedCommand},
+            ${encodedResponse}, ${DateTime.formatIso(metadata.issuedAt)}
           )
         `
       })
 
+    type WorkerError = CommandIdConflict | ProjectionError | SqlError
+    type Committed = {
+      readonly state: State
+      readonly events: ReadonlyArray<PersistedEvent<Event>>
+    }
+    type TransactionResult = {
+      readonly receipt: DurableReceipt<Rejection>
+      readonly committed: Committed | null
+    }
+
     const execute = Effect.fn("CommandWorker.execute")(function* (
-      command: CommandSchema["Type"],
-    ) {
+      command: Command,
+    ): Effect.fn.Return<DurableReceipt<Rejection>, WorkerError, ProjectionRequirements> {
       const metadata = options.metadata(command)
       const aggregate = options.aggregate(command)
       const encodedCommand = yield* encodeCommand(command).pipe(Effect.orDie)
 
-      const transaction = yield* sql.withTransaction(
+      const transaction: TransactionResult = yield* sql.withTransaction(
         Effect.gen(function* () {
-          const receiptRows = yield* sql`
+          const receiptRows = yield* sql<(typeof ReceiptRow)["Encoded"]>`
             SELECT aggregate_kind, aggregate_id, command, response
             FROM receipts
             WHERE command_id = ${metadata.commandId}
           `
-          const existingRow = Option.fromNullable(receiptRows[0])
-          if (Option.isSome(existingRow)) {
-            const receipt = yield* decodeReceiptRow(existingRow.value).pipe(Effect.orDie)
+          const existing = receiptRows[0]
+          if (existing !== undefined) {
+            const receipt = yield* decodeReceiptRow(existing).pipe(Effect.orDie)
             if (
               receipt.aggregate_kind !== aggregate.kind ||
               receipt.aggregate_id !== aggregate.id ||
@@ -282,21 +263,18 @@ export const makeCommandWorker = <
                 commandId: metadata.commandId,
                 response: yield* decodeResponse(receipt.response).pipe(Effect.orDie),
               },
-              committed: Option.none<Committed<State, EventSchema["Type"]>>(),
+              committed: null,
             }
           }
 
           const state = yield* loadState(aggregate)
           const decision = options.decide(state, command)
           if (Result.isFailure(decision)) {
-            const response = {
-              _tag: "rejected" as const,
-              error: decision.failure,
-            }
+            const response = { _tag: "rejected" as const, error: decision.failure }
             yield* persistReceipt(metadata, aggregate, encodedCommand, response)
             return {
               receipt: { commandId: metadata.commandId, response },
-              committed: Option.none<Committed<State, EventSchema["Type"]>>(),
+              committed: null,
             }
           }
           if (decision.success.length === 0) {
@@ -308,21 +286,25 @@ export const makeCommandWorker = <
             VALUES (${aggregate.kind}, ${aggregate.id}, 0)
             ON CONFLICT (aggregate_kind, aggregate_id) DO NOTHING
           `
-          const versionRows = yield* sql`
+          const versionRows = yield* sql<(typeof VersionRow)["Encoded"]>`
             SELECT version
             FROM aggregate_heads
             WHERE aggregate_kind = ${aggregate.kind}
               AND aggregate_id = ${aggregate.id}
           `
-          const currentVersion = (yield* decodeVersionRow(versionRows[0]).pipe(Effect.orDie)).version
+          const versionRow = versionRows[0]
+          if (versionRow === undefined) {
+            return yield* Effect.die("Aggregate head is missing")
+          }
+          const currentVersion = (yield* decodeVersionRow(versionRow).pipe(Effect.orDie)).version
 
           let nextState = state
-          const committedEvents: Array<PersistedEvent<EventSchema["Type"]>> = []
+          const committedEvents: Array<PersistedEvent<Event>> = []
           for (const [index, event] of decision.success.entries()) {
             const eventId = yield* crypto.randomUUIDv4.pipe(Effect.orDie)
             const aggregateVersion = currentVersion + index + 1
             const encodedEvent = yield* encodeEvent(event).pipe(Effect.orDie)
-            const insertedRows = yield* sql`
+            const insertedRows = yield* sql<(typeof SequenceRow)["Encoded"]>`
               INSERT INTO events (
                 event_id, project_id, actor_id, correlation_id, causation_id,
                 occurred_at, schema_version, aggregate_kind, aggregate_id,
@@ -335,7 +317,11 @@ export const makeCommandWorker = <
               )
               RETURNING sequence
             `
-            const sequence = (yield* decodeSequenceRow(insertedRows[0]).pipe(Effect.orDie)).sequence
+            const insertedRow = insertedRows[0]
+            if (insertedRow === undefined) {
+              return yield* Effect.die("Inserted event sequence is missing")
+            }
+            const sequence = (yield* decodeSequenceRow(insertedRow).pipe(Effect.orDie)).sequence
             const persistedEvent = {
               eventId,
               sequence,
@@ -348,16 +334,15 @@ export const makeCommandWorker = <
               aggregate,
               aggregateVersion,
               event,
-            } satisfies PersistedEvent<EventSchema["Type"]>
-            yield* options.project(persistedEvent)
+            } satisfies PersistedEvent<Event>
+            yield* options.project(persistedEvent).pipe(Effect.provideService(SqlClient, sql))
             nextState = options.evolve(nextState, event)
             committedEvents.push(persistedEvent)
           }
 
-          const nextVersion = currentVersion + committedEvents.length
           yield* sql`
             UPDATE aggregate_heads
-            SET version = ${nextVersion}
+            SET version = ${currentVersion + committedEvents.length}
             WHERE aggregate_kind = ${aggregate.kind}
               AND aggregate_id = ${aggregate.id}
           `
@@ -369,36 +354,29 @@ export const makeCommandWorker = <
           yield* persistReceipt(metadata, aggregate, encodedCommand, response)
           return {
             receipt: { commandId: metadata.commandId, response },
-            committed: Option.some({
-              state: nextState,
-              events: committedEvents,
-            }),
+            committed: { state: nextState, events: committedEvents },
           }
         }),
       )
 
-      if (Option.isSome(transaction.committed)) {
-        states.set(aggregateKey(aggregate), transaction.committed.value.state)
-        for (const event of transaction.committed.value.events) {
+      if (transaction.committed !== null) {
+        states.set(aggregateKey(aggregate), transaction.committed.state)
+        for (const event of transaction.committed.events) {
           yield* PubSub.publish(eventPubSub, event)
         }
-        for (const event of transaction.committed.value.events) {
+        for (const event of transaction.committed.events) {
           yield* options.reactor.enqueue(event)
         }
       }
       return transaction.receipt
     })
 
-    type WorkerError = CommandIdConflict | ProjectionError | SqlError
-    const commandQueue =
-      yield* Queue.unbounded<CommandEnvelope<CommandSchema["Type"], RejectionSchema["Type"], WorkerError>>()
-
-    const processEnvelope = (envelope: CommandEnvelope<CommandSchema["Type"], RejectionSchema["Type"], WorkerError>) =>
+    const commandQueue = yield* Queue.unbounded<CommandEnvelope<Command, Rejection, WorkerError>>()
+    const processEnvelope = (envelope: CommandEnvelope<Command, Rejection, WorkerError>) =>
       Effect.exit(execute(envelope.command)).pipe(
         Effect.flatMap((exit) => Deferred.done(envelope.result, exit)),
         Effect.asVoid,
       )
-
     yield* Queue.take(commandQueue).pipe(
       Effect.flatMap(processEnvelope),
       Effect.forever,
@@ -410,7 +388,7 @@ export const makeCommandWorker = <
       limit = 100,
     ) {
       const boundedLimit = Math.max(1, Math.min(limit, 1_000))
-      const rows = yield* sql`
+      const rows = yield* sql<(typeof EventRow)["Encoded"]>`
         SELECT
           event_id, sequence, project_id, actor_id, correlation_id, causation_id,
           occurred_at, schema_version, aggregate_kind, aggregate_id,
@@ -424,13 +402,19 @@ export const makeCommandWorker = <
     })
 
     const latestSequence = Effect.gen(function* () {
-      const rows = yield* sql`SELECT COALESCE(MAX(sequence), 0) AS sequence FROM events`
-      return (yield* decodeSequenceRow(rows[0]).pipe(Effect.orDie)).sequence
+      const rows = yield* sql<
+        (typeof SequenceRow)["Encoded"]
+      >`SELECT COALESCE(MAX(sequence), 0) AS sequence FROM events`
+      const row = rows[0]
+      if (row === undefined) {
+        return yield* Effect.die("Latest event sequence is missing")
+      }
+      return (yield* decodeSequenceRow(row).pipe(Effect.orDie)).sequence
     })
 
-    const dispatch = (command: CommandSchema["Type"]) =>
+    const dispatch = (command: Command) =>
       Effect.gen(function* () {
-        const result = yield* Deferred.make<DurableReceipt<RejectionSchema["Type"]>, WorkerError>()
+        const result = yield* Deferred.make<DurableReceipt<Rejection>, WorkerError>()
         yield* Queue.offer(commandQueue, { command, result })
         return yield* Deferred.await(result)
       })

@@ -1,16 +1,6 @@
 import * as NodeSqlite from "node:sqlite"
 
-import {
-  Config,
-  Context,
-  Effect,
-  Fiber,
-  Layer,
-  Schema,
-  Scope,
-  Semaphore,
-  Stream,
-} from "effect"
+import { Config, Context, Effect, Fiber, Layer, Schema, Scope, Semaphore, Stream } from "effect"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import type { Connection } from "effect/unstable/sql/SqlConnection"
@@ -20,7 +10,6 @@ import * as Statement from "effect/unstable/sql/Statement"
 export interface NodeSqliteClientConfig {
   readonly filename: string
   readonly readonly?: boolean
-  readonly spanAttributes?: Record<string, unknown>
 }
 
 export class UnsupportedNodeSqliteVersion extends Schema.TaggedError<UnsupportedNodeSqliteVersion>()(
@@ -37,7 +26,7 @@ export class UnsupportedNodeSqliteOperation extends Schema.TaggedError<Unsupport
 
 const checkCompatibility = Effect.sync(() => {
   const [major = 0, minor = 0] = process.versions.node.split(".").map(Number)
-  if ((major === 22 && minor >= 16) || (major === 23 && minor >= 11) || major >= 24) {
+  if ((major === 22 && minor >= 14) || major >= 23) {
     return
   }
   throw new UnsupportedNodeSqliteVersion({ nodeVersion: process.versions.node })
@@ -47,6 +36,20 @@ const sqlError = (message: string, operation: string, cause: unknown) =>
   new SqlError({
     reason: classifySqliteError(cause, { message, operation }),
   })
+
+const SqlInputValue = Schema.Union([
+  Schema.Null,
+  Schema.String,
+  Schema.Finite,
+  Schema.BigInt,
+  Schema.Uint8Array,
+])
+const decodeSqlInputValue = Schema.decodeUnknownSync(SqlInputValue)
+const bindParameters = (params: ReadonlyArray<unknown>) =>
+  params.map((parameter) => decodeSqlInputValue(parameter))
+
+const hasRows = (query: string) =>
+  /^\s*(?:EXPLAIN|PRAGMA|SELECT|WITH)\b/iu.test(query) || /\bRETURNING\b/iu.test(query)
 
 const make = Effect.fn("NodeSqliteClient.make")(function* (config: NodeSqliteClientConfig) {
   yield* checkCompatibility
@@ -73,33 +76,40 @@ const make = Effect.fn("NodeSqliteClient.make")(function* (config: NodeSqliteCli
       catch: (cause) => sqlError("Failed to prepare statement", "prepare", cause),
     })
 
-  const bindParameters = (params: ReadonlyArray<unknown>) => {
-    // SqlClient parameters have already passed through the SQLite compiler.
-    return params as ReadonlyArray<NodeSqlite.SQLInputValue>
-  }
-
-  const hasRows = (statement: NodeSqlite.StatementSync) => statement.columns().length > 0
-
-  const execute = (
+  const executeRows = (
     query: string,
     params: ReadonlyArray<unknown>,
-    raw: boolean,
-  ): Effect.Effect<ReadonlyArray<object> | unknown, SqlError> =>
+    transformRows: (<A extends object>(rows: ReadonlyArray<A>) => ReadonlyArray<A>) | undefined,
+  ) =>
     prepare(query).pipe(
       Effect.flatMap((statement) =>
         Effect.withFiber((fiber) =>
           Effect.try({
             try: () => {
-              statement.setReadBigInts(Boolean(Context.get(fiber.context, SqlClient.SafeIntegers)))
-              if (hasRows(statement)) {
-                return statement.all(...bindParameters(params))
+              statement.setReadBigInts(Context.get(fiber.context, SqlClient.SafeIntegers))
+              if (hasRows(query)) {
+                const rows = statement.all(...bindParameters(params))
+                return transformRows === undefined ? rows : transformRows(rows)
               }
-              const result = statement.run(...bindParameters(params))
-              return raw ? result : []
+              statement.run(...bindParameters(params))
+              return []
             },
             catch: (cause) => sqlError("Failed to execute statement", "execute", cause),
           }),
         ),
+      ),
+    )
+
+  const executeRaw = (query: string, params: ReadonlyArray<unknown>) =>
+    prepare(query).pipe(
+      Effect.flatMap((statement) =>
+        Effect.try({
+          try: () =>
+            hasRows(query)
+              ? statement.all(...bindParameters(params))
+              : statement.run(...bindParameters(params)),
+          catch: (cause) => sqlError("Failed to execute statement", "execute", cause),
+        }),
       ),
     )
 
@@ -114,11 +124,13 @@ const make = Effect.fn("NodeSqliteClient.make")(function* (config: NodeSqliteCli
           (arrayStatement) =>
             Effect.try({
               try: () => {
-                if (!hasRows(arrayStatement)) {
+                if (!hasRows(query)) {
                   arrayStatement.run(...bindParameters(params))
                   return []
                 }
-                return arrayStatement.all(...bindParameters(params))
+                return arrayStatement
+                  .all(...bindParameters(params))
+                  .map((row) => (Array.isArray(row) ? row : Object.values(row)))
               },
               catch: (cause) => sqlError("Failed to execute statement", "execute", cause),
             }),
@@ -128,22 +140,10 @@ const make = Effect.fn("NodeSqliteClient.make")(function* (config: NodeSqliteCli
     )
 
   const driverConnection: Connection = {
-    execute: (query, params, transformRows) =>
-      execute(query, params, false).pipe(
-        Effect.map((rows) => {
-          const typedRows = rows as ReadonlyArray<object>
-          return transformRows === undefined ? typedRows : transformRows(typedRows)
-        }),
-      ),
-    executeRaw: (query, params) => execute(query, params, true),
-    executeStream: () => Stream.fail(new UnsupportedNodeSqliteOperation()),
-    executeUnprepared: (query, params, transformRows) =>
-      execute(query, params, false).pipe(
-        Effect.map((rows) => {
-          const typedRows = rows as ReadonlyArray<object>
-          return transformRows === undefined ? typedRows : transformRows(typedRows)
-        }),
-      ),
+    execute: executeRows,
+    executeRaw,
+    executeStream: () => Stream.die(new UnsupportedNodeSqliteOperation()),
+    executeUnprepared: executeRows,
     executeValues,
     executeValuesUnprepared: executeValues,
   }
@@ -166,16 +166,11 @@ const make = Effect.fn("NodeSqliteClient.make")(function* (config: NodeSqliteCli
     acquirer,
     compiler,
     transactionAcquirer,
-    spanAttributes: [
-      ["db.system.name", "sqlite"],
-      ...Object.entries(config.spanAttributes ?? {}),
-    ],
+    spanAttributes: [["db.system.name", "sqlite"]],
   })
 })
 
-export const layer = (
-  config: NodeSqliteClientConfig,
-): Layer.Layer<SqlClient.SqlClient, SqlError> =>
+export const layer = (config: NodeSqliteClientConfig): Layer.Layer<SqlClient.SqlClient, SqlError> =>
   Layer.effect(SqlClient.SqlClient, make(config)).pipe(Layer.provide(Reactivity.layer))
 
 export const layerConfig = (

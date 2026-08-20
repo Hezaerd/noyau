@@ -1,11 +1,11 @@
-import { rmSync } from "node:fs"
+import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import { assert, describe, it, layer } from "@effect/vitest"
+import { assert, describe, it as standaloneIt, layer } from "@effect/vitest"
 import { runMigrations } from "@noyau/database/migrations"
 import { layer as sqliteLayer, memoryLayer } from "@noyau/database/sqlite"
-import { Effect, Layer } from "effect"
+import { Context, Effect, Layer } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 describe("SQLite persistence", () => {
@@ -28,7 +28,10 @@ describe("SQLite persistence", () => {
           tables.map(({ name }) => name),
           ["aggregate_heads", "events", "receipts"],
         )
-        assert.notInclude(tables.map(({ name }) => name), "outbox")
+        assert.notInclude(
+          tables.map(({ name }) => name),
+          "outbox",
+        )
         assert.deepStrictEqual(yield* runMigrations(), [])
       }),
     )
@@ -65,28 +68,26 @@ describe("SQLite persistence", () => {
     )
   })
 
-  it.effect("active WAL sur un fichier possédé par la connexion Node", () => {
-    const filename = join(
-      tmpdir(),
-      `noyau-sqlite-${process.pid}-${crypto.randomUUID()}.sqlite`,
-    )
-    return Effect.gen(function* () {
-      const sql = yield* SqlClient
-      const rows = yield* sql<{ journal_mode: string }>`PRAGMA journal_mode`
-      assert.strictEqual(rows[0]?.journal_mode, "wal")
-    }).pipe(
-      Effect.provide(sqliteLayer({ filename })),
+  standaloneIt.effect("active WAL sur un fichier possédé par la connexion Node", () => {
+    const directory = mkdtempSync(join(tmpdir(), "noyau-sqlite-"))
+    const filename = join(directory, "state.sqlite")
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename }))
+        const sql = Context.get(context, SqlClient)
+        const rows = yield* sql<{ journal_mode: string }>`PRAGMA journal_mode`
+        assert.strictEqual(rows[0]?.journal_mode, "wal")
+      }),
+    ).pipe(
       Effect.ensuring(
         Effect.sync(() => {
-          rmSync(filename, { force: true })
-          rmSync(`${filename}-shm`, { force: true })
-          rmSync(`${filename}-wal`, { force: true })
+          rmSync(directory, { force: true, recursive: true })
         }),
       ),
     )
   })
 
-  it.effect("ferme la connexion avec son Scope", () =>
+  standaloneIt.effect("ferme la connexion avec son Scope", () =>
     Layer.build(sqliteLayer({ filename: ":memory:" })).pipe(Effect.scoped, Effect.asVoid),
   )
 })

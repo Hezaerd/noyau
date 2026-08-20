@@ -1,4 +1,5 @@
 import { Effect, Layer } from "effect"
+import type { MigrationError } from "effect/unstable/sql/Migrator"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 import type { SqlError } from "effect/unstable/sql/SqlError"
 
@@ -7,7 +8,6 @@ import * as NodeSqliteClient from "./node-sqlite-client"
 
 export interface SqlitePersistenceConfig {
   readonly filename: string
-  readonly spanAttributes?: Record<string, unknown>
 }
 
 const setupLayer = Layer.effectDiscard(
@@ -26,12 +26,8 @@ const setupLayer = Layer.effectDiscard(
  */
 export const layer = ({
   filename,
-  spanAttributes,
-}: SqlitePersistenceConfig): Layer.Layer<SqlClient, SqlError> => {
-  const clientLayer = NodeSqliteClient.layer({
-    filename,
-    ...(spanAttributes === undefined ? {} : { spanAttributes }),
-  })
+}: SqlitePersistenceConfig): Layer.Layer<SqlClient, MigrationError | SqlError> => {
+  const clientLayer = NodeSqliteClient.layer({ filename })
   return setupLayer.pipe(Layer.provideMerge(clientLayer))
 }
 

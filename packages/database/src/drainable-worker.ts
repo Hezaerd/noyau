@@ -1,4 +1,5 @@
-import { Effect, Scope, TxQueue, TxRef } from "effect"
+import type { Scope } from "effect"
+import { Effect, TxQueue, TxRef } from "effect"
 
 export interface DrainableWorker<A> {
   readonly enqueue: (item: A) => Effect.Effect<void>

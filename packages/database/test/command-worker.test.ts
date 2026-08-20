@@ -1,23 +1,13 @@
 import { assert, describe, layer } from "@effect/vitest"
-import { makeCommandWorker } from "@noyau/database/command-worker"
-import {
-  type DrainableWorker,
-  makeDrainableWorker,
-} from "@noyau/database/drainable-worker"
+import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
+import { type DrainableWorker, makeDrainableWorker } from "@noyau/database/drainable-worker"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { CommandIdConflict } from "@noyau/protocol/errors"
-import {
-  ActorId,
-  CommandId,
-  CorrelationId,
-  ProjectId,
-  SchemaVersion,
-} from "@noyau/protocol/ids"
-import { Effect, Option, Result, Schema, Stream } from "effect"
+import { ActorId, CommandId, CorrelationId, ProjectId, SchemaVersion } from "@noyau/protocol/ids"
+import { Crypto, Effect, Fiber, Layer, Option, Result, Schema, Stream } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-const CounterCommand = Schema.Struct({
-  _tag: Schema.Literal("counter.change"),
+const CounterCommand = Schema.TaggedStruct("counter.change", {
   commandId: CommandId,
   projectId: ProjectId,
   actorId: ActorId,
@@ -34,6 +24,7 @@ const CounterEvent = Schema.TaggedStruct("counter.changed", {
   amount: Schema.Int,
 })
 type CounterEvent = (typeof CounterEvent)["Type"]
+type CounterPersistedEvent = PersistedEvent<CounterEvent>
 
 const CounterRejected = Schema.TaggedStruct("CounterRejected", {
   reason: Schema.String,
@@ -42,6 +33,24 @@ const CounterRejected = Schema.TaggedStruct("CounterRejected", {
 class ProjectionFailure extends Schema.TaggedError<ProjectionFailure>()("ProjectionFailure", {}) {}
 
 const decodeCommand = Schema.decodeUnknownSync(CounterCommand)
+const isCommandIdConflict = Schema.is(CommandIdConflict)
+const isProjectionFailure = Schema.is(ProjectionFailure)
+
+const testCrypto = () => {
+  let counter = 0
+  return Crypto.make({
+    randomBytes: (size) => {
+      const bytes = new Uint8Array(size)
+      counter = counter + 1
+      bytes[size - 1] = counter % 256
+      return bytes
+    },
+    digest: (_algorithm, data) => Effect.succeed(data),
+  })
+}
+
+const TestLayer = Layer.merge(memoryLayer, Layer.succeed(Crypto.Crypto)(testCrypto()))
+
 const command = (
   commandId: string,
   aggregateId: string,
@@ -58,14 +67,11 @@ const command = (
     schemaVersion: 1,
     aggregateId,
     amount,
-    ...(reject ? { reject } : {}),
+    reject,
   })
 
 const makeOptions = (
-  reactor: DrainableWorker<{
-    readonly sequence: number
-    readonly event: CounterEvent
-  }>,
+  reactor: DrainableWorker<CounterPersistedEvent>,
   decisions: { count: number },
 ) => ({
   commandSchema: CounterCommand,
@@ -81,7 +87,7 @@ const makeOptions = (
       : Result.succeed([CounterEvent.make({ amount: input.amount })])
   },
   evolve: (state: number, event: CounterEvent) => state + event.amount,
-  project: (event: { readonly aggregate: { readonly id: string }; readonly event: CounterEvent }) =>
+  project: (event: CounterPersistedEvent) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient
       yield* sql`
@@ -106,20 +112,29 @@ const projectionValue = (aggregateId: string) =>
     return rows[0]?.value
   })
 
+const prepareStore = Effect.gen(function* () {
+  const sql = yield* SqlClient
+  yield* sql`
+    CREATE TABLE IF NOT EXISTS counter_projection (
+      aggregate_id TEXT PRIMARY KEY,
+      value INTEGER NOT NULL
+    )
+  `
+  yield* sql`DELETE FROM counter_projection`
+  yield* sql`DELETE FROM receipts`
+  yield* sql`DELETE FROM events`
+  yield* sql`DELETE FROM aggregate_heads`
+  yield* sql`DELETE FROM sqlite_sequence WHERE name = 'events'`
+})
+
 describe("durable command worker", () => {
-  layer(memoryLayer)((it) => {
+  layer(TestLayer)((it) => {
     it.effect("stabilise les retries et refuse la réutilisation d'un commandId", () =>
       Effect.scoped(
         Effect.gen(function* () {
-          const sql = yield* SqlClient
-          yield* sql`
-            CREATE TABLE counter_projection (
-              aggregate_id TEXT PRIMARY KEY,
-              value INTEGER NOT NULL
-            )
-          `
+          yield* prepareStore
           const reacted: Array<number> = []
-          const reactor = yield* makeDrainableWorker((event: { readonly sequence: number }) =>
+          const reactor = yield* makeDrainableWorker((event: CounterPersistedEvent) =>
             Effect.sync(() => {
               reacted.push(event.sequence)
             }),
@@ -142,15 +157,13 @@ describe("durable command worker", () => {
           assert.strictEqual(decisions.count, 2)
 
           const aggregateConflict = yield* Effect.flip(
-            worker.dispatch(
-              command("bbbbbbbb-0000-4000-8000-000000000001", "another", 2),
-            ),
-          )
+            worker.dispatch(command("bbbbbbbb-0000-4000-8000-000000000001", "another", 2)),
+          ).pipe(Effect.orDie)
           const payloadConflict = yield* Effect.flip(
             worker.dispatch(command("bbbbbbbb-0000-4000-8000-000000000001", "one", 3)),
-          )
-          assert.isTrue(aggregateConflict instanceof CommandIdConflict)
-          assert.isTrue(payloadConflict instanceof CommandIdConflict)
+          ).pipe(Effect.orDie)
+          assert.isTrue(isCommandIdConflict(aggregateConflict))
+          assert.isTrue(isCommandIdConflict(payloadConflict))
 
           yield* worker.drainReactors
           assert.deepStrictEqual(reacted, [1])
@@ -163,26 +176,19 @@ describe("durable command worker", () => {
     it.effect("sérialise les commandes et ne publie qu'après commit", () =>
       Effect.scoped(
         Effect.gen(function* () {
-          const sql = yield* SqlClient
-          yield* sql`
-            CREATE TABLE counter_projection (
-              aggregate_id TEXT PRIMARY KEY,
-              value INTEGER NOT NULL
-            )
-          `
+          yield* prepareStore
           const reactedValues: Array<number> = []
-          const reactor = yield* makeDrainableWorker(
-            (event: { readonly aggregate: { readonly id: string } }) =>
-              projectionValue(event.aggregate.id).pipe(
-                Effect.tap((value) =>
-                  Effect.sync(() => {
-                    if (value !== undefined) {
-                      reactedValues.push(value)
-                    }
-                  }),
-                ),
-                Effect.asVoid,
+          const reactor = yield* makeDrainableWorker((event: CounterPersistedEvent) =>
+            projectionValue(event.aggregate.id).pipe(
+              Effect.tap((value) =>
+                Effect.sync(() => {
+                  if (value !== undefined) {
+                    reactedValues.push(value)
+                  }
+                }),
               ),
+              Effect.asVoid,
+            ),
           )
           const decisions = { count: 0 }
           const worker = yield* makeCommandWorker(makeOptions(reactor, decisions))
@@ -207,7 +213,7 @@ describe("durable command worker", () => {
           assert.strictEqual(yield* projectionValue("shared"), 3)
           assert.strictEqual(yield* worker.readModel({ kind: "counter", id: "shared" }), 3)
           assert.deepStrictEqual(reactedValues, [1, 3])
-          assert.strictEqual(Option.getOrUndefined(yield* published)?.sequence, 1)
+          assert.strictEqual(Option.getOrUndefined(yield* Fiber.join(published))?.sequence, 1)
         }),
       ),
     )
@@ -216,23 +222,14 @@ describe("durable command worker", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const sql = yield* SqlClient
-          yield* sql`
-            CREATE TABLE counter_projection (
-              aggregate_id TEXT PRIMARY KEY,
-              value INTEGER NOT NULL
-            )
-          `
-          const reactor = yield* makeDrainableWorker(() => Effect.void)
+          yield* prepareStore
+          const reactor = yield* makeDrainableWorker((_event: CounterPersistedEvent) => Effect.void)
           const decisions = { count: 0 }
           const worker = yield* makeCommandWorker(makeOptions(reactor, decisions))
-          const failedCommand = command(
-            "bbbbbbbb-0000-4000-8000-000000000021",
-            "rollback",
-            13,
-          )
+          const failedCommand = command("bbbbbbbb-0000-4000-8000-000000000021", "rollback", 13)
 
-          const failure = yield* Effect.flip(worker.dispatch(failedCommand))
-          assert.isTrue(failure instanceof ProjectionFailure)
+          const failure = yield* Effect.flip(worker.dispatch(failedCommand)).pipe(Effect.orDie)
+          assert.isTrue(isProjectionFailure(failure))
           assert.isUndefined(yield* projectionValue("rollback"))
           assert.deepStrictEqual(yield* worker.readEvents(0), [])
           const receiptRows = yield* sql<{ total: number }>`
@@ -248,21 +245,14 @@ describe("durable command worker", () => {
 
     it.effect("démarre chaque TxQueue vide sans rejouer le journal", () =>
       Effect.gen(function* () {
-        const sql = yield* SqlClient
-        yield* sql`
-          CREATE TABLE counter_projection (
-            aggregate_id TEXT PRIMARY KEY,
-            value INTEGER NOT NULL
-          )
-        `
+        yield* prepareStore
         const reacted: Array<number> = []
         yield* Effect.scoped(
           Effect.gen(function* () {
-            const reactor = yield* makeDrainableWorker(
-              (event: { readonly sequence: number }) =>
-                Effect.sync(() => {
-                  reacted.push(event.sequence)
-                }),
+            const reactor = yield* makeDrainableWorker((event: CounterPersistedEvent) =>
+              Effect.sync(() => {
+                reacted.push(event.sequence)
+              }),
             )
             const worker = yield* makeCommandWorker(makeOptions(reactor, { count: 0 }))
             yield* worker.dispatch(command("bbbbbbbb-0000-4000-8000-000000000031", "boot", 1))
@@ -271,11 +261,10 @@ describe("durable command worker", () => {
         )
         yield* Effect.scoped(
           Effect.gen(function* () {
-            const reactor = yield* makeDrainableWorker(
-              (event: { readonly sequence: number }) =>
-                Effect.sync(() => {
-                  reacted.push(event.sequence)
-                }),
+            const reactor = yield* makeDrainableWorker((event: CounterPersistedEvent) =>
+              Effect.sync(() => {
+                reacted.push(event.sequence)
+              }),
             )
             const worker = yield* makeCommandWorker(makeOptions(reactor, { count: 0 }))
             yield* worker.drainReactors
