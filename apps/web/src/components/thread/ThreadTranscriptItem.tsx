@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
 import { Spinner } from "@/components/ui/spinner"
-import { transcriptLabel } from "@/lib/thread-transcript"
+import { transcriptLabel, transcriptToolCaption } from "@/lib/thread-transcript"
 
 export function ThreadTranscriptItem({
   item,
@@ -32,9 +32,7 @@ export function ThreadTranscriptItem({
             <Spinner />
           </MarkerIcon>
         ) : null}
-        <MarkerContent>
-          {transcriptLabel(item)} · {item.outputSummary ?? item.status}
-        </MarkerContent>
+        <MarkerContent className="truncate">{transcriptToolCaption(item)}</MarkerContent>
       </Marker>
     )
   }

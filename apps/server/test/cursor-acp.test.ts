@@ -171,7 +171,17 @@ describe("Cursor ACP adapter", () => {
               signal._tag === "transcript" &&
               signal.item._tag === "transcript.tool" &&
               signal.item.status === "completed" &&
-              signal.item.outputSummary === '{"ok":true,"bytes":12}',
+              signal.item.name === "Searched files" &&
+              signal.item.outputSummary === "mentions légales",
+          ),
+        )
+        assert.isFalse(
+          signals.some(
+            (signal) =>
+              signal._tag === "transcript" &&
+              signal.item._tag === "transcript.tool" &&
+              (signal.item.outputSummary?.includes("PageHero") === true ||
+                signal.item.outputSummary?.includes("{") === true),
           ),
         )
         assert.isTrue(

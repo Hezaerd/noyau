@@ -74,6 +74,7 @@ const emitLiveUpdates = () => {
       title: "Inspect files",
       kind: "search",
       status: "in_progress",
+      rawInput: { query: "mentions légales" },
     },
   })
   notify("session/update", {
@@ -84,7 +85,8 @@ const emitLiveUpdates = () => {
       title: "Inspect files",
       kind: "search",
       status: "completed",
-      rawOutput: { ok: true, bytes: 12 },
+      rawInput: { query: "mentions légales" },
+      rawOutput: { content: "---\\nimport PageHero from \\\"../components/PageHero.astro\\\"\\n" },
     },
   })
 }

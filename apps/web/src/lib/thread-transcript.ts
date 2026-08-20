@@ -89,6 +89,10 @@ export const transcriptLabel = (item: TranscriptItem): string => {
   }
 }
 
+export const transcriptToolCaption = (
+  item: Extract<TranscriptItem, { readonly _tag: "transcript.tool" }>,
+): string => (item.outputSummary === undefined ? item.name : `${item.name} · ${item.outputSummary}`)
+
 /**
  * Stable row id for MessageScroller. Assistant text grows in place, so the id
  * must not include the streamed body. `index` separates two assistant rows of

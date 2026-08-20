@@ -9,6 +9,7 @@
     "./identity": "./src/identity.ts",
     "./observability": "./src/observability.ts",
     "./provider/cursor-acp": "./src/provider/cursor-acp.ts",
+    "./provider/tool-call-presentation": "./src/provider/tool-call-presentation.ts",
     "./provider/provider-port": "./src/provider/provider-port.ts",
     "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
     "./rpc-handlers": "./src/rpc-handlers.ts",

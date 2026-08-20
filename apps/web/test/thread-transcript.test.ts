@@ -14,6 +14,7 @@ import {
   projectTranscriptItem,
   threadStatusNoticesVisible,
   transcriptRowId,
+  transcriptToolCaption,
 } from "../src/lib/thread-transcript"
 
 const ids = {
@@ -217,6 +218,35 @@ describe("thread transcript projection", () => {
         }),
       ),
     ).toBeUndefined()
+  })
+
+  it("renders a compact tool caption without status or raw output", () => {
+    const withPath = decodeTranscript({
+      _tag: "transcript.tool",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      toolCallId: "tool-1",
+      name: "Read file",
+      status: "completed",
+      outputSummary: "src/pages/mentions-legales.astro",
+    })
+    const withoutPath = decodeTranscript({
+      _tag: "transcript.tool",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      toolCallId: "tool-2",
+      name: "Searched files",
+      status: "completed",
+    })
+
+    expect(withPath._tag).toBe("transcript.tool")
+    expect(withoutPath._tag).toBe("transcript.tool")
+    if (withPath._tag === "transcript.tool") {
+      expect(transcriptToolCaption(withPath)).toBe("Read file · src/pages/mentions-legales.astro")
+    }
+    if (withoutPath._tag === "transcript.tool") {
+      expect(transcriptToolCaption(withoutPath)).toBe("Searched files")
+    }
   })
 
   it("shows Session lastError and hides the interrupted notice otherwise", () => {
