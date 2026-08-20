@@ -166,6 +166,7 @@ export const nodeServerLayer = Layer.mergeAll(
 export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
+  Layer.provideMerge(NodeFileSystem.layer),
   Layer.provide(NodeCrypto.layer),
 )
 
