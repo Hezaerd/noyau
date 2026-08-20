@@ -28,9 +28,11 @@ const healthLayer = Layer.mergeAll(
 )
 
 const unauthorized = (error: MissingIdentity | Forbidden) =>
-  HttpServerResponse.jsonUnsafe(
-    { error: error._tag },
-    { status: error._tag === "MissingIdentity" ? 401 : 403 },
+  Effect.succeed(
+    HttpServerResponse.jsonUnsafe(
+      { error: error._tag },
+      { status: error._tag === "MissingIdentity" ? 401 : 403 },
+    ),
   )
 
 export const websocketRpcLayer = Layer.unwrap(
@@ -48,12 +50,13 @@ export const websocketRpcLayer = Layer.unwrap(
           config.actorId,
         )
         const connectionLayer = rpcHandlersLayer.pipe(
-          Layer.provide(rpcIdentityLayer(actorId)),
+          Layer.provideMerge(rpcIdentityLayer(actorId)),
           Layer.provide(Layer.succeed(ControlPlane)(controlPlane)),
-          Layer.provide(RpcSerialization.layerJson),
+          Layer.provideMerge(RpcSerialization.layerJson),
         )
+        const connection = yield* Layer.build(connectionLayer)
         const websocket = yield* RpcServer.toHttpEffectWebsocket(ControlPlaneRpcs).pipe(
-          Effect.provide(connectionLayer),
+          Effect.provideContext(connection),
         )
         return yield* websocket
       }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
