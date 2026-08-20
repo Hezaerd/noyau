@@ -34,7 +34,8 @@ Diagnostic visible d'une Session en `error`. Remplace tout badge `lost`.
 _À éviter_ : lost, failed, requested
 
 **runtimeMode**:
-Picker à quatre valeurs t3code sur le Thread.
+Politique d'outils t3code du Thread (quatre valeurs). Portée par le Thread et envoyée à la
+création / au tour ; plus exposée dans l'en-tête Thread.
 _À éviter_ : permissionMode
 
 **Palette**:

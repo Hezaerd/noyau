@@ -15,7 +15,6 @@ import {
 
 import { useControlPlane } from "@/components/control-plane-context"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
-import { ThreadHeader } from "@/components/thread/ThreadHeader"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import {
   ThreadTicketLinkEditor,
@@ -31,13 +30,11 @@ import {
   loadThreadSnapshot,
   subscribeThread,
 } from "@/lib/control-plane"
-import { createTicketFromThread as createTicketFromThreadFlow } from "@/lib/create-ticket-from-thread"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import {
   makeApprovalRespondRequest,
   makeThreadCreateRequest,
   makeThreadId,
-  makeThreadRuntimeModeSetRequest,
   makeThreadTurnInterruptRequest,
   makeThreadTurnStartRequest,
   makeUserInputRespondRequest,
@@ -80,10 +77,9 @@ interface ThreadPageProps {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
   readonly onCreated: (threadId: ThreadId) => void
-  readonly onTicketCreated: (ticketId: TicketId) => void
 }
 
-export function ThreadPage({ projectId, threadId, onCreated, onTicketCreated }: ThreadPageProps) {
+export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) {
   const { cursor, projects } = useControlPlane()
   const project = projects.find((candidate) => candidate.id === projectId)
   const [snapshot, setSnapshot] = useState<ThreadSnapshot>()
@@ -255,21 +251,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onTicketCreated }: 
     await dispatch(request.value)
   }
 
-  const selectRuntimeMode = async (value: typeof runtimeMode) => {
-    setRuntimeMode(value)
-    if (threadId === undefined) {
-      return
-    }
-    const request = await buildCommand(
-      makeThreadRuntimeModeSetRequest({ threadId, runtimeMode: value }),
-    )
-    if (!request.ok) {
-      setError(request.details)
-      return
-    }
-    await dispatch(request.value)
-  }
-
   const rejectImages = (
     event: ClipboardEvent<HTMLTextAreaElement> | DragEvent<HTMLTextAreaElement>,
   ) => {
@@ -353,33 +334,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onTicketCreated }: 
     }
   }
 
-  const createTicketFromThread = async () => {
-    if (threadId === undefined || snapshot === undefined || board === undefined) {
-      return
-    }
-    await createTicketFromThreadFlow({
-      projectId,
-      threadId,
-      snapshot,
-      board,
-      buildCommand,
-      dispatch,
-      onError: setError,
-      onTicketCreated,
-    })
-  }
-
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <ThreadHeader
-        projectId={projectId}
-        cursor={cursor}
-        runtimeMode={runtimeMode}
-        onRuntimeModeChange={selectRuntimeMode}
-        canCreateTicket={threadId !== undefined && board !== undefined}
-        onCreateTicket={() => void createTicketFromThread()}
-      />
-
       <div className="min-h-0 flex-1">
         <ScrollArea className="h-full" scrollbarGutter>
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 sm:px-6">
