@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
@@ -73,7 +73,7 @@ const controlPlaneTestLayer = (hooks: ControlPlaneHooks = {}) =>
   makeControlPlaneLayer(hooks).pipe(
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
-    Layer.provideMerge(NodeFileSystem.layer),
+    Layer.provideMerge(BunFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 

@@ -92,6 +92,7 @@ export const bunServerLayer = Layer.mergeAll(
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
+  Layer.provideMerge(BunFileSystem.layer),
   Layer.provide(BunCrypto.layer),
 )
 

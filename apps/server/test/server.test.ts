@@ -1,4 +1,4 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { controlPlaneLayer } from "@noyau/server/control-plane"
@@ -16,7 +16,7 @@ const testCrypto = Crypto.make({
 const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(memoryLayer),
   Layer.provideMerge(testServerConfigLayer()),
-  Layer.provideMerge(NodeFileSystem.layer),
+  Layer.provideMerge(BunFileSystem.layer),
   Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto)),
 )
 
