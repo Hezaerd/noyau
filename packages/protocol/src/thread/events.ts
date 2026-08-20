@@ -32,6 +32,7 @@ export type ThreadRestored = (typeof ThreadRestored)["Type"]
 export const ThreadMetaUpdated = Schema.TaggedStruct("thread.meta-updated", {
   threadId: ThreadId,
   title: Schema.optionalKey(Schema.NonEmptyString),
+  regenerateTitle: Schema.optionalKey(Schema.Literal(true)),
 })
 export type ThreadMetaUpdated = (typeof ThreadMetaUpdated)["Type"]
 

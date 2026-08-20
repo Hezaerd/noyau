@@ -4,6 +4,7 @@ import { memoryLayer } from "@noyau/database/sqlite"
 import { controlPlaneLayer } from "@noyau/server/control-plane"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { serverRoutesLayer } from "@noyau/server/server"
+import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
 import { Crypto, Effect, Layer, ManagedRuntime } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
@@ -19,6 +20,7 @@ const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(memoryLayer),
   Layer.provideMerge(testServerConfigLayer()),
   Layer.provideMerge(unavailableProviderLayer),
+  Layer.provideMerge(unavailableTextGenerationLayer),
   Layer.provideMerge(
     Layer.succeed(WorkspaceRootAccess)({
       isAvailable: () => Effect.succeed(true),

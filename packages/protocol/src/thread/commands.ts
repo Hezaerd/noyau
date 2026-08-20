@@ -64,10 +64,19 @@ const threadIdPayload = {
   threadId: ThreadId,
 } as const
 
-const threadMetaPayload = {
+const exclusiveTitleIntent = Schema.makeFilter(
+  (value: { readonly title?: string; readonly regenerateTitle?: true }) =>
+    (value.title !== undefined) !== (value.regenerateTitle === true),
+  {
+    expected: "exactly one of title or regenerateTitle",
+  },
+)
+
+const threadMetaPayload = Schema.Struct({
   threadId: ThreadId,
   title: Schema.optionalKey(Schema.NonEmptyString),
-} as const
+  regenerateTitle: Schema.optionalKey(Schema.Literal(true)),
+}).check(exclusiveTitleIntent)
 
 const threadRuntimeModePayload = {
   threadId: ThreadId,
@@ -104,10 +113,7 @@ const userInputRespondPayload = {
 export const ThreadCreateRequest = request("thread.create", Schema.Struct(threadCreatePayload))
 export const ThreadArchiveRequest = request("thread.archive", Schema.Struct(threadIdPayload))
 export const ThreadRestoreRequest = request("thread.restore", Schema.Struct(threadIdPayload))
-export const ThreadMetaUpdateRequest = request(
-  "thread.meta.update",
-  Schema.Struct(threadMetaPayload),
-)
+export const ThreadMetaUpdateRequest = request("thread.meta.update", threadMetaPayload)
 export const ThreadRuntimeModeSetRequest = request(
   "thread.runtime-mode.set",
   Schema.Struct(threadRuntimeModePayload),
@@ -145,7 +151,7 @@ export const decodeThreadCommandRequest = Schema.decodeUnknownEffect(ThreadComma
 export const ThreadCreate = command("thread.create", Schema.Struct(threadCreatePayload))
 export const ThreadArchive = command("thread.archive", Schema.Struct(threadIdPayload))
 export const ThreadRestore = command("thread.restore", Schema.Struct(threadIdPayload))
-export const ThreadMetaUpdate = command("thread.meta.update", Schema.Struct(threadMetaPayload))
+export const ThreadMetaUpdate = command("thread.meta.update", threadMetaPayload)
 export const ThreadRuntimeModeSet = command(
   "thread.runtime-mode.set",
   Schema.Struct(threadRuntimeModePayload),

@@ -16,6 +16,7 @@ import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
 import { loggerLayer } from "./observability.ts"
 import { cursorProviderLayer } from "./provider/cursor-acp.ts"
 import { rpcHandlersLayer } from "./rpc-handlers.ts"
+import { cursorTextGenerationLayer } from "./text-generation/cursor-text-generation.ts"
 import { workspaceRootAccessLayer } from "./workspace-root.ts"
 
 export const sqlitePersistenceLayer = Layer.unwrap(
@@ -166,6 +167,7 @@ export const nodeServerLayer = Layer.mergeAll(
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(cursorProviderLayer()),
+  Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),
   Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
   Layer.provideMerge(NodeFileSystem.layer),

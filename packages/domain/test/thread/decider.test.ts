@@ -20,6 +20,7 @@ import {
   ThreadTurnStart,
 } from "@noyau/protocol/thread/commands"
 import { ThreadTranscriptAppended, type ThreadEvent } from "@noyau/protocol/thread/events"
+import { DEFAULT_THREAD_TITLE } from "@noyau/protocol/thread/title"
 import { Result, Schema } from "effect"
 
 const ids = {
@@ -82,12 +83,12 @@ const createThread = (state: ThreadState = available(), runtimeMode?: string) =>
       ? {
           threadId: ids.thread,
           projectId: ids.project,
-          title: "Titre provisoire",
+          title: DEFAULT_THREAD_TITLE,
         }
       : {
           threadId: ids.thread,
           projectId: ids.project,
-          title: "Titre provisoire",
+          title: DEFAULT_THREAD_TITLE,
           runtimeMode,
         }
   return success(
@@ -171,7 +172,7 @@ describe("Thread lifecycle", () => {
         _tag: "thread.created",
         threadId: ids.thread,
         projectId: ids.project,
-        title: "Titre provisoire",
+        title: DEFAULT_THREAD_TITLE,
         provider: "cursor",
         runtimeMode: "full-access",
       },
@@ -214,6 +215,49 @@ describe("Thread lifecycle", () => {
       title: "Titre régénéré",
       provider: "cursor",
     })
+  })
+
+  it("demande une régénération de titre sans muter le titre courant", () => {
+    const state = withThread()
+    const events = success(
+      decide(
+        state,
+        command({
+          _tag: "thread.meta.update",
+          ...meta,
+          payload: { threadId: ids.thread, regenerateTitle: true },
+        }),
+      ),
+    )
+    const next = apply(state, events)
+
+    expect(events).toEqual([
+      {
+        _tag: "thread.meta-updated",
+        threadId: ids.thread,
+        regenerateTitle: true,
+      },
+    ])
+    expect(next.threads[0]?.title).toBe(DEFAULT_THREAD_TITLE)
+  })
+
+  it("applique un Titre généré via thread.title.seeded", () => {
+    const state = withThread()
+    const next = apply(
+      state,
+      success(
+        decide(
+          state,
+          command({
+            _tag: "thread.title.seeded",
+            ...meta,
+            payload: { threadId: ids.thread, title: "Reprendre la Session" },
+          }),
+        ),
+      ),
+    )
+
+    expect(next.threads[0]?.title).toBe("Reprendre la Session")
   })
 
   it("archive, refuse un nouveau Turn, puis restaure", () => {

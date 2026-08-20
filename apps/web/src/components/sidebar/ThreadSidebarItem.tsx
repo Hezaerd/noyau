@@ -1,14 +1,25 @@
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { EllipsisVerticalIcon, MessageCircleIcon, PencilIcon, Trash2Icon } from "lucide-react"
+import {
+  EllipsisVerticalIcon,
+  MessageCircleIcon,
+  PencilIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
 import { Input } from "@/components/ui/input"
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu"
 import { SidebarMenuAction, SidebarMenuButton } from "@/components/ui/sidebar"
+import { Spinner } from "@/components/ui/spinner"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
-import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
+import {
+  makeThreadArchiveRequest,
+  makeThreadMetaUpdateRequest,
+  makeThreadTitleRegenerateRequest,
+} from "@/lib/thread-commands"
 import { cn } from "@/lib/utils"
 
 export function ThreadSidebarItem({
@@ -26,10 +37,12 @@ export function ThreadSidebarItem({
   const titleInputRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
   const [title, setTitle] = useState(thread.title)
 
   useEffect(() => {
     setTitle(thread.title)
+    setRegenerating(false)
   }, [thread.title])
 
   useEffect(() => {
@@ -52,6 +65,17 @@ export function ThreadSidebarItem({
     }
     void buildAndDispatchCommand(
       makeThreadMetaUpdateRequest({ threadId: thread.id, title: nextTitle }),
+    )
+  }
+
+  const regenerateTitle = () => {
+    setRegenerating(true)
+    void buildAndDispatchCommand(makeThreadTitleRegenerateRequest({ threadId: thread.id })).then(
+      (result) => {
+        if (!result.ok) {
+          setRegenerating(false)
+        }
+      },
     )
   }
 
@@ -118,6 +142,7 @@ export function ThreadSidebarItem({
       >
         <MessageCircleIcon />
         <span className="truncate">{thread.title}</span>
+        {regenerating ? <Spinner className="ml-auto size-3.5" /> : null}
       </SidebarMenuButton>
       <Menu open={menuOpen} onOpenChange={setMenuOpen}>
         <MenuTrigger
@@ -143,6 +168,10 @@ export function ThreadSidebarItem({
           >
             <PencilIcon />
             Renommer
+          </MenuItem>
+          <MenuItem closeOnClick disabled={regenerating} onClick={regenerateTitle}>
+            <RefreshCwIcon />
+            Régénérer le titre
           </MenuItem>
           <MenuSeparator />
           <MenuItem closeOnClick variant="destructive" onClick={archiveThread}>

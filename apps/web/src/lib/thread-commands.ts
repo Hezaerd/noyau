@@ -16,6 +16,7 @@ import {
   ThreadTurnStartRequest,
   UserInputRespondRequest,
 } from "@noyau/protocol/thread/commands"
+import { DEFAULT_THREAD_TITLE, seedTitleFromPrompt } from "@noyau/protocol/thread/title"
 import { Crypto, Effect } from "effect"
 
 const uuid = Effect.fnUntraced(function* () {
@@ -33,6 +34,7 @@ type ThreadCreatePayload = {
 type ThreadTurnStartPayload = {
   readonly threadId: ThreadId
   readonly text: string
+  readonly titleSeed?: string
   readonly runtimeMode?: RuntimeModeType
 }
 
@@ -68,11 +70,15 @@ export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
 export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
   readonly text: string
+  readonly titleSeed?: string
   readonly runtimeMode?: RuntimeModeType
 }) {
   let payload: ThreadTurnStartPayload = {
     threadId: input.threadId,
     text: input.text.trim(),
+  }
+  if (input.titleSeed !== undefined) {
+    payload = Object.assign(payload, { titleSeed: input.titleSeed })
   }
   if (input.runtimeMode !== undefined) {
     payload = Object.assign(payload, { runtimeMode: input.runtimeMode })
@@ -112,6 +118,15 @@ export const makeThreadMetaUpdateRequest = Effect.fnUntraced(function* (input: {
   })
 })
 
+export const makeThreadTitleRegenerateRequest = Effect.fnUntraced(function* (input: {
+  readonly threadId: ThreadId
+}) {
+  return ThreadMetaUpdateRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: { threadId: input.threadId, regenerateTitle: true },
+  })
+})
+
 export const makeThreadArchiveRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
 }) {
@@ -120,6 +135,8 @@ export const makeThreadArchiveRequest = Effect.fnUntraced(function* (input: {
     payload: { threadId: input.threadId },
   })
 })
+
+export { DEFAULT_THREAD_TITLE, seedTitleFromPrompt }
 
 export const makeThreadRuntimeModeSetRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
