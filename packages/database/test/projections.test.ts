@@ -11,7 +11,7 @@ import { layer as sqliteLayer } from "@noyau/database/sqlite"
 import { decide } from "@noyau/domain/board/decider"
 import { emptyBoardState, evolve } from "@noyau/domain/board/projector"
 import { BoardSnapshot } from "@noyau/protocol/board"
-import { Environment } from "@noyau/protocol/entities/environment"
+import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { Session } from "@noyau/protocol/entities/session"
 import { type DomainEvent } from "@noyau/protocol/events"
 import { ActorId, CommandId, CorrelationId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
@@ -25,7 +25,8 @@ import {
 import { TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketRejection } from "@noyau/protocol/ticket/errors"
 import { TicketEvent } from "@noyau/protocol/ticket/events"
-import { Crypto, Effect, Layer, Option, Schema } from "effect"
+import { Context, Crypto, Effect, Layer, Option, Schema } from "effect"
+import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 const ids = {
   project: Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000001"),
@@ -35,6 +36,12 @@ const ids = {
 }
 
 const occurredAt = (iso: string) => Schema.decodeSync(Schema.DateTimeUtcFromString)(iso)
+const encodeBoardSnapshot = Schema.encodeEffect(BoardSnapshot)
+const environment = Schema.decodeSync(Environment)({
+  id: "90000000-0000-4000-8000-000000000001",
+  cursor: { installed: true, handshakeOk: true },
+  createdAt: "2026-08-20T00:00:00.000Z",
+})
 
 const persisted = (
   sequence: number,
@@ -67,7 +74,8 @@ const testCrypto = () => {
   })
 }
 
-const command = (input: unknown) => Schema.decodeUnknownSync(TicketCommand)(input)
+const command = (input: (typeof TicketCommand)["Encoded"]) =>
+  Schema.decodeSync(TicketCommand)(input)
 
 const commandMeta = (commandId: string, issuedAt: string) => ({
   commandId: Schema.decodeSync(CommandId)(commandId),
@@ -85,7 +93,7 @@ const projectFixture = () =>
       ProjectCreated.make({
         projectId: ids.project,
         name: "Noyau",
-        workspaceRoot: "/workspace",
+        workspaceRoot: Schema.decodeSync(WorkspaceRoot)("/workspace"),
       }),
     ),
   )
@@ -99,60 +107,72 @@ describe("SQL projections", () => {
   it.effect("persiste une commande Board et restitue le même snapshot après recréation", () => {
     const directory = mkdtempSync(join(tmpdir(), "noyau-board-projection-"))
     const filename = join(directory, "state.sqlite")
-    const cryptoLayer = Layer.succeed(Crypto.Crypto)(testCrypto())
 
     return Effect.gen(function* () {
       const before = yield* Effect.scoped(
         Effect.gen(function* () {
-          yield* projectFixture()
-          const reactor = yield* makeDrainableWorker(
-            (_event: PersistedEvent<(typeof TicketEvent)["Type"]>) => Effect.void,
+          const context = yield* Layer.build(sqliteLayer({ filename }))
+          const sql = Context.get(context, SqlClient)
+          return yield* Effect.gen(function* () {
+            yield* projectFixture()
+            const reactor = yield* makeDrainableWorker(
+              (_event: PersistedEvent<(typeof TicketEvent)["Type"]>) => Effect.void,
+            )
+            const worker = yield* makeCommandWorker({
+              commandSchema: TicketCommand,
+              eventSchema: TicketEvent,
+              rejectionSchema: TicketRejection,
+              metadata: (input) => input,
+              aggregate: (input) => ({ kind: "board", id: input.projectId }),
+              initialState: () => emptyBoardState,
+              decide,
+              evolve,
+              project: (event) => projectDomainEvent(event),
+              reactor,
+            })
+            const initialized = command({
+              _tag: "board.initialize",
+              ...commandMeta("50000000-0000-4000-8000-000000000001", "2026-08-20T00:01:00.000Z"),
+              payload: {
+                backlogColumnId: "60000000-0000-4000-8000-000000000001",
+                activeColumnId: "60000000-0000-4000-8000-000000000002",
+                doneColumnId: "60000000-0000-4000-8000-000000000003",
+              },
+            })
+            const created = command({
+              _tag: "ticket.create",
+              ...commandMeta("50000000-0000-4000-8000-000000000002", "2026-08-20T00:02:00.000Z"),
+              payload: {
+                projectId: ids.project,
+                ticketId: "70000000-0000-4000-8000-000000000001",
+                title: "Persist projections",
+                placement: { columnId: "60000000-0000-4000-8000-000000000001" },
+              },
+            })
+            yield* worker.dispatch(initialized)
+            yield* worker.dispatch(created)
+            const snapshot = expectSome(yield* readBoardSnapshot(ids.project), "Board should exist")
+            assert.strictEqual(snapshot.snapshotSequence, 5)
+            assert.strictEqual(snapshot.columns.length, 3)
+            assert.strictEqual(snapshot.tickets.length, 1)
+            return yield* encodeBoardSnapshot(snapshot)
+          }).pipe(
+            Effect.provideService(SqlClient, sql),
+            Effect.provideService(Crypto.Crypto, testCrypto()),
           )
-          const worker = yield* makeCommandWorker({
-            commandSchema: TicketCommand,
-            eventSchema: TicketEvent,
-            rejectionSchema: TicketRejection,
-            metadata: (input) => input,
-            aggregate: (input) => ({ kind: "board", id: input.projectId }),
-            initialState: () => emptyBoardState,
-            decide,
-            evolve,
-            project: (event) => projectDomainEvent(event),
-            reactor,
-          })
-          const initialized = command({
-            _tag: "board.initialize",
-            ...commandMeta("50000000-0000-4000-8000-000000000001", "2026-08-20T00:01:00.000Z"),
-            payload: {
-              backlogColumnId: "60000000-0000-4000-8000-000000000001",
-              activeColumnId: "60000000-0000-4000-8000-000000000002",
-              doneColumnId: "60000000-0000-4000-8000-000000000003",
-            },
-          })
-          const created = command({
-            _tag: "ticket.create",
-            ...commandMeta("50000000-0000-4000-8000-000000000002", "2026-08-20T00:02:00.000Z"),
-            payload: {
-              projectId: ids.project,
-              ticketId: "70000000-0000-4000-8000-000000000001",
-              title: "Persist projections",
-              placement: { columnId: "60000000-0000-4000-8000-000000000001" },
-            },
-          })
-          yield* worker.dispatch(initialized)
-          yield* worker.dispatch(created)
-          const snapshot = expectSome(yield* readBoardSnapshot(ids.project), "Board should exist")
-          assert.strictEqual(snapshot.snapshotSequence, 5)
-          assert.strictEqual(snapshot.columns.length, 3)
-          assert.strictEqual(snapshot.tickets.length, 1)
-          return Schema.encodeSync(BoardSnapshot)(snapshot)
-        }).pipe(Effect.provide(Layer.merge(sqliteLayer({ filename }), cryptoLayer))),
+        }),
       )
 
-      const after = yield* readBoardSnapshot(ids.project).pipe(
-        Effect.map((snapshot) => expectSome(snapshot, "reopened Board should exist")),
-        Effect.map(Schema.encodeSync(BoardSnapshot)),
-        Effect.provide(sqliteLayer({ filename })),
+      const after = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const context = yield* Layer.build(sqliteLayer({ filename }))
+          const sql = Context.get(context, SqlClient)
+          return yield* readBoardSnapshot(ids.project).pipe(
+            Effect.map((snapshot) => expectSome(snapshot, "reopened Board should exist")),
+            Effect.flatMap(encodeBoardSnapshot),
+            Effect.provideService(SqlClient, sql),
+          )
+        }),
       )
       assert.deepStrictEqual(after, before)
     }).pipe(
@@ -171,7 +191,7 @@ describe("SQL projections", () => {
     const terminalTurnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000002")
     const resumeCursor = { schemaVersion: 1 as const, sessionId: "cursor-session-1" }
     const runningSession = (threadId: ThreadId, activeTurnId: TurnId, updatedAt: string) =>
-      Schema.decodeUnknownSync(Session)({
+      Schema.decodeSync(Session)({
         threadId,
         status: "running",
         lastError: null,
@@ -182,138 +202,148 @@ describe("SQL projections", () => {
       })
 
     return Effect.gen(function* () {
-      yield* Effect.gen(function* () {
-        yield* projectFixture()
-        yield* projectDomainEvent(
-          persisted(
-            1,
-            ThreadCreated.make({
-              threadId: ids.recoveryThread,
-              projectId: ids.project,
-              title: "Recovery",
-              provider: "cursor",
-              runtimeMode: "full-access",
-            }),
-          ),
-        )
-        yield* projectDomainEvent(
-          persisted(
-            2,
-            ThreadTurnStarted.make({
-              threadId: ids.recoveryThread,
-              turnId: recoveryTurnId,
-              text: "Keep this prompt",
-            }),
-          ),
-        )
-        yield* projectDomainEvent(
-          persisted(
-            3,
-            ThreadSessionSet.make({
-              threadId: ids.recoveryThread,
-              session: runningSession(
-                ids.recoveryThread,
-                recoveryTurnId,
-                "2026-08-20T00:03:00.000Z",
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const context = yield* Layer.build(sqliteLayer({ filename }))
+          const sql = Context.get(context, SqlClient)
+          return yield* Effect.gen(function* () {
+            yield* projectFixture()
+            yield* projectDomainEvent(
+              persisted(
+                1,
+                ThreadCreated.make({
+                  threadId: ids.recoveryThread,
+                  projectId: ids.project,
+                  title: "Recovery",
+                  provider: "cursor",
+                  runtimeMode: "full-access",
+                }),
               ),
-            }),
-          ),
-        )
+            )
+            yield* projectDomainEvent(
+              persisted(
+                2,
+                ThreadTurnStarted.make({
+                  threadId: ids.recoveryThread,
+                  turnId: recoveryTurnId,
+                  text: "Keep this prompt",
+                }),
+              ),
+            )
+            yield* projectDomainEvent(
+              persisted(
+                3,
+                ThreadSessionSet.make({
+                  threadId: ids.recoveryThread,
+                  session: runningSession(
+                    ids.recoveryThread,
+                    recoveryTurnId,
+                    "2026-08-20T00:03:00.000Z",
+                  ),
+                }),
+              ),
+            )
 
-        yield* projectDomainEvent(
-          persisted(
-            4,
-            ThreadCreated.make({
-              threadId: ids.terminalThread,
-              projectId: ids.project,
-              title: "Terminal",
-              provider: "cursor",
-              runtimeMode: "full-access",
-            }),
-          ),
-        )
-        yield* projectDomainEvent(
-          persisted(
-            5,
-            ThreadTurnStarted.make({
-              threadId: ids.terminalThread,
-              turnId: terminalTurnId,
-              text: "Already done",
-            }),
-          ),
-        )
-        yield* projectDomainEvent(
-          persisted(
-            6,
-            ThreadSessionSet.make({
-              threadId: ids.terminalThread,
-              session: runningSession(
-                ids.terminalThread,
-                terminalTurnId,
-                "2026-08-20T00:06:00.000Z",
+            yield* projectDomainEvent(
+              persisted(
+                4,
+                ThreadCreated.make({
+                  threadId: ids.terminalThread,
+                  projectId: ids.project,
+                  title: "Terminal",
+                  provider: "cursor",
+                  runtimeMode: "full-access",
+                }),
               ),
-            }),
-          ),
-        )
-        yield* projectDomainEvent(
-          persisted(
-            7,
-            ThreadSessionSet.make({
-              threadId: ids.terminalThread,
-              session: Schema.decodeUnknownSync(Session)({
-                ...runningSession(ids.terminalThread, terminalTurnId, "2026-08-20T00:06:00.000Z"),
-                status: "ready",
-                activeTurnId: null,
-                updatedAt: "2026-08-20T00:07:00.000Z",
-              }),
-            }),
-          ),
-        )
-        yield* projectDomainEvent(
-          persisted(
-            8,
-            ThreadTranscriptAppended.make({
-              item: {
-                _tag: "transcript.assistant",
-                threadId: ids.terminalThread,
-                turnId: terminalTurnId,
-                text: "must be ignored",
-              },
-            }),
-          ),
-        )
-        yield* projectDomainEvent(
-          persisted(
-            9,
-            ThreadSessionSet.make({
-              threadId: ids.terminalThread,
-              session: runningSession(
-                ids.terminalThread,
-                terminalTurnId,
-                "2026-08-20T00:09:00.000Z",
+            )
+            yield* projectDomainEvent(
+              persisted(
+                5,
+                ThreadTurnStarted.make({
+                  threadId: ids.terminalThread,
+                  turnId: terminalTurnId,
+                  text: "Already done",
+                }),
               ),
-            }),
-          ),
-        )
-      }).pipe(Effect.provide(sqliteLayer({ filename })))
+            )
+            yield* projectDomainEvent(
+              persisted(
+                6,
+                ThreadSessionSet.make({
+                  threadId: ids.terminalThread,
+                  session: runningSession(
+                    ids.terminalThread,
+                    terminalTurnId,
+                    "2026-08-20T00:06:00.000Z",
+                  ),
+                }),
+              ),
+            )
+            yield* projectDomainEvent(
+              persisted(
+                7,
+                ThreadSessionSet.make({
+                  threadId: ids.terminalThread,
+                  session: Schema.decodeSync(Session)({
+                    threadId: ids.terminalThread,
+                    status: "ready",
+                    lastError: null,
+                    activeTurnId: null,
+                    runtimeMode: "full-access",
+                    resumeCursor,
+                    updatedAt: "2026-08-20T00:07:00.000Z",
+                  }),
+                }),
+              ),
+            )
+            yield* projectDomainEvent(
+              persisted(
+                8,
+                ThreadTranscriptAppended.make({
+                  item: {
+                    _tag: "transcript.assistant",
+                    threadId: ids.terminalThread,
+                    turnId: terminalTurnId,
+                    text: "must be ignored",
+                  },
+                }),
+              ),
+            )
+            yield* projectDomainEvent(
+              persisted(
+                9,
+                ThreadSessionSet.make({
+                  threadId: ids.terminalThread,
+                  session: runningSession(
+                    ids.terminalThread,
+                    terminalTurnId,
+                    "2026-08-20T00:09:00.000Z",
+                  ),
+                }),
+              ),
+            )
+          }).pipe(Effect.provideService(SqlClient, sql))
+        }),
+      )
 
-      const evidence = yield* Effect.gen(function* () {
-        const recovery = expectSome(
-          yield* readThreadSnapshot(ids.recoveryThread),
-          "recovery Thread should exist",
-        )
-        const terminal = expectSome(
-          yield* readThreadSnapshot(ids.terminalThread),
-          "terminal Thread should exist",
-        )
-        const environment = Schema.decodeUnknownSync(Environment)({
-          id: "90000000-0000-4000-8000-000000000001",
-          cursor: { installed: true, handshakeOk: true },
-          createdAt: "2026-08-20T00:00:00.000Z",
-        })
-        const shell = yield* readShellSnapshot(environment)
-        return { recovery, shell, terminal }
-      }).pipe(Effect.provide(sqliteLayer({ filename })))
+      const evidence = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const context = yield* Layer.build(sqliteLayer({ filename }))
+          const sql = Context.get(context, SqlClient)
+          return yield* Effect.gen(function* () {
+            const recovery = expectSome(
+              yield* readThreadSnapshot(ids.recoveryThread),
+              "recovery Thread should exist",
+            )
+            const terminal = expectSome(
+              yield* readThreadSnapshot(ids.terminalThread),
+              "terminal Thread should exist",
+            )
+            const shell = yield* readShellSnapshot(environment)
+            return { recovery, shell, terminal }
+          }).pipe(Effect.provideService(SqlClient, sql))
+        }),
+      )
 
       assert.strictEqual(evidence.recovery.session?.status, "error")
       assert.isString(evidence.recovery.session?.lastError)
