@@ -1,8 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron"
 
+import { PICK_FOLDER_CHANNEL } from "./folder-picker"
 import { SET_THEME_CHANNEL, type AppearancePreference } from "./theme"
-
-export const PICK_FOLDER_CHANNEL = "noyau:pick-folder"
 
 export interface NoyauDesktopBridge {
   readonly platform: NodeJS.Platform

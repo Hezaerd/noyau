@@ -15,6 +15,7 @@ import {
   shell,
 } from "electron"
 
+import { PICK_FOLDER_CHANNEL } from "./folder-picker"
 import {
   DESKTOP_HOST,
   DESKTOP_SCHEME,
@@ -29,7 +30,6 @@ import {
   ServerSupervisor,
   type ServerBootstrap,
 } from "./supervisor"
-import { PICK_FOLDER_CHANNEL } from "./preload"
 import { SET_THEME_CHANNEL } from "./theme"
 import { decodeAppearancePreference } from "./theme-schema"
 import {
