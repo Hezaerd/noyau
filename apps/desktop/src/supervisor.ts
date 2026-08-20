@@ -29,6 +29,10 @@ export const ServerBootstrap = Schema.Struct({
 })
 export type ServerBootstrap = (typeof ServerBootstrap)["Type"]
 
+type FetchImplementation = (input: string, init?: RequestInit) => Promise<Response>
+
+const defaultFetch: FetchImplementation = (input, init) => fetch(input, init)
+
 const ServerConfigResponse = Schema.Struct({
   environmentId: Schema.NonEmptyString,
   bundleVersion: Schema.NonEmptyString,
@@ -59,14 +63,14 @@ export interface ServerSupervisorOptions {
   readonly environmentId?: string
   readonly externalBootstrap?: ServerBootstrap
   readonly executablePath?: string
-  readonly fetchImpl?: typeof fetch
+  readonly fetchImpl?: FetchImplementation
   readonly sleep?: (milliseconds: number) => Promise<void>
   readonly probeRpc?: (bootstrap: ServerBootstrap) => Promise<void>
   readonly onStateChange?: (state: SupervisorState) => void
 }
 
 type ReadinessOptions = {
-  fetchImpl?: typeof fetch
+  fetchImpl?: FetchImplementation
   sleep?: (milliseconds: number) => Promise<void>
   probeRpc?: (bootstrap: ServerBootstrap) => Promise<void>
 }
@@ -148,7 +152,7 @@ export const makeServerBootstrap = async (options: {
 
 const fetchServerConfig = async (
   bootstrap: ServerBootstrap,
-  fetchImpl: typeof fetch,
+  fetchImpl: FetchImplementation,
 ): Promise<void> => {
   const response = await fetchImpl(`http://${bootstrap.host}:${bootstrap.port}/internal/config`, {
     headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
@@ -189,13 +193,13 @@ export const waitForServerReady = async (
   bootstrap: ServerBootstrap,
   options: {
     readonly timeoutMs?: number
-    readonly fetchImpl?: typeof fetch
+    readonly fetchImpl?: FetchImplementation
     readonly sleep?: (milliseconds: number) => Promise<void>
     readonly probeRpc?: (bootstrap: ServerBootstrap) => Promise<void>
   } = {},
 ): Promise<void> => {
   const timeoutMs = options.timeoutMs ?? 15_000
-  const fetchImpl = options.fetchImpl ?? fetch
+  const fetchImpl = options.fetchImpl ?? defaultFetch
   const sleep =
     options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)))
   const startedAt = Date.now()
@@ -287,7 +291,7 @@ export class ServerSupervisor {
     if (bootstrap === undefined) {
       return false
     }
-    const response = await (this.options.fetchImpl ?? fetch)(
+    const response = await (this.options.fetchImpl ?? defaultFetch)(
       `http://${bootstrap.host}:${bootstrap.port}/internal/status`,
       {
         headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
@@ -307,7 +311,7 @@ export class ServerSupervisor {
     const child = this.child
     if (bootstrap !== undefined) {
       try {
-        await (this.options.fetchImpl ?? fetch)(
+        await (this.options.fetchImpl ?? defaultFetch)(
           `http://${bootstrap.host}:${bootstrap.port}/internal/shutdown`,
           {
             method: "POST",
