@@ -398,7 +398,24 @@ const projectSession = Effect.fn("Projections.projectSession")(function* (
         AND state = 'running'
     `
   } else if (settlement !== null) {
-    const activeTurnId = previousActiveTurnId ?? session.activeTurnId
+    const knownActiveTurnId = previousActiveTurnId ?? session.activeTurnId
+    const latestRows =
+      knownActiveTurnId === null
+        ? yield* sql<(typeof ActiveTurnRow)["Encoded"]>`
+            SELECT turn_id AS active_turn_id
+            FROM projection_turns
+            WHERE thread_id = ${event.threadId}
+              AND state = 'running'
+            ORDER BY ordinal DESC
+            LIMIT 1
+          `
+        : []
+    const latestRow = latestRows[0]
+    const latestActiveTurnId =
+      latestRow === undefined
+        ? null
+        : (yield* decodeActiveTurnRow(latestRow).pipe(Effect.orDie)).active_turn_id
+    const activeTurnId = knownActiveTurnId ?? latestActiveTurnId
     if (activeTurnId !== null) {
       yield* sql`
         UPDATE projection_turns
