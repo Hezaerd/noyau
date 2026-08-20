@@ -80,6 +80,13 @@ export interface CommandWorkerOptions<
     command: Command,
   ) => Result.Result<ReadonlyArray<Event>, Rejection>
   readonly evolve: (state: State, event: Event) => State
+  /**
+   * Enforce cross-aggregate persistence invariants inside the command
+   * transaction. A rejection is persisted as the command receipt.
+   */
+  readonly validate?: (
+    command: Command,
+  ) => Effect.Effect<Rejection | null, ProjectionError, SqlClient | ProjectionRequirements>
   readonly project: (
     event: PersistedEvent<Event>,
   ) => Effect.Effect<void, ProjectionError, SqlClient | ProjectionRequirements>
@@ -265,6 +272,19 @@ export const makeCommandWorker = <
                 commandId: metadata.commandId,
                 response: yield* decodeResponse(receipt.response).pipe(Effect.orDie),
               },
+              committed: null,
+            }
+          }
+
+          const validation =
+            options.validate === undefined
+              ? null
+              : yield* options.validate(command).pipe(Effect.provideService(SqlClient, sql))
+          if (validation !== null) {
+            const response = { _tag: "rejected" as const, error: validation }
+            yield* persistReceipt(metadata, aggregate, encodedCommand, response)
+            return {
+              receipt: { commandId: metadata.commandId, response },
               committed: null,
             }
           }
