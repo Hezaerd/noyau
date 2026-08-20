@@ -21,6 +21,7 @@ import {
 } from "@noyau/server/control-plane"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
+import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "@noyau/server/workspace-root"
 import { Crypto, Deferred, Effect, Fiber, Layer, Option, Schema, Stream } from "effect"
 import { TestClock } from "effect/testing"
@@ -99,6 +100,7 @@ const controlPlaneTestLayer = (
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
+    Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(workspaceRoots)),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
@@ -108,6 +110,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
   makeControlPlaneLayer().pipe(
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
+    Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(availableWorkspaceRoots)),
     Layer.provideMerge(
       cursorProviderLayer({

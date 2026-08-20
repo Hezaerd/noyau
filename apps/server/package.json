@@ -12,6 +12,9 @@
     "./provider/tool-call-presentation": "./src/provider/tool-call-presentation.ts",
     "./provider/provider-port": "./src/provider/provider-port.ts",
     "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
+    "./text-generation/text-generation": "./src/text-generation/text-generation.ts",
+    "./text-generation/prompts": "./src/text-generation/prompts.ts",
+    "./text-generation/cursor-text-generation": "./src/text-generation/cursor-text-generation.ts",
     "./rpc-handlers": "./src/rpc-handlers.ts",
     "./server": "./src/server.ts",
     "./workspace-root": "./src/workspace-root.ts"

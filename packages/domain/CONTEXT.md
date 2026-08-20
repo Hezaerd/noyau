@@ -62,3 +62,15 @@ _À éviter_ : participant, exécutant
 **Ticket archivé**:
 Ticket retiré du Tableau actif tout en conservant son contenu, ses relations et son historique.
 _À éviter_ : ticket supprimé, ticket terminé
+
+**titleSeed**:
+Titre provisoire du premier Turn, égal au prompt semé. Remplaçable tant qu'il n'a pas été renommé.
+_À éviter_ : titre définitif, premier prompt comme nom
+
+**Titre généré**:
+Titre produit hors Turn par text-generation, persisté via `thread.title.seeded`.
+_À éviter_ : titre du prompt, résumé du Turn
+
+**Régénération de titre**:
+Intention `thread.meta.update` avec `regenerateTitle` qui redemande un Titre généré depuis le transcript.
+_À éviter_ : rename, `thread.title.seeded` client

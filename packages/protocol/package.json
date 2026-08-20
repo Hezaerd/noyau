@@ -28,6 +28,7 @@
     "./thread/commands": "./src/thread/commands.ts",
     "./thread/events": "./src/thread/events.ts",
     "./thread/errors": "./src/thread/errors.ts",
+    "./thread/title": "./src/thread/title.ts",
     "./commands": "./src/commands.ts",
     "./events": "./src/events.ts",
     "./receipts": "./src/receipts.ts",
