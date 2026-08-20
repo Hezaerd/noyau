@@ -6,6 +6,7 @@ import { useState } from "react"
 import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { ProjectSidebarItem } from "@/components/sidebar/ProjectSidebarItem"
+import { sidebarSearchChromeClassName } from "@/components/sidebar/sidebar-search-chrome"
 import { SidebarBrandTitlebar } from "@/components/sidebar/SidebarBrandTitlebar"
 import { Button } from "@/components/ui/button"
 import { CommandDialogTrigger } from "@/components/ui/command"
@@ -49,7 +50,7 @@ export function AppSidebar() {
               <button
                 type="button"
                 aria-label="Ouvrir la Palette"
-                className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 px-2.5 text-xs text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
+                className={sidebarSearchChromeClassName}
               />
             }
           >
