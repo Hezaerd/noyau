@@ -17,6 +17,7 @@ import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotice
 import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
 import { ThreadTitleBar } from "../src/components/thread/ThreadTitleBar"
 import { ThreadTranscriptItem } from "../src/components/thread/ThreadTranscriptItem"
+import { ThreadPageTitle } from "../src/components/WorkspaceBreadcrumb"
 import type { BoardTicket } from "../src/lib/board-model"
 
 Object.defineProperty(HTMLElement.prototype, "getAnimations", {
@@ -232,5 +233,13 @@ describe("rendered Thread UI evidence", () => {
 
     expect(screen.queryByText("Cursor")).toBeNull()
     expect(screen.getByText("un")).toBeTruthy()
+  })
+
+  it("renders the chrome as Project / Thread instead of a static Thread label", () => {
+    render(<ThreadPageTitle projectName="noyau" threadTitle="Exclure les subtrees du graphe" />)
+
+    expect(screen.getByRole("navigation", { name: "Fil d’Ariane du Thread" })).toBeTruthy()
+    expect(screen.getByText("noyau")).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Exclure les subtrees du graphe" })).toBeTruthy()
   })
 })
