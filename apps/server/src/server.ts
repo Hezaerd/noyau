@@ -1,3 +1,4 @@
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
 import * as Sqlite from "@noyau/database/sqlite"
@@ -90,8 +91,8 @@ export const bunServerLayer = Layer.mergeAll(
 )
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
-  Layer.provideMerge(sqlitePersistenceLayer),
-  Layer.provideMerge(serverConfigLayer),
+  Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
+  Layer.provide(BunCrypto.layer),
 )
 
 export const serverLayer = HttpRouter.serve(serverRoutesLayer).pipe(
