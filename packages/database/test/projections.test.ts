@@ -83,7 +83,7 @@ const commandMeta = (commandId: string, issuedAt: string) => ({
   actorId: ids.actor,
   correlationId: Schema.decodeSync(CorrelationId)(commandId),
   issuedAt,
-  schemaVersion: 1,
+  schemaVersion: 1 as const,
 })
 
 const projectFixture = () =>
@@ -200,6 +200,15 @@ describe("SQL projections", () => {
         resumeCursor,
         updatedAt,
       })
+    const readySession = Schema.decodeSync(Session)({
+      threadId: ids.terminalThread,
+      status: "ready",
+      lastError: null,
+      activeTurnId: null,
+      runtimeMode: "full-access",
+      resumeCursor,
+      updatedAt: "2026-08-20T00:07:00.000Z",
+    })
 
     return Effect.gen(function* () {
       yield* Effect.scoped(
@@ -284,15 +293,7 @@ describe("SQL projections", () => {
                 7,
                 ThreadSessionSet.make({
                   threadId: ids.terminalThread,
-                  session: Schema.decodeSync(Session)({
-                    threadId: ids.terminalThread,
-                    status: "ready",
-                    lastError: null,
-                    activeTurnId: null,
-                    runtimeMode: "full-access",
-                    resumeCursor,
-                    updatedAt: "2026-08-20T00:07:00.000Z",
-                  }),
+                  session: readySession,
                 }),
               ),
             )
