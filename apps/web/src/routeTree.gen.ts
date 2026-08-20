@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SettingsTabRouteImport } from './routes/settings.$tab'
 import { Route as ProjectsProjectIdBoardRouteImport } from './routes/projects.$projectId.board'
 import { Route as ProjectsProjectIdThreadThreadIdRouteImport } from './routes/projects.$projectId.thread.$threadId'
 
@@ -17,6 +19,16 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsTabRoute = SettingsTabRouteImport.update({
+  id: '/$tab',
+  path: '/$tab',
+  getParentRoute: () => SettingsRoute,
 } as any)
 const ProjectsProjectIdBoardRoute = ProjectsProjectIdBoardRouteImport.update({
   id: '/projects/$projectId/board',
@@ -32,36 +44,53 @@ const ProjectsProjectIdThreadThreadIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRouteWithChildren
+  '/settings/$tab': typeof SettingsTabRoute
   '/projects/$projectId/board': typeof ProjectsProjectIdBoardRoute
   '/projects/$projectId/thread/$threadId': typeof ProjectsProjectIdThreadThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRouteWithChildren
+  '/settings/$tab': typeof SettingsTabRoute
   '/projects/$projectId/board': typeof ProjectsProjectIdBoardRoute
   '/projects/$projectId/thread/$threadId': typeof ProjectsProjectIdThreadThreadIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRouteWithChildren
+  '/settings/$tab': typeof SettingsTabRoute
   '/projects/$projectId/board': typeof ProjectsProjectIdBoardRoute
   '/projects/$projectId/thread/$threadId': typeof ProjectsProjectIdThreadThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/projects/$projectId/board' | '/projects/$projectId/thread/$threadId'
+    | '/'
+    | '/settings'
+    | '/settings/$tab'
+    | '/projects/$projectId/board'
+    | '/projects/$projectId/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/projects/$projectId/board' | '/projects/$projectId/thread/$threadId'
+    | '/'
+    | '/settings'
+    | '/settings/$tab'
+    | '/projects/$projectId/board'
+    | '/projects/$projectId/thread/$threadId'
   id:
     | '__root__'
     | '/'
+    | '/settings'
+    | '/settings/$tab'
     | '/projects/$projectId/board'
     | '/projects/$projectId/thread/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
   ProjectsProjectIdBoardRoute: typeof ProjectsProjectIdBoardRoute
   ProjectsProjectIdThreadThreadIdRoute: typeof ProjectsProjectIdThreadThreadIdRoute
 }
@@ -74,6 +103,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/$tab': {
+      id: '/settings/$tab'
+      path: '/$tab'
+      fullPath: '/settings/$tab'
+      preLoaderRoute: typeof SettingsTabRouteImport
+      parentRoute: typeof SettingsRoute
     }
     '/projects/$projectId/board': {
       id: '/projects/$projectId/board'
@@ -92,8 +135,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface SettingsRouteChildren {
+  SettingsTabRoute: typeof SettingsTabRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsTabRoute: SettingsTabRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SettingsRoute: SettingsRouteWithChildren,
   ProjectsProjectIdBoardRoute: ProjectsProjectIdBoardRoute,
   ProjectsProjectIdThreadThreadIdRoute: ProjectsProjectIdThreadThreadIdRoute,
 }

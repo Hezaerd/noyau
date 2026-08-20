@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { initializeAppearance } from "@/lib/appearance"
 import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
+import { initializeKeybindings } from "@/lib/keybindings"
 
 import { routeTree } from "./routeTree.gen"
 
@@ -12,6 +13,7 @@ import "./index.css"
 
 syncDocumentDesktopChrome()
 initializeAppearance()
+initializeKeybindings()
 
 const router = createRouter({ routeTree })
 
