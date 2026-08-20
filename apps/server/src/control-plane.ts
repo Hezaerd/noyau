@@ -235,7 +235,7 @@ const toEnvelope = (event: PersistedEvent<DomainEventType>) =>
     actorId: event.actorId,
     correlationId: event.correlationId,
     causationId: event.causationId,
-    occurredAt: event.occurredAt,
+    occurredAt: DateTime.formatIso(event.occurredAt),
     schemaVersion: event.schemaVersion,
     event: event.event,
   }).pipe(Effect.orDie)
