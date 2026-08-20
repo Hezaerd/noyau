@@ -40,7 +40,7 @@ import {
   paletteItemHotkey,
   paletteItemModifierPressed,
 } from "@/lib/keyboard-shortcut"
-import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
+import { DEFAULT_SETTINGS_TAB, isSettingsPath } from "@/lib/settings-catalog"
 
 const RECENT_ACTIONS_STORAGE_KEY = "noyau.palette.recent-actions"
 
@@ -110,7 +110,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   }, [open])
 
   const openSettings = useCallback(() => {
-    if (pathname.startsWith("/settings")) {
+    if (isSettingsPath(pathname)) {
       return
     }
     setOpen(false)
@@ -165,7 +165,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     }
     return actions.filter((action) => {
       if (action.id === "navigate.settings") {
-        return !pathname.startsWith("/settings")
+        return !isSettingsPath(pathname)
       }
       return action.path !== pathname
     })

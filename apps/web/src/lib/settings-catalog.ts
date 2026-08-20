@@ -68,6 +68,9 @@ export interface SettingsSearchHit {
 
 const settingsTabById = new Map(SETTINGS_TABS.map((tab) => [tab.id, tab]))
 
+export const isSettingsPath = (pathname: string): boolean =>
+  pathname === "/settings" || pathname.startsWith("/settings/")
+
 export const isSettingsTabId = (value: string): value is SettingsTabId =>
   SETTINGS_TAB_IDS.some((id) => id === value)
 
