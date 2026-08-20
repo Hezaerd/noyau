@@ -184,7 +184,7 @@ describe("rendered Thread UI evidence", () => {
       />,
     )
 
-    expect(screen.getByText("Cursor")).toBeTruthy()
+    expect(screen.queryByText("Cursor")).toBeNull()
     expect(screen.getByText("un")).toBeTruthy()
   })
 })

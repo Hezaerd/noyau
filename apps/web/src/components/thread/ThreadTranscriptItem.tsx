@@ -43,7 +43,6 @@ export function ThreadTranscriptItem({
     return (
       <Message align="end">
         <MessageContent>
-          <MessageHeader>{transcriptLabel(item)}</MessageHeader>
           <Bubble variant="default" align="end">
             <BubbleContent>
               <ThreadMarkdown text={item.text} />
@@ -58,7 +57,6 @@ export function ThreadTranscriptItem({
     return (
       <Message align="start">
         <MessageContent>
-          <MessageHeader>{transcriptLabel(item)}</MessageHeader>
           <Bubble variant="ghost" align="start">
             <BubbleContent>
               <ThreadMarkdown text={item.text} streaming={streaming} />
