@@ -2,31 +2,11 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router"
 
 import { AppPaletteProvider } from "@/components/AppPalette"
 import { AppSidebar } from "@/components/AppSidebar"
-import { ControlPlaneProvider } from "@/components/control-plane-context"
+import { ControlPlaneProvider, useControlPlane } from "@/components/control-plane-context"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
-
-const pageMeta = {
-  "/": { title: "Tableau" },
-} as const
-
-const getPageMeta = (pathname: string) => {
-  const projectMatch = /^\/projects\/([^/]+)\/board$/.exec(pathname)
-  if (projectMatch !== null) {
-    return { title: "Tableau" }
-  }
-  const threadMatch = /^\/projects\/([^/]+)\/thread\/[^/]+$/.exec(pathname)
-  if (threadMatch !== null) {
-    return { title: "Thread" }
-  }
-
-  switch (pathname) {
-    case "/":
-      return pageMeta["/"]
-    default:
-      return { title: "Control room" }
-  }
-}
+import { ThreadPageTitle } from "@/components/WorkspaceBreadcrumb"
+import { resolvePageTitlebar } from "@/lib/page-titlebar"
 
 function SidebarControl() {
   return (
@@ -49,9 +29,20 @@ function SidebarControl() {
   )
 }
 
+function DesktopPageTitle() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const { projects, threads } = useControlPlane()
+  const titlebar = resolvePageTitlebar({ pathname, projects, threads })
+
+  if (titlebar.kind === "thread") {
+    return <ThreadPageTitle projectName={titlebar.projectName} threadTitle={titlebar.threadTitle} />
+  }
+
+  return <h1 className="truncate font-medium tracking-[-0.015em]">{titlebar.title}</h1>
+}
+
 export function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const meta = getPageMeta(pathname)
   const isSettings = pathname === "/settings" || pathname.startsWith("/settings/")
 
   return (
@@ -69,7 +60,7 @@ export function RootLayout() {
                   data-desktop-page-titlebar=""
                 >
                   <div className="flex min-w-0 items-center text-sm">
-                    <h1 className="truncate font-medium tracking-[-0.015em]">{meta.title}</h1>
+                    <DesktopPageTitle />
                   </div>
                 </header>
 
