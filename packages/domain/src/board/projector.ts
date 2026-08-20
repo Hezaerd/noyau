@@ -1,6 +1,7 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import type { ActorId, KanbanColumnId, TicketId } from "@noyau/protocol/ids"
+import type { ActorId, KanbanColumnId, ThreadId, TicketId } from "@noyau/protocol/ids"
 import type { TicketEvent } from "@noyau/protocol/ticket/events"
+import type { DateTime } from "effect"
 
 export interface ColumnState {
   readonly columnId: KanbanColumnId
@@ -15,6 +16,7 @@ export interface TicketState {
   readonly title: string
   readonly description?: string
   readonly priority: TicketPriority
+  readonly dueAt?: DateTime.Utc
   readonly done: boolean
   readonly archived: boolean
   readonly lastActiveColumnId?: KanbanColumnId
@@ -27,17 +29,33 @@ export interface TicketDependencyState {
   readonly dependsOnTicketId: TicketId
 }
 
+export interface TicketThreadState {
+  readonly ticketId: TicketId
+  readonly threadId: ThreadId
+}
+
 export interface BoardState {
   readonly columns: ReadonlyArray<ColumnState>
   readonly tickets: ReadonlyArray<TicketState>
   readonly dependencies: ReadonlyArray<TicketDependencyState>
+  readonly ticketThreads: ReadonlyArray<TicketThreadState>
+  /** Threads du Project, fournis par la projection Thread — pas dérivés des faits Ticket. */
+  readonly projectThreadIds: ReadonlyArray<ThreadId>
 }
 
 export const emptyBoardState: BoardState = {
   columns: [],
   tickets: [],
   dependencies: [],
+  ticketThreads: [],
+  projectThreadIds: [],
 }
+
+/** Compose les Threads connus du Project avant une décision TicketThread. */
+export const withProjectThreads = (
+  state: BoardState,
+  projectThreadIds: ReadonlyArray<ThreadId>,
+): BoardState => ({ ...state, projectThreadIds })
 
 const updateTicket = (
   state: BoardState,
@@ -60,6 +78,12 @@ const withoutDescription = (ticket: TicketState): TicketState => {
   return without
 }
 
+const withoutDueAt = (ticket: TicketState): TicketState => {
+  const { dueAt, ...without } = ticket
+  void dueAt
+  return without
+}
+
 const withDerivedOpenDependencies = (state: BoardState): BoardState => ({
   ...state,
   tickets: state.tickets.map((ticket) => ({
@@ -77,6 +101,8 @@ const withDerivedOpenDependencies = (state: BoardState): BoardState => ({
 
 export const evolve = (state: BoardState, event: TicketEvent): BoardState => {
   switch (event._tag) {
+    case "board.initialized":
+      return state
     case "kanbanColumn.created":
       return {
         ...state,
@@ -186,7 +212,13 @@ export const evolve = (state: BoardState, event: TicketEvent): BoardState => {
             : event.description === undefined
               ? ticket
               : { ...ticket, description: event.description }
-        const updated = { ...described }
+        const dated =
+          event.dueAt === null
+            ? withoutDueAt(described)
+            : event.dueAt === undefined
+              ? described
+              : { ...described, dueAt: event.dueAt }
+        const updated = { ...dated }
         if (event.title !== undefined) {
           updated.title = event.title
         }
@@ -195,6 +227,21 @@ export const evolve = (state: BoardState, event: TicketEvent): BoardState => {
         }
         return updated
       })
+    case "ticket.thread.linked":
+      return {
+        ...state,
+        ticketThreads: [
+          ...state.ticketThreads,
+          { ticketId: event.ticketId, threadId: event.threadId },
+        ],
+      }
+    case "ticket.thread.unlinked":
+      return {
+        ...state,
+        ticketThreads: state.ticketThreads.filter(
+          (link) => link.ticketId !== event.ticketId || link.threadId !== event.threadId,
+        ),
+      }
     case "ticket.dependency.added":
       return withDerivedOpenDependencies({
         ...state,

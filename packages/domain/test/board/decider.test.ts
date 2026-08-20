@@ -1,11 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
 import { decide } from "@noyau/domain/board/decider"
-import { emptyBoardState, evolve, type BoardState } from "@noyau/domain/board/projector"
+import {
+  emptyBoardState,
+  evolve,
+  withProjectThreads,
+  type BoardState,
+} from "@noyau/domain/board/projector"
 import { KanbanRank } from "@noyau/protocol/entities/kanban-column"
-import { TicketId } from "@noyau/protocol/ids"
+import { ThreadId, TicketId } from "@noyau/protocol/ids"
 import { TicketCommand, TicketDependencyAdd } from "@noyau/protocol/ticket/commands"
 import type { TicketEvent } from "@noyau/protocol/ticket/events"
-import { Result, Schema } from "effect"
+import { DateTime, Result, Schema } from "effect"
 
 const ids = {
   project: "3f8f0d70-1111-4000-8000-000000000001",
@@ -20,6 +25,8 @@ const ids = {
   ticket3: "3f8f0d70-1111-4000-8000-000000000013",
   ticket4: "3f8f0d70-1111-4000-8000-000000000014",
   column: "3f8f0d70-1111-4000-8000-000000000016",
+  thread: "3f8f0d70-1111-4000-8000-000000000017",
+  foreignThread: "3f8f0d70-1111-4000-8000-000000000018",
 } as const
 
 const meta = {
@@ -36,6 +43,8 @@ const dependencyCommand = Schema.decodeUnknownSync(TicketDependencyAdd)
 const ticketId = Schema.decodeSync(TicketId)(ids.ticket)
 const ticket2Id = Schema.decodeSync(TicketId)(ids.ticket2)
 const ticket3Id = Schema.decodeSync(TicketId)(ids.ticket3)
+const threadId = Schema.decodeSync(ThreadId)(ids.thread)
+const foreignThreadId = Schema.decodeSync(ThreadId)(ids.foreignThread)
 
 const success = <A, E>(result: Result.Result<A, E>): A => {
   expect(Result.isSuccess(result)).toBe(true)
@@ -91,6 +100,7 @@ const createTicket = (
         _tag: "ticket.create",
         ...meta,
         payload: {
+          projectId: ids.project,
           ticketId: id,
           title: `Ticket ${id}`,
           placement,
@@ -128,6 +138,30 @@ describe("board.initialize", () => {
     expect(board.columns.map((column) => column.rank)).toEqual(["a0", "a1", "a2"])
     expect(board.columns.filter((column) => column.done).map((column) => column.columnId)).toEqual([
       ids.done,
+    ])
+  })
+
+  it("émet board.initialized puis les trois colonnes système", () => {
+    const events = success(
+      decide(
+        emptyBoardState,
+        command({
+          _tag: "board.initialize",
+          ...meta,
+          payload: {
+            backlogColumnId: ids.backlog,
+            activeColumnId: ids.active,
+            doneColumnId: ids.done,
+          },
+        }),
+      ),
+    )
+
+    expect(events.map((event) => event._tag)).toEqual([
+      "board.initialized",
+      "kanbanColumn.created",
+      "kanbanColumn.created",
+      "kanbanColumn.created",
     ])
   })
 
@@ -287,6 +321,7 @@ describe("Done coherence", () => {
           _tag: "ticket.create",
           ...meta,
           payload: {
+            projectId: ids.project,
             ticketId: ids.ticket,
             title: "Already done",
             placement: { columnId: ids.done },
@@ -841,5 +876,161 @@ describe("ticket.update projection", () => {
     expect(described.tickets[0]?.description).toBe("Context")
     expect(omitted.tickets[0]?.description).toBe("Context")
     expect(Object.hasOwn(removed.tickets[0] ?? {}, "description")).toBe(false)
+  })
+
+  it("distingue échéance omise, remplacée et supprimée par null", () => {
+    const state = stateWithTicket()
+    const dated = apply(
+      state,
+      success(
+        decide(
+          state,
+          command({
+            _tag: "ticket.update",
+            ...meta,
+            payload: { ticketId: ids.ticket, dueAt: "2026-08-20T09:00:00.000Z" },
+          }),
+        ),
+      ),
+    )
+    const omitted = apply(
+      dated,
+      success(
+        decide(
+          dated,
+          command({
+            _tag: "ticket.update",
+            ...meta,
+            payload: { ticketId: ids.ticket, title: "Renamed" },
+          }),
+        ),
+      ),
+    )
+    const removed = apply(
+      omitted,
+      success(
+        decide(
+          omitted,
+          command({
+            _tag: "ticket.update",
+            ...meta,
+            payload: { ticketId: ids.ticket, dueAt: null },
+          }),
+        ),
+      ),
+    )
+
+    expect(
+      dated.tickets[0]?.dueAt === undefined
+        ? undefined
+        : DateTime.formatIso(dated.tickets[0].dueAt),
+    ).toBe("2026-08-20T09:00:00.000Z")
+    expect(
+      omitted.tickets[0]?.dueAt === undefined
+        ? undefined
+        : DateTime.formatIso(omitted.tickets[0].dueAt),
+    ).toBe("2026-08-20T09:00:00.000Z")
+    expect(Object.hasOwn(removed.tickets[0] ?? {}, "dueAt")).toBe(false)
+  })
+})
+
+describe("TicketThread", () => {
+  it("lie et délie un Thread du même Project, et refuse les doublons", () => {
+    const state = withProjectThreads(stateWithTicket(), [threadId])
+    const linked = success(
+      decide(
+        state,
+        command({
+          _tag: "ticket.thread.link",
+          ...meta,
+          payload: { ticketId: ids.ticket, threadId: ids.thread },
+        }),
+      ),
+    )
+    const withLink = apply(state, linked)
+
+    expect(linked.map((event) => event._tag)).toEqual(["ticket.thread.linked"])
+    expect(withLink.ticketThreads).toEqual([{ ticketId, threadId }])
+    expect(
+      failure(
+        decide(
+          withLink,
+          command({
+            _tag: "ticket.thread.link",
+            ...meta,
+            payload: { ticketId: ids.ticket, threadId: ids.thread },
+          }),
+        ),
+      )._tag,
+    ).toBe("TicketThreadAlreadyLinked")
+
+    const unlinked = success(
+      decide(
+        withLink,
+        command({
+          _tag: "ticket.thread.unlink",
+          ...meta,
+          payload: { ticketId: ids.ticket, threadId: ids.thread },
+        }),
+      ),
+    )
+    const withoutLink = apply(withLink, unlinked)
+
+    expect(unlinked.map((event) => event._tag)).toEqual(["ticket.thread.unlinked"])
+    expect(withoutLink.ticketThreads).toEqual([])
+    expect(
+      failure(
+        decide(
+          withoutLink,
+          command({
+            _tag: "ticket.thread.unlink",
+            ...meta,
+            payload: { ticketId: ids.ticket, threadId: ids.thread },
+          }),
+        ),
+      )._tag,
+    ).toBe("TicketThreadNotLinked")
+  })
+
+  it("refuse un TicketThread hors du Project", () => {
+    const sameProject = withProjectThreads(stateWithTicket(), [threadId])
+    const foreign = failure(
+      decide(
+        sameProject,
+        command({
+          _tag: "ticket.thread.link",
+          ...meta,
+          payload: { ticketId: ids.ticket, threadId: ids.foreignThread },
+        }),
+      ),
+    )
+    const unknown = failure(
+      decide(
+        stateWithTicket(),
+        command({
+          _tag: "ticket.thread.link",
+          ...meta,
+          payload: { ticketId: ids.ticket, threadId: ids.thread },
+        }),
+      ),
+    )
+
+    expect(foreign).toMatchObject({
+      _tag: "TicketThreadProjectMismatch",
+      ticketId,
+      threadId: foreignThreadId,
+    })
+    expect(unknown).toMatchObject({
+      _tag: "TicketThreadProjectMismatch",
+      ticketId,
+      threadId,
+    })
+  })
+
+  it("n'écrit plus sourceThreadId à la création", () => {
+    const [event] = createTicket(initialized())
+
+    expect(event?._tag).toBe("ticket.created")
+    expect(event).not.toHaveProperty("sourceThreadId")
   })
 })

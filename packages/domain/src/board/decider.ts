@@ -24,8 +24,12 @@ import {
   TicketNotArchived,
   TicketNotCompleted,
   TicketNotFound,
+  TicketThreadAlreadyLinked,
+  TicketThreadNotLinked,
+  TicketThreadProjectMismatch,
 } from "@noyau/protocol/ticket/errors"
 import {
+  BoardInitialized,
   KanbanColumnCreated,
   KanbanColumnDeleted,
   KanbanColumnMoved,
@@ -40,6 +44,8 @@ import {
   TicketMoved,
   TicketReopened,
   TicketRestored,
+  TicketThreadLinked,
+  TicketThreadUnlinked,
   TicketUpdated,
 } from "@noyau/protocol/ticket/events"
 import { Result, Schema } from "effect"
@@ -67,6 +73,9 @@ export type BoardDecisionError =
   | TicketNotArchived
   | TicketNotCompleted
   | TicketNotFound
+  | TicketThreadAlreadyLinked
+  | TicketThreadNotLinked
+  | TicketThreadProjectMismatch
 
 const rank = (value: string) => Schema.decodeSync(KanbanRank)(value)
 
@@ -299,6 +308,11 @@ const initialize = (
     throw new Error("fractional-indexing returned fewer keys than requested")
   }
   return Result.succeed([
+    BoardInitialized.make({
+      backlogColumnId: command.payload.backlogColumnId,
+      activeColumnId: command.payload.activeColumnId,
+      doneColumnId: command.payload.doneColumnId,
+    }),
     KanbanColumnCreated.make({
       columnId: command.payload.backlogColumnId,
       name: "Backlog",
@@ -445,18 +459,14 @@ export const decide = (
         command.payload.placement.beforeTicketId,
         command.payload.placement.afterTicketId,
       ).pipe(
-        Result.map((newRank) => {
-          const created = {
+        Result.map((newRank) => [
+          TicketCreated.make({
             ticketId: command.payload.ticketId,
             columnId: command.payload.placement.columnId,
             rank: newRank,
             title: command.payload.title,
-          }
-          if (command.payload.sourceThreadId !== undefined) {
-            Object.assign(created, { sourceThreadId: command.payload.sourceThreadId })
-          }
-          return [TicketCreated.make(created)]
-        }),
+          }),
+        ]),
       )
     }
     case "ticket.move":
@@ -631,6 +641,32 @@ export const decide = (
       return exists
         ? Result.succeed([TicketDependencyRemoved.make({ ticketId, dependsOnTicketId })])
         : Result.fail(new TicketDependencyNotFound({ ticketId, dependsOnTicketId }))
+    }
+    case "ticket.thread.link":
+      return requireTicket(state, command.payload.ticketId).pipe(
+        Result.flatMap((): Result.Result<ReadonlyArray<TicketEvent>, BoardDecisionError> => {
+          const { ticketId, threadId } = command.payload
+          if (!state.projectThreadIds.includes(threadId)) {
+            return Result.fail(new TicketThreadProjectMismatch({ ticketId, threadId }))
+          }
+          if (
+            state.ticketThreads.some(
+              (link) => link.ticketId === ticketId && link.threadId === threadId,
+            )
+          ) {
+            return Result.fail(new TicketThreadAlreadyLinked({ ticketId, threadId }))
+          }
+          return Result.succeed([TicketThreadLinked.make({ ticketId, threadId })])
+        }),
+      )
+    case "ticket.thread.unlink": {
+      const { ticketId, threadId } = command.payload
+      const exists = state.ticketThreads.some(
+        (link) => link.ticketId === ticketId && link.threadId === threadId,
+      )
+      return exists
+        ? Result.succeed([TicketThreadUnlinked.make({ ticketId, threadId })])
+        : Result.fail(new TicketThreadNotLinked({ ticketId, threadId }))
     }
   }
 }
