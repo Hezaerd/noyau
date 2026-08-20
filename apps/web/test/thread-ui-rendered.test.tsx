@@ -149,7 +149,6 @@ describe("rendered Thread UI evidence", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(`/projects/${projectId}/board`)
     })
-    router.dispose()
   })
 
   it("renders Session lastError and human interruption separately", () => {
