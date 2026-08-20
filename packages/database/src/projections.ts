@@ -210,6 +210,12 @@ const projectProjectEvent = Effect.fn("Projections.projectProjectEvent")(functio
       `
       return
     case "project.deleted":
+      // Tickets reference columns without ON DELETE. A project cascade that
+      // removes columns first violates that FK while tickets still exist.
+      yield* sql`
+        DELETE FROM projection_tickets
+        WHERE project_id = ${event.projectId}
+      `
       yield* sql`
         DELETE FROM projection_projects
         WHERE project_id = ${event.projectId}

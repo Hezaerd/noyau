@@ -7,18 +7,22 @@ import { Button } from "@/components/ui/button"
 
 export function HomePage() {
   const navigate = useNavigate()
-  const { shell, lastProjectId } = useControlPlane()
+  const { shell, lastProjectId, projects } = useControlPlane()
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
 
   useEffect(() => {
-    if (lastProjectId !== undefined) {
-      void navigate({
-        replace: true,
-        to: "/projects/$projectId/board",
-        params: { projectId: lastProjectId },
-      })
+    if (shell === undefined || lastProjectId === undefined) {
+      return
     }
-  }, [lastProjectId, navigate])
+    if (!projects.some((project) => project.id === lastProjectId)) {
+      return
+    }
+    void navigate({
+      replace: true,
+      to: "/projects/$projectId/board",
+      params: { projectId: lastProjectId },
+    })
+  }, [lastProjectId, navigate, projects, shell])
 
   if (shell === undefined) {
     return (
