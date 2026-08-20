@@ -21,9 +21,12 @@ class ControlPlaneClient extends Context.Service<
   RpcClient.RpcClient<RpcGroup.Rpcs<typeof ControlPlaneRpcs>, RpcClientError>
 >()("@noyau/web/ControlPlaneClient") {
   static layer(config: ControlPlaneConfig) {
-    const socketLayer = Layer.effect(Socket.Socket, Socket.makeWebSocket(config.rpcUrl)).pipe(
-      Layer.provide(Socket.layerWebSocketConstructorGlobal),
-    )
+    const socketLayer = Layer.effect(
+      Socket.Socket,
+      Socket.makeWebSocket(config.rpcUrl, {
+        protocols: [`noyau-bearer.${config.bearerToken}`],
+      }),
+    ).pipe(Layer.provide(Socket.layerWebSocketConstructorGlobal))
 
     return Layer.effect(ControlPlaneClient, RpcClient.make(ControlPlaneRpcs)).pipe(
       Layer.provide(RpcClient.layerProtocolSocket()),

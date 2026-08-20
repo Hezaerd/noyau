@@ -4,8 +4,8 @@ export default defineConfig({
   run: {
     tasks: {
       build: {
-        command: "vp pack && bun scripts/copy-renderer.mjs",
-        dependsOn: ["@noyau/web#build"],
+        command: "vp pack && bun scripts/copy-renderer.mjs && bun scripts/copy-server.mjs",
+        dependsOn: ["@noyau/server#build", "@noyau/web#build"],
       },
       dev: {
         command: "bun scripts/dev-electron.mjs",

@@ -1,6 +1,8 @@
-import * as BunCrypto from "@effect/platform-bun/BunCrypto"
-import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
-import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
+import * as NodeHttp from "node:http"
+
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer"
 import * as Sqlite from "@noyau/database/sqlite"
 import type { Forbidden, MissingIdentity } from "@noyau/protocol/errors"
 import { ControlPlaneRpcs } from "@noyau/protocol/rpc"
@@ -22,7 +24,7 @@ export const sqlitePersistenceLayer = Layer.unwrap(
     yield* fileSystem.makeDirectory(config.dataDirectory, { recursive: true })
     return Sqlite.layer({ filename: config.databaseFile })
   }),
-).pipe(Layer.provide(BunFileSystem.layer))
+).pipe(Layer.provide(NodeFileSystem.layer))
 
 const healthLayer = Layer.mergeAll(
   HttpRouter.add("GET", "/health/live", HttpServerResponse.jsonUnsafe({ status: "live" })),
@@ -37,6 +39,64 @@ const unauthorized = (error: MissingIdentity | Forbidden) =>
     ),
   )
 
+const authenticateInternalRequest = Effect.fn("Server.authenticateInternalRequest")(function* () {
+  const request = yield* HttpServerRequest.HttpServerRequest
+  const config = yield* ServerConfig
+  const token = new URL(request.url, "http://127.0.0.1").searchParams.get("token")
+  return yield* authenticateBearer(
+    request.headers.authorization ?? (token === null ? undefined : `Bearer ${token}`),
+    config.bearerToken,
+    config.actorId,
+  )
+})
+
+const internalConfigRoute = HttpRouter.add(
+  "GET",
+  "/internal/config",
+  Effect.gen(function* () {
+    const actorId = yield* authenticateInternalRequest()
+    const controlPlane = yield* ControlPlane
+    const config = yield* controlPlane.getConfig
+    return HttpServerResponse.jsonUnsafe({ ...config, actorId })
+  }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
+)
+
+const internalStatusRoute = HttpRouter.add(
+  "GET",
+  "/internal/status",
+  Effect.gen(function* () {
+    yield* authenticateInternalRequest()
+    const controlPlane = yield* ControlPlane
+    return HttpServerResponse.jsonUnsafe({
+      runningTurn: yield* controlPlane.hasRunningTurn,
+    })
+  }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
+)
+
+const internalShutdownRoute = HttpRouter.add(
+  "POST",
+  "/internal/shutdown",
+  Effect.gen(function* () {
+    yield* authenticateInternalRequest()
+    const controlPlane = yield* ControlPlane
+    yield* controlPlane.drainReactors
+    yield* Effect.sync(() => {
+      setImmediate(() => {
+        process.exit(0)
+      })
+    })
+    return HttpServerResponse.jsonUnsafe({ status: "shutting-down" })
+  }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
+)
+
+const protocolBearer = (value: string | undefined): string | undefined => {
+  const token = value
+    ?.split(",")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("noyau-bearer."))
+  return token?.slice("noyau-bearer.".length)
+}
+
 export const websocketRpcLayer = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* ServerConfig
@@ -46,8 +106,14 @@ export const websocketRpcLayer = Layer.unwrap(
       "/rpc",
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
+        const queryToken = new URL(request.url, "http://127.0.0.1").searchParams.get("token")
+        const bearer =
+          request.headers.authorization ??
+          protocolBearer(request.headers["sec-websocket-protocol"]) ??
+          queryToken ??
+          undefined
         const actorId = yield* authenticateBearer(
-          request.headers.authorization,
+          bearer === undefined ? undefined : `Bearer ${bearer}`,
           config.bearerToken,
           config.actorId,
         )
@@ -66,9 +132,15 @@ export const websocketRpcLayer = Layer.unwrap(
   }),
 )
 
-export const serverRoutesLayer = Layer.mergeAll(healthLayer, websocketRpcLayer)
+export const serverRoutesLayer = Layer.mergeAll(
+  healthLayer,
+  internalConfigRoute,
+  internalStatusRoute,
+  internalShutdownRoute,
+  websocketRpcLayer,
+)
 
-export const bunServerLayer = Layer.mergeAll(
+export const nodeServerLayer = Layer.mergeAll(
   Layer.effect(
     HttpServer.HttpServer,
     Effect.gen(function* () {
@@ -81,24 +153,25 @@ export const bunServerLayer = Layer.mergeAll(
           port: config.port,
         }),
       )
-      return yield* BunHttpServer.make({
-        hostname: config.host,
+      return yield* NodeHttpServer.make(() => NodeHttp.createServer(), {
+        host: config.host,
         port: config.port,
         gracefulShutdownTimeout: "20 seconds",
       })
     }),
   ),
-  BunHttpServer.layerHttpServices,
+  NodeHttpServer.layerHttpServices,
 )
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
-  Layer.provide(BunCrypto.layer),
+  Layer.provide(NodeCrypto.layer),
 )
 
 export const serverLayer = HttpRouter.serve(serverRoutesLayer).pipe(
-  Layer.provide(bunServerLayer),
+  Layer.provide(nodeServerLayer),
   Layer.provide(loggerLayer),
   Layer.provide(infrastructureLayer),
+  Layer.provide(NodeFileSystem.layer),
 )

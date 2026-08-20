@@ -6,12 +6,14 @@ const DEFAULT_RPC_URL = "ws://127.0.0.1:3001/rpc"
 
 const ControlPlaneEnvironment = Schema.Struct({
   VITE_NOYAU_RPC_URL: Schema.optionalKey(Schema.String),
+  VITE_NOYAU_BEARER_TOKEN: Schema.optionalKey(Schema.String),
   VITE_NOYAU_PROJECT_ID: Schema.optionalKey(Schema.String),
 })
 type ControlPlaneEnvironmentInput = Readonly<Record<string, string | boolean | undefined>>
 
 const ControlPlaneConfig = Schema.Struct({
   rpcUrl: Schema.NonEmptyString,
+  bearerToken: Schema.NonEmptyString,
   projectId: ProjectId,
 })
 
@@ -27,11 +29,26 @@ export const decodeControlPlaneConfig = (
   const environment = decodeEnvironment(input)
   return decodeConfig({
     rpcUrl: environment.VITE_NOYAU_RPC_URL ?? DEFAULT_RPC_URL,
+    bearerToken: environment.VITE_NOYAU_BEARER_TOKEN ?? "noyau-development-token",
     projectId: environment.VITE_NOYAU_PROJECT_ID ?? DEFAULT_PROJECT_ID,
   })
 }
 
-export const controlPlaneConfig = decodeControlPlaneConfig(import.meta.env)
+const desktopRuntimeConfig = () => {
+  const query = new URLSearchParams(globalThis.location?.search ?? "")
+  const runtime = { ...import.meta.env } satisfies ControlPlaneEnvironmentInput
+  const rpcUrl = query.get("rpc")
+  const bearerToken = query.get("token")
+  if (rpcUrl !== null) {
+    runtime.VITE_NOYAU_RPC_URL = rpcUrl
+  }
+  if (bearerToken !== null) {
+    runtime.VITE_NOYAU_BEARER_TOKEN = bearerToken
+  }
+  return runtime
+}
+
+export const controlPlaneConfig = decodeControlPlaneConfig(desktopRuntimeConfig())
 
 /**
  * La route garde un slug lisible tant que le registre des projets n'est pas

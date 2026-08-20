@@ -17,13 +17,13 @@
   },
   "scripts": {
     "dev": "bun --env-file=../../.env --watch src/main.ts",
-    "start": "bun src/main.ts",
-    "build": "bun build src/main.ts --outdir dist --target=bun",
+    "start": "node dist/main.mjs",
+    "build": "bun build src/main.ts --outfile dist/main.mjs --target=node --format=esm",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vp test run"
   },
   "dependencies": {
-    "@effect/platform-bun": "catalog:",
+    "@effect/platform-node": "4.0.0-beta.107",
     "@noyau/database": "workspace:*",
     "@noyau/domain": "workspace:*",
     "@noyau/protocol": "workspace:*",

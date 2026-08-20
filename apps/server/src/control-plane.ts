@@ -405,6 +405,7 @@ export interface ControlPlaneService {
     input: SubscribeThreadInput,
   ) => Stream.Stream<ThreadStreamItem, ServiceUnavailable>
   readonly getConfig: Effect.Effect<PublicServerConfig, ServiceUnavailable>
+  readonly hasRunningTurn: Effect.Effect<boolean, ServiceUnavailable>
   readonly probe: Effect.Effect<Record<never, never>>
   readonly drainReactors: Effect.Effect<void>
 }
@@ -702,6 +703,15 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         })),
         Effect.mapError(unavailable("sqlite")),
       )
+      const hasRunningTurn = sql`
+        SELECT turn_id
+        FROM projection_turns
+        WHERE state = 'running'
+        LIMIT 1
+      `.pipe(
+        Effect.map((rows) => rows.length > 0),
+        Effect.mapError(unavailable("sqlite")),
+      )
 
       yield* Effect.logInfo("Control plane reactors started")
       return ControlPlane.of({
@@ -710,6 +720,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         subscribeProject,
         subscribeThread,
         getConfig,
+        hasRunningTurn,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {
           yield* worker.drainReactors

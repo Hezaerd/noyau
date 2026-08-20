@@ -6,6 +6,14 @@ export const DESKTOP_URL = `${DESKTOP_SCHEME}://${DESKTOP_HOST}/`
 export const DEVELOPMENT_RENDERER_URL = "http://127.0.0.1:5173/"
 export const LOCAL_CONTROL_PLANE_RPC_URL = "ws://127.0.0.1:3001/rpc"
 
+export const desktopUrlForServer = (host: string, port: number, bearerToken: string): string => {
+  const query = new URLSearchParams({
+    rpc: `ws://${host}:${port}/rpc`,
+    token: bearerToken,
+  })
+  return `${DESKTOP_URL}?${query.toString()}`
+}
+
 export const resolveRendererAssetPath = (
   rendererRoot: string,
   requestPathname: string,
