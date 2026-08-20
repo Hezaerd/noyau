@@ -79,6 +79,8 @@ import { SqlClient } from "effect/unstable/sql/SqlClient"
 import type { SqlError } from "effect/unstable/sql/SqlError"
 
 import { ServerConfig } from "./config"
+import { ProviderPort } from "./provider/provider-port"
+import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor"
 
 interface ControlState {
   readonly projects: ProjectCatalog
@@ -424,9 +426,16 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
     Effect.gen(function* () {
       const config = yield* ServerConfig
       const sql = yield* SqlClient
-      const reactor = yield* makeDrainableWorker(
-        (_event: PersistedEvent<DomainEventType>) => Effect.void,
+      const provider = yield* ProviderPort
+      let dispatchInternal: DispatchInternal = (_command) =>
+        Effect.die("Provider reactor dispatched before the command worker was ready")
+      const processProviderEvent = yield* makeProviderReactor((command) =>
+        dispatchInternal(command),
+      ).pipe(
+        Effect.provideService(ProviderPort, provider),
+        Effect.provideService(SqlClient, sql),
       )
+      const reactor = yield* makeDrainableWorker(processProviderEvent)
       const worker = yield* makeCommandWorker({
         commandSchema: Command,
         eventSchema: DomainEvent,
@@ -439,9 +448,18 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         project: (event) => projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql)),
         reactor,
       })
+      dispatchInternal = (command) =>
+        worker.dispatch(command).pipe(
+          Effect.flatMap((receipt) =>
+            receipt.response._tag === "accepted"
+              ? Effect.void
+              : Effect.fail(receipt.response.error),
+          ),
+        )
+      const cursorStatus = yield* provider.status
       const environment = new Environment({
         id: config.environmentId,
-        cursor: { installed: false, handshakeOk: false },
+        cursor: cursorStatus,
         createdAt: config.environmentCreatedAt,
       })
 
@@ -693,7 +711,11 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         subscribeThread,
         getConfig,
         probe: Effect.succeed({}),
-        drainReactors: worker.drainReactors,
+        drainReactors: Effect.gen(function* () {
+          yield* worker.drainReactors
+          yield* provider.drain
+          yield* worker.drainReactors
+        }),
       })
     }),
   )

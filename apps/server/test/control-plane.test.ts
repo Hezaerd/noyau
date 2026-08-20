@@ -1,3 +1,6 @@
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
 import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
@@ -8,6 +11,8 @@ import {
   makeControlPlaneLayer,
   type ControlPlaneHooks,
 } from "@noyau/server/control-plane"
+import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
+import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { Crypto, Deferred, Effect, Fiber, Layer, Schema, Stream } from "effect"
 import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
@@ -18,6 +23,11 @@ const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
 const projectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000001")
 const otherProjectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000002")
 const threadId = Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000001")
+const fakeCursorAgent = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-cursor-acp.mjs",
+)
 
 const uuid = (index: number) => `30000000-0000-4000-8000-${index.toString().padStart(12, "0")}`
 
@@ -62,6 +72,26 @@ const controlPlaneTestLayer = (hooks: ControlPlaneHooks = {}) =>
   makeControlPlaneLayer(hooks).pipe(
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
+    Layer.provideMerge(unavailableProviderLayer),
+    Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
+  )
+
+const cursorControlPlaneTestLayer = (scenario: string) =>
+  makeControlPlaneLayer().pipe(
+    Layer.provideMerge(memoryLayer),
+    Layer.provideMerge(testServerConfigLayer()),
+    Layer.provideMerge(
+      cursorProviderLayer({
+        binaryPath: process.execPath,
+        binaryArgs: [fakeCursorAgent],
+        environment: {
+          ...process.env,
+          PATH: "",
+          NOYAU_FAKE_ACP_SCENARIO: scenario,
+        },
+        clientVersion: "test",
+      }),
+    ),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 
@@ -285,5 +315,99 @@ describe("ControlPlane", () => {
       })
       yield* run(program, hooks)
     }),
+  )
+
+  it.effect("runs Cursor post-commit and durably completes end_turn", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const services = yield* Layer.build(cursorControlPlaneTestLayer("success"))
+        const controlPlane = yield* ControlPlane.pipe(Effect.provide(services))
+        yield* controlPlane.dispatch(
+          request({
+            _tag: "project.create",
+            commandId: uuid(21),
+            payload: {
+              projectId,
+              name: "Cursor reactor",
+              workspaceRoot: process.cwd(),
+            },
+          }),
+          actorId,
+        )
+        yield* controlPlane.dispatch(threadCreate, actorId)
+        yield* controlPlane.dispatch(
+          request({
+            _tag: "thread.turn.start",
+            commandId: uuid(22),
+            payload: { threadId, text: "Run fake Cursor" },
+          }),
+          actorId,
+        )
+        yield* controlPlane.drainReactors
+
+        const frames = yield* controlPlane
+          .subscribeThread({ threadId })
+          .pipe(Stream.take(1), Stream.runCollect)
+        const snapshot = frames[0]
+        assert.strictEqual(snapshot?.kind, "snapshot")
+        if (snapshot?.kind === "snapshot") {
+          assert.strictEqual(snapshot.snapshot.thread.latestTurn?.state, "completed")
+          assert.strictEqual(snapshot.snapshot.session?.status, "ready")
+          assert.strictEqual(
+            snapshot.snapshot.session?.resumeCursor?.sessionId,
+            "fake-session-new",
+          )
+          assert.isTrue(
+            snapshot.snapshot.transcript.some(
+              (item) =>
+                item._tag === "transcript.assistant" &&
+                item.text === "hello from fake Cursor",
+            ),
+          )
+        }
+      }),
+    ),
+  )
+
+  it.effect("durably projects Cursor rupture as Session and latestTurn error", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const services = yield* Layer.build(cursorControlPlaneTestLayer("rupture"))
+        const controlPlane = yield* ControlPlane.pipe(Effect.provide(services))
+        yield* controlPlane.dispatch(
+          request({
+            _tag: "project.create",
+            commandId: uuid(31),
+            payload: {
+              projectId,
+              name: "Cursor rupture",
+              workspaceRoot: process.cwd(),
+            },
+          }),
+          actorId,
+        )
+        yield* controlPlane.dispatch(threadCreate, actorId)
+        yield* controlPlane.dispatch(
+          request({
+            _tag: "thread.turn.start",
+            commandId: uuid(32),
+            payload: { threadId, text: "Break fake Cursor" },
+          }),
+          actorId,
+        )
+        yield* controlPlane.drainReactors
+
+        const frames = yield* controlPlane
+          .subscribeThread({ threadId })
+          .pipe(Stream.take(1), Stream.runCollect)
+        const snapshot = frames[0]
+        assert.strictEqual(snapshot?.kind, "snapshot")
+        if (snapshot?.kind === "snapshot") {
+          assert.strictEqual(snapshot.snapshot.thread.latestTurn?.state, "error")
+          assert.strictEqual(snapshot.snapshot.session?.status, "error")
+          assert.include(snapshot.snapshot.session?.lastError ?? "", "transport ruptured")
+        }
+      }),
+    ),
   )
 })

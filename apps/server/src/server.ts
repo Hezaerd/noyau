@@ -12,6 +12,7 @@ import { ServerConfig, serverConfigLayer } from "./config"
 import { ControlPlane, controlPlaneLayer } from "./control-plane"
 import { authenticateBearer, rpcIdentityLayer } from "./identity"
 import { loggerLayer } from "./observability"
+import { cursorProviderLayer } from "./provider/cursor-acp"
 import { rpcHandlersLayer } from "./rpc-handlers"
 
 export const sqlitePersistenceLayer = Layer.unwrap(
@@ -91,6 +92,7 @@ export const bunServerLayer = Layer.mergeAll(
 )
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
+  Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
   Layer.provide(BunCrypto.layer),
 )

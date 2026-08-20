@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { controlPlaneLayer } from "@noyau/server/control-plane"
+import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { serverRoutesLayer } from "@noyau/server/server"
 import { Crypto, Effect, Layer, ManagedRuntime } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
@@ -15,6 +16,7 @@ const testCrypto = Crypto.make({
 const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(memoryLayer),
   Layer.provideMerge(testServerConfigLayer()),
+  Layer.provideMerge(unavailableProviderLayer),
   Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto)),
 )
 
