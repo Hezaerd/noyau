@@ -1,7 +1,3 @@
-import { constants } from "node:fs"
-import { access } from "node:fs/promises"
-import { delimiter, join } from "node:path"
-
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as AcpClient from "@noyau/acp/client"
 import * as AcpError from "@noyau/acp/errors"
@@ -13,7 +9,7 @@ import type {
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
-import { Deferred, Effect, Fiber, Layer } from "effect"
+import { Deferred, Effect, Fiber, FileSystem, Layer, Path } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import { CursorAskQuestionRequest } from "./cursor-acp-extension.ts"
@@ -59,15 +55,8 @@ interface ActiveTurn {
   fiber?: Fiber.Fiber<void>
 }
 
-const executableExists = (path: string, platform: NodeJS.Platform) =>
-  Effect.tryPromise({
-    try: () => access(path, platform === "win32" ? constants.F_OK : constants.X_OK),
-    catch: (cause) =>
-      new AcpError.AcpTransportError({
-        detail: `Cursor executable is not accessible at ${path}`,
-        cause,
-      }),
-  }).pipe(
+const executableExists = (fileSystem: FileSystem.FileSystem, candidate: string) =>
+  fileSystem.access(candidate, { ok: true }).pipe(
     Effect.as(true),
     Effect.orElseSucceed(() => false),
   )
@@ -78,14 +67,17 @@ export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutabl
   environment: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
 ) {
+  const fileSystem = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
   const command = platform === "win32" ? "cursor-agent.exe" : "cursor-agent"
   const pathValue = environment.PATH ?? environment.Path ?? ""
+  const delimiter = path.sep === "\\" ? ";" : ":"
   for (const directory of pathValue.split(delimiter)) {
     if (directory.trim().length === 0) {
       continue
     }
-    const candidate = join(directory, command)
-    if (yield* executableExists(candidate, platform)) {
+    const candidate = path.join(directory, command)
+    if (yield* executableExists(fileSystem, candidate)) {
       return candidate
     }
   }
@@ -93,7 +85,7 @@ export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutabl
   if (
     configured !== undefined &&
     configured.length > 0 &&
-    (yield* executableExists(configured, platform))
+    (yield* executableExists(fileSystem, configured))
   ) {
     return configured
   }

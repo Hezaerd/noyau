@@ -5,17 +5,19 @@
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
-    "start": "node scripts/start-electron.mjs",
+    "start": "node scripts/start-electron.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vp test run",
-    "smoke-test": "node scripts/smoke-test.mjs"
+    "smoke-test": "node scripts/smoke-test.ts"
   },
   "dependencies": {
+    "@effect/platform-node": "catalog:",
     "@noyau/protocol": "workspace:*",
     "effect": "catalog:",
     "electron": "43.4.0"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "@types/node": "^24.13.3",
     "vite-plus": "catalog:",
     "vitest": "catalog:"

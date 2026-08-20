@@ -2,10 +2,11 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router"
 
 import { AppPaletteProvider } from "@/components/AppPalette"
 import { AppSidebar } from "@/components/AppSidebar"
-import { ControlPlaneProvider, useControlPlane } from "@/components/control-plane-context"
+import { ControlPlaneProvider } from "@/components/control-plane-context"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { ThreadPageTitle } from "@/components/WorkspaceBreadcrumb"
+import { useControlPlane } from "@/hooks/use-control-plane"
 import { resolvePageTitlebar } from "@/lib/page-titlebar"
 
 function SidebarControl() {

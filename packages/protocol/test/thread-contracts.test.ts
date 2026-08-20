@@ -273,7 +273,7 @@ describe("Thread commands", () => {
       commandId: ids.command,
       payload: { threadId: ids.thread, regenerateTitle: true as const },
     }
-    expect(Schema.decodeUnknownSync(ThreadCommandRequest)(request).payload).toEqual({
+    expect(Schema.decodeSync(ThreadCommandRequest)(request).payload).toEqual({
       threadId: ids.thread,
       regenerateTitle: true,
     })
@@ -281,7 +281,7 @@ describe("Thread commands", () => {
 
   it("rejette title et regenerateTitle ensemble", () => {
     expect(() =>
-      Schema.decodeUnknownSync(ThreadCommandRequest)({
+      Schema.decodeSync(ThreadCommandRequest)({
         _tag: "thread.meta.update",
         commandId: ids.command,
         payload: { threadId: ids.thread, title: "Titre", regenerateTitle: true },

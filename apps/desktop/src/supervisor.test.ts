@@ -1,12 +1,16 @@
-import { Schema } from "effect"
+import * as NodeServices from "@effect/platform-node/NodeServices"
+import { describe, expect, it } from "@effect/vitest"
+import { Effect, Fiber, Layer, Schema } from "effect"
+import { TestClock } from "effect/testing"
+import { FetchHttpClient } from "effect/unstable/http"
 import type { Socket } from "effect/unstable/socket"
-import { describe, expect, it } from "vite-plus/test"
 
 import {
   encodeBootstrap,
   probeRpc,
   restartDelayMs,
   ServerSupervisor,
+  SupervisorError,
   waitForServerReady,
   type ServerBootstrap,
 } from "./supervisor"
@@ -62,7 +66,7 @@ class FakeWebSocket extends EventTarget implements globalThis.WebSocket {
 
   send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
     const encoded = Schema.decodeUnknownSync(Schema.String)(data)
-    const message = Schema.decodeUnknownSync(RpcMessage)(JSON.parse(encoded))
+    const message = Schema.decodeSync(Schema.fromJsonString(RpcMessage))(encoded)
     if (message._tag === "Ping") {
       queueMicrotask(() => {
         const event = new Event("message")
@@ -101,6 +105,18 @@ class FakeWebSocket extends EventTarget implements globalThis.WebSocket {
   }
 }
 
+const readyFetch: typeof globalThis.fetch = () =>
+  Promise.resolve(new Response(JSON.stringify({ status: "ready" }), { status: 200 }))
+
+const fetchByUrl =
+  (handler: (input: string) => Response): typeof globalThis.fetch =>
+  (input) => {
+    const url = input instanceof Request ? input.url : input instanceof URL ? input.href : input
+    return Promise.resolve(handler(url))
+  }
+
+const supervisorLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer)
+
 describe("server supervisor", () => {
   it("caps restart backoff at ten seconds", () => {
     expect(restartDelayMs(1)).toBe(100)
@@ -111,80 +127,97 @@ describe("server supervisor", () => {
   it("writes a single versioned fd3 bootstrap envelope", () => {
     expect(encodeBootstrap(bootstrap)).toBe(`${JSON.stringify(bootstrap)}\n`)
   })
+})
 
-  it("probes server.getConfig over the authenticated JSON RPC protocol", async () => {
-    const sockets: Array<FakeWebSocket> = []
-    const webSocketConstructor: Socket.WebSocketConstructor["Service"] = (url, protocols) => {
-      const socket = new FakeWebSocket(protocols, url)
-      sockets.push(socket)
-      return socket
-    }
+it.layer(supervisorLayer)("server supervisor effects", (spec) => {
+  spec.effect("probes server.getConfig over the authenticated JSON RPC protocol", () =>
+    Effect.gen(function* () {
+      const sockets: Array<FakeWebSocket> = []
+      const webSocketConstructor: Socket.WebSocketConstructor["Service"] = (url, protocols) => {
+        const socket = new FakeWebSocket(protocols, url)
+        sockets.push(socket)
+        return socket
+      }
 
-    await probeRpc(bootstrap, webSocketConstructor)
+      yield* probeRpc(bootstrap, webSocketConstructor)
 
-    expect(sockets).toHaveLength(1)
-    expect(sockets[0]?.url).toBe("ws://127.0.0.1:4567/rpc")
-    expect(sockets[0]?.protocols).toEqual(["noyau-bearer.launch-token"])
-    expect(sockets[0]?.requests).toEqual([{ tag: "server.getConfig" }])
-  })
+      expect(sockets).toHaveLength(1)
+      expect(sockets[0]?.url).toBe("ws://127.0.0.1:4567/rpc")
+      expect(sockets[0]?.protocols).toEqual(["noyau-bearer.launch-token"])
+      expect(sockets[0]?.requests).toEqual([{ tag: "server.getConfig" }])
+    }),
+  )
 
-  it("does not declare readiness when health and a socket pass but getConfig fails", async () => {
-    let probeAttempts = 0
-    await expect(
-      waitForServerReady(bootstrap, {
+  spec.effect("does not declare readiness when health and a socket pass but getConfig fails", () =>
+    Effect.gen(function* () {
+      let probeAttempts = 0
+      const waiting = yield* waitForServerReady(bootstrap, {
         timeoutMs: 25,
-        fetchImpl: async () => new Response(JSON.stringify({ status: "ready" }), { status: 200 }),
-        probeRpc: async () => {
+        probeRpc: () => {
           probeAttempts += 1
-          throw new Error("server.getConfig is unavailable")
+          return Effect.fail(new SupervisorError({ message: "server.getConfig is unavailable" }))
         },
-        sleep: async () => new Promise((resolve) => setTimeout(resolve, 5)),
-      }),
-    ).rejects.toThrow("server.getConfig is unavailable")
-    expect(probeAttempts).toBeGreaterThan(0)
-  })
+      }).pipe(
+        Effect.provideService(FetchHttpClient.Fetch, readyFetch),
+        Effect.flip,
+        Effect.forkChild,
+      )
+      yield* TestClock.adjust(200)
+      const error = yield* Fiber.join(waiting)
 
-  it("requires readiness and server.getConfig before declaring the child ready", async () => {
-    const requests: Array<string> = []
-    let probeAttempts = 0
-    await waitForServerReady(bootstrap, {
-      fetchImpl: async (input) => {
-        requests.push(input)
-        if (input.endsWith("/health/ready")) {
-          return new Response(JSON.stringify({ status: "ready" }), { status: 200 })
-        }
-        return new Response(null, { status: 500 })
-      },
-      probeRpc: async () => {
-        probeAttempts += 1
-      },
-      sleep: async () => undefined,
-    })
+      expect(error.message).toContain("server.getConfig is unavailable")
+      expect(probeAttempts).toBeGreaterThan(0)
+    }),
+  )
 
-    expect(requests).toEqual(["http://127.0.0.1:4567/health/ready"])
-    expect(probeAttempts).toBe(1)
-  })
+  spec.effect("requires readiness and server.getConfig before declaring the child ready", () =>
+    Effect.gen(function* () {
+      const requests: Array<string> = []
+      let probeAttempts = 0
+      yield* waitForServerReady(bootstrap, {
+        probeRpc: () => {
+          probeAttempts += 1
+          return Effect.void
+        },
+      }).pipe(
+        Effect.provideService(
+          FetchHttpClient.Fetch,
+          fetchByUrl((input) => {
+            requests.push(input)
+            if (input.endsWith("/health/ready")) {
+              return new Response(JSON.stringify({ status: "ready" }), { status: 200 })
+            }
+            return new Response(null, { status: 500 })
+          }),
+        ),
+      )
 
-  it("uses the supplied readiness probe for an external bootstrap", async () => {
-    const requests: Array<string> = []
-    const supervisor = new ServerSupervisor({
-      serverEntryPath: "/unused/server.mjs",
-      dataDirectory: bootstrap.dataDirectory,
-      externalBootstrap: bootstrap,
-      fetchImpl: async (input) => {
-        requests.push(input)
-        if (input.endsWith("/health/ready")) {
-          return new Response(JSON.stringify({ status: "ready" }), { status: 200 })
-        }
-        return new Response(null, { status: 500 })
-      },
-      probeRpc: async () => undefined,
-      sleep: async () => undefined,
-    })
+      expect(requests).toEqual(["http://127.0.0.1:4567/health/ready"])
+      expect(probeAttempts).toBe(1)
+    }),
+  )
 
-    await supervisor.start()
+  spec.effect("uses the supplied readiness probe for an external bootstrap", () =>
+    Effect.gen(function* () {
+      const requests: Array<string> = []
+      const supervisor = new ServerSupervisor({
+        serverEntryPath: "/unused/server.mjs",
+        dataDirectory: bootstrap.dataDirectory,
+        externalBootstrap: bootstrap,
+        fetchImpl: fetchByUrl((input) => {
+          requests.push(input)
+          if (input.endsWith("/health/ready")) {
+            return new Response(JSON.stringify({ status: "ready" }), { status: 200 })
+          }
+          return new Response(null, { status: 500 })
+        }),
+        probeRpc: () => Effect.void,
+      })
 
-    expect(supervisor.state.phase).toBe("ready")
-    expect(requests).toEqual(["http://127.0.0.1:4567/health/ready"])
-  })
+      yield* supervisor.start()
+
+      expect(supervisor.state.phase).toBe("ready")
+      expect(requests).toEqual(["http://127.0.0.1:4567/health/ready"])
+    }),
+  )
 })

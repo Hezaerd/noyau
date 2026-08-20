@@ -1,10 +1,20 @@
 import { appendFileSync } from "node:fs"
 import { createInterface } from "node:readline"
 
-const scenario = process.env.NOYAU_FAKE_ACP_SCENARIO ?? "success"
-const requestLog = process.env.NOYAU_FAKE_ACP_REQUEST_LOG
-const exitLog = process.env.NOYAU_FAKE_ACP_EXIT_LOG
-const sessionId = process.env.NOYAU_FAKE_ACP_SESSION_ID ?? "fake-session-new"
+import { Config, Effect, Option } from "effect"
+
+const { exitLog, requestLog, scenario, sessionId } = Effect.runSync(
+  Effect.gen(function* () {
+    return {
+      scenario: yield* Config.string("NOYAU_FAKE_ACP_SCENARIO").pipe(Config.withDefault("success")),
+      requestLog: yield* Config.option(Config.string("NOYAU_FAKE_ACP_REQUEST_LOG")),
+      exitLog: yield* Config.option(Config.string("NOYAU_FAKE_ACP_EXIT_LOG")),
+      sessionId: yield* Config.string("NOYAU_FAKE_ACP_SESSION_ID").pipe(
+        Config.withDefault("fake-session-new"),
+      ),
+    }
+  }),
+)
 
 const modes = {
   currentModeId: "agent",
@@ -24,14 +34,14 @@ const fail = (id, message) => write({ jsonrpc: "2.0", id, error: { code: -32_603
 const notify = (method, params) => write({ jsonrpc: "2.0", method, params })
 
 const logRequest = (message) => {
-  if (requestLog !== undefined) {
-    appendFileSync(requestLog, `${JSON.stringify(message)}\n`, "utf8")
+  if (Option.isSome(requestLog)) {
+    appendFileSync(requestLog.value, `${JSON.stringify(message)}\n`, "utf8")
   }
 }
 
 const logExit = (reason) => {
-  if (exitLog !== undefined) {
-    appendFileSync(exitLog, `${reason}\n`, "utf8")
+  if (Option.isSome(exitLog)) {
+    appendFileSync(exitLog.value, `${reason}\n`, "utf8")
   }
 }
 

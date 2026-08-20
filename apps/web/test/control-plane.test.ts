@@ -1,4 +1,5 @@
 import { Sequence } from "@noyau/protocol/ids"
+import { Effect } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
@@ -43,58 +44,62 @@ describe("control plane stream cursor", () => {
     expect(consumer.afterSequence()).toBe(11)
   })
 
-  it("replaces a failed session and resubscribes from the last accepted global sequence", async () => {
-    interface Session {
-      readonly id: number
-    }
-    interface Attempt {
-      readonly session: Session
-      readonly afterSequence: Sequence | undefined
-      readonly fail: (details: string) => void
-    }
-
-    let session: Session = { id: 1 }
-    let cursor: Sequence | undefined
-    const attempts: Array<Attempt> = []
-    const replaced: Array<number> = []
-    const reconnects: Array<() => void> = []
-    const errors: Array<string> = []
-
-    const stop = superviseSubscription({
-      afterSequence: () => cursor,
-      currentSession: () => session,
-      startAttempt: (attemptSession, afterSequence, fail) => {
-        attempts.push({ session: attemptSession, afterSequence, fail })
-        return () => undefined
-      },
-      replaceSession: async (failedSession) => {
-        replaced.push(failedSession.id)
-        if (session === failedSession) {
-          session = { id: failedSession.id + 1 }
+  it("replaces a failed session and resubscribes from the last accepted global sequence", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        interface Session {
+          readonly id: number
         }
-      },
-      onError: (details) => errors.push(details),
-      schedule: (reconnect) => {
-        reconnects.push(reconnect)
-        return () => undefined
-      },
-    })
+        interface Attempt {
+          readonly session: Session
+          readonly afterSequence: Sequence | undefined
+          readonly fail: (details: string) => void
+        }
 
-    cursor = Sequence.make(42)
-    attempts[0]?.fail("socket closed")
-    await Promise.resolve()
+        let session: Session = { id: 1 }
+        let cursor: Sequence | undefined
+        const attempts: Array<Attempt> = []
+        const replaced: Array<number> = []
+        const reconnects: Array<() => void> = []
+        const errors: Array<string> = []
 
-    expect(replaced).toEqual([1])
-    expect(errors).toEqual(["socket closed"])
-    expect(reconnects).toHaveLength(1)
-    reconnects[0]?.()
-    expect(attempts[1]).toMatchObject({
-      session: { id: 2 },
-      afterSequence: 42,
-    })
+        const stop = superviseSubscription({
+          afterSequence: () => cursor,
+          currentSession: () => session,
+          startAttempt: (attemptSession, afterSequence, fail) => {
+            attempts.push({ session: attemptSession, afterSequence, fail })
+            return () => undefined
+          },
+          replaceSession: (failedSession) => {
+            replaced.push(failedSession.id)
+            if (session === failedSession) {
+              session = { id: failedSession.id + 1 }
+            }
+            return Promise.resolve()
+          },
+          onError: (details) => errors.push(details),
+          schedule: (reconnect) => {
+            reconnects.push(reconnect)
+            return () => undefined
+          },
+        })
 
-    stop()
-    attempts[1]?.fail("ignored after stop")
-    expect(errors).toEqual(["socket closed"])
-  })
+        cursor = Sequence.make(42)
+        attempts[0]?.fail("socket closed")
+        yield* Effect.promise(() => Promise.resolve())
+
+        expect(replaced).toEqual([1])
+        expect(errors).toEqual(["socket closed"])
+        expect(reconnects).toHaveLength(1)
+        reconnects[0]?.()
+        expect(attempts[1]).toMatchObject({
+          session: { id: 2 },
+          afterSequence: 42,
+        })
+
+        stop()
+        attempts[1]?.fail("ignored after stop")
+        expect(errors).toEqual(["socket closed"])
+      }),
+    ))
 })

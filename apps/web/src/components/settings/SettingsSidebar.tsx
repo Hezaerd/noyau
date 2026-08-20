@@ -11,7 +11,6 @@ import {
   type ReactElement,
 } from "react"
 
-import { scrollToSettingsTargetId } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
@@ -34,6 +33,7 @@ import {
   type SettingsSearchHit,
   type SettingsTabId,
 } from "@/lib/settings-catalog"
+import { scrollToSettingsTargetId } from "@/lib/settings-scroll"
 
 const SETTINGS_TAB_ICONS = {
   appearance: PaletteIcon,

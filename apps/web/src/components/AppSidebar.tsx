@@ -10,7 +10,6 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
-import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { ThreadSidebarItem } from "@/components/sidebar/ThreadSidebarItem"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
@@ -31,6 +30,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { useControlPlane } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
 

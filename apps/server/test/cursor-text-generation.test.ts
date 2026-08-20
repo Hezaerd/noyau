@@ -1,4 +1,3 @@
-import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { assert, describe, it } from "@effect/vitest"
@@ -7,7 +6,7 @@ import { buildThreadTitlePrompt, extractJsonObject } from "@noyau/server/text-ge
 import { TextGeneration } from "@noyau/server/text-generation/text-generation"
 import { Effect, Layer } from "effect"
 
-const fakeAgent = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "fake-cursor-acp.mjs")
+const fakeAgent = fileURLToPath(new URL("./fixtures/fake-cursor-acp.mjs", import.meta.url))
 
 describe("thread title prompts", () => {
   it("asks for a compact JSON title and does not copy the prompt", () => {
@@ -45,7 +44,6 @@ describe("Cursor text generation", () => {
             binaryPath: process.execPath,
             binaryArgs: [fakeAgent],
             environment: {
-              ...process.env,
               PATH: "",
               NOYAU_FAKE_ACP_SCENARIO: "thread-title",
             },

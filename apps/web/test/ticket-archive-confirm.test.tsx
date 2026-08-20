@@ -2,6 +2,7 @@
 
 import { cleanup, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { Effect } from "effect"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { TicketArchiveConfirmDialog } from "../src/components/board/TicketArchiveConfirmDialog"
@@ -35,27 +36,30 @@ describe("ticket archive confirmation", () => {
     expect(formatQuotedList(["Alpha", "Beta", "Gamma"])).toBe("« Alpha », « Beta » et « Gamma »")
   })
 
-  it("does not archive until the confirmation is accepted", async () => {
-    const user = userEvent.setup()
-    const onConfirm = vi.fn()
-    render(
-      <TicketArchiveConfirmDialog
-        open
-        ticketTitle={ticket.title}
-        blockedByTitles={[]}
-        onOpenChange={vi.fn()}
-        onConfirm={onConfirm}
-      />,
-    )
+  it("does not archive until the confirmation is accepted", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onConfirm = vi.fn()
+        render(
+          <TicketArchiveConfirmDialog
+            open
+            ticketTitle={ticket.title}
+            blockedByTitles={[]}
+            onOpenChange={vi.fn()}
+            onConfirm={onConfirm}
+          />,
+        )
 
-    expect(screen.getByRole("alertdialog")).toBeTruthy()
-    expect(screen.getByText(/quittera le Tableau/)).toBeTruthy()
-    await user.click(screen.getByRole("button", { name: "Annuler" }))
-    expect(onConfirm).not.toHaveBeenCalled()
+        expect(screen.getByRole("alertdialog")).toBeTruthy()
+        expect(screen.getByText(/quittera le Tableau/)).toBeTruthy()
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Annuler" })))
+        expect(onConfirm).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole("button", { name: "Archiver" }))
-    expect(onConfirm).toHaveBeenCalledTimes(1)
-  })
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archiver" })))
+        expect(onConfirm).toHaveBeenCalledTimes(1)
+      }),
+    ))
 
   it("mentions open dependencies in the confirmation copy", () => {
     render(
@@ -73,44 +77,51 @@ describe("ticket archive confirmation", () => {
     ).toBeTruthy()
   })
 
-  it("opens the confirmation from the Ticket Dialog before archiving", async () => {
-    const user = userEvent.setup()
-    const onArchive = vi.fn()
-    render(
-      <TicketDialog
-        ticket={ticket}
-        tickets={[ticket]}
-        ticketDependencies={[]}
-        ticketThreads={[]}
-        threads={[]}
-        activity={[]}
-        activityLoading={false}
-        focusTitle={false}
-        onClose={vi.fn()}
-        onTitleFocusComplete={vi.fn()}
-        onUpdate={vi.fn()}
-        onAddDependency={vi.fn()}
-        onRemoveDependency={vi.fn()}
-        onLinkThread={vi.fn()}
-        onUnlinkThread={vi.fn()}
-        archiveBlockedByTitles={[]}
-        onArchive={onArchive}
-      />,
-    )
+  it("opens the confirmation from the Ticket Dialog before archiving", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onArchive = vi.fn()
+        render(
+          <TicketDialog
+            ticket={ticket}
+            tickets={[ticket]}
+            ticketDependencies={[]}
+            ticketThreads={[]}
+            threads={[]}
+            activity={[]}
+            activityLoading={false}
+            focusTitle={false}
+            onClose={vi.fn()}
+            onTitleFocusComplete={vi.fn()}
+            onUpdate={vi.fn()}
+            onAddDependency={vi.fn()}
+            onRemoveDependency={vi.fn()}
+            onLinkThread={vi.fn()}
+            onUnlinkThread={vi.fn()}
+            archiveBlockedByTitles={[]}
+            onArchive={onArchive}
+          />,
+        )
 
-    expect(screen.queryByRole("alertdialog")).toBeNull()
-    await user.click(screen.getByRole("button", { name: "Archiver" }))
-    const confirmation = screen.getByRole("alertdialog")
-    expect(confirmation).toBeTruthy()
-    expect(onArchive).not.toHaveBeenCalled()
+        expect(screen.queryByRole("alertdialog")).toBeNull()
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archiver" })))
+        const confirmation = screen.getByRole("alertdialog")
+        expect(confirmation).toBeTruthy()
+        expect(onArchive).not.toHaveBeenCalled()
 
-    await user.click(within(confirmation).getByRole("button", { name: "Annuler" }))
-    expect(onArchive).not.toHaveBeenCalled()
+        yield* Effect.promise(() =>
+          user.click(within(confirmation).getByRole("button", { name: "Annuler" })),
+        )
+        expect(onArchive).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole("button", { name: "Archiver" }))
-    await user.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", { name: "Archiver" }),
-    )
-    expect(onArchive).toHaveBeenCalledWith(ticket.id)
-  })
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archiver" })))
+        yield* Effect.promise(() =>
+          user.click(
+            within(screen.getByRole("alertdialog")).getByRole("button", { name: "Archiver" }),
+          ),
+        )
+        expect(onArchive).toHaveBeenCalledWith(ticket.id)
+      }),
+    ))
 })

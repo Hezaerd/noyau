@@ -102,16 +102,21 @@ class ProjectSnapshotUnavailable extends Schema.TaggedError<ProjectSnapshotUnava
   },
 ) {}
 
-const runOperation = async <A, E>(
-  operation: Effect.Effect<A, E, ControlPlaneClient>,
-): Promise<ControlPlaneResult<A>> => {
-  const exit = await activeTransportSession.runPromiseExit(operation)
-
-  return Exit.match(exit, {
+const matchOperationExit = <A>(exit: Exit.Exit<A, unknown>): ControlPlaneResult<A> =>
+  Exit.match(exit, {
     onFailure: (cause) => ({ ok: false, details: Cause.pretty(cause) }),
     onSuccess: (value) => ({ ok: true, value }),
   })
-}
+
+const runOperation = <A, E>(
+  operation: Effect.Effect<A, E, ControlPlaneClient>,
+): Promise<ControlPlaneResult<A>> =>
+  activeTransportSession.runPromiseExit(operation).then(matchOperationExit)
+
+const runOperationWithCrypto = <A, E>(
+  operation: Effect.Effect<A, E, ControlPlaneClient | Crypto.Crypto>,
+): Promise<ControlPlaneResult<A>> =>
+  activeTransportSession.runPromiseExit(operation).then(matchOperationExit)
 
 const dispatch = Effect.fn("ControlPlaneClient.dispatchCommand")(function* (
   request: ClientCommandRequest,
@@ -179,16 +184,6 @@ export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
 ): Promise<ControlPlaneResult<DispatchResult>> =>
   runOperationWithCrypto(request.pipe(Effect.flatMap((built) => dispatch(built))))
 
-const runOperationWithCrypto = async <A, E>(
-  operation: Effect.Effect<A, E, ControlPlaneClient | Crypto.Crypto>,
-): Promise<ControlPlaneResult<A>> => {
-  const exit = await activeTransportSession.runPromiseExit(operation)
-  return Exit.match(exit, {
-    onFailure: (cause) => ({ ok: false, details: Cause.pretty(cause) }),
-    onSuccess: (value) => ({ ok: true, value }),
-  })
-}
-
 export const buildCommand = <A, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,
 ): Promise<ControlPlaneResult<A>> => runOperationWithCrypto(request)
@@ -245,8 +240,15 @@ type ReconnectSchedule = (reconnect: () => void, attempt: number) => () => void
 
 const scheduleReconnect: ReconnectSchedule = (reconnect, attempt) => {
   const delay = Math.min(100 * 2 ** Math.max(0, attempt - 1), 2_000)
-  const timeout = globalThis.setTimeout(reconnect, delay)
-  return () => globalThis.clearTimeout(timeout)
+  const fiber = Effect.runFork(
+    Effect.gen(function* () {
+      yield* Effect.sleep(delay)
+      reconnect()
+    }),
+  )
+  return () => {
+    Effect.runFork(Fiber.interrupt(fiber))
+  }
 }
 
 export interface SubscriptionSupervisorOptions<Session> {

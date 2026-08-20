@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "@effect/vitest"
 
 import {
   resolveAppIdentity,
   resolveElectronBinaryPath,
   resolveMacBundlePaths,
-} from "./electron-launcher.mjs"
+} from "./electron-launcher.ts"
 
 describe("electron launcher", () => {
   it("brands development as Noyau (Dev) with a checkout-scoped bundle id", () => {
@@ -33,9 +33,9 @@ describe("electron launcher", () => {
   })
 
   it("resolves the stock Electron binary from the package entrypoint", () => {
-    const calls = []
+    const calls: Array<string> = []
     const electronPath = resolveElectronBinaryPath(
-      () => (specifier) => {
+      () => (specifier: string) => {
         calls.push(`require:${specifier}`)
         return "/repo/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
       },

@@ -5,7 +5,7 @@ import { Crypto, Effect, Schema } from "effect"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import {
-  createTicketFromThread,
+  createTicketFromThreadEffect,
   type ThreadTicketDraftSource,
   type TicketCreationBoard,
 } from "../src/lib/create-ticket-from-thread"
@@ -53,96 +53,103 @@ const board: TicketCreationBoard = {
 }
 
 describe("Thread to Ticket flow", () => {
-  it("dispatches create, transcript update, and link before opening the created Ticket", async () => {
-    const dispatched: ClientCommandRequest[] = []
-    const timeline: string[] = []
-    let openedTicketId: TicketId | undefined
-    const onError = vi.fn()
-    const dispatch = async (request: ClientCommandRequest): Promise<boolean> => {
-      dispatched.push(request)
-      timeline.push(request._tag)
-      return true
-    }
-    const onTicketCreated = (createdTicketId: TicketId): void => {
-      openedTicketId = createdTicketId
-      timeline.push(`navigate:${createdTicketId}`)
-    }
+  it("dispatches create, transcript update, and link before opening the created Ticket", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const dispatched: ClientCommandRequest[] = []
+        const timeline: string[] = []
+        let openedTicketId: TicketId | undefined
+        const onError = vi.fn()
+        const dispatch = (request: ClientCommandRequest): Promise<boolean> => {
+          dispatched.push(request)
+          timeline.push(request._tag)
+          return Promise.resolve(true)
+        }
+        const onTicketCreated = (createdTicketId: TicketId): void => {
+          openedTicketId = createdTicketId
+          timeline.push(`navigate:${createdTicketId}`)
+        }
 
-    await createTicketFromThread({
-      projectId,
-      threadId,
-      snapshot: draft,
-      board,
-      buildCommand: runBuilder,
-      dispatch,
-      onError,
-      onTicketCreated,
-    })
+        yield* createTicketFromThreadEffect({
+          projectId,
+          threadId,
+          snapshot: draft,
+          board,
+          buildCommand: runBuilder,
+          dispatch,
+          onError,
+          onTicketCreated,
+        })
 
-    expect(onError).not.toHaveBeenCalled()
-    expect(dispatched.map((request) => request._tag)).toEqual([
-      "ticket.create",
-      "ticket.update",
-      "ticket.thread.link",
-    ])
+        expect(onError).not.toHaveBeenCalled()
+        expect(dispatched.map((request) => request._tag)).toEqual([
+          "ticket.create",
+          "ticket.update",
+          "ticket.thread.link",
+        ])
 
-    const createRequest = dispatched[0]
-    const updateRequest = dispatched[1]
-    const linkRequest = dispatched[2]
-    if (
-      createRequest === undefined ||
-      updateRequest === undefined ||
-      linkRequest === undefined ||
-      createRequest._tag !== "ticket.create" ||
-      updateRequest._tag !== "ticket.update" ||
-      linkRequest._tag !== "ticket.thread.link"
-    ) {
-      throw new Error("Expected the three Ticket flow commands in order")
-    }
+        const createRequest = dispatched[0]
+        const updateRequest = dispatched[1]
+        const linkRequest = dispatched[2]
+        if (
+          createRequest === undefined ||
+          updateRequest === undefined ||
+          linkRequest === undefined ||
+          createRequest._tag !== "ticket.create" ||
+          updateRequest._tag !== "ticket.update" ||
+          linkRequest._tag !== "ticket.thread.link"
+        ) {
+          throw new Error("Expected the three Ticket flow commands in order")
+        }
 
-    expect(createRequest.payload.projectId).toBe(projectId)
-    expect(createRequest.payload.title).toBe(draft.thread.title)
-    expect(createRequest.payload.placement.columnId).toBe(columnId)
-    expect(updateRequest.payload.ticketId).toBe(createRequest.payload.ticketId)
-    expect(updateRequest.payload.description).toContain("You:\nLe premier besoin utilisateur.")
-    expect(updateRequest.payload.description).toContain("Cursor:\nLa réponse de Cursor.")
-    expect(linkRequest.payload).toEqual({
-      ticketId: createRequest.payload.ticketId,
-      threadId,
-    })
-    expect(timeline).toEqual([
-      "ticket.create",
-      "ticket.update",
-      "ticket.thread.link",
-      `navigate:${createRequest.payload.ticketId}`,
-    ])
-    expect(openedTicketId).toBe(createRequest.payload.ticketId)
-  })
-
-  it("does not dispatch a link or navigate when Ticket creation is rejected", async () => {
-    const dispatched: ClientCommandRequest[] = []
-    const onTicketCreated = vi.fn()
-    const onError = vi.fn()
-
-    await createTicketFromThread({
-      projectId,
-      threadId,
-      snapshot: draft,
-      board,
-      buildCommand: async () => ({
-        ok: false,
-        details: "Ticket refusé",
+        expect(createRequest.payload.projectId).toBe(projectId)
+        expect(createRequest.payload.title).toBe(draft.thread.title)
+        expect(createRequest.payload.placement.columnId).toBe(columnId)
+        expect(updateRequest.payload.ticketId).toBe(createRequest.payload.ticketId)
+        expect(updateRequest.payload.description).toContain("You:\nLe premier besoin utilisateur.")
+        expect(updateRequest.payload.description).toContain("Cursor:\nLa réponse de Cursor.")
+        expect(linkRequest.payload).toEqual({
+          ticketId: createRequest.payload.ticketId,
+          threadId,
+        })
+        expect(timeline).toEqual([
+          "ticket.create",
+          "ticket.update",
+          "ticket.thread.link",
+          `navigate:${createRequest.payload.ticketId}`,
+        ])
+        expect(openedTicketId).toBe(createRequest.payload.ticketId)
       }),
-      dispatch: async (request) => {
-        dispatched.push(request)
-        return true
-      },
-      onError,
-      onTicketCreated,
-    })
+    ))
 
-    expect(dispatched).toEqual([])
-    expect(onError).toHaveBeenCalledWith("Ticket refusé")
-    expect(onTicketCreated).not.toHaveBeenCalled()
-  })
+  it("does not dispatch a link or navigate when Ticket creation is rejected", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const dispatched: ClientCommandRequest[] = []
+        const onTicketCreated = vi.fn()
+        const onError = vi.fn()
+
+        yield* createTicketFromThreadEffect({
+          projectId,
+          threadId,
+          snapshot: draft,
+          board,
+          buildCommand: () =>
+            Promise.resolve({
+              ok: false,
+              details: "Ticket refusé",
+            }),
+          dispatch: (request) => {
+            dispatched.push(request)
+            return Promise.resolve(true)
+          },
+          onError,
+          onTicketCreated,
+        })
+
+        expect(dispatched).toEqual([])
+        expect(onError).toHaveBeenCalledWith("Ticket refusé")
+        expect(onTicketCreated).not.toHaveBeenCalled()
+      }),
+    ))
 })

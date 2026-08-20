@@ -1,22 +1,28 @@
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import * as NodeServices from "@effect/platform-node/NodeServices"
+import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
 import * as AcpAgent from "../../src/agent.ts"
 
-if (process.env.ACP_MOCK_MALFORMED_OUTPUT === "1") {
-  process.stdout.write("{not-json}\n")
-  process.exit(Number(process.env.ACP_MOCK_MALFORMED_OUTPUT_EXIT_CODE ?? "0"))
-}
-
-if (process.env.ACP_MOCK_EXIT_IMMEDIATELY_CODE !== undefined) {
-  process.exit(Number(process.env.ACP_MOCK_EXIT_IMMEDIATELY_CODE))
-}
-
 const sessionId = "mock-session-1"
 
 const program = Effect.gen(function* () {
+  const malformedOutput = yield* Config.option(Config.boolean("ACP_MOCK_MALFORMED_OUTPUT"))
+  if (malformedOutput._tag === "Some" && malformedOutput.value) {
+    const exitCode = yield* Config.int("ACP_MOCK_MALFORMED_OUTPUT_EXIT_CODE").pipe(
+      Config.withDefault(0),
+    )
+    process.stdout.write("{not-json}\n")
+    process.exit(exitCode)
+  }
+
+  const exitImmediately = yield* Config.option(Config.int("ACP_MOCK_EXIT_IMMEDIATELY_CODE"))
+  if (exitImmediately._tag === "Some") {
+    process.exit(exitImmediately.value)
+  }
+
   const agent = yield* AcpAgent.AcpAgent
 
   yield* agent.handleInitialize(() =>
@@ -42,6 +48,8 @@ const program = Effect.gen(function* () {
     }),
   )
   yield* agent.handleLoadSession(() => Effect.succeed({}))
+  const badTypedRequest = yield* Config.option(Config.boolean("ACP_MOCK_BAD_TYPED_REQUEST"))
+  const badTyped = badTypedRequest._tag === "Some" && badTypedRequest.value
   yield* agent.handleListSessions(() =>
     Effect.succeed({
       sessions: [
@@ -106,7 +114,7 @@ const program = Effect.gen(function* () {
       })
 
       yield* agent.client.extRequest("x/typed_request", {
-        message: process.env.ACP_MOCK_BAD_TYPED_REQUEST === "1" ? 123 : "hello from typed request",
+        message: badTyped ? 123 : "hello from typed request",
       })
 
       yield* agent.client.extNotification("x/typed_notification", {

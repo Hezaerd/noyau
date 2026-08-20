@@ -1,8 +1,5 @@
-import { mkdtempSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-
-import { assert, describe, it } from "@effect/vitest"
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import { assert, layer } from "@effect/vitest"
 import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
 import { makeDrainableWorker } from "@noyau/database/drainable-worker"
 import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/database/projections"
@@ -25,7 +22,7 @@ import {
 import { TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketRejection } from "@noyau/protocol/ticket/errors"
 import { TicketEvent } from "@noyau/protocol/ticket/events"
-import { Context, Crypto, Effect, Layer, Option, Schema } from "effect"
+import { Context, Crypto, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 const ids = {
@@ -35,6 +32,7 @@ const ids = {
   actor: Schema.decodeSync(ActorId)("human:test"),
 }
 const workspaceRoot = Schema.decodeSync(WorkspaceRoot)("/workspace")
+const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
 
 const occurredAt = (iso: string) => Schema.decodeSync(Schema.DateTimeUtcFromString)(iso)
 const encodeBoardSnapshot = Schema.encodeEffect(BoardSnapshot)
@@ -104,7 +102,7 @@ const expectSome = <A>(option: Option.Option<A>, message: string): A => {
   return Option.getOrThrow(option)
 }
 
-describe("SQL projections", () => {
+layer(platformLayer)("SQL projections", (it) => {
   it.effect("résout le propriétaire durable d'un WorkspaceRoot avec exclusion de rebind", () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -122,11 +120,15 @@ describe("SQL projections", () => {
     ),
   )
 
-  it.effect("prouve create Ticket → move → reload snapshot depuis SQLite", () => {
-    const directory = mkdtempSync(join(tmpdir(), "noyau-board-projection-"))
-    const filename = join(directory, "state.sqlite")
+  it.effect("prouve create Ticket → move → reload snapshot depuis SQLite", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "noyau-board-projection-",
+      })
+      const filename = path.join(directory, "state.sqlite")
 
-    return Effect.gen(function* () {
       const before = yield* Effect.scoped(
         Effect.gen(function* () {
           const context = yield* Layer.build(sqliteLayer({ filename }))
@@ -215,18 +217,10 @@ describe("SQL projections", () => {
         after.ticketActivity[0]?.events.map((event) => event.event._tag),
         ["ticket.moved", "ticket.created"],
       )
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          rmSync(directory, { force: true, recursive: true })
-        }),
-      ),
-    )
-  })
+    }),
+  )
 
   it.effect("récupère les Sessions avant readiness sans réécrire un Turn terminal", () => {
-    const directory = mkdtempSync(join(tmpdir(), "noyau-session-recovery-"))
-    const filename = join(directory, "state.sqlite")
     const recoveryTurnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000001")
     const terminalTurnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000002")
     const resumeCursor = { schemaVersion: 1 as const, sessionId: "cursor-session-1" }
@@ -251,6 +245,13 @@ describe("SQL projections", () => {
     })
 
     return Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "noyau-session-recovery-",
+      })
+      const filename = path.join(directory, "state.sqlite")
+
       yield* Effect.scoped(
         Effect.gen(function* () {
           const context = yield* Layer.build(sqliteLayer({ filename }))
@@ -400,12 +401,6 @@ describe("SQL projections", () => {
         evidence.shell.threads.find((thread) => thread.id === ids.recoveryThread)?.sessionStatus,
         "error",
       )
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          rmSync(directory, { force: true, recursive: true })
-        }),
-      ),
-    )
+    })
   })
 })

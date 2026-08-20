@@ -1,7 +1,6 @@
 import type { ProjectId } from "@noyau/protocol/ids"
 import { useState } from "react"
 
-import { useControlPlane } from "@/components/control-plane-context"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -13,8 +12,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { buildAndDispatchCommand } from "@/lib/control-plane"
-import { makeProjectCreateRequest, makeProjectRebindRequest } from "@/lib/project-commands"
+import { useControlPlane } from "@/hooks/use-control-plane"
+import { pickProjectFolder, submitProjectFolder } from "@/lib/project-folder"
 
 interface ProjectFolderDialogProps {
   readonly open: boolean
@@ -36,18 +35,20 @@ export function ProjectFolderDialog({ open, projectId, onOpenChange }: ProjectFo
   const [error, setError] = useState<string>()
   const [submitting, setSubmitting] = useState(false)
 
-  const chooseFolder = async () => {
-    const path = await window.noyauDesktop?.pickFolder()
-    if (path === undefined) {
-      return
-    }
-    setWorkspaceRoot(path)
-    if (name.trim() === "") {
-      setName(folderName(path))
-    }
+  const chooseFolder = () => {
+    void pickProjectFolder().then((path) => {
+      if (path === undefined) {
+        return undefined
+      }
+      setWorkspaceRoot(path)
+      if (name.trim() === "") {
+        setName(folderName(path))
+      }
+      return undefined
+    })
   }
 
-  const submit = async () => {
+  const submit = () => {
     const path = workspaceRoot.trim()
     const projectName = (name.trim() || folderName(path)).trim()
     if (path === "" || projectName === "") {
@@ -55,20 +56,18 @@ export function ProjectFolderDialog({ open, projectId, onOpenChange }: ProjectFo
       return
     }
     setSubmitting(true)
-    const result = projectId
-      ? await buildAndDispatchCommand(makeProjectRebindRequest({ projectId, workspaceRoot: path }))
-      : await buildAndDispatchCommand(
-          makeProjectCreateRequest({ name: projectName, workspaceRoot: path }),
-        )
-    setSubmitting(false)
-    if (!result.ok) {
-      setError(result.details)
-      return
-    }
-    setWorkspaceRoot("")
-    setName("")
-    setError(undefined)
-    onOpenChange(false)
+    void submitProjectFolder({ projectId, workspaceRoot: path, projectName }).then((result) => {
+      setSubmitting(false)
+      if (!result.ok) {
+        setError(result.details)
+        return undefined
+      }
+      setWorkspaceRoot("")
+      setName("")
+      setError(undefined)
+      onOpenChange(false)
+      return undefined
+    })
   }
 
   return (
@@ -111,7 +110,7 @@ export function ProjectFolderDialog({ open, projectId, onOpenChange }: ProjectFo
                 onChange={(event) => setWorkspaceRoot(event.target.value)}
                 placeholder="/Users/moi/Projet"
               />
-              <Button type="button" variant="outline" onClick={() => void chooseFolder()}>
+              <Button type="button" variant="outline" onClick={() => chooseFolder()}>
                 Parcourir
               </Button>
             </div>
@@ -125,7 +124,7 @@ export function ProjectFolderDialog({ open, projectId, onOpenChange }: ProjectFo
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
-            <Button type="button" disabled={submitting} onClick={() => void submit()}>
+            <Button type="button" disabled={submitting} onClick={() => submit()}>
               {project === undefined ? "Relier le dossier" : "Rebind le dossier"}
             </Button>
           </div>

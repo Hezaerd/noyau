@@ -6,11 +6,10 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
 } from "react"
 
-import { isKeybindingRecorderActive } from "@/lib/keybindings"
+import { scrollToSettingsTarget } from "@/lib/settings-scroll"
 import { cn } from "@/lib/utils"
 
 interface SettingsSearchTargetContextValue {
@@ -38,15 +37,6 @@ export function SettingsSearchTargetProvider({
       {children}
     </SettingsSearchTargetContext.Provider>
   )
-}
-
-const scrollToSettingsTarget = (target: HTMLElement): void => {
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  target.scrollIntoView({
-    behavior: prefersReducedMotion ? "auto" : "smooth",
-    block: "center",
-  })
-  target.focus({ preventScroll: true })
 }
 
 function useSettingsSearchTarget(id: string | undefined) {
@@ -147,32 +137,4 @@ export function SettingsPage({ children }: { readonly children: ReactNode }): Re
       </div>
     </SettingsSearchTargetProvider>
   )
-}
-
-export function scrollToSettingsTargetId(targetId: string): boolean {
-  const target = document.getElementById(targetId)
-  if (target === null) {
-    return false
-  }
-  scrollToSettingsTarget(target)
-  return true
-}
-
-export function useSettingsEscape(onEscape: () => void): void {
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.key !== "Escape" || isKeybindingRecorderActive()) {
-        return
-      }
-      event.preventDefault()
-      const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement) {
-        activeElement.blur()
-      }
-      onEscape()
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onEscape])
 }

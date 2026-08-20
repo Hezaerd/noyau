@@ -1,9 +1,9 @@
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 
-import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { Button } from "@/components/ui/button"
+import { useControlPlane } from "@/hooks/use-control-plane"
 
 export function HomePage() {
   const navigate = useNavigate()
