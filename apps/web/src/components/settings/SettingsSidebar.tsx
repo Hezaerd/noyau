@@ -11,11 +11,12 @@ import {
   type ReactElement,
 } from "react"
 
+import { sidebarSearchChromeClassName } from "@/components/sidebar/sidebar-search-chrome"
+import { SidebarBrandTitlebar } from "@/components/sidebar/SidebarBrandTitlebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
-  Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
@@ -182,19 +183,12 @@ export function SettingsSidebar(): ReactElement {
   )
 
   return (
-    <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
+    <>
       <SidebarHeader className="gap-0 p-0">
-        <div
-          className="drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center px-3"
-          data-desktop-sidebar-titlebar=""
-        >
-          <p className="truncate text-sm font-semibold tracking-[-0.02em]">Paramètres</p>
-        </div>
-      </SidebarHeader>
-      <SidebarContent className="overflow-x-hidden">
-        <SidebarGroup className="gap-2 p-3">
-          <div className="flex h-8 items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground">
-            <SearchIcon className="size-4 shrink-0" />
+        <SidebarBrandTitlebar />
+        <div className="p-3">
+          <div className={sidebarSearchChromeClassName}>
+            <SearchIcon className="size-3.5 shrink-0" />
             <Input
               ref={searchInputRef}
               nativeInput
@@ -217,14 +211,14 @@ export function SettingsSidebar(): ReactElement {
                   ? `settings-search-result-${results[activeResultIndex].id}`
                   : undefined
               }
-              className="min-w-0 flex-1 [&_[data-slot=input]]:h-auto [&_[data-slot=input]]:p-0 [&_[data-slot=input]]:text-sm [&_[data-slot=input]]:font-medium [&_[data-slot=input]]:text-sidebar-foreground [&_[data-slot=input]]:placeholder:text-sidebar-foreground/50"
+              className="min-w-0 flex-1 [&_[data-slot=input]]:h-auto [&_[data-slot=input]]:p-0 [&_[data-slot=input]]:text-xs [&_[data-slot=input]]:text-sidebar-foreground [&_[data-slot=input]]:placeholder:text-sidebar-foreground/50"
             />
             {isSearching ? (
               <Button
                 type="button"
                 size="icon-xs"
                 variant="ghost"
-                className="shrink-0 text-sidebar-foreground/55 hover:text-sidebar-foreground"
+                className="ml-auto shrink-0 text-sidebar-foreground/55 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden"
                 aria-label="Effacer la recherche"
                 onClick={() => {
                   clearSearch()
@@ -236,10 +230,14 @@ export function SettingsSidebar(): ReactElement {
             ) : (
               <KeyboardShortcut
                 hotkey={searchHotkey}
-                kbdClassName="h-4 min-w-0 px-1.5 text-[10px]"
+                className="ml-auto group-data-[collapsible=icon]:hidden"
               />
             )}
           </div>
+        </div>
+      </SidebarHeader>
+      <SidebarContent className="overflow-x-hidden">
+        <SidebarGroup className="gap-2 px-3 pt-0 pb-3">
           {isSearching && results.length === 0 ? (
             <p role="status" className="px-2 py-6 text-center text-xs text-sidebar-foreground/50">
               Aucun réglage trouvé
@@ -304,6 +302,6 @@ export function SettingsSidebar(): ReactElement {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
-    </Sidebar>
+    </>
   )
 }

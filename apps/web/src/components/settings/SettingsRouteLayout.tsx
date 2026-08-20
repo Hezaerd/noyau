@@ -1,8 +1,6 @@
 import { Outlet, useCanGoBack, useNavigate } from "@tanstack/react-router"
 import { useCallback, type ReactElement } from "react"
 
-import { SettingsSidebar } from "@/components/settings/SettingsSidebar"
-import { SidebarInset } from "@/components/ui/sidebar"
 import { useSettingsEscape } from "@/hooks/use-settings-escape"
 
 export function SettingsRouteLayout(): ReactElement {
@@ -18,12 +16,5 @@ export function SettingsRouteLayout(): ReactElement {
 
   useSettingsEscape(navigateBack)
 
-  return (
-    <>
-      <SettingsSidebar />
-      <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
-        <Outlet />
-      </SidebarInset>
-    </>
-  )
+  return <Outlet />
 }

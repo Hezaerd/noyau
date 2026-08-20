@@ -9,6 +9,7 @@ import {
   writeLastProjectId,
   type ControlPlaneContextValue,
 } from "@/lib/control-plane-state"
+import { nextLastProjectId } from "@/lib/project-navigation"
 
 export function ControlPlaneProvider({ children }: { readonly children: ReactNode }) {
   const [shell, setShell] = useState<ControlPlaneContextValue["shell"]>()
@@ -29,18 +30,15 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
   }, [])
 
   useEffect(() => {
-    if (shell === undefined || shell.projects.length === 0) {
+    if (shell === undefined) {
       return
     }
-    const storedProject = shell.projects.find((project) => project.id === lastProjectId)
-    if (storedProject !== undefined) {
+    const next = nextLastProjectId(shell.projects, lastProjectId)
+    if (next === lastProjectId) {
       return
     }
-    const firstProject = shell.projects[0]
-    if (firstProject !== undefined) {
-      setLastProjectId(firstProject.id)
-      writeLastProjectId(firstProject.id)
-    }
+    setLastProjectId(next)
+    writeLastProjectId(next)
   }, [lastProjectId, shell])
 
   const selectProject = useCallback((projectId: ProjectId) => {

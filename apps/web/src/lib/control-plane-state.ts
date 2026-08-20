@@ -31,8 +31,12 @@ export const readLastProjectId = (): ProjectId | undefined => {
   }
 }
 
-export const writeLastProjectId = (projectId: ProjectId): void => {
+export const writeLastProjectId = (projectId: ProjectId | undefined): void => {
   try {
+    if (projectId === undefined) {
+      window.localStorage.removeItem(LAST_PROJECT_STORAGE_KEY)
+      return
+    }
     window.localStorage.setItem(LAST_PROJECT_STORAGE_KEY, projectId)
   } catch {
     // Persistence is best effort; the server remains authoritative.

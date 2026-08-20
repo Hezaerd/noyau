@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   DEFAULT_SETTINGS_TAB,
+  isSettingsPath,
   parseSettingsTabId,
   searchSettings,
   SETTINGS_ITEMS,
@@ -16,6 +17,14 @@ describe("settings catalog", () => {
     for (const item of SETTINGS_ITEMS) {
       expect(tabIds.has(item.tab)).toBe(true)
     }
+  })
+
+  it("recognizes Paramètres routes without matching neighboring paths", () => {
+    expect(isSettingsPath("/settings")).toBe(true)
+    expect(isSettingsPath("/settings/appearance")).toBe(true)
+    expect(isSettingsPath("/settings/keybindings")).toBe(true)
+    expect(isSettingsPath("/")).toBe(false)
+    expect(isSettingsPath("/settings-room")).toBe(false)
   })
 
   it("falls back to the default tab for an unknown segment", () => {

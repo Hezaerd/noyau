@@ -1,23 +1,16 @@
 import type { ProjectId } from "@noyau/protocol/ids"
 import { Link, useRouterState } from "@tanstack/react-router"
-import {
-  ChevronsUpDownIcon,
-  LayoutGridIcon,
-  MessageCirclePlusIcon,
-  PlusIcon,
-  SearchIcon,
-  SettingsIcon,
-} from "lucide-react"
+import { PlusIcon, SearchIcon, SettingsIcon } from "lucide-react"
 import { useState } from "react"
 
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
-import { ThreadSidebarItem } from "@/components/sidebar/ThreadSidebarItem"
-import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
+import { ProjectSidebarItem } from "@/components/sidebar/ProjectSidebarItem"
+import { sidebarSearchChromeClassName } from "@/components/sidebar/sidebar-search-chrome"
+import { SidebarBrandTitlebar } from "@/components/sidebar/SidebarBrandTitlebar"
 import { Button } from "@/components/ui/button"
 import { CommandDialogTrigger } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
-  Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
@@ -25,8 +18,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
@@ -49,17 +40,9 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
+    <>
       <SidebarHeader className="gap-0 p-0">
-        <div
-          className="drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center gap-2 border-b border-sidebar-border/70 px-3"
-          data-desktop-sidebar-titlebar=""
-        >
-          <div aria-hidden className="size-8 shrink-0 rounded-xl bg-sidebar-primary shadow-lg/5" />
-          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-            <p className="truncate text-sm font-semibold tracking-[-0.02em]">Noyau</p>
-          </div>
-        </div>
+        <SidebarBrandTitlebar />
 
         <div className="p-3">
           <CommandDialogTrigger
@@ -67,7 +50,7 @@ export function AppSidebar() {
               <button
                 type="button"
                 aria-label="Ouvrir la Palette"
-                className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 px-2.5 text-xs text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
+                className={sidebarSearchChromeClassName}
               />
             }
           >
@@ -100,89 +83,23 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {projects.map((project) => {
-                const projectThreads = threads.filter(
-                  (thread) => thread.projectId === project.id && thread.status === "active",
-                )
-                return (
-                  <SidebarMenuItem key={project.id}>
-                    <div className="mb-1 flex items-center gap-2.5 rounded-lg px-2 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-                      <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-xs font-bold text-sidebar-primary-foreground">
-                        {project.name.slice(0, 2).toLocaleLowerCase("fr")}
-                      </div>
-                      <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                        <p className="truncate text-xs font-medium text-sidebar-foreground">
-                          {project.name}
-                        </p>
-                      </div>
-                      {project.available ? (
-                        <ChevronsUpDownIcon className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
-                      ) : (
-                        <button
-                          type="button"
-                          className="text-[0.62rem] text-warning underline-offset-2 hover:underline group-data-[collapsible=icon]:hidden"
-                          onClick={() => {
-                            setFolderDialogOpen(false)
-                            setRebindProjectId(project.id)
-                          }}
-                        >
-                          Relier
-                        </button>
-                      )}
-                    </div>
-                    <SidebarMenuButton
-                      render={
-                        <Link
-                          to="/projects/$projectId/board"
-                          params={{ projectId: project.id }}
-                          onClick={() => {
-                            selectProject(project.id)
-                            closeMobileNavigation()
-                          }}
-                        />
-                      }
-                      isActive={pathname === `/projects/${project.id}/board`}
-                      tooltip="Tableau"
-                      className="h-8 text-sidebar-foreground/58"
-                    >
-                      <LayoutGridIcon />
-                      <span>Tableau</span>
-                    </SidebarMenuButton>
-                    <SidebarMenuButton
-                      render={
-                        <Link
-                          to="/projects/$projectId/thread/$threadId"
-                          params={{ projectId: project.id, threadId: "new" }}
-                          onClick={() => {
-                            selectProject(project.id)
-                            closeMobileNavigation()
-                          }}
-                        />
-                      }
-                      isActive={pathname === `/projects/${project.id}/thread/new`}
-                      tooltip="Nouveau Thread"
-                      className="mt-1 h-8 pl-8 text-sidebar-foreground/58"
-                    >
-                      <MessageCirclePlusIcon />
-                      <span>Nouveau Thread</span>
-                    </SidebarMenuButton>
-                    <ThreadSidebarSection
-                      threads={projectThreads}
-                      renderThread={(thread) => (
-                        <ThreadSidebarItem
-                          thread={thread}
-                          project={project}
-                          isActive={pathname === `/projects/${project.id}/thread/${thread.id}`}
-                          onSelect={() => {
-                            selectProject(project.id)
-                            closeMobileNavigation()
-                          }}
-                        />
-                      )}
-                    />
-                  </SidebarMenuItem>
-                )
-              })}
+              {projects.map((project) => (
+                <ProjectSidebarItem
+                  key={project.id}
+                  project={project}
+                  threads={threads.filter((thread) => thread.projectId === project.id)}
+                  remainingProjects={projects.filter((candidate) => candidate.id !== project.id)}
+                  pathname={pathname}
+                  onSelect={() => {
+                    selectProject(project.id)
+                    closeMobileNavigation()
+                  }}
+                  onRebind={() => {
+                    setFolderDialogOpen(false)
+                    setRebindProjectId(project.id)
+                  }}
+                />
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -195,7 +112,7 @@ export function AppSidebar() {
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-xs"
+                size="icon"
                 aria-label="Ouvrir les Paramètres"
                 className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                 render={
@@ -226,6 +143,6 @@ export function AppSidebar() {
           }
         }}
       />
-    </Sidebar>
+    </>
   )
 }

@@ -9,10 +9,20 @@ import { decide } from "@noyau/domain/board/decider"
 import { emptyBoardState, evolve } from "@noyau/domain/board/projector"
 import { BoardSnapshot } from "@noyau/protocol/board"
 import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import { KanbanColumnColor, KanbanRank } from "@noyau/protocol/entities/kanban-column"
 import { Session } from "@noyau/protocol/entities/session"
 import { type DomainEvent } from "@noyau/protocol/events"
-import { ActorId, CommandId, CorrelationId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
-import { ProjectCreated } from "@noyau/protocol/project/events"
+import {
+  ActorId,
+  CommandId,
+  CorrelationId,
+  KanbanColumnId,
+  ProjectId,
+  ThreadId,
+  TicketId,
+  TurnId,
+} from "@noyau/protocol/ids"
+import { ProjectCreated, ProjectDeleted } from "@noyau/protocol/project/events"
 import {
   ThreadCreated,
   ThreadSessionSet,
@@ -21,7 +31,13 @@ import {
 } from "@noyau/protocol/thread/events"
 import { TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketRejection } from "@noyau/protocol/ticket/errors"
-import { TicketEvent } from "@noyau/protocol/ticket/events"
+import {
+  KanbanColumnCreated,
+  TicketCompleted,
+  TicketCreated,
+  TicketEvent,
+  TicketThreadLinked,
+} from "@noyau/protocol/ticket/events"
 import { Context, Crypto, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -29,8 +45,17 @@ const ids = {
   project: Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000001"),
   recoveryThread: Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000001"),
   terminalThread: Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000002"),
+  backlog: Schema.decodeSync(KanbanColumnId)("60000000-0000-4000-8000-000000000001"),
+  done: Schema.decodeSync(KanbanColumnId)("60000000-0000-4000-8000-000000000003"),
+  ticket: Schema.decodeSync(TicketId)("70000000-0000-4000-8000-000000000001"),
   actor: Schema.decodeSync(ActorId)("human:test"),
 }
+const ranks = {
+  backlog: Schema.decodeSync(KanbanRank)("a0"),
+  done: Schema.decodeSync(KanbanRank)("a1"),
+  ticket: Schema.decodeSync(KanbanRank)("a0"),
+}
+const columnColor = Schema.decodeSync(KanbanColumnColor)("#737373")
 const workspaceRoot = Schema.decodeSync(WorkspaceRoot)("/workspace")
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
 
@@ -403,4 +428,117 @@ layer(platformLayer)("SQL projections", (it) => {
       )
     })
   })
+
+  it.effect("retire le Project et ses projections enfants malgré les FK colonnes", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              KanbanColumnCreated.make({
+                columnId: ids.backlog,
+                name: "Backlog",
+                color: columnColor,
+                rank: ranks.backlog,
+                done: false,
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              KanbanColumnCreated.make({
+                columnId: ids.done,
+                name: "Done",
+                color: columnColor,
+                rank: ranks.done,
+                done: true,
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              TicketCreated.make({
+                ticketId: ids.ticket,
+                columnId: ids.backlog,
+                rank: ranks.ticket,
+                title: "Cascade delete",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              TicketCompleted.make({
+                ticketId: ids.ticket,
+                previousColumnId: ids.backlog,
+                doneColumnId: ids.done,
+                rank: ranks.ticket,
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              5,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Cascade",
+                provider: "cursor",
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              6,
+              TicketThreadLinked.make({
+                ticketId: ids.ticket,
+                threadId: ids.recoveryThread,
+              }),
+            ),
+          )
+
+          const before = yield* readBoardSnapshot(ids.project)
+          assert.isTrue(Option.isSome(before), "Board should exist before delete")
+
+          yield* projectDomainEvent(persisted(7, ProjectDeleted.make({ projectId: ids.project })))
+
+          const board = yield* readBoardSnapshot(ids.project)
+          const thread = yield* readThreadSnapshot(ids.recoveryThread)
+          const owner = yield* findWorkspaceRootOwner(workspaceRoot)
+          const leftovers = yield* sql<{
+            projects: number
+            columns: number
+            tickets: number
+            threads: number
+            links: number
+          }>`
+            SELECT
+              (SELECT COUNT(*) FROM projection_projects) AS projects,
+              (SELECT COUNT(*) FROM projection_columns) AS columns,
+              (SELECT COUNT(*) FROM projection_tickets) AS tickets,
+              (SELECT COUNT(*) FROM projection_threads) AS threads,
+              (SELECT COUNT(*) FROM projection_ticket_threads) AS links
+          `
+
+          assert.deepStrictEqual(board, Option.none())
+          assert.deepStrictEqual(thread, Option.none())
+          assert.deepStrictEqual(owner, Option.none())
+          assert.deepStrictEqual(leftovers[0], {
+            projects: 0,
+            columns: 0,
+            tickets: 0,
+            threads: 0,
+            links: 0,
+          })
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    ),
+  )
 })

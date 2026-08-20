@@ -3,11 +3,13 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router"
 import { AppPaletteProvider } from "@/components/AppPalette"
 import { AppSidebar } from "@/components/AppSidebar"
 import { ControlPlaneProvider } from "@/components/control-plane-context"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { SettingsSidebar } from "@/components/settings/SettingsSidebar"
+import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { ThreadPageTitle } from "@/components/WorkspaceBreadcrumb"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { resolvePageTitlebar } from "@/lib/page-titlebar"
+import { isSettingsPath } from "@/lib/settings-catalog"
 
 function SidebarControl() {
   return (
@@ -44,18 +46,22 @@ function DesktopPageTitle() {
 
 export function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const isSettings = pathname === "/settings" || pathname.startsWith("/settings/")
+  const isSettings = isSettingsPath(pathname)
 
   return (
     <ControlPlaneProvider>
       <AppPaletteProvider>
         <SidebarProvider className="h-svh overflow-hidden">
-          {isSettings ? (
-            <Outlet />
-          ) : (
-            <>
-              <AppSidebar />
-              <SidebarInset className="min-h-0 min-w-0 overflow-hidden overscroll-y-none">
+          {/* Keep the Sidebar shell mounted: remounting it retriggers
+              transition-[width,left] on the gap and flashes the chrome. */}
+          <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
+            {isSettings ? <SettingsSidebar /> : <AppSidebar />}
+          </Sidebar>
+          <SidebarInset className="min-h-0 min-w-0 overflow-hidden overscroll-y-none">
+            {isSettings ? (
+              <Outlet />
+            ) : (
+              <>
                 <header
                   className="drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
                   data-desktop-page-titlebar=""
@@ -66,9 +72,9 @@ export function RootLayout() {
                 </header>
 
                 <Outlet />
-              </SidebarInset>
-            </>
-          )}
+              </>
+            )}
+          </SidebarInset>
           <SidebarControl />
         </SidebarProvider>
       </AppPaletteProvider>
