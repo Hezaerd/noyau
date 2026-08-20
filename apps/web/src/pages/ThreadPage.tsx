@@ -22,7 +22,7 @@ import {
 } from "react"
 
 import { useControlPlane } from "@/components/control-plane-context"
-import { CursorReadinessChip, isCursorReady } from "@/components/thread/CursorReadinessChip"
+import { CursorReadinessChip } from "@/components/thread/CursorReadinessChip"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadRuntimeModePicker } from "@/components/thread/ThreadRuntimeModePicker"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
@@ -42,6 +42,7 @@ import {
   loadThreadSnapshot,
   subscribeThread,
 } from "@/lib/control-plane"
+import { isCursorReady } from "@/lib/cursor-readiness"
 import {
   makeApprovalRespondRequest,
   makeThreadCreateRequest,
