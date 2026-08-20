@@ -215,9 +215,19 @@ const childExited = (child: ChildProcessWithoutNullStreams) =>
   child.exitCode !== null || child.signalCode !== null
 
 const waitForChildExit = (child: ChildProcessWithoutNullStreams): Effect.Effect<void> =>
-  childExited(child)
-    ? Effect.void
-    : Effect.sleep("10 millis").pipe(Effect.flatMap(() => waitForChildExit(child)))
+  Effect.callback<void>((resume) => {
+    if (childExited(child)) {
+      resume(Effect.void)
+      return
+    }
+    const finish = () => {
+      resume(Effect.void)
+    }
+    EventEmitter.prototype.once.call(child, "exit", finish)
+    return Effect.sync(() => {
+      EventEmitter.prototype.off.call(child, "exit", finish)
+    })
+  })
 
 const terminateChild = (child: ChildProcessWithoutNullStreams) =>
   Effect.suspend(() => {
