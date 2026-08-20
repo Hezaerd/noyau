@@ -1,24 +1,40 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
+import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import { ApprovalRequestId, TicketId, type ProjectId, type ThreadId } from "@noyau/protocol/ids"
+import {
+  ApprovalRequestId,
+  KanbanColumnId,
+  TicketId,
+  type ProjectId,
+  type ThreadId,
+} from "@noyau/protocol/ids"
+import { Link } from "@tanstack/react-router"
+import { ArrowLeftIcon, ListPlusIcon } from "lucide-react"
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
   type DragEvent,
-  type FormEvent,
   type ClipboardEvent,
+  type FormEvent,
 } from "react"
 
 import { useControlPlane } from "@/components/control-plane-context"
+import { CursorReadinessChip, isCursorReady } from "@/components/thread/CursorReadinessChip"
+import { ThreadComposer } from "@/components/thread/ThreadComposer"
+import { ThreadRuntimeModePicker } from "@/components/thread/ThreadRuntimeModePicker"
+import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
+import {
+  ThreadTicketChips,
+  ThreadTicketLinkEditor,
+  type ThreadTicketLink,
+} from "@/components/thread/ThreadTicketLinks"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import {
   buildCommand,
   dispatchCommand,
@@ -34,12 +50,14 @@ import {
   makeThreadTurnInterruptRequest,
   makeThreadTurnStartRequest,
   makeUserInputRespondRequest,
-  runtimeModes,
-  isRuntimeMode,
 } from "@/lib/thread-commands"
-import { makeTicketThreadLinkRequest, makeTicketThreadUnlinkRequest } from "@/lib/ticket-commands"
-
-const interruptedLabel = "You stopped"
+import { threadTicketDescription } from "@/lib/thread-ticket-draft"
+import {
+  makeTicketCreateRequest,
+  makeTicketThreadLinkRequest,
+  makeTicketThreadUnlinkRequest,
+  makeTicketUpdateRequest,
+} from "@/lib/ticket-commands"
 
 const transcriptLabel = (item: TranscriptItem): string => {
   switch (item._tag) {
@@ -77,10 +95,11 @@ interface ThreadPageProps {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
   readonly onCreated: (threadId: ThreadId) => void
+  readonly onTicketCreated: (ticketId: TicketId) => void
 }
 
-export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) {
-  const { projects } = useControlPlane()
+export function ThreadPage({ projectId, threadId, onCreated, onTicketCreated }: ThreadPageProps) {
+  const { cursor, projects } = useControlPlane()
   const project = projects.find((candidate) => candidate.id === projectId)
   const [snapshot, setSnapshot] = useState<ThreadSnapshot>()
   const [board, setBoard] = useState<BoardSnapshot>()
@@ -88,10 +107,10 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const [error, setError] = useState<string>()
   const [composerError, setComposerError] = useState<string>()
   const [text, setText] = useState("")
-  const [runtimeMode, setRuntimeMode] =
-    useState<(typeof runtimeModes)[number]["value"]>("full-access")
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
   const [linkedTicketSelection, setLinkedTicketSelection] = useState<string | null>(null)
+  const cursorReady = isCursorReady(cursor)
 
   const refreshThread = useCallback(async () => {
     if (threadId === undefined) {
@@ -155,10 +174,17 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   )
   const linkedTicketSet = new Set(linkedTicketIds)
   const linkableTickets = (board?.tickets ?? []).filter((ticket) => !linkedTicketSet.has(ticket.id))
+  const linkedTicketLinks = linkedTicketIds.map((ticketId) => ({
+    id: ticketId,
+    title: board?.tickets.find((ticket) => ticket.id === ticketId)?.title ?? ticketId,
+  })) satisfies ReadonlyArray<ThreadTicketLink>
+  const linkableTicketLinks = linkableTickets.map((ticket) => ({
+    id: ticket.id,
+    title: ticket.title,
+  })) satisfies ReadonlyArray<ThreadTicketLink>
   const activeTurn = snapshot?.session?.activeTurnId ?? snapshot?.thread.latestTurn?.turnId
   const isRunning =
     snapshot?.session?.status === "running" || snapshot?.thread.latestTurn?.state === "running"
-  const isHumanInterrupted = snapshot?.thread.latestTurn?.state === "interrupted"
   const title = snapshot?.thread.title ?? "Nouveau Thread"
 
   const dispatch = async (
@@ -179,7 +205,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const submitTurn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const prompt = text.trim()
-    if (prompt === "" || isRunning || project?.available !== true) {
+    if (prompt === "" || isRunning || project?.available !== true || !cursorReady) {
       return
     }
     setText("")
@@ -245,10 +271,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     await dispatch(request.value)
   }
 
-  const selectRuntimeMode = async (value: string | null) => {
-    if (value === null || !isRuntimeMode(value)) {
-      return
-    }
+  const selectRuntimeMode = async (value: typeof runtimeMode) => {
     setRuntimeMode(value)
     if (threadId === undefined) {
       return
@@ -346,6 +369,52 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     }
   }
 
+  const createTicketFromThread = async () => {
+    if (threadId === undefined || snapshot === undefined || board === undefined) {
+      return
+    }
+    const column = board.columns.find((candidate) => !candidate.done)
+    if (column === undefined) {
+      setError("Aucune colonne non terminale ne permet de créer un Ticket.")
+      return
+    }
+    const createRequest = await buildCommand(
+      makeTicketCreateRequest({
+        projectId,
+        title: snapshot.thread.title,
+        placement: { columnId: KanbanColumnId.make(column.id) },
+      }),
+    )
+    if (!createRequest.ok) {
+      setError(createRequest.details)
+      return
+    }
+    const ticketId = createRequest.value.payload.ticketId
+    if (!(await dispatch(createRequest.value))) {
+      return
+    }
+
+    const description = threadTicketDescription(snapshot.transcript)
+    if (description !== "") {
+      const updateRequest = await buildCommand(makeTicketUpdateRequest({ ticketId, description }))
+      if (!updateRequest.ok || !(await dispatch(updateRequest.value))) {
+        if (!updateRequest.ok) {
+          setError(updateRequest.details)
+        }
+        return
+      }
+    }
+
+    const linkRequest = await buildCommand(makeTicketThreadLinkRequest({ ticketId, threadId }))
+    if (!linkRequest.ok || !(await dispatch(linkRequest.value))) {
+      if (!linkRequest.ok) {
+        setError(linkRequest.details)
+      }
+      return
+    }
+    onTicketCreated(ticketId)
+  }
+
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <header className="border-b border-border/65 bg-background/80 px-4 py-4 sm:px-6">
@@ -358,24 +427,36 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
             <p className="mt-1 text-xs text-muted-foreground">
               {project?.name ?? "Project"} · Conversation Cursor durable
             </p>
+            <ThreadTicketChips projectId={projectId} tickets={linkedTicketLinks} />
           </div>
-          <Select items={runtimeModes} value={runtimeMode} onValueChange={selectRuntimeMode}>
-            <SelectTrigger aria-label="Mode d’exécution" className="w-52">
-              <SelectValue>
-                {runtimeModes.find((mode) => mode.value === runtimeMode)?.label}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectPopup>
-              {runtimeModes.map((mode) => (
-                <SelectItem key={mode.value} value={mode.value}>
-                  <span className="flex flex-col">
-                    <span>{mode.label}</span>
-                    <span className="text-[0.68rem] text-muted-foreground">{mode.description}</span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectPopup>
-          </Select>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              render={
+                <Link
+                  to="/projects/$projectId/board"
+                  params={{ projectId }}
+                  aria-label="Retour au Tableau"
+                />
+              }
+              variant="outline"
+              size="sm"
+            >
+              <ArrowLeftIcon data-icon="inline-start" />
+              Tableau
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={threadId === undefined || board === undefined}
+              onClick={() => void createTicketFromThread()}
+            >
+              <ListPlusIcon data-icon="inline-start" />
+              Créer un Ticket
+            </Button>
+            <CursorReadinessChip status={cursor} />
+            <ThreadRuntimeModePicker value={runtimeMode} onChange={selectRuntimeMode} />
+          </div>
         </div>
       </header>
 
@@ -393,22 +474,10 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                 {error}
               </div>
             )}
-            {snapshot?.session?.status === "error" && snapshot.session.lastError !== null ? (
-              <div
-                role="alert"
-                className="rounded-xl border border-destructive/35 bg-destructive/10 p-4"
-              >
-                <p className="text-xs font-semibold uppercase tracking-wide text-destructive">
-                  Session error
-                </p>
-                <p className="mt-1 text-sm">{snapshot.session.lastError}</p>
-              </div>
-            ) : null}
-            {isHumanInterrupted ? (
-              <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-                {interruptedLabel} — le prochain message démarrera un nouveau Turn.
-              </div>
-            ) : null}
+            <ThreadStatusNotices
+              session={snapshot?.session}
+              latestTurn={snapshot?.thread.latestTurn}
+            />
 
             {snapshot?.transcript.map((item) => (
               <article
@@ -491,111 +560,33 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
             ) : null}
 
             {threadId === undefined ? null : (
-              <section aria-labelledby="thread-tickets-title" className="rounded-2xl border p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 id="thread-tickets-title" className="text-sm font-medium">
-                    Tickets liés
-                  </h2>
-                  <Select
-                    items={linkableTickets.map((ticket) => ({
-                      value: ticket.id,
-                      label: ticket.title,
-                    }))}
-                    value={linkedTicketSelection}
-                    onValueChange={linkTicket}
-                    disabled={linkableTickets.length === 0}
-                  >
-                    <SelectTrigger size="sm" className="w-56" aria-label="Lier un ticket">
-                      <SelectValue
-                        placeholder={
-                          linkableTickets.length === 0
-                            ? "Tous les tickets sont liés"
-                            : "Lier un ticket"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectPopup>
-                      {linkableTickets.map((ticket) => (
-                        <SelectItem key={ticket.id} value={ticket.id}>
-                          {ticket.title}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                </div>
-                {linkedTicketIds.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Aucun Ticket lié à ce Thread.</p>
-                ) : (
-                  <ul className="flex flex-wrap gap-2">
-                    {linkedTicketIds.map((ticketId) => (
-                      <li
-                        key={ticketId}
-                        className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs"
-                      >
-                        <span>
-                          {board?.tickets.find((ticket) => ticket.id === ticketId)?.title ??
-                            ticketId}
-                        </span>
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-foreground"
-                          onClick={() => void unlinkTicket(ticketId)}
-                          aria-label={`Délier le ticket ${ticketId}`}
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              <ThreadTicketLinkEditor
+                linkedTickets={linkedTicketLinks}
+                linkableTickets={linkableTicketLinks}
+                selection={linkedTicketSelection}
+                onSelectionChange={(ticketId) => {
+                  setLinkedTicketSelection(ticketId)
+                  void linkTicket(ticketId)
+                }}
+                onUnlink={(ticketId) => void unlinkTicket(ticketId)}
+              />
             )}
           </div>
         </ScrollArea>
       </div>
 
-      <form onSubmit={submitTurn} className="border-t bg-background/90 p-4 sm:px-6">
-        <div className="mx-auto flex max-w-4xl flex-col gap-2">
-          <Textarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onPaste={rejectImages}
-            onDrop={rejectImages}
-            onDragOver={(event) => {
-              if (Array.from(event.dataTransfer.types).includes("Files")) {
-                event.preventDefault()
-              }
-            }}
-            placeholder={
-              threadId === undefined
-                ? "Premier prompt : il donnera son titre au Thread…"
-                : "Écrire un message…"
-            }
-            aria-label="Composer un message"
-            disabled={isRunning || project?.available !== true}
-            rows={3}
-          />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
-              Images refusées dans la coupe v0.1.
-              {composerError === undefined ? null : ` ${composerError}`}
-            </p>
-            <div className="flex gap-2">
-              {isRunning ? (
-                <Button type="button" variant="outline" onClick={() => void interruptTurn()}>
-                  Interrompre
-                </Button>
-              ) : null}
-              <Button
-                type="submit"
-                disabled={text.trim() === "" || isRunning || project?.available !== true}
-              >
-                Envoyer
-              </Button>
-            </div>
-          </div>
-        </div>
-      </form>
+      <ThreadComposer
+        isNewThread={threadId === undefined}
+        isRunning={isRunning}
+        disabled={project?.available !== true || !cursorReady}
+        text={text}
+        error={composerError}
+        onSubmit={submitTurn}
+        onTextChange={setText}
+        onPaste={rejectImages}
+        onDrop={rejectImages}
+        onInterrupt={() => void interruptTurn()}
+      />
     </main>
   )
 }
