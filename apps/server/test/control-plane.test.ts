@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
@@ -100,7 +100,7 @@ const controlPlaneTestLayer = (
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(workspaceRoots)),
-    Layer.provideMerge(BunFileSystem.layer),
+    Layer.provideMerge(NodeFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 
@@ -121,7 +121,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
         clientVersion: "test",
       }),
     ),
-    Layer.provideMerge(BunFileSystem.layer),
+    Layer.provideMerge(NodeFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 
