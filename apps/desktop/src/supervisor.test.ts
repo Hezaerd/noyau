@@ -21,6 +21,9 @@ const bootstrap = {
   serverVersion: "0.1.0",
 } satisfies ServerBootstrap
 
+const requestUrl = (input: RequestInfo | URL): string =>
+  typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+
 describe("server supervisor", () => {
   it("caps restart backoff at ten seconds", () => {
     expect(restartDelayMs(1)).toBe(100)
@@ -36,8 +39,9 @@ describe("server supervisor", () => {
     const requests: Array<string> = []
     await waitForServerReady(bootstrap, {
       fetchImpl: async (input) => {
-        requests.push(String(input))
-        if (String(input).endsWith("/health/ready")) {
+        const url = requestUrl(input)
+        requests.push(url)
+        if (url.endsWith("/health/ready")) {
           return new Response(JSON.stringify({ status: "ready" }), { status: 200 })
         }
         return new Response(
@@ -68,11 +72,12 @@ describe("server supervisor", () => {
       dataDirectory: bootstrap.dataDirectory,
       externalBootstrap: bootstrap,
       fetchImpl: async (input) => {
-        requests.push(String(input))
-        if (String(input).endsWith("/health/ready")) {
+        const url = requestUrl(input)
+        requests.push(url)
+        if (url.endsWith("/health/ready")) {
           return new Response(JSON.stringify({ status: "ready" }), { status: 200 })
         }
-        if (String(input).endsWith("/internal/config")) {
+        if (url.endsWith("/internal/config")) {
           return new Response(
             JSON.stringify({
               environmentId: bootstrap.environmentId,

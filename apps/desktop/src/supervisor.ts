@@ -401,7 +401,7 @@ export class ServerSupervisor {
     child.stderr?.on("data", (chunk) => process.stderr.write(`[noyau-server] ${chunk}`))
     // SAFETY: stdio index 3 is configured as a writable pipe in this spawn call.
     const bootstrapPipe = child.stdio[3]
-    if (bootstrapPipe !== null && "end" in bootstrapPipe) {
+    if (bootstrapPipe !== null && bootstrapPipe !== undefined && "end" in bootstrapPipe) {
       bootstrapPipe.end(encodeBootstrap(bootstrap))
     }
     child.once("exit", () => {
