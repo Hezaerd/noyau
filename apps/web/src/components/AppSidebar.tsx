@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button"
 import { CommandDialogTrigger } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
-  Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
@@ -49,7 +48,7 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
+    <>
       <SidebarHeader className="gap-0 p-0">
         <div
           className="drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center gap-2 border-b border-sidebar-border/70 px-3"
@@ -226,6 +225,6 @@ export function AppSidebar() {
           }
         }}
       />
-    </Sidebar>
+    </>
   )
 }
