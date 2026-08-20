@@ -29,7 +29,10 @@ export function ThreadComposer({
   const sendDisabled = text.trim() === "" || isRunning || disabled
 
   return (
-    <form onSubmit={onSubmit} className="border-t bg-background/90 p-4 sm:px-6">
+    <form
+      onSubmit={onSubmit}
+      className="sticky bottom-0 z-20 shrink-0 border-t bg-background/95 p-4 backdrop-blur-xl sm:px-6"
+    >
       <div className="mx-auto flex max-w-4xl flex-col gap-2">
         <Textarea
           value={text}

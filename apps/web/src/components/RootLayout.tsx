@@ -57,15 +57,15 @@ export function RootLayout() {
   return (
     <ControlPlaneProvider>
       <AppPaletteProvider>
-        <SidebarProvider>
+        <SidebarProvider className="h-svh overflow-hidden">
           {isSettings ? (
             <Outlet />
           ) : (
             <>
               <AppSidebar />
-              <SidebarInset className="min-w-0 overflow-hidden">
+              <SidebarInset className="min-h-0 min-w-0 overflow-hidden overscroll-y-none">
                 <header
-                  className="drag-region sticky top-0 z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
+                  className="drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
                   data-desktop-page-titlebar=""
                 >
                   <div className="flex min-w-0 items-center text-sm">
