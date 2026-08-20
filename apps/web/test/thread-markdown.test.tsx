@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { ThreadMarkdown } from "../src/components/thread/ThreadMarkdown"
 import { ToastProvider } from "../src/components/ui/toast"
+import { TooltipProvider } from "../src/components/ui/tooltip"
 
 afterEach(() => {
   cleanup()
@@ -13,9 +14,11 @@ afterEach(() => {
 
 const renderMarkdown = (text: string) =>
   render(
-    <ToastProvider>
-      <ThreadMarkdown text={text} />
-    </ToastProvider>,
+    <TooltipProvider>
+      <ToastProvider>
+        <ThreadMarkdown text={text} />
+      </ToastProvider>
+    </TooltipProvider>,
   )
 
 describe("ThreadMarkdown", () => {
@@ -57,6 +60,22 @@ describe("ThreadMarkdown", () => {
   it("renders KaTeX for block math", () => {
     renderMarkdown("$$\nE = mc^2\n$$")
     expect(document.querySelector(".katex")).not.toBeNull()
+  })
+
+  it("renders a language title and toggles wrap on the code block", () => {
+    renderMarkdown("```python\nprint('salut')\n```")
+
+    const block = document.querySelector(".thread-markdown-codeblock")
+    expect(block?.getAttribute("data-language")).toBe("python")
+    expect(block?.querySelector(".thread-markdown-codeblock-header")?.textContent).toContain(
+      "python",
+    )
+    const wrap = screen.getByRole("button", { name: "Ajuster les lignes" })
+    expect(block?.getAttribute("data-wrap")).toBe("false")
+
+    fireEvent.click(wrap)
+    expect(block?.getAttribute("data-wrap")).toBe("true")
+    expect(screen.getByRole("button", { name: "Désactiver le retour à la ligne" })).toBeTruthy()
   })
 
   it("applies Shiki token colors on a TypeScript fence", async () => {

@@ -2,8 +2,8 @@ import { Option, Schema } from "effect"
 import { isValidElement, type ComponentProps, type ReactNode } from "react"
 import { CodeBlock, type ExtraProps, useIsCodeFenceIncomplete } from "streamdown"
 
-import { CodeCopyButton } from "@/components/thread/CodeCopyButton"
-import { parseCodeFence } from "@/lib/code-fence"
+import { ThreadMarkdownCodeBlock } from "@/components/thread/ThreadMarkdownCodeBlock"
+import { parseCodeFence, resolveCodeBlockTitle } from "@/lib/code-fence"
 import { cn } from "@/lib/utils"
 
 const languageClassPattern = /language-(\S+)/
@@ -65,7 +65,7 @@ export function ThreadMarkdownCode({
   const code = codeText(children)
 
   return (
-    <div className="relative">
+    <ThreadMarkdownCodeBlock code={code} title={resolveCodeBlockTitle(fence)}>
       <CodeBlock
         className={className}
         code={code}
@@ -74,9 +74,6 @@ export function ThreadMarkdownCode({
         lineNumbers={lineNumbers}
         startLine={startLine}
       />
-      <div className="absolute top-1.5 right-1.5 z-10">
-        <CodeCopyButton code={code} />
-      </div>
-    </div>
+    </ThreadMarkdownCodeBlock>
   )
 }

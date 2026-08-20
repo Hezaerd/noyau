@@ -15,6 +15,51 @@
   display: none;
 }
 
+.thread-markdown-codeblock {
+  border-color: color-mix(in srgb, #ffffff 10%, transparent);
+  background-color: #1a1a22;
+  color: #d4d4dc;
+}
+
+.thread-markdown-codeblock-header,
+.thread-markdown-codeblock-action {
+  color: color-mix(in srgb, #d4d4dc 72%, transparent);
+}
+
+.thread-markdown-codeblock-action:hover,
+.thread-markdown-codeblock-action[aria-pressed="true"] {
+  background-color: color-mix(in srgb, #ffffff 8%, transparent);
+  color: #d4d4dc;
+}
+
+.thread-markdown-codeblock [data-streamdown="code-block"] {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  content-visibility: visible !important;
+  contain-intrinsic-size: none !important;
+}
+
+.thread-markdown-codeblock [data-streamdown="code-block-body"] {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.thread-markdown-codeblock [data-streamdown="code-block-body"] pre {
+  margin: 0;
+  background-color: transparent;
+}
+
+.thread-markdown-codeblock[data-wrap="true"] [data-streamdown="code-block-body"] pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* streamdown + plugin classes live in the package dist, not in src/. */
 /* Bun résout souvent hors de node_modules/ local : @source peut rater le dist. */
 
@@ -319,4 +364,8 @@ html.dark [data-streamdown="code-block-body"] span[style*="--shiki-dark-bg"] {
 
 html.dark [data-streamdown="code-block-body"] pre {
   background-color: var(--shiki-dark-bg, var(--sdm-bg, inherit));
+}
+
+.thread-markdown-codeblock [data-streamdown="code-block-body"] pre {
+  background-color: transparent;
 }
