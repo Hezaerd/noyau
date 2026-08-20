@@ -25,7 +25,7 @@ import {
 import type { ClientCommandRequest, Command as CommandType } from "@noyau/protocol/commands"
 import { Command } from "@noyau/protocol/commands"
 import { Environment } from "@noyau/protocol/entities/environment"
-import type { CommandIdConflict} from "@noyau/protocol/errors";
+import type { CommandIdConflict } from "@noyau/protocol/errors"
 import { ServiceUnavailable } from "@noyau/protocol/errors"
 import {
   decodeEventEnvelope,
@@ -58,7 +58,18 @@ import { ThreadCommand } from "@noyau/protocol/thread/commands"
 import { ThreadEvent, type ThreadEvent as ThreadEventType } from "@noyau/protocol/thread/events"
 import { TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketEvent } from "@noyau/protocol/ticket/events"
-import { Context, DateTime, Duration, Effect, Layer, Option, Queue, Result, Schema, Stream } from "effect"
+import {
+  Context,
+  DateTime,
+  Duration,
+  Effect,
+  Layer,
+  Option,
+  Queue,
+  Result,
+  Schema,
+  Stream,
+} from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 import type { SqlError } from "effect/unstable/sql/SqlError"
 
@@ -404,7 +415,7 @@ export interface ControlPlaneHooks {
 }
 
 export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
-  Layer.scoped(
+  Layer.effect(
     ControlPlane,
     Effect.gen(function* () {
       const config = yield* ServerConfig
@@ -421,8 +432,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         initialState: () => emptyControlState,
         decide,
         evolve,
-        project: (event) =>
-          projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql)),
+        project: (event) => projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql)),
         reactor,
       })
       const environment = new Environment({

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs"
 import { join } from "node:path"
 
 import { EnvironmentId } from "@noyau/protocol/ids"
@@ -62,9 +63,14 @@ export const decodeBootstrap = Effect.fn("ServerConfig.decodeBootstrap")(functio
 })
 
 export const readBootstrapFd = Effect.fn("ServerConfig.readBootstrapFd")(function* (fd: number) {
-  const encoded = yield* Effect.tryPromise({
-    try: () => Bun.file(fd).text(),
-    catch: (cause) => new BootstrapConfigError({ source: `fd${fd}`, cause }),
+  const encoded = yield* Effect.async<string, BootstrapConfigError>((resume) => {
+    readFile(fd, { encoding: "utf8" }, (cause, data) => {
+      resume(
+        cause === null
+          ? Effect.succeed(data)
+          : Effect.fail(new BootstrapConfigError({ source: `fd${fd}`, cause })),
+      )
+    })
   })
   return yield* decodeBootstrap(`fd${fd}`, encoded)
 })
