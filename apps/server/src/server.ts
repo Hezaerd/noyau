@@ -97,6 +97,6 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
 
 export const serverLayer = HttpRouter.serve(serverRoutesLayer).pipe(
   Layer.provide(bunServerLayer),
-  Layer.provide(infrastructureLayer),
   Layer.provide(loggerLayer),
+  Layer.provide(infrastructureLayer),
 )
