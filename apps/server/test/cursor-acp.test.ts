@@ -129,6 +129,24 @@ describe("Cursor ACP adapter", () => {
           ),
         ),
       )
+      yield* withProvider("wrong-version", (provider) =>
+        provider.status.pipe(
+          Effect.tap((status) =>
+            Effect.sync(() => {
+              assert.deepStrictEqual(status, { installed: true, handshakeOk: false })
+            }),
+          ),
+        ),
+      )
+      yield* withProvider("auth-fail", (provider) =>
+        provider.status.pipe(
+          Effect.tap((status) =>
+            Effect.sync(() => {
+              assert.deepStrictEqual(status, { installed: true, handshakeOk: false })
+            }),
+          ),
+        ),
+      )
     }),
   )
 
@@ -191,6 +209,38 @@ describe("Cursor ACP adapter", () => {
         const loadIndex = log.indexOf('"method":"session/load"')
         const newIndex = log.indexOf('"method":"session/new"')
         assert.isTrue(loadIndex >= 0 && newIndex > loadIndex)
+      }),
+    ),
+  )
+
+  it.effect("loads a persisted session in a new subprocess without ingesting replay", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        const signals = yield* capture(
+          provider,
+          input("full-access", {
+            schemaVersion: 1,
+            sessionId: ProviderSessionId.make("persisted-session"),
+          }),
+        )
+        const running = signals.find(
+          (signal) => signal._tag === "session" && signal.status === "running",
+        )
+        assert.strictEqual(
+          running?._tag === "session" ? running.resumeCursor?.sessionId : undefined,
+          "persisted-session",
+        )
+        assert.isFalse(
+          signals.some(
+            (signal) =>
+              signal._tag === "transcript" &&
+              signal.item._tag === "transcript.assistant" &&
+              signal.item.text.includes("replay"),
+          ),
+        )
+        const log = yield* readLog(evidence.requestLog)
+        assert.include(log, '"method":"session/load"')
+        assert.notInclude(log, '"method":"session/new"')
       }),
     ),
   )
