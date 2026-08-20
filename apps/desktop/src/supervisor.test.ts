@@ -47,10 +47,12 @@ class FakeWebSocket extends EventTarget implements globalThis.WebSocket {
   onerror: globalThis.WebSocket["onerror"] = null
   onmessage: globalThis.WebSocket["onmessage"] = null
   onopen: globalThis.WebSocket["onopen"] = null
-  readyState = 0
+  readyState: 0 | 1 | 2 | 3 = 0
+  readonly protocols: string | Array<string> | undefined
 
-  constructor(readonly protocols: string | Array<string> | undefined, url: string) {
+  constructor(protocols: string | Array<string> | undefined, url: string) {
     super()
+    this.protocols = protocols
     this.url = url
     queueMicrotask(() => {
       this.readyState = 1
@@ -58,11 +60,9 @@ class FakeWebSocket extends EventTarget implements globalThis.WebSocket {
     })
   }
 
-  send(data: string | ArrayBufferLike | Blob | ArrayBufferView<ArrayBufferLike>): void {
-    if (typeof data !== "string") {
-      throw new Error("FakeWebSocket only accepts JSON text")
-    }
-    const message = Schema.decodeUnknownSync(RpcMessage)(JSON.parse(data))
+  send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+    const encoded = Schema.decodeUnknownSync(Schema.String)(data)
+    const message = Schema.decodeUnknownSync(RpcMessage)(JSON.parse(encoded))
     if (message._tag === "Ping") {
       queueMicrotask(() => {
         const event = new Event("message")

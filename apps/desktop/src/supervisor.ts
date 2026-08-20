@@ -153,11 +153,12 @@ export const probeRpc = async (
 ): Promise<void> => {
   const rpcRequest = Effect.gen(function* () {
     const client = yield* RpcClient.make(ControlPlaneRpcs)
-    const result = yield* client[RPC_METHODS.getConfig]({}).pipe(Effect.timeout(500))
-    if (result._tag === "None") {
-      return yield* Effect.fail(new Error("Timed out waiting for server.getConfig"))
-    }
-    return result.value
+    return yield* client[RPC_METHODS.getConfig]({}).pipe(
+      Effect.timeoutOrElse({
+        duration: 500,
+        orElse: () => Effect.fail(new Error("Timed out waiting for server.getConfig")),
+      }),
+    )
   }).pipe(
     Effect.provide(
       RpcClient.layerProtocolSocket({ retryTransientErrors: false }).pipe(
