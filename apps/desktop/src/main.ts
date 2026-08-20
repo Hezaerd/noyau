@@ -16,6 +16,7 @@ import {
 } from "electron"
 
 import { PICK_FOLDER_CHANNEL } from "./folder-picker"
+import { isRendererPermissionAllowed } from "./permissions"
 import {
   DESKTOP_HOST,
   DESKTOP_SCHEME,
@@ -226,9 +227,9 @@ const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
     event.preventDefault()
     openExternalUrl(url)
   })
-  window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) =>
-    callback(false),
-  )
+  window.webContents.session.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(isRendererPermissionAllowed(permission))
+  })
   window.once("ready-to-show", () => {
     if (!isSmokeTest) {
       window.show()
@@ -280,7 +281,9 @@ const launch = async (): Promise<void> => {
   registerRendererProtocol()
   registerThemeBridge()
   registerFolderPickerBridge()
-  session.defaultSession.setPermissionCheckHandler(() => false)
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
+    isRendererPermissionAllowed(permission),
+  )
   const bootstrap = serverSupervisor.bootstrap
   if (bootstrap === undefined) {
     throw new Error("The Noyau Server supervisor did not provide a bootstrap")
