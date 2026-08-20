@@ -170,7 +170,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onTicketCreated }: 
   const activeTurn = snapshot?.session?.activeTurnId ?? snapshot?.thread.latestTurn?.turnId
   const isRunning =
     snapshot?.session?.status === "running" || snapshot?.thread.latestTurn?.state === "running"
-  const title = snapshot?.thread.title ?? "Nouveau Thread"
 
   const dispatch = async (
     request: Parameters<typeof dispatchCommand>[0],
@@ -374,10 +373,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onTicketCreated }: 
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <ThreadHeader
         projectId={projectId}
-        projectName={project?.name}
-        title={title}
-        provider={snapshot?.thread.provider ?? "cursor"}
-        linkedTickets={linkedTicketLinks}
         cursor={cursor}
         runtimeMode={runtimeMode}
         onRuntimeModeChange={selectRuntimeMode}

@@ -1,47 +1,11 @@
 import type { TicketId } from "@noyau/protocol/ids"
-import { Link } from "@tanstack/react-router"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export interface ThreadTicketLink {
   readonly id: TicketId
   readonly title: string
-}
-
-export function ThreadTicketChips({
-  projectId,
-  tickets,
-}: {
-  readonly projectId: string
-  readonly tickets: ReadonlyArray<ThreadTicketLink>
-}) {
-  if (tickets.length === 0) {
-    return null
-  }
-
-  return (
-    <div aria-label="Tickets liés au Thread" className="flex flex-wrap gap-1.5">
-      {tickets.map((ticket) => (
-        <Badge
-          key={ticket.id}
-          variant="secondary"
-          size="sm"
-          render={
-            <Link
-              to="/projects/$projectId/board"
-              params={{ projectId }}
-              search={{ ticket: ticket.id }}
-              aria-label={`Ouvrir le Ticket ${ticket.title} dans le Tableau`}
-            />
-          }
-        >
-          <span className="max-w-48 truncate">{ticket.title}</span>
-        </Badge>
-      ))}
-    </div>
-  )
 }
 
 export function ThreadTicketLinkEditor({

@@ -53,10 +53,6 @@ const renderThreadHeaderWithRouter = () => {
     component: () => (
       <ThreadHeader
         projectId={projectId}
-        projectName="Noyau"
-        title="Corriger la reprise"
-        provider="cursor"
-        linkedTickets={[{ id: ticketId, title: "Préparer la reprise" }]}
         cursor={{ installed: true, handshakeOk: true }}
         runtimeMode="full-access"
         onRuntimeModeChange={vi.fn()}
@@ -138,12 +134,10 @@ describe("rendered Thread UI evidence", () => {
     const user = userEvent.setup()
     const router = renderThreadHeaderWithRouter()
     const returnLink = await screen.findByRole("link", { name: "Retour au Tableau" })
-    const ticketLink = screen.getByRole("link", {
-      name: "Ouvrir le Ticket Préparer la reprise dans le Tableau",
-    })
 
     expect(returnLink.getAttribute("href")).toBe(`/projects/${projectId}/board`)
-    expect(ticketLink.getAttribute("href")).toBe(`/projects/${projectId}/board?ticket=${ticketId}`)
+    expect(screen.queryByRole("heading", { name: "Corriger la reprise" })).toBeNull()
+    expect(screen.queryByText(/Conversation Cursor durable/)).toBeNull()
 
     await user.click(returnLink)
     await waitFor(() => {
