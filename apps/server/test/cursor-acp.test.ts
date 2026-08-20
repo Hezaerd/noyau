@@ -172,6 +172,7 @@ describe("Cursor ACP adapter", () => {
               signal.item._tag === "transcript.tool" &&
               signal.item.status === "completed" &&
               signal.item.name === "Searched files" &&
+              signal.item.action === "search" &&
               signal.item.outputSummary === "mentions légales",
           ),
         )

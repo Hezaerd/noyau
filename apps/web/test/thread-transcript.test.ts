@@ -11,10 +11,15 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   applyThreadEnvelope,
+  groupTranscriptRows,
+  presentTranscriptTool,
   projectTranscriptItem,
   threadStatusNoticesVisible,
   transcriptRowId,
   transcriptToolCaption,
+  transcriptToolGroupLabel,
+  transcriptToolObject,
+  transcriptToolVerb,
 } from "../src/lib/thread-transcript"
 
 const ids = {
@@ -228,6 +233,7 @@ describe("thread transcript projection", () => {
       toolCallId: "tool-1",
       name: "Read file",
       status: "completed",
+      action: "read",
       outputSummary: "src/pages/mentions-legales.astro",
     })
     const withoutPath = decodeTranscript({
@@ -243,9 +249,97 @@ describe("thread transcript projection", () => {
     expect(withoutPath._tag).toBe("transcript.tool")
     if (withPath._tag === "transcript.tool") {
       expect(transcriptToolCaption(withPath)).toBe("Read file · src/pages/mentions-legales.astro")
+      expect(transcriptToolVerb(withPath)).toBe("Read")
+      expect(transcriptToolObject(withPath)).toBe("src/pages/mentions-legales.astro")
     }
     if (withoutPath._tag === "transcript.tool") {
       expect(transcriptToolCaption(withoutPath)).toBe("Searched files")
+      expect(transcriptToolVerb(withoutPath)).toBe("Searched")
+      expect(transcriptToolObject(withoutPath)).toBeUndefined()
+    }
+  })
+
+  it("drops persisted JSON dumps and infers a write for Cursor tool fallbacks", () => {
+    const dumped = decodeTranscript({
+      _tag: "transcript.tool",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      toolCallId: "tool-dump",
+      name: "Cursor tool",
+      status: "completed",
+      outputSummary: '{"content":"# VETOSUD — Prototype commercial\\nimport { Image }"}',
+    })
+    expect(dumped._tag).toBe("transcript.tool")
+    if (dumped._tag === "transcript.tool") {
+      expect(presentTranscriptTool(dumped)).toEqual({
+        action: "file_change",
+        name: "Wrote file",
+      })
+      expect(transcriptToolCaption(dumped)).toBe("Wrote file")
+      expect(transcriptToolVerb(dumped)).toBe("Wrote")
+      expect(transcriptToolObject(dumped)).toBeUndefined()
+    }
+  })
+
+  it("collapses consecutive same-action tools of one Turn", () => {
+    const readOne = decodeTranscript({
+      _tag: "transcript.tool",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      toolCallId: "tool-1",
+      name: "Read file",
+      status: "completed",
+      action: "read",
+      outputSummary: "src/pages/index.astro",
+    })
+    const assistant = decodeTranscript({
+      _tag: "transcript.assistant",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "ok",
+    })
+    const writes = ["a.astro", "b.astro", "c.astro"].map((path, index) =>
+      decodeTranscript({
+        _tag: "transcript.tool",
+        threadId: ids.thread,
+        turnId: ids.turn,
+        toolCallId: `write-${String(index)}`,
+        name: "Wrote file",
+        status: "completed",
+        action: "file_change",
+        outputSummary: path,
+      }),
+    )
+    const nextTurnWrite = decodeTranscript({
+      _tag: "transcript.tool",
+      threadId: ids.thread,
+      turnId: ids.nextTurn,
+      toolCallId: "write-next",
+      name: "Wrote file",
+      status: "completed",
+      action: "file_change",
+      outputSummary: "other.astro",
+    })
+
+    expect(readOne._tag).toBe("transcript.tool")
+    expect(writes.every((item) => item._tag === "transcript.tool")).toBe(true)
+    expect(nextTurnWrite._tag).toBe("transcript.tool")
+    if (readOne._tag !== "transcript.tool" || nextTurnWrite._tag !== "transcript.tool") {
+      return
+    }
+    const writeItems = writes.filter((item) => item._tag === "transcript.tool")
+    const rows = groupTranscriptRows([readOne, assistant, ...writeItems, nextTurnWrite])
+    expect(rows).toMatchObject([
+      { kind: "item", item: { toolCallId: "tool-1" } },
+      { kind: "item", item: { _tag: "transcript.assistant" } },
+      { kind: "tool-group", action: "file_change" },
+      { kind: "item", item: { toolCallId: "write-next" } },
+    ])
+    const group = rows[2]
+    expect(group?.kind).toBe("tool-group")
+    if (group?.kind === "tool-group") {
+      expect(group.items).toHaveLength(3)
+      expect(transcriptToolGroupLabel(group.action, group.items.length)).toBe("Changed 3 files")
     }
   })
 

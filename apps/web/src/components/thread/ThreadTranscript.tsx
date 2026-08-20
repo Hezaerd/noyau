@@ -3,6 +3,7 @@ import { ArrowDownIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { ThreadTranscriptItem } from "@/components/thread/ThreadTranscriptItem"
+import { ThreadTranscriptToolGroup } from "@/components/thread/ThreadTranscriptTool"
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import {
   MessageScroller,
@@ -13,7 +14,7 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
 import { Spinner } from "@/components/ui/spinner"
-import { transcriptRowId } from "@/lib/thread-transcript"
+import { groupTranscriptRows, transcriptGroupRowId, transcriptRowId } from "@/lib/thread-transcript"
 
 export function ThreadTranscript({
   transcript,
@@ -74,26 +75,35 @@ export function ThreadTranscript({
               <MessageScrollerItem messageId="thread-notices">{notices}</MessageScrollerItem>
             )}
 
-            {transcript.map((item, index) => (
-              <MessageScrollerItem
-                key={transcriptRowId(item, index)}
-                messageId={transcriptRowId(item, index)}
-                scrollAnchor={item._tag === "transcript.user"}
-              >
-                <ThreadTranscriptItem
-                  item={item}
-                  streaming={isRunning && item === lastItem}
-                  answer={
-                    item._tag === "transcript.user-input"
-                      ? (answerByRequest[item.requestId] ?? "")
-                      : ""
-                  }
-                  onAnswerChange={onAnswerChange}
-                  onRespondApproval={onRespondApproval}
-                  onRespondUserInput={onRespondUserInput}
-                />
-              </MessageScrollerItem>
-            ))}
+            {groupTranscriptRows(transcript).map((row) =>
+              row.kind === "tool-group" ? (
+                <MessageScrollerItem
+                  key={transcriptGroupRowId(row.items)}
+                  messageId={transcriptGroupRowId(row.items)}
+                >
+                  <ThreadTranscriptToolGroup action={row.action} items={row.items} />
+                </MessageScrollerItem>
+              ) : (
+                <MessageScrollerItem
+                  key={transcriptRowId(row.item, row.index)}
+                  messageId={transcriptRowId(row.item, row.index)}
+                  scrollAnchor={row.item._tag === "transcript.user"}
+                >
+                  <ThreadTranscriptItem
+                    item={row.item}
+                    streaming={isRunning && row.item === lastItem}
+                    answer={
+                      row.item._tag === "transcript.user-input"
+                        ? (answerByRequest[row.item.requestId] ?? "")
+                        : ""
+                    }
+                    onAnswerChange={onAnswerChange}
+                    onRespondApproval={onRespondApproval}
+                    onRespondUserInput={onRespondUserInput}
+                  />
+                </MessageScrollerItem>
+              ),
+            )}
 
             {showThinking ? (
               <MessageScrollerItem messageId="thread-thinking">

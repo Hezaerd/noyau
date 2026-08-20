@@ -14,6 +14,7 @@ import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSec
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
 import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
+import { ThreadTranscript } from "../src/components/thread/ThreadTranscript"
 import { ThreadTranscriptItem } from "../src/components/thread/ThreadTranscriptItem"
 import type { BoardTicket } from "../src/lib/board-model"
 
@@ -166,6 +167,73 @@ describe("rendered Thread UI evidence", () => {
     render(<TicketDialog {...baseProps} ticketThreads={[linked]} />)
     await user.click(screen.getByRole("button", { name: "Délier le Thread Thread de reprise" }))
     expect(onUnlinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
+  })
+
+  it("renders a tool call as a verb and object, not a JSON dump", () => {
+    const item = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.tool",
+      threadId,
+      turnId: TurnId.make("40000000-0000-4000-8000-000000000001"),
+      toolCallId: "tool-1",
+      name: "Cursor tool",
+      status: "completed",
+      outputSummary: '{"content":"# VETOSUD\\nimport { Image }"}',
+    })
+
+    render(
+      <ThreadTranscriptItem
+        item={item}
+        streaming={false}
+        answer=""
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("Wrote")).toBeTruthy()
+    expect(screen.queryByText(/"content"/)).toBeNull()
+    expect(screen.queryByText("Cursor tool")).toBeNull()
+  })
+
+  it("collapses a burst of file changes behind one toggle", async () => {
+    const user = userEvent.setup()
+    const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
+    const transcript = ["index.astro", "ClinicCard.astro", "base.css"].map((path, index) =>
+      Schema.decodeSync(TranscriptItem)({
+        _tag: "transcript.tool",
+        threadId,
+        turnId,
+        toolCallId: `tool-${String(index)}`,
+        name: "Wrote file",
+        status: "completed",
+        action: "file_change",
+        outputSummary: path,
+      }),
+    )
+
+    render(
+      <ThreadTranscript
+        transcript={transcript}
+        isRunning={false}
+        isNewThread={false}
+        loading={false}
+        error={undefined}
+        notices={null}
+        footer={null}
+        answerByRequest={{}}
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: "Changed 3 files" })).toBeTruthy()
+    expect(screen.queryByText("index.astro")).toBeNull()
+
+    await user.click(screen.getByRole("button", { name: "Changed 3 files" }))
+    expect(screen.getByText("index.astro")).toBeTruthy()
+    expect(screen.getByText("ClinicCard.astro")).toBeTruthy()
   })
 
   it("renders streamed assistant markdown inside a Message row", () => {

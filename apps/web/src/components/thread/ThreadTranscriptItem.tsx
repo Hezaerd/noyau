@@ -1,13 +1,12 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
+import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
-import { Spinner } from "@/components/ui/spinner"
-import { transcriptLabel, transcriptToolCaption } from "@/lib/thread-transcript"
+import { transcriptLabel } from "@/lib/thread-transcript"
 
 export function ThreadTranscriptItem({
   item,
@@ -25,16 +24,7 @@ export function ThreadTranscriptItem({
   readonly onRespondUserInput: (requestId: string) => void
 }) {
   if (item._tag === "transcript.tool") {
-    return (
-      <Marker role="status">
-        {item.status === "in_progress" ? (
-          <MarkerIcon>
-            <Spinner />
-          </MarkerIcon>
-        ) : null}
-        <MarkerContent className="truncate">{transcriptToolCaption(item)}</MarkerContent>
-      </Marker>
-    )
+    return <ThreadTranscriptTool item={item} />
   }
 
   if (item._tag === "transcript.user") {
