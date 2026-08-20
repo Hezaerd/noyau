@@ -165,7 +165,7 @@ describe("server supervisor", () => {
     expect(probeAttempts).toBe(1)
   })
 
-  it("uses the supplied readiness probe and reports running Turns through the internal status", async () => {
+  it("uses the supplied readiness probe for an external bootstrap", async () => {
     const requests: Array<string> = []
     const supervisor = new ServerSupervisor({
       serverEntryPath: "/unused/server.mjs",
@@ -176,7 +176,7 @@ describe("server supervisor", () => {
         if (input.endsWith("/health/ready")) {
           return new Response(JSON.stringify({ status: "ready" }), { status: 200 })
         }
-        return new Response(JSON.stringify({ runningTurn: true }), { status: 200 })
+        return new Response(null, { status: 500 })
       },
       probeRpc: async () => undefined,
       sleep: async () => undefined,
@@ -185,10 +185,6 @@ describe("server supervisor", () => {
     await supervisor.start()
 
     expect(supervisor.state.phase).toBe("ready")
-    expect(await supervisor.isTurnRunning()).toBe(true)
-    expect(requests).toEqual([
-      "http://127.0.0.1:4567/health/ready",
-      "http://127.0.0.1:4567/internal/status",
-    ])
+    expect(requests).toEqual(["http://127.0.0.1:4567/health/ready"])
   })
 })

@@ -315,38 +315,11 @@ app.on("before-quit", (event) => {
   }
   quitInProgress = true
   void serverSupervisor
-    .isTurnRunning()
-    .catch(() => true)
-    .then((turnRunning) => {
-      if (!turnRunning) {
-        return true
-      }
-      return dialog
-        .showMessageBox({
-          type: "question",
-          buttons: ["Cancel", "Quit and interrupt Turn"],
-          defaultId: 0,
-          cancelId: 0,
-          title: "Quit Noyau?",
-          message: "If a Turn is running, quitting will interrupt it.",
-        })
-        .then(({ response }) => {
-          if (response === 0) {
-            quitInProgress = false
-            return false
-          }
-          return true
-        })
-    })
-    .then((shouldQuit) => {
-      if (!shouldQuit) {
-        return
-      }
-      return serverSupervisor?.stop().then(() => {
-        quitAllowed = true
-        app.quit()
-        return undefined
-      })
+    .stop()
+    .then(() => {
+      quitAllowed = true
+      app.quit()
+      return undefined
     })
     .catch((cause) => {
       quitInProgress = false

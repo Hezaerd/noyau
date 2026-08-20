@@ -86,7 +86,7 @@ Un profil Electron possède un seul Environment, partagé par ses fenêtres.
 - L'application n'est prête qu'après migrations SQLite, reconstruction des projections, passe de
   recovery Session, démarrage des reactors et probe RPC.
 - Le serveur suit Electron : backoff borné, état `degraded` après échecs répétés, arrêt interne
-  puis `forceKillAfter` 2 s. Quitter pendant un Turn actif exige confirmation et interruption.
+  puis `forceKillAfter` 2 s. Quitter arrête le serveur enfant sans confirmation.
 - Un Project référence un dossier déjà présent sur la machine. Noyau et Cursor y travaillent
   directement. Worktrees obligatoires et provenance Git par Turn sont différés.
 - L'acteur v0.1 est local, bootstrapé. Le token de lancement accorde tous les scopes déclarés.

@@ -37,10 +37,6 @@ type WebSocketConstructor = Socket.WebSocketConstructor["Service"]
 
 const defaultFetch: FetchImplementation = (input, init) => fetch(input, init)
 
-const ServerStatusResponse = Schema.Struct({
-  runningTurn: Schema.Boolean,
-})
-
 class RpcProbeTimeout extends Schema.TaggedError<RpcProbeTimeout>()("RpcProbeTimeout", {
   message: Schema.String,
 }) {}
@@ -275,24 +271,6 @@ export class ServerSupervisor {
     }
 
     await this.startWithRetries()
-  }
-
-  async isTurnRunning(): Promise<boolean> {
-    const bootstrap = this.bootstrapValue
-    if (bootstrap === undefined) {
-      return false
-    }
-    const response = await (this.options.fetchImpl ?? defaultFetch)(
-      `http://${bootstrap.host}:${bootstrap.port}/internal/status`,
-      {
-        headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
-        signal: AbortSignal.timeout(500),
-      },
-    )
-    if (!response.ok) {
-      throw new Error(`server.getStatus returned HTTP ${response.status}`)
-    }
-    return Schema.decodeUnknownSync(ServerStatusResponse)(await response.json()).runningTurn
   }
 
   async stop(): Promise<void> {
