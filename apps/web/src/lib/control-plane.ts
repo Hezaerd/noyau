@@ -193,7 +193,9 @@ const startSubscription = <Snapshot, Event>(
   }
 }
 
-const sequenceOf = (item: ShellStreamItem | ProjectStreamItem | ThreadStreamItem): Sequence | undefined => {
+const sequenceOf = (
+  item: ShellStreamItem | ProjectStreamItem | ThreadStreamItem,
+): Sequence | undefined => {
   if (item.kind === "snapshot") {
     return item.snapshot.snapshotSequence
   }

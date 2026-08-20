@@ -1,11 +1,5 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import {
-  CommandId,
-  KanbanColumnId,
-  ThreadId,
-  TicketId,
-  type ProjectId,
-} from "@noyau/protocol/ids"
+import { CommandId, KanbanColumnId, ThreadId, TicketId, type ProjectId } from "@noyau/protocol/ids"
 import {
   KanbanColumnCreateRequest,
   KanbanColumnDeleteRequest,

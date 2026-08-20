@@ -1,4 +1,5 @@
 import type { RuntimeMode as RuntimeModeType } from "@noyau/protocol/entities/runtime-mode"
+import { ApprovalRequestId, CommandId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import {
   ApprovalRespondRequest,
   ThreadCreateRequest,
@@ -7,13 +8,6 @@ import {
   ThreadTurnStartRequest,
   UserInputRespondRequest,
 } from "@noyau/protocol/thread/commands"
-import {
-  ApprovalRequestId,
-  CommandId,
-  ProjectId,
-  ThreadId,
-  TurnId,
-} from "@noyau/protocol/ids"
 import { Crypto, Effect } from "effect"
 
 const uuid = Effect.fnUntraced(function* () {

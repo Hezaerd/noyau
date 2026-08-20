@@ -5,7 +5,7 @@ import { ThreadPage } from "@/pages/ThreadPage"
 
 const routeId = "/projects/$projectId/thread/$threadId" as const
 
-export const Route = createFileRoute(routeId)({
+export const Route = createFileRoute("/projects/$projectId/thread/$threadId")({
   component: ThreadRoutePage,
 })
 

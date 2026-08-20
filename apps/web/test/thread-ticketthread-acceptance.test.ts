@@ -1,20 +1,20 @@
-import { ThreadTurnStartRequest } from "@noyau/protocol/thread/commands"
-import { RPC_METHODS, SubscribeThreadInput } from "@noyau/protocol/rpc"
 import { CommandId, ProjectId, Sequence, ThreadId, TicketId } from "@noyau/protocol/ids"
+import { RPC_METHODS, SubscribeThreadInput } from "@noyau/protocol/rpc"
+import { ThreadTurnStartRequest } from "@noyau/protocol/thread/commands"
 import { Crypto, Effect, Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import { acceptsSequence } from "../src/lib/control-plane"
-import {
-  makeTicketThreadLinkRequest,
-  makeTicketThreadUnlinkRequest,
-} from "../src/lib/ticket-commands"
 import {
   makeThreadCreateRequest,
   makeThreadRuntimeModeSetRequest,
   makeThreadTurnStartRequest,
   runtimeModes,
 } from "../src/lib/thread-commands"
+import {
+  makeTicketThreadLinkRequest,
+  makeTicketThreadUnlinkRequest,
+} from "../src/lib/ticket-commands"
 
 const crypto = Crypto.make({
   randomBytes: (size) => new Uint8Array(size),

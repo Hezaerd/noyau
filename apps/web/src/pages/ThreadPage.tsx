@@ -1,8 +1,15 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
+import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProjectId, ThreadId, TicketId } from "@noyau/protocol/ids"
-import { useEffect, useMemo, useState, type DragEvent, type FormEvent, type ClipboardEvent } from "react"
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type DragEvent,
+  type FormEvent,
+  type ClipboardEvent,
+} from "react"
 
 import { useControlPlane } from "@/components/control-plane-context"
 import { Badge } from "@/components/ui/badge"
@@ -29,10 +36,7 @@ import {
   runtimeModes,
   isRuntimeMode,
 } from "@/lib/thread-commands"
-import {
-  makeTicketThreadLinkRequest,
-  makeTicketThreadUnlinkRequest,
-} from "@/lib/ticket-commands"
+import { makeTicketThreadLinkRequest, makeTicketThreadUnlinkRequest } from "@/lib/ticket-commands"
 
 const interruptedLabel = "You stopped"
 
@@ -68,9 +72,8 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const [error, setError] = useState<string>()
   const [composerError, setComposerError] = useState<string>()
   const [text, setText] = useState("")
-  const [runtimeMode, setRuntimeMode] = useState<(typeof runtimeModes)[number]["value"]>(
-    "full-access",
-  )
+  const [runtimeMode, setRuntimeMode] =
+    useState<(typeof runtimeModes)[number]["value"]>("full-access")
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
   const [linkedTicketSelection, setLinkedTicketSelection] = useState<string | null>(null)
 
@@ -135,9 +138,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     [board?.ticketThreads, threadId],
   )
   const linkedTicketSet = new Set(linkedTicketIds)
-  const linkableTickets = (board?.tickets ?? []).filter(
-    (ticket) => !linkedTicketSet.has(ticket.id),
-  )
+  const linkableTickets = (board?.tickets ?? []).filter((ticket) => !linkedTicketSet.has(ticket.id))
   const activeTurn = snapshot?.session?.activeTurnId ?? snapshot?.thread.latestTurn?.turnId
   const isRunning =
     snapshot?.session?.status === "running" || snapshot?.thread.latestTurn?.state === "running"
@@ -240,7 +241,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     if (threadId === undefined) {
       return
     }
-    const request = await buildCommand(makeThreadRuntimeModeSetRequest({ threadId, runtimeMode: value }))
+    const request = await buildCommand(
+      makeThreadRuntimeModeSetRequest({ threadId, runtimeMode: value }),
+    )
     if (!request.ok) {
       setError(request.details)
       return
@@ -248,7 +251,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     await dispatch(request.value)
   }
 
-  const rejectImages = (event: ClipboardEvent<HTMLTextAreaElement> | DragEvent<HTMLTextAreaElement>) => {
+  const rejectImages = (
+    event: ClipboardEvent<HTMLTextAreaElement> | DragEvent<HTMLTextAreaElement>,
+  ) => {
     const hasImage =
       "clipboardData" in event
         ? Array.from(event.clipboardData.items).some((item) => item.type.startsWith("image/"))
@@ -260,10 +265,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     setComposerError("Les images ne sont pas prises en charge dans les Threads v0.1.")
   }
 
-  const respondToApproval = async (
-    requestId: string,
-    decision: "accept" | "decline",
-  ) => {
+  const respondToApproval = async (requestId: string, decision: "accept" | "decline") => {
     if (threadId === undefined) {
       return
     }
@@ -352,7 +354,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
             itemToStringValue={(item) => item.label}
           >
             <SelectTrigger aria-label="Mode d’exécution" className="w-52">
-              <SelectValue>{runtimeModes.find((mode) => mode.value === runtimeMode)?.label}</SelectValue>
+              <SelectValue>
+                {runtimeModes.find((mode) => mode.value === runtimeMode)?.label}
+              </SelectValue>
             </SelectTrigger>
             <SelectPopup>
               {runtimeModes.map((mode) => (
@@ -371,15 +375,25 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       <div className="min-h-0 flex-1">
         <ScrollArea className="h-full" scrollbarGutter>
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 sm:px-6">
-            {loading ? <p className="text-sm text-muted-foreground">Chargement du Thread…</p> : null}
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Chargement du Thread…</p>
+            ) : null}
             {error === undefined ? null : (
-              <div role="alert" className="rounded-xl border border-destructive/35 bg-destructive/10 p-3 text-sm">
+              <div
+                role="alert"
+                className="rounded-xl border border-destructive/35 bg-destructive/10 p-3 text-sm"
+              >
                 {error}
               </div>
             )}
             {snapshot?.session?.status === "error" && snapshot.session.lastError !== null ? (
-              <div role="alert" className="rounded-xl border border-destructive/35 bg-destructive/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-destructive">Session error</p>
+              <div
+                role="alert"
+                className="rounded-xl border border-destructive/35 bg-destructive/10 p-4"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-destructive">
+                  Session error
+                </p>
                 <p className="mt-1 text-sm">{snapshot.session.lastError}</p>
               </div>
             ) : null}
@@ -415,11 +429,16 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                 {item._tag === "transcript.permission" ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm">
-                      {item.status === "resolved" ? "Permission traitée." : "Cursor demande une permission."}
+                      {item.status === "resolved"
+                        ? "Permission traitée."
+                        : "Cursor demande une permission."}
                     </span>
                     {item.status === "pending" ? (
                       <>
-                        <Button size="sm" onClick={() => void respondToApproval(item.requestId, "accept")}>
+                        <Button
+                          size="sm"
+                          onClick={() => void respondToApproval(item.requestId, "accept")}
+                        >
                           Autoriser
                         </Button>
                         <Button
@@ -448,7 +467,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                           }
                           aria-label="Réponse à Cursor"
                         />
-                        <Button onClick={() => void respondToUserInput(item.requestId)}>Répondre</Button>
+                        <Button onClick={() => void respondToUserInput(item.requestId)}>
+                          Répondre
+                        </Button>
                       </div>
                     ) : null}
                   </div>
@@ -469,7 +490,10 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                     Tickets liés
                   </h2>
                   <Select
-                    items={linkableTickets.map((ticket) => ({ value: ticket.id, label: ticket.title }))}
+                    items={linkableTickets.map((ticket) => ({
+                      value: ticket.id,
+                      label: ticket.title,
+                    }))}
                     value={linkedTicketSelection}
                     onValueChange={linkTicket}
                     disabled={linkableTickets.length === 0}
@@ -477,7 +501,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                     <SelectTrigger size="sm" className="w-56" aria-label="Lier un ticket">
                       <SelectValue
                         placeholder={
-                          linkableTickets.length === 0 ? "Tous les tickets sont liés" : "Lier un ticket"
+                          linkableTickets.length === 0
+                            ? "Tous les tickets sont liés"
+                            : "Lier un ticket"
                         }
                       />
                     </SelectTrigger>
@@ -495,8 +521,14 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                 ) : (
                   <ul className="flex flex-wrap gap-2">
                     {linkedTicketIds.map((ticketId) => (
-                      <li key={ticketId} className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs">
-                        <span>{board?.tickets.find((ticket) => ticket.id === ticketId)?.title ?? ticketId}</span>
+                      <li
+                        key={ticketId}
+                        className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs"
+                      >
+                        <span>
+                          {board?.tickets.find((ticket) => ticket.id === ticketId)?.title ??
+                            ticketId}
+                        </span>
                         <button
                           type="button"
                           className="text-muted-foreground hover:text-foreground"
@@ -527,7 +559,11 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                 event.preventDefault()
               }
             }}
-            placeholder={threadId === undefined ? "Premier prompt : il donnera son titre au Thread…" : "Écrire un message…"}
+            placeholder={
+              threadId === undefined
+                ? "Premier prompt : il donnera son titre au Thread…"
+                : "Écrire un message…"
+            }
             aria-label="Composer un message"
             disabled={isRunning || project?.available !== true}
             rows={3}
@@ -543,7 +579,10 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                   Interrompre
                 </Button>
               ) : null}
-              <Button type="submit" disabled={text.trim() === "" || isRunning || project?.available !== true}>
+              <Button
+                type="submit"
+                disabled={text.trim() === "" || isRunning || project?.available !== true}
+              >
                 Envoyer
               </Button>
             </div>
