@@ -15,6 +15,10 @@ const getPageMeta = (pathname: string) => {
   if (projectMatch !== null) {
     return { title: "Tableau" }
   }
+  const threadMatch = /^\/projects\/([^/]+)\/thread\/[^/]+$/.exec(pathname)
+  if (threadMatch !== null) {
+    return { title: "Thread" }
+  }
 
   switch (pathname) {
     case "/":

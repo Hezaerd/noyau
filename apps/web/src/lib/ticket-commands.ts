@@ -1,5 +1,11 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import { CommandId, KanbanColumnId, TicketId, type ProjectId } from "@noyau/protocol/ids"
+import {
+  CommandId,
+  KanbanColumnId,
+  ThreadId,
+  TicketId,
+  type ProjectId,
+} from "@noyau/protocol/ids"
 import {
   KanbanColumnCreateRequest,
   KanbanColumnDeleteRequest,
@@ -9,6 +15,8 @@ import {
   TicketDependencyAddRequest,
   TicketDependencyRemoveRequest,
   TicketMoveRequest,
+  TicketThreadLinkRequest,
+  TicketThreadUnlinkRequest,
   TicketUpdateRequest,
   type TicketPlacement,
 } from "@noyau/protocol/ticket/commands"
@@ -87,6 +95,26 @@ export const makeTicketDependencyRemoveRequest = Effect.fnUntraced(function* (
   input: (typeof TicketDependencyRemoveRequest)["Type"]["payload"],
 ) {
   return TicketDependencyRemoveRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
+  })
+})
+
+export const makeTicketThreadLinkRequest = Effect.fnUntraced(function* (input: {
+  readonly ticketId: TicketId
+  readonly threadId: ThreadId
+}) {
+  return TicketThreadLinkRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
+  })
+})
+
+export const makeTicketThreadUnlinkRequest = Effect.fnUntraced(function* (input: {
+  readonly ticketId: TicketId
+  readonly threadId: ThreadId
+}) {
+  return TicketThreadUnlinkRequest.make({
     commandId: CommandId.make(yield* uuid()),
     payload: input,
   })

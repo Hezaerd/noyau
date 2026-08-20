@@ -1,4 +1,5 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
 import { Schema } from "effect"
 
 export interface BoardColumn {
@@ -27,6 +28,7 @@ export interface BoardState {
   readonly columns: ReadonlyArray<BoardColumn>
   readonly tickets: ReadonlyArray<BoardTicket>
   readonly ticketDependencies: ReadonlyArray<BoardTicketDependency>
+  readonly ticketThreads: ReadonlyArray<TicketThread>
 }
 
 export interface BoardFilters {
@@ -465,4 +467,5 @@ export const initialBoardState: BoardState = {
     },
   ],
   ticketDependencies: [{ ticketId: "ticket-projection", dependsOnTicketId: "ticket-http" }],
+  ticketThreads: [],
 }

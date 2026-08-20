@@ -1,5 +1,6 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
+import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/protocol/errors"
 import type { EventEnvelope } from "@noyau/protocol/events"
 import type { ProjectId, Sequence } from "@noyau/protocol/ids"
@@ -9,6 +10,7 @@ import {
   RPC_METHODS,
   type ProjectStreamItem,
   type ShellStreamItem,
+  type ThreadStreamItem,
 } from "@noyau/protocol/rpc"
 import type { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import {
@@ -125,6 +127,29 @@ export const loadBoardSnapshot = (
   projectId: ProjectId,
 ): Promise<ControlPlaneResult<BoardSnapshot>> => runOperation(getProjectSnapshot(projectId))
 
+const getThreadSnapshot = Effect.fn("ControlPlaneClient.getThreadSnapshot")(function* (
+  threadId: ThreadSnapshot["thread"]["id"],
+) {
+  const client = yield* ControlPlaneClient
+  const item = yield* client[RPC_METHODS.subscribeThread]({ threadId }).pipe(
+    Stream.filter(
+      (frame): frame is Extract<ThreadStreamItem, { readonly kind: "snapshot" }> =>
+        frame.kind === "snapshot",
+    ),
+    Stream.runHead,
+  )
+  if (Option.isNone(item)) {
+    return yield* new ProjectSnapshotUnavailable({
+      message: "Thread subscription ended before its snapshot.",
+    })
+  }
+  return item.value.snapshot
+})
+
+export const loadThreadSnapshot = (
+  threadId: ThreadSnapshot["thread"]["id"],
+): Promise<ControlPlaneResult<ThreadSnapshot>> => runOperation(getThreadSnapshot(threadId))
+
 export const dispatchCommand = (
   request: ClientCommandRequest,
 ): Promise<ControlPlaneResult<DispatchResult>> => runOperation(dispatch(request))
@@ -143,6 +168,10 @@ const runOperationWithCrypto = async <A, E>(
     onSuccess: (value) => ({ ok: true, value }),
   })
 }
+
+export const buildCommand = <A, E>(
+  request: Effect.Effect<A, E, Crypto.Crypto>,
+): Promise<ControlPlaneResult<A>> => runOperationWithCrypto(request)
 
 type StreamCallbacks<Snapshot, Event> = {
   readonly onSnapshot: (snapshot: Snapshot) => void
@@ -164,7 +193,7 @@ const startSubscription = <Snapshot, Event>(
   }
 }
 
-const sequenceOf = (item: ShellStreamItem | ProjectStreamItem): Sequence | undefined => {
+const sequenceOf = (item: ShellStreamItem | ProjectStreamItem | ThreadStreamItem): Sequence | undefined => {
   if (item.kind === "snapshot") {
     return item.snapshot.snapshotSequence
   }
@@ -257,6 +286,50 @@ export const subscribeProject = (
     return yield* consumeProjectStream(
       client[RPC_METHODS.subscribeProject](
         afterSequence === undefined ? { projectId } : { projectId, afterSequence },
+      ),
+      callbacks,
+    )
+  })
+  return startSubscription(stream, callbacks)
+}
+
+const consumeThreadStream = (
+  stream: Stream.Stream<ThreadStreamItem, ControlPlaneStreamError>,
+  callbacks: StreamCallbacks<ThreadSnapshot, EventEnvelope>,
+) => {
+  let lastSequence: Sequence | undefined
+  return stream.pipe(
+    Stream.runForEach((item) =>
+      Effect.sync(() => {
+        const sequence = sequenceOf(item)
+        if (
+          item.kind === "synchronized" ||
+          sequence === undefined ||
+          !acceptsSequence(lastSequence, sequence)
+        ) {
+          return
+        }
+        lastSequence = sequence
+        if (item.kind === "snapshot") {
+          callbacks.onSnapshot(item.snapshot)
+        } else if (item.kind === "event") {
+          callbacks.onEvent(item.event)
+        }
+      }),
+    ),
+  )
+}
+
+export const subscribeThread = (
+  threadId: ThreadSnapshot["thread"]["id"],
+  afterSequence: Sequence | undefined,
+  callbacks: StreamCallbacks<ThreadSnapshot, EventEnvelope>,
+) => {
+  const stream = Effect.gen(function* () {
+    const client = yield* ControlPlaneClient
+    return yield* consumeThreadStream(
+      client[RPC_METHODS.subscribeThread](
+        afterSequence === undefined ? { threadId } : { threadId, afterSequence },
       ),
       callbacks,
     )

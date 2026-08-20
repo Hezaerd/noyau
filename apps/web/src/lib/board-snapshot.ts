@@ -49,5 +49,6 @@ export const boardStateFromSnapshot = (snapshot: BoardSnapshot): BoardState => {
       ticketId: dependency.ticketId,
       dependsOnTicketId: dependency.dependsOnTicketId,
     })),
+    ticketThreads: snapshot.ticketThreads,
   }
 }

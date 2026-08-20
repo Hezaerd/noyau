@@ -52,6 +52,7 @@ import {
 
 import { type AppPaletteAction, useAppPaletteActions } from "@/components/app-palette-context"
 import { TicketDialog } from "@/components/board/TicketDialog"
+import { useControlPlane } from "@/components/control-plane-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -107,6 +108,8 @@ import {
   makeTicketCreateRequest,
   makeTicketDependencyAddRequest,
   makeTicketDependencyRemoveRequest,
+  makeTicketThreadLinkRequest,
+  makeTicketThreadUnlinkRequest,
   makeTicketMoveRequest,
   makeTicketUpdateRequest,
 } from "@/lib/ticket-commands"
@@ -633,10 +636,12 @@ export function BoardPage({
   onOpenTicket,
   onCloseTicket,
 }: BoardPageProps) {
+  const { threads } = useControlPlane()
   const [state, setState] = useState<BoardState>({
     columns: [],
     tickets: [],
     ticketDependencies: [],
+    ticketThreads: [],
   })
   const [controlPlaneError, setControlPlaneError] = useState<string>()
   const [loading, setLoading] = useState(true)
@@ -662,6 +667,7 @@ export function BoardPage({
   const filtered = isFiltered(filters)
   const selectedTicket = state.tickets.find((ticket) => ticket.id === search.ticket)
   const selectedTicketId = selectedTicket?.id
+  const projectThreads = threads.filter((thread) => thread.projectId === projectId)
   const ticketActivity = useMemo(
     () =>
       projectEvents
@@ -1309,6 +1315,8 @@ export function BoardPage({
         ticket={selectedTicket}
         tickets={state.tickets}
         ticketDependencies={state.ticketDependencies}
+        ticketThreads={state.ticketThreads}
+        threads={projectThreads}
         activity={ticketActivity}
         activityLoading={false}
         {...(ticketActivityError === undefined ? {} : { activityError: ticketActivityError })}
@@ -1386,6 +1394,24 @@ export function BoardPage({
               dependsOnTicketId: TicketId.make(dependsOnTicketId),
             }),
             "Dépendance retirée.",
+          )
+        }}
+        onLinkThread={(ticketId, threadId) => {
+          void runCommand(
+            makeTicketThreadLinkRequest({
+              ticketId: TicketId.make(ticketId),
+              threadId,
+            }),
+            "Thread lié au ticket.",
+          )
+        }}
+        onUnlinkThread={(ticketId, threadId) => {
+          void runCommand(
+            makeTicketThreadUnlinkRequest({
+              ticketId: TicketId.make(ticketId),
+              threadId,
+            }),
+            "Thread détaché du ticket.",
           )
         }}
       />

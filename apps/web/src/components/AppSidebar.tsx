@@ -4,6 +4,7 @@ import {
   ChevronsUpDownIcon,
   LayoutGridIcon,
   MessageCircleIcon,
+  MessageCirclePlusIcon,
   PlusIcon,
   SearchIcon,
 } from "lucide-react"
@@ -146,13 +147,40 @@ export function AppSidebar() {
                       <span>Tableau</span>
                     </SidebarMenuButton>
                     <div className="mt-1 flex flex-col gap-0.5">
+                      <SidebarMenuButton
+                        render={
+                          <Link
+                            to="/projects/$projectId/thread/$threadId"
+                            params={{ projectId: project.id, threadId: "new" }}
+                            onClick={() => {
+                              selectProject(project.id)
+                              closeMobileNavigation()
+                            }}
+                          />
+                        }
+                        isActive={pathname === `/projects/${project.id}/thread/new`}
+                        tooltip="Nouveau Thread"
+                        className="h-8 pl-8 text-sidebar-foreground/58"
+                      >
+                        <MessageCirclePlusIcon />
+                        <span>Nouveau Thread</span>
+                      </SidebarMenuButton>
                       {projectThreads.map((thread) => (
                         <SidebarMenuButton
                           key={thread.id}
-                          type="button"
+                          render={
+                            <Link
+                              to="/projects/$projectId/thread/$threadId"
+                              params={{ projectId: project.id, threadId: thread.id }}
+                              onClick={() => {
+                                selectProject(project.id)
+                                closeMobileNavigation()
+                              }}
+                            />
+                          }
+                          isActive={pathname === `/projects/${project.id}/thread/${thread.id}`}
                           tooltip={thread.title}
                           className="h-8 pl-8 text-sidebar-foreground/58"
-                          onClick={closeMobileNavigation}
                         >
                           <MessageCircleIcon />
                           <span className="truncate">{thread.title}</span>
