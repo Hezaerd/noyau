@@ -32,7 +32,7 @@ const shutdown = async (exitCode) => {
   }
   shuttingDown = true
   for (const child of children) {
-    child.kill("SIGTERM")
+    child.kill()
   }
   process.exit(exitCode)
 }

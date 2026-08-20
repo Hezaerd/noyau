@@ -29,12 +29,20 @@ export const ServerBootstrap = Schema.Struct({
 })
 export type ServerBootstrap = (typeof ServerBootstrap)["Type"]
 
+type FetchImplementation = (input: string, init?: RequestInit) => Promise<Response>
+
+const defaultFetch: FetchImplementation = (input, init) => fetch(input, init)
+
 const ServerConfigResponse = Schema.Struct({
   environmentId: Schema.NonEmptyString,
   bundleVersion: Schema.NonEmptyString,
   serverVersion: Schema.NonEmptyString,
-  databaseSchemaVersion: Schema.NonEmptyString,
+  databaseSchemaVersion: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   actorId: Schema.NonEmptyString,
+})
+
+const ServerStatusResponse = Schema.Struct({
+  runningTurn: Schema.Boolean,
 })
 
 export type SupervisorPhase = "stopped" | "starting" | "ready" | "backoff" | "degraded" | "stopping"
@@ -55,8 +63,38 @@ export interface ServerSupervisorOptions {
   readonly environmentId?: string
   readonly externalBootstrap?: ServerBootstrap
   readonly executablePath?: string
+  readonly fetchImpl?: FetchImplementation
+  readonly sleep?: (milliseconds: number) => Promise<void>
   readonly probeRpc?: (bootstrap: ServerBootstrap) => Promise<void>
   readonly onStateChange?: (state: SupervisorState) => void
+}
+
+type ReadinessOptions = {
+  fetchImpl?: FetchImplementation
+  sleep?: (milliseconds: number) => Promise<void>
+  probeRpc?: (bootstrap: ServerBootstrap) => Promise<void>
+}
+
+interface MutableServerBootstrapOptions {
+  dataDirectory: string
+  bundleVersion?: string
+  serverVersion?: string
+  actorId?: string
+  environmentId?: string
+}
+
+const readinessOptions = (options: ServerSupervisorOptions): ReadinessOptions => {
+  const result: ReadinessOptions = {}
+  if (options.fetchImpl !== undefined) {
+    result.fetchImpl = options.fetchImpl
+  }
+  if (options.sleep !== undefined) {
+    result.sleep = options.sleep
+  }
+  if (options.probeRpc !== undefined) {
+    result.probeRpc = options.probeRpc
+  }
+  return result
 }
 
 export const restartDelayMs = (failureCount: number): number =>
@@ -75,7 +113,7 @@ export const decodeExternalBootstrap = (): ServerBootstrap | undefined => {
       JSON.parse(readFileSync(3, { encoding: "utf8" })),
     )
   } catch (cause) {
-    throw new Error(`Failed to decode the external server bootstrap: ${String(cause)}`)
+    throw new Error(`Failed to decode the external server bootstrap: ${String(cause)}`, { cause })
   }
 }
 
@@ -85,11 +123,7 @@ export const reserveLoopbackPort = async (): Promise<number> => {
     server.once("error", reject)
     server.listen({ host: "127.0.0.1", port: 0 }, () => resolve())
   })
-  const address = server.address()
-  if (address === null || typeof address === "string") {
-    server.close()
-    throw new Error("The loopback server did not expose a TCP port")
-  }
+  const address = Schema.decodeUnknownSync(Schema.Struct({ port: Schema.Int }))(server.address())
   const port = address.port
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve())),
@@ -118,7 +152,7 @@ export const makeServerBootstrap = async (options: {
 
 const fetchServerConfig = async (
   bootstrap: ServerBootstrap,
-  fetchImpl: typeof fetch,
+  fetchImpl: FetchImplementation,
 ): Promise<void> => {
   const response = await fetchImpl(`http://${bootstrap.host}:${bootstrap.port}/internal/config`, {
     headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
@@ -131,11 +165,12 @@ const fetchServerConfig = async (
 }
 
 const probeRpc = async (bootstrap: ServerBootstrap): Promise<void> => {
-  if (typeof WebSocket === "undefined") {
+  const WebSocketConstructor = globalThis.WebSocket
+  if (WebSocketConstructor === undefined) {
     throw new Error("The desktop runtime does not provide WebSocket")
   }
   await new Promise<void>((resolve, reject) => {
-    const socket = new WebSocket(
+    const socket = new WebSocketConstructor(
       `ws://${bootstrap.host}:${bootstrap.port}/rpc?token=${encodeURIComponent(bootstrap.bearerToken)}`,
     )
     const timeout = setTimeout(() => {
@@ -158,19 +193,21 @@ export const waitForServerReady = async (
   bootstrap: ServerBootstrap,
   options: {
     readonly timeoutMs?: number
-    readonly fetchImpl?: typeof fetch
+    readonly fetchImpl?: FetchImplementation
     readonly sleep?: (milliseconds: number) => Promise<void>
     readonly probeRpc?: (bootstrap: ServerBootstrap) => Promise<void>
   } = {},
 ): Promise<void> => {
   const timeoutMs = options.timeoutMs ?? 15_000
-  const fetchImpl = options.fetchImpl ?? fetch
+  const fetchImpl = options.fetchImpl ?? defaultFetch
   const sleep =
     options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)))
   const startedAt = Date.now()
-  let lastError: unknown
-
-  while (Date.now() - startedAt < timeoutMs) {
+  let lastError = new Error("The server has not started listening")
+  const attempt = async (): Promise<void> => {
+    if (Date.now() - startedAt >= timeoutMs) {
+      throw new Error(`Timed out waiting for server.getConfig: ${String(lastError)}`)
+    }
     try {
       const live = await fetchImpl(`http://${bootstrap.host}:${bootstrap.port}/health/ready`, {
         signal: AbortSignal.timeout(500),
@@ -182,30 +219,36 @@ export const waitForServerReady = async (
       }
       lastError = new Error(`health/readiness returned HTTP ${live.status}`)
     } catch (cause) {
-      lastError = cause
+      lastError = cause instanceof Error ? cause : new Error(String(cause), { cause })
     }
     await sleep(100)
+    return attempt()
   }
-
-  throw new Error(`Timed out waiting for server.getConfig: ${String(lastError)}`)
+  return attempt()
 }
 
 const waitForExit = (child: ChildProcess, timeoutMs: number): Promise<boolean> =>
   new Promise((resolve) => {
+    let settled = false
+    const finish = (exited: boolean) => {
+      if (settled) return
+      settled = true
+      resolve(exited)
+    }
     if (child.exitCode !== null || child.signalCode !== null) {
-      resolve(true)
+      finish(true)
       return
     }
     let timer: NodeJS.Timeout | undefined = setTimeout(() => {
       timer = undefined
-      resolve(false)
+      finish(false)
     }, timeoutMs)
     child.once("exit", () => {
       if (timer !== undefined) {
         clearTimeout(timer)
         timer = undefined
       }
-      resolve(true)
+      finish(true)
     })
   })
 
@@ -235,12 +278,30 @@ export class ServerSupervisor {
     if (this.options.externalBootstrap !== undefined) {
       this.bootstrapValue = this.options.externalBootstrap
       this.setState({ phase: "starting", failures: 0 })
-      await waitForServerReady(this.options.externalBootstrap)
+      await waitForServerReady(this.options.externalBootstrap, readinessOptions(this.options))
       this.setState({ phase: "ready", failures: 0 })
       return
     }
 
     await this.startWithRetries()
+  }
+
+  async isTurnRunning(): Promise<boolean> {
+    const bootstrap = this.bootstrapValue
+    if (bootstrap === undefined) {
+      return false
+    }
+    const response = await (this.options.fetchImpl ?? defaultFetch)(
+      `http://${bootstrap.host}:${bootstrap.port}/internal/status`,
+      {
+        headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
+        signal: AbortSignal.timeout(500),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(`server.getStatus returned HTTP ${response.status}`)
+    }
+    return Schema.decodeUnknownSync(ServerStatusResponse)(await response.json()).runningTurn
   }
 
   async stop(): Promise<void> {
@@ -250,11 +311,17 @@ export class ServerSupervisor {
     const child = this.child
     if (bootstrap !== undefined) {
       try {
-        await fetch(`http://${bootstrap.host}:${bootstrap.port}/internal/shutdown`, {
-          method: "POST",
-          headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
-          signal: AbortSignal.timeout(500),
-        })
+        if (process.env.NOYAU_DESKTOP_SMOKE_TEST === "1") {
+          process.stdout.write("NOYAU_DESKTOP_SHUTDOWN_ENDPOINT_REQUESTED\n")
+        }
+        await (this.options.fetchImpl ?? defaultFetch)(
+          `http://${bootstrap.host}:${bootstrap.port}/internal/shutdown`,
+          {
+            method: "POST",
+            headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
+            signal: AbortSignal.timeout(500),
+          },
+        )
       } catch {
         // The child may have already exited; the captured handle below is authoritative.
       }
@@ -278,39 +345,48 @@ export class ServerSupervisor {
   }
 
   private async startWithRetries(): Promise<void> {
-    for (;;) {
-      if (this.stopping) {
-        return
-      }
-      const bootstrap = await makeServerBootstrap({
-        dataDirectory: this.options.dataDirectory,
-        bundleVersion: this.options.bundleVersion,
-        serverVersion: this.options.serverVersion,
-        actorId: this.options.actorId,
-        environmentId: this.options.environmentId,
-      })
-      this.bootstrapValue = bootstrap
-      this.setState({ phase: "starting", failures: this.failureTimes.length })
+    if (this.stopping) {
+      return
+    }
+    const bootstrapOptions: MutableServerBootstrapOptions = {
+      dataDirectory: this.options.dataDirectory,
+    }
+    if (this.options.bundleVersion !== undefined) {
+      bootstrapOptions.bundleVersion = this.options.bundleVersion
+    }
+    if (this.options.serverVersion !== undefined) {
+      bootstrapOptions.serverVersion = this.options.serverVersion
+    }
+    if (this.options.actorId !== undefined) {
+      bootstrapOptions.actorId = this.options.actorId
+    }
+    if (this.options.environmentId !== undefined) {
+      bootstrapOptions.environmentId = this.options.environmentId
+    }
+    const bootstrap = await makeServerBootstrap(bootstrapOptions)
+    this.bootstrapValue = bootstrap
+    this.setState({ phase: "starting", failures: this.failureTimes.length })
 
-      try {
-        await this.spawn(bootstrap)
-        await waitForServerReady(bootstrap)
-        this.setState({
-          phase: "ready",
-          failures: this.failureTimes.length,
-          pid: this.child?.pid ?? undefined,
-        })
-        return
-      } catch (cause) {
-        this.recordFailure(cause)
-        await this.killCapturedChild()
-        if (this.stateValue.phase === "degraded") {
-          throw cause
-        }
-        await new Promise((resolve) =>
-          setTimeout(resolve, restartDelayMs(this.failureTimes.length)),
-        )
+    try {
+      await this.spawn(bootstrap)
+      await waitForServerReady(bootstrap, readinessOptions(this.options))
+      const nextState =
+        this.child?.pid === undefined
+          ? { phase: "ready" as const, failures: this.failureTimes.length }
+          : {
+              phase: "ready" as const,
+              failures: this.failureTimes.length,
+              pid: this.child.pid,
+            }
+      this.setState(nextState)
+    } catch (cause) {
+      this.recordFailure(cause)
+      await this.killCapturedChild()
+      if (this.stateValue.phase === "degraded") {
+        throw cause
       }
+      await this.sleep(restartDelayMs(this.failureTimes.length))
+      return this.startWithRetries()
     }
   }
 
@@ -330,7 +406,11 @@ export class ServerSupervisor {
     this.child = child
     child.stdout?.on("data", (chunk) => process.stdout.write(`[noyau-server] ${chunk}`))
     child.stderr?.on("data", (chunk) => process.stderr.write(`[noyau-server] ${chunk}`))
-    child.stdio[3]?.end(encodeBootstrap(bootstrap))
+    // SAFETY: stdio index 3 is configured as a writable pipe in this spawn call.
+    const bootstrapPipe = child.stdio[3]
+    if (bootstrapPipe !== null && bootstrapPipe !== undefined && "end" in bootstrapPipe) {
+      bootstrapPipe.end(encodeBootstrap(bootstrap))
+    }
     child.once("exit", () => {
       if (!this.stopping && this.stateValue.phase === "ready") {
         this.scheduleRestart(new Error("The Noyau Server exited unexpectedly"))
@@ -359,12 +439,19 @@ export class ServerSupervisor {
       return
     }
     this.restartTask = (async () => {
-      await new Promise((resolve) => setTimeout(resolve, restartDelayMs(this.failureTimes.length)))
+      await this.sleep(restartDelayMs(this.failureTimes.length))
       this.restartTask = undefined
       await this.startWithRetries().catch((error) => {
         process.stderr.write(`[noyau-desktop] server degraded: ${String(error)}\n`)
       })
     })()
+  }
+
+  private sleep(milliseconds: number): Promise<void> {
+    return (
+      this.options.sleep?.(milliseconds) ??
+      new Promise((resolve) => setTimeout(resolve, milliseconds))
+    )
   }
 
   private async killCapturedChild(): Promise<void> {

@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { controlPlaneLayer } from "@noyau/server/control-plane"
+import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { serverRoutesLayer } from "@noyau/server/server"
 import { Crypto, Effect, Layer, ManagedRuntime } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
@@ -15,6 +16,7 @@ const testCrypto = Crypto.make({
 const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(memoryLayer),
   Layer.provideMerge(testServerConfigLayer()),
+  Layer.provideMerge(unavailableProviderLayer),
   Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto)),
 )
 
@@ -38,6 +40,9 @@ describe("server routes", () => {
         internalMissing,
         internalForbidden,
         internalConfig,
+        internalStatusMissing,
+        internalStatusForbidden,
+        internalStatus,
       ] = await Promise.all([
         handler(new Request("http://localhost/health/live"), context),
         handler(new Request("http://localhost/health/ready"), context),
@@ -62,6 +67,19 @@ describe("server routes", () => {
           }),
           context,
         ),
+        handler(new Request("http://localhost/internal/status"), context),
+        handler(
+          new Request("http://localhost/internal/status", {
+            headers: { authorization: "Bearer wrong-token" },
+          }),
+          context,
+        ),
+        handler(
+          new Request("http://localhost/internal/status", {
+            headers: { authorization: "Bearer test-launch-token" },
+          }),
+          context,
+        ),
       ])
       assert.strictEqual(live.status, 200)
       assert.strictEqual(ready.status, 200)
@@ -71,6 +89,10 @@ describe("server routes", () => {
       assert.strictEqual(internalMissing.status, 401)
       assert.strictEqual(internalForbidden.status, 403)
       assert.strictEqual(internalConfig.status, 200)
+      assert.strictEqual(internalStatusMissing.status, 401)
+      assert.strictEqual(internalStatusForbidden.status, 403)
+      assert.strictEqual(internalStatus.status, 200)
+      assert.deepStrictEqual(await internalStatus.json(), { runningTurn: false })
     } finally {
       await dispose()
       await runtime.dispose()

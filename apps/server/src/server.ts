@@ -14,6 +14,7 @@ import { ServerConfig, serverConfigLayer } from "./config"
 import { ControlPlane, controlPlaneLayer } from "./control-plane"
 import { authenticateBearer, rpcIdentityLayer } from "./identity"
 import { loggerLayer } from "./observability"
+import { cursorProviderLayer } from "./provider/cursor-acp"
 import { rpcHandlersLayer } from "./rpc-handlers"
 
 export const sqlitePersistenceLayer = Layer.unwrap(
@@ -57,6 +58,18 @@ const internalConfigRoute = HttpRouter.add(
     const controlPlane = yield* ControlPlane
     const config = yield* controlPlane.getConfig
     return HttpServerResponse.jsonUnsafe({ ...config, actorId })
+  }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
+)
+
+const internalStatusRoute = HttpRouter.add(
+  "GET",
+  "/internal/status",
+  Effect.gen(function* () {
+    yield* authenticateInternalRequest()
+    const controlPlane = yield* ControlPlane
+    return HttpServerResponse.jsonUnsafe({
+      runningTurn: yield* controlPlane.hasRunningTurn,
+    })
   }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
 )
 
@@ -122,6 +135,7 @@ export const websocketRpcLayer = Layer.unwrap(
 export const serverRoutesLayer = Layer.mergeAll(
   healthLayer,
   internalConfigRoute,
+  internalStatusRoute,
   internalShutdownRoute,
   websocketRpcLayer,
 )
@@ -150,6 +164,7 @@ export const nodeServerLayer = Layer.mergeAll(
 )
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
+  Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
   Layer.provide(NodeCrypto.layer),
 )

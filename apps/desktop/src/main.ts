@@ -29,6 +29,8 @@ import {
   resolveServerEntryPath,
   ServerSupervisor,
   type ServerBootstrap,
+  type ServerSupervisorOptions,
+  type SupervisorState,
 } from "./supervisor"
 import { SET_THEME_CHANNEL } from "./theme"
 import { decodeAppearancePreference } from "./theme-schema"
@@ -226,18 +228,22 @@ const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
 const launch = async (): Promise<void> => {
   await app.whenReady()
   const externalBootstrap = decodeExternalBootstrap()
-  serverSupervisor = new ServerSupervisor({
+  const baseSupervisorOptions = {
     serverEntryPath: resolveServerEntryPath(__dirname),
     dataDirectory: join(app.getPath("userData"), "environment"),
-    externalBootstrap,
-    onStateChange: (state) => {
+    onStateChange: (state: SupervisorState) => {
       if (state.phase === "degraded") {
         process.stderr.write(
           `[noyau-desktop] server supervisor degraded: ${state.lastError ?? "unknown"}\n`,
         )
       }
     },
-  })
+  }
+  const supervisorOptions: ServerSupervisorOptions =
+    externalBootstrap === undefined
+      ? baseSupervisorOptions
+      : { ...baseSupervisorOptions, externalBootstrap }
+  serverSupervisor = new ServerSupervisor(supervisorOptions)
   await serverSupervisor.start()
   registerRendererProtocol()
   registerThemeBridge()
@@ -273,29 +279,43 @@ app.on("before-quit", (event) => {
     return
   }
   quitInProgress = true
-  const parentWindow = mainWindow
-  void dialog
-    .showMessageBox(parentWindow ?? BrowserWindow.getFocusedWindow(), {
-      type: "question",
-      buttons: ["Cancel", "Quit and interrupt Turn"],
-      defaultId: 0,
-      cancelId: 0,
-      title: "Quit Noyau?",
-      message: "If a Turn is running, quitting will interrupt it.",
+  void serverSupervisor
+    .isTurnRunning()
+    .catch(() => true)
+    .then((turnRunning) => {
+      if (!turnRunning) {
+        return true
+      }
+      return dialog
+        .showMessageBox({
+          type: "question",
+          buttons: ["Cancel", "Quit and interrupt Turn"],
+          defaultId: 0,
+          cancelId: 0,
+          title: "Quit Noyau?",
+          message: "If a Turn is running, quitting will interrupt it.",
+        })
+        .then(({ response }) => {
+          if (response === 0) {
+            quitInProgress = false
+            return false
+          }
+          return true
+        })
     })
-    .then(({ response }) => {
-      if (response === 0) {
-        quitInProgress = false
+    .then((shouldQuit) => {
+      if (!shouldQuit) {
         return
       }
-      return serverSupervisor?.stop().finally(() => {
+      return serverSupervisor?.stop().then(() => {
         quitAllowed = true
         app.quit()
+        return undefined
       })
     })
     .catch((cause) => {
       quitInProgress = false
-      process.stderr.write(`Failed to confirm quit: ${String(cause)}\n`)
+      process.stderr.write(`Failed to stop Noyau Server: ${String(cause)}\n`)
     })
 })
 
