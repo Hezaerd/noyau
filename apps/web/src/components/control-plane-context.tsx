@@ -17,6 +17,7 @@ import {
 } from "react"
 
 import { subscribeShell } from "@/lib/control-plane"
+import { nextLastProjectId } from "@/lib/project-navigation"
 
 const LAST_PROJECT_STORAGE_KEY = "noyau.last-project-id"
 
@@ -39,8 +40,12 @@ const readLastProjectId = (): ProjectId | undefined => {
   }
 }
 
-const writeLastProjectId = (projectId: ProjectId): void => {
+const writeLastProjectId = (projectId: ProjectId | undefined): void => {
   try {
+    if (projectId === undefined) {
+      window.localStorage.removeItem(LAST_PROJECT_STORAGE_KEY)
+      return
+    }
     window.localStorage.setItem(LAST_PROJECT_STORAGE_KEY, projectId)
   } catch {
     // Persistence is best effort; the server remains authoritative.
@@ -100,18 +105,15 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
   }, [])
 
   useEffect(() => {
-    if (shell === undefined || shell.projects.length === 0) {
+    if (shell === undefined) {
       return
     }
-    const storedProject = shell.projects.find((project) => project.id === lastProjectId)
-    if (storedProject !== undefined) {
+    const next = nextLastProjectId(shell.projects, lastProjectId)
+    if (next === lastProjectId) {
       return
     }
-    const firstProject = shell.projects[0]
-    if (firstProject !== undefined) {
-      setLastProjectId(firstProject.id)
-      writeLastProjectId(firstProject.id)
-    }
+    setLastProjectId(next)
+    writeLastProjectId(next)
   }, [lastProjectId, shell])
 
   const selectProject = useCallback((projectId: ProjectId) => {

@@ -1,6 +1,10 @@
 import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { CommandId, ProjectId } from "@noyau/protocol/ids"
-import { ProjectCreateRequest, ProjectRebindRequest } from "@noyau/protocol/project/commands"
+import {
+  ProjectCreateRequest,
+  ProjectDeleteRequest,
+  ProjectRebindRequest,
+} from "@noyau/protocol/project/commands"
 import { Crypto, Effect, Schema } from "effect"
 
 const uuid = Effect.fnUntraced(function* () {
@@ -34,6 +38,17 @@ export const makeProjectRebindRequest = Effect.fnUntraced(function* (input: {
     payload: {
       projectId: input.projectId,
       workspaceRoot,
+    },
+  })
+})
+
+export const makeProjectDeleteRequest = Effect.fnUntraced(function* (input: {
+  readonly projectId: ProjectId
+}) {
+  return ProjectDeleteRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: {
+      projectId: input.projectId,
     },
   })
 })

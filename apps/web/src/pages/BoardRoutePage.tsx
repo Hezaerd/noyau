@@ -3,6 +3,7 @@ import { useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-ro
 import { useEffect, useRef } from "react"
 
 import { useControlPlane } from "@/components/control-plane-context"
+import { useRedirectIfProjectGone } from "@/hooks/use-redirect-if-project-gone"
 import { type BoardSearch, type BoardSearchPatch } from "@/lib/board-model"
 import { BoardPage } from "@/pages/BoardPage"
 
@@ -28,6 +29,7 @@ export function BoardRoutePage() {
   const { projectId: routeProjectId } = useParams({ from: routeId })
   const projectId = ProjectId.make(routeProjectId)
   const { selectProject } = useControlPlane()
+  useRedirectIfProjectGone(projectId)
   const search = useSearch({ from: routeId })
   const navigate = useNavigate({ from: routeId })
   const router = useRouter()
