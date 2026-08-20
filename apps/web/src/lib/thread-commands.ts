@@ -8,7 +8,9 @@ import {
 } from "@noyau/protocol/ids"
 import {
   ApprovalRespondRequest,
+  ThreadArchiveRequest,
   ThreadCreateRequest,
+  ThreadMetaUpdateRequest,
   ThreadRuntimeModeSetRequest,
   ThreadTurnInterruptRequest,
   ThreadTurnStartRequest,
@@ -94,6 +96,28 @@ export const makeThreadTurnInterruptRequest = Effect.fnUntraced(function* (input
   return ThreadTurnInterruptRequest.make({
     commandId: CommandId.make(yield* uuid()),
     payload,
+  })
+})
+
+export const makeThreadMetaUpdateRequest = Effect.fnUntraced(function* (input: {
+  readonly threadId: ThreadId
+  readonly title: string
+}) {
+  return ThreadMetaUpdateRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: {
+      threadId: input.threadId,
+      title: input.title.trim(),
+    },
+  })
+})
+
+export const makeThreadArchiveRequest = Effect.fnUntraced(function* (input: {
+  readonly threadId: ThreadId
+}) {
+  return ThreadArchiveRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: { threadId: input.threadId },
   })
 })
 
