@@ -5,8 +5,8 @@ export function ThreadSidebarSection({
   threads,
   renderThread,
 }: {
-  readonly threads: ReadonlyArray<Pick<ThreadShell, "id" | "title">>
-  readonly renderThread: (thread: Pick<ThreadShell, "id" | "title">) => ReactNode
+  readonly threads: ReadonlyArray<ThreadShell>
+  readonly renderThread: (thread: ThreadShell) => ReactNode
 }) {
   const renderedThreads = threads.map((thread) => (
     <Fragment key={thread.id}>{renderThread(thread)}</Fragment>

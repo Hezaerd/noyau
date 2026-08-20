@@ -10,6 +10,7 @@ import { Schema } from "effect"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { TicketDialog } from "../src/components/board/TicketDialog"
+import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
@@ -72,6 +73,24 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByText("Threads")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Corriger la reprise" })).toBeTruthy()
     expect(screen.getByRole("link", { name: "Documenter Cursor" })).toBeTruthy()
+  })
+
+  it("renders a compact Thread popover with the available shell facts", () => {
+    render(
+      <ThreadSidebarPopover
+        thread={makeThread(threadId, "Ajouter shortcut pour les settings")}
+        project={{
+          name: "noyau",
+          workspaceRoot: "/Users/hezaerd/code/noyau",
+        }}
+      />,
+    )
+
+    expect(screen.getByText("Ajouter shortcut pour les settings")).toBeTruthy()
+    expect(screen.getByText("noyau")).toBeTruthy()
+    expect(screen.getByText("Cursor")).toBeTruthy()
+    expect(screen.getByText("Accès complet")).toBeTruthy()
+    expect(screen.queryByText("/Users/hezaerd/code/noyau")).toBeNull()
   })
 
   it("renders Session lastError and human interruption separately", () => {
