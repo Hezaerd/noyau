@@ -1,15 +1,10 @@
-import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
+import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
 import * as Sqlite from "@noyau/database/sqlite"
-import { Forbidden, MissingIdentity } from "@noyau/protocol/errors"
+import type { Forbidden, MissingIdentity } from "@noyau/protocol/errors"
 import { ControlPlaneRpcs } from "@noyau/protocol/rpc"
 import { Effect, FileSystem, Layer } from "effect"
-import {
-  HttpRouter,
-  HttpServer,
-  HttpServerRequest,
-  HttpServerResponse,
-} from "effect/unstable/http"
+import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 
 import { ServerConfig, serverConfigLayer } from "./config"

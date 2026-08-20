@@ -8,17 +8,7 @@ import {
   makeControlPlaneLayer,
   type ControlPlaneHooks,
 } from "@noyau/server/control-plane"
-import {
-  Chunk,
-  Crypto,
-  Deferred,
-  Effect,
-  Fiber,
-  Layer,
-  Schema,
-  Stream,
-  TestClock,
-} from "effect"
+import { Chunk, Crypto, Deferred, Effect, Fiber, Layer, Schema, Stream, TestClock } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { testServerConfigLayer } from "./fixtures"
@@ -121,7 +111,10 @@ describe("ControlPlane", () => {
           })
           .pipe(Stream.take(2), Stream.runCollect, Effect.map(Chunk.toReadonlyArray))
         assert.strictEqual(replay[0]?.kind, "event")
-        assert.strictEqual(replay[0]?.kind === "event" ? replay[0].event.sequence : -1, renamed.sequence)
+        assert.strictEqual(
+          replay[0]?.kind === "event" ? replay[0].event.sequence : -1,
+          renamed.sequence,
+        )
         assert.strictEqual(replay[1]?.kind, "synchronized")
 
         yield* sql`

@@ -1,6 +1,7 @@
+import { join } from "node:path"
+
 import { EnvironmentId } from "@noyau/protocol/ids"
 import { Config, Context, Effect, Layer, Redacted, Schema } from "effect"
-import { join } from "node:path"
 
 export type NoyauEnvironment = "development" | "test" | "production"
 
@@ -45,7 +46,7 @@ export class BootstrapConfigError extends Schema.TaggedError<BootstrapConfigErro
   "BootstrapConfigError",
   {
     source: Schema.NonEmptyString,
-    cause: Schema.Defect,
+    cause: Schema.Defect(),
   },
 ) {}
 
@@ -102,15 +103,15 @@ interface StandaloneBootstrapInput {
   readonly serverVersion: string
 }
 
-const decodeStandaloneBootstrap = Effect.fn("ServerConfig.decodeStandaloneBootstrap")(
-  function* (input: StandaloneBootstrapInput) {
-    return yield* Schema.decodeUnknownEffect(BootstrapConfig)(input).pipe(
-      Effect.mapError(
-        (cause) => new BootstrapConfigError({ source: "standalone configuration", cause }),
-      ),
-    )
-  },
-)
+const decodeStandaloneBootstrap = Effect.fn("ServerConfig.decodeStandaloneBootstrap")(function* (
+  input: StandaloneBootstrapInput,
+) {
+  return yield* Schema.decodeUnknownEffect(BootstrapConfig)(input).pipe(
+    Effect.mapError(
+      (cause) => new BootstrapConfigError({ source: "standalone configuration", cause }),
+    ),
+  )
+})
 
 export const serverEnvironment = Config.literals(
   ["development", "test", "production"] as const,

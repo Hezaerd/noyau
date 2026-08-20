@@ -1,14 +1,7 @@
-import {
-  makeCommandWorker,
-  type PersistedEvent,
-} from "@noyau/database/command-worker"
+import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
 import { makeDrainableWorker } from "@noyau/database/drainable-worker"
 import { projectDomainEvent } from "@noyau/database/projections"
-import {
-  readBoardSnapshot,
-  readShellSnapshot,
-  readThreadSnapshot,
-} from "@noyau/database/snapshots"
+import { readBoardSnapshot, readShellSnapshot, readThreadSnapshot } from "@noyau/database/snapshots"
 import { decide as decideBoard } from "@noyau/domain/board/decider"
 import {
   emptyBoardState,
@@ -32,17 +25,19 @@ import {
 import type { ClientCommandRequest, Command as CommandType } from "@noyau/protocol/commands"
 import { Command } from "@noyau/protocol/commands"
 import { Environment } from "@noyau/protocol/entities/environment"
-import { CommandIdConflict, ServiceUnavailable } from "@noyau/protocol/errors"
+import type { CommandIdConflict} from "@noyau/protocol/errors";
+import { ServiceUnavailable } from "@noyau/protocol/errors"
 import {
   decodeEventEnvelope,
   DomainEvent,
   type DomainEvent as DomainEventType,
 } from "@noyau/protocol/events"
 import {
-  ActorId,
+  type ActorId,
   CorrelationId,
   ProjectId,
   type ProjectId as ProjectIdType,
+  Sequence,
   type ThreadId,
 } from "@noyau/protocol/ids"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
@@ -63,17 +58,7 @@ import { ThreadCommand } from "@noyau/protocol/thread/commands"
 import { ThreadEvent, type ThreadEvent as ThreadEventType } from "@noyau/protocol/thread/events"
 import { TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketEvent } from "@noyau/protocol/ticket/events"
-import {
-  Context,
-  DateTime,
-  Duration,
-  Effect,
-  Option,
-  Queue,
-  Result,
-  Schema,
-  Stream,
-} from "effect"
+import { Context, DateTime, Duration, Effect, Layer, Option, Queue, Result, Schema, Stream } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 import type { SqlError } from "effect/unstable/sql/SqlError"
 
@@ -239,8 +224,7 @@ const toEnvelope = (event: PersistedEvent<DomainEventType>) =>
     event: event.event,
   }).pipe(Effect.orDie)
 
-const unavailable = (service: string) => (_error: SqlError) =>
-  new ServiceUnavailable({ service })
+const unavailable = (service: string) => (_error: SqlError) => new ServiceUnavailable({ service })
 
 type LiveInput =
   | { readonly kind: "event"; readonly event: PersistedEvent<DomainEventType> }
@@ -268,18 +252,16 @@ const bufferedTail = <A>(
   synchronized: A,
 ) => {
   const stream = Stream.fromQueue(buffer).pipe(
-    Stream.filterMapEffect((item) => {
+    Stream.mapEffect((item): Effect.Effect<ReadonlyArray<A>> => {
       if (item.kind === "synchronized") {
-        return Effect.succeed(Option.some([synchronized]))
+        return Effect.succeed([synchronized])
       }
       if (eventSequence(item) <= boundary) {
-        return Effect.succeed(Option.none())
+        return Effect.succeed([])
       }
-      return mapEvent(item.event).pipe(
-        Effect.map((items) => (items.length === 0 ? Option.none() : Option.some(items))),
-      )
+      return mapEvent(item.event)
     }),
-    Stream.flatMap(Stream.fromIterable),
+    Stream.flatMap((items) => Stream.fromIterable(items)),
   )
   return requestCompletionMarker === true
     ? Stream.concat(
@@ -314,7 +296,7 @@ const shellLiveEvent = Effect.fn("ControlPlane.shellLiveEvent")(function* (
       return [
         {
           _tag: "project-removed",
-          sequence: persisted.sequence,
+          sequence: Sequence.make(persisted.sequence),
           projectId: event.projectId,
         } satisfies ShellLiveEvent,
       ]
@@ -326,7 +308,7 @@ const shellLiveEvent = Effect.fn("ControlPlane.shellLiveEvent")(function* (
       : [
           {
             _tag: "project-upserted",
-            sequence: persisted.sequence,
+            sequence: Sequence.make(persisted.sequence),
             project,
           } satisfies ShellLiveEvent,
         ]
@@ -339,14 +321,14 @@ const shellLiveEvent = Effect.fn("ControlPlane.shellLiveEvent")(function* (
       ? [
           {
             _tag: "thread-removed",
-            sequence: persisted.sequence,
+            sequence: Sequence.make(persisted.sequence),
             threadId,
           } satisfies ShellLiveEvent,
         ]
       : [
           {
             _tag: "thread-upserted",
-            sequence: persisted.sequence,
+            sequence: Sequence.make(persisted.sequence),
             thread,
           } satisfies ShellLiveEvent,
         ]
@@ -374,7 +356,7 @@ const coalesceShellItems = (
         : `thread:${event._tag === "thread-upserted" ? event.thread.id : event.threadId}`
     latest.set(key, item)
   }
-  const output: Array<ShellStreamItem> = [...latest.values()].sort(
+  const output: Array<ShellStreamItem> = [...latest.values()].toSorted(
     (left, right) => left.event.sequence - right.event.sequence,
   )
   if (synchronized) {
@@ -425,251 +407,256 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
   Layer.scoped(
     ControlPlane,
     Effect.gen(function* () {
-    const config = yield* ServerConfig
-    const reactor = yield* makeDrainableWorker<PersistedEvent<DomainEventType>>(() => Effect.void)
-    const worker = yield* makeCommandWorker({
-      commandSchema: Command,
-      eventSchema: DomainEvent,
-      rejectionSchema: Rejection,
-      metadata: (command) => command,
-      aggregate: (command) => ({ kind: "project", id: command.projectId }),
-      initialState: () => emptyControlState,
-      decide,
-      evolve,
-      project: projectDomainEvent,
-      reactor,
-    })
-    const environment = new Environment({
-      id: config.environmentId,
-      cursor: { installed: false, handshakeOk: false },
-      createdAt: config.environmentCreatedAt,
-    })
+      const config = yield* ServerConfig
+      const sql = yield* SqlClient
+      const reactor = yield* makeDrainableWorker(
+        (_event: PersistedEvent<DomainEventType>) => Effect.void,
+      )
+      const worker = yield* makeCommandWorker({
+        commandSchema: Command,
+        eventSchema: DomainEvent,
+        rejectionSchema: Rejection,
+        metadata: (command) => command,
+        aggregate: (command) => ({ kind: "project", id: command.projectId }),
+        initialState: () => emptyControlState,
+        decide,
+        evolve,
+        project: (event) =>
+          projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql)),
+        reactor,
+      })
+      const environment = new Environment({
+        id: config.environmentId,
+        cursor: { installed: false, handshakeOk: false },
+        createdAt: config.environmentCreatedAt,
+      })
 
-    const dispatch: ControlPlaneService["dispatch"] = Effect.fn("ControlPlane.dispatch")(
-      function* (request, actorId) {
-        const command = yield* enrichCommand(request, actorId)
-        const receipt = yield* worker.dispatch(command).pipe(
-          Effect.mapError((error) =>
-            error._tag === "CommandIdConflict"
-              ? error
-              : new ServiceUnavailable({ service: "sqlite" }),
-          ),
-        )
-        return receipt.response._tag === "accepted"
-          ? { sequence: receipt.response.sequence }
-          : yield* receipt.response.error
-      },
-    )
-
-    const subscribeProject: ControlPlaneService["subscribeProject"] = (input) =>
-      Stream.unwrap(
-        Effect.gen(function* () {
-          const buffer = yield* makeLiveBuffer(worker.streamEvents)
-          const head = yield* worker.latestSequence.pipe(
-            Effect.mapError(unavailable("project-stream")),
+      const dispatch: ControlPlaneService["dispatch"] = Effect.fn("ControlPlane.dispatch")(
+        function* (request, actorId) {
+          const command = yield* enrichCommand(request, actorId).pipe(
+            Effect.provideService(SqlClient, sql),
           )
-          const replayGap =
-            input.afterSequence === undefined ? undefined : head - input.afterSequence
-          if (
-            input.afterSequence !== undefined &&
-            replayGap !== undefined &&
-            !requiresFreshSnapshot(replayGap)
-          ) {
-            const catchUp = yield* worker
-              .readEvents(input.afterSequence, Math.max(1, replayGap))
-              .pipe(Effect.mapError(unavailable("project-stream")))
-            const historical = Stream.fromIterable(catchUp).pipe(
-              Stream.filter(
-                (event) => event.sequence <= head && event.projectId === input.projectId,
+          const receipt = yield* worker
+            .dispatch(command)
+            .pipe(
+              Effect.mapError((error) =>
+                error._tag === "CommandIdConflict"
+                  ? error
+                  : new ServiceUnavailable({ service: "sqlite" }),
               ),
-              Stream.filter((event) => isProjectStreamEvent(event.event)),
-              Stream.mapEffect(toEnvelope),
-              Stream.map((event) => ({ kind: "event" as const, event })),
             )
-            const tail = bufferedTail(
-              buffer,
-              head,
-              input.requestCompletionMarker,
-              (event) =>
-                event.projectId === input.projectId && isProjectStreamEvent(event.event)
-                  ? toEnvelope(event).pipe(
-                      Effect.map((envelope) => [
-                        { kind: "event" as const, event: envelope } satisfies ProjectStreamItem,
-                      ]),
-                    )
-                  : Effect.succeed([]),
-              { kind: "synchronized" },
-            )
-            return Stream.concat(historical, tail)
-          }
-          const snapshot = yield* readBoardSnapshot(input.projectId).pipe(
-            Effect.mapError(unavailable("project-snapshot")),
-          )
-          if (Option.isNone(snapshot)) {
-            return yield* new ServiceUnavailable({ service: "project-snapshot" })
-          }
-          yield* hooks.afterProjectSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
-          return Stream.concat(
-            Stream.make({ kind: "snapshot" as const, snapshot: snapshot.value }),
-            bufferedTail(
-              buffer,
-              snapshot.value.snapshotSequence,
-              input.requestCompletionMarker,
-              (event) =>
-                event.projectId === input.projectId && isProjectStreamEvent(event.event)
-                  ? toEnvelope(event).pipe(
-                      Effect.map((envelope) => [
-                        { kind: "event" as const, event: envelope } satisfies ProjectStreamItem,
-                      ]),
-                    )
-                  : Effect.succeed([]),
-              { kind: "synchronized" },
-            ),
-          )
-        }),
+          return receipt.response._tag === "accepted"
+            ? { sequence: receipt.response.sequence }
+            : yield* receipt.response.error
+        },
       )
 
-    const subscribeThread: ControlPlaneService["subscribeThread"] = (input) =>
-      Stream.unwrap(
-        Effect.gen(function* () {
-          const buffer = yield* makeLiveBuffer(worker.streamEvents)
-          const head = yield* worker.latestSequence.pipe(
-            Effect.mapError(unavailable("thread-stream")),
-          )
-          const replayGap =
-            input.afterSequence === undefined ? undefined : head - input.afterSequence
-          const matches = (event: PersistedEvent<DomainEventType>) =>
-            isThreadEvent(event.event) && threadIdOf(event.event) === input.threadId
-          if (
-            input.afterSequence !== undefined &&
-            replayGap !== undefined &&
-            !requiresFreshSnapshot(replayGap)
-          ) {
-            const catchUp = yield* worker
-              .readEvents(input.afterSequence, Math.max(1, replayGap))
-              .pipe(Effect.mapError(unavailable("thread-stream")))
-            const historical = Stream.fromIterable(catchUp).pipe(
-              Stream.filter((event) => event.sequence <= head && matches(event)),
-              Stream.mapEffect(toEnvelope),
-              Stream.map((event) => ({ kind: "event" as const, event })),
+      const subscribeProject: ControlPlaneService["subscribeProject"] = (input) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const buffer = yield* makeLiveBuffer(worker.streamEvents)
+            const head = yield* worker.latestSequence.pipe(
+              Effect.mapError(unavailable("project-stream")),
             )
-            const tail = bufferedTail(
-              buffer,
-              head,
-              input.requestCompletionMarker,
-              (event) =>
-                matches(event)
-                  ? toEnvelope(event).pipe(
-                      Effect.map((envelope) => [
-                        { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
-                      ]),
-                    )
-                  : Effect.succeed([]),
-              { kind: "synchronized" },
-            )
-            return Stream.concat(historical, tail)
-          }
-          const snapshot = yield* readThreadSnapshot(input.threadId).pipe(
-            Effect.mapError(unavailable("thread-snapshot")),
-          )
-          if (Option.isNone(snapshot)) {
-            return yield* new ServiceUnavailable({ service: "thread-snapshot" })
-          }
-          yield* hooks.afterThreadSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
-          return Stream.concat(
-            Stream.make({ kind: "snapshot" as const, snapshot: snapshot.value }),
-            bufferedTail(
-              buffer,
-              snapshot.value.snapshotSequence,
-              input.requestCompletionMarker,
-              (event) =>
-                matches(event)
-                  ? toEnvelope(event).pipe(
-                      Effect.map((envelope) => [
-                        { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
-                      ]),
-                    )
-                  : Effect.succeed([]),
-              { kind: "synchronized" },
-            ),
-          )
-        }),
-      )
-
-    const subscribeShell: ControlPlaneService["subscribeShell"] = (input) =>
-      Stream.unwrap(
-        Effect.gen(function* () {
-          const buffer = yield* makeLiveBuffer(worker.streamEvents)
-          const head = yield* worker.latestSequence.pipe(
-            Effect.mapError(unavailable("shell-stream")),
-          )
-          const mapEvent = (event: PersistedEvent<DomainEventType>) =>
-            shellLiveEvent(environment, event).pipe(
-              Effect.map((events) =>
-                events.map(
-                  (shellEvent) =>
-                    ({ kind: "event" as const, event: shellEvent }) satisfies ShellStreamItem,
+            const replayGap =
+              input.afterSequence === undefined ? undefined : head - input.afterSequence
+            if (
+              input.afterSequence !== undefined &&
+              replayGap !== undefined &&
+              !requiresFreshSnapshot(replayGap)
+            ) {
+              const catchUp = yield* worker
+                .readEvents(input.afterSequence, Math.max(1, replayGap))
+                .pipe(Effect.mapError(unavailable("project-stream")))
+              const historical = Stream.fromIterable(catchUp).pipe(
+                Stream.filter(
+                  (event) => event.sequence <= head && event.projectId === input.projectId,
                 ),
+                Stream.filter((event) => isProjectStreamEvent(event.event)),
+                Stream.mapEffect(toEnvelope),
+                Stream.map((event) => ({ kind: "event" as const, event })),
+              )
+              const tail = bufferedTail(
+                buffer,
+                head,
+                input.requestCompletionMarker,
+                (event) =>
+                  event.projectId === input.projectId && isProjectStreamEvent(event.event)
+                    ? toEnvelope(event).pipe(
+                        Effect.map((envelope) => [
+                          { kind: "event" as const, event: envelope } satisfies ProjectStreamItem,
+                        ]),
+                      )
+                    : Effect.succeed([]),
+                { kind: "synchronized" },
+              )
+              return Stream.concat(historical, tail)
+            }
+            const snapshot = yield* readBoardSnapshot(input.projectId).pipe(
+              Effect.mapError(unavailable("project-snapshot")),
+            )
+            if (Option.isNone(snapshot)) {
+              return yield* new ServiceUnavailable({ service: "project-snapshot" })
+            }
+            yield* hooks.afterProjectSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
+            return Stream.concat(
+              Stream.make({ kind: "snapshot" as const, snapshot: snapshot.value }),
+              bufferedTail(
+                buffer,
+                snapshot.value.snapshotSequence,
+                input.requestCompletionMarker,
+                (event) =>
+                  event.projectId === input.projectId && isProjectStreamEvent(event.event)
+                    ? toEnvelope(event).pipe(
+                        Effect.map((envelope) => [
+                          { kind: "event" as const, event: envelope } satisfies ProjectStreamItem,
+                        ]),
+                      )
+                    : Effect.succeed([]),
+                { kind: "synchronized" },
               ),
             )
-          const replayGap =
-            input.afterSequence === undefined ? undefined : head - input.afterSequence
-          if (
-            input.afterSequence !== undefined &&
-            replayGap !== undefined &&
-            !requiresFreshSnapshot(replayGap)
-          ) {
-            const catchUp = yield* worker
-              .readEvents(input.afterSequence, Math.max(1, replayGap))
-              .pipe(Effect.mapError(unavailable("shell-stream")))
-            const historical = Stream.fromIterable(catchUp).pipe(
-              Stream.filter((event) => event.sequence <= head),
-              Stream.mapEffect(mapEvent),
-              Stream.flatMap(Stream.fromIterable),
+          }),
+        ).pipe(Stream.provideService(SqlClient, sql))
+
+      const subscribeThread: ControlPlaneService["subscribeThread"] = (input) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const buffer = yield* makeLiveBuffer(worker.streamEvents)
+            const head = yield* worker.latestSequence.pipe(
+              Effect.mapError(unavailable("thread-stream")),
             )
-            return coalesceShell(
-              Stream.concat(
-                historical,
+            const replayGap =
+              input.afterSequence === undefined ? undefined : head - input.afterSequence
+            const matches = (event: PersistedEvent<DomainEventType>) =>
+              isThreadEvent(event.event) && threadIdOf(event.event) === input.threadId
+            if (
+              input.afterSequence !== undefined &&
+              replayGap !== undefined &&
+              !requiresFreshSnapshot(replayGap)
+            ) {
+              const catchUp = yield* worker
+                .readEvents(input.afterSequence, Math.max(1, replayGap))
+                .pipe(Effect.mapError(unavailable("thread-stream")))
+              const historical = Stream.fromIterable(catchUp).pipe(
+                Stream.filter((event) => event.sequence <= head && matches(event)),
+                Stream.mapEffect(toEnvelope),
+                Stream.map((event) => ({ kind: "event" as const, event })),
+              )
+              const tail = bufferedTail(
+                buffer,
+                head,
+                input.requestCompletionMarker,
+                (event) =>
+                  matches(event)
+                    ? toEnvelope(event).pipe(
+                        Effect.map((envelope) => [
+                          { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
+                        ]),
+                      )
+                    : Effect.succeed([]),
+                { kind: "synchronized" },
+              )
+              return Stream.concat(historical, tail)
+            }
+            const snapshot = yield* readThreadSnapshot(input.threadId).pipe(
+              Effect.mapError(unavailable("thread-snapshot")),
+            )
+            if (Option.isNone(snapshot)) {
+              return yield* new ServiceUnavailable({ service: "thread-snapshot" })
+            }
+            yield* hooks.afterThreadSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
+            return Stream.concat(
+              Stream.make({ kind: "snapshot" as const, snapshot: snapshot.value }),
+              bufferedTail(
+                buffer,
+                snapshot.value.snapshotSequence,
+                input.requestCompletionMarker,
+                (event) =>
+                  matches(event)
+                    ? toEnvelope(event).pipe(
+                        Effect.map((envelope) => [
+                          { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
+                        ]),
+                      )
+                    : Effect.succeed([]),
+                { kind: "synchronized" },
+              ),
+            )
+          }),
+        ).pipe(Stream.provideService(SqlClient, sql))
+
+      const subscribeShell: ControlPlaneService["subscribeShell"] = (input) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const buffer = yield* makeLiveBuffer(worker.streamEvents)
+            const head = yield* worker.latestSequence.pipe(
+              Effect.mapError(unavailable("shell-stream")),
+            )
+            const mapEvent = (event: PersistedEvent<DomainEventType>) =>
+              shellLiveEvent(environment, event).pipe(
+                Effect.map((events) =>
+                  events.map(
+                    (shellEvent) =>
+                      ({ kind: "event" as const, event: shellEvent }) satisfies ShellStreamItem,
+                  ),
+                ),
+              )
+            const replayGap =
+              input.afterSequence === undefined ? undefined : head - input.afterSequence
+            if (
+              input.afterSequence !== undefined &&
+              replayGap !== undefined &&
+              !requiresFreshSnapshot(replayGap)
+            ) {
+              const catchUp = yield* worker
+                .readEvents(input.afterSequence, Math.max(1, replayGap))
+                .pipe(Effect.mapError(unavailable("shell-stream")))
+              const historical = Stream.fromIterable(catchUp).pipe(
+                Stream.filter((event) => event.sequence <= head),
+                Stream.mapEffect(mapEvent),
+                Stream.flatMap((items) => Stream.fromIterable(items)),
+              )
+              return coalesceShell(
+                Stream.concat(
+                  historical,
+                  bufferedTail(buffer, head, input.requestCompletionMarker, mapEvent, {
+                    kind: "synchronized",
+                  }),
+                ),
+              )
+            }
+            const snapshot: ShellSnapshot = yield* readShellSnapshot(environment).pipe(
+              Effect.mapError(unavailable("shell-snapshot")),
+            )
+            yield* hooks.afterShellSnapshot?.(snapshot.snapshotSequence) ?? Effect.void
+            return Stream.concat(
+              Stream.make({ kind: "snapshot" as const, snapshot }),
+              coalesceShell(
                 bufferedTail(
                   buffer,
-                  head,
+                  snapshot.snapshotSequence,
                   input.requestCompletionMarker,
                   mapEvent,
                   { kind: "synchronized" },
                 ),
               ),
             )
-          }
-          const snapshot: ShellSnapshot = yield* readShellSnapshot(environment).pipe(
-            Effect.mapError(unavailable("shell-snapshot")),
-          )
-          yield* hooks.afterShellSnapshot?.(snapshot.snapshotSequence) ?? Effect.void
-          return Stream.concat(
-            Stream.make({ kind: "snapshot" as const, snapshot }),
-            coalesceShell(
-              bufferedTail(
-                buffer,
-                snapshot.snapshotSequence,
-                input.requestCompletionMarker,
-                mapEvent,
-                { kind: "synchronized" },
-              ),
-            ),
-          )
-        }),
+          }),
+        ).pipe(Stream.provideService(SqlClient, sql))
+
+      const getConfig = readSchemaVersion().pipe(
+        Effect.provideService(SqlClient, sql),
+        Effect.map((databaseSchemaVersion) => ({
+          environmentId: config.environmentId,
+          bundleVersion: config.bundleVersion,
+          serverVersion: config.serverVersion,
+          databaseSchemaVersion,
+        })),
+        Effect.mapError(unavailable("sqlite")),
       )
 
-    const getConfig = readSchemaVersion().pipe(
-      Effect.map((databaseSchemaVersion) => ({
-        environmentId: config.environmentId,
-        bundleVersion: config.bundleVersion,
-        serverVersion: config.serverVersion,
-        databaseSchemaVersion,
-      })),
-      Effect.mapError(unavailable("sqlite")),
-    )
-
-    yield* Effect.logInfo("Control plane reactors started")
+      yield* Effect.logInfo("Control plane reactors started")
       return ControlPlane.of({
         dispatch,
         subscribeShell,

@@ -3,11 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { assert, describe, it } from "@effect/vitest"
-import {
-  BootstrapConfigError,
-  decodeBootstrap,
-  readBootstrapFd,
-} from "@noyau/server/config"
+import { BootstrapConfigError, decodeBootstrap, readBootstrapFd } from "@noyau/server/config"
 import { Effect } from "effect"
 
 const bootstrap = {
@@ -31,7 +27,9 @@ describe("server bootstrap", () => {
       writeFileSync(path, encoded)
       const fd = openSync(path, "r")
       const direct = yield* decodeBootstrap("test", encoded)
-      const fromFd = yield* readBootstrapFd(fd).pipe(Effect.ensuring(Effect.sync(() => closeSync(fd))))
+      const fromFd = yield* readBootstrapFd(fd).pipe(
+        Effect.ensuring(Effect.sync(() => closeSync(fd))),
+      )
 
       assert.deepStrictEqual(fromFd, direct)
       assert.strictEqual(fromFd.actorId, "human:bootstrap")

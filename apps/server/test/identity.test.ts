@@ -34,8 +34,11 @@ describe("RPC identity", () => {
       const missing = yield* authenticateBearer(undefined, expected, "human:bootstrap").pipe(
         Effect.flip,
       )
-      const malformed = yield* authenticateBearer("Basic launch-secret", expected, "human:bootstrap")
-        .pipe(Effect.flip)
+      const malformed = yield* authenticateBearer(
+        "Basic launch-secret",
+        expected,
+        "human:bootstrap",
+      ).pipe(Effect.flip)
       const forbidden = yield* authenticateBearer(
         "Bearer another-secret",
         expected,
