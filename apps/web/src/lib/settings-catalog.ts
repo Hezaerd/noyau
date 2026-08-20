@@ -41,7 +41,7 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     id: "appearance",
     tab: "appearance",
     title: "Apparence",
-    description: "Thème de l’interface : système, clair ou sombre.",
+    description: "Choisis comment Noyau s’affiche : système, clair ou sombre.",
     keywords: ["thème", "theme", "clair", "sombre", "dark", "light", "système"],
   },
   {
