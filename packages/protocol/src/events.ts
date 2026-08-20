@@ -8,10 +8,10 @@ import {
   ProjectId,
   SchemaVersion,
   Sequence,
-} from "./ids"
-import { ProjectEvent } from "./project/events"
-import { ThreadEvent } from "./thread/events"
-import { TicketEvent } from "./ticket/events"
+} from "./ids.ts"
+import { ProjectEvent } from "./project/events.ts"
+import { ThreadEvent } from "./thread/events.ts"
+import { TicketEvent } from "./ticket/events.ts"
 
 export const DomainEvent = Schema.Union([ProjectEvent, TicketEvent, ThreadEvent])
 export type DomainEvent = (typeof DomainEvent)["Type"]

@@ -11,7 +11,8 @@ Noyau v0.1 est un Environment desktop local : un Tableau Kanban par Project, des
 
 ## Prérequis
 
-- [Bun](https://bun.com) (package manager et runtime applicatif)
+- [Bun](https://bun.com) (package manager)
+- Node 24 (provisionné par `vp` via [`.node-version`](.node-version) ; runtime serveur et desktop)
 - Docker (uniquement si tu touches encore l'ancien store Postgres — la cible v0.1 est `node:sqlite`)
 - [Vite+](https://viteplus.dev) pour la CLI `vp` globale — optionnel mais recommandé :
 

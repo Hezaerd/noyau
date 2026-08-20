@@ -1,4 +1,6 @@
+import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { EventEnvelope } from "@noyau/protocol/events"
+import type { TicketId } from "@noyau/protocol/ids"
 import { DateTime } from "effect"
 
 export interface TicketActivityItem {
@@ -7,6 +9,12 @@ export interface TicketActivityItem {
   readonly action: string
   readonly occurredAt: string
 }
+
+export const ticketActivityFromSnapshot = (
+  snapshot: BoardSnapshot,
+  ticketId: TicketId,
+): ReadonlyArray<EventEnvelope> =>
+  snapshot.ticketActivity.find((activity) => activity.ticketId === ticketId)?.events ?? []
 
 const ticketUpdatedAction = (
   event: Extract<EventEnvelope["event"], { readonly _tag: "ticket.updated" }>,
@@ -51,8 +59,6 @@ export const ticketActivityAction = (envelope: EventEnvelope): string => {
       return "a ajouté une dépendance"
     case "ticket.dependency.removed":
       return "a retiré une dépendance"
-    case "message.sent":
-      return "a envoyé un message lié au ticket"
     case "kanbanColumn.created":
       return "a créé une colonne"
     case "kanbanColumn.updated":
@@ -61,6 +67,8 @@ export const ticketActivityAction = (envelope: EventEnvelope): string => {
       return "a déplacé une colonne"
     case "kanbanColumn.deleted":
       return "a supprimé une colonne"
+    default:
+      return "a enregistré une activité"
   }
 }
 

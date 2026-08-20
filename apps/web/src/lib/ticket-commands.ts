@@ -1,5 +1,11 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import { CommandId, KanbanColumnId, TicketId } from "@noyau/protocol/ids"
+import {
+  CommandId,
+  KanbanColumnId,
+  type ProjectId,
+  type ThreadId,
+  TicketId,
+} from "@noyau/protocol/ids"
 import {
   KanbanColumnCreateRequest,
   KanbanColumnDeleteRequest,
@@ -9,6 +15,8 @@ import {
   TicketDependencyAddRequest,
   TicketDependencyRemoveRequest,
   TicketMoveRequest,
+  TicketThreadLinkRequest,
+  TicketThreadUnlinkRequest,
   TicketUpdateRequest,
   type TicketPlacement,
 } from "@noyau/protocol/ticket/commands"
@@ -20,6 +28,7 @@ const uuid = Effect.fnUntraced(function* () {
 })
 
 export const makeTicketCreateRequest = Effect.fnUntraced(function* (input: {
+  readonly projectId: ProjectId
   readonly title: string
   readonly placement: TicketPlacement
 }) {
@@ -27,6 +36,7 @@ export const makeTicketCreateRequest = Effect.fnUntraced(function* (input: {
   return TicketCreateRequest.make({
     commandId: CommandId.make(commandId),
     payload: {
+      projectId: input.projectId,
       ticketId: TicketId.make(ticketId),
       title: input.title,
       placement: input.placement,
@@ -90,7 +100,28 @@ export const makeTicketDependencyRemoveRequest = Effect.fnUntraced(function* (
   })
 })
 
+export const makeTicketThreadLinkRequest = Effect.fnUntraced(function* (input: {
+  readonly ticketId: TicketId
+  readonly threadId: ThreadId
+}) {
+  return TicketThreadLinkRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
+  })
+})
+
+export const makeTicketThreadUnlinkRequest = Effect.fnUntraced(function* (input: {
+  readonly ticketId: TicketId
+  readonly threadId: ThreadId
+}) {
+  return TicketThreadUnlinkRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
+  })
+})
+
 export const makeKanbanColumnCreateRequest = Effect.fnUntraced(function* (input: {
+  readonly projectId: ProjectId
   readonly name: string
   readonly color: string
   readonly beforeColumnId?: KanbanColumnId

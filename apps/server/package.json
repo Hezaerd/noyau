@@ -5,22 +5,26 @@
   "type": "module",
   "exports": {
     "./config": "./src/config.ts",
-    "./cursor": "./src/cursor.ts",
+    "./control-plane": "./src/control-plane.ts",
     "./identity": "./src/identity.ts",
     "./observability": "./src/observability.ts",
+    "./provider/acp-json-rpc": "./src/provider/acp-json-rpc.ts",
+    "./provider/cursor-acp": "./src/provider/cursor-acp.ts",
+    "./provider/provider-port": "./src/provider/provider-port.ts",
+    "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
     "./rpc-handlers": "./src/rpc-handlers.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./workspace-root": "./src/workspace-root.ts"
   },
   "scripts": {
-    "dev": "bun --env-file=../../.env --watch src/main.ts",
-    "start": "bun src/main.ts",
-    "build": "bun build src/main.ts --outdir dist --target=bun",
+    "dev": "node --watch src/main.ts",
+    "start": "node dist/main.mjs",
+    "build": "vp pack",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vp test run"
   },
   "dependencies": {
-    "@effect/platform-bun": "catalog:",
-    "@effect/sql-pg": "catalog:",
+    "@effect/platform-node": "4.0.0-beta.107",
     "@noyau/database": "workspace:*",
     "@noyau/domain": "workspace:*",
     "@noyau/protocol": "workspace:*",
@@ -28,8 +32,11 @@
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
-    "@testcontainers/postgresql": "^12.1.0",
+    "@types/node": "^24.13.3",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
+  },
+  "engines": {
+    "node": "^22.16 || ^23.11 || >=24.10"
   }
 }

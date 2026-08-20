@@ -1,7 +1,7 @@
 import { Context, Schema } from "effect"
 
-import type { ActorId } from "./ids"
-import { CommandId } from "./ids"
+import type { ActorId } from "./ids.ts"
+import { CommandId } from "./ids.ts"
 
 export class MissingIdentity extends Schema.TaggedError<MissingIdentity>()("MissingIdentity", {}) {}
 

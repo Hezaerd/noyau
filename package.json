@@ -8,8 +8,8 @@
   "type": "module",
   "scripts": {
     "dev": "vp run -r --parallel dev",
-    "dev:desktop": "bun apps/desktop/scripts/dev-stack.mjs",
-    "dev:server": "bun run --cwd apps/server dev",
+    "dev:desktop": "node apps/desktop/scripts/dev-stack.mjs",
+    "dev:server": "node --watch apps/server/src/main.ts",
     "dev:web": "vp -C apps/web dev",
     "build": "vp run -r --cache build",
     "check": "vp check && vp run -r --cache typecheck",

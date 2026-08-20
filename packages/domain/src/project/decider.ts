@@ -15,7 +15,7 @@ import {
 } from "@noyau/protocol/project/events"
 import { Result } from "effect"
 
-import type { ProjectCatalog, ProjectState } from "./projector"
+import type { ProjectCatalog, ProjectState } from "./projector.ts"
 
 export type ProjectDecisionError = ProjectAlreadyExists | ProjectNotFound | WorkspaceRootConflict
 

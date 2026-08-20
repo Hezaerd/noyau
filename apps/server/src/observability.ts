@@ -1,6 +1,6 @@
 import { Effect, Layer, Logger } from "effect"
 
-import { ServerConfig } from "./config"
+import { ServerConfig } from "./config.ts"
 
 /**
  * Logger opérateur + `tracerLogger` pour que les logs deviennent des span

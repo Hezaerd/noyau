@@ -27,3 +27,16 @@ bun run --cwd apps/desktop smoke-test
 
 Le build copie les assets de `apps/web/dist` dans `dist-electron/renderer` afin que l'application
 ne dépende d'aucune distribution web.
+
+## Reprise manuelle avec Cursor
+
+Si `cursor-agent` est dans le `PATH`, vérifier le parcours réel ainsi :
+
+1. Confirmer l'installation avec `command -v cursor-agent`.
+2. Lancer `bun run build`, puis `bun run dev:desktop`.
+3. Relier un dossier existant et vérifier que son Tableau s'affiche.
+4. Créer un Thread Cursor et envoyer un premier Turn.
+5. Attendre du transcript, puis quitter Noyau pendant le Turn en confirmant l'interruption.
+6. Relancer `bun run dev:desktop` avec le même profil.
+7. Vérifier le même Tableau, le même Thread et le transcript conservé.
+8. Envoyer un nouveau Turn : il reprend par `session/load`, sans renvoyer le premier prompt.

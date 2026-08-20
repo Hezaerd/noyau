@@ -51,7 +51,7 @@ import {
 import { Result, Schema } from "effect"
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing"
 
-import type { BoardState, ColumnState, TicketState } from "./projector"
+import type { BoardState, ColumnState, TicketState } from "./projector.ts"
 
 export type BoardDecisionError =
   | ColumnDestinationRequired

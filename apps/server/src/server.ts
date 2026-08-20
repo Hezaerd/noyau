@@ -1,77 +1,152 @@
-import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
-import * as PgClient from "@effect/sql-pg/PgClient"
-import { runMigrations } from "@noyau/database/migrations"
+import * as NodeHttp from "node:http"
+
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer"
+import * as Sqlite from "@noyau/database/sqlite"
+import type { Forbidden, MissingIdentity } from "@noyau/protocol/errors"
 import { ControlPlaneRpcs } from "@noyau/protocol/rpc"
-import { Context, Effect, Layer } from "effect"
-import { HttpRouter, HttpServer, HttpServerResponse } from "effect/unstable/http"
+import { Effect, FileSystem, Layer } from "effect"
+import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
-import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { ServerConfig, serverConfigLayer } from "./config"
-import { devIdentityLayer } from "./identity"
-import { loggerLayer } from "./observability"
-import { rpcHandlersLayer } from "./rpc-handlers"
+import { ServerConfig, serverConfigLayer } from "./config.ts"
+import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
+import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
+import { loggerLayer } from "./observability.ts"
+import { cursorProviderLayer } from "./provider/cursor-acp.ts"
+import { rpcHandlersLayer } from "./rpc-handlers.ts"
+import { workspaceRootAccessLayer } from "./workspace-root.ts"
 
-export class MigrationsReady extends Context.Service<
-  MigrationsReady,
-  { readonly completed: true }
->()("@noyau/server/MigrationsReady") {}
-
-export const postgresLayer = PgClient.layerFrom(
+export const sqlitePersistenceLayer = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* ServerConfig
-    return yield* PgClient.make({
-      url: config.databaseUrl,
-      applicationName: "@noyau/server",
-      maxConnections: 10,
-    })
+    const fileSystem = yield* FileSystem.FileSystem
+    yield* fileSystem.makeDirectory(config.dataDirectory, { recursive: true })
+    return Sqlite.layer({ filename: config.databaseFile })
   }),
-)
-
-export const migrationsReadyLayer = Layer.effect(
-  MigrationsReady,
-  runMigrations.pipe(
-    Effect.tap(() => Effect.logInfo("Migrations completed")),
-    Effect.tapCause((cause) => Effect.logError("Migrations failed", cause)),
-    Effect.as(MigrationsReady.of({ completed: true })),
-    Effect.withSpan("server.migrations"),
-  ),
-)
-
-const readiness = Effect.gen(function* () {
-  const sql = yield* SqlClient
-  yield* sql`SELECT 1`
-  return HttpServerResponse.jsonUnsafe({ status: "ready" })
-}).pipe(
-  Effect.catchTag("SqlError", (error) =>
-    Effect.logError("PostgreSQL readiness check failed", error).pipe(
-      Effect.as(HttpServerResponse.jsonUnsafe({ status: "unavailable" }, { status: 503 })),
-    ),
-  ),
-)
+).pipe(Layer.provide(NodeFileSystem.layer))
 
 const healthLayer = Layer.mergeAll(
   HttpRouter.add("GET", "/health/live", HttpServerResponse.jsonUnsafe({ status: "live" })),
-  HttpRouter.add("GET", "/health/ready", readiness),
+  HttpRouter.add("GET", "/health/ready", HttpServerResponse.jsonUnsafe({ status: "ready" })),
 )
 
-const rpcLayer = RpcServer.layerHttp({
-  group: ControlPlaneRpcs,
-  path: "/rpc",
-}).pipe(
-  Layer.provide(rpcHandlersLayer),
-  Layer.provide(devIdentityLayer),
-  Layer.provide(RpcSerialization.layerNdjson),
+const unauthorized = (error: MissingIdentity | Forbidden) =>
+  Effect.succeed(
+    HttpServerResponse.jsonUnsafe(
+      { error: error._tag },
+      { status: error._tag === "MissingIdentity" ? 401 : 403 },
+    ),
+  )
+
+const authenticateInternalRequest = Effect.fn("Server.authenticateInternalRequest")(function* () {
+  const request = yield* HttpServerRequest.HttpServerRequest
+  const config = yield* ServerConfig
+  const token = new URL(request.url, "http://127.0.0.1").searchParams.get("token")
+  return yield* authenticateBearer(
+    request.headers.authorization ?? (token === null ? undefined : `Bearer ${token}`),
+    config.bearerToken,
+    config.actorId,
+  )
+})
+
+const internalConfigRoute = HttpRouter.add(
+  "GET",
+  "/internal/config",
+  Effect.gen(function* () {
+    const actorId = yield* authenticateInternalRequest()
+    const controlPlane = yield* ControlPlane
+    const config = yield* controlPlane.getConfig
+    return HttpServerResponse.jsonUnsafe({ ...config, actorId })
+  }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
 )
 
-export const serverRoutesLayer = Layer.mergeAll(healthLayer, rpcLayer)
+const internalStatusRoute = HttpRouter.add(
+  "GET",
+  "/internal/status",
+  Effect.gen(function* () {
+    yield* authenticateInternalRequest()
+    const controlPlane = yield* ControlPlane
+    return HttpServerResponse.jsonUnsafe({
+      runningTurn: yield* controlPlane.hasRunningTurn,
+    })
+  }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
+)
 
-export const bunServerLayer = Layer.mergeAll(
+const internalShutdownRoute = HttpRouter.add(
+  "POST",
+  "/internal/shutdown",
+  Effect.gen(function* () {
+    yield* authenticateInternalRequest()
+    const controlPlane = yield* ControlPlane
+    yield* controlPlane.drainReactors
+    yield* Effect.sync(() => {
+      setImmediate(() => {
+        process.exit(0)
+      })
+    })
+    return HttpServerResponse.jsonUnsafe({ status: "shutting-down" })
+  }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
+)
+
+const protocolBearer = (value: string | undefined): string | undefined => {
+  const token = value
+    ?.split(",")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("noyau-bearer."))
+  return token?.slice("noyau-bearer.".length)
+}
+
+export const websocketRpcLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const config = yield* ServerConfig
+    const controlPlane = yield* ControlPlane
+    return HttpRouter.add(
+      "GET",
+      "/rpc",
+      Effect.gen(function* () {
+        const request = yield* HttpServerRequest.HttpServerRequest
+        const queryToken = new URL(request.url, "http://127.0.0.1").searchParams.get("token")
+        const bearer =
+          request.headers.authorization ??
+          protocolBearer(request.headers["sec-websocket-protocol"]) ??
+          queryToken ??
+          undefined
+        const actorId = yield* authenticateBearer(
+          bearer === undefined ? undefined : `Bearer ${bearer}`,
+          config.bearerToken,
+          config.actorId,
+        )
+        const connectionLayer = rpcHandlersLayer.pipe(
+          Layer.provideMerge(rpcIdentityLayer(actorId)),
+          Layer.provide(Layer.succeed(ControlPlane)(controlPlane)),
+          Layer.provideMerge(RpcSerialization.layerJson),
+        )
+        const connection = yield* Layer.build(connectionLayer)
+        const websocket = yield* RpcServer.toHttpEffectWebsocket(ControlPlaneRpcs).pipe(
+          Effect.provideContext(connection),
+        )
+        return yield* websocket
+      }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
+    )
+  }),
+)
+
+export const serverRoutesLayer = Layer.mergeAll(
+  healthLayer,
+  internalConfigRoute,
+  internalStatusRoute,
+  internalShutdownRoute,
+  websocketRpcLayer,
+)
+
+export const nodeServerLayer = Layer.mergeAll(
   Layer.effect(
     HttpServer.HttpServer,
     Effect.gen(function* () {
       const config = yield* ServerConfig
-      yield* MigrationsReady
+      yield* ControlPlane
       yield* Effect.logInfo("Noyau Server listening").pipe(
         Effect.annotateLogs({
           environment: config.environment,
@@ -79,22 +154,27 @@ export const bunServerLayer = Layer.mergeAll(
           port: config.port,
         }),
       )
-      return yield* BunHttpServer.make({
-        hostname: config.host,
+      return yield* NodeHttpServer.make(() => NodeHttp.createServer(), {
+        host: config.host,
         port: config.port,
         gracefulShutdownTimeout: "20 seconds",
       })
     }),
   ),
-  BunHttpServer.layerHttpServices,
+  NodeHttpServer.layerHttpServices,
 )
 
-const infrastructureLayer = migrationsReadyLayer.pipe(
-  Layer.provideMerge(postgresLayer.pipe(Layer.provideMerge(serverConfigLayer))),
+export const infrastructureLayer = controlPlaneLayer.pipe(
+  Layer.provideMerge(cursorProviderLayer()),
+  Layer.provideMerge(workspaceRootAccessLayer),
+  Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
+  Layer.provideMerge(NodeFileSystem.layer),
+  Layer.provide(NodeCrypto.layer),
 )
 
 export const serverLayer = HttpRouter.serve(serverRoutesLayer).pipe(
-  Layer.provide(bunServerLayer),
+  Layer.provide(nodeServerLayer),
+  Layer.provide(loggerLayer),
   Layer.provide(infrastructureLayer),
-  Layer.provide(loggerLayer.pipe(Layer.provide(serverConfigLayer))),
+  Layer.provide(NodeFileSystem.layer),
 )

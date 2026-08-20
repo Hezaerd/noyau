@@ -1,14 +1,19 @@
+import type { ProjectId } from "@noyau/protocol/ids"
 import { Link, useRouterState } from "@tanstack/react-router"
 import {
   ChevronsUpDownIcon,
-  InboxIcon,
   LayoutGridIcon,
   MessageCircleIcon,
+  MessageCirclePlusIcon,
   PlusIcon,
   SearchIcon,
 } from "lucide-react"
+import { useState } from "react"
 
 import { AppearanceMenu } from "@/components/AppearanceMenu"
+import { useControlPlane } from "@/components/control-plane-context"
+import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
+import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { CommandDialogTrigger } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
@@ -17,15 +22,12 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { HOTKEY_COMMAND_PALETTE } from "@/lib/keyboard-shortcut"
@@ -33,6 +35,9 @@ import { HOTKEY_COMMAND_PALETTE } from "@/lib/keyboard-shortcut"
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { isMobile, setOpenMobile } = useSidebar()
+  const { projects, threads, selectProject } = useControlPlane()
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false)
+  const [rebindProjectId, setRebindProjectId] = useState<ProjectId>()
   const closeMobileNavigation = () => {
     if (isMobile) {
       setOpenMobile(false)
@@ -79,77 +84,114 @@ export function AppSidebar() {
 
       <SidebarContent className="px-1">
         <SidebarGroup className="pt-1">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                render={<Link to="/" onClick={closeMobileNavigation} />}
-                isActive={pathname === "/"}
-                tooltip="Inbox"
-                className="h-9 text-sidebar-foreground/68"
-              >
-                <InboxIcon />
-                <span>Inbox</span>
-              </SidebarMenuButton>
-              <SidebarMenuBadge className="bg-sidebar-primary text-[0.65rem] text-sidebar-primary-foreground">
-                4
-              </SidebarMenuBadge>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarSeparator className="my-2 opacity-60" />
-
-        <SidebarGroup className="pt-1">
-          <SidebarGroupLabel className="sr-only">Projets suivis</SidebarGroupLabel>
-          <SidebarGroupAction aria-label="Ajouter un projet" title="Ajouter un projet">
-            <PlusIcon />
-          </SidebarGroupAction>
+          <SidebarGroupLabel className="flex items-center justify-between">
+            <span>Projects</span>
+            <button
+              type="button"
+              className="rounded p-1 text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              aria-label="Relier un dossier"
+              title="Relier un dossier"
+              onClick={() => {
+                setRebindProjectId(undefined)
+                setFolderDialogOpen(true)
+              }}
+            >
+              <PlusIcon />
+            </button>
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="mb-1 flex items-center gap-2.5 rounded-lg px-2 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-              <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-xs font-bold text-sidebar-primary-foreground">
-                no
-              </div>
-              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                <p className="truncate text-xs font-medium text-sidebar-foreground">noyau</p>
-              </div>
-              <ChevronsUpDownIcon className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
-            </div>
-
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  render={
-                    <Link
-                      to="/projects/$projectId/board"
-                      params={{ projectId: "noyau" }}
-                      onClick={closeMobileNavigation}
+              {projects.map((project) => {
+                const projectThreads = threads.filter((thread) => thread.projectId === project.id)
+                return (
+                  <SidebarMenuItem key={project.id}>
+                    <div className="mb-1 flex items-center gap-2.5 rounded-lg px-2 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+                      <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-xs font-bold text-sidebar-primary-foreground">
+                        {project.name.slice(0, 2).toLocaleLowerCase("fr")}
+                      </div>
+                      <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+                        <p className="truncate text-xs font-medium text-sidebar-foreground">
+                          {project.name}
+                        </p>
+                      </div>
+                      {project.available ? (
+                        <ChevronsUpDownIcon className="size-3 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-[0.62rem] text-warning underline-offset-2 hover:underline group-data-[collapsible=icon]:hidden"
+                          onClick={() => {
+                            setFolderDialogOpen(false)
+                            setRebindProjectId(project.id)
+                          }}
+                        >
+                          Relier
+                        </button>
+                      )}
+                    </div>
+                    <SidebarMenuButton
+                      render={
+                        <Link
+                          to="/projects/$projectId/board"
+                          params={{ projectId: project.id }}
+                          onClick={() => {
+                            selectProject(project.id)
+                            closeMobileNavigation()
+                          }}
+                        />
+                      }
+                      isActive={pathname === `/projects/${project.id}/board`}
+                      tooltip="Tableau"
+                      className="h-8 text-sidebar-foreground/58"
+                    >
+                      <LayoutGridIcon />
+                      <span>Tableau</span>
+                    </SidebarMenuButton>
+                    <SidebarMenuButton
+                      render={
+                        <Link
+                          to="/projects/$projectId/thread/$threadId"
+                          params={{ projectId: project.id, threadId: "new" }}
+                          onClick={() => {
+                            selectProject(project.id)
+                            closeMobileNavigation()
+                          }}
+                        />
+                      }
+                      isActive={pathname === `/projects/${project.id}/thread/new`}
+                      tooltip="Nouveau Thread"
+                      className="mt-1 h-8 pl-8 text-sidebar-foreground/58"
+                    >
+                      <MessageCirclePlusIcon />
+                      <span>Nouveau Thread</span>
+                    </SidebarMenuButton>
+                    <ThreadSidebarSection
+                      threads={projectThreads}
+                      renderThread={(thread) => (
+                        <SidebarMenuButton
+                          key={thread.id}
+                          render={
+                            <Link
+                              to="/projects/$projectId/thread/$threadId"
+                              params={{ projectId: project.id, threadId: thread.id }}
+                              onClick={() => {
+                                selectProject(project.id)
+                                closeMobileNavigation()
+                              }}
+                            />
+                          }
+                          isActive={pathname === `/projects/${project.id}/thread/${thread.id}`}
+                          tooltip={thread.title}
+                          className="h-8 pl-8 text-sidebar-foreground/58"
+                        >
+                          <MessageCircleIcon />
+                          <span className="truncate">{thread.title}</span>
+                        </SidebarMenuButton>
+                      )}
                     />
-                  }
-                  isActive={pathname === "/projects/noyau/board"}
-                  tooltip="Tableau"
-                  className="h-8 text-sidebar-foreground/58"
-                >
-                  <LayoutGridIcon />
-                  <span>Tableau</span>
-                </SidebarMenuButton>
-                <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
-                  7
-                </SidebarMenuBadge>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  render={<Link to="/projects/noyau/channel" onClick={closeMobileNavigation} />}
-                  isActive={pathname === "/projects/noyau/channel"}
-                  tooltip="Canal"
-                  className="h-8 text-sidebar-foreground/58"
-                >
-                  <MessageCircleIcon />
-                  <span>Canal</span>
-                </SidebarMenuButton>
-                <SidebarMenuBadge className="text-[0.65rem] text-sidebar-foreground/35">
-                  2
-                </SidebarMenuBadge>
-              </SidebarMenuItem>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -167,6 +209,16 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarFooter>
+      <ProjectFolderDialog
+        open={folderDialogOpen || rebindProjectId !== undefined}
+        projectId={rebindProjectId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFolderDialogOpen(false)
+            setRebindProjectId(undefined)
+          }
+        }}
+      />
     </Sidebar>
   )
 }

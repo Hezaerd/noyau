@@ -11,7 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsProjectIdBoardRouteImport } from './routes/projects.$projectId.board'
-import { Route as ProjectsNoyauChannelRouteImport } from './routes/projects.noyau.channel'
+import { Route as ProjectsProjectIdThreadThreadIdRouteImport } from './routes/projects.$projectId.thread.$threadId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,41 +23,47 @@ const ProjectsProjectIdBoardRoute = ProjectsProjectIdBoardRouteImport.update({
   path: '/projects/$projectId/board',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProjectsNoyauChannelRoute = ProjectsNoyauChannelRouteImport.update({
-  id: '/projects/noyau/channel',
-  path: '/projects/noyau/channel',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const ProjectsProjectIdThreadThreadIdRoute =
+  ProjectsProjectIdThreadThreadIdRouteImport.update({
+    id: '/projects/$projectId/thread/$threadId',
+    path: '/projects/$projectId/thread/$threadId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/projects/$projectId/board': typeof ProjectsProjectIdBoardRoute
-  '/projects/noyau/channel': typeof ProjectsNoyauChannelRoute
+  '/projects/$projectId/thread/$threadId': typeof ProjectsProjectIdThreadThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/projects/$projectId/board': typeof ProjectsProjectIdBoardRoute
-  '/projects/noyau/channel': typeof ProjectsNoyauChannelRoute
+  '/projects/$projectId/thread/$threadId': typeof ProjectsProjectIdThreadThreadIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/projects/$projectId/board': typeof ProjectsProjectIdBoardRoute
-  '/projects/noyau/channel': typeof ProjectsNoyauChannelRoute
+  '/projects/$projectId/thread/$threadId': typeof ProjectsProjectIdThreadThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/projects/$projectId/board' | '/projects/noyau/channel'
+  fullPaths:
+    '/' | '/projects/$projectId/board' | '/projects/$projectId/thread/$threadId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/projects/$projectId/board' | '/projects/noyau/channel'
+  to:
+    '/' | '/projects/$projectId/board' | '/projects/$projectId/thread/$threadId'
   id:
-    '__root__' | '/' | '/projects/$projectId/board' | '/projects/noyau/channel'
+    | '__root__'
+    | '/'
+    | '/projects/$projectId/board'
+    | '/projects/$projectId/thread/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectsProjectIdBoardRoute: typeof ProjectsProjectIdBoardRoute
-  ProjectsNoyauChannelRoute: typeof ProjectsNoyauChannelRoute
+  ProjectsProjectIdThreadThreadIdRoute: typeof ProjectsProjectIdThreadThreadIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -76,11 +82,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdBoardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/projects/noyau/channel': {
-      id: '/projects/noyau/channel'
-      path: '/projects/noyau/channel'
-      fullPath: '/projects/noyau/channel'
-      preLoaderRoute: typeof ProjectsNoyauChannelRouteImport
+    '/projects/$projectId/thread/$threadId': {
+      id: '/projects/$projectId/thread/$threadId'
+      path: '/projects/$projectId/thread/$threadId'
+      fullPath: '/projects/$projectId/thread/$threadId'
+      preLoaderRoute: typeof ProjectsProjectIdThreadThreadIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -89,7 +95,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectsProjectIdBoardRoute: ProjectsProjectIdBoardRoute,
-  ProjectsNoyauChannelRoute: ProjectsNoyauChannelRoute,
+  ProjectsProjectIdThreadThreadIdRoute: ProjectsProjectIdThreadThreadIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

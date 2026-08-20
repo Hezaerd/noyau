@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { createBoardActions, groupBoardActions, type BoardActions } from "../src/lib/board-actions"
-import { initialBoardState } from "../src/lib/board-model"
+import { boardFixture } from "./fixtures/board"
 
 const makeActions = (executions: Array<string>): BoardActions => ({
   createTicket: () => {
@@ -27,7 +27,7 @@ const makeActions = (executions: Array<string>): BoardActions => ({
 describe("board actions", () => {
   it("exposes only page verbs to the Palette", () => {
     const executions: Array<string> = []
-    const actions = createBoardActions(initialBoardState, makeActions(executions))
+    const actions = createBoardActions(boardFixture, makeActions(executions))
     const groups = groupBoardActions(actions, "palette")
 
     expect(groups.map((group) => group.id)).toEqual(["actions"])
@@ -39,7 +39,7 @@ describe("board actions", () => {
   })
 
   it("exposes only target-specific actions to a context menu", () => {
-    const actions = createBoardActions(initialBoardState, makeActions([]))
+    const actions = createBoardActions(boardFixture, makeActions([]))
     const groups = groupBoardActions(actions, "context-menu", {
       kind: "ticket",
       id: "ticket-http",
@@ -54,7 +54,7 @@ describe("board actions", () => {
 
   it("provides rename and delete actions for an ordinary column", () => {
     const executions: Array<string> = []
-    const actions = createBoardActions(initialBoardState, makeActions(executions))
+    const actions = createBoardActions(boardFixture, makeActions(executions))
     const groups = groupBoardActions(actions, "context-menu", {
       kind: "column",
       id: "column-active",
@@ -70,7 +70,7 @@ describe("board actions", () => {
   })
 
   it("keeps per-ticket and move destinations out of the Palette", () => {
-    const actions = createBoardActions(initialBoardState, makeActions([]))
+    const actions = createBoardActions(boardFixture, makeActions([]))
     const paletteIds = groupBoardActions(actions, "palette").flatMap((group) =>
       group.actions.map((action) => action.id),
     )

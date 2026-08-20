@@ -1,7 +1,7 @@
 import { ActorId, KanbanColumnId, ProjectId, TicketId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
-import { KanbanRank } from "./kanban-column"
+import { KanbanRank } from "./kanban-column.ts"
 
 export const TicketPriority = Schema.Literals(["none", "low", "normal", "high", "urgent"])
 export type TicketPriority = (typeof TicketPriority)["Type"]

@@ -1,5 +1,8 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
 import type { EventEnvelope } from "@noyau/protocol/events"
+import { ThreadId } from "@noyau/protocol/ids"
+import type { ThreadShell } from "@noyau/protocol/shell"
 import { format, isValid, parseISO } from "date-fns"
 import { fr } from "date-fns/locale"
 import { ActivityIcon, CalendarIcon, GitBranchIcon, PlusIcon, Trash2Icon } from "lucide-react"
@@ -75,6 +78,8 @@ interface TicketDialogProps {
   readonly ticket: BoardTicket | undefined
   readonly tickets: ReadonlyArray<BoardTicket>
   readonly ticketDependencies: ReadonlyArray<BoardTicketDependency>
+  readonly ticketThreads: ReadonlyArray<TicketThread>
+  readonly threads: ReadonlyArray<ThreadShell>
   readonly activity: ReadonlyArray<EventEnvelope>
   readonly activityLoading: boolean
   readonly activityError?: string
@@ -84,12 +89,16 @@ interface TicketDialogProps {
   readonly onUpdate: (ticketId: string, patch: BoardTicketPatch) => void
   readonly onAddDependency: (ticketId: string, dependsOnTicketId: string) => void
   readonly onRemoveDependency: (ticketId: string, dependsOnTicketId: string) => void
+  readonly onLinkThread: (ticketId: string, threadId: ThreadShell["id"]) => void
+  readonly onUnlinkThread: (ticketId: string, threadId: ThreadShell["id"]) => void
 }
 
 export function TicketDialog({
   ticket,
   tickets,
   ticketDependencies,
+  ticketThreads,
+  threads,
   activity,
   activityLoading,
   activityError,
@@ -99,6 +108,8 @@ export function TicketDialog({
   onUpdate,
   onAddDependency,
   onRemoveDependency,
+  onLinkThread,
+  onUnlinkThread,
 }: TicketDialogProps) {
   const [title, setTitle] = useState(ticket?.title ?? "")
   const [titleError, setTitleError] = useState(false)
@@ -107,6 +118,7 @@ export function TicketDialog({
   const [dueDateOpen, setDueDateOpen] = useState(false)
   const [blockedBySelection, setBlockedBySelection] = useState<string | null>(null)
   const [blocksSelection, setBlocksSelection] = useState<string | null>(null)
+  const [linkedThreadSelection, setLinkedThreadSelection] = useState<string | null>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const dependencyState = useMemo(() => ({ ticketDependencies }), [ticketDependencies])
 
@@ -118,6 +130,7 @@ export function TicketDialog({
     setDueDateOpen(false)
     setBlockedBySelection(null)
     setBlocksSelection(null)
+    setLinkedThreadSelection(null)
   }, [ticket])
 
   useEffect(() => {
@@ -167,6 +180,14 @@ export function TicketDialog({
 
   const blockedByIds = ticket === undefined ? [] : dependenciesForTicket(dependencyState, ticket.id)
   const blocksIds = ticket === undefined ? [] : dependentsForTicket(dependencyState, ticket.id)
+  const linkedThreadIds =
+    ticket === undefined
+      ? []
+      : ticketThreads
+          .filter((ticketThread) => ticketThread.ticketId === ticket.id)
+          .map((ticketThread) => ticketThread.threadId)
+  const linkedThreadSet = new Set(linkedThreadIds)
+  const linkableThreads = threads.filter((thread) => !linkedThreadSet.has(thread.id))
   const dependencyOptions =
     ticket === undefined
       ? []
@@ -565,6 +586,77 @@ export function TicketDialog({
                       </div>
                     </div>
                   </div>
+                </section>
+
+                <section aria-labelledby="ticket-threads-title">
+                  <h3 id="ticket-threads-title" className="mb-3 text-sm font-medium">
+                    Threads liés
+                  </h3>
+                  {linkedThreadIds.length === 0 ? (
+                    <p className="mb-3 text-xs text-muted-foreground">Aucun Thread lié.</p>
+                  ) : (
+                    <ul className="mb-3 space-y-1.5">
+                      {linkedThreadIds.map((threadId) => {
+                        const thread = threads.find((candidate) => candidate.id === threadId)
+                        return (
+                          <li
+                            key={threadId}
+                            className="flex items-center gap-2 rounded-lg bg-muted/35 px-2.5 py-2 text-xs"
+                          >
+                            <span className="min-w-0 flex-1 truncate">
+                              {thread?.title ?? threadId}
+                            </span>
+                            <Button
+                              type="button"
+                              size="icon-xs"
+                              variant="ghost"
+                              aria-label={`Délier le Thread ${thread?.title ?? threadId}`}
+                              onClick={() => onUnlinkThread(ticket.id, threadId)}
+                            >
+                              <Trash2Icon aria-hidden="true" />
+                            </Button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                  <Select
+                    items={linkableThreads.map((thread) => ({
+                      value: thread.id,
+                      label: thread.title,
+                    }))}
+                    value={linkedThreadSelection}
+                    onValueChange={(value) => {
+                      setLinkedThreadSelection(value)
+                      if (value !== null) {
+                        onLinkThread(ticket.id, ThreadId.make(value))
+                        setLinkedThreadSelection(null)
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      id="ticket-thread-link"
+                      size="sm"
+                      className="w-full"
+                      disabled={linkableThreads.length === 0}
+                    >
+                      <PlusIcon aria-hidden="true" />
+                      <SelectValue
+                        placeholder={
+                          linkableThreads.length === 0
+                            ? "Tous les Threads sont liés"
+                            : "Ajouter un Thread lié"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectPopup alignItemWithTrigger={false}>
+                      {linkableThreads.map((thread) => (
+                        <SelectItem key={thread.id} value={thread.id}>
+                          {thread.title}
+                        </SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
                 </section>
 
                 <section aria-labelledby="ticket-activity-title" className="border-t pt-5">

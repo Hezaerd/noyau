@@ -4,11 +4,15 @@ export default defineConfig({
   run: {
     tasks: {
       build: {
-        command: "vp pack && bun scripts/copy-renderer.mjs",
-        dependsOn: ["@noyau/web#build"],
+        command: "vp pack && node scripts/copy-renderer.mjs && node scripts/copy-server.mjs",
+        dependsOn: ["@noyau/server#build", "@noyau/web#build"],
+        // Cette séquence assemble un même dist-electron : `vp pack` le nettoie avant
+        // que les deux copies le repeuplent. Le cache indépendant des commandes `&&`
+        // peut rejouer les copies après le nettoyage sans restaurer leurs fichiers.
+        cache: false,
       },
       dev: {
-        command: "bun scripts/dev-electron.mjs",
+        command: "vp pack --watch",
         cache: false,
       },
     },
@@ -21,6 +25,9 @@ export default defineConfig({
       outExtensions: () => ({ js: ".cjs" }),
       sourcemap: true,
       clean: true,
+      deps: {
+        alwaysBundle: (id: string) => id === "@noyau/protocol" || id.startsWith("@noyau/protocol/"),
+      },
     },
     {
       entry: ["src/preload.ts"],

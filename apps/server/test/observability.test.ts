@@ -1,19 +1,11 @@
 import { assert, describe, layer } from "@effect/vitest"
-import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
 import { loggerLayer } from "@noyau/server/observability"
-import { Effect, Layer, Redacted, Tracer } from "effect"
+import { Effect, Layer, Tracer } from "effect"
 
-const config = (environment: ServerConfigValue["environment"]): ServerConfigValue => ({
-  environment,
-  databaseUrl: Redacted.make("postgresql://unused"),
-  host: "127.0.0.1",
-  port: 3001,
-  eventPollInterval: 1,
-  devActorId: "human:hezaerd",
-})
+import { testServerConfigLayer } from "./fixtures.ts"
 
 const LoggerLayer = loggerLayer.pipe(
-  Layer.provide(Layer.succeed(ServerConfig)(config("development"))),
+  Layer.provide(testServerConfigLayer({ environment: "development" })),
 )
 
 describe("server logger", () => {

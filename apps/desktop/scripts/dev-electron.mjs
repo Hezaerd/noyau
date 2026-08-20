@@ -5,11 +5,16 @@ import * as NodePath from "node:path"
 import { desktopDir, resolveElectronLaunchCommand } from "./electron-launcher.mjs"
 import { waitForResources } from "./wait-for-resources.mjs"
 
+const repositoryRoot = NodePath.resolve(desktopDir, "../..")
 const bundleDirectory = NodePath.join(desktopDir, "dist-electron")
-const watchedBundles = new Set(["main.cjs", "preload.cjs"])
+const serverBundleDirectory = NodePath.join(repositoryRoot, "apps/server/dist")
+const serverEntry = NodePath.join(serverBundleDirectory, "main.mjs")
+const watchedDesktopBundles = new Set(["main.cjs", "preload.cjs"])
+const watchedServerBundles = new Set(["main.mjs"])
 const childEnvironment = {
   ...process.env,
   NOYAU_DESKTOP_DEV: "1",
+  NOYAU_SERVER_ENTRY: serverEntry,
 }
 delete childEnvironment.ELECTRON_RUN_AS_NODE
 
@@ -22,12 +27,6 @@ let electronProcess
 let restartTimer
 let shuttingDown = false
 
-const packProcess = NodeChildProcess.spawn("vp", ["pack", "--watch"], {
-  cwd: desktopDir,
-  env: process.env,
-  stdio: "inherit",
-})
-
 const startElectron = () => {
   if (shuttingDown || electronProcess !== undefined) {
     return
@@ -39,32 +38,36 @@ const startElectron = () => {
     env: childEnvironment,
     stdio: "inherit",
   })
-  electronProcess.once("exit", () => {
+  electronProcess.once("exit", (code) => {
     electronProcess = undefined
+    if (!shuttingDown && code !== 0) {
+      process.exitCode = code ?? 1
+    }
   })
 }
 
-const stopElectron = async () => {
-  const child = electronProcess
+const stopChild = async (child) => {
   if (child === undefined) {
     return
   }
-  electronProcess = undefined
-
   await new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      resolve()
+      return
+    }
     child.once("exit", resolve)
-    child.kill("SIGTERM")
-    setTimeout(resolve, 1_500).unref()
+    child.kill()
+    setTimeout(resolve, 2_000).unref()
   })
 }
 
-const restartElectron = () => {
+const scheduleRestart = () => {
   if (restartTimer !== undefined) {
     clearTimeout(restartTimer)
   }
   restartTimer = setTimeout(() => {
     restartTimer = undefined
-    void stopElectron().then(startElectron)
+    void stopChild(electronProcess).then(startElectron)
   }, 150)
 }
 
@@ -76,30 +79,28 @@ const shutdown = async (exitCode) => {
   if (restartTimer !== undefined) {
     clearTimeout(restartTimer)
   }
-  await stopElectron()
-  packProcess.kill("SIGTERM")
+  await stopChild(electronProcess)
   process.exit(exitCode)
 }
 
-packProcess.once("exit", (code) => {
-  if (!shuttingDown && code !== 0) {
-    void shutdown(code ?? 1)
-  }
-})
-
 await waitForResources({
   baseDirectory: desktopDir,
-  files: ["dist-electron/main.cjs", "dist-electron/preload.cjs"],
+  files: ["dist-electron/main.cjs", "dist-electron/preload.cjs", "../server/dist/main.mjs"],
   host: "127.0.0.1",
   port: 5173,
 })
-
-NodeFS.watch(bundleDirectory, (_eventType, filename) => {
-  if (filename !== null && watchedBundles.has(filename)) {
-    restartElectron()
-  }
-})
 startElectron()
+
+const watchBundleDirectory = (directory, watchedFiles) => {
+  NodeFS.watch(directory, (_eventType, filename) => {
+    if (filename !== null && watchedFiles.has(filename)) {
+      scheduleRestart()
+    }
+  })
+}
+
+watchBundleDirectory(bundleDirectory, watchedDesktopBundles)
+watchBundleDirectory(serverBundleDirectory, watchedServerBundles)
 
 process.once("SIGINT", () => void shutdown(130))
 process.once("SIGTERM", () => void shutdown(143))

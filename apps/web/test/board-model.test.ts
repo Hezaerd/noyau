@@ -7,7 +7,6 @@ import {
   dependenciesForTicket,
   dependentsForTicket,
   destinationIndexAfterDrop,
-  initialBoardState,
   moveTicket,
   parseBoardSearch,
   placeTicketAt,
@@ -17,6 +16,9 @@ import {
   updateTicket,
   visibleTickets,
 } from "../src/lib/board-model"
+import { boardFixture } from "./fixtures/board"
+
+const initialBoardState = boardFixture
 
 describe("board search", () => {
   it("keeps supported URL state and drops invalid values", () => {
@@ -55,7 +57,6 @@ describe("local board preview model", () => {
 
     expect(ticketsInColumn(next, "column-active").map((ticket) => ticket.id)).toEqual([
       "ticket-board-ui",
-      "ticket-reconciliation",
       "ticket-projection",
     ])
   })
@@ -68,7 +69,7 @@ describe("local board preview model", () => {
       "ticket-projection",
       "ticket-sheet",
     ])
-    expect(ticketsInColumn(next, "column-active")).toHaveLength(2)
+    expect(ticketsInColumn(next, "column-active")).toHaveLength(1)
   })
 
   it("inserts a cross-column drop under the hovered ticket", () => {
@@ -83,7 +84,6 @@ describe("local board preview model", () => {
     expect(ticketsInColumn(next, "column-active").map((ticket) => ticket.id)).toEqual([
       "ticket-board-ui",
       "ticket-projection",
-      "ticket-reconciliation",
     ])
   })
 

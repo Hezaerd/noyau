@@ -1,17 +1,37 @@
-import { existsSync, statSync } from "node:fs"
+import { existsSync, renameSync, statSync, writeFileSync } from "node:fs"
 import { extname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
 import { Effect } from "effect"
-import { app, BrowserWindow, ipcMain, nativeTheme, net, protocol, session, shell } from "electron"
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  nativeTheme,
+  net,
+  protocol,
+  session,
+  shell,
+} from "electron"
 
+import { PICK_FOLDER_CHANNEL } from "./folder-picker"
 import {
   DESKTOP_HOST,
   DESKTOP_SCHEME,
   DESKTOP_URL,
   DEVELOPMENT_RENDERER_URL,
+  desktopUrlForServer,
   resolveRendererAssetPath,
 } from "./renderer"
+import {
+  decodeExternalBootstrap,
+  resolveServerEntryPath,
+  ServerSupervisor,
+  type ServerBootstrap,
+  type ServerSupervisorOptions,
+  type SupervisorState,
+} from "./supervisor"
 import { SET_THEME_CHANNEL } from "./theme"
 import { decodeAppearancePreference } from "./theme-schema"
 import {
@@ -22,11 +42,41 @@ import {
 
 const isDevelopment = process.env.NOYAU_DESKTOP_DEV === "1"
 const isSmokeTest = process.env.NOYAU_DESKTOP_SMOKE_TEST === "1"
+const smokeCompleteFile = process.env.NOYAU_DESKTOP_SMOKE_COMPLETE_FILE
+const smokeControlFile = process.env.NOYAU_DESKTOP_SMOKE_CONTROL_FILE
 const appDisplayName = isDevelopment ? "Noyau (Dev)" : "Noyau"
 const rendererRoot = join(__dirname, "renderer")
 const preloadPath = join(__dirname, "preload.cjs")
 
 let mainWindow: BrowserWindow | undefined
+let serverSupervisor: ServerSupervisor | undefined
+let quitAllowed = false
+let quitInProgress = false
+
+const publishSmokeSupervisorState = (state: SupervisorState): void => {
+  if (!isSmokeTest || smokeControlFile === undefined) {
+    return
+  }
+  const temporaryPath = `${smokeControlFile}.tmp`
+  writeFileSync(
+    temporaryPath,
+    `${JSON.stringify({ state, bootstrap: serverSupervisor?.bootstrap ?? null })}\n`,
+    { mode: 0o600 },
+  )
+  renameSync(temporaryPath, smokeControlFile)
+}
+
+const waitForSmokeCompletion = (): Promise<void> => {
+  if (smokeCompleteFile === undefined) {
+    return Promise.reject(
+      new Error("NOYAU_DESKTOP_SMOKE_COMPLETE_FILE is required by the desktop smoke test"),
+    )
+  }
+  if (existsSync(smokeCompleteFile)) {
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => setTimeout(resolve, 25)).then(waitForSmokeCompletion)
+}
 
 const syncMainWindowAppearance = (): void => {
   if (mainWindow === undefined || mainWindow.isDestroyed()) {
@@ -48,6 +98,15 @@ const registerThemeBridge = (): void => {
     }),
   )
   nativeTheme.on("updated", syncMainWindowAppearance)
+}
+
+const registerFolderPickerBridge = (): void => {
+  ipcMain.handle(PICK_FOLDER_CHANNEL, async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+    })
+    return result.canceled ? undefined : result.filePaths[0]
+  })
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -134,7 +193,7 @@ const openExternalUrl = (url: string): void => {
   }
 }
 
-const createMainWindow = async (): Promise<void> => {
+const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
   const shouldUseDarkColors = nativeTheme.shouldUseDarkColors
   const window = new BrowserWindow({
     width: 1440,
@@ -182,24 +241,55 @@ const createMainWindow = async (): Promise<void> => {
   })
   window.webContents.once("did-finish-load", () => {
     if (isSmokeTest) {
-      process.stdout.write("NOYAU_DESKTOP_SMOKE_TEST_OK\n")
-      app.quit()
+      void waitForSmokeCompletion()
+        .then(() => {
+          process.stdout.write("NOYAU_DESKTOP_SMOKE_TEST_OK\n")
+          return serverSupervisor?.stop()
+        })
+        .finally(() => {
+          quitAllowed = true
+          app.quit()
+        })
     }
   })
 
-  await window.loadURL(DESKTOP_URL)
+  await window.loadURL(desktopUrlForServer(bootstrap.host, bootstrap.port, bootstrap.bearerToken))
 }
 
 const launch = async (): Promise<void> => {
   await app.whenReady()
+  const externalBootstrap = decodeExternalBootstrap()
+  const baseSupervisorOptions = {
+    serverEntryPath: resolveServerEntryPath(__dirname),
+    dataDirectory: join(app.getPath("userData"), "environment"),
+    onStateChange: (state: SupervisorState) => {
+      publishSmokeSupervisorState(state)
+      if (state.phase === "degraded") {
+        process.stderr.write(
+          `[noyau-desktop] server supervisor degraded: ${state.lastError ?? "unknown"}\n`,
+        )
+      }
+    },
+  }
+  const supervisorOptions: ServerSupervisorOptions =
+    externalBootstrap === undefined
+      ? baseSupervisorOptions
+      : { ...baseSupervisorOptions, externalBootstrap }
+  serverSupervisor = new ServerSupervisor(supervisorOptions)
+  await serverSupervisor.start()
   registerRendererProtocol()
   registerThemeBridge()
+  registerFolderPickerBridge()
   session.defaultSession.setPermissionCheckHandler(() => false)
-  await createMainWindow()
+  const bootstrap = serverSupervisor.bootstrap
+  if (bootstrap === undefined) {
+    throw new Error("The Noyau Server supervisor did not provide a bootstrap")
+  }
+  await createMainWindow(bootstrap)
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      void createMainWindow()
+      void createMainWindow(bootstrap)
     }
   })
 }
@@ -212,7 +302,57 @@ app.on("window-all-closed", () => {
   }
 })
 
+app.on("before-quit", (event) => {
+  if (quitAllowed || serverSupervisor === undefined) {
+    return
+  }
+  event.preventDefault()
+  if (quitInProgress) {
+    return
+  }
+  quitInProgress = true
+  void serverSupervisor
+    .isTurnRunning()
+    .catch(() => true)
+    .then((turnRunning) => {
+      if (!turnRunning) {
+        return true
+      }
+      return dialog
+        .showMessageBox({
+          type: "question",
+          buttons: ["Cancel", "Quit and interrupt Turn"],
+          defaultId: 0,
+          cancelId: 0,
+          title: "Quit Noyau?",
+          message: "If a Turn is running, quitting will interrupt it.",
+        })
+        .then(({ response }) => {
+          if (response === 0) {
+            quitInProgress = false
+            return false
+          }
+          return true
+        })
+    })
+    .then((shouldQuit) => {
+      if (!shouldQuit) {
+        return
+      }
+      return serverSupervisor?.stop().then(() => {
+        quitAllowed = true
+        app.quit()
+        return undefined
+      })
+    })
+    .catch((cause) => {
+      quitInProgress = false
+      process.stderr.write(`Failed to stop Noyau Server: ${String(cause)}\n`)
+    })
+})
+
 void launch().catch((cause) => {
   process.stderr.write(`Failed to launch Noyau Desktop: ${String(cause)}\n`)
+  quitAllowed = true
   app.quit()
 })

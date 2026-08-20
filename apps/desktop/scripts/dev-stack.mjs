@@ -1,5 +1,4 @@
 import * as NodeChildProcess from "node:child_process"
-import * as NodeNet from "node:net"
 import * as NodePath from "node:path"
 import * as NodeURL from "node:url"
 
@@ -8,20 +7,6 @@ const desktopDirectory = NodePath.resolve(
   "..",
 )
 const repositoryRoot = NodePath.resolve(desktopDirectory, "../..")
-
-const tcpPortIsReady = (host, port) =>
-  new Promise((resolve) => {
-    const socket = NodeNet.createConnection({ host, port })
-    const finish = (ready) => {
-      socket.removeAllListeners()
-      socket.destroy()
-      resolve(ready)
-    }
-
-    socket.once("connect", () => finish(true))
-    socket.once("error", () => finish(false))
-    socket.setTimeout(500, () => finish(false))
-  })
 
 const children = []
 let shuttingDown = false
@@ -47,24 +32,15 @@ const shutdown = async (exitCode) => {
   }
   shuttingDown = true
   for (const child of children) {
-    child.kill("SIGTERM")
+    child.kill()
   }
   process.exit(exitCode)
 }
 
-if (await tcpPortIsReady("127.0.0.1", 3001)) {
-  process.stdout.write("Reusing Noyau Server on 127.0.0.1:3001.\n")
-} else {
-  spawn("bun", ["run", "--cwd", "apps/server", "dev"])
-}
-
-if (await tcpPortIsReady("127.0.0.1", 5173)) {
-  process.stdout.write("Reusing Vite on 127.0.0.1:5173.\n")
-} else {
-  spawn("vp", ["-C", "apps/web", "dev"])
-}
-
-spawn("bun", ["scripts/dev-electron.mjs"], desktopDirectory)
+spawn("vp", ["-C", "apps/web", "dev"])
+spawn("vp", ["-C", "apps/server", "pack", "--watch"])
+spawn("vp", ["-C", "apps/desktop", "pack", "--watch"])
+spawn("node", ["scripts/dev-electron.mjs"], desktopDirectory)
 
 process.once("SIGINT", () => void shutdown(130))
 process.once("SIGTERM", () => void shutdown(143))
