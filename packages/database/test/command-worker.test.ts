@@ -1,5 +1,9 @@
 import { assert, describe, layer } from "@effect/vitest"
-import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
+import {
+  type DurableReceipt,
+  makeCommandWorker,
+  type PersistedEvent,
+} from "@noyau/database/command-worker"
 import { type DrainableWorker, makeDrainableWorker } from "@noyau/database/drainable-worker"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { CommandIdConflict } from "@noyau/protocol/errors"
@@ -29,6 +33,7 @@ type CounterPersistedEvent = PersistedEvent<CounterEvent>
 const CounterRejected = Schema.TaggedStruct("CounterRejected", {
   reason: Schema.String,
 })
+type CounterRejected = (typeof CounterRejected)["Type"]
 
 class ProjectionFailure extends Schema.TaggedError<ProjectionFailure>()("ProjectionFailure", {}) {}
 
@@ -247,6 +252,9 @@ describe("durable command worker", () => {
       Effect.gen(function* () {
         yield* prepareStore
         const reacted: Array<number> = []
+        const durableCommand = command("bbbbbbbb-0000-4000-8000-000000000031", "boot", 1)
+        const durableRejection = command("bbbbbbbb-0000-4000-8000-000000000032", "boot", 1, true)
+        const firstReceipts: Array<DurableReceipt<CounterRejected>> = []
         yield* Effect.scoped(
           Effect.gen(function* () {
             const reactor = yield* makeDrainableWorker((event: CounterPersistedEvent) =>
@@ -255,7 +263,8 @@ describe("durable command worker", () => {
               }),
             )
             const worker = yield* makeCommandWorker(makeOptions(reactor, { count: 0 }))
-            yield* worker.dispatch(command("bbbbbbbb-0000-4000-8000-000000000031", "boot", 1))
+            firstReceipts.push(yield* worker.dispatch(durableCommand))
+            firstReceipts.push(yield* worker.dispatch(durableRejection))
             yield* worker.drainReactors
           }),
         )
@@ -266,8 +275,15 @@ describe("durable command worker", () => {
                 reacted.push(event.sequence)
               }),
             )
-            const worker = yield* makeCommandWorker(makeOptions(reactor, { count: 0 }))
+            const decisions = { count: 0 }
+            const worker = yield* makeCommandWorker(makeOptions(reactor, decisions))
+            const retried = [
+              yield* worker.dispatch(durableCommand),
+              yield* worker.dispatch(durableRejection),
+            ]
             yield* worker.drainReactors
+            assert.deepStrictEqual(retried, firstReceipts)
+            assert.strictEqual(decisions.count, 0)
           }),
         )
         assert.deepStrictEqual(reacted, [1])
