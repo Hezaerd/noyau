@@ -79,36 +79,38 @@ const makeOptions = (
   reactor: DrainableWorker<CounterPersistedEvent>,
   decisions: { count: number },
   recoverStateAfterReplay?: (state: number) => number,
-) => ({
-  commandSchema: CounterCommand,
-  eventSchema: CounterEvent,
-  rejectionSchema: CounterRejected,
-  metadata: (input: CounterCommand) => input,
-  aggregate: (input: CounterCommand) => ({ kind: "counter", id: input.aggregateId }),
-  initialState: () => 0,
-  decide: (state: number, input: CounterCommand) => {
-    decisions.count = decisions.count + 1
-    return input.reject
-      ? Result.fail(CounterRejected.make({ reason: `rejected at ${state}` }))
-      : Result.succeed([CounterEvent.make({ amount: input.amount })])
-  },
-  evolve: (state: number, event: CounterEvent) => state + event.amount,
-  ...(recoverStateAfterReplay === undefined ? {} : { recoverStateAfterReplay }),
-  project: (event: CounterPersistedEvent) =>
-    Effect.gen(function* () {
-      const sql = yield* SqlClient
-      yield* sql`
-        INSERT INTO counter_projection (aggregate_id, value)
-        VALUES (${event.aggregate.id}, ${event.event.amount})
-        ON CONFLICT (aggregate_id) DO UPDATE
-          SET value = value + excluded.value
-      `
-      if (event.event.amount === 13) {
-        return yield* new ProjectionFailure()
-      }
-    }),
-  reactor,
-})
+) => {
+  const options = {
+    commandSchema: CounterCommand,
+    eventSchema: CounterEvent,
+    rejectionSchema: CounterRejected,
+    metadata: (input: CounterCommand) => input,
+    aggregate: (input: CounterCommand) => ({ kind: "counter", id: input.aggregateId }),
+    initialState: () => 0,
+    decide: (state: number, input: CounterCommand) => {
+      decisions.count = decisions.count + 1
+      return input.reject
+        ? Result.fail(CounterRejected.make({ reason: `rejected at ${state}` }))
+        : Result.succeed([CounterEvent.make({ amount: input.amount })])
+    },
+    evolve: (state: number, event: CounterEvent) => state + event.amount,
+    project: (event: CounterPersistedEvent) =>
+      Effect.gen(function* () {
+        const sql = yield* SqlClient
+        yield* sql`
+          INSERT INTO counter_projection (aggregate_id, value)
+          VALUES (${event.aggregate.id}, ${event.event.amount})
+          ON CONFLICT (aggregate_id) DO UPDATE
+            SET value = value + excluded.value
+        `
+        if (event.event.amount === 13) {
+          return yield* new ProjectionFailure()
+        }
+      }),
+    reactor,
+  }
+  return recoverStateAfterReplay === undefined ? options : { ...options, recoverStateAfterReplay }
+}
 
 const projectionValue = (aggregateId: string) =>
   Effect.gen(function* () {
