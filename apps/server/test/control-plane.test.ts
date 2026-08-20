@@ -291,7 +291,7 @@ describe("ControlPlane", () => {
         assert.strictEqual(createError.workspaceRoot, "/tmp")
         assert.strictEqual(createError.projectId, projectId)
 
-        yield* controlPlane.dispatch(projectCreate(uuid(3), otherProjectId, "/workspace"), actorId)
+        yield* controlPlane.dispatch(projectCreate(uuid(3), otherProjectId, "/"), actorId)
         const rebind = request({
           _tag: "project.rebind",
           commandId: uuid(4),
