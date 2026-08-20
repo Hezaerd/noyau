@@ -165,6 +165,51 @@ describe("ControlPlane", () => {
     ),
   )
 
+  it.effect("attaches the live project buffer before catch-up", () =>
+    Effect.gen(function* () {
+      const catchUpStarted = yield* Deferred.make<void>()
+      const releaseCatchUp = yield* Deferred.make<void>()
+      const hooks: ControlPlaneHooks = {
+        beforeProjectCatchUp: () =>
+          Deferred.succeed(catchUpStarted, undefined).pipe(
+            Effect.andThen(Deferred.await(releaseCatchUp)),
+          ),
+      }
+      const program = Effect.gen(function* () {
+        const controlPlane = yield* ControlPlane
+        const created = yield* controlPlane.dispatch(projectCreate(), actorId)
+        const historical = yield* controlPlane.dispatch(
+          projectRename(uuid(2), "Historical"),
+          actorId,
+        )
+        const subscription = yield* controlPlane
+          .subscribeProject({
+            projectId,
+            afterSequence: created.sequence,
+            requestCompletionMarker: true,
+          })
+          .pipe(Stream.take(3), Stream.runCollect, Effect.forkChild)
+        yield* Deferred.await(catchUpStarted)
+        const live = yield* controlPlane.dispatch(projectRename(uuid(3), "Live"), actorId)
+        yield* Deferred.succeed(releaseCatchUp, undefined)
+        const frames = yield* Fiber.join(subscription)
+
+        assert.strictEqual(frames[0]?.kind, "event")
+        assert.strictEqual(
+          frames[0]?.kind === "event" ? frames[0].event.sequence : -1,
+          historical.sequence,
+        )
+        assert.strictEqual(frames[1]?.kind, "event")
+        assert.strictEqual(
+          frames[1]?.kind === "event" ? frames[1].event.sequence : -1,
+          live.sequence,
+        )
+        assert.strictEqual(frames[2]?.kind, "synchronized")
+      })
+      yield* run(program, hooks)
+    }),
+  )
+
   it.effect("buffers live project events before the snapshot is released", () =>
     Effect.gen(function* () {
       const snapshotRead = yield* Deferred.make<void>()

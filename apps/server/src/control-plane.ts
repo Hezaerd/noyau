@@ -412,6 +412,7 @@ export class ControlPlane extends Context.Service<ControlPlane, ControlPlaneServ
 ) {}
 
 export interface ControlPlaneHooks {
+  readonly beforeProjectCatchUp?: (headSequence: SequenceType) => Effect.Effect<void>
   readonly afterShellSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
   readonly afterProjectSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
   readonly afterThreadSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
@@ -479,6 +480,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               replayGap !== undefined &&
               !requiresFreshSnapshot(replayGap)
             ) {
+              yield* hooks.beforeProjectCatchUp?.(Sequence.make(head)) ?? Effect.void
               const catchUp = yield* worker
                 .readEvents(input.afterSequence, Math.max(1, replayGap))
                 .pipe(Effect.mapError(unavailable("project-stream")))
