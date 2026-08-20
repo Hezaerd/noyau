@@ -114,11 +114,9 @@ const getProjectSnapshot = Effect.fn("ControlPlaneClient.getProjectSnapshot")(fu
     Stream.runHead,
   )
   if (Option.isNone(item)) {
-    return yield* Effect.fail(
-      new ProjectSnapshotUnavailable({
-        message: "Project subscription ended before its snapshot.",
-      }),
-    )
+    return yield* new ProjectSnapshotUnavailable({
+      message: "Project subscription ended before its snapshot.",
+    })
   }
   return item.value.snapshot
 })
