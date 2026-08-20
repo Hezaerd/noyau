@@ -18,6 +18,11 @@ import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotice
 import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
 import type { BoardTicket } from "../src/lib/board-model"
 
+Object.defineProperty(HTMLElement.prototype, "getAnimations", {
+  configurable: true,
+  value: () => [],
+})
+
 afterEach(() => {
   cleanup()
 })
