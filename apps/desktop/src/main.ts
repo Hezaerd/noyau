@@ -1,4 +1,4 @@
-import { existsSync, statSync } from "node:fs"
+import { existsSync, renameSync, statSync, writeFileSync } from "node:fs"
 import { extname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
@@ -42,6 +42,8 @@ import {
 
 const isDevelopment = process.env.NOYAU_DESKTOP_DEV === "1"
 const isSmokeTest = process.env.NOYAU_DESKTOP_SMOKE_TEST === "1"
+const smokeCompleteFile = process.env.NOYAU_DESKTOP_SMOKE_COMPLETE_FILE
+const smokeControlFile = process.env.NOYAU_DESKTOP_SMOKE_CONTROL_FILE
 const appDisplayName = isDevelopment ? "Noyau (Dev)" : "Noyau"
 const rendererRoot = join(__dirname, "renderer")
 const preloadPath = join(__dirname, "preload.cjs")
@@ -50,6 +52,28 @@ let mainWindow: BrowserWindow | undefined
 let serverSupervisor: ServerSupervisor | undefined
 let quitAllowed = false
 let quitInProgress = false
+
+const publishSmokeSupervisorState = (state: SupervisorState): void => {
+  if (!isSmokeTest || smokeControlFile === undefined) {
+    return
+  }
+  const temporaryPath = `${smokeControlFile}.tmp`
+  writeFileSync(
+    temporaryPath,
+    `${JSON.stringify({ state, bootstrap: serverSupervisor?.bootstrap ?? null })}\n`,
+    { mode: 0o600 },
+  )
+  renameSync(temporaryPath, smokeControlFile)
+}
+
+const waitForSmokeCompletion = async (): Promise<void> => {
+  if (smokeCompleteFile === undefined) {
+    throw new Error("NOYAU_DESKTOP_SMOKE_COMPLETE_FILE is required by the desktop smoke test")
+  }
+  while (!existsSync(smokeCompleteFile)) {
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+}
 
 const syncMainWindowAppearance = (): void => {
   if (mainWindow === undefined || mainWindow.isDestroyed()) {
@@ -214,11 +238,15 @@ const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
   })
   window.webContents.once("did-finish-load", () => {
     if (isSmokeTest) {
-      process.stdout.write("NOYAU_DESKTOP_SMOKE_TEST_OK\n")
-      void serverSupervisor?.stop().finally(() => {
-        quitAllowed = true
-        app.quit()
-      })
+      void waitForSmokeCompletion()
+        .then(() => {
+          process.stdout.write("NOYAU_DESKTOP_SMOKE_TEST_OK\n")
+          return serverSupervisor?.stop()
+        })
+        .finally(() => {
+          quitAllowed = true
+          app.quit()
+        })
     }
   })
 
@@ -232,6 +260,7 @@ const launch = async (): Promise<void> => {
     serverEntryPath: resolveServerEntryPath(__dirname),
     dataDirectory: join(app.getPath("userData"), "environment"),
     onStateChange: (state: SupervisorState) => {
+      publishSmokeSupervisorState(state)
       if (state.phase === "degraded") {
         process.stderr.write(
           `[noyau-desktop] server supervisor degraded: ${state.lastError ?? "unknown"}\n`,
