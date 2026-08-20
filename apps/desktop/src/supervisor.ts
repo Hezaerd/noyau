@@ -3,7 +3,6 @@ import { randomBytes, randomUUID } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { join } from "node:path"
-import type { Writable } from "node:stream"
 
 import { Schema } from "effect"
 
@@ -70,6 +69,14 @@ type ReadinessOptions = {
   fetchImpl?: typeof fetch
   sleep?: (milliseconds: number) => Promise<void>
   probeRpc?: (bootstrap: ServerBootstrap) => Promise<void>
+}
+
+interface MutableServerBootstrapOptions {
+  dataDirectory: string
+  bundleVersion?: string
+  serverVersion?: string
+  actorId?: string
+  environmentId?: string
 }
 
 const readinessOptions = (options: ServerSupervisorOptions): ReadinessOptions => {
@@ -334,13 +341,7 @@ export class ServerSupervisor {
     if (this.stopping) {
       return
     }
-    const bootstrapOptions: {
-      dataDirectory: string
-      bundleVersion?: string
-      serverVersion?: string
-      actorId?: string
-      environmentId?: string
-    } = {
+    const bootstrapOptions: MutableServerBootstrapOptions = {
       dataDirectory: this.options.dataDirectory,
     }
     if (this.options.bundleVersion !== undefined) {
@@ -399,8 +400,10 @@ export class ServerSupervisor {
     child.stdout?.on("data", (chunk) => process.stdout.write(`[noyau-server] ${chunk}`))
     child.stderr?.on("data", (chunk) => process.stderr.write(`[noyau-server] ${chunk}`))
     // SAFETY: stdio index 3 is configured as a writable pipe in this spawn call.
-    const bootstrapPipe = child.stdio[3] as Writable | null
-    bootstrapPipe?.end(encodeBootstrap(bootstrap))
+    const bootstrapPipe = child.stdio[3]
+    if (bootstrapPipe !== null && "end" in bootstrapPipe) {
+      bootstrapPipe.end(encodeBootstrap(bootstrap))
+    }
     child.once("exit", () => {
       if (!this.stopping && this.stateValue.phase === "ready") {
         this.scheduleRestart(new Error("The Noyau Server exited unexpectedly"))

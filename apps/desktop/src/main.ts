@@ -29,6 +29,7 @@ import {
   ServerSupervisor,
   type ServerBootstrap,
   type ServerSupervisorOptions,
+  type SupervisorState,
 } from "./supervisor"
 import { SET_THEME_CHANNEL } from "./theme"
 import { decodeAppearancePreference } from "./theme-schema"
@@ -220,7 +221,7 @@ const launch = async (): Promise<void> => {
   const baseSupervisorOptions = {
     serverEntryPath: resolveServerEntryPath(__dirname),
     dataDirectory: join(app.getPath("userData"), "environment"),
-    onStateChange: (state) => {
+    onStateChange: (state: SupervisorState) => {
       if (state.phase === "degraded") {
         process.stderr.write(
           `[noyau-desktop] server supervisor degraded: ${state.lastError ?? "unknown"}\n`,
