@@ -18,7 +18,7 @@ import { makeProjectCreateRequest, makeProjectRebindRequest } from "@/lib/projec
 
 interface ProjectFolderDialogProps {
   readonly open: boolean
-  readonly projectId?: ProjectId
+  readonly projectId: ProjectId | undefined
   readonly onOpenChange: (open: boolean) => void
 }
 

@@ -118,14 +118,24 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
   }, [])
 
   const value = useMemo<ControlPlaneContextValue>(
-    () => ({
-      shell,
-      projects: shell?.projects ?? [],
-      threads: shell?.threads ?? [],
-      ...(lastProjectId === undefined ? {} : { lastProjectId }),
-      ...(error === undefined ? {} : { error }),
-      selectProject,
-    }),
+    () => {
+      const base = {
+        shell,
+        projects: shell?.projects ?? [],
+        threads: shell?.threads ?? [],
+        selectProject,
+      }
+      if (lastProjectId !== undefined && error !== undefined) {
+        return { ...base, lastProjectId, error }
+      }
+      if (lastProjectId !== undefined) {
+        return { ...base, lastProjectId }
+      }
+      if (error !== undefined) {
+        return { ...base, error }
+      }
+      return base
+    },
     [error, lastProjectId, selectProject, shell],
   )
 

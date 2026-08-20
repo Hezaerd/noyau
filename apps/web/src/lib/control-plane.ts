@@ -1,6 +1,7 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { EventEnvelope } from "@noyau/protocol/events"
+import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/protocol/errors"
 import type { ProjectId, Sequence } from "@noyau/protocol/ids"
 import type { DispatchResult } from "@noyau/protocol/receipts"
 import {
@@ -69,8 +70,10 @@ const runtime = ManagedRuntime.make(
   ),
 )
 
-const runOperation = async <A, E, R>(
-  operation: Effect.Effect<A, E, R>,
+type ControlPlaneStreamError = RpcClientError | Forbidden | MissingIdentity | ServiceUnavailable
+
+const runOperation = async <A, E>(
+  operation: Effect.Effect<A, E, ControlPlaneClient>,
 ): Promise<ControlPlaneResult<A>> => {
   const exit = await runtime.runPromiseExit(operation)
 
@@ -119,7 +122,17 @@ export const dispatchCommand = (
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,
 ): Promise<ControlPlaneResult<DispatchResult>> =>
-  runOperation(request.pipe(Effect.flatMap((built) => dispatch(built))))
+  runOperationWithCrypto(request.pipe(Effect.flatMap((built) => dispatch(built))))
+
+const runOperationWithCrypto = async <A, E>(
+  operation: Effect.Effect<A, E, ControlPlaneClient | Crypto.Crypto>,
+): Promise<ControlPlaneResult<A>> => {
+  const exit = await runtime.runPromiseExit(operation)
+  return Exit.match(exit, {
+    onFailure: (cause) => ({ ok: false, details: Cause.pretty(cause) }),
+    onSuccess: (value) => ({ ok: true, value }),
+  })
+}
 
 type StreamCallbacks<Snapshot, Event> = {
   readonly onSnapshot: (snapshot: Snapshot) => void
@@ -128,7 +141,7 @@ type StreamCallbacks<Snapshot, Event> = {
 }
 
 const startSubscription = <Snapshot, Event>(
-  stream: Effect.Effect<void, RpcClientError, ControlPlaneClient>,
+  stream: Effect.Effect<void, ControlPlaneStreamError, ControlPlaneClient>,
   callbacks: StreamCallbacks<Snapshot, Event>,
 ) => {
   const fiber = runtime.runFork(
@@ -157,7 +170,7 @@ export const acceptsSequence = (
 ): boolean => lastSequence === undefined || nextSequence > lastSequence
 
 const consumeShellStream = (
-  stream: Stream.Stream<ShellStreamItem, RpcClientError>,
+  stream: Stream.Stream<ShellStreamItem, ControlPlaneStreamError>,
   callbacks: StreamCallbacks<ShellSnapshot, ShellLiveEvent>,
 ) => {
   let lastSequence: Sequence | undefined
@@ -184,7 +197,7 @@ const consumeShellStream = (
 }
 
 const consumeProjectStream = (
-  stream: Stream.Stream<ProjectStreamItem, RpcClientError>,
+  stream: Stream.Stream<ProjectStreamItem, ControlPlaneStreamError>,
   callbacks: StreamCallbacks<BoardSnapshot, EventEnvelope>,
 ) => {
   let lastSequence: Sequence | undefined

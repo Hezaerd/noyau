@@ -29,9 +29,9 @@ export const decodeControlPlaneConfig = (
   })
 }
 
-const desktopRuntimeConfig = (): ControlPlaneEnvironmentInput => {
+const desktopRuntimeConfig = () => {
   if (!("window" in globalThis)) {
-    return {}
+    return {} satisfies ControlPlaneEnvironmentInput
   }
   const query = new URLSearchParams(globalThis.window.location.search)
   const rpcUrl = query.get("rpc")
@@ -43,7 +43,7 @@ const desktopRuntimeConfig = (): ControlPlaneEnvironmentInput => {
   if (bearerToken !== null) {
     config.VITE_NOYAU_BEARER_TOKEN = bearerToken
   }
-  return config
+  return config satisfies ControlPlaneEnvironmentInput
 }
 
 export const controlPlaneConfig = decodeControlPlaneConfig({
