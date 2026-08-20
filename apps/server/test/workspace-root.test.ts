@@ -6,7 +6,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it } from "@effect/vitest"
 import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { WorkspaceRootAccess, workspaceRootAccessLayer } from "@noyau/server/workspace-root"
-import { Effect, Schema } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 describe("WorkspaceRootAccess", () => {
   it.effect("accepts only an accessible existing directory", () => {
@@ -18,14 +18,17 @@ describe("WorkspaceRootAccess", () => {
     const regularFile = Schema.decodeSync(WorkspaceRoot)(file)
     const nonexistent = Schema.decodeSync(WorkspaceRoot)(missing)
 
-    return Effect.gen(function* () {
-      const access = yield* WorkspaceRootAccess
-      assert.isTrue(yield* access.isAvailable(available))
-      assert.isFalse(yield* access.isAvailable(regularFile))
-      assert.isFalse(yield* access.isAvailable(nonexistent))
-    }).pipe(
-      Effect.provide(workspaceRootAccessLayer),
-      Effect.provide(NodeFileSystem.layer),
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const services = yield* Layer.build(
+          workspaceRootAccessLayer.pipe(Layer.provide(NodeFileSystem.layer)),
+        )
+        const access = Context.get(services, WorkspaceRootAccess)
+        assert.isTrue(yield* access.isAvailable(available))
+        assert.isFalse(yield* access.isAvailable(regularFile))
+        assert.isFalse(yield* access.isAvailable(nonexistent))
+      }),
+    ).pipe(
       Effect.ensuring(
         Effect.sync(() => {
           rmSync(directory, { force: true, recursive: true })

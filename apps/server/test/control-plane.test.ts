@@ -171,7 +171,9 @@ describe("ControlPlane", () => {
         assert.strictEqual(
           unavailableShell.pipe(
             Option.flatMap((frame) =>
-              frame.kind === "snapshot" ? Option.some(frame.snapshot.projects[0]) : Option.none(),
+              frame.kind === "snapshot"
+                ? Option.fromNullishOr(frame.snapshot.projects[0])
+                : Option.none(),
             ),
             Option.map((project) => project.available),
             Option.getOrUndefined,

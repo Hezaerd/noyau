@@ -270,6 +270,7 @@ export const superviseSubscription = <Session>({
           retrying = false
           connect()
         }, attempt)
+        return undefined
       })
     })
   }

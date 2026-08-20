@@ -3,7 +3,6 @@ import { Environment } from "@noyau/protocol/entities/environment"
 import { ResumeCursor } from "@noyau/protocol/entities/session"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import { DomainEvent } from "@noyau/protocol/events"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { ShellSnapshot } from "@noyau/protocol/shell"
 import { Effect, Option, Schema } from "effect"
@@ -131,7 +130,7 @@ const decodeThreadSnapshot = Schema.decodeUnknownEffect(ThreadSnapshot)
 const decodeShellSnapshot = Schema.decodeUnknownEffect(ShellSnapshot)
 const decodeResumeCursor = Schema.decodeEffect(Schema.fromJsonString(ResumeCursor))
 const decodeTranscriptItem = Schema.decodeEffect(Schema.fromJsonString(TranscriptItem))
-const decodeDomainEvent = Schema.decodeEffect(Schema.fromJsonString(DomainEvent))
+const decodeJson = Schema.decodeEffect(Schema.UnknownFromJsonString)
 const encodeEnvironment = Schema.encodeEffect(Environment)
 
 const readLatestSequence = Effect.fn("Snapshots.readLatestSequence")(function* () {
@@ -335,7 +334,18 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
           Effect.map((row) => ({ ticketId: row.ticket_id, threadId: row.thread_id })),
         ),
       )
-      const activityByTicket = new Map<string, Array<Record<string, unknown>>>()
+      interface EncodedActivityEnvelope {
+        readonly eventId: string
+        readonly sequence: number
+        readonly projectId: string
+        readonly actorId: string
+        readonly correlationId: string
+        readonly causationId: string
+        readonly occurredAt: string
+        readonly schemaVersion: number
+        readonly event: unknown
+      }
+      const activityByTicket = new Map<string, Array<EncodedActivityEnvelope>>()
       for (const raw of rawTicketActivity) {
         const row = yield* decodeTicketActivityRow(raw).pipe(Effect.orDie)
         const events = activityByTicket.get(row.ticket_id) ?? []
@@ -348,7 +358,7 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
           causationId: row.causation_id,
           occurredAt: row.occurred_at,
           schemaVersion: row.schema_version,
-          event: yield* decodeDomainEvent(row.event).pipe(Effect.orDie),
+          event: yield* decodeJson(row.event).pipe(Effect.orDie),
         })
         activityByTicket.set(row.ticket_id, events)
       }

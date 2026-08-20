@@ -212,7 +212,7 @@ describe("Ticket dependencies and entities", () => {
       correlationId: ids.correlation,
       causationId: ids.command,
       occurredAt: "2026-08-13T12:00:00.000Z",
-      schemaVersion: 1,
+      schemaVersion: 1 as const,
       event: {
         _tag: "ticket.created",
         ticketId: ids.ticket,
@@ -220,7 +220,7 @@ describe("Ticket dependencies and entities", () => {
         rank: "a0",
         title: "Ticket",
       },
-    }
+    } as const
 
     expect(() =>
       Schema.decodeSync(TicketActivity)({

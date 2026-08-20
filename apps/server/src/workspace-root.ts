@@ -25,7 +25,7 @@ export const workspaceRootAccessLayer = Layer.effect(
                   .pipe(Effect.as(true))
               : Effect.succeed(false),
           ),
-          Effect.catch(() => Effect.succeed(false)),
+          Effect.orElseSucceed(() => false),
         ),
     })
   }),

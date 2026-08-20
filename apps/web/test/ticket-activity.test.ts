@@ -125,8 +125,11 @@ describe("ticket activity", () => {
       ticketActivity: [{ ticketId, events: [Schema.encodeSync(EventEnvelope)(envelope)] }],
     })
 
-    expect(ticketActivityFromSnapshot(snapshot, snapshot.ticketActivity[0]!.ticketId)).toEqual([
-      envelope,
-    ])
+    const activity = snapshot.ticketActivity[0]
+    expect(activity).toBeDefined()
+    if (activity === undefined) {
+      throw new Error("Expected persisted Ticket activity")
+    }
+    expect(ticketActivityFromSnapshot(snapshot, activity.ticketId)).toEqual([envelope])
   })
 })

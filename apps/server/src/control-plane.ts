@@ -25,6 +25,7 @@ import {
 import type { ClientCommandRequest, Command as CommandType } from "@noyau/protocol/commands"
 import { Command } from "@noyau/protocol/commands"
 import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import { Project } from "@noyau/protocol/entities/project"
 import type { CommandIdConflict } from "@noyau/protocol/errors"
 import { ServiceUnavailable } from "@noyau/protocol/errors"
 import {
@@ -183,13 +184,11 @@ const workspaceRootForProject = Effect.fn("ControlPlane.workspaceRootForProject"
     (typeof WorkspaceRootRow)["Encoded"]
   >`SELECT workspace_root FROM projection_projects WHERE project_id = ${projectId}`
   const row = rows[0]
-  return row === undefined
-    ? Option.none<WorkspaceRoot>()
-    : Option.some(
-        Schema.decodeSync(WorkspaceRoot)(
-          (yield* decodeWorkspaceRootRow(row).pipe(Effect.orDie)).workspace_root,
-        ),
-      )
+  if (row === undefined) {
+    return Option.none<WorkspaceRoot>()
+  }
+  const workspaceRoot = (yield* decodeWorkspaceRootRow(row).pipe(Effect.orDie)).workspace_root
+  return Option.some(yield* Schema.decodeEffect(WorkspaceRoot)(workspaceRoot).pipe(Effect.orDie))
 })
 
 const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
@@ -525,7 +524,14 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           const available = yield* workspaceRoots.isAvailable(snapshot.value.project.workspaceRoot)
           return Option.some({
             ...snapshot.value,
-            project: { ...snapshot.value.project, available },
+            project: new Project({
+              id: snapshot.value.project.id,
+              name: snapshot.value.project.name,
+              workspaceRoot: snapshot.value.project.workspaceRoot,
+              available,
+              createdAt: snapshot.value.project.createdAt,
+              updatedAt: snapshot.value.project.updatedAt,
+            }),
           })
         },
       )
@@ -544,7 +550,11 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
 
       const dispatch: ControlPlaneService["dispatch"] = Effect.fn("ControlPlane.dispatch")(
         function* (request, actorId) {
-          yield* ensureWorkspaceAvailable(request)
+          yield* ensureWorkspaceAvailable(request).pipe(
+            Effect.mapError((error) =>
+              error._tag === "SqlError" ? new ServiceUnavailable({ service: "sqlite" }) : error,
+            ),
+          )
           const command = yield* enrichCommand(request, actorId).pipe(
             Effect.provideService(SqlClient, sql),
             Effect.mapError(unavailable("sqlite")),
