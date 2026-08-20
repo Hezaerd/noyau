@@ -1,9 +1,10 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { ArrowDownIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import { useMemo, type ReactNode } from "react"
 
 import { ThreadTranscriptItem } from "@/components/thread/ThreadTranscriptItem"
 import { ThreadTranscriptToolGroup } from "@/components/thread/ThreadTranscriptTool"
+import { ThreadTurnMinimap } from "@/components/thread/ThreadTurnMinimap"
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import {
   MessageScroller,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/message-scroller"
 import { Spinner } from "@/components/ui/spinner"
 import { groupTranscriptRows, transcriptGroupRowId, transcriptRowId } from "@/lib/thread-transcript"
+import { deriveTurnMinimapItems, TURN_MINIMAP_MIN_ITEMS } from "@/lib/thread-turn-minimap"
 
 export function ThreadTranscript({
   transcript,
@@ -45,6 +47,7 @@ export function ThreadTranscript({
     (lastItem === undefined ||
       lastItem._tag === "transcript.user" ||
       lastItem._tag === "transcript.tool")
+  const minimapItems = useMemo(() => deriveTurnMinimapItems(transcript), [transcript])
 
   return (
     <MessageScrollerProvider autoScroll>
@@ -121,6 +124,9 @@ export function ThreadTranscript({
             )}
           </MessageScrollerContent>
         </MessageScrollerViewport>
+        {minimapItems.length >= TURN_MINIMAP_MIN_ITEMS ? (
+          <ThreadTurnMinimap items={minimapItems} />
+        ) : null}
         <MessageScrollerButton>
           <ArrowDownIcon />
           <span className="sr-only">Aller au dernier message</span>

@@ -4,7 +4,7 @@ import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { ProjectId, ThreadId, TicketId, TurnId } from "@noyau/protocol/ids"
 import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect, Schema } from "effect"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
@@ -276,6 +276,92 @@ describe("rendered Thread UI evidence", () => {
         expect(screen.getByText("ClinicCard.astro")).toBeTruthy()
       }),
     ))
+
+  it("hides the Turn rail until the Thread has two user Turns", () => {
+    const firstTurn = TurnId.make("40000000-0000-4000-8000-000000000001")
+    render(
+      <ThreadTranscript
+        transcript={[
+          Schema.decodeSync(TranscriptItem)({
+            _tag: "transcript.user",
+            threadId,
+            turnId: firstTurn,
+            text: "Seul prompt",
+          }),
+        ]}
+        isRunning={false}
+        loading={false}
+        error={undefined}
+        notices={null}
+        footer={null}
+        answerByRequest={{}}
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId("thread-turn-minimap")).toBeNull()
+  })
+
+  it("shows a Turn rail preview when the pointer scrubs the left gutter", () => {
+    const firstTurn = TurnId.make("40000000-0000-4000-8000-000000000001")
+    const secondTurn = TurnId.make("40000000-0000-4000-8000-000000000002")
+    render(
+      <ThreadTranscript
+        transcript={[
+          Schema.decodeSync(TranscriptItem)({
+            _tag: "transcript.user",
+            threadId,
+            turnId: firstTurn,
+            text: "Premier prompt",
+          }),
+          Schema.decodeSync(TranscriptItem)({
+            _tag: "transcript.assistant",
+            threadId,
+            turnId: firstTurn,
+            text: "Première réponse",
+          }),
+          Schema.decodeSync(TranscriptItem)({
+            _tag: "transcript.user",
+            threadId,
+            turnId: secondTurn,
+            text: "Deuxième prompt",
+          }),
+          Schema.decodeSync(TranscriptItem)({
+            _tag: "transcript.assistant",
+            threadId,
+            turnId: secondTurn,
+            text: "Deuxième réponse",
+          }),
+        ]}
+        isRunning={false}
+        loading={false}
+        error={undefined}
+        notices={null}
+        footer={null}
+        answerByRequest={{}}
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    const rail = screen.getByTestId("thread-turn-minimap")
+    const button = rail.querySelector("button")
+    expect(button).toBeTruthy()
+    if (button === null) {
+      return
+    }
+
+    button.getBoundingClientRect = () => new DOMRect(12, 100, 40, 8)
+
+    expect(rail.querySelector("[data-turn-minimap-preview]")).toBeNull()
+    fireEvent.mouseMove(button, { clientY: 108 })
+    const preview = rail.querySelector("[data-turn-minimap-preview]")
+    expect(preview?.textContent).toContain("Deuxième prompt")
+    expect(preview?.textContent).toContain("Deuxième réponse")
+  })
 
   it("renders streamed assistant markdown inside a Message row", () => {
     const item = Schema.decodeSync(TranscriptItem)({
