@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { join } from "node:path"
 
-import { ControlPlaneRpcs } from "@noyau/protocol/rpc"
+import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/protocol/rpc"
 import { Effect, Layer, Schema } from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
 import { Socket } from "effect/unstable/socket"
@@ -153,21 +153,23 @@ export const probeRpc = async (
 ): Promise<void> => {
   const rpcRequest = Effect.gen(function* () {
     const client = yield* RpcClient.make(ControlPlaneRpcs)
-    const result = yield* client.GetConfig({}).pipe(Effect.timeout(500))
+    const result = yield* client[RPC_METHODS.getConfig]({}).pipe(Effect.timeout(500))
     if (result._tag === "None") {
       return yield* Effect.fail(new Error("Timed out waiting for server.getConfig"))
     }
     return result.value
   }).pipe(
-    Effect.provide(RpcClient.layerProtocolSocket({ retryTransientErrors: false })),
     Effect.provide(
-      Socket.layerWebSocket(`ws://${bootstrap.host}:${bootstrap.port}/rpc`, {
-        openTimeout: 500,
-        protocols: [`noyau-bearer.${bootstrap.bearerToken}`],
-      }),
+      RpcClient.layerProtocolSocket({ retryTransientErrors: false }).pipe(
+        Layer.provide(
+          Socket.layerWebSocket(`ws://${bootstrap.host}:${bootstrap.port}/rpc`, {
+            openTimeout: 500,
+            protocols: [`noyau-bearer.${bootstrap.bearerToken}`],
+          }).pipe(Layer.provide(Layer.succeed(Socket.WebSocketConstructor)(webSocketConstructor))),
+        ),
+        Layer.provide(RpcSerialization.layerJson),
+      ),
     ),
-    Effect.provide(RpcSerialization.layerJson),
-    Effect.provide(Layer.succeed(Socket.WebSocketConstructor)(webSocketConstructor)),
   )
 
   await Effect.runPromise(Effect.scoped(rpcRequest))

@@ -1,3 +1,5 @@
+import { Schema } from "effect"
+import type { Socket } from "effect/unstable/socket"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
@@ -8,8 +10,6 @@ import {
   waitForServerReady,
   type ServerBootstrap,
 } from "./supervisor"
-import { Schema } from "effect"
-import { Socket } from "effect/unstable/socket"
 
 const bootstrap = {
   dataDirectory: "/tmp/noyau",
@@ -24,33 +24,44 @@ const bootstrap = {
   serverVersion: "0.1.0",
 } satisfies ServerBootstrap
 
-const RpcMessage = Schema.Union(
-  Schema.Struct({
-    _tag: Schema.Literal("Ping"),
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("Request"),
-    id: Schema.Union(Schema.String, Schema.Number),
+const RpcMessage = Schema.Union([
+  Schema.TaggedStruct("Ping", {}),
+  Schema.TaggedStruct("Request", {
+    id: Schema.Union([Schema.String, Schema.Finite]),
     tag: Schema.String,
   }),
-)
+])
 
-class FakeWebSocket extends EventTarget {
+class FakeWebSocket extends EventTarget implements globalThis.WebSocket {
+  readonly CONNECTING = 0
+  readonly OPEN = 1
+  readonly CLOSING = 2
+  readonly CLOSED = 3
   readonly requests: Array<{ readonly tag: string }> = []
+  readonly extensions = ""
+  readonly protocol = ""
+  readonly url: string
+  readonly bufferedAmount = 0
+  binaryType: BinaryType = "blob"
+  onclose: globalThis.WebSocket["onclose"] = null
+  onerror: globalThis.WebSocket["onerror"] = null
+  onmessage: globalThis.WebSocket["onmessage"] = null
+  onopen: globalThis.WebSocket["onopen"] = null
   readyState = 0
 
-  constructor(
-    readonly url: string,
-    readonly protocols: string | Array<string> | undefined,
-  ) {
+  constructor(readonly protocols: string | Array<string> | undefined, url: string) {
     super()
+    this.url = url
     queueMicrotask(() => {
       this.readyState = 1
       this.dispatchEvent(new Event("open"))
     })
   }
 
-  send(data: string): void {
+  send(data: string | ArrayBufferLike | Blob | ArrayBufferView<ArrayBufferLike>): void {
+    if (typeof data !== "string") {
+      throw new Error("FakeWebSocket only accepts JSON text")
+    }
     const message = Schema.decodeUnknownSync(RpcMessage)(JSON.parse(data))
     if (message._tag === "Ping") {
       queueMicrotask(() => {
@@ -83,7 +94,7 @@ class FakeWebSocket extends EventTarget {
     })
   }
 
-  close(): void {
+  close(_code?: number, _reason?: string): void {
     if (this.readyState === 3) return
     this.readyState = 3
     this.dispatchEvent(new Event("close"))
@@ -104,10 +115,9 @@ describe("server supervisor", () => {
   it("probes server.getConfig over the authenticated JSON RPC protocol", async () => {
     const sockets: Array<FakeWebSocket> = []
     const webSocketConstructor: Socket.WebSocketConstructor["Service"] = (url, protocols) => {
-      const socket = new FakeWebSocket(url, protocols)
+      const socket = new FakeWebSocket(protocols, url)
       sockets.push(socket)
-      // SAFETY: FakeWebSocket implements the WebSocket surface consumed by Effect Socket.
-      return socket as unknown as globalThis.WebSocket
+      return socket
     }
 
     await probeRpc(bootstrap, webSocketConstructor)
