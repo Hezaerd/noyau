@@ -112,7 +112,7 @@ export function AppSidebar() {
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-xs"
+                size="icon"
                 aria-label="Ouvrir les Paramètres"
                 className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                 render={
