@@ -1,17 +1,7 @@
 import { Context, Schema } from "effect"
 
-import { type ActorId, CommandId, EventId } from "./ids"
-
-export class InvalidCausation extends Schema.TaggedError<InvalidCausation>()("InvalidCausation", {
-  causationId: EventId,
-}) {}
-
-export class InvalidEventCursor extends Schema.TaggedError<InvalidEventCursor>()(
-  "InvalidEventCursor",
-  {
-    cursor: Schema.String,
-  },
-) {}
+import type { ActorId } from "./ids"
+import { CommandId } from "./ids"
 
 export class MissingIdentity extends Schema.TaggedError<MissingIdentity>()("MissingIdentity", {}) {}
 
@@ -31,7 +21,7 @@ export class ServiceUnavailable extends Schema.TaggedError<ServiceUnavailable>()
   },
 ) {}
 
-/** Identité vérifiée fournie aux handlers protégés. */
+/** Identité vérifiée fournie aux handlers protégés. L'acteur n'est jamais dans le payload. */
 export class CurrentActor extends Context.Service<CurrentActor, ActorId>()(
   "@noyau/protocol/CurrentActor",
 ) {}

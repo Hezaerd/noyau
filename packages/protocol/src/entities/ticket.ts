@@ -1,12 +1,4 @@
-import {
-  ActorId,
-  AttachmentId,
-  KanbanColumnId,
-  LabelId,
-  ProjectId,
-  ThreadId,
-  TicketId,
-} from "@noyau/protocol/ids"
+import { ActorId, KanbanColumnId, ProjectId, TicketId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
 import { KanbanRank } from "./kanban-column"
@@ -14,7 +6,7 @@ import { KanbanRank } from "./kanban-column"
 export const TicketPriority = Schema.Literals(["none", "low", "normal", "high", "urgent"])
 export type TicketPriority = (typeof TicketPriority)["Type"]
 
-/** Élément de travail durable du Tableau. */
+/** Élément de travail durable du Tableau. Les liens Thread passent par TicketThread. */
 export class Ticket extends Schema.Class<Ticket>("@noyau/protocol/entities/Ticket")({
   id: TicketId,
   projectId: ProjectId,
@@ -28,10 +20,6 @@ export class Ticket extends Schema.Class<Ticket>("@noyau/protocol/entities/Ticke
   archivedAt: Schema.optionalKey(Schema.DateTimeUtcFromString),
   lastActiveColumnId: Schema.optionalKey(KanbanColumnId),
   assigneeId: Schema.optionalKey(ActorId),
-  participantIds: Schema.Array(ActorId),
-  labelIds: Schema.Array(LabelId),
-  attachmentIds: Schema.Array(AttachmentId),
-  sourceThreadId: Schema.optionalKey(ThreadId),
   createdAt: Schema.DateTimeUtcFromString,
   updatedAt: Schema.DateTimeUtcFromString,
 }) {}

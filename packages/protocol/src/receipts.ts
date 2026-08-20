@@ -1,20 +1,30 @@
+import { ProjectRejection } from "@noyau/protocol/project/errors"
+import { ThreadRejection } from "@noyau/protocol/thread/errors"
+import { TicketRejection } from "@noyau/protocol/ticket/errors"
 import { Schema } from "effect"
 
-import { CommandId, EventId } from "./ids"
-import { TicketRejection } from "./ticket/errors"
+import { CommandId, Sequence } from "./ids"
 
-export const TicketReceiptResponse = Schema.Union([
+export const Rejection = Schema.Union([ProjectRejection, TicketRejection, ThreadRejection])
+export type Rejection = (typeof Rejection)["Type"]
+
+export const ReceiptResponse = Schema.Union([
   Schema.TaggedStruct("accepted", {
-    eventIds: Schema.Array(EventId),
+    sequence: Sequence,
   }),
   Schema.TaggedStruct("rejected", {
-    error: TicketRejection,
+    error: Rejection,
   }),
 ])
-export type TicketReceiptResponse = (typeof TicketReceiptResponse)["Type"]
+export type ReceiptResponse = (typeof ReceiptResponse)["Type"]
 
-export const TicketReceipt = Schema.Struct({
+export const Receipt = Schema.Struct({
   commandId: CommandId,
-  response: TicketReceiptResponse,
+  response: ReceiptResponse,
 })
-export type TicketReceipt = (typeof TicketReceipt)["Type"]
+export type Receipt = (typeof Receipt)["Type"]
+
+export const DispatchResult = Schema.Struct({
+  sequence: Sequence,
+})
+export type DispatchResult = (typeof DispatchResult)["Type"]

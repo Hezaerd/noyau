@@ -1,82 +1,27 @@
 import { Schema } from "effect"
 
-import { MessageKind } from "./entities/message"
-import {
-  ActorId,
-  CommandId,
-  CorrelationId,
-  EventId,
-  MessageId,
-  ProjectId,
-  SchemaVersion,
-  ThreadId,
-  TicketId,
-} from "./ids"
-import {
-  BoardInitialize,
-  KanbanColumnCreate,
-  KanbanColumnDelete,
-  KanbanColumnMove,
-  KanbanColumnUpdate,
-  TicketArchive,
-  TicketAssign,
-  TicketComplete,
-  TicketCreate,
-  TicketDependencyAdd,
-  TicketDependencyRemove,
-  TicketMove,
-  TicketReopen,
-  TicketRestore,
-  TicketUpdate,
-} from "./ticket/commands"
+import { ProjectCommand, ProjectCommandRequest } from "./project/commands"
+import { ClientThreadCommand, InternalThreadCommand, ThreadCommandRequest } from "./thread/commands"
+import { TicketCommand, TicketCommandRequest } from "./ticket/commands"
 
-/**
- * Enveloppe minimale de toute commande. `causationId` référence l'événement
- * qui a déclenché la commande (réaction d'un reactor), absent pour une
- * commande initiée par un humain ou par Marion.
- */
-const commandMeta = {
-  commandId: CommandId,
-  projectId: ProjectId,
-  actorId: ActorId,
-  correlationId: CorrelationId,
-  causationId: Schema.optionalKey(EventId),
-  issuedAt: Schema.DateTimeUtcFromString,
-  schemaVersion: SchemaVersion,
-} as const
+/** Intention soumise par le renderer. L'acteur n'est pas dans le payload. */
+export const ClientCommandRequest = Schema.Union([
+  ProjectCommandRequest,
+  TicketCommandRequest,
+  ThreadCommandRequest,
+])
+export type ClientCommandRequest = (typeof ClientCommandRequest)["Type"]
+export const decodeClientCommandRequest = Schema.decodeUnknownEffect(ClientCommandRequest)
 
-export const MessageSend = Schema.TaggedStruct("message.send", {
-  ...commandMeta,
-  payload: Schema.Struct({
-    messageId: MessageId,
-    threadId: ThreadId,
-    kind: MessageKind,
-    body: Schema.NonEmptyString,
-    replyTo: Schema.optionalKey(MessageId),
-    ticketId: Schema.optionalKey(TicketId),
-  }),
-})
-export type MessageSend = (typeof MessageSend)["Type"]
+export const InternalCommand = InternalThreadCommand
+export type InternalCommand = (typeof InternalCommand)["Type"]
 
+/** Commande enrichie par Noyau. Inclut les commandes internes d'ingestion. */
 export const Command = Schema.Union([
-  MessageSend,
-  TicketCreate,
-  TicketMove,
-  TicketComplete,
-  TicketReopen,
-  TicketArchive,
-  TicketRestore,
-  TicketAssign,
-  TicketUpdate,
-  TicketDependencyAdd,
-  TicketDependencyRemove,
-  KanbanColumnCreate,
-  KanbanColumnUpdate,
-  KanbanColumnMove,
-  KanbanColumnDelete,
-  BoardInitialize,
+  ProjectCommand,
+  TicketCommand,
+  ClientThreadCommand,
+  InternalCommand,
 ])
 export type Command = (typeof Command)["Type"]
-
-/** Décodage à la frontière : toute commande entrante passe par ici. */
 export const decodeCommand = Schema.decodeUnknownEffect(Command)

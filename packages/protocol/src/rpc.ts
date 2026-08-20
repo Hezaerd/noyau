@@ -1,24 +1,41 @@
-import { BoardSnapshot, EventCursor } from "@noyau/protocol/board"
+import { BoardSnapshot } from "@noyau/protocol/board"
+import { ClientCommandRequest } from "@noyau/protocol/commands"
+import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
+import {
+  CommandIdConflict,
+  Forbidden,
+  MissingIdentity,
+  ServiceUnavailable,
+} from "@noyau/protocol/errors"
 import { EventEnvelope } from "@noyau/protocol/events"
-import { ProjectId, TicketId } from "@noyau/protocol/ids"
-import { TicketReceipt } from "@noyau/protocol/receipts"
-import { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
+import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/protocol/ids"
+import { DispatchResult, Rejection } from "@noyau/protocol/receipts"
+import { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import { Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/unstable/rpc"
 
 import type { CurrentActor } from "./errors"
-import {
-  CommandIdConflict,
-  Forbidden,
-  InvalidCausation,
-  InvalidEventCursor,
-  MissingIdentity,
-  ServiceUnavailable,
-} from "./errors"
+
+export const CATCH_UP_SEQUENCE_MIN = 0
+export const CATCH_UP_SEQUENCE_MAX = 1000
+
+/** Un gap hors `[0, 1000]` exige un snapshot frais, pas un replay non borné. */
+export const requiresFreshSnapshot = (gap: number): boolean =>
+  gap < CATCH_UP_SEQUENCE_MIN || gap > CATCH_UP_SEQUENCE_MAX
+
+export const RPC_METHODS = {
+  dispatchCommand: "orchestration.dispatchCommand",
+  subscribeShell: "orchestration.subscribeShell",
+  subscribeProject: "orchestration.subscribeProject",
+  subscribeThread: "orchestration.subscribeThread",
+  getConfig: "server.getConfig",
+  probe: "server.probe",
+} as const
 
 /**
  * Authentifie une connexion au control plane et fournit l'acteur vérifié aux
  * handlers. Le client ne choisit jamais l'identité dans le payload métier.
+ * Le bearer de lancement accorde tous les scopes locaux.
  */
 export class NoyauRpcIdentity extends RpcMiddleware.Service<
   NoyauRpcIdentity,
@@ -27,60 +44,108 @@ export class NoyauRpcIdentity extends RpcMiddleware.Service<
   error: Schema.Union([MissingIdentity, Forbidden]),
 }) {}
 
-export const ProjectEvent = Schema.Struct({
-  cursor: EventCursor,
-  envelope: EventEnvelope,
+export const ServerConfig = Schema.Struct({
+  environmentId: EnvironmentId,
+  bundleVersion: Schema.NonEmptyString,
+  serverVersion: Schema.NonEmptyString,
+  databaseSchemaVersion: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 })
-export type ProjectEvent = (typeof ProjectEvent)["Type"]
+export type ServerConfig = (typeof ServerConfig)["Type"]
 
-export const SubmitTicketCommand = Rpc.make("SubmitTicketCommand", {
-  payload: Schema.Struct({
-    projectId: ProjectId,
-    request: TicketCommandRequest,
-  }),
-  success: TicketReceipt,
-  error: Schema.Union([InvalidCausation, CommandIdConflict, ServiceUnavailable]),
+const subscribeCursor = {
+  afterSequence: Schema.optionalKey(Sequence),
+  requestCompletionMarker: Schema.optionalKey(Schema.Boolean),
+} as const
+
+export const SubscribeShellInput = Schema.Struct(subscribeCursor)
+export type SubscribeShellInput = (typeof SubscribeShellInput)["Type"]
+
+export const SubscribeProjectInput = Schema.Struct({
+  projectId: ProjectId,
+  ...subscribeCursor,
+})
+export type SubscribeProjectInput = (typeof SubscribeProjectInput)["Type"]
+
+export const SubscribeThreadInput = Schema.Struct({
+  threadId: ThreadId,
+  ...subscribeCursor,
+})
+export type SubscribeThreadInput = (typeof SubscribeThreadInput)["Type"]
+
+const streamFrame = <Snapshot extends Schema.Top, Live extends Schema.Top>(
+  snapshot: Snapshot,
+  live: Live,
+) =>
+  Schema.Union([
+    Schema.Struct({
+      kind: Schema.Literal("synchronized"),
+    }),
+    Schema.Struct({
+      kind: Schema.Literal("snapshot"),
+      snapshot,
+    }),
+    Schema.Struct({
+      kind: Schema.Literal("event"),
+      event: live,
+    }),
+  ])
+
+export const ShellStreamItem = streamFrame(ShellSnapshot, ShellLiveEvent)
+export type ShellStreamItem = (typeof ShellStreamItem)["Type"]
+
+export const ProjectStreamItem = streamFrame(BoardSnapshot, EventEnvelope)
+export type ProjectStreamItem = (typeof ProjectStreamItem)["Type"]
+
+export const ThreadStreamItem = streamFrame(ThreadSnapshot, EventEnvelope)
+export type ThreadStreamItem = (typeof ThreadStreamItem)["Type"]
+
+export const DispatchCommand = Rpc.make(RPC_METHODS.dispatchCommand, {
+  payload: ClientCommandRequest,
+  success: DispatchResult,
+  error: Schema.Union([Rejection, CommandIdConflict, ServiceUnavailable]),
 })
 
-export const GetBoardSnapshot = Rpc.make("GetBoardSnapshot", {
-  payload: Schema.Struct({
-    projectId: ProjectId,
-  }),
-  success: BoardSnapshot,
+export const GetConfig = Rpc.make(RPC_METHODS.getConfig, {
+  payload: Schema.Struct({}),
+  success: ServerConfig,
   error: ServiceUnavailable,
 })
 
-export const TicketActivityLimit = Schema.Int.check(
-  Schema.isGreaterThan(0),
-  Schema.isLessThanOrEqualTo(100),
-)
-
-export const GetTicketActivity = Rpc.make("GetTicketActivity", {
-  payload: Schema.Struct({
-    projectId: ProjectId,
-    ticketId: TicketId,
-    limit: Schema.optionalKey(TicketActivityLimit),
-  }),
-  success: Schema.Array(EventEnvelope),
+export const Probe = Rpc.make(RPC_METHODS.probe, {
+  payload: Schema.Struct({}),
+  success: Schema.Struct({}),
   error: ServiceUnavailable,
 })
 
-export const SubscribeProjectEvents = Rpc.make("SubscribeProjectEvents", {
-  payload: Schema.Struct({
-    projectId: ProjectId,
-    cursor: EventCursor,
-  }),
-  success: ProjectEvent,
-  error: Schema.Union([InvalidEventCursor, ServiceUnavailable]),
+export const SubscribeShell = Rpc.make(RPC_METHODS.subscribeShell, {
+  payload: SubscribeShellInput,
+  success: ShellStreamItem,
+  error: ServiceUnavailable,
+  stream: true,
+})
+
+export const SubscribeProject = Rpc.make(RPC_METHODS.subscribeProject, {
+  payload: SubscribeProjectInput,
+  success: ProjectStreamItem,
+  error: ServiceUnavailable,
+  stream: true,
+})
+
+export const SubscribeThread = Rpc.make(RPC_METHODS.subscribeThread, {
+  payload: SubscribeThreadInput,
+  success: ThreadStreamItem,
+  error: ServiceUnavailable,
   stream: true,
 })
 
 /** Contrat unique client/serveur du control plane sur WebSocket. */
 export const ControlPlaneRpcs = RpcGroup.make(
-  SubmitTicketCommand,
-  GetBoardSnapshot,
-  GetTicketActivity,
-  SubscribeProjectEvents,
+  DispatchCommand,
+  GetConfig,
+  Probe,
+  SubscribeShell,
+  SubscribeProject,
+  SubscribeThread,
 ).middleware(NoyauRpcIdentity)
 
 export type ControlPlaneRpcs = typeof ControlPlaneRpcs
