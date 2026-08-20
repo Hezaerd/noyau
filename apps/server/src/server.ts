@@ -60,6 +60,18 @@ const internalConfigRoute = HttpRouter.add(
   }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
 )
 
+const internalStatusRoute = HttpRouter.add(
+  "GET",
+  "/internal/status",
+  Effect.gen(function* () {
+    yield* authenticateInternalRequest()
+    const controlPlane = yield* ControlPlane
+    return HttpServerResponse.jsonUnsafe({
+      runningTurn: yield* controlPlane.hasRunningTurn,
+    })
+  }).pipe(Effect.catchTags({ MissingIdentity: unauthorized, Forbidden: unauthorized })),
+)
+
 const internalShutdownRoute = HttpRouter.add(
   "POST",
   "/internal/shutdown",
@@ -122,6 +134,7 @@ export const websocketRpcLayer = Layer.unwrap(
 export const serverRoutesLayer = Layer.mergeAll(
   healthLayer,
   internalConfigRoute,
+  internalStatusRoute,
   internalShutdownRoute,
   websocketRpcLayer,
 )

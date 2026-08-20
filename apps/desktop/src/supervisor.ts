@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { join } from "node:path"
+import type { Writable } from "node:stream"
 
 import { Schema } from "effect"
 
@@ -33,8 +34,12 @@ const ServerConfigResponse = Schema.Struct({
   environmentId: Schema.NonEmptyString,
   bundleVersion: Schema.NonEmptyString,
   serverVersion: Schema.NonEmptyString,
-  databaseSchemaVersion: Schema.NonEmptyString,
+  databaseSchemaVersion: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   actorId: Schema.NonEmptyString,
+})
+
+const ServerStatusResponse = Schema.Struct({
+  runningTurn: Schema.Boolean,
 })
 
 export type SupervisorPhase = "stopped" | "starting" | "ready" | "backoff" | "degraded" | "stopping"
@@ -55,6 +60,8 @@ export interface ServerSupervisorOptions {
   readonly environmentId?: string
   readonly externalBootstrap?: ServerBootstrap
   readonly executablePath?: string
+  readonly fetchImpl?: typeof fetch
+  readonly sleep?: (milliseconds: number) => Promise<void>
   readonly probeRpc?: (bootstrap: ServerBootstrap) => Promise<void>
   readonly onStateChange?: (state: SupervisorState) => void
 }
@@ -85,11 +92,7 @@ export const reserveLoopbackPort = async (): Promise<number> => {
     server.once("error", reject)
     server.listen({ host: "127.0.0.1", port: 0 }, () => resolve())
   })
-  const address = server.address()
-  if (address === null || !("port" in address)) {
-    server.close()
-    throw new Error("The loopback server did not expose a TCP port")
-  }
+  const address = Schema.decodeUnknownSync(Schema.Struct({ port: Schema.Int }))(server.address())
   const port = address.port
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve())),
@@ -244,12 +247,34 @@ export class ServerSupervisor {
     if (this.options.externalBootstrap !== undefined) {
       this.bootstrapValue = this.options.externalBootstrap
       this.setState({ phase: "starting", failures: 0 })
-      await waitForServerReady(this.options.externalBootstrap)
+      await waitForServerReady(this.options.externalBootstrap, {
+        fetchImpl: this.options.fetchImpl,
+        probeRpc: this.options.probeRpc,
+        sleep: this.options.sleep,
+      })
       this.setState({ phase: "ready", failures: 0 })
       return
     }
 
     await this.startWithRetries()
+  }
+
+  async isTurnRunning(): Promise<boolean> {
+    const bootstrap = this.bootstrapValue
+    if (bootstrap === undefined) {
+      return false
+    }
+    const response = await (this.options.fetchImpl ?? fetch)(
+      `http://${bootstrap.host}:${bootstrap.port}/internal/status`,
+      {
+        headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
+        signal: AbortSignal.timeout(500),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(`server.getStatus returned HTTP ${response.status}`)
+    }
+    return Schema.decodeUnknownSync(ServerStatusResponse)(await response.json()).runningTurn
   }
 
   async stop(): Promise<void> {
@@ -259,11 +284,14 @@ export class ServerSupervisor {
     const child = this.child
     if (bootstrap !== undefined) {
       try {
-        await fetch(`http://${bootstrap.host}:${bootstrap.port}/internal/shutdown`, {
-          method: "POST",
-          headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
-          signal: AbortSignal.timeout(500),
-        })
+        await (this.options.fetchImpl ?? fetch)(
+          `http://${bootstrap.host}:${bootstrap.port}/internal/shutdown`,
+          {
+            method: "POST",
+            headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
+            signal: AbortSignal.timeout(500),
+          },
+        )
       } catch {
         // The child may have already exited; the captured handle below is authoritative.
       }
@@ -290,31 +318,47 @@ export class ServerSupervisor {
     if (this.stopping) {
       return
     }
-    const bootstrap = await makeServerBootstrap({
+    const bootstrapOptions: Parameters<typeof makeServerBootstrap>[0] = {
       dataDirectory: this.options.dataDirectory,
-      bundleVersion: this.options.bundleVersion,
-      serverVersion: this.options.serverVersion,
-      actorId: this.options.actorId,
-      environmentId: this.options.environmentId,
-    })
+    }
+    if (this.options.bundleVersion !== undefined) {
+      bootstrapOptions.bundleVersion = this.options.bundleVersion
+    }
+    if (this.options.serverVersion !== undefined) {
+      bootstrapOptions.serverVersion = this.options.serverVersion
+    }
+    if (this.options.actorId !== undefined) {
+      bootstrapOptions.actorId = this.options.actorId
+    }
+    if (this.options.environmentId !== undefined) {
+      bootstrapOptions.environmentId = this.options.environmentId
+    }
+    const bootstrap = await makeServerBootstrap(bootstrapOptions)
     this.bootstrapValue = bootstrap
     this.setState({ phase: "starting", failures: this.failureTimes.length })
 
     try {
       await this.spawn(bootstrap)
-      await waitForServerReady(bootstrap)
-      this.setState({
+      await waitForServerReady(bootstrap, {
+        fetchImpl: this.options.fetchImpl,
+        probeRpc: this.options.probeRpc,
+        sleep: this.options.sleep,
+      })
+      const nextState: SupervisorState = {
         phase: "ready",
         failures: this.failureTimes.length,
-        pid: this.child?.pid ?? undefined,
-      })
+      }
+      if (this.child?.pid !== undefined) {
+        nextState.pid = this.child.pid
+      }
+      this.setState(nextState)
     } catch (cause) {
       this.recordFailure(cause)
       await this.killCapturedChild()
       if (this.stateValue.phase === "degraded") {
         throw cause
       }
-      await new Promise((resolve) => setTimeout(resolve, restartDelayMs(this.failureTimes.length)))
+      await this.sleep(restartDelayMs(this.failureTimes.length))
       return this.startWithRetries()
     }
   }
@@ -335,7 +379,9 @@ export class ServerSupervisor {
     this.child = child
     child.stdout?.on("data", (chunk) => process.stdout.write(`[noyau-server] ${chunk}`))
     child.stderr?.on("data", (chunk) => process.stderr.write(`[noyau-server] ${chunk}`))
-    child.stdio[3]?.end(encodeBootstrap(bootstrap))
+    // SAFETY: stdio index 3 is configured as a writable pipe in this spawn call.
+    const bootstrapPipe = child.stdio[3] as Writable | null
+    bootstrapPipe?.end(encodeBootstrap(bootstrap))
     child.once("exit", () => {
       if (!this.stopping && this.stateValue.phase === "ready") {
         this.scheduleRestart(new Error("The Noyau Server exited unexpectedly"))
@@ -364,12 +410,19 @@ export class ServerSupervisor {
       return
     }
     this.restartTask = (async () => {
-      await new Promise((resolve) => setTimeout(resolve, restartDelayMs(this.failureTimes.length)))
+      await this.sleep(restartDelayMs(this.failureTimes.length))
       this.restartTask = undefined
       await this.startWithRetries().catch((error) => {
         process.stderr.write(`[noyau-desktop] server degraded: ${String(error)}\n`)
       })
     })()
+  }
+
+  private sleep(milliseconds: number): Promise<void> {
+    return (
+      this.options.sleep?.(milliseconds) ??
+      new Promise((resolve) => setTimeout(resolve, milliseconds))
+    )
   }
 
   private async killCapturedChild(): Promise<void> {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   encodeBootstrap,
   restartDelayMs,
+  ServerSupervisor,
   waitForServerReady,
   type ServerBootstrap,
 } from "./supervisor"
@@ -44,7 +45,7 @@ describe("server supervisor", () => {
             environmentId: bootstrap.environmentId,
             bundleVersion: bootstrap.bundleVersion,
             serverVersion: bootstrap.serverVersion,
-            databaseSchemaVersion: "2",
+            databaseSchemaVersion: 2,
             actorId: bootstrap.actorId,
           }),
           { status: 200 },
@@ -57,6 +58,46 @@ describe("server supervisor", () => {
     expect(requests).toEqual([
       "http://127.0.0.1:4567/health/ready",
       "http://127.0.0.1:4567/internal/config",
+    ])
+  })
+
+  it("uses the supplied readiness probe and reports running Turns through the internal status", async () => {
+    const requests: Array<string> = []
+    const supervisor = new ServerSupervisor({
+      serverEntryPath: "/unused/server.mjs",
+      dataDirectory: bootstrap.dataDirectory,
+      externalBootstrap: bootstrap,
+      fetchImpl: async (input) => {
+        requests.push(String(input))
+        if (String(input).endsWith("/health/ready")) {
+          return new Response(JSON.stringify({ status: "ready" }), { status: 200 })
+        }
+        if (String(input).endsWith("/internal/config")) {
+          return new Response(
+            JSON.stringify({
+              environmentId: bootstrap.environmentId,
+              bundleVersion: bootstrap.bundleVersion,
+              serverVersion: bootstrap.serverVersion,
+              databaseSchemaVersion: 2,
+              actorId: bootstrap.actorId,
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response(JSON.stringify({ runningTurn: true }), { status: 200 })
+      },
+      probeRpc: async () => undefined,
+      sleep: async () => undefined,
+    })
+
+    await supervisor.start()
+
+    expect(supervisor.state.phase).toBe("ready")
+    expect(await supervisor.isTurnRunning()).toBe(true)
+    expect(requests).toEqual([
+      "http://127.0.0.1:4567/health/ready",
+      "http://127.0.0.1:4567/internal/config",
+      "http://127.0.0.1:4567/internal/status",
     ])
   })
 })
