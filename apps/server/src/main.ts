@@ -1,6 +1,6 @@
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import { Layer } from "effect"
 
 import { serverLayer } from "./server"
 
-Layer.launch(serverLayer).pipe(BunRuntime.runMain)
+Layer.launch(serverLayer).pipe(NodeRuntime.runMain)

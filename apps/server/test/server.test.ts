@@ -29,7 +29,16 @@ describe("server routes", () => {
     const context = await runtime.context()
     const { dispose, handler } = HttpRouter.toWebHandler(routes, { disableLogger: true })
     try {
-      const [live, ready, missing, forbidden, stale] = await Promise.all([
+      const [
+        live,
+        ready,
+        missing,
+        forbidden,
+        stale,
+        internalMissing,
+        internalForbidden,
+        internalConfig,
+      ] = await Promise.all([
         handler(new Request("http://localhost/health/live"), context),
         handler(new Request("http://localhost/health/ready"), context),
         handler(new Request("http://localhost/rpc"), context),
@@ -40,12 +49,28 @@ describe("server routes", () => {
           context,
         ),
         handler(new Request("http://localhost/api/v1/projects/legacy/tasks"), context),
+        handler(new Request("http://localhost/internal/config"), context),
+        handler(
+          new Request("http://localhost/internal/config", {
+            headers: { authorization: "Bearer wrong-token" },
+          }),
+          context,
+        ),
+        handler(
+          new Request("http://localhost/internal/config", {
+            headers: { authorization: "Bearer test-launch-token" },
+          }),
+          context,
+        ),
       ])
       assert.strictEqual(live.status, 200)
       assert.strictEqual(ready.status, 200)
       assert.strictEqual(missing.status, 401)
       assert.strictEqual(forbidden.status, 403)
       assert.strictEqual(stale.status, 404)
+      assert.strictEqual(internalMissing.status, 401)
+      assert.strictEqual(internalForbidden.status, 403)
+      assert.strictEqual(internalConfig.status, 200)
     } finally {
       await dispose()
       await runtime.dispose()

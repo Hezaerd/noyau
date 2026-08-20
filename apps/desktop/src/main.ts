@@ -3,15 +3,32 @@ import { extname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
 import { Effect } from "effect"
-import { app, BrowserWindow, ipcMain, nativeTheme, net, protocol, session, shell } from "electron"
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  nativeTheme,
+  net,
+  protocol,
+  session,
+  shell,
+} from "electron"
 
 import {
   DESKTOP_HOST,
   DESKTOP_SCHEME,
   DESKTOP_URL,
   DEVELOPMENT_RENDERER_URL,
+  desktopUrlForServer,
   resolveRendererAssetPath,
 } from "./renderer"
+import {
+  decodeExternalBootstrap,
+  resolveServerEntryPath,
+  ServerSupervisor,
+  type ServerBootstrap,
+} from "./supervisor"
 import { SET_THEME_CHANNEL } from "./theme"
 import { decodeAppearancePreference } from "./theme-schema"
 import {
@@ -27,6 +44,9 @@ const rendererRoot = join(__dirname, "renderer")
 const preloadPath = join(__dirname, "preload.cjs")
 
 let mainWindow: BrowserWindow | undefined
+let serverSupervisor: ServerSupervisor | undefined
+let quitAllowed = false
+let quitInProgress = false
 
 const syncMainWindowAppearance = (): void => {
   if (mainWindow === undefined || mainWindow.isDestroyed()) {
@@ -134,7 +154,7 @@ const openExternalUrl = (url: string): void => {
   }
 }
 
-const createMainWindow = async (): Promise<void> => {
+const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
   const shouldUseDarkColors = nativeTheme.shouldUseDarkColors
   const window = new BrowserWindow({
     width: 1440,
@@ -183,23 +203,44 @@ const createMainWindow = async (): Promise<void> => {
   window.webContents.once("did-finish-load", () => {
     if (isSmokeTest) {
       process.stdout.write("NOYAU_DESKTOP_SMOKE_TEST_OK\n")
-      app.quit()
+      void serverSupervisor?.stop().finally(() => {
+        quitAllowed = true
+        app.quit()
+      })
     }
   })
 
-  await window.loadURL(DESKTOP_URL)
+  await window.loadURL(desktopUrlForServer(bootstrap.host, bootstrap.port, bootstrap.bearerToken))
 }
 
 const launch = async (): Promise<void> => {
   await app.whenReady()
+  const externalBootstrap = decodeExternalBootstrap()
+  serverSupervisor = new ServerSupervisor({
+    serverEntryPath: resolveServerEntryPath(__dirname),
+    dataDirectory: join(app.getPath("userData"), "environment"),
+    externalBootstrap,
+    onStateChange: (state) => {
+      if (state.phase === "degraded") {
+        process.stderr.write(
+          `[noyau-desktop] server supervisor degraded: ${state.lastError ?? "unknown"}\n`,
+        )
+      }
+    },
+  })
+  await serverSupervisor.start()
   registerRendererProtocol()
   registerThemeBridge()
   session.defaultSession.setPermissionCheckHandler(() => false)
-  await createMainWindow()
+  const bootstrap = serverSupervisor.bootstrap
+  if (bootstrap === undefined) {
+    throw new Error("The Noyau Server supervisor did not provide a bootstrap")
+  }
+  await createMainWindow(bootstrap)
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      void createMainWindow()
+      void createMainWindow(bootstrap)
     }
   })
 }
@@ -212,7 +253,43 @@ app.on("window-all-closed", () => {
   }
 })
 
+app.on("before-quit", (event) => {
+  if (quitAllowed || serverSupervisor === undefined) {
+    return
+  }
+  event.preventDefault()
+  if (quitInProgress) {
+    return
+  }
+  quitInProgress = true
+  const parentWindow = mainWindow
+  void dialog
+    .showMessageBox(parentWindow ?? BrowserWindow.getFocusedWindow(), {
+      type: "question",
+      buttons: ["Cancel", "Quit and interrupt Turn"],
+      defaultId: 0,
+      cancelId: 0,
+      title: "Quit Noyau?",
+      message: "If a Turn is running, quitting will interrupt it.",
+    })
+    .then(({ response }) => {
+      if (response === 0) {
+        quitInProgress = false
+        return
+      }
+      return serverSupervisor?.stop().finally(() => {
+        quitAllowed = true
+        app.quit()
+      })
+    })
+    .catch((cause) => {
+      quitInProgress = false
+      process.stderr.write(`Failed to confirm quit: ${String(cause)}\n`)
+    })
+})
+
 void launch().catch((cause) => {
   process.stderr.write(`Failed to launch Noyau Desktop: ${String(cause)}\n`)
+  quitAllowed = true
   app.quit()
 })
