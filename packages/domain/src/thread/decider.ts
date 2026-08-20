@@ -33,12 +33,7 @@ import {
 } from "@noyau/protocol/thread/events"
 import { Result } from "effect"
 
-import {
-  latestTurn,
-  type ThreadProjection,
-  type ThreadState,
-  type TurnProjection,
-} from "./projector"
+import type { ThreadProjection, ThreadState, TurnProjection } from "./projector"
 
 export type ThreadDecisionError =
   | ApprovalRequestNotFound
@@ -73,9 +68,7 @@ const requireAvailableProject = (
     ? Result.succeed(undefined)
     : Result.fail(new ProjectUnavailable({ projectId: thread.projectId }))
 
-const requireActiveThread = (
-  thread: ThreadProjection,
-): Result.Result<void, ThreadArchivedError> =>
+const requireActiveThread = (thread: ThreadProjection): Result.Result<void, ThreadArchivedError> =>
   thread.status === "archived"
     ? Result.fail(new ThreadArchivedError({ threadId: thread.threadId }))
     : Result.succeed(undefined)
@@ -197,15 +190,22 @@ export const decide = (
             ),
           ),
         ),
-        Result.map(() => [
-          ThreadTurnStarted.make({
+        Result.map(() => {
+          const started = {
             threadId: command.payload.threadId,
             turnId: TurnId.make(command.commandId),
             text: command.payload.text,
             titleSeed: command.payload.titleSeed ?? command.payload.text,
-            runtimeMode: command.payload.runtimeMode,
-          }),
-        ]),
+          }
+          return [
+            command.payload.runtimeMode === undefined
+              ? ThreadTurnStarted.make(started)
+              : ThreadTurnStarted.make({
+                  ...started,
+                  runtimeMode: command.payload.runtimeMode,
+                }),
+          ]
+        }),
       )
     case "thread.turn.interrupt":
       return requireThread(state, command.payload.threadId).pipe(
@@ -267,7 +267,7 @@ export const decide = (
       )
     case "thread.session.set":
       return requireThread(state, command.payload.threadId).pipe(
-        Result.flatMap((thread) => {
+        Result.flatMap((thread): Result.Result<ReadonlyArray<ThreadEvent>, ThreadDecisionError> => {
           const active = runningTurn(thread)
           const session = command.payload.session
           if (session.threadId !== thread.threadId) {
@@ -302,7 +302,7 @@ export const decide = (
       )
     case "thread.transcript.append":
       return requireThread(state, command.payload.item.threadId).pipe(
-        Result.flatMap((thread) => {
+        Result.flatMap((thread): Result.Result<ReadonlyArray<ThreadEvent>, ThreadDecisionError> => {
           const turn = thread.turns.find(
             (candidate) => candidate.turnId === command.payload.item.turnId,
           )
@@ -326,18 +326,25 @@ export const decide = (
           return session === null
             ? Result.fail(new SessionNotRunning({ threadId: thread.threadId }))
             : requireRunningTurn(thread, command.payload.turnId).pipe(
-            Result.map((turn) => [
-              ThreadTurnEnded.make({
-                threadId: thread.threadId,
-                turnId: turn.turnId,
-                state: command.payload.state,
-                lastError: command.payload.lastError,
-              }),
-              ThreadSessionSet.make({
-                threadId: thread.threadId,
-                  session: terminalSession(session, command),
-              }),
-            ]),
+                Result.map((turn) => {
+                  const ended = {
+                    threadId: thread.threadId,
+                    turnId: turn.turnId,
+                    state: command.payload.state,
+                  }
+                  return [
+                    command.payload.lastError === undefined
+                      ? ThreadTurnEnded.make(ended)
+                      : ThreadTurnEnded.make({
+                          ...ended,
+                          lastError: command.payload.lastError,
+                        }),
+                    ThreadSessionSet.make({
+                      threadId: thread.threadId,
+                      session: terminalSession(session, command),
+                    }),
+                  ]
+                }),
               )
         }),
       )

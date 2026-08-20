@@ -77,9 +77,7 @@ const updateThread = (
   update: (thread: ThreadProjection) => ThreadProjection,
 ): ThreadState => ({
   ...state,
-  threads: state.threads.map((thread) =>
-    thread.threadId === threadId ? update(thread) : thread,
-  ),
+  threads: state.threads.map((thread) => (thread.threadId === threadId ? update(thread) : thread)),
 })
 
 const updateTurn = (
@@ -112,10 +110,7 @@ const projectTranscriptItem = (
     case "transcript.assistant": {
       const previous = transcript.at(-1)
       return previous?._tag === "transcript.assistant" && previous.turnId === item.turnId
-        ? [
-            ...transcript.slice(0, -1),
-            { ...previous, text: `${previous.text}${item.text}` },
-          ]
+        ? [...transcript.slice(0, -1), { ...previous, text: `${previous.text}${item.text}` }]
         : [...transcript, item]
     }
     case "transcript.tool":
@@ -163,10 +158,7 @@ const resolveTranscriptRequest = (
     item._tag === tag && item.requestId === requestId ? { ...item, status: "resolved" } : item,
   )
 
-const settleRunningTurn = (
-  thread: ThreadProjection,
-  session: Session,
-): ThreadProjection => {
+const settleRunningTurn = (thread: ThreadProjection, session: Session): ThreadProjection => {
   const settlement = settledTurnStateForSessionStatus(session.status)
   if (settlement === null) {
     return thread
@@ -206,18 +198,22 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
       return updateThread(state, event.threadId, (thread) => ({ ...thread, status: "archived" }))
     case "thread.restored":
       return updateThread(state, event.threadId, (thread) => ({ ...thread, status: "active" }))
-    case "thread.meta-updated":
-      return event.title === undefined
-        ? state
-        : updateThread(state, event.threadId, (thread) => ({ ...thread, title: event.title }))
+    case "thread.meta-updated": {
+      const title = event.title
+      if (title === undefined) {
+        return state
+      }
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        title,
+      }))
+    }
     case "thread.runtime-mode-set":
       return updateThread(state, event.threadId, (thread) => ({
         ...thread,
         runtimeMode: event.runtimeMode,
         session:
-          thread.session === null
-            ? null
-            : { ...thread.session, runtimeMode: event.runtimeMode },
+          thread.session === null ? null : { ...thread.session, runtimeMode: event.runtimeMode },
       }))
     case "thread.turn.started":
       return updateThread(state, event.threadId, (thread) => {

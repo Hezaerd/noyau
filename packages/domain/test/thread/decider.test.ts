@@ -8,16 +8,18 @@ import {
   withAvailableProjects,
   type ThreadState,
 } from "@noyau/domain/thread/projector"
+import { BOOT_RECOVERY_LAST_ERROR, recoverAfterBoot } from "@noyau/domain/thread/recovery"
 import {
-  BOOT_RECOVERY_LAST_ERROR,
-  recoverAfterBoot,
-} from "@noyau/domain/thread/recovery"
+  TranscriptItem,
+  type TranscriptItem as TranscriptItemType,
+} from "@noyau/protocol/entities/transcript"
 import { ProjectId } from "@noyau/protocol/ids"
-import { ThreadCommand } from "@noyau/protocol/thread/commands"
 import {
-  ThreadTranscriptAppended,
-  type ThreadEvent,
-} from "@noyau/protocol/thread/events"
+  ThreadCommand,
+  ThreadTranscriptAppend,
+  ThreadTurnStart,
+} from "@noyau/protocol/thread/commands"
+import { ThreadTranscriptAppended, type ThreadEvent } from "@noyau/protocol/thread/events"
 import { Result, Schema } from "effect"
 
 const ids = {
@@ -48,6 +50,9 @@ const meta = {
 } as const
 
 const command = Schema.decodeUnknownSync(ThreadCommand)
+const transcriptAppendCommand = Schema.decodeUnknownSync(ThreadTranscriptAppend)
+const transcriptItem = Schema.decodeUnknownSync(TranscriptItem)
+const turnStartCommand = Schema.decodeUnknownSync(ThreadTurnStart)
 const projectId = Schema.decodeSync(ProjectId)(ids.project)
 
 const success = <A, E>(result: Result.Result<A, E>): A => {
@@ -71,22 +76,31 @@ const apply = (state: ThreadState, events: ReadonlyArray<ThreadEvent>) =>
 
 const available = () => withAvailableProjects(emptyThreadState, [projectId])
 
-const createThread = (state: ThreadState = available(), runtimeMode?: string) =>
-  success(
+const createThread = (state: ThreadState = available(), runtimeMode?: string) => {
+  const payload =
+    runtimeMode === undefined
+      ? {
+          threadId: ids.thread,
+          projectId: ids.project,
+          title: "Titre provisoire",
+        }
+      : {
+          threadId: ids.thread,
+          projectId: ids.project,
+          title: "Titre provisoire",
+          runtimeMode,
+        }
+  return success(
     decide(
       state,
       command({
         _tag: "thread.create",
         ...meta,
-        payload: {
-          threadId: ids.thread,
-          projectId: ids.project,
-          title: "Titre provisoire",
-          ...(runtimeMode === undefined ? {} : { runtimeMode }),
-        },
+        payload,
       }),
     ),
   )
+}
 
 const withThread = () => apply(available(), createThread())
 
@@ -169,16 +183,14 @@ describe("Thread lifecycle", () => {
     })
   })
 
-  it.each([
-    "approval-required",
-    "auto-accept-edits",
-    "auto",
-    "full-access",
-  ] as const)("projette le runtimeMode %s", (runtimeMode) => {
-    const state = apply(available(), createThread(available(), runtimeMode))
+  it.each(["approval-required", "auto-accept-edits", "auto", "full-access"] as const)(
+    "projette le runtimeMode %s",
+    (runtimeMode) => {
+      const state = apply(available(), createThread(available(), runtimeMode))
 
-    expect(state.threads[0]?.runtimeMode).toBe(runtimeMode)
-  })
+      expect(state.threads[0]?.runtimeMode).toBe(runtimeMode)
+    },
+  )
 
   it("seed le titre avec le premier prompt et garde le provider hors des mutations", () => {
     const state = withThread()
@@ -247,34 +259,55 @@ describe("Thread lifecycle", () => {
         ),
       ),
     )
-    expect(success(decide(restored, command({
-      _tag: "thread.turn.start",
-      ...meta,
-      commandId: ids.turn1,
-      payload: { threadId: ids.thread, text: "Reprise" },
-    })))[0]?._tag).toBe("thread.turn.started")
+    expect(
+      success(
+        decide(
+          restored,
+          command({
+            _tag: "thread.turn.start",
+            ...meta,
+            commandId: ids.turn1,
+            payload: { threadId: ids.thread, text: "Reprise" },
+          }),
+        ),
+      )[0]?._tag,
+    ).toBe("thread.turn.started")
   })
 
   it("refuse la création et un nouveau Turn lorsque le Project est indisponible", () => {
     const unavailable = withAvailableProjects(emptyThreadState, [])
 
-    expect(failure(decide(unavailable, command({
-      _tag: "thread.create",
-      ...meta,
-      payload: {
-        threadId: ids.otherThread,
-        projectId: ids.project,
-        title: "Impossible",
-      },
-    })))).toMatchObject({ _tag: "ProjectUnavailable", projectId: ids.project })
+    expect(
+      failure(
+        decide(
+          unavailable,
+          command({
+            _tag: "thread.create",
+            ...meta,
+            payload: {
+              threadId: ids.otherThread,
+              projectId: ids.project,
+              title: "Impossible",
+            },
+          }),
+        ),
+      ),
+    ).toMatchObject({ _tag: "ProjectUnavailable", projectId: ids.project })
 
     const state = withAvailableProjects(withThread(), [])
-    expect(failure(decide(state, command({
-      _tag: "thread.turn.start",
-      ...meta,
-      commandId: ids.turn1,
-      payload: { threadId: ids.thread, text: "Impossible" },
-    })))).toMatchObject({ _tag: "ProjectUnavailable", projectId: ids.project })
+    expect(
+      failure(
+        decide(
+          state,
+          command({
+            _tag: "thread.turn.start",
+            ...meta,
+            commandId: ids.turn1,
+            payload: { threadId: ids.thread, text: "Impossible" },
+          }),
+        ),
+      ),
+    ).toMatchObject({ _tag: "ProjectUnavailable", projectId: ids.project })
   })
 })
 
@@ -307,15 +340,13 @@ describe("Turn invariants", () => {
       { turnId: ids.turn2, ordinal: 2, state: "running" },
     ])
     expect(
-      thread?.transcript
-        .filter((item) => item._tag === "transcript.user")
-        .map((item) => item.text),
+      thread?.transcript.filter((item) => item._tag === "transcript.user").map((item) => item.text),
     ).toEqual(["Premier prompt", "Nouveau prompt"])
   })
 
   it("rejette une image même si un appel interne contourne le décodage Schema", () => {
     const state = withThread()
-    const valid = command({
+    const valid = turnStartCommand({
       _tag: "thread.turn.start",
       ...meta,
       commandId: ids.turn1,
@@ -337,7 +368,7 @@ describe("Turn invariants", () => {
   it("ne réécrit ni transcript ni état d'un Turn terminal", () => {
     const running = withRunningTurn()
     const terminal = apply(running, setSession(running, "ready", null, later))
-    const validItemCommand = command({
+    const validItemCommand = transcriptAppendCommand({
       _tag: "thread.transcript.append",
       ...meta,
       payload: {
@@ -399,6 +430,19 @@ describe("Session settlement", () => {
     ["error", "error", "échec provider"],
   ] as const)("settle thread.turn.ended=%s via une sortie Session %s", (state, status, error) => {
     const running = withRunningTurn()
+    const payload =
+      error === null
+        ? {
+            threadId: ids.thread,
+            turnId: ids.turn1,
+            state,
+          }
+        : {
+            threadId: ids.thread,
+            turnId: ids.turn1,
+            state,
+            lastError: error,
+          }
     const events = success(
       decide(
         running,
@@ -406,21 +450,13 @@ describe("Session settlement", () => {
           _tag: "thread.turn.ended",
           ...meta,
           issuedAt: later,
-          payload: {
-            threadId: ids.thread,
-            turnId: ids.turn1,
-            state,
-            ...(error === null ? {} : { lastError: error }),
-          },
+          payload,
         }),
       ),
     )
     const next = apply(running, events)
 
-    expect(events.map((event) => event._tag)).toEqual([
-      "thread.turn.ended",
-      "thread.session-set",
-    ])
+    expect(events.map((event) => event._tag)).toEqual(["thread.turn.ended", "thread.session-set"])
     expect(next.threads[0]?.session).toMatchObject({ status, lastError: error })
     expect(latestTurn(next.threads[0]!)?.state).toBe(state)
   })
@@ -429,7 +465,7 @@ describe("Session settlement", () => {
 describe("Transcript projection", () => {
   it("persiste chaque fait et projette bursts, outils, permissions et plan sans doublons", () => {
     let state = withRunningTurn()
-    const append = (item: unknown) => {
+    const append = (item: TranscriptItemType) => {
       const events = success(
         decide(
           state,
@@ -443,54 +479,68 @@ describe("Transcript projection", () => {
       state = apply(state, events)
     }
 
-    append({
-      _tag: "transcript.assistant",
-      threadId: ids.thread,
-      turnId: ids.turn1,
-      text: "Bon",
-    })
-    append({
-      _tag: "transcript.assistant",
-      threadId: ids.thread,
-      turnId: ids.turn1,
-      text: "jour",
-    })
-    append({
-      _tag: "transcript.tool",
-      threadId: ids.thread,
-      turnId: ids.turn1,
-      toolCallId: "tool-1",
-      name: "Read",
-      status: "in_progress",
-    })
-    append({
-      _tag: "transcript.tool",
-      threadId: ids.thread,
-      turnId: ids.turn1,
-      toolCallId: "tool-1",
-      name: "Read",
-      status: "completed",
-      outputSummary: "ok",
-    })
-    append({
-      _tag: "transcript.permission",
-      threadId: ids.thread,
-      turnId: ids.turn1,
-      requestId: "permission-1",
-      status: "pending",
-    })
-    append({
-      _tag: "transcript.plan",
-      threadId: ids.thread,
-      turnId: ids.turn1,
-      markdown: "1. Lire",
-    })
-    append({
-      _tag: "transcript.plan",
-      threadId: ids.thread,
-      turnId: ids.turn1,
-      markdown: "1. Lire\n2. Écrire",
-    })
+    append(
+      transcriptItem({
+        _tag: "transcript.assistant",
+        threadId: ids.thread,
+        turnId: ids.turn1,
+        text: "Bon",
+      }),
+    )
+    append(
+      transcriptItem({
+        _tag: "transcript.assistant",
+        threadId: ids.thread,
+        turnId: ids.turn1,
+        text: "jour",
+      }),
+    )
+    append(
+      transcriptItem({
+        _tag: "transcript.tool",
+        threadId: ids.thread,
+        turnId: ids.turn1,
+        toolCallId: "tool-1",
+        name: "Read",
+        status: "in_progress",
+      }),
+    )
+    append(
+      transcriptItem({
+        _tag: "transcript.tool",
+        threadId: ids.thread,
+        turnId: ids.turn1,
+        toolCallId: "tool-1",
+        name: "Read",
+        status: "completed",
+        outputSummary: "ok",
+      }),
+    )
+    append(
+      transcriptItem({
+        _tag: "transcript.permission",
+        threadId: ids.thread,
+        turnId: ids.turn1,
+        requestId: "permission-1",
+        status: "pending",
+      }),
+    )
+    append(
+      transcriptItem({
+        _tag: "transcript.plan",
+        threadId: ids.thread,
+        turnId: ids.turn1,
+        markdown: "1. Lire",
+      }),
+    )
+    append(
+      transcriptItem({
+        _tag: "transcript.plan",
+        threadId: ids.thread,
+        turnId: ids.turn1,
+        markdown: "1. Lire\n2. Écrire",
+      }),
+    )
 
     const thread = state.threads[0]!
     expect(thread.transcript).toHaveLength(5)
