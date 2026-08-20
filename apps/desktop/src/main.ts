@@ -29,6 +29,7 @@ import {
   ServerSupervisor,
   type ServerBootstrap,
 } from "./supervisor"
+import { PICK_FOLDER_CHANNEL } from "./preload"
 import { SET_THEME_CHANNEL } from "./theme"
 import { decodeAppearancePreference } from "./theme-schema"
 import {
@@ -68,6 +69,15 @@ const registerThemeBridge = (): void => {
     }),
   )
   nativeTheme.on("updated", syncMainWindowAppearance)
+}
+
+const registerFolderPickerBridge = (): void => {
+  ipcMain.handle(PICK_FOLDER_CHANNEL, async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+    })
+    return result.canceled ? undefined : result.filePaths[0]
+  })
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -231,6 +241,7 @@ const launch = async (): Promise<void> => {
   await serverSupervisor.start()
   registerRendererProtocol()
   registerThemeBridge()
+  registerFolderPickerBridge()
   session.defaultSession.setPermissionCheckHandler(() => false)
   const bootstrap = serverSupervisor.bootstrap
   if (bootstrap === undefined) {

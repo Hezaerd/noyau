@@ -18,11 +18,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import type { EventCursor } from "@noyau/protocol/board"
+import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import type { EventEnvelope } from "@noyau/protocol/events"
 import { KanbanColumnId, type ProjectId, TicketId } from "@noyau/protocol/ids"
-import type { TicketCommandRequest } from "@noyau/protocol/ticket/commands"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
@@ -101,10 +100,9 @@ import {
 } from "@/lib/board-model"
 import { boardStateFromSnapshot } from "@/lib/board-snapshot"
 import {
-  buildAndSubmitTicketCommand,
+  buildAndDispatchCommand,
   loadBoardSnapshot,
-  loadTicketActivity,
-  subscribeProjectEvents,
+  subscribeProject,
 } from "@/lib/control-plane"
 import {
   makeKanbanColumnCreateRequest,
@@ -644,12 +642,10 @@ export function BoardPage({
     tickets: [],
     ticketDependencies: [],
   })
-  const [cursor, setCursor] = useState<EventCursor>()
   const [controlPlaneError, setControlPlaneError] = useState<string>()
   const [loading, setLoading] = useState(true)
-  const [ticketActivity, setTicketActivity] = useState<ReadonlyArray<EventEnvelope>>([])
-  const [ticketActivityLoading, setTicketActivityLoading] = useState(false)
   const [ticketActivityError, setTicketActivityError] = useState<string>()
+  const [projectEvents, setProjectEvents] = useState<ReadonlyArray<EventEnvelope>>([])
   const [activeTicketId, setActiveTicketId] = useState<string | undefined>(state.tickets[0]?.id)
   const [draggedTicketId, setDraggedTicketId] = useState<string>()
   const [creatingColumnId, setCreatingColumnId] = useState<string>()
@@ -663,7 +659,6 @@ export function BoardPage({
   const boardRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const dragStartStateRef = useRef<BoardState | undefined>(undefined)
-  const activityRequestRef = useRef(0)
   const filters: BoardFilters = {
     query: search.q ?? "",
     ...(search.priority !== undefined && { priority: search.priority }),
@@ -671,6 +666,16 @@ export function BoardPage({
   const filtered = isFiltered(filters)
   const selectedTicket = state.tickets.find((ticket) => ticket.id === search.ticket)
   const selectedTicketId = selectedTicket?.id
+  const ticketActivity = useMemo(
+    () =>
+      projectEvents
+        .filter(
+          (envelope) =>
+            "ticketId" in envelope.event && envelope.event.ticketId === selectedTicketId,
+        )
+        .toSorted((left, right) => right.sequence - left.sequence),
+    [projectEvents, selectedTicketId],
+  )
   const draggedTicket = state.tickets.find((ticket) => ticket.id === draggedTicketId)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -691,64 +696,37 @@ export function BoardPage({
       return false
     }
     setState(boardStateFromSnapshot(snapshot.value))
-    setCursor((current) => current ?? snapshot.value.cursor)
     setControlPlaneError(undefined)
     setLoading(false)
     return true
   }, [projectId])
 
-  const refreshTicketActivity = useCallback(
-    async (ticketId: string) => {
-      const requestId = activityRequestRef.current + 1
-      activityRequestRef.current = requestId
-      setTicketActivityLoading(true)
-      const result = await loadTicketActivity(projectId, TicketId.make(ticketId))
-      if (activityRequestRef.current !== requestId) {
-        return false
-      }
-      setTicketActivityLoading(false)
-      if (!result.ok) {
-        setTicketActivityError(result.details)
-        return false
-      }
-      setTicketActivity(result.value)
-      setTicketActivityError(undefined)
-      return true
-    },
-    [projectId],
-  )
-
-  useEffect(() => {
-    void refreshBoard()
-  }, [refreshBoard])
-
   useEffect(() => {
     if (selectedTicketId === undefined) {
-      activityRequestRef.current += 1
-      setTicketActivity([])
       setTicketActivityError(undefined)
-      setTicketActivityLoading(false)
       return
     }
-    void refreshTicketActivity(selectedTicketId)
-  }, [refreshTicketActivity, selectedTicketId])
+    setTicketActivityError(undefined)
+  }, [selectedTicketId])
 
   useEffect(() => {
-    if (cursor === undefined) {
-      return
-    }
-    return subscribeProjectEvents(
+    return subscribeProject(
       projectId,
-      cursor,
-      () => {
-        void refreshBoard()
-        if (selectedTicketId !== undefined) {
-          void refreshTicketActivity(selectedTicketId)
-        }
+      undefined,
+      {
+        onSnapshot: (snapshot) => {
+          setState(boardStateFromSnapshot(snapshot))
+          setLoading(false)
+          setControlPlaneError(undefined)
+        },
+        onEvent: (event) => {
+          setProjectEvents((current) => [...current, event])
+          void refreshBoard()
+        },
+        onError: setControlPlaneError,
       },
-      setControlPlaneError,
     )
-  }, [cursor, projectId, refreshBoard, refreshTicketActivity, selectedTicketId])
+  }, [projectId, refreshBoard])
 
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
@@ -759,30 +737,20 @@ export function BoardPage({
     requestAnimationFrame(() => focusTicket(boardRef, ticketId))
   }
 
-  const runCommand = async <A extends TicketCommandRequest, E>(
+  const runCommand = async <A extends ClientCommandRequest, E>(
     request: Effect.Effect<A, E, Crypto.Crypto>,
     successMessage: string,
   ) => {
-    const result = await buildAndSubmitTicketCommand(projectId, request)
+    const result = await buildAndDispatchCommand(request)
     if (!result.ok) {
       setControlPlaneError(result.details)
       setAnnouncement("La commande n’a pas pu être envoyée au control plane.")
       await refreshBoard()
       return false
     }
-    if (result.value.response._tag === "rejected") {
-      const reason = result.value.response.error._tag
-      setControlPlaneError(reason)
-      setAnnouncement(`Commande rejetée : ${reason}.`)
-      await refreshBoard()
-      return false
-    }
     setControlPlaneError(undefined)
     setAnnouncement(successMessage)
     await refreshBoard()
-    if (selectedTicketId !== undefined) {
-      await refreshTicketActivity(selectedTicketId)
-    }
     return true
   }
 
@@ -1030,6 +998,7 @@ export function BoardPage({
     setCreatingColumnId(undefined)
     void runCommand(
       makeTicketCreateRequest({
+        projectId,
         title: title.trim(),
         placement: { columnId: KanbanColumnId.make(columnId) },
       }),
@@ -1283,7 +1252,7 @@ export function BoardPage({
                             beforeColumnId: KanbanColumnId.make(done.id),
                           }
                     void runCommand(
-                      makeKanbanColumnCreateRequest(columnInput),
+                      makeKanbanColumnCreateRequest({ ...columnInput, projectId }),
                       `Colonne ${newColumnName.trim()} ajoutée.`,
                     )
                     setNewColumnName("")
@@ -1349,7 +1318,7 @@ export function BoardPage({
         tickets={state.tickets}
         ticketDependencies={state.ticketDependencies}
         activity={ticketActivity}
-        activityLoading={ticketActivityLoading}
+        activityLoading={false}
         {...(ticketActivityError === undefined ? {} : { activityError: ticketActivityError })}
         focusTitle={renamingTicketId === selectedTicket?.id}
         onClose={() => {

@@ -7,6 +7,7 @@ export type AppearancePreference = (typeof APPEARANCE_PREFERENCES)[number]
 export interface NoyauDesktopBridge {
   readonly platform: string
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
+  readonly pickFolder: () => Promise<string | undefined>
 }
 
 interface WindowControlsOverlayLike {

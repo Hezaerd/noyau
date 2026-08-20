@@ -1,5 +1,5 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import { CommandId, KanbanColumnId, TicketId } from "@noyau/protocol/ids"
+import { CommandId, KanbanColumnId, TicketId, type ProjectId } from "@noyau/protocol/ids"
 import {
   KanbanColumnCreateRequest,
   KanbanColumnDeleteRequest,
@@ -20,6 +20,7 @@ const uuid = Effect.fnUntraced(function* () {
 })
 
 export const makeTicketCreateRequest = Effect.fnUntraced(function* (input: {
+  readonly projectId: ProjectId
   readonly title: string
   readonly placement: TicketPlacement
 }) {
@@ -27,6 +28,7 @@ export const makeTicketCreateRequest = Effect.fnUntraced(function* (input: {
   return TicketCreateRequest.make({
     commandId: CommandId.make(commandId),
     payload: {
+      projectId: input.projectId,
       ticketId: TicketId.make(ticketId),
       title: input.title,
       placement: input.placement,
@@ -91,6 +93,7 @@ export const makeTicketDependencyRemoveRequest = Effect.fnUntraced(function* (
 })
 
 export const makeKanbanColumnCreateRequest = Effect.fnUntraced(function* (input: {
+  readonly projectId: ProjectId
   readonly name: string
   readonly color: string
   readonly beforeColumnId?: KanbanColumnId

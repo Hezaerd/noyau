@@ -1,8 +1,9 @@
 import { useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-router"
-import { useRef } from "react"
+import { ProjectId } from "@noyau/protocol/ids"
+import { useEffect, useRef } from "react"
 
+import { useControlPlane } from "@/components/control-plane-context"
 import { type BoardSearch, type BoardSearchPatch } from "@/lib/board-model"
-import { resolveProjectId } from "@/lib/control-plane-config"
 import { BoardPage } from "@/pages/BoardPage"
 
 const routeId = "/projects/$projectId/board" as const
@@ -25,11 +26,16 @@ const applySearchPatch = (current: BoardSearch, patch: BoardSearchPatch): BoardS
 
 export function BoardRoutePage() {
   const { projectId: routeProjectId } = useParams({ from: routeId })
-  const projectId = resolveProjectId(routeProjectId)
+  const projectId = ProjectId.make(routeProjectId)
+  const { selectProject } = useControlPlane()
   const search = useSearch({ from: routeId })
   const navigate = useNavigate({ from: routeId })
   const router = useRouter()
   const openedFromBoard = useRef(false)
+
+  useEffect(() => {
+    selectProject(projectId)
+  }, [projectId, selectProject])
 
   const updateSearch = (patch: BoardSearchPatch, replace = true) => {
     void navigate({

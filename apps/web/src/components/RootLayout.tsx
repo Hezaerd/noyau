@@ -1,28 +1,24 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router"
 
 import { AppPaletteProvider } from "@/components/AppPalette"
+import { ControlPlaneProvider } from "@/components/control-plane-context"
 import { AppSidebar } from "@/components/AppSidebar"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 
 const pageMeta = {
-  "/": { title: "Inbox" },
-  "/projects/noyau/channel": { title: "Canal" },
+  "/": { title: "Tableau" },
 } as const
 
 const getPageMeta = (pathname: string) => {
-  const projectMatch = /^\/projects\/([^/]+)\/(board|channel)$/.exec(pathname)
+  const projectMatch = /^\/projects\/([^/]+)\/board$/.exec(pathname)
   if (projectMatch !== null) {
-    return {
-      title: projectMatch[2] === "board" ? "Tableau" : "Canal",
-    }
+    return { title: "Tableau" }
   }
 
   switch (pathname) {
     case "/":
       return pageMeta["/"]
-    case "/projects/noyau/channel":
-      return pageMeta["/projects/noyau/channel"]
     default:
       return { title: "Control room" }
   }
@@ -33,25 +29,27 @@ export function RootLayout() {
   const meta = getPageMeta(pathname)
 
   return (
-    <AppPaletteProvider>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset className="min-w-0 overflow-hidden">
-          <header
-            className="drag-region sticky top-0 z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
-            data-desktop-page-titlebar=""
-          >
-            <SidebarTrigger className="-ml-1 text-muted-foreground" />
-            <Separator orientation="vertical" className="h-4" />
-            <div className="flex min-w-0 items-center text-sm">
-              <h1 className="truncate font-medium tracking-[-0.015em]">{meta.title}</h1>
-            </div>
-          </header>
+    <ControlPlaneProvider>
+      <AppPaletteProvider>
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset className="min-w-0 overflow-hidden">
+            <header
+              className="drag-region sticky top-0 z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
+              data-desktop-page-titlebar=""
+            >
+              <SidebarTrigger className="-ml-1 text-muted-foreground" />
+              <Separator orientation="vertical" className="h-4" />
+              <div className="flex min-w-0 items-center text-sm">
+                <h1 className="truncate font-medium tracking-[-0.015em]">{meta.title}</h1>
+              </div>
+            </header>
 
-          <Outlet />
-        </SidebarInset>
-      </SidebarProvider>
-    </AppPaletteProvider>
+            <Outlet />
+          </SidebarInset>
+        </SidebarProvider>
+      </AppPaletteProvider>
+    </ControlPlaneProvider>
   )
 }
 
@@ -65,7 +63,7 @@ export function NotFound() {
         to="/"
         className="mt-6 inline-flex w-fit rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
-        Retour à l’inbox
+        Retour au Tableau
       </Link>
     </section>
   )

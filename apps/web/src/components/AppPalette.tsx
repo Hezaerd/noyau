@@ -1,5 +1,5 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router"
-import { InboxIcon, LayoutGridIcon, MessageCircleIcon } from "lucide-react"
+import { LayoutGridIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState, type ReactElement, type ReactNode } from "react"
 
 import {
@@ -7,6 +7,7 @@ import {
   type AppPaletteAction,
   type AppPaletteContextValue,
 } from "@/components/app-palette-context"
+import { useControlPlane } from "@/components/control-plane-context"
 import {
   Command,
   CommandCollection,
@@ -59,6 +60,7 @@ const readRecentActionIds = (): ReadonlyArray<string> => {
 export function AppPaletteProvider({ children }: { readonly children: ReactNode }): ReactElement {
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const { lastProjectId } = useControlPlane()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [pageActions, setPageActions] = useState<ReadonlyArray<AppPaletteAction>>([])
@@ -106,38 +108,25 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   }, [open])
 
   const navigationActions = useMemo<ReadonlyArray<AppPaletteAction>>(() => {
-    const actions: Array<AppPaletteAction & { readonly path: string }> = [
-      {
-        id: "navigate.inbox",
-        label: "Inbox",
-        searchValue: "Aller à l’Inbox",
-        path: "/",
-        icon: <InboxIcon />,
-        execute: () => navigate({ to: "/" }),
-      },
-      {
-        id: "navigate.board",
-        label: "Tableau",
-        searchValue: "Aller au Tableau",
-        path: "/projects/noyau/board",
-        icon: <LayoutGridIcon />,
-        execute: () =>
-          navigate({
-            to: "/projects/$projectId/board",
-            params: { projectId: "noyau" },
-          }),
-      },
-      {
-        id: "navigate.channel",
-        label: "Canal",
-        searchValue: "Aller au Canal",
-        path: "/projects/noyau/channel",
-        icon: <MessageCircleIcon />,
-        execute: () => navigate({ to: "/projects/noyau/channel" }),
-      },
-    ]
+    const actions: Array<AppPaletteAction & { readonly path: string }> =
+      lastProjectId === undefined
+        ? []
+        : [
+            {
+              id: "navigate.board",
+              label: "Tableau",
+              searchValue: "Aller au Tableau",
+              path: `/projects/${lastProjectId}/board`,
+              icon: <LayoutGridIcon />,
+              execute: () =>
+                navigate({
+                  to: "/projects/$projectId/board",
+                  params: { projectId: lastProjectId },
+                }),
+            },
+          ]
     return actions.filter((action) => action.path !== pathname)
-  }, [navigate, pathname])
+  }, [lastProjectId, navigate, pathname])
 
   const contextualActions = useMemo(
     () => pageActions.filter((action) => action.category !== "ticket"),
