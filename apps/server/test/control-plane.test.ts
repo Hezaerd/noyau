@@ -217,13 +217,15 @@ describe("ControlPlane", () => {
         const missing = `/tmp/noyau-missing-${uuid(90)}`
         const missingCreateRequest = projectCreate(uuid(1), projectId, missing)
         const fileCreateRequest = projectCreate(uuid(2), projectId, "/etc/hosts")
-        const missingCreate = yield* controlPlane.dispatch(missingCreateRequest, actorId).pipe(
-          Effect.flip,
-        )
-        const missingCreateRetry = yield* controlPlane.dispatch(missingCreateRequest, actorId).pipe(
-          Effect.flip,
-        )
-        const fileCreate = yield* controlPlane.dispatch(fileCreateRequest, actorId).pipe(Effect.flip)
+        const missingCreate = yield* controlPlane
+          .dispatch(missingCreateRequest, actorId)
+          .pipe(Effect.flip)
+        const missingCreateRetry = yield* controlPlane
+          .dispatch(missingCreateRequest, actorId)
+          .pipe(Effect.flip)
+        const fileCreate = yield* controlPlane
+          .dispatch(fileCreateRequest, actorId)
+          .pipe(Effect.flip)
         const fileCreateRetry = yield* controlPlane
           .dispatch(fileCreateRequest, actorId)
           .pipe(Effect.flip)
@@ -238,9 +240,9 @@ describe("ControlPlane", () => {
           commandId: uuid(4),
           payload: { projectId, workspaceRoot: missing },
         })
-        const missingRebind = yield* controlPlane.dispatch(missingRebindRequest, actorId).pipe(
-          Effect.flip,
-        )
+        const missingRebind = yield* controlPlane
+          .dispatch(missingRebindRequest, actorId)
+          .pipe(Effect.flip)
         const missingRebindRetry = yield* controlPlane
           .dispatch(missingRebindRequest, actorId)
           .pipe(Effect.flip)

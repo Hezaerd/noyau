@@ -287,7 +287,7 @@ const validateWorkspaceRoot = Effect.fn("ControlPlane.validateWorkspaceRoot")(fu
       error.reason._tag === "NotFound"
         ? Effect.succeed({ _tag: "Missing" as const })
         : Effect.fail(new ServiceUnavailable({ service: "filesystem" })),
-    )
+    ),
   )
   if (result._tag === "Missing") {
     return new WorkspaceRootNotFound({ workspaceRoot })
@@ -510,31 +510,31 @@ export interface ControlPlaneHooks {
   readonly afterThreadSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
 }
 
-const validateProjectLifecycle = Effect.fn("ControlPlane.validateProjectLifecycle")(
-  function* (command: CommandType) {
-    const workspaceRootRejection = yield* validateWorkspaceRoot(command)
-    if (workspaceRootRejection !== null) {
-      return workspaceRootRejection
-    }
-    if (command._tag !== "project.create" && command._tag !== "project.rebind") {
-      return null
-    }
-    const owner = yield* findWorkspaceRootOwner(
-      command.payload.workspaceRoot,
-      command._tag === "project.rebind" ? command.payload.projectId : undefined,
-    )
-    return Option.match(owner, {
-      onNone: () => null,
-      onSome: (projectId) =>
-        command._tag === "project.create" && projectId === command.payload.projectId
-          ? null
-          : new WorkspaceRootConflict({
-              workspaceRoot: command.payload.workspaceRoot,
-              projectId,
-            }),
-    })
-  },
-)
+const validateProjectLifecycle = Effect.fn("ControlPlane.validateProjectLifecycle")(function* (
+  command: CommandType,
+) {
+  const workspaceRootRejection = yield* validateWorkspaceRoot(command)
+  if (workspaceRootRejection !== null) {
+    return workspaceRootRejection
+  }
+  if (command._tag !== "project.create" && command._tag !== "project.rebind") {
+    return null
+  }
+  const owner = yield* findWorkspaceRootOwner(
+    command.payload.workspaceRoot,
+    command._tag === "project.rebind" ? command.payload.projectId : undefined,
+  )
+  return Option.match(owner, {
+    onNone: () => null,
+    onSome: (projectId) =>
+      command._tag === "project.create" && projectId === command.payload.projectId
+        ? null
+        : new WorkspaceRootConflict({
+            workspaceRoot: command.payload.workspaceRoot,
+            projectId,
+          }),
+  })
+})
 
 export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
   Layer.effect(
