@@ -14,7 +14,6 @@ import { useState } from "react"
 import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { CommandDialogTrigger } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
@@ -56,24 +55,6 @@ export function AppSidebar() {
           <div aria-hidden className="size-8 shrink-0 rounded-xl bg-sidebar-primary shadow-lg/5" />
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold tracking-[-0.02em]">Noyau</p>
-          </div>
-          <div className="group-data-[collapsible=icon]:hidden">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Ouvrir les Paramètres"
-              className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              render={
-                <Link
-                  to="/settings/$tab"
-                  params={{ tab: "appearance" }}
-                  onClick={closeMobileNavigation}
-                />
-              }
-            >
-              <SettingsIcon />
-            </Button>
           </div>
         </div>
 
@@ -213,16 +194,22 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3">
-        <div className="flex items-center gap-2.5 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/30 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
-          <Avatar className="size-7 rounded-lg">
-            <AvatarFallback className="rounded-lg bg-sidebar-primary/20 text-[0.66rem] font-semibold text-sidebar-primary">
-              H
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-            <p className="truncate text-xs font-medium">Hezaerd</p>
-          </div>
-        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Ouvrir les Paramètres"
+          className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          render={
+            <Link
+              to="/settings/$tab"
+              params={{ tab: "appearance" }}
+              onClick={closeMobileNavigation}
+            />
+          }
+        >
+          <SettingsIcon />
+        </Button>
       </SidebarFooter>
       <ProjectFolderDialog
         open={folderDialogOpen || rebindProjectId !== undefined}
