@@ -93,7 +93,7 @@ describe("rendered Thread UI evidence", () => {
     }
 
     render(<Harness />)
-    await user.click(screen.getByRole("button", { name: "Mode d’exécution" }))
+    await user.click(screen.getByRole("combobox", { name: "Mode d’exécution" }))
 
     expect(screen.getByText("Approbation requise")).toBeTruthy()
     expect(screen.getByText("Accepter les éditions")).toBeTruthy()
@@ -101,7 +101,7 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByText("Accès complet")).toBeTruthy()
 
     await user.click(screen.getByText("Automatique"))
-    expect(screen.getByRole("button", { name: "Mode d’exécution" }).textContent).toContain(
+    expect(screen.getByRole("combobox", { name: "Mode d’exécution" }).textContent).toContain(
       "Automatique",
     )
   })
@@ -149,7 +149,7 @@ describe("rendered Thread UI evidence", () => {
       />,
     )
 
-    await user.click(screen.getByRole("button", { name: "Lier un ticket" }))
+    await user.click(screen.getByRole("combobox", { name: "Lier un ticket" }))
     await user.click(screen.getByRole("option", { name: "Ajouter ce Ticket" }))
     expect(onSelectionChange).toHaveBeenCalledWith(ticketId)
 
@@ -180,7 +180,7 @@ describe("rendered Thread UI evidence", () => {
     } as const
 
     render(<TicketDialog {...baseProps} ticketThreads={[]} />)
-    await user.click(screen.getByRole("button", { name: "Ajouter un Thread lié" }))
+    await user.click(screen.getByRole("combobox", { name: "Ajouter un Thread lié" }))
     await user.click(screen.getByRole("option", { name: "Thread de reprise" }))
     expect(onLinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
 
