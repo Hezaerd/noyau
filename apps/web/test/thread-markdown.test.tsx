@@ -58,4 +58,22 @@ describe("ThreadMarkdown", () => {
     renderMarkdown("$$\nE = mc^2\n$$")
     expect(document.querySelector(".katex")).not.toBeNull()
   })
+
+  it("applies Shiki token colors on a TypeScript fence", async () => {
+    renderMarkdown("```ts\nconst ready = true\n```")
+
+    await waitFor(() => {
+      const tokens = document.querySelectorAll(
+        "[data-streamdown='code-block-body'] span[style*='--sdm-c']",
+      )
+      expect(tokens.length).toBeGreaterThan(1)
+    })
+
+    const colors = new Set(
+      [...document.querySelectorAll("[data-streamdown='code-block-body'] span[style*='--sdm-c']")]
+        .map((node) => (node instanceof HTMLElement ? node.style.getPropertyValue("--sdm-c") : ""))
+        .filter((color) => color.length > 0),
+    )
+    expect(colors.size).toBeGreaterThan(1)
+  })
 })
