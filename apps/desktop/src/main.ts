@@ -297,6 +297,7 @@ app.on("before-quit", (event) => {
       return serverSupervisor?.stop().then(() => {
         quitAllowed = true
         app.quit()
+        return undefined
       })
     })
     .catch((cause) => {

@@ -34,7 +34,7 @@ export const decodeControlPlaneConfig = (
   })
 }
 
-const desktopRuntimeConfig = (): ControlPlaneEnvironmentInput => {
+const desktopRuntimeConfig = () => {
   const query = new URLSearchParams(globalThis.location?.search ?? "")
   return {
     ...import.meta.env,
