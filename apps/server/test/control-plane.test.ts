@@ -8,7 +8,8 @@ import {
   makeControlPlaneLayer,
   type ControlPlaneHooks,
 } from "@noyau/server/control-plane"
-import { Chunk, Crypto, Deferred, Effect, Fiber, Layer, Schema, Stream, TestClock } from "effect"
+import { Crypto, Deferred, Effect, Fiber, Layer, Schema, Stream } from "effect"
+import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { testServerConfigLayer } from "./fixtures"
@@ -64,8 +65,16 @@ const controlPlaneTestLayer = (hooks: ControlPlaneHooks = {}) =>
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 
-const run = <A, E>(effect: Effect.Effect<A, E, ControlPlane | SqlClient>) =>
-  effect.pipe(Effect.provide(controlPlaneTestLayer()))
+const run = <A, E>(
+  effect: Effect.Effect<A, E, ControlPlane | SqlClient>,
+  hooks: ControlPlaneHooks = {},
+) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const services = yield* Layer.build(controlPlaneTestLayer(hooks))
+      return yield* effect.pipe(Effect.provide(services))
+    }),
+  )
 
 describe("ControlPlane", () => {
   it.effect("dispatches durably, retries a command, and rejects commandId scope reuse", () =>
@@ -84,7 +93,7 @@ describe("ControlPlane", () => {
 
         const frames = yield* controlPlane
           .subscribeProject({ projectId, requestCompletionMarker: true })
-          .pipe(Stream.take(2), Stream.runCollect, Effect.map(Chunk.toReadonlyArray))
+          .pipe(Stream.take(2), Stream.runCollect)
         assert.strictEqual(frames[0]?.kind, "snapshot")
         assert.strictEqual(frames[1]?.kind, "synchronized")
 
@@ -109,7 +118,7 @@ describe("ControlPlane", () => {
             afterSequence: created.sequence,
             requestCompletionMarker: true,
           })
-          .pipe(Stream.take(2), Stream.runCollect, Effect.map(Chunk.toReadonlyArray))
+          .pipe(Stream.take(2), Stream.runCollect)
         assert.strictEqual(replay[0]?.kind, "event")
         assert.strictEqual(
           replay[0]?.kind === "event" ? replay[0].event.sequence : -1,
@@ -149,7 +158,7 @@ describe("ControlPlane", () => {
             afterSequence: created.sequence,
             requestCompletionMarker: true,
           })
-          .pipe(Stream.take(2), Stream.runCollect, Effect.map(Chunk.toReadonlyArray))
+          .pipe(Stream.take(2), Stream.runCollect)
         assert.strictEqual(reset[0]?.kind, "snapshot")
         assert.strictEqual(reset[1]?.kind, "synchronized")
       }),
@@ -175,7 +184,7 @@ describe("ControlPlane", () => {
         yield* Deferred.await(snapshotRead)
         const renamed = yield* controlPlane.dispatch(projectRename(uuid(2), "Buffered"), actorId)
         yield* Deferred.succeed(releaseSnapshot, undefined)
-        const frames = Chunk.toReadonlyArray(yield* Fiber.join(subscription))
+        const frames = yield* Fiber.join(subscription)
 
         assert.strictEqual(frames[0]?.kind, "snapshot")
         assert.strictEqual(frames[1]?.kind, "event")
@@ -185,7 +194,7 @@ describe("ControlPlane", () => {
         )
         assert.strictEqual(frames[2]?.kind, "synchronized")
       })
-      yield* program.pipe(Effect.provide(controlPlaneTestLayer(hooks)))
+      yield* run(program, hooks)
     }),
   )
 
@@ -206,7 +215,7 @@ describe("ControlPlane", () => {
 
         const threadFrames = yield* controlPlane
           .subscribeThread({ threadId, requestCompletionMarker: true })
-          .pipe(Stream.take(2), Stream.runCollect, Effect.map(Chunk.toReadonlyArray))
+            .pipe(Stream.take(2), Stream.runCollect)
         assert.strictEqual(threadFrames[0]?.kind, "snapshot")
         assert.strictEqual(threadFrames[1]?.kind, "synchronized")
 
@@ -219,7 +228,7 @@ describe("ControlPlane", () => {
         yield* Deferred.succeed(releaseSnapshot, undefined)
         yield* Effect.yieldNow
         yield* TestClock.adjust("25 millis")
-        const shellFrames = Chunk.toReadonlyArray(yield* Fiber.join(shellFiber))
+        const shellFrames = yield* Fiber.join(shellFiber)
 
         assert.strictEqual(shellFrames[0]?.kind, "snapshot")
         assert.strictEqual(shellFrames[1]?.kind, "event")
@@ -229,7 +238,7 @@ describe("ControlPlane", () => {
         )
         assert.strictEqual(shellFrames[2]?.kind, "synchronized")
       })
-      yield* program.pipe(Effect.provide(controlPlaneTestLayer(hooks)))
+      yield* run(program, hooks)
     }),
   )
 })

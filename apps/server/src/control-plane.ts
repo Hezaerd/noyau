@@ -38,11 +38,16 @@ import {
   ProjectId,
   type ProjectId as ProjectIdType,
   Sequence,
+  type Sequence as SequenceType,
   type ThreadId,
 } from "@noyau/protocol/ids"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
 import { ProjectEvent } from "@noyau/protocol/project/events"
-import { Rejection, type Rejection as RejectionType } from "@noyau/protocol/receipts"
+import {
+  type DispatchResult,
+  Rejection,
+  type Rejection as RejectionType,
+} from "@noyau/protocol/receipts"
 import {
   requiresFreshSnapshot,
   type ProjectStreamItem,
@@ -66,12 +71,11 @@ import {
   Layer,
   Option,
   Queue,
-  Result,
+  type Result,
   Schema,
   Stream,
 } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
-import type { SqlError } from "effect/unstable/sql/SqlError"
 
 import { ServerConfig } from "./config"
 
@@ -235,7 +239,10 @@ const toEnvelope = (event: PersistedEvent<DomainEventType>) =>
     event: event.event,
   }).pipe(Effect.orDie)
 
-const unavailable = (service: string) => (_error: SqlError) => new ServiceUnavailable({ service })
+const unavailable =
+  (service: string) =>
+  <E>(_error: E) =>
+    new ServiceUnavailable({ service })
 
 type LiveInput =
   | { readonly kind: "event"; readonly event: PersistedEvent<DomainEventType> }
@@ -255,15 +262,15 @@ const makeLiveBuffer = Effect.fn("ControlPlane.makeLiveBuffer")(function* (
 const eventSequence = (item: LiveInput): number =>
   item.kind === "event" ? item.event.sequence : Number.MAX_SAFE_INTEGER
 
-const bufferedTail = <A>(
+const bufferedTail = <A, E = never, R = never>(
   buffer: Queue.Dequeue<LiveInput> & Queue.Enqueue<LiveInput>,
   boundary: number,
   requestCompletionMarker: boolean | undefined,
-  mapEvent: (event: PersistedEvent<DomainEventType>) => Effect.Effect<ReadonlyArray<A>>,
+  mapEvent: (event: PersistedEvent<DomainEventType>) => Effect.Effect<ReadonlyArray<A>, E, R>,
   synchronized: A,
 ) => {
   const stream = Stream.fromQueue(buffer).pipe(
-    Stream.mapEffect((item): Effect.Effect<ReadonlyArray<A>> => {
+    Stream.mapEffect((item): Effect.Effect<ReadonlyArray<A>, E, R> => {
       if (item.kind === "synchronized") {
         return Effect.succeed([synchronized])
       }
@@ -386,10 +393,7 @@ export interface ControlPlaneService {
   readonly dispatch: (
     request: ClientCommandRequest,
     actorId: ActorId,
-  ) => Effect.Effect<
-    { readonly sequence: number },
-    RejectionType | CommandIdConflict | ServiceUnavailable
-  >
+  ) => Effect.Effect<DispatchResult, RejectionType | CommandIdConflict | ServiceUnavailable>
   readonly subscribeShell: (
     input: SubscribeShellInput,
   ) => Stream.Stream<ShellStreamItem, ServiceUnavailable>
@@ -409,9 +413,9 @@ export class ControlPlane extends Context.Service<ControlPlane, ControlPlaneServ
 ) {}
 
 export interface ControlPlaneHooks {
-  readonly afterShellSnapshot?: (snapshotSequence: number) => Effect.Effect<void>
-  readonly afterProjectSnapshot?: (snapshotSequence: number) => Effect.Effect<void>
-  readonly afterThreadSnapshot?: (snapshotSequence: number) => Effect.Effect<void>
+  readonly afterShellSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
+  readonly afterProjectSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
+  readonly afterThreadSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
 }
 
 export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
@@ -445,6 +449,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         function* (request, actorId) {
           const command = yield* enrichCommand(request, actorId).pipe(
             Effect.provideService(SqlClient, sql),
+            Effect.mapError(unavailable("sqlite")),
           )
           const receipt = yield* worker
             .dispatch(command)
@@ -456,7 +461,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               ),
             )
           return receipt.response._tag === "accepted"
-            ? { sequence: receipt.response.sequence }
+            ? { sequence: Sequence.make(receipt.response.sequence) }
             : yield* receipt.response.error
         },
       )
@@ -478,15 +483,18 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               const catchUp = yield* worker
                 .readEvents(input.afterSequence, Math.max(1, replayGap))
                 .pipe(Effect.mapError(unavailable("project-stream")))
-              const historical = Stream.fromIterable(catchUp).pipe(
-                Stream.filter(
-                  (event) => event.sequence <= head && event.projectId === input.projectId,
-                ),
-                Stream.filter((event) => isProjectStreamEvent(event.event)),
-                Stream.mapEffect(toEnvelope),
-                Stream.map((event) => ({ kind: "event" as const, event })),
-              )
-              const tail = bufferedTail(
+              const historical: Stream.Stream<ProjectStreamItem, ServiceUnavailable> =
+                Stream.fromIterable(catchUp).pipe(
+                  Stream.filter(
+                    (event) => event.sequence <= head && event.projectId === input.projectId,
+                  ),
+                  Stream.filter((event) => isProjectStreamEvent(event.event)),
+                  Stream.mapEffect(toEnvelope),
+                  Stream.map(
+                    (event): ProjectStreamItem => ({ kind: "event" as const, event }),
+                  ),
+                )
+              const tail = bufferedTail<ProjectStreamItem>(
                 buffer,
                 head,
                 input.requestCompletionMarker,
@@ -510,8 +518,10 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             }
             yield* hooks.afterProjectSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
             return Stream.concat(
-              Stream.make({ kind: "snapshot" as const, snapshot: snapshot.value }),
-              bufferedTail(
+              Stream.make(
+                { kind: "snapshot" as const, snapshot: snapshot.value } satisfies ProjectStreamItem,
+              ),
+              bufferedTail<ProjectStreamItem>(
                 buffer,
                 snapshot.value.snapshotSequence,
                 input.requestCompletionMarker,
@@ -548,12 +558,15 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               const catchUp = yield* worker
                 .readEvents(input.afterSequence, Math.max(1, replayGap))
                 .pipe(Effect.mapError(unavailable("thread-stream")))
-              const historical = Stream.fromIterable(catchUp).pipe(
-                Stream.filter((event) => event.sequence <= head && matches(event)),
-                Stream.mapEffect(toEnvelope),
-                Stream.map((event) => ({ kind: "event" as const, event })),
-              )
-              const tail = bufferedTail(
+              const historical: Stream.Stream<ThreadStreamItem, ServiceUnavailable> =
+                Stream.fromIterable(catchUp).pipe(
+                  Stream.filter((event) => event.sequence <= head && matches(event)),
+                  Stream.mapEffect(toEnvelope),
+                  Stream.map(
+                    (event): ThreadStreamItem => ({ kind: "event" as const, event }),
+                  ),
+                )
+              const tail = bufferedTail<ThreadStreamItem>(
                 buffer,
                 head,
                 input.requestCompletionMarker,
@@ -577,8 +590,10 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             }
             yield* hooks.afterThreadSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
             return Stream.concat(
-              Stream.make({ kind: "snapshot" as const, snapshot: snapshot.value }),
-              bufferedTail(
+              Stream.make(
+                { kind: "snapshot" as const, snapshot: snapshot.value } satisfies ThreadStreamItem,
+              ),
+              bufferedTail<ThreadStreamItem>(
                 buffer,
                 snapshot.value.snapshotSequence,
                 input.requestCompletionMarker,
@@ -605,6 +620,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             )
             const mapEvent = (event: PersistedEvent<DomainEventType>) =>
               shellLiveEvent(environment, event).pipe(
+                Effect.mapError(unavailable("shell-stream")),
                 Effect.map((events) =>
                   events.map(
                     (shellEvent) =>
@@ -630,9 +646,13 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               return coalesceShell(
                 Stream.concat(
                   historical,
-                  bufferedTail(buffer, head, input.requestCompletionMarker, mapEvent, {
-                    kind: "synchronized",
-                  }),
+                  bufferedTail<ShellStreamItem, ServiceUnavailable, SqlClient>(
+                    buffer,
+                    head,
+                    input.requestCompletionMarker,
+                    mapEvent,
+                    { kind: "synchronized" },
+                  ),
                 ),
               )
             }
@@ -641,9 +661,11 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             )
             yield* hooks.afterShellSnapshot?.(snapshot.snapshotSequence) ?? Effect.void
             return Stream.concat(
-              Stream.make({ kind: "snapshot" as const, snapshot }),
+              Stream.make(
+                { kind: "snapshot" as const, snapshot } satisfies ShellStreamItem,
+              ),
               coalesceShell(
-                bufferedTail(
+                bufferedTail<ShellStreamItem, ServiceUnavailable, SqlClient>(
                   buffer,
                   snapshot.snapshotSequence,
                   input.requestCompletionMarker,
