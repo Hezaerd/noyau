@@ -5,13 +5,29 @@
 @import "./styles/coss-color-tokens.css";
 
 /* streamdown + plugin classes live in the package dist, not in src/. */
+/* Bun résout souvent hors de node_modules/ local : @source peut rater le dist. */
 
-@source "../../node_modules/streamdown/dist/*.js";
-@source "../../node_modules/@streamdown/code/dist/*.js";
-@source "../../node_modules/@streamdown/math/dist/*.js";
-@source "../../../node_modules/streamdown/dist/*.js";
-@source "../../../node_modules/@streamdown/code/dist/*.js";
-@source "../../../node_modules/@streamdown/math/dist/*.js";
+@source "../node_modules/streamdown/dist/*.js";
+@source "../node_modules/@streamdown/code/dist/*.js";
+@source "../node_modules/@streamdown/math/dist/*.js";
+@source inline("text-[var(--sdm-c,inherit)]");
+@source inline("dark:text-[var(--shiki-dark,var(--sdm-c,inherit))]");
+@source inline("bg-[var(--sdm-tbg)]");
+@source inline("dark:bg-[var(--shiki-dark-bg,var(--sdm-tbg))]");
+@source inline("bg-[var(--sdm-bg,inherit)]");
+@source inline("dark:bg-[var(--shiki-dark-bg,var(--sdm-bg,inherit))]");
+@source inline("before:content-[counter(line)]");
+@source inline("before:inline-block");
+@source inline("before:[counter-increment:line]");
+@source inline("before:w-6");
+@source inline("before:mr-4");
+@source inline("before:text-[13px]");
+@source inline("before:text-right");
+@source inline("before:text-muted-foreground/50");
+@source inline("before:font-mono");
+@source inline("before:select-none");
+@source inline("[counter-increment:line_0]");
+@source inline("[counter-reset:line]");
 
 @custom-variant dark (&:is(.dark *));
 
@@ -263,4 +279,33 @@
 
 .dark {
   --destructive-foreground: var(--color-red-400);
+}
+
+/*
+ * Streamdown pose les couleurs Shiki en variables (--sdm-c, --shiki-dark) et
+ * s'attend à des utilities Tailwind du dist. On les applique ici pour ne pas
+ * dépendre du scan de node_modules (Bun cache).
+ */
+[data-streamdown="code-block-body"] span[style*="--sdm-c"] {
+  color: var(--sdm-c, inherit);
+}
+
+html.dark [data-streamdown="code-block-body"] span[style*="--shiki-dark"] {
+  color: var(--shiki-dark, var(--sdm-c, inherit));
+}
+
+[data-streamdown="code-block-body"] span[style*="--sdm-tbg"] {
+  background-color: var(--sdm-tbg);
+}
+
+html.dark [data-streamdown="code-block-body"] span[style*="--shiki-dark-bg"] {
+  background-color: var(--shiki-dark-bg, var(--sdm-tbg));
+}
+
+[data-streamdown="code-block-body"] pre {
+  background-color: var(--sdm-bg, inherit);
+}
+
+html.dark [data-streamdown="code-block-body"] pre {
+  background-color: var(--shiki-dark-bg, var(--sdm-bg, inherit));
 }
