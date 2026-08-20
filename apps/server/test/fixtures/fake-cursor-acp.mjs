@@ -20,8 +20,7 @@ const write = (message) => {
 }
 
 const respond = (id, result) => write({ jsonrpc: "2.0", id, result })
-const fail = (id, message) =>
-  write({ jsonrpc: "2.0", id, error: { code: -32_603, message } })
+const fail = (id, message) => write({ jsonrpc: "2.0", id, error: { code: -32_603, message } })
 const notify = (method, params) => write({ jsonrpc: "2.0", method, params })
 
 const logRequest = (message) => {

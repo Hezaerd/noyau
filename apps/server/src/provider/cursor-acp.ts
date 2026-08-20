@@ -1,7 +1,7 @@
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
 import { constants } from "node:fs"
 import { access } from "node:fs/promises"
 import { delimiter, join } from "node:path"
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
 
 import type {
   ProviderApprovalDecision,
@@ -9,13 +9,7 @@ import type {
 } from "@noyau/protocol/entities/approvals"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
-import {
-  Deferred,
-  Effect,
-  Fiber,
-  Layer,
-  Schema,
-} from "effect"
+import { Deferred, Effect, Fiber, Layer, Schema } from "effect"
 
 import {
   AcpRequestError,
@@ -92,9 +86,7 @@ const ToolUpdate = Schema.Struct({
   toolCallId: Schema.NonEmptyString,
   title: Schema.optionalKey(Schema.String),
   kind: Schema.optionalKey(Schema.String),
-  status: Schema.optionalKey(
-    Schema.Literals(["pending", "in_progress", "completed", "failed"]),
-  ),
+  status: Schema.optionalKey(Schema.Literals(["pending", "in_progress", "completed", "failed"])),
   rawOutput: Schema.optionalKey(Schema.Unknown),
 })
 const PlanUpdate = Schema.Struct({
@@ -102,9 +94,7 @@ const PlanUpdate = Schema.Struct({
   entries: Schema.Array(
     Schema.Struct({
       content: Schema.String,
-      status: Schema.optionalKey(
-        Schema.Literals(["pending", "in_progress", "completed"]),
-      ),
+      status: Schema.optionalKey(Schema.Literals(["pending", "in_progress", "completed"])),
     }),
   ),
 })
@@ -118,12 +108,7 @@ const PermissionRequest = Schema.Struct({
   options: Schema.Array(
     Schema.Struct({
       optionId: Schema.NonEmptyString,
-      kind: Schema.Literals([
-        "allow_once",
-        "allow_always",
-        "reject_once",
-        "reject_always",
-      ]),
+      kind: Schema.Literals(["allow_once", "allow_always", "reject_once", "reject_always"]),
     }),
   ),
 })
@@ -181,8 +166,15 @@ interface ActiveTurn {
 const executableExists = (path: string, platform: NodeJS.Platform) =>
   Effect.tryPromise({
     try: () => access(path, platform === "win32" ? constants.F_OK : constants.X_OK),
-    catch: () => undefined,
-  }).pipe(Effect.as(true), Effect.catch(() => Effect.succeed(false)))
+    catch: (cause) =>
+      new AcpTransportError({
+        detail: `Cursor executable is not accessible at ${path}`,
+        cause,
+      }),
+  }).pipe(
+    Effect.as(true),
+    Effect.orElseSucceed(() => false),
+  )
 
 /** Resolves the configured executable or the platform Cursor command on PATH. */
 export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutable")(function* (
@@ -202,7 +194,11 @@ export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutabl
     }
   }
   const configured = configuredPath?.trim()
-  if (configured !== undefined && configured.length > 0 && (yield* executableExists(configured, platform))) {
+  if (
+    configured !== undefined &&
+    configured.length > 0 &&
+    (yield* executableExists(configured, platform))
+  ) {
     return configured
   }
   return null
@@ -215,7 +211,7 @@ const mapSchemaError = (operation: string) => (cause: Schema.SchemaError) =>
   })
 
 const terminateChild = (child: ChildProcessWithoutNullStreams) =>
-  Effect.async<void>((resume) => {
+  Effect.callback<void>((resume) => {
     if (child.exitCode !== null || child.signalCode !== null) {
       resume(Effect.void)
       return
@@ -286,13 +282,8 @@ const initialize = Effect.fn("CursorAdapter.initialize")(function* (
     },
     clientInfo: { name: "noyau", version: clientVersion },
   })
-  const response = yield* decodeInitialize(raw).pipe(
-    Effect.mapError(mapSchemaError("initialize")),
-  )
-  if (
-    response.protocolVersion !== ACP_VERSION ||
-    response.agentCapabilities.loadSession !== true
-  ) {
+  const response = yield* decodeInitialize(raw).pipe(Effect.mapError(mapSchemaError("initialize")))
+  if (response.protocolVersion !== ACP_VERSION || ! response.agentCapabilities.loadSession) {
     return yield* new AcpTransportError({
       detail: "Cursor ACP is missing protocol v1 or session/load capability",
     })
@@ -399,14 +390,23 @@ const sessionSignal = (
   status: SessionSignal["status"],
   resumeCursor: SessionSignal["resumeCursor"],
   lastError?: string,
-): ProviderSignal => ({
-  _tag: "session",
-  threadId: control.input.threadId,
-  turnId: control.input.turnId,
-  status,
-  resumeCursor,
-  ...(lastError === undefined ? {} : { lastError }),
-})
+): ProviderSignal =>
+  lastError === undefined
+    ? {
+        _tag: "session",
+        threadId: control.input.threadId,
+        turnId: control.input.turnId,
+        status,
+        resumeCursor,
+      }
+    : {
+        _tag: "session",
+        threadId: control.input.threadId,
+        turnId: control.input.turnId,
+        status,
+        resumeCursor,
+        lastError,
+      }
 
 const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   options: CursorAdapterOptions = {},
@@ -439,9 +439,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
             })
             yield* initialize(connection, clientVersion)
             return { installed: true, handshakeOk: true }
-          }).pipe(
-            Effect.catch(() => Effect.succeed({ installed: true, handshakeOk: false })),
-          ),
+          }).pipe(Effect.catch(() => Effect.succeed({ installed: true, handshakeOk: false }))),
         )
   const providerStatus = yield* probe
 
@@ -465,7 +463,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   const handlePermission = Effect.fn("CursorAdapter.handlePermission")(function* (
     control: ActiveTurn,
     requestId: string,
-    params: unknown,
+    params: Schema.Json | undefined,
   ) {
     const request = yield* decodePermissionRequest(params).pipe(
       Effect.mapError(mapSchemaError("session/request_permission")),
@@ -507,7 +505,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   const handleAskQuestion = Effect.fn("CursorAdapter.handleAskQuestion")(function* (
     control: ActiveTurn,
     requestId: string,
-    params: unknown,
+    params: Schema.Json | undefined,
   ) {
     const request = yield* decodeAskQuestionRequest(params).pipe(
       Effect.mapError(mapSchemaError("cursor/ask_question")),
@@ -522,46 +520,50 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     const deferred = yield* Deferred.make<ProviderUserInputAnswers>()
     control.pendingUserInputs.set(requestId, deferred)
     const prompt = request.questions?.[0]?.prompt
+    const pendingItem =
+      prompt === undefined
+        ? {
+            _tag: "transcript.user-input" as const,
+            threadId: control.input.threadId,
+            turnId: control.input.turnId,
+            requestId: ApprovalRequestId.make(requestId),
+            status: "pending" as const,
+          }
+        : {
+            _tag: "transcript.user-input" as const,
+            threadId: control.input.threadId,
+            turnId: control.input.turnId,
+            requestId: ApprovalRequestId.make(requestId),
+            prompt,
+            status: "pending" as const,
+          }
     yield* control.emit({
       _tag: "transcript",
-      item: {
-        _tag: "transcript.user-input",
-        threadId: control.input.threadId,
-        turnId: control.input.turnId,
-        requestId: ApprovalRequestId.make(requestId),
-        ...(prompt === undefined ? {} : { prompt }),
-        status: "pending",
-      },
+      item: pendingItem,
     })
     const answers = yield* Deferred.await(deferred)
     control.pendingUserInputs.delete(requestId)
+    const resolvedItem = { ...pendingItem, status: "resolved" as const }
     yield* control.emit({
       _tag: "transcript",
-      item: {
-        _tag: "transcript.user-input",
-        threadId: control.input.threadId,
-        turnId: control.input.turnId,
-        requestId: ApprovalRequestId.make(requestId),
-        ...(prompt === undefined ? {} : { prompt }),
-        status: "resolved",
-      },
+      item: resolvedItem,
     })
-    return { answers }
+    const jsonAnswers = yield* Schema.decodeUnknownEffect(Schema.Json)(answers).pipe(
+      Effect.mapError(mapSchemaError("cursor/ask_question answer")),
+    )
+    return { answers: jsonAnswers }
   })
 
   const handleUpdate = Effect.fn("CursorAdapter.handleUpdate")(function* (
     control: ActiveTurn,
     loading: () => boolean,
-    params: unknown,
+    params: Schema.Json | undefined,
   ) {
     const notification = yield* decodeSessionUpdate(params).pipe(
       Effect.mapError(mapSchemaError("session/update")),
     )
-    if (
-      loading() ||
-      notification._meta?.isReplay === true ||
-      notification.sessionId !== control.sessionId
-    ) {
+    const replayMetadata = notification["_meta"]
+    if (loading() || replayMetadata?.isReplay === true || notification.sessionId !== control.sessionId) {
       return
     }
     switch (notification.update.sessionUpdate) {
@@ -587,19 +589,20 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         const update = yield* decodeToolUpdate(notification.update).pipe(
           Effect.mapError(mapSchemaError("tool update")),
         )
+        const item = {
+          _tag: "transcript.tool" as const,
+          threadId: control.input.threadId,
+          turnId: control.input.turnId,
+          toolCallId: ToolCallId.make(update.toolCallId),
+          name: update.title ?? update.kind ?? "Cursor tool",
+          status: toolStatus(update.status),
+        }
         yield* control.emit({
           _tag: "transcript",
-          item: {
-            _tag: "transcript.tool",
-            threadId: control.input.threadId,
-            turnId: control.input.turnId,
-            toolCallId: ToolCallId.make(update.toolCallId),
-            name: update.title ?? update.kind ?? "Cursor tool",
-            status: toolStatus(update.status),
-            ...(typeof update.rawOutput === "string"
-              ? { outputSummary: update.rawOutput }
-              : {}),
-          },
+          item:
+            typeof update.rawOutput === "string"
+              ? { ...item, outputSummary: update.rawOutput }
+              : item,
         })
         return
       }
@@ -682,14 +685,14 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
             })
             .pipe(
               Effect.flatMap((value) =>
-                decodeSessionSetup(value).pipe(
-                  Effect.mapError(mapSchemaError("session/load")),
-                ),
+                decodeSessionSetup(value).pipe(Effect.mapError(mapSchemaError("session/load"))),
               ),
               Effect.option,
-              Effect.ensuring(Effect.sync(() => {
-                loading = false
-              })),
+              Effect.ensuring(
+                Effect.sync(() => {
+                  loading = false
+                }),
+              ),
             )
           if (loaded._tag === "Some") {
             setup = loaded.value
@@ -702,9 +705,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
               })
               .pipe(
                 Effect.flatMap((value) =>
-                  decodeNewSession(value).pipe(
-                    Effect.mapError(mapSchemaError("session/new")),
-                  ),
+                  decodeNewSession(value).pipe(Effect.mapError(mapSchemaError("session/new"))),
                 ),
               )
             setup = created
@@ -718,9 +719,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
             })
             .pipe(
               Effect.flatMap((value) =>
-                decodeNewSession(value).pipe(
-                  Effect.mapError(mapSchemaError("session/new")),
-                ),
+                decodeNewSession(value).pipe(Effect.mapError(mapSchemaError("session/new"))),
               ),
             )
           setup = created
@@ -765,9 +764,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           })
           .pipe(
             Effect.flatMap((value) =>
-              decodePrompt(value).pipe(
-                Effect.mapError(mapSchemaError("session/prompt")),
-              ),
+              decodePrompt(value).pipe(Effect.mapError(mapSchemaError("session/prompt"))),
             ),
             Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)),
           )
@@ -853,7 +850,11 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     for (const pending of control.pendingUserInputs.values()) {
       yield* Deferred.succeed(pending, {})
     }
-    if (!control.promptStarted || control.connection === undefined || control.sessionId === undefined) {
+    if (
+      !control.promptStarted ||
+      control.connection === undefined ||
+      control.sessionId === undefined
+    ) {
       return
     }
     yield* control.connection

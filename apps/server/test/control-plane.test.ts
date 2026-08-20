@@ -353,15 +353,11 @@ describe("ControlPlane", () => {
         if (snapshot?.kind === "snapshot") {
           assert.strictEqual(snapshot.snapshot.thread.latestTurn?.state, "completed")
           assert.strictEqual(snapshot.snapshot.session?.status, "ready")
-          assert.strictEqual(
-            snapshot.snapshot.session?.resumeCursor?.sessionId,
-            "fake-session-new",
-          )
+          assert.strictEqual(snapshot.snapshot.session?.resumeCursor?.sessionId, "fake-session-new")
           assert.isTrue(
             snapshot.snapshot.transcript.some(
               (item) =>
-                item._tag === "transcript.assistant" &&
-                item.text === "hello from fake Cursor",
+                item._tag === "transcript.assistant" && item.text === "hello from fake Cursor",
             ),
           )
         }

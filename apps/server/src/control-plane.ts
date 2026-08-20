@@ -420,6 +420,9 @@ export interface ControlPlaneHooks {
   readonly afterThreadSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
 }
 
+const workerNotReady: DispatchInternal = (_command) =>
+  Effect.die("Provider reactor dispatched before the command worker was ready")
+
 export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
   Layer.effect(
     ControlPlane,
@@ -427,14 +430,10 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const config = yield* ServerConfig
       const sql = yield* SqlClient
       const provider = yield* ProviderPort
-      let dispatchInternal: DispatchInternal = (_command) =>
-        Effect.die("Provider reactor dispatched before the command worker was ready")
+      let dispatchInternal = workerNotReady
       const processProviderEvent = yield* makeProviderReactor((command) =>
         dispatchInternal(command),
-      ).pipe(
-        Effect.provideService(ProviderPort, provider),
-        Effect.provideService(SqlClient, sql),
-      )
+      ).pipe(Effect.provideService(ProviderPort, provider), Effect.provideService(SqlClient, sql))
       const reactor = yield* makeDrainableWorker(processProviderEvent)
       const worker = yield* makeCommandWorker({
         commandSchema: Command,
@@ -449,13 +448,16 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         reactor,
       })
       dispatchInternal = (command) =>
-        worker.dispatch(command).pipe(
-          Effect.flatMap((receipt) =>
-            receipt.response._tag === "accepted"
-              ? Effect.void
-              : Effect.fail(receipt.response.error),
-          ),
-        )
+        worker
+          .dispatch(command)
+          .pipe(
+            Effect.flatMap((receipt) =>
+              receipt.response._tag === "accepted"
+                ? Effect.void
+                : Effect.fail(receipt.response.error),
+            ),
+            Effect.orDie,
+          )
       const cursorStatus = yield* provider.status
       const environment = new Environment({
         id: config.environmentId,

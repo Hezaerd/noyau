@@ -15,7 +15,7 @@ export class AcpRequestError extends Schema.TaggedError<AcpRequestError>()("AcpR
   method: Schema.NonEmptyString,
   code: Schema.Int,
   detail: Schema.NonEmptyString,
-  data: Schema.optionalKey(Schema.Unknown),
+  data: Schema.optionalKey(Schema.Json),
 }) {}
 
 export type AcpConnectionError = AcpRequestError | AcpTransportError
@@ -24,14 +24,14 @@ const JsonRpcId = Schema.Union([Schema.String, Schema.Number, Schema.Null])
 const JsonRpcError = Schema.Struct({
   code: Schema.Int,
   message: Schema.NonEmptyString,
-  data: Schema.optionalKey(Schema.Unknown),
+  data: Schema.optionalKey(Schema.Json),
 })
 const JsonRpcEnvelope = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
   id: Schema.optionalKey(JsonRpcId),
   method: Schema.optionalKey(Schema.NonEmptyString),
-  params: Schema.optionalKey(Schema.Unknown),
-  result: Schema.optionalKey(Schema.Unknown),
+  params: Schema.optionalKey(Schema.Json),
+  result: Schema.optionalKey(Schema.Json),
   error: Schema.optionalKey(JsonRpcError),
 })
 type JsonRpcEnvelope = (typeof JsonRpcEnvelope)["Type"]
@@ -39,24 +39,28 @@ type JsonRpcEnvelope = (typeof JsonRpcEnvelope)["Type"]
 const decodeEnvelope = Schema.decodeUnknownEffect(Schema.fromJsonString(JsonRpcEnvelope))
 
 export interface AcpConnectionHandlers {
-  readonly notification: (method: string, params: unknown) => Effect.Effect<void>
+  readonly notification: (
+    method: string,
+    params: Schema.Json | undefined,
+  ) => Effect.Effect<void, AcpConnectionError>
   readonly request: (
     id: string | number | null,
     method: string,
-    params: unknown,
-  ) => Effect.Effect<unknown, AcpConnectionError>
+    params: Schema.Json | undefined,
+  ) => Effect.Effect<Schema.Json, AcpConnectionError>
 }
 
 export interface AcpConnection {
-  readonly request: (method: string, params: unknown) => Effect.Effect<unknown, AcpConnectionError>
-  readonly notify: (method: string, params: unknown) => Effect.Effect<void, AcpTransportError>
+  readonly request: (
+    method: string,
+    params: Schema.Json,
+  ) => Effect.Effect<Schema.Json | undefined, AcpConnectionError>
+  readonly notify: (method: string, params: Schema.Json) => Effect.Effect<void, AcpTransportError>
   readonly stderr: Effect.Effect<string>
 }
 
 const transportError = (detail: string, cause?: unknown) =>
-  cause === undefined
-    ? new AcpTransportError({ detail })
-    : new AcpTransportError({ detail, cause })
+  cause === undefined ? new AcpTransportError({ detail }) : new AcpTransportError({ detail, cause })
 
 const requestKey = (id: string | number | null) => String(id)
 
@@ -70,7 +74,7 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
     string,
     {
       readonly method: string
-      readonly deferred: Deferred.Deferred<unknown, AcpConnectionError>
+      readonly deferred: Deferred.Deferred<Schema.Json | undefined, AcpConnectionError>
     }
   >()
   const stderrLines: Array<string> = []
@@ -78,7 +82,7 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
   const stderr = createInterface({ input: child.stderr, crlfDelay: Infinity })
 
   const write = (envelope: JsonRpcEnvelope) =>
-    Effect.async<void, AcpTransportError>((resume) => {
+    Effect.callback<void, AcpTransportError>((resume) => {
       if (closed || child.stdin.destroyed || !child.stdin.writable) {
         resume(Effect.fail(transportError("Cursor ACP stdin is closed")))
         return
@@ -106,12 +110,12 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
 
   const reply = (
     id: string | number | null,
-    result: unknown,
+    result: Schema.Json,
   ): Effect.Effect<void, AcpTransportError> => write({ jsonrpc: "2.0", id, result })
 
   const replyError = (
     id: string | number | null,
-    error: { readonly code: number; readonly message: string; readonly data?: unknown },
+    error: { readonly code: number; readonly message: string; readonly data?: Schema.Json },
   ): Effect.Effect<void, AcpTransportError> =>
     write({
       jsonrpc: "2.0",
@@ -122,6 +126,15 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
           : { code: error.code, message: error.message, data: error.data },
     })
 
+  const replyRequestError = (id: string | number | null, error: AcpRequestError) =>
+    error.data === undefined
+      ? replyError(id, { code: error.code, message: error.detail })
+      : replyError(id, {
+          code: error.code,
+          message: error.detail,
+          data: error.data,
+        })
+
   const handleEnvelope = Effect.fn("AcpJsonRpc.handleEnvelope")(function* (
     envelope: JsonRpcEnvelope,
   ) {
@@ -130,26 +143,19 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
         yield* handlers.notification(envelope.method, envelope.params)
         return
       }
-      yield* handlers
-        .request(envelope.id, envelope.method, envelope.params)
-        .pipe(
-          Effect.flatMap((result) => reply(envelope.id!, result)),
-          Effect.catchTags({
-            AcpRequestError: (error) =>
-              replyError(envelope.id!, {
-                code: error.code,
-                message: error.detail,
-                ...(error.data === undefined ? {} : { data: error.data }),
-              }),
-            AcpTransportError: (error) =>
-              replyError(envelope.id!, {
-                code: -32_603,
-                message: error.detail,
-              }),
-          }),
-          Effect.catch(() => Effect.void),
-          Effect.forkScoped,
-        )
+      yield* handlers.request(envelope.id, envelope.method, envelope.params).pipe(
+        Effect.flatMap((result) => reply(envelope.id!, result)),
+        Effect.catchTags({
+            AcpRequestError: (error) => replyRequestError(envelope.id!, error),
+          AcpTransportError: (error) =>
+            replyError(envelope.id!, {
+              code: -32_603,
+              message: error.detail,
+            }),
+        }),
+        Effect.catch(() => Effect.void),
+        Effect.forkScoped,
+      )
       return
     }
 
@@ -163,14 +169,22 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
     }
     pending.delete(key)
     if (envelope.error !== undefined) {
+      const requestError =
+        envelope.error.data === undefined
+          ? new AcpRequestError({
+              method: entry.method,
+              code: envelope.error.code,
+              detail: envelope.error.message,
+            })
+          : new AcpRequestError({
+              method: entry.method,
+              code: envelope.error.code,
+              detail: envelope.error.message,
+              data: envelope.error.data,
+            })
       yield* Deferred.fail(
         entry.deferred,
-        new AcpRequestError({
-          method: entry.method,
-          code: envelope.error.code,
-          detail: envelope.error.message,
-          ...(envelope.error.data === undefined ? {} : { data: envelope.error.data }),
-        }),
+        requestError,
       )
       return
     }
@@ -218,13 +232,16 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
     }),
   )
 
-  const request = Effect.fn("AcpJsonRpc.request")(function* (method: string, params: unknown) {
+  const request = Effect.fn("AcpJsonRpc.request")(function* (
+    method: string,
+    params: Schema.Json,
+  ) {
     if (closed) {
       return yield* transportError("Cursor ACP connection is closed")
     }
     const id = nextId
     nextId += 1
-    const deferred = yield* Deferred.make<unknown, AcpConnectionError>()
+    const deferred = yield* Deferred.make<Schema.Json | undefined, AcpConnectionError>()
     pending.set(requestKey(id), { method, deferred })
     yield* write({ jsonrpc: "2.0", id, method, params }).pipe(
       Effect.onError(() =>
@@ -236,7 +253,7 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
     return yield* Deferred.await(deferred)
   })
 
-  const notify = (method: string, params: unknown) =>
+  const notify = (method: string, params: Schema.Json) =>
     write({ jsonrpc: "2.0", method, params })
 
   return {

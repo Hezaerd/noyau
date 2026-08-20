@@ -1,5 +1,9 @@
 import type { PersistedEvent } from "@noyau/database/command-worker"
 import { readThreadSnapshot } from "@noyau/database/snapshots"
+import {
+  InternalCommand,
+  type InternalCommand as InternalCommandType,
+} from "@noyau/protocol/commands"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ResumeCursor } from "@noyau/protocol/entities/session"
 import type { DomainEvent } from "@noyau/protocol/events"
@@ -12,8 +16,7 @@ import {
   type ThreadId,
   type TurnId,
 } from "@noyau/protocol/ids"
-import { InternalCommand, type InternalCommand as InternalCommandType } from "@noyau/protocol/commands"
-import type { ThreadEvent } from "@noyau/protocol/thread/events"
+import { ThreadEvent } from "@noyau/protocol/thread/events"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -23,8 +26,16 @@ const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)
 const decodeInternalCommand = Schema.decodeUnknownEffect(InternalCommand)
 const systemActor = ActorId.make("system:cursor")
+const isThreadEvent = Schema.is(ThreadEvent)
 
-export type DispatchInternal = (command: InternalCommandType) => Effect.Effect<void, unknown>
+export type DispatchInternal = (command: InternalCommandType) => Effect.Effect<void>
+type InternalCommandBody =
+  | Pick<Extract<InternalCommandType, { readonly _tag: "thread.session.set" }>, "_tag" | "payload">
+  | Pick<
+      Extract<InternalCommandType, { readonly _tag: "thread.transcript.append" }>,
+      "_tag" | "payload"
+    >
+  | Pick<Extract<InternalCommandType, { readonly _tag: "thread.turn.ended" }>, "_tag" | "payload">
 
 const projectRoot = Effect.fn("ProviderReactor.projectRoot")(function* (projectId: string) {
   const sql = yield* SqlClient
@@ -40,13 +51,13 @@ const projectRoot = Effect.fn("ProviderReactor.projectRoot")(function* (projectI
 
 const makeInternalCommand = Effect.fn("ProviderReactor.makeInternalCommand")(function* (
   persisted: PersistedEvent<DomainEvent>,
-  payload: unknown,
+  body: InternalCommandBody,
 ) {
   const crypto = yield* Crypto.Crypto
   const commandId = yield* crypto.randomUUIDv4.pipe(Effect.orDie)
   const issuedAt = yield* DateTime.now
   return yield* decodeInternalCommand({
-    ...payload,
+    ...body,
     commandId: CommandId.make(commandId),
     projectId: ProjectId.make(persisted.projectId),
     actorId: systemActor,
@@ -61,7 +72,7 @@ const commandForSignal = (
   runtimeMode: RuntimeMode,
   signal: ProviderSignal,
   updatedAt: string,
-): unknown => {
+): InternalCommandBody => {
   switch (signal._tag) {
     case "session":
       return {
@@ -86,15 +97,24 @@ const commandForSignal = (
         payload: { item: signal.item },
       }
     case "turn-ended":
-      return {
-        _tag: "thread.turn.ended",
-        payload: {
-          threadId: signal.threadId,
-          turnId: signal.turnId,
-          state: signal.state,
-          ...(signal.lastError === undefined ? {} : { lastError: signal.lastError }),
-        },
-      }
+      return signal.lastError === undefined
+        ? {
+            _tag: "thread.turn.ended",
+            payload: {
+              threadId: signal.threadId,
+              turnId: signal.turnId,
+              state: signal.state,
+            },
+          }
+        : {
+            _tag: "thread.turn.ended",
+            payload: {
+              threadId: signal.threadId,
+              turnId: signal.turnId,
+              state: signal.state,
+              lastError: signal.lastError,
+            },
+          }
   }
 }
 
@@ -133,7 +153,7 @@ const stopIdleSession = Effect.fn("ProviderReactor.stopIdleSession")(function* (
 export const makeProviderReactor = (
   dispatchInternal: DispatchInternal,
 ): Effect.Effect<
-  (persisted: PersistedEvent<DomainEvent>) => Effect.Effect<void, unknown>,
+  (persisted: PersistedEvent<DomainEvent>) => Effect.Effect<void>,
   never,
   ProviderPort | SqlClient | Crypto.Crypto
 > =>
@@ -144,17 +164,10 @@ export const makeProviderReactor = (
 
     return (persisted) => {
       const event = persisted.event
-      if (
-        !(
-          event._tag.startsWith("thread.") ||
-          event._tag.startsWith("session.") ||
-          event._tag.startsWith("approval.") ||
-          event._tag.startsWith("user-input.")
-        )
-      ) {
+      if (!isThreadEvent(event)) {
         return Effect.void
       }
-      const threadEvent = event as ThreadEvent
+      const threadEvent = event
       switch (threadEvent._tag) {
         case "thread.turn.started":
           return Effect.gen(function* () {

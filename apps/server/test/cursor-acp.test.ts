@@ -4,13 +4,13 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { assert, describe, it } from "@effect/vitest"
+import { ApprovalRequestId, ProviderSessionId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { cursorProviderLayer, resolveCursorExecutable } from "@noyau/server/provider/cursor-acp"
 import {
   ProviderPort,
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
-import { ApprovalRequestId, ProviderSessionId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { Deferred, Effect, Fiber, Layer } from "effect"
 import { TestClock } from "effect/testing"
 
@@ -58,8 +58,8 @@ const withProvider = <A, E>(
   use: (
     provider: ProviderPort["Service"],
     evidence: { readonly requestLog: string; readonly exitLog: string },
-  ) => Effect.Effect<A, E>,
-) =>
+  ) => Effect.Effect<A, E, never>,
+): Effect.Effect<A, E, never> =>
   Effect.scoped(
     Effect.gen(function* () {
       const evidence = yield* makeOptions(scenario)
@@ -85,10 +85,7 @@ const capture = Effect.fn("CursorAdapterTest.capture")(function* (
   return signals
 })
 
-const readLog = (path: string) =>
-  Effect.promise(() => readFile(path, "utf8")).pipe(
-    Effect.catch(() => Effect.succeed("")),
-  )
+const readLog = (path: string) => Effect.promise(() => readFile(path, "utf8"))
 
 describe("Cursor ACP adapter", () => {
   it.effect("detects cursor-agent on PATH and falls back to a configured executable", () =>
@@ -105,7 +102,10 @@ describe("Cursor ACP adapter", () => {
         yield* resolveCursorExecutable(configured, { PATH: directory }, "linux"),
         pathExecutable,
       )
-      assert.strictEqual(yield* resolveCursorExecutable(configured, { PATH: "" }, "linux"), configured)
+      assert.strictEqual(
+        yield* resolveCursorExecutable(configured, { PATH: "" }, "linux"),
+        configured,
+      )
     }),
   )
 
@@ -137,9 +137,7 @@ describe("Cursor ACP adapter", () => {
       Effect.gen(function* () {
         const signals = yield* capture(provider, input())
         assert.isTrue(
-          signals.some(
-            (signal) => signal._tag === "session" && signal.status === "running",
-          ),
+          signals.some((signal) => signal._tag === "session" && signal.status === "running"),
         )
         assert.isTrue(
           signals.some(
@@ -158,10 +156,7 @@ describe("Cursor ACP adapter", () => {
           ),
         )
         assert.isTrue(
-          signals.some(
-            (signal) =>
-              signal._tag === "turn-ended" && signal.state === "completed",
-          ),
+          signals.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )
       }),
     ),
@@ -205,10 +200,7 @@ describe("Cursor ACP adapter", () => {
       Effect.gen(function* () {
         const signals = yield* capture(provider, input())
         assert.isTrue(
-          signals.some(
-            (signal) =>
-              signal._tag === "turn-ended" && signal.state === "interrupted",
-          ),
+          signals.some((signal) => signal._tag === "turn-ended" && signal.state === "interrupted"),
         )
       }),
     ),
@@ -227,10 +219,7 @@ describe("Cursor ACP adapter", () => {
           assert.include(failed.lastError ?? "", "transport ruptured")
         }
         assert.isFalse(
-          signals.some(
-            (signal) =>
-              signal._tag === "turn-ended" && signal.state === "completed",
-          ),
+          signals.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )
       }),
     ),
@@ -255,21 +244,17 @@ describe("Cursor ACP adapter", () => {
           ),
         )
         yield* Deferred.await(permissionOpened)
-        yield* provider.respondApproval(
-          threadId,
-          ApprovalRequestId.make("900"),
-          "accept",
-        )
+        yield* provider.respondApproval(threadId, ApprovalRequestId.make("900"), "accept")
         yield* provider.drain
 
         const log = yield* readLog(evidence.requestLog)
         assert.include(log, '"configId":"mode","value":"ask"')
-        assert.include(log, '"id":900,"result":{"outcome":{"outcome":"selected","optionId":"once"}}')
+        assert.include(
+          log,
+          '"id":900,"result":{"outcome":{"outcome":"selected","optionId":"once"}}',
+        )
         assert.isTrue(
-          signals.some(
-            (signal) =>
-              signal._tag === "turn-ended" && signal.state === "completed",
-          ),
+          signals.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )
       }),
     ),
@@ -280,12 +265,12 @@ describe("Cursor ACP adapter", () => {
       Effect.gen(function* () {
         const signals = yield* capture(provider, input("full-access"))
         const log = yield* readLog(evidence.requestLog)
-        assert.include(log, '"id":900,"result":{"outcome":{"outcome":"selected","optionId":"always"}}')
+        assert.include(
+          log,
+          '"id":900,"result":{"outcome":{"outcome":"selected","optionId":"always"}}',
+        )
         assert.isTrue(
-          signals.some(
-            (signal) =>
-              signal._tag === "turn-ended" && signal.state === "completed",
-          ),
+          signals.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )
       }),
     ),
@@ -301,8 +286,7 @@ describe("Cursor ACP adapter", () => {
             signals.push(signal)
           }).pipe(
             Effect.tap(() =>
-              signal._tag === "transcript" &&
-              signal.item._tag === "transcript.assistant"
+              signal._tag === "transcript" && signal.item._tag === "transcript.assistant"
                 ? Deferred.succeed(promptOpened, undefined)
                 : Effect.void,
             ),
@@ -312,10 +296,7 @@ describe("Cursor ACP adapter", () => {
         yield* provider.interrupt(threadId)
         yield* provider.drain
         assert.isTrue(
-          signals.some(
-            (signal) =>
-              signal._tag === "turn-ended" && signal.state === "interrupted",
-          ),
+          signals.some((signal) => signal._tag === "turn-ended" && signal.state === "interrupted"),
         )
       }),
     ),
@@ -331,8 +312,7 @@ describe("Cursor ACP adapter", () => {
             signals.push(signal)
           }).pipe(
             Effect.tap(() =>
-              signal._tag === "transcript" &&
-              signal.item._tag === "transcript.assistant"
+              signal._tag === "transcript" && signal.item._tag === "transcript.assistant"
                 ? Deferred.succeed(promptOpened, undefined)
                 : Effect.void,
             ),
@@ -344,9 +324,7 @@ describe("Cursor ACP adapter", () => {
         yield* Fiber.join(interrupt)
         yield* provider.drain
         assert.isTrue(
-          signals.some(
-            (signal) => signal._tag === "session" && signal.status === "error",
-          ),
+          signals.some((signal) => signal._tag === "session" && signal.status === "error"),
         )
       }),
     ),
