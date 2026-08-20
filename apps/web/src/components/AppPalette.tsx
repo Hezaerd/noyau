@@ -1,5 +1,5 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router"
-import { LayoutGridIcon } from "lucide-react"
+import { LayoutGridIcon, SettingsIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState, type ReactElement, type ReactNode } from "react"
 
 import {
@@ -34,6 +34,7 @@ import {
   serializeRecentActionIds,
   updateRecentActionIds,
 } from "@/lib/app-palette"
+import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
 import {
   getHotkeysPlatform,
   paletteItemHotkey,
@@ -92,8 +93,8 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         event.defaultPrevented ||
-        event.key.toLowerCase() !== "k" ||
-        (!event.metaKey && !event.ctrlKey) ||
+        isKeybindingRecorderActive() ||
+        !matchesKeybinding(event, "palette.open") ||
         isEditableTarget(event.target) ||
         (!open && document.querySelector('[role="dialog"]') !== null)
       ) {
@@ -108,24 +109,40 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   }, [open])
 
   const navigationActions = useMemo<ReadonlyArray<AppPaletteAction>>(() => {
-    const actions: Array<AppPaletteAction & { readonly path: string }> =
-      lastProjectId === undefined
-        ? []
-        : [
-            {
-              id: "navigate.board",
-              label: "Tableau",
-              searchValue: "Aller au Tableau",
-              path: `/projects/${lastProjectId}/board`,
-              icon: <LayoutGridIcon />,
-              execute: () =>
-                navigate({
-                  to: "/projects/$projectId/board",
-                  params: { projectId: lastProjectId },
-                }),
-            },
-          ]
-    return actions.filter((action) => action.path !== pathname)
+    const actions: Array<AppPaletteAction & { readonly path: string }> = [
+      {
+        id: "navigate.settings",
+        label: "Paramètres",
+        searchValue: "Aller aux Paramètres settings apparence raccourcis keybindings",
+        path: "/settings/appearance",
+        icon: <SettingsIcon />,
+        execute: () =>
+          navigate({
+            to: "/settings/$tab",
+            params: { tab: "appearance" },
+          }),
+      },
+    ]
+    if (lastProjectId !== undefined) {
+      actions.push({
+        id: "navigate.board",
+        label: "Tableau",
+        searchValue: "Aller au Tableau",
+        path: `/projects/${lastProjectId}/board`,
+        icon: <LayoutGridIcon />,
+        execute: () =>
+          navigate({
+            to: "/projects/$projectId/board",
+            params: { projectId: lastProjectId },
+          }),
+      })
+    }
+    return actions.filter((action) => {
+      if (action.id === "navigate.settings") {
+        return !pathname.startsWith("/settings")
+      }
+      return action.path !== pathname
+    })
   }, [lastProjectId, navigate, pathname])
 
   const contextualActions = useMemo(

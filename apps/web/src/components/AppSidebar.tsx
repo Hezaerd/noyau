@@ -7,14 +7,15 @@ import {
   MessageCirclePlusIcon,
   PlusIcon,
   SearchIcon,
+  SettingsIcon,
 } from "lucide-react"
 import { useState } from "react"
 
-import { AppearanceMenu } from "@/components/AppearanceMenu"
 import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { CommandDialogTrigger } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
@@ -30,11 +31,12 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { HOTKEY_COMMAND_PALETTE } from "@/lib/keyboard-shortcut"
+import { useKeybinding } from "@/hooks/use-keybindings"
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { isMobile, setOpenMobile } = useSidebar()
+  const paletteHotkey = useKeybinding("palette.open")
   const { projects, threads, selectProject } = useControlPlane()
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [rebindProjectId, setRebindProjectId] = useState<ProjectId>()
@@ -51,15 +53,27 @@ export function AppSidebar() {
           className="drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center gap-2 border-b border-sidebar-border/70 px-3"
           data-desktop-sidebar-titlebar=""
         >
-          <div
-            aria-hidden
-            className="size-8 shrink-0 rounded-xl bg-sidebar-primary shadow-lg/5"
-          />
+          <div aria-hidden className="size-8 shrink-0 rounded-xl bg-sidebar-primary shadow-lg/5" />
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold tracking-[-0.02em]">Noyau</p>
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
-            <AppearanceMenu />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Ouvrir les Paramètres"
+              className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              render={
+                <Link
+                  to="/settings/$tab"
+                  params={{ tab: "appearance" }}
+                  onClick={closeMobileNavigation}
+                />
+              }
+            >
+              <SettingsIcon />
+            </Button>
           </div>
         </div>
 
@@ -76,7 +90,7 @@ export function AppSidebar() {
             <SearchIcon className="size-3.5 shrink-0" />
             <span className="group-data-[collapsible=icon]:hidden">Rechercher</span>
             <KeyboardShortcut
-              hotkey={HOTKEY_COMMAND_PALETTE}
+              hotkey={paletteHotkey}
               className="ml-auto group-data-[collapsible=icon]:hidden"
             />
           </CommandDialogTrigger>
