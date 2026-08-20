@@ -1,14 +1,14 @@
-import type { Session } from "@noyau/protocol/entities/session"
-import type { LatestTurn } from "@noyau/protocol/entities/turn"
-
 const interruptedLabel = "You stopped"
 
 export function ThreadStatusNotices({
   session,
   latestTurn,
 }: {
-  readonly session: Session | null | undefined
-  readonly latestTurn: LatestTurn | null | undefined
+  readonly session:
+    | { readonly status: string; readonly lastError: string | null }
+    | null
+    | undefined
+  readonly latestTurn: { readonly state: string } | null | undefined
 }) {
   return (
     <>

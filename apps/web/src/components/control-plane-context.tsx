@@ -1,6 +1,6 @@
+import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
 import { ProjectId } from "@noyau/protocol/ids"
 import type {
-  CursorProviderStatus,
   ProjectShell,
   ShellLiveEvent,
   ShellSnapshot,

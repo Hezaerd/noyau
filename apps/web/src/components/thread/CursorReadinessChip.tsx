@@ -3,7 +3,7 @@ import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
 import { Badge } from "@/components/ui/badge"
 
 export const isCursorReady = (status: CursorProviderStatus | undefined): boolean =>
-  status?.installed === true && status.handshakeOk === true
+  status?.installed === true && status.handshakeOk
 
 export function CursorReadinessChip({
   status,

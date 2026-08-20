@@ -57,6 +57,13 @@ const ticket: BoardTicket = {
   priority: "normal",
 }
 
+function RuntimeModeHarness() {
+  const [value, setValue] = useState<
+    "approval-required" | "auto-accept-edits" | "auto" | "full-access"
+  >("full-access")
+  return <ThreadRuntimeModePicker value={value} onChange={setValue} />
+}
+
 describe("rendered Thread UI evidence", () => {
   it("renders titled Threads under an explicit Sidebar Threads heading", () => {
     render(
@@ -90,14 +97,8 @@ describe("rendered Thread UI evidence", () => {
 
   it("renders and changes among all four runtimeMode values", async () => {
     const user = userEvent.setup()
-    function Harness() {
-      const [value, setValue] = useState<
-        "approval-required" | "auto-accept-edits" | "auto" | "full-access"
-      >("full-access")
-      return <ThreadRuntimeModePicker value={value} onChange={setValue} />
-    }
 
-    render(<Harness />)
+    render(<RuntimeModeHarness />)
     await user.click(screen.getByRole("combobox", { name: "Mode d’exécution" }))
 
     expect(screen.getByText("Approbation requise")).toBeTruthy()
@@ -131,13 +132,8 @@ describe("rendered Thread UI evidence", () => {
     )
 
     expect(screen.getByText("Cursor indisponible")).toBeTruthy()
-    expect(
-      (screen.getByRole("textbox", { name: "Composer un message" }) as HTMLTextAreaElement)
-        .disabled,
-    ).toBe(true)
-    expect((screen.getByRole("button", { name: "Envoyer" }) as HTMLButtonElement).disabled).toBe(
-      true,
-    )
+    expect(screen.getByRole("textbox", { name: "Composer un message" }).disabled).toBe(true)
+    expect(screen.getByRole("button", { name: "Envoyer" }).disabled).toBe(true)
   })
 
   it("edits TicketThread links from the Thread side", async () => {
@@ -190,7 +186,7 @@ describe("rendered Thread UI evidence", () => {
     expect(onLinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
 
     cleanup()
-    const linked: TicketThread = { ticketId: ticket.id, threadId: thread.id }
+    const linked: TicketThread = { ticketId: TicketId.make(ticket.id), threadId: thread.id }
     render(<TicketDialog {...baseProps} ticketThreads={[linked]} />)
     await user.click(screen.getByRole("button", { name: "Délier le Thread Thread de reprise" }))
     expect(onUnlinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
