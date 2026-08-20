@@ -5,17 +5,26 @@ import { ThreadId } from "@noyau/protocol/ids"
 import type { ThreadShell } from "@noyau/protocol/shell"
 import { format, isValid, parseISO } from "date-fns"
 import { fr } from "date-fns/locale"
-import { ActivityIcon, CalendarIcon, GitBranchIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import {
+  ActivityIcon,
+  ArchiveIcon,
+  CalendarIcon,
+  GitBranchIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+import { TicketArchiveConfirmDialog } from "@/components/board/TicketArchiveConfirmDialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogPanel,
   DialogPopup,
@@ -91,6 +100,8 @@ interface TicketDialogProps {
   readonly onRemoveDependency: (ticketId: string, dependsOnTicketId: string) => void
   readonly onLinkThread: (ticketId: string, threadId: ThreadShell["id"]) => void
   readonly onUnlinkThread: (ticketId: string, threadId: ThreadShell["id"]) => void
+  readonly archiveBlockedByTitles: ReadonlyArray<string>
+  readonly onArchive: (ticketId: string) => void
 }
 
 export function TicketDialog({
@@ -110,6 +121,8 @@ export function TicketDialog({
   onRemoveDependency,
   onLinkThread,
   onUnlinkThread,
+  archiveBlockedByTitles,
+  onArchive,
 }: TicketDialogProps) {
   const [title, setTitle] = useState(ticket?.title ?? "")
   const [titleError, setTitleError] = useState(false)
@@ -119,6 +132,7 @@ export function TicketDialog({
   const [blockedBySelection, setBlockedBySelection] = useState<string | null>(null)
   const [blocksSelection, setBlocksSelection] = useState<string | null>(null)
   const [linkedThreadSelection, setLinkedThreadSelection] = useState<string | null>(null)
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const dependencyState = useMemo(() => ({ ticketDependencies }), [ticketDependencies])
 
@@ -131,6 +145,7 @@ export function TicketDialog({
     setBlockedBySelection(null)
     setBlocksSelection(null)
     setLinkedThreadSelection(null)
+    setArchiveConfirmOpen(false)
   }, [ticket])
 
   useEffect(() => {
@@ -707,9 +722,28 @@ export function TicketDialog({
                 </section>
               </div>
             </DialogPanel>
+            <DialogFooter className="sm:justify-start">
+              <Button
+                type="button"
+                variant="destructive-outline"
+                onClick={() => setArchiveConfirmOpen(true)}
+              >
+                <ArchiveIcon />
+                Archiver
+              </Button>
+            </DialogFooter>
           </>
         )}
       </DialogPopup>
+      {ticket === undefined ? null : (
+        <TicketArchiveConfirmDialog
+          open={archiveConfirmOpen}
+          ticketTitle={ticket.title}
+          blockedByTitles={archiveBlockedByTitles}
+          onOpenChange={setArchiveConfirmOpen}
+          onConfirm={() => onArchive(ticket.id)}
+        />
+      )}
     </Dialog>
   )
 }

@@ -22,6 +22,9 @@ const makeActions = (executions: Array<string>): BoardActions => ({
   renameTicket: (ticketId) => {
     executions.push(`ticket.rename:${ticketId}`)
   },
+  archiveTicket: (ticketId) => {
+    executions.push(`ticket.archive:${ticketId}`)
+  },
 })
 
 describe("board actions", () => {
@@ -39,7 +42,8 @@ describe("board actions", () => {
   })
 
   it("exposes only target-specific actions to a context menu", () => {
-    const actions = createBoardActions(boardFixture, makeActions([]))
+    const executions: Array<string> = []
+    const actions = createBoardActions(boardFixture, makeActions(executions))
     const groups = groupBoardActions(actions, "context-menu", {
       kind: "ticket",
       id: "ticket-http",
@@ -49,7 +53,11 @@ describe("board actions", () => {
     expect(groups[0]?.actions.map((action) => action.id)).toEqual([
       "ticket.open.ticket-http",
       "ticket.rename.ticket-http",
+      "ticket.archive.ticket-http",
     ])
+    expect(groups[0]?.actions[2]?.destructive).toBe(true)
+    void groups[0]?.actions[2]?.execute()
+    expect(executions).toEqual(["ticket.archive:ticket-http"])
   })
 
   it("provides rename and delete actions for an ordinary column", () => {

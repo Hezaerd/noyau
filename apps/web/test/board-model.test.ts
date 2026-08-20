@@ -11,6 +11,7 @@ import {
   parseBoardSearch,
   placeTicketAt,
   reorderTicket,
+  openDependencyTitles,
   ticketDependencyIssue,
   ticketsInColumn,
   updateTicket,
@@ -203,6 +204,20 @@ describe("local board preview model", () => {
   it("calculates both directions of the dependency DAG", () => {
     expect(dependenciesForTicket(initialBoardState, "ticket-projection")).toEqual(["ticket-http"])
     expect(dependentsForTicket(initialBoardState, "ticket-http")).toEqual(["ticket-projection"])
+  })
+
+  it("lists open dependency titles and ignores Done prerequisites", () => {
+    expect(openDependencyTitles(initialBoardState, "ticket-projection")).toEqual([
+      "Définir la frontière RPC du Tableau",
+    ])
+
+    const withDonePrerequisite = {
+      ...initialBoardState,
+      tickets: initialBoardState.tickets.map((ticket) =>
+        ticket.id === "ticket-http" ? { ...ticket, columnId: "column-done" } : ticket,
+      ),
+    }
+    expect(openDependencyTitles(withDonePrerequisite, "ticket-projection")).toEqual([])
   })
 
   it("rejects self, duplicate, and cyclic dependency edges", () => {

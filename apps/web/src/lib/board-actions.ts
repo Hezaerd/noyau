@@ -15,6 +15,7 @@ export type BoardActionAppearance =
   | { readonly kind: "search" }
   | { readonly kind: "ticket"; readonly priority: TicketPriority }
   | { readonly kind: "rename" }
+  | { readonly kind: "archive" }
   | { readonly kind: "delete" }
 
 export interface ExecutableBoardAction {
@@ -45,6 +46,7 @@ export interface BoardActions {
   readonly openTicket: (ticketId: string) => void
   readonly renameColumn: (columnId: string) => void
   readonly renameTicket: (ticketId: string) => void
+  readonly archiveTicket: (ticketId: string) => void
 }
 
 const targetsMatch = (
@@ -114,6 +116,18 @@ export const createBoardActions = (
       target: { kind: "ticket", id: ticket.id },
       appearance: { kind: "rename" },
       execute: () => actions.renameTicket(ticket.id),
+    },
+    {
+      id: `ticket.archive.${ticket.id}`,
+      label: "Archiver",
+      searchValue: `Archiver ${ticket.title}`,
+      groupId: "tickets",
+      groupLabel: "Tickets",
+      destructive: true,
+      surfaces: ["context-menu"],
+      target: { kind: "ticket", id: ticket.id },
+      appearance: { kind: "archive" },
+      execute: () => actions.archiveTicket(ticket.id),
     },
   ]),
   ...state.columns.flatMap((column): ReadonlyArray<ExecutableBoardAction> => [
