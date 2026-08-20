@@ -69,7 +69,7 @@ export function ThreadTicketLinkEditor({
             label: ticket.title,
           }))}
           value={selection}
-          onValueChange={onSelectionChange}
+          onValueChange={(value) => onSelectionChange(value)}
           disabled={linkableTickets.length === 0}
         >
           <SelectTrigger size="sm" className="w-56" aria-label="Lier un ticket">

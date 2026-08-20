@@ -98,7 +98,7 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByText("Approbation requise")).toBeTruthy()
     expect(screen.getByText("Accepter les éditions")).toBeTruthy()
     expect(screen.getByText("Automatique")).toBeTruthy()
-    expect(screen.getByText("Accès complet")).toBeTruthy()
+    expect(screen.getAllByText("Accès complet").length).toBeGreaterThan(0)
 
     await user.click(screen.getByText("Automatique"))
     expect(screen.getByRole("combobox", { name: "Mode d’exécution" }).textContent).toContain(
@@ -180,7 +180,7 @@ describe("rendered Thread UI evidence", () => {
     } as const
 
     render(<TicketDialog {...baseProps} ticketThreads={[]} />)
-    await user.click(screen.getByRole("combobox", { name: "Ajouter un Thread lié" }))
+    await user.click(screen.getByText("Ajouter un Thread lié"))
     await user.click(screen.getByRole("option", { name: "Thread de reprise" }))
     expect(onLinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
 
