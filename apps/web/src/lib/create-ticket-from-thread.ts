@@ -2,7 +2,7 @@ import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { KanbanColumnId, type ProjectId, type ThreadId, type TicketId } from "@noyau/protocol/ids"
-import { Crypto, Effect } from "effect"
+import type { Crypto, Effect } from "effect"
 
 import type { ControlPlaneResult } from "./control-plane"
 import { threadTicketDescription } from "./thread-ticket-draft"
