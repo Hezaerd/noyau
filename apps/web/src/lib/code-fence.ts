@@ -25,3 +25,11 @@ export const parseCodeFence = (raw: string): ParsedCodeFence => {
     label: path,
   }
 }
+
+export const resolveCodeBlockTitle = (fence: ParsedCodeFence): string => {
+  const label = fence.label.trim()
+  if (label.length > 0) {
+    return label
+  }
+  return "text"
+}

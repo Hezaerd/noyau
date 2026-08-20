@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { parseCodeFence } from "../src/lib/code-fence"
+import { parseCodeFence, resolveCodeBlockTitle } from "../src/lib/code-fence"
 
 describe("parseCodeFence", () => {
   it("keeps a normal language identifier", () => {
@@ -17,5 +17,11 @@ describe("parseCodeFence", () => {
       startLine: 16,
       label: "src/components/ClinicCard.astro",
     })
+  })
+
+  it("titles a fence with its language, or the citation path", () => {
+    expect(resolveCodeBlockTitle(parseCodeFence("python"))).toBe("python")
+    expect(resolveCodeBlockTitle(parseCodeFence("16:40:src/greet.py"))).toBe("src/greet.py")
+    expect(resolveCodeBlockTitle(parseCodeFence(""))).toBe("text")
   })
 })
