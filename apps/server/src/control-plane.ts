@@ -241,7 +241,7 @@ const toEnvelope = (event: PersistedEvent<DomainEventType>) =>
 
 const unavailable =
   (service: string) =>
-  <E>(_error: E) =>
+  (_error: unknown) =>
     new ServiceUnavailable({ service })
 
 type LiveInput =
@@ -490,9 +490,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
                   ),
                   Stream.filter((event) => isProjectStreamEvent(event.event)),
                   Stream.mapEffect(toEnvelope),
-                  Stream.map(
-                    (event): ProjectStreamItem => ({ kind: "event" as const, event }),
-                  ),
+                  Stream.map((event): ProjectStreamItem => ({ kind: "event" as const, event })),
                 )
               const tail = bufferedTail<ProjectStreamItem>(
                 buffer,
@@ -518,9 +516,10 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             }
             yield* hooks.afterProjectSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
             return Stream.concat(
-              Stream.make(
-                { kind: "snapshot" as const, snapshot: snapshot.value } satisfies ProjectStreamItem,
-              ),
+              Stream.make({
+                kind: "snapshot" as const,
+                snapshot: snapshot.value,
+              } satisfies ProjectStreamItem),
               bufferedTail<ProjectStreamItem>(
                 buffer,
                 snapshot.value.snapshotSequence,
@@ -562,9 +561,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
                 Stream.fromIterable(catchUp).pipe(
                   Stream.filter((event) => event.sequence <= head && matches(event)),
                   Stream.mapEffect(toEnvelope),
-                  Stream.map(
-                    (event): ThreadStreamItem => ({ kind: "event" as const, event }),
-                  ),
+                  Stream.map((event): ThreadStreamItem => ({ kind: "event" as const, event })),
                 )
               const tail = bufferedTail<ThreadStreamItem>(
                 buffer,
@@ -590,9 +587,10 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             }
             yield* hooks.afterThreadSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
             return Stream.concat(
-              Stream.make(
-                { kind: "snapshot" as const, snapshot: snapshot.value } satisfies ThreadStreamItem,
-              ),
+              Stream.make({
+                kind: "snapshot" as const,
+                snapshot: snapshot.value,
+              } satisfies ThreadStreamItem),
               bufferedTail<ThreadStreamItem>(
                 buffer,
                 snapshot.value.snapshotSequence,
@@ -661,9 +659,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             )
             yield* hooks.afterShellSnapshot?.(snapshot.snapshotSequence) ?? Effect.void
             return Stream.concat(
-              Stream.make(
-                { kind: "snapshot" as const, snapshot } satisfies ShellStreamItem,
-              ),
+              Stream.make({ kind: "snapshot" as const, snapshot } satisfies ShellStreamItem),
               coalesceShell(
                 bufferedTail<ShellStreamItem, ServiceUnavailable, SqlClient>(
                   buffer,

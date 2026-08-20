@@ -215,7 +215,7 @@ describe("ControlPlane", () => {
 
         const threadFrames = yield* controlPlane
           .subscribeThread({ threadId, requestCompletionMarker: true })
-            .pipe(Stream.take(2), Stream.runCollect)
+          .pipe(Stream.take(2), Stream.runCollect)
         assert.strictEqual(threadFrames[0]?.kind, "snapshot")
         assert.strictEqual(threadFrames[1]?.kind, "synchronized")
 
