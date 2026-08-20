@@ -14,7 +14,6 @@ import { AppearanceMenu } from "@/components/AppearanceMenu"
 import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { CommandDialogTrigger } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
@@ -57,9 +56,6 @@ export function AppSidebar() {
           />
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold tracking-[-0.02em]">Noyau</p>
-          </div>
-          <div className="group-data-[collapsible=icon]:hidden">
-            <AppearanceMenu />
           </div>
         </div>
 
@@ -199,16 +195,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3">
-        <div className="flex items-center gap-2.5 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/30 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
-          <Avatar className="size-7 rounded-lg">
-            <AvatarFallback className="rounded-lg bg-sidebar-primary/20 text-[0.66rem] font-semibold text-sidebar-primary">
-              H
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-            <p className="truncate text-xs font-medium">Hezaerd</p>
-          </div>
-        </div>
+        <AppearanceMenu />
       </SidebarFooter>
       <ProjectFolderDialog
         open={folderDialogOpen || rebindProjectId !== undefined}

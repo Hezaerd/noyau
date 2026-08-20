@@ -29,7 +29,7 @@ export function AppearanceMenu() {
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon-xs"
             aria-label="Paramètres d’apparence"
             className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
           >
@@ -37,7 +37,7 @@ export function AppearanceMenu() {
           </Button>
         }
       />
-      <MenuPopup align="end" className="w-44">
+      <MenuPopup align="start" side="top" className="w-44">
         <MenuGroup>
           <MenuGroupLabel>Apparence</MenuGroupLabel>
           <MenuRadioGroup
