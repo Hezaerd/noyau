@@ -2,7 +2,18 @@ import { EnvironmentId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
 /** Chemin absolu du dossier où Noyau et Cursor travaillent. */
-export const WorkspaceRoot = Schema.NonEmptyString.pipe(Schema.brand("WorkspaceRoot"))
+export const WorkspaceRoot = Schema.NonEmptyString.check(
+  Schema.makeFilter(
+    (value) =>
+      value.startsWith("/") ||
+      /^[A-Za-z]:[\\/]/.test(value) ||
+      /^(?:\\\\|\/\/)[^\\/]+[\\/][^\\/]+/.test(value),
+    {
+      identifier: "WorkspaceRoot",
+      expected: "an absolute POSIX, Windows drive, or UNC directory path",
+    },
+  ),
+).pipe(Schema.brand("WorkspaceRoot"))
 export type WorkspaceRoot = (typeof WorkspaceRoot)["Type"]
 
 /** Unique provider réel de la v0.1. */
