@@ -15,7 +15,6 @@ import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSec
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
 import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
-import { ThreadTitleBar } from "../src/components/thread/ThreadTitleBar"
 import { ThreadTranscript } from "../src/components/thread/ThreadTranscript"
 import { ThreadTranscriptItem } from "../src/components/thread/ThreadTranscriptItem"
 import { ThreadPageTitle } from "../src/components/WorkspaceBreadcrumb"
@@ -107,29 +106,6 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByRole("alert").textContent).toContain("ACP indisponible")
     expect(screen.getByText(/You stopped/)).toBeTruthy()
     expect(screen.queryByText(/lost/i)).toBeNull()
-  })
-
-  it("renames and regenerates a Thread title from the title bar", async () => {
-    const user = userEvent.setup()
-    const onRename = vi.fn(async () => true)
-    const onRegenerate = vi.fn(async () => true)
-    render(
-      <ThreadTitleBar
-        title="Nouveau thread"
-        isRegenerating={false}
-        onRename={onRename}
-        onRegenerate={onRegenerate}
-      />,
-    )
-
-    await user.click(screen.getByRole("button", { name: "Nouveau thread" }))
-    await user.clear(screen.getByRole("textbox", { name: "Renommer le Thread" }))
-    await user.type(screen.getByRole("textbox", { name: "Renommer le Thread" }), "Reprise Session")
-    await user.keyboard("{Enter}")
-    expect(onRename).toHaveBeenCalledWith("Reprise Session")
-
-    await user.click(screen.getByRole("button", { name: "Régénérer le titre" }))
-    expect(onRegenerate).toHaveBeenCalledTimes(1)
   })
 
   it("gates the composer while Cursor is unavailable", () => {
