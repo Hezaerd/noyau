@@ -87,6 +87,7 @@ const ticketThreadPayload = Schema.Struct({
 })
 
 const columnCreatePayload = {
+  projectId: ProjectId,
   columnId: KanbanColumnId,
   name: Schema.NonEmptyString,
   color: KanbanColumnColor,

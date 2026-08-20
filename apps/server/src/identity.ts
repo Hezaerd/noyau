@@ -1,40 +1,46 @@
-import { CurrentActor, MissingIdentity } from "@noyau/protocol/errors"
-import { ActorId } from "@noyau/protocol/ids"
+import { CurrentActor, Forbidden, MissingIdentity } from "@noyau/protocol/errors"
+import { ActorId, type ActorId as ActorIdType } from "@noyau/protocol/ids"
 import { NoyauRpcIdentity } from "@noyau/protocol/rpc"
-import { Effect, Layer, Schema } from "effect"
-
-import { ServerConfig } from "./config"
-
-export class DevIdentityEnvironmentError extends Schema.TaggedError<DevIdentityEnvironmentError>()(
-  "DevIdentityEnvironmentError",
-  {
-    environment: Schema.Literal("production"),
-  },
-) {}
+import { Effect, Layer, Redacted, Schema } from "effect"
+import { timingSafeEqual } from "node:crypto"
 
 const decodeActorId = Schema.decodeUnknownEffect(ActorId)
 
-export const decodeDevActorId = (actorId: string) =>
+export const decodeConfiguredActor = (actorId: string) =>
   decodeActorId(actorId).pipe(Effect.mapError(() => new MissingIdentity()))
 
-/** Identité de développement possédée par le serveur RPC. */
-export const devIdentityLayer = Layer.effect(
-  NoyauRpcIdentity,
-  Effect.gen(function* () {
-    const config = yield* ServerConfig
-    if (config.environment === "production") {
-      return yield* new DevIdentityEnvironmentError({
-        environment: "production",
-      })
-    }
-    const actorId = yield* decodeDevActorId(config.devActorId ?? "human:developer")
-    yield* Effect.logInfo("Dev identity enabled").pipe(
-      Effect.annotateLogs({
-        actorId,
-        environment: config.environment,
-      }),
-    )
+const bearerValue = (authorization: string): string | undefined => {
+  const prefix = "Bearer "
+  return authorization.startsWith(prefix) ? authorization.slice(prefix.length) : undefined
+}
 
-    return NoyauRpcIdentity.of((effect) => Effect.provideService(effect, CurrentActor, actorId))
-  }),
-)
+const securelyEqual = (left: string, right: string): boolean => {
+  const leftBytes = Buffer.from(left)
+  const rightBytes = Buffer.from(right)
+  return leftBytes.length === rightBytes.length && timingSafeEqual(leftBytes, rightBytes)
+}
+
+/** Authentifie le bearer de lancement avant l'upgrade WebSocket. */
+export const authenticateBearer = Effect.fn("Identity.authenticateBearer")(function* (
+  authorization: string | undefined,
+  expected: Redacted.Redacted,
+  configuredActor: string,
+) {
+  if (authorization === undefined) {
+    return yield* new MissingIdentity()
+  }
+  const bearer = bearerValue(authorization)
+  if (bearer === undefined || bearer.length === 0) {
+    return yield* new MissingIdentity()
+  }
+  if (!securelyEqual(bearer, Redacted.value(expected))) {
+    return yield* new Forbidden()
+  }
+  return yield* decodeConfiguredActor(configuredActor)
+})
+
+/** Fournit aux handlers l'acteur bootstrapé, jamais une identité issue du payload. */
+export const rpcIdentityLayer = (actorId: ActorIdType) =>
+  Layer.succeed(NoyauRpcIdentity)(
+    NoyauRpcIdentity.of((effect) => Effect.provideService(effect, CurrentActor, actorId)),
+  )
