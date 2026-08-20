@@ -16,8 +16,7 @@ const projectId = "85000000-0000-4000-8000-000000000001"
 const threadId = "85000000-0000-4000-8000-000000000002"
 const firstPrompt = "Keep this fake ACP Turn running across restart"
 const secondPrompt = "Resume through session/load without replay"
-const commandId = (index) =>
-  `85000000-0000-4000-8000-${index.toString().padStart(12, "0")}`
+const commandId = (index) => `85000000-0000-4000-8000-${index.toString().padStart(12, "0")}`
 const fixturePath = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -68,16 +67,10 @@ const firstSnapshot = (stream, label) =>
   )
 
 const readBoard = (client) =>
-  firstSnapshot(
-    client[RPC_METHODS.subscribeProject]({ projectId }),
-    "Project",
-  )
+  firstSnapshot(client[RPC_METHODS.subscribeProject]({ projectId }), "Project")
 
 const readThread = (client) =>
-  firstSnapshot(
-    client[RPC_METHODS.subscribeThread]({ threadId }),
-    "Thread",
-  )
+  firstSnapshot(client[RPC_METHODS.subscribeThread]({ threadId }), "Thread")
 
 const waitForThread = (client, predicate, label) =>
   Effect.gen(function* () {
@@ -132,7 +125,11 @@ const sessionRequests = (requests) =>
   requests.filter((request) => request.method?.startsWith("session/"))
 
 const run = async () => {
-  assert.notEqual(process.platform, "win32", "The destructive child restart smoke runs on macOS/Linux")
+  assert.notEqual(
+    process.platform,
+    "win32",
+    "The destructive child restart smoke runs on macOS/Linux",
+  )
 
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "noyau-durable-smoke-"))
   const fakeBinDirectory = join(temporaryDirectory, "bin")
@@ -169,10 +166,7 @@ const run = async () => {
     await delay(50)
     assert.equal(sentinelProcess.exitCode, null, "foreign cursor-agent sentinel must be alive")
 
-    const electronArguments = [
-      `--user-data-dir=${profileDirectory}`,
-      "dist-electron/main.cjs",
-    ]
+    const electronArguments = [`--user-data-dir=${profileDirectory}`, "dist-electron/main.cjs"]
     const launch = resolveElectronLaunchCommand(electronArguments, false)
     const executable = process.platform === "linux" ? "xvfb-run" : launch.electronPath
     const executableArguments =
@@ -277,8 +271,7 @@ const run = async () => {
           const thread = yield* waitForThread(
             client,
             (snapshot) =>
-              snapshot.session?.status === "error" &&
-              snapshot.thread.latestTurn?.state === "error",
+              snapshot.session?.status === "error" && snapshot.thread.latestTurn?.state === "error",
             "boot recovery to settle the running Session as error",
           )
           return { board: yield* readBoard(client), thread }
@@ -290,10 +283,7 @@ const run = async () => {
     assert.equal(recovered.thread.thread.id, initial.thread.thread.id)
     assert.equal(recovered.thread.thread.title, initial.thread.thread.title)
     assert.deepEqual(recovered.thread.transcript, initial.thread.transcript)
-    assert.deepEqual(
-      recovered.thread.session?.resumeCursor,
-      initial.thread.session?.resumeCursor,
-    )
+    assert.deepEqual(recovered.thread.session?.resumeCursor, initial.thread.session?.resumeCursor)
     assert.match(recovered.thread.session?.lastError ?? "", /server restart/i)
     assert.equal(sentinelProcess.exitCode, null, "server restart must not sweep cursor-agent")
 
