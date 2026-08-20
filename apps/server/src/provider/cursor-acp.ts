@@ -441,6 +441,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   const binaryArgs = options.binaryArgs ?? []
   const clientVersion = options.clientVersion ?? "0.0.0"
   const active = new Map<string, ActiveTurn>()
+  const turnFibers = new Map<string, Fiber.Fiber<void>>()
 
   const executable = yield* resolveCursorExecutable(configuredPath, environment, platform)
 
@@ -510,18 +511,28 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         status: "in_progress",
       },
     })
-    yield* emitPermission(control, requestId, "pending")
-
-    const outcome =
-      control.input.runtimeMode === "full-access"
-        ? autoApproval(request.options)
-        : yield* Effect.gen(function* () {
-            const decision = yield* Deferred.make<ProviderApprovalDecision>()
-            control.pendingApprovals.set(requestId, { decision })
-            const selected = yield* Deferred.await(decision)
+    const outcome = yield* Effect.gen(function* () {
+      if (control.input.runtimeMode === "full-access") {
+        yield* emitPermission(control, requestId, "pending")
+        return autoApproval(request.options)
+      }
+      const selected = yield* Effect.acquireUseRelease(
+        Effect.gen(function* () {
+          const decision = yield* Deferred.make<ProviderApprovalDecision>()
+          control.pendingApprovals.set(requestId, { decision })
+          return decision
+        }),
+        (decision) =>
+          emitPermission(control, requestId, "pending").pipe(
+            Effect.andThen(Deferred.await(decision)),
+          ),
+        () =>
+          Effect.sync(() => {
             control.pendingApprovals.delete(requestId)
-            return approvalOutcome(selected, request.options)
-          })
+          }),
+      )
+      return approvalOutcome(selected, request.options)
+    })
     yield* emitPermission(control, requestId, "resolved")
     return { outcome }
   })
@@ -858,6 +869,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     yield* emit(sessionSignal(control, "starting", input.resumeCursor))
     const fiber = yield* Effect.forkIn(runTurn(control), providerScope, { startImmediately: true })
     control.fiber = fiber
+    turnFibers.set(input.threadId, fiber)
   })
 
   const cancel = Effect.fn("CursorAdapter.cancel")(function* (
@@ -924,10 +936,13 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   })
 
   const drain = Effect.gen(function* () {
-    const fibers = [...active.values()].flatMap((control) =>
-      control.fiber === undefined ? [] : [control.fiber],
-    )
-    yield* Effect.forEach(fibers, Fiber.await, { discard: true })
+    const entries = [...turnFibers.entries()]
+    yield* Effect.forEach(entries, ([, fiber]) => Fiber.await(fiber), { discard: true })
+    for (const [threadId, fiber] of entries) {
+      if (turnFibers.get(threadId) === fiber) {
+        turnFibers.delete(threadId)
+      }
+    }
   })
 
   return ProviderPort.of({
