@@ -7,13 +7,21 @@ import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { CommandIdConflict } from "@noyau/protocol/errors"
 import { ActorId, ProjectId, ThreadId } from "@noyau/protocol/ids"
 import {
+  ProjectUnavailable,
+  WorkspaceRootUnavailable,
+} from "@noyau/protocol/project/errors"
+import {
   ControlPlane,
   makeControlPlaneLayer,
   type ControlPlaneHooks,
 } from "@noyau/server/control-plane"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
-import { Crypto, Deferred, Effect, Fiber, Layer, Schema, Stream } from "effect"
+import {
+  WorkspaceRootAccess,
+  type WorkspaceRootAccessService,
+} from "@noyau/server/workspace-root"
+import { Crypto, Deferred, Effect, Fiber, Layer, Option, Schema, Stream } from "effect"
 import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -48,6 +56,13 @@ const projectRename = (commandId: string, name: string) =>
     payload: { projectId, name },
   })
 
+const projectRebind = (commandId: string, workspaceRoot: string) =>
+  request({
+    _tag: "project.rebind",
+    commandId,
+    payload: { projectId, workspaceRoot },
+  })
+
 const threadCreate = request({
   _tag: "thread.create",
   commandId: uuid(10),
@@ -68,11 +83,19 @@ const testCrypto = () => {
   })
 }
 
-const controlPlaneTestLayer = (hooks: ControlPlaneHooks = {}) =>
+const availableWorkspaceRoots: WorkspaceRootAccessService = {
+  isAvailable: () => Effect.succeed(true),
+}
+
+const controlPlaneTestLayer = (
+  hooks: ControlPlaneHooks = {},
+  workspaceRoots: WorkspaceRootAccessService = availableWorkspaceRoots,
+) =>
   makeControlPlaneLayer(hooks).pipe(
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
+    Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(workspaceRoots)),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 
@@ -80,6 +103,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
   makeControlPlaneLayer().pipe(
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
+    Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(availableWorkspaceRoots)),
     Layer.provideMerge(
       cursorProviderLayer({
         binaryPath: process.execPath,
@@ -98,10 +122,11 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
 const run = <A, E>(
   effect: Effect.Effect<A, E, ControlPlane | SqlClient>,
   hooks: ControlPlaneHooks = {},
+  workspaceRoots: WorkspaceRootAccessService = availableWorkspaceRoots,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const services = yield* Layer.build(controlPlaneTestLayer(hooks))
+      const services = yield* Layer.build(controlPlaneTestLayer(hooks, workspaceRoots))
       return yield* effect.pipe(Effect.provide(services))
     }),
   )
@@ -133,6 +158,61 @@ describe("ControlPlane", () => {
       }),
     ),
   )
+
+  it.effect("validates WorkspaceRoots at IO and reflects disappearance then relink", () => {
+    const available = new Set<string>([`/tmp/${projectId}`])
+    const workspaceRoots: WorkspaceRootAccessService = {
+      isAvailable: (workspaceRoot) => Effect.succeed(available.has(workspaceRoot)),
+    }
+
+    return run(
+      Effect.gen(function* () {
+        const controlPlane = yield* ControlPlane
+        yield* controlPlane.dispatch(projectCreate(), actorId)
+
+        available.clear()
+        const unavailableShell = yield* controlPlane
+          .subscribeShell({ requestCompletionMarker: true })
+          .pipe(Stream.take(1), Stream.runHead)
+        assert.strictEqual(
+          unavailableShell.pipe(
+            Option.flatMap((frame) =>
+              frame.kind === "snapshot" ? Option.some(frame.snapshot.projects[0]) : Option.none(),
+            ),
+            Option.map((project) => project.available),
+            Option.getOrUndefined,
+          ),
+          false,
+        )
+
+        const unavailableCommand = yield* controlPlane
+          .dispatch(threadCreate, actorId)
+          .pipe(Effect.flip)
+        assert.instanceOf(unavailableCommand, ProjectUnavailable)
+
+        const invalidRebind = yield* controlPlane
+          .dispatch(projectRebind(uuid(2), "/tmp/missing"), actorId)
+          .pipe(Effect.flip)
+        assert.instanceOf(invalidRebind, WorkspaceRootUnavailable)
+
+        available.add("/tmp/relinked")
+        yield* controlPlane.dispatch(projectRebind(uuid(3), "/tmp/relinked"), actorId)
+        const relinked = yield* controlPlane
+          .subscribeProject({ projectId, requestCompletionMarker: true })
+          .pipe(Stream.take(1), Stream.runHead)
+        const project = relinked.pipe(
+          Option.flatMap((frame) =>
+            frame.kind === "snapshot" ? Option.some(frame.snapshot.project) : Option.none(),
+          ),
+          Option.getOrThrow,
+        )
+        assert.strictEqual(project.workspaceRoot, "/tmp/relinked")
+        assert.isTrue(project.available)
+      }),
+      {},
+      workspaceRoots,
+    )
+  })
 
   it.effect("replays a bounded afterSequence and snapshots gaps over 1000", () =>
     run(

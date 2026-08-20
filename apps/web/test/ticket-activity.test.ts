@@ -1,3 +1,4 @@
+import { BoardSnapshot } from "@noyau/protocol/board"
 import {
   DomainEvent,
   EventEnvelope,
@@ -6,7 +7,11 @@ import {
 import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
-import { ticketActivityAction, ticketActivityItem } from "../src/lib/ticket-activity"
+import {
+  ticketActivityAction,
+  ticketActivityFromSnapshot,
+  ticketActivityItem,
+} from "../src/lib/ticket-activity"
 
 const ticketId = "30000000-0000-4000-8000-000000000001"
 const dependsOnTicketId = "30000000-0000-4000-8000-000000000002"
@@ -98,5 +103,30 @@ describe("ticket activity", () => {
       action: "a archivé le ticket",
       occurredAt: "2026-08-19T15:30:00.000Z",
     })
+  })
+
+  it("reads persisted activity supplied by a reloaded BoardSnapshot", () => {
+    const envelope = envelopeFor(decodeEvent({ _tag: "ticket.archived", ticketId }))
+    const snapshot = Schema.decodeSync(BoardSnapshot)({
+      snapshotSequence: 1,
+      projectId: "10000000-0000-4000-8000-000000000001",
+      project: {
+        id: "10000000-0000-4000-8000-000000000001",
+        name: "Noyau",
+        workspaceRoot: "/tmp/noyau",
+        available: true,
+        createdAt: "2026-08-19T15:00:00.000Z",
+        updatedAt: "2026-08-19T15:00:00.000Z",
+      },
+      columns: [],
+      tickets: [],
+      ticketDependencies: [],
+      ticketThreads: [],
+      ticketActivity: [{ ticketId, events: [Schema.encodeSync(EventEnvelope)(envelope)] }],
+    })
+
+    expect(ticketActivityFromSnapshot(snapshot, snapshot.ticketActivity[0]!.ticketId)).toEqual([
+      envelope,
+    ])
   })
 })

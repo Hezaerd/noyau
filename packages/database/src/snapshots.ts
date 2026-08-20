@@ -1,8 +1,9 @@
-import { BoardSnapshot } from "@noyau/protocol/board"
+import { BoardSnapshot, TICKET_ACTIVITY_LIMIT } from "@noyau/protocol/board"
 import { Environment } from "@noyau/protocol/entities/environment"
 import { ResumeCursor } from "@noyau/protocol/entities/session"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import { DomainEvent } from "@noyau/protocol/events"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { ShellSnapshot } from "@noyau/protocol/shell"
 import { Effect, Option, Schema } from "effect"
@@ -50,6 +51,18 @@ const DependencyRow = Schema.Struct({
 const TicketThreadRow = Schema.Struct({
   ticket_id: Schema.String,
   thread_id: Schema.String,
+})
+const TicketActivityRow = Schema.Struct({
+  ticket_id: Schema.String,
+  event_id: Schema.String,
+  sequence: Schema.Int,
+  project_id: Schema.String,
+  actor_id: Schema.String,
+  correlation_id: Schema.String,
+  causation_id: Schema.String,
+  occurred_at: Schema.String,
+  schema_version: Schema.Int,
+  event: Schema.String,
 })
 const ThreadRow = Schema.Struct({
   thread_id: Schema.String,
@@ -107,6 +120,7 @@ const decodeColumnRow = Schema.decodeEffect(ColumnRow)
 const decodeTicketRow = Schema.decodeEffect(TicketRow)
 const decodeDependencyRow = Schema.decodeEffect(DependencyRow)
 const decodeTicketThreadRow = Schema.decodeEffect(TicketThreadRow)
+const decodeTicketActivityRow = Schema.decodeEffect(TicketActivityRow)
 const decodeThreadRow = Schema.decodeEffect(ThreadRow)
 const decodeSessionRow = Schema.decodeEffect(SessionRow)
 const decodeTurnRow = Schema.decodeEffect(TurnRow)
@@ -117,6 +131,7 @@ const decodeThreadSnapshot = Schema.decodeUnknownEffect(ThreadSnapshot)
 const decodeShellSnapshot = Schema.decodeUnknownEffect(ShellSnapshot)
 const decodeResumeCursor = Schema.decodeEffect(Schema.fromJsonString(ResumeCursor))
 const decodeTranscriptItem = Schema.decodeEffect(Schema.fromJsonString(TranscriptItem))
+const decodeDomainEvent = Schema.decodeEffect(Schema.fromJsonString(DomainEvent))
 const encodeEnvironment = Schema.encodeEffect(Environment)
 
 const readLatestSequence = Effect.fn("Snapshots.readLatestSequence")(function* () {
@@ -180,7 +195,14 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
         return Option.none()
       }
       const project = yield* decodeProjectRow(projectRow).pipe(Effect.orDie)
-      const [snapshotSequence, rawColumns, rawTickets, rawDependencies, rawTicketThreads] =
+      const [
+        snapshotSequence,
+        rawColumns,
+        rawTickets,
+        rawDependencies,
+        rawTicketThreads,
+        rawTicketActivity,
+      ] =
         yield* Effect.all([
           readLatestSequence(),
           sql<(typeof ColumnRow)["Encoded"]>`
@@ -211,6 +233,43 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
             JOIN projection_tickets AS ticket ON ticket.ticket_id = link.ticket_id
             WHERE ticket.project_id = ${projectId}
             ORDER BY link.ticket_id, link.thread_id
+          `,
+          sql<(typeof TicketActivityRow)["Encoded"]>`
+            WITH ranked_ticket_events AS (
+              SELECT
+                json_extract(event, '$.ticketId') AS ticket_id,
+                event_id,
+                sequence,
+                project_id,
+                actor_id,
+                correlation_id,
+                causation_id,
+                occurred_at,
+                schema_version,
+                event,
+                ROW_NUMBER() OVER (
+                  PARTITION BY json_extract(event, '$.ticketId')
+                  ORDER BY sequence DESC
+                ) AS activity_rank
+              FROM events
+              WHERE project_id = ${projectId}
+                AND json_extract(event, '$._tag') LIKE 'ticket.%'
+                AND json_extract(event, '$.ticketId') IS NOT NULL
+            )
+            SELECT
+              ticket_id,
+              event_id,
+              sequence,
+              project_id,
+              actor_id,
+              correlation_id,
+              causation_id,
+              occurred_at,
+              schema_version,
+              event
+            FROM ranked_ticket_events
+            WHERE activity_rank <= ${TICKET_ACTIVITY_LIMIT}
+            ORDER BY ticket_id, sequence DESC
           `,
         ])
       const columns = yield* Effect.forEach(rawColumns, (raw) =>
@@ -277,6 +336,27 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
           Effect.map((row) => ({ ticketId: row.ticket_id, threadId: row.thread_id })),
         ),
       )
+      const activityByTicket = new Map<string, Array<Record<string, unknown>>>()
+      for (const raw of rawTicketActivity) {
+        const row = yield* decodeTicketActivityRow(raw).pipe(Effect.orDie)
+        const events = activityByTicket.get(row.ticket_id) ?? []
+        events.push({
+          eventId: row.event_id,
+          sequence: row.sequence,
+          projectId: row.project_id,
+          actorId: row.actor_id,
+          correlationId: row.correlation_id,
+          causationId: row.causation_id,
+          occurredAt: row.occurred_at,
+          schemaVersion: row.schema_version,
+          event: yield* decodeDomainEvent(row.event).pipe(Effect.orDie),
+        })
+        activityByTicket.set(row.ticket_id, events)
+      }
+      const ticketActivity = [...activityByTicket].map(([ticketId, events]) => ({
+        ticketId,
+        events,
+      }))
       const snapshot = yield* decodeBoardSnapshot({
         snapshotSequence,
         projectId,
@@ -285,6 +365,7 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
         tickets,
         ticketDependencies,
         ticketThreads,
+        ticketActivity,
       }).pipe(Effect.orDie)
       return Option.some(snapshot)
     }),

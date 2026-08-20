@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { BoardSnapshot } from "@noyau/protocol/board"
+import {
+  BoardSnapshot,
+  TICKET_ACTIVITY_LIMIT,
+  TicketActivity,
+} from "@noyau/protocol/board"
 import { ClientCommandRequest, Command } from "@noyau/protocol/commands"
 import { KanbanRank } from "@noyau/protocol/entities/kanban-column"
 import { Ticket } from "@noyau/protocol/entities/ticket"
@@ -182,10 +186,12 @@ describe("Ticket dependencies and entities", () => {
       tickets: [ticket],
       ticketDependencies: [dependencyPayload],
       ticketThreads: [{ ticketId: ids.ticket, threadId: ids.thread }],
+      ticketActivity: [],
     })
 
     expect(snapshot.snapshotSequence).toBe(12)
     expect(snapshot.ticketThreads).toEqual([{ ticketId: ids.ticket, threadId: ids.thread }])
+    expect(snapshot.ticketActivity).toEqual([])
     expect(snapshot).not.toHaveProperty("cursor")
   })
 
@@ -197,6 +203,33 @@ describe("Ticket dependencies and entities", () => {
         tickets: [],
         ticketDependencies: [],
         cursor: "v1:opaque",
+      }),
+    ).toThrow()
+  })
+
+  it("borne chaque activité Ticket dans le snapshot", () => {
+    const envelope = {
+      eventId: ids.event,
+      sequence: 1,
+      projectId: ids.project,
+      actorId: "human:hezaerd",
+      correlationId: ids.correlation,
+      causationId: ids.command,
+      occurredAt: "2026-08-13T12:00:00.000Z",
+      schemaVersion: 1,
+      event: {
+        _tag: "ticket.created",
+        ticketId: ids.ticket,
+        columnId: ids.column,
+        rank: "a0",
+        title: "Ticket",
+      },
+    }
+
+    expect(() =>
+      Schema.decodeSync(TicketActivity)({
+        ticketId: ids.ticket,
+        events: Array.from({ length: TICKET_ACTIVITY_LIMIT + 1 }, () => envelope),
       }),
     ).toThrow()
   })

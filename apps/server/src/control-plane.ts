@@ -24,7 +24,7 @@ import {
 } from "@noyau/domain/thread/projector"
 import type { ClientCommandRequest, Command as CommandType } from "@noyau/protocol/commands"
 import { Command } from "@noyau/protocol/commands"
-import { Environment } from "@noyau/protocol/entities/environment"
+import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import type { CommandIdConflict } from "@noyau/protocol/errors"
 import { ServiceUnavailable } from "@noyau/protocol/errors"
 import {
@@ -42,6 +42,7 @@ import {
   type ThreadId,
 } from "@noyau/protocol/ids"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
+import { ProjectUnavailable, WorkspaceRootUnavailable } from "@noyau/protocol/project/errors"
 import { ProjectEvent } from "@noyau/protocol/project/events"
 import {
   type DispatchResult,
@@ -81,6 +82,7 @@ import type { SqlError } from "effect/unstable/sql/SqlError"
 import { ServerConfig } from "./config"
 import { ProviderPort } from "./provider/provider-port"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor"
+import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root"
 
 interface ControlState {
   readonly projects: ProjectCatalog
@@ -131,8 +133,10 @@ const evolve = (state: ControlState, event: DomainEventType): ControlState => {
 }
 
 const ScopeRow = Schema.Struct({ project_id: Schema.String })
+const WorkspaceRootRow = Schema.Struct({ workspace_root: Schema.String })
 const MigrationRow = Schema.Struct({ migration_id: Schema.Int })
 const decodeScopeRow = Schema.decodeEffect(ScopeRow)
+const decodeWorkspaceRootRow = Schema.decodeEffect(WorkspaceRootRow)
 const decodeMigrationRow = Schema.decodeEffect(MigrationRow)
 const decodeCommand = Schema.decodeUnknownEffect(Command)
 
@@ -169,6 +173,23 @@ const projectForThread = Effect.fn("ControlPlane.projectForThread")(function* (t
   return row === undefined
     ? fallbackProjectId(threadId)
     : ProjectId.make((yield* decodeScopeRow(row).pipe(Effect.orDie)).project_id)
+})
+
+const workspaceRootForProject = Effect.fn("ControlPlane.workspaceRootForProject")(function* (
+  projectId: ProjectIdType,
+) {
+  const sql = yield* SqlClient
+  const rows = yield* sql<
+    (typeof WorkspaceRootRow)["Encoded"]
+  >`SELECT workspace_root FROM projection_projects WHERE project_id = ${projectId}`
+  const row = rows[0]
+  return row === undefined
+    ? Option.none<WorkspaceRoot>()
+    : Option.some(
+        Schema.decodeSync(WorkspaceRoot)(
+          (yield* decodeWorkspaceRootRow(row).pipe(Effect.orDie)).workspace_root,
+        ),
+      )
 })
 
 const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
@@ -308,6 +329,7 @@ const readSchemaVersion = Effect.fn("ControlPlane.readSchemaVersion")(function* 
 const shellLiveEvent = Effect.fn("ControlPlane.shellLiveEvent")(function* (
   environment: Environment,
   persisted: PersistedEvent<DomainEventType>,
+  workspaceRoots: WorkspaceRootAccessService,
 ) {
   const event = persisted.event
   if (isProjectEvent(event)) {
@@ -322,13 +344,15 @@ const shellLiveEvent = Effect.fn("ControlPlane.shellLiveEvent")(function* (
     }
     const snapshot = yield* readShellSnapshot(environment)
     const project = snapshot.projects.find((candidate) => candidate.id === persisted.projectId)
+    const available =
+      project === undefined ? undefined : yield* workspaceRoots.isAvailable(project.workspaceRoot)
     return project === undefined
       ? []
       : [
           {
             _tag: "project-upserted",
             sequence: Sequence.make(persisted.sequence),
-            project,
+            project: { ...project, available: available ?? false },
           } satisfies ShellLiveEvent,
         ]
   }
@@ -431,6 +455,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const config = yield* ServerConfig
       const sql = yield* SqlClient
       const provider = yield* ProviderPort
+      const workspaceRoots = yield* WorkspaceRootAccess
       let dispatchInternal = workerNotReady
       const processProviderEvent = yield* makeProviderReactor((command) =>
         dispatchInternal(command),
@@ -464,8 +489,65 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         createdAt: config.environmentCreatedAt,
       })
 
+      const ensureWorkspaceAvailable = Effect.fn("ControlPlane.ensureWorkspaceAvailable")(
+        function* (request: ClientCommandRequest) {
+          if (request._tag === "project.create" || request._tag === "project.rebind") {
+            const workspaceRoot = request.payload.workspaceRoot
+            if (!(yield* workspaceRoots.isAvailable(workspaceRoot))) {
+              return yield* new WorkspaceRootUnavailable({ workspaceRoot })
+            }
+            return
+          }
+          if (
+            request._tag === "project.meta.update" ||
+            request._tag === "project.delete"
+          ) {
+            return
+          }
+          const projectId = yield* requestProjectId(request).pipe(
+            Effect.provideService(SqlClient, sql),
+          )
+          const workspaceRoot = yield* workspaceRootForProject(projectId).pipe(
+            Effect.provideService(SqlClient, sql),
+          )
+          if (
+            Option.isSome(workspaceRoot) &&
+            !(yield* workspaceRoots.isAvailable(workspaceRoot.value))
+          ) {
+            return yield* new ProjectUnavailable({ projectId })
+          }
+        },
+      )
+
+      const readAvailableBoardSnapshot = Effect.fn(
+        "ControlPlane.readAvailableBoardSnapshot",
+      )(function* (projectId: ProjectIdType) {
+        const snapshot = yield* readBoardSnapshot(projectId)
+        if (Option.isNone(snapshot)) {
+          return snapshot
+        }
+        const available = yield* workspaceRoots.isAvailable(snapshot.value.project.workspaceRoot)
+        return Option.some({
+          ...snapshot.value,
+          project: { ...snapshot.value.project, available },
+        })
+      })
+
+      const readAvailableShellSnapshot = Effect.fn(
+        "ControlPlane.readAvailableShellSnapshot",
+      )(function* () {
+        const snapshot = yield* readShellSnapshot(environment)
+        const projects = yield* Effect.forEach(snapshot.projects, (project) =>
+          workspaceRoots
+            .isAvailable(project.workspaceRoot)
+            .pipe(Effect.map((available) => ({ ...project, available }))),
+        )
+        return { ...snapshot, projects }
+      })
+
       const dispatch: ControlPlaneService["dispatch"] = Effect.fn("ControlPlane.dispatch")(
         function* (request, actorId) {
+          yield* ensureWorkspaceAvailable(request)
           const command = yield* enrichCommand(request, actorId).pipe(
             Effect.provideService(SqlClient, sql),
             Effect.mapError(unavailable("sqlite")),
@@ -528,7 +610,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               )
               return Stream.concat(historical, tail)
             }
-            const snapshot = yield* readBoardSnapshot(input.projectId).pipe(
+            const snapshot = yield* readAvailableBoardSnapshot(input.projectId).pipe(
               Effect.mapError(unavailable("project-snapshot")),
             )
             if (Option.isNone(snapshot)) {
@@ -637,7 +719,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               Effect.mapError(unavailable("shell-stream")),
             )
             const mapEvent = (event: PersistedEvent<DomainEventType>) =>
-              shellLiveEvent(environment, event).pipe(
+              shellLiveEvent(environment, event, workspaceRoots).pipe(
                 Effect.mapError(unavailable("shell-stream")),
                 Effect.map((events) =>
                   events.map(
@@ -674,7 +756,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
                 ),
               )
             }
-            const snapshot: ShellSnapshot = yield* readShellSnapshot(environment).pipe(
+            const snapshot: ShellSnapshot = yield* readAvailableShellSnapshot().pipe(
               Effect.mapError(unavailable("shell-snapshot")),
             )
             yield* hooks.afterShellSnapshot?.(snapshot.snapshotSequence) ?? Effect.void

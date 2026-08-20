@@ -70,6 +70,7 @@ describe("boardStateFromSnapshot", () => {
         },
       ],
       ticketThreads: [],
+      ticketActivity: [],
     })
 
     const board = boardStateFromSnapshot(snapshot)

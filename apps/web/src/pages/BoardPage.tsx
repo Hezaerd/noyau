@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import type { EventEnvelope } from "@noyau/protocol/events"
+import type { TicketActivity } from "@noyau/protocol/board"
 import { KanbanColumnId, type ProjectId, TicketId } from "@noyau/protocol/ids"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
@@ -641,7 +641,8 @@ export function BoardPage({
   const [controlPlaneError, setControlPlaneError] = useState<string>()
   const [loading, setLoading] = useState(true)
   const [ticketActivityError, setTicketActivityError] = useState<string>()
-  const [projectEvents, setProjectEvents] = useState<ReadonlyArray<EventEnvelope>>([])
+  const [ticketActivityByTicket, setTicketActivityByTicket] =
+    useState<ReadonlyArray<TicketActivity>>([])
   const [activeTicketId, setActiveTicketId] = useState<string | undefined>(state.tickets[0]?.id)
   const [draggedTicketId, setDraggedTicketId] = useState<string>()
   const [creatingColumnId, setCreatingColumnId] = useState<string>()
@@ -664,13 +665,9 @@ export function BoardPage({
   const selectedTicketId = selectedTicket?.id
   const ticketActivity = useMemo(
     () =>
-      projectEvents
-        .filter(
-          (envelope) =>
-            "ticketId" in envelope.event && envelope.event.ticketId === selectedTicketId,
-        )
-        .toSorted((left, right) => right.sequence - left.sequence),
-    [projectEvents, selectedTicketId],
+      ticketActivityByTicket.find((activity) => activity.ticketId === selectedTicketId)?.events ??
+      [],
+    [ticketActivityByTicket, selectedTicketId],
   )
   const draggedTicket = state.tickets.find((ticket) => ticket.id === draggedTicketId)
   const sensors = useSensors(
@@ -692,6 +689,7 @@ export function BoardPage({
       return false
     }
     setState(boardStateFromSnapshot(snapshot.value))
+    setTicketActivityByTicket(snapshot.value.ticketActivity)
     setControlPlaneError(undefined)
     setLoading(false)
     return true
@@ -706,14 +704,15 @@ export function BoardPage({
   }, [selectedTicketId])
 
   useEffect(() => {
+    setTicketActivityByTicket([])
     return subscribeProject(projectId, undefined, {
       onSnapshot: (snapshot) => {
         setState(boardStateFromSnapshot(snapshot))
+        setTicketActivityByTicket(snapshot.ticketActivity)
         setLoading(false)
         setControlPlaneError(undefined)
       },
-      onEvent: (event) => {
-        setProjectEvents((current) => [...current, event])
+      onEvent: (_event) => {
         void refreshBoard()
       },
       onError: setControlPlaneError,

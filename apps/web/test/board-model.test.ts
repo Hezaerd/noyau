@@ -7,7 +7,6 @@ import {
   dependenciesForTicket,
   dependentsForTicket,
   destinationIndexAfterDrop,
-  initialBoardState,
   moveTicket,
   parseBoardSearch,
   placeTicketAt,
@@ -17,6 +16,9 @@ import {
   updateTicket,
   visibleTickets,
 } from "../src/lib/board-model"
+import { boardFixture } from "./fixtures/board"
+
+const initialBoardState = boardFixture
 
 describe("board search", () => {
   it("keeps supported URL state and drops invalid values", () => {
