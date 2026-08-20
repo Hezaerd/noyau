@@ -22,12 +22,14 @@ const ignorePatterns = [
   "**/dist-electron/**",
   "**/coverage/**",
   "**/routeTree.gen.ts",
-  "packages/acp/src/_generated/**",
   ".worktrees/**",
   "repos/**",
   "tools/oxlint/anti-slop/**",
   ...agentIgnorePatterns,
 ]
+// Codegen ACP : hors lint (anti-slop / type-aware sur ~10k lignes), mais dans fmt
+// pour que `vp run generate` puisse formater après écriture.
+const generatedAcpIgnore = "packages/acp/src/_generated/**"
 
 type AntiSlopRule = "error" | ["error", { allowInTypeGuards: true }]
 
@@ -76,7 +78,7 @@ export default defineConfig({
       builtin: true,
       es2024: true,
     },
-    ignorePatterns,
+    ignorePatterns: [...ignorePatterns, generatedAcpIgnore],
     rules: {
       ...effectRecommended.rules,
       ...antiSlopRules,

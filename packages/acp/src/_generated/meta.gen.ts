@@ -16,7 +16,7 @@ export const AGENT_METHODS = {
   session_set_config_option: "session/set_config_option",
   session_set_mode: "session/set_mode",
   session_set_model: "session/set_model",
-} as const;
+} as const
 
 export const CLIENT_METHODS = {
   fs_read_text_file: "fs/read_text_file",
@@ -30,6 +30,6 @@ export const CLIENT_METHODS = {
   terminal_output: "terminal/output",
   terminal_release: "terminal/release",
   terminal_wait_for_exit: "terminal/wait_for_exit",
-} as const;
+} as const
 
-export const PROTOCOL_VERSION = 1 as const;
+export const PROTOCOL_VERSION = 1 as const
