@@ -3,7 +3,7 @@ import {
   CommandId,
   type ApprovalRequestId,
   type ProjectId,
-  type ThreadId,
+  ThreadId,
   type TurnId,
 } from "@noyau/protocol/ids"
 import {
@@ -42,7 +42,7 @@ export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
     title: input.title.trim(),
   }
   if (input.runtimeMode !== undefined) {
-    payload = { ...payload, runtimeMode: input.runtimeMode }
+    payload = Object.assign(payload, { runtimeMode: input.runtimeMode })
   }
   return ThreadCreateRequest.make({
     commandId: CommandId.make(yield* uuid()),
@@ -64,7 +64,7 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
     text: input.text.trim(),
   }
   if (input.runtimeMode !== undefined) {
-    payload = { ...payload, runtimeMode: input.runtimeMode }
+    payload = Object.assign(payload, { runtimeMode: input.runtimeMode })
   }
   return ThreadTurnStartRequest.make({
     commandId: CommandId.make(yield* uuid()),
@@ -80,7 +80,7 @@ export const makeThreadTurnInterruptRequest = Effect.fnUntraced(function* (input
     threadId: input.threadId,
   }
   if (input.turnId !== undefined) {
-    payload = { ...payload, turnId: input.turnId }
+    payload = Object.assign(payload, { turnId: input.turnId })
   }
   return ThreadTurnInterruptRequest.make({
     commandId: CommandId.make(yield* uuid()),
