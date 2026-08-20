@@ -132,8 +132,10 @@ describe("rendered Thread UI evidence", () => {
     )
 
     expect(screen.getByText("Cursor indisponible")).toBeTruthy()
-    expect(screen.getByRole("textbox", { name: "Composer un message" }).disabled).toBe(true)
-    expect(screen.getByRole("button", { name: "Envoyer" }).disabled).toBe(true)
+    expect(
+      screen.getByRole("textbox", { name: "Composer un message" }).hasAttribute("disabled"),
+    ).toBe(true)
+    expect(screen.getByRole("button", { name: "Envoyer" }).hasAttribute("disabled")).toBe(true)
   })
 
   it("edits TicketThread links from the Thread side", async () => {
