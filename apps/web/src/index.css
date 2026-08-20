@@ -34,12 +34,16 @@
     box-sizing: border-box;
   }
 
+  html {
+    @apply h-svh overflow-hidden font-sans;
+  }
+
   body {
-    @apply relative m-0 min-h-screen min-w-80 bg-background font-sans text-foreground;
+    @apply relative m-0 h-svh min-w-80 overflow-hidden bg-background font-sans text-foreground;
   }
 
   #root {
-    @apply isolate;
+    @apply isolate h-full min-h-0;
     padding-right: var(--desktop-window-right-resize-inset);
   }
 
@@ -48,9 +52,6 @@
   }
   * {
     @apply border-border outline-ring/50;
-  }
-  html {
-    @apply font-sans;
   }
 
   code,

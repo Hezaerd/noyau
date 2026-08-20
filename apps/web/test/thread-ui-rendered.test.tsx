@@ -107,6 +107,9 @@ describe("rendered Thread UI evidence", () => {
       screen.getByRole("textbox", { name: "Composer un message" }).hasAttribute("disabled"),
     ).toBe(true)
     expect(screen.getByRole("button", { name: "Envoyer" }).hasAttribute("disabled")).toBe(true)
+    const composer = screen.getByRole("textbox", { name: "Composer un message" }).closest("form")
+    expect(composer?.className).toMatch(/sticky/)
+    expect(composer?.className).toMatch(/bottom-0/)
   })
 
   it("edits TicketThread links from the Thread side", async () => {

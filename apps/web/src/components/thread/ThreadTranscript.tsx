@@ -49,7 +49,7 @@ export function ThreadTranscript({
 
   return (
     <MessageScrollerProvider autoScroll>
-      <MessageScroller>
+      <MessageScroller className="min-h-0 flex-1">
         <MessageScrollerViewport aria-label="Transcript du Thread">
           <MessageScrollerContent
             aria-busy={isRunning}
