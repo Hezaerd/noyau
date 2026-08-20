@@ -75,6 +75,7 @@ export function ThreadSidebarItem({
         if (!result.ok) {
           setRegenerating(false)
         }
+        return undefined
       },
     )
   }
