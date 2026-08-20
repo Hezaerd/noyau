@@ -19,7 +19,6 @@ import {
   ThreadTicketLinkEditor,
   type ThreadTicketLink,
 } from "@/components/thread/ThreadTicketLinks"
-import { ThreadTitleBar } from "@/components/thread/ThreadTitleBar"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import {
   buildCommand,
@@ -34,8 +33,6 @@ import {
   makeApprovalRespondRequest,
   makeThreadCreateRequest,
   makeThreadId,
-  makeThreadMetaUpdateRequest,
-  makeThreadTitleRegenerateRequest,
   makeThreadTurnInterruptRequest,
   makeThreadTurnStartRequest,
   makeUserInputRespondRequest,
@@ -62,19 +59,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
   const [linkedTicketSelection, setLinkedTicketSelection] = useState<string | null>(null)
-  const [regeneratingTitle, setRegeneratingTitle] = useState<string>()
   const cursorReady = isCursorReady(cursor)
-  const currentTitle = snapshot?.thread.title
-
-  useEffect(() => {
-    if (
-      regeneratingTitle !== undefined &&
-      currentTitle !== undefined &&
-      currentTitle !== regeneratingTitle
-    ) {
-      setRegeneratingTitle(undefined)
-    }
-  }, [currentTitle, regeneratingTitle])
 
   const refreshThread = useCallback(async () => {
     if (threadId === undefined) {
@@ -325,34 +310,6 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     }
   }
 
-  const renameThread = async (title: string) => {
-    if (threadId === undefined) {
-      return false
-    }
-    const request = await buildCommand(makeThreadMetaUpdateRequest({ threadId, title }))
-    if (!request.ok) {
-      setError(request.details)
-      return false
-    }
-    return dispatch(request.value)
-  }
-
-  const regenerateThreadTitle = async () => {
-    if (threadId === undefined || snapshot === undefined) {
-      return false
-    }
-    const request = await buildCommand(makeThreadTitleRegenerateRequest({ threadId }))
-    if (!request.ok) {
-      setError(request.details)
-      return false
-    }
-    const ok = await dispatch(request.value)
-    if (ok) {
-      setRegeneratingTitle(snapshot.thread.title)
-    }
-    return ok
-  }
-
   const unlinkTicket = async (ticketId: TicketId) => {
     if (threadId === undefined) {
       return
@@ -368,14 +325,6 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {threadId === undefined || snapshot === undefined ? null : (
-        <ThreadTitleBar
-          title={snapshot.thread.title}
-          isRegenerating={regeneratingTitle !== undefined}
-          onRename={renameThread}
-          onRegenerate={regenerateThreadTitle}
-        />
-      )}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ThreadTranscript
           transcript={snapshot?.transcript ?? []}
