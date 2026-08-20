@@ -7,6 +7,7 @@ import {
   ProjectId,
   SchemaVersion,
 } from "@noyau/protocol/ids"
+import { BoardInitialization } from "@noyau/protocol/ticket/commands"
 import { Schema } from "effect"
 
 const requestMeta = {
@@ -67,7 +68,11 @@ export const ProjectCommandRequest = Schema.Union([
 export type ProjectCommandRequest = (typeof ProjectCommandRequest)["Type"]
 export const decodeProjectCommandRequest = Schema.decodeUnknownEffect(ProjectCommandRequest)
 
-export const ProjectCreate = command("project.create", Schema.Struct(projectCreatePayload))
+export const ProjectCreate = Schema.TaggedStruct("project.create", {
+  ...commandMeta,
+  payload: Schema.Struct(projectCreatePayload),
+  initialBoard: BoardInitialization,
+})
 export const ProjectMetaUpdate = command("project.meta.update", Schema.Struct(projectMetaPayload))
 export const ProjectRebind = command("project.rebind", Schema.Struct(projectRebindPayload))
 export const ProjectDelete = command("project.delete", Schema.Struct(projectDeletePayload))

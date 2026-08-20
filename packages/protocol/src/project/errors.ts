@@ -19,6 +19,21 @@ export class WorkspaceRootConflict extends Schema.TaggedError<WorkspaceRootConfl
   },
 ) {}
 
+export class WorkspaceRootUnavailable extends Schema.TaggedError<WorkspaceRootUnavailable>()(
+  "WorkspaceRootUnavailable",
+  { workspaceRoot: WorkspaceRoot },
+) {}
+
+export class WorkspaceRootNotFound extends Schema.TaggedError<WorkspaceRootNotFound>()(
+  "WorkspaceRootNotFound",
+  { workspaceRoot: WorkspaceRoot },
+) {}
+
+export class WorkspaceRootNotDirectory extends Schema.TaggedError<WorkspaceRootNotDirectory>()(
+  "WorkspaceRootNotDirectory",
+  { workspaceRoot: WorkspaceRoot },
+) {}
+
 export class ProjectUnavailable extends Schema.TaggedError<ProjectUnavailable>()(
   "ProjectUnavailable",
   { projectId: ProjectId },
@@ -28,6 +43,9 @@ export const ProjectRejection = Schema.Union([
   ProjectAlreadyExists,
   ProjectNotFound,
   WorkspaceRootConflict,
+  WorkspaceRootUnavailable,
+  WorkspaceRootNotFound,
+  WorkspaceRootNotDirectory,
   ProjectUnavailable,
 ])
 export type ProjectRejection = (typeof ProjectRejection)["Type"]

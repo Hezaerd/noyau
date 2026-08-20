@@ -10,6 +10,9 @@ const ids = {
   other: "3f8f0d70-1111-4000-8000-000000000021",
   command: "3f8f0d70-1111-4000-8000-000000000010",
   correlation: "3f8f0d70-1111-4000-8000-000000000011",
+  backlog: "3f8f0d70-1111-4000-8000-000000000031",
+  active: "3f8f0d70-1111-4000-8000-000000000032",
+  done: "3f8f0d70-1111-4000-8000-000000000033",
 } as const
 
 const roots = {
@@ -27,6 +30,11 @@ const meta = {
 } as const
 
 const command = Schema.decodeUnknownSync(ProjectCommand)
+const initialBoard = {
+  backlogColumnId: ids.backlog,
+  activeColumnId: ids.active,
+  doneColumnId: ids.done,
+} as const
 
 const success = <A, E>(result: Result.Result<A, E>): A => {
   expect(Result.isSuccess(result)).toBe(true)
@@ -61,6 +69,7 @@ const createProject = (
         ...meta,
         projectId,
         payload: { projectId, name, workspaceRoot },
+        initialBoard,
       }),
     ),
   )
@@ -91,6 +100,7 @@ describe("project.create", () => {
           _tag: "project.create",
           ...meta,
           payload: { projectId: ids.project, name: "Dup", workspaceRoot: roots.other },
+          initialBoard,
         }),
       ),
     )
@@ -107,6 +117,7 @@ describe("project.create", () => {
           ...meta,
           projectId: ids.other,
           payload: { projectId: ids.other, name: "Autre", workspaceRoot: roots.noyau },
+          initialBoard,
         }),
       ),
     )
