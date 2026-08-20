@@ -8,8 +8,9 @@ export const BootstrapConfig = Schema.Struct({
   dataDirectory: Schema.NonEmptyString,
   host: Schema.Literals(["127.0.0.1", "::1"]),
   port: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(0),
-    Schema.isLessThanOrEqualTo(65_535),
+    Schema.makeFilter((port) => port >= 0 && port <= 65_535, {
+      expected: "a TCP port between 0 and 65535",
+    }),
   ),
   bearerToken: Schema.NonEmptyString,
   actorId: Schema.NonEmptyString,

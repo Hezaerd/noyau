@@ -193,7 +193,7 @@ describe("ControlPlane", () => {
         assert.strictEqual(frames[2]?.kind, "synchronized")
       })
       yield* program.pipe(Effect.provide(controlPlaneTestLayer(hooks)))
-    },
+    }),
   )
 
   it.effect("serves shell and thread snapshots and coalesces shell updates", () =>
@@ -237,6 +237,6 @@ describe("ControlPlane", () => {
         assert.strictEqual(shellFrames[2]?.kind, "synchronized")
       })
       yield* program.pipe(Effect.provide(controlPlaneTestLayer(hooks)))
-    },
+    }),
   )
 })
