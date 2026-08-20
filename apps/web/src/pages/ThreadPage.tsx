@@ -1,8 +1,9 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import { ApprovalRequestId, ProjectId, ThreadId, TicketId } from "@noyau/protocol/ids"
+import { ApprovalRequestId, TicketId, type ProjectId, type ThreadId } from "@noyau/protocol/ids"
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -57,6 +58,21 @@ const transcriptLabel = (item: TranscriptItem): string => {
   }
 }
 
+const transcriptItemKey = (item: TranscriptItem): string => {
+  switch (item._tag) {
+    case "transcript.user":
+    case "transcript.assistant":
+      return `${item._tag}-${item.turnId}-${item.text}`
+    case "transcript.tool":
+      return `${item._tag}-${item.turnId}-${item.toolCallId}`
+    case "transcript.permission":
+    case "transcript.user-input":
+      return `${item._tag}-${item.turnId}-${item.requestId}`
+    case "transcript.plan":
+      return `${item._tag}-${item.turnId}-${item.markdown}`
+  }
+}
+
 interface ThreadPageProps {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
@@ -77,7 +93,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
   const [linkedTicketSelection, setLinkedTicketSelection] = useState<string | null>(null)
 
-  const refreshThread = async () => {
+  const refreshThread = useCallback(async () => {
     if (threadId === undefined) {
       setLoading(false)
       return
@@ -92,18 +108,18 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     setRuntimeMode(result.value.thread.runtimeMode)
     setError(undefined)
     setLoading(false)
-  }
+  }, [threadId])
 
-  const refreshBoard = async () => {
+  const refreshBoard = useCallback(async () => {
     const result = await loadBoardSnapshot(projectId)
     if (result.ok) {
       setBoard(result.value)
     }
-  }
+  }, [projectId])
 
   useEffect(() => {
     void refreshBoard()
-  }, [projectId])
+  }, [refreshBoard])
 
   useEffect(() => {
     if (threadId === undefined) {
@@ -126,7 +142,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       },
       onError: setError,
     })
-  }, [threadId])
+  }, [refreshBoard, refreshThread, threadId])
 
   const linkedTicketIds = useMemo(
     () =>
@@ -220,12 +236,8 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     if (threadId === undefined) {
       return
     }
-    const request = await buildCommand(
-      makeThreadTurnInterruptRequest({
-        threadId,
-        ...(activeTurn === undefined ? {} : { turnId: activeTurn }),
-      }),
-    )
+    const input = activeTurn === undefined ? { threadId } : { threadId, turnId: activeTurn }
+    const request = await buildCommand(makeThreadTurnInterruptRequest(input))
     if (!request.ok) {
       setError(request.details)
       return
@@ -347,12 +359,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
               {project?.name ?? "Project"} · Conversation Cursor durable
             </p>
           </div>
-          <Select
-            items={runtimeModes}
-            value={runtimeMode}
-            onValueChange={selectRuntimeMode}
-            itemToStringValue={(item) => item.label}
-          >
+          <Select items={runtimeModes} value={runtimeMode} onValueChange={selectRuntimeMode}>
             <SelectTrigger aria-label="Mode d’exécution" className="w-52">
               <SelectValue>
                 {runtimeModes.find((mode) => mode.value === runtimeMode)?.label}
@@ -360,7 +367,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
             </SelectTrigger>
             <SelectPopup>
               {runtimeModes.map((mode) => (
-                <SelectItem key={mode.value} value={mode}>
+                <SelectItem key={mode.value} value={mode.value}>
                   <span className="flex flex-col">
                     <span>{mode.label}</span>
                     <span className="text-[0.68rem] text-muted-foreground">{mode.description}</span>
@@ -403,9 +410,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
               </div>
             ) : null}
 
-            {snapshot?.transcript.map((item, index) => (
+            {snapshot?.transcript.map((item) => (
               <article
-                key={`${item._tag}-${index}`}
+                key={transcriptItemKey(item)}
                 className={`rounded-2xl border p-4 ${
                   item._tag === "transcript.user"
                     ? "ml-8 border-primary/25 bg-primary/5"

@@ -55,6 +55,7 @@ describe("Thread and TicketThread UI acceptance contract", () => {
   it("rejects image attachments at the same boundary used by the composer", () => {
     expect(() =>
       Schema.decodeSync(ThreadTurnStartRequest)({
+        _tag: "thread.turn.start",
         commandId: CommandId.make("40000000-0000-4000-8000-000000000001"),
         payload: {
           threadId: ids.threadId,

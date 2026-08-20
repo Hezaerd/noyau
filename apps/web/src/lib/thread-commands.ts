@@ -1,5 +1,11 @@
 import type { RuntimeMode as RuntimeModeType } from "@noyau/protocol/entities/runtime-mode"
-import { ApprovalRequestId, CommandId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import {
+  CommandId,
+  type ApprovalRequestId,
+  type ProjectId,
+  type ThreadId,
+  type TurnId,
+} from "@noyau/protocol/ids"
 import {
   ApprovalRespondRequest,
   ThreadCreateRequest,
@@ -25,14 +31,22 @@ export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
   readonly title: string
   readonly runtimeMode?: RuntimeModeType
 }) {
+  let payload: {
+    readonly threadId: ThreadId
+    readonly projectId: ProjectId
+    readonly title: string
+    readonly runtimeMode?: RuntimeModeType
+  } = {
+    threadId: input.threadId,
+    projectId: input.projectId,
+    title: input.title.trim(),
+  }
+  if (input.runtimeMode !== undefined) {
+    payload = { ...payload, runtimeMode: input.runtimeMode }
+  }
   return ThreadCreateRequest.make({
     commandId: CommandId.make(yield* uuid()),
-    payload: {
-      threadId: input.threadId,
-      projectId: input.projectId,
-      title: input.title.trim(),
-      ...(input.runtimeMode === undefined ? {} : { runtimeMode: input.runtimeMode }),
-    },
+    payload,
   })
 })
 
@@ -41,13 +55,20 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   readonly text: string
   readonly runtimeMode?: RuntimeModeType
 }) {
+  let payload: {
+    readonly threadId: ThreadId
+    readonly text: string
+    readonly runtimeMode?: RuntimeModeType
+  } = {
+    threadId: input.threadId,
+    text: input.text.trim(),
+  }
+  if (input.runtimeMode !== undefined) {
+    payload = { ...payload, runtimeMode: input.runtimeMode }
+  }
   return ThreadTurnStartRequest.make({
     commandId: CommandId.make(yield* uuid()),
-    payload: {
-      threadId: input.threadId,
-      text: input.text.trim(),
-      ...(input.runtimeMode === undefined ? {} : { runtimeMode: input.runtimeMode }),
-    },
+    payload,
   })
 })
 
@@ -55,12 +76,15 @@ export const makeThreadTurnInterruptRequest = Effect.fnUntraced(function* (input
   readonly threadId: ThreadId
   readonly turnId?: TurnId
 }) {
+  let payload: { readonly threadId: ThreadId; readonly turnId?: TurnId } = {
+    threadId: input.threadId,
+  }
+  if (input.turnId !== undefined) {
+    payload = { ...payload, turnId: input.turnId }
+  }
   return ThreadTurnInterruptRequest.make({
     commandId: CommandId.make(yield* uuid()),
-    payload: {
-      threadId: input.threadId,
-      ...(input.turnId === undefined ? {} : { turnId: input.turnId }),
-    },
+    payload,
   })
 })
 
