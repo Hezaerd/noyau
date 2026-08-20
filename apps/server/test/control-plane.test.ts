@@ -1,8 +1,16 @@
+import { createHash } from "node:crypto"
+
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { CommandIdConflict } from "@noyau/protocol/errors"
 import { ActorId, ProjectId, ThreadId } from "@noyau/protocol/ids"
+import {
+  WorkspaceRootConflict,
+  WorkspaceRootNotDirectory,
+  WorkspaceRootNotFound,
+} from "@noyau/protocol/project/errors"
 import {
   ControlPlane,
   makeControlPlaneLayer,
@@ -24,11 +32,11 @@ const uuid = (index: number) => `30000000-0000-4000-8000-${index.toString().padS
 const request = (input: (typeof ClientCommandRequest)["Encoded"]) =>
   Schema.decodeSync(ClientCommandRequest)(input)
 
-const projectCreate = (commandId = uuid(1), id = projectId) =>
+const projectCreate = (commandId = uuid(1), id = projectId, workspaceRoot = "/tmp") =>
   request({
     _tag: "project.create",
     commandId,
-    payload: { projectId: id, name: "Noyau", workspaceRoot: `/tmp/${id}` },
+    payload: { projectId: id, name: "Noyau", workspaceRoot },
   })
 
 const projectRename = (commandId: string, name: string) =>
@@ -54,7 +62,10 @@ const testCrypto = () => {
       bytes[size - 2] = (counter >> 8) % 256
       return bytes
     },
-    digest: (_algorithm, data) => Effect.succeed(data),
+    digest: (algorithm, data) =>
+      Effect.succeed(
+        new Uint8Array(createHash(algorithm.toLowerCase().replace("-", "")).update(data).digest()),
+      ),
   })
 }
 
@@ -62,6 +73,7 @@ const controlPlaneTestLayer = (hooks: ControlPlaneHooks = {}) =>
   makeControlPlaneLayer(hooks).pipe(
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
+    Layer.provideMerge(NodeFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 
@@ -88,7 +100,7 @@ describe("ControlPlane", () => {
           .pipe(Effect.flip)
 
         assert.deepStrictEqual(retry, first)
-        assert.strictEqual(first.sequence, 1)
+        assert.strictEqual(first.sequence, 5)
         assert.instanceOf(conflict, CommandIdConflict)
 
         const frames = yield* controlPlane
@@ -100,6 +112,129 @@ describe("ControlPlane", () => {
         const config = yield* controlPlane.getConfig
         assert.strictEqual(config.databaseSchemaVersion, 2)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
+      }),
+    ),
+  )
+
+  it.effect("creates Project and native Board atomically through production dispatch", () =>
+    run(
+      Effect.gen(function* () {
+        const controlPlane = yield* ControlPlane
+        const sql = yield* SqlClient
+        const created = yield* controlPlane.dispatch(projectCreate(), actorId)
+
+        assert.strictEqual(created.sequence, 5)
+        const frames = yield* controlPlane
+          .subscribeProject({ projectId, requestCompletionMarker: true })
+          .pipe(Stream.take(2), Stream.runCollect)
+        const first = frames[0]
+        assert.strictEqual(first?.kind, "snapshot")
+        if (first?.kind !== "snapshot") {
+          return
+        }
+        assert.deepStrictEqual(
+          first.snapshot.columns.map((column) => column.name),
+          ["Backlog", "En cours", "Done"],
+        )
+        const done = first.snapshot.columns.find((column) => column.done)
+        assert.isDefined(done)
+        if (done === undefined) {
+          return
+        }
+
+        const protectedDone = yield* controlPlane
+          .dispatch(
+            request({
+              _tag: "kanbanColumn.delete",
+              commandId: uuid(2),
+              payload: { columnId: done.id },
+            }),
+            actorId,
+          )
+          .pipe(Effect.flip)
+        assert.strictEqual(protectedDone._tag, "ProtectedDoneColumn")
+
+        const rows = yield* sql<{ events: number; projects: number; columns: number }>`
+          SELECT
+            (SELECT COUNT(*) FROM events WHERE causation_id = ${uuid(1)}) AS events,
+            (SELECT COUNT(*) FROM projection_projects WHERE project_id = ${projectId}) AS projects,
+            (SELECT COUNT(*) FROM projection_columns WHERE project_id = ${projectId}) AS columns
+        `
+        assert.deepStrictEqual(rows[0], { events: 5, projects: 1, columns: 3 })
+      }),
+    ),
+  )
+
+  it.effect("persists stable WorkspaceRootConflict receipts for create and rebind", () =>
+    run(
+      Effect.gen(function* () {
+        const controlPlane = yield* ControlPlane
+        const sql = yield* SqlClient
+        yield* controlPlane.dispatch(projectCreate(uuid(1), projectId, "/tmp"), actorId)
+
+        const conflictingCreate = projectCreate(uuid(2), otherProjectId, "/tmp")
+        const createError = yield* controlPlane
+          .dispatch(conflictingCreate, actorId)
+          .pipe(Effect.flip)
+        const createRetry = yield* controlPlane
+          .dispatch(conflictingCreate, actorId)
+          .pipe(Effect.flip)
+        assert.instanceOf(createError, WorkspaceRootConflict)
+        assert.deepStrictEqual(createRetry, createError)
+        assert.strictEqual(createError._tag, "WorkspaceRootConflict")
+        assert.strictEqual(createError.workspaceRoot, "/tmp")
+        assert.strictEqual(createError.projectId, projectId)
+
+        yield* controlPlane.dispatch(projectCreate(uuid(3), otherProjectId, "/workspace"), actorId)
+        const rebind = request({
+          _tag: "project.rebind",
+          commandId: uuid(4),
+          payload: { projectId: otherProjectId, workspaceRoot: "/tmp" },
+        })
+        const rebindError = yield* controlPlane.dispatch(rebind, actorId).pipe(Effect.flip)
+        const rebindRetry = yield* controlPlane.dispatch(rebind, actorId).pipe(Effect.flip)
+        assert.instanceOf(rebindError, WorkspaceRootConflict)
+        assert.deepStrictEqual(rebindRetry, rebindError)
+        assert.strictEqual(rebindError._tag, "WorkspaceRootConflict")
+
+        const receipts = yield* sql<{ response: string }>`
+          SELECT response
+          FROM receipts
+          WHERE command_id IN (${uuid(2)}, ${uuid(4)})
+          ORDER BY command_id
+        `
+        assert.strictEqual(receipts.length, 2)
+        assert.isTrue(receipts.every((row) => row.response.includes('"WorkspaceRootConflict"')))
+      }),
+    ),
+  )
+
+  it.effect("requires an existing directory for create and rebind at the IO boundary", () =>
+    run(
+      Effect.gen(function* () {
+        const controlPlane = yield* ControlPlane
+        const missing = `/tmp/noyau-missing-${uuid(90)}`
+        const missingCreate = yield* controlPlane
+          .dispatch(projectCreate(uuid(1), projectId, missing), actorId)
+          .pipe(Effect.flip)
+        const fileCreate = yield* controlPlane
+          .dispatch(projectCreate(uuid(2), projectId, "/etc/hosts"), actorId)
+          .pipe(Effect.flip)
+        assert.instanceOf(missingCreate, WorkspaceRootNotFound)
+        assert.instanceOf(fileCreate, WorkspaceRootNotDirectory)
+
+        yield* controlPlane.dispatch(projectCreate(uuid(3), projectId, "/tmp"), actorId)
+        const missingRebind = yield* controlPlane
+          .dispatch(
+            request({
+              _tag: "project.rebind",
+              commandId: uuid(4),
+              payload: { projectId, workspaceRoot: missing },
+            }),
+            actorId,
+          )
+          .pipe(Effect.flip)
+        assert.instanceOf(missingRebind, WorkspaceRootNotFound)
       }),
     ),
   )

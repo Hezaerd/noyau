@@ -1,6 +1,6 @@
 import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
 import { makeDrainableWorker } from "@noyau/database/drainable-worker"
-import { projectDomainEvent } from "@noyau/database/projections"
+import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/database/projections"
 import { readBoardSnapshot, readShellSnapshot, readThreadSnapshot } from "@noyau/database/snapshots"
 import { decide as decideBoard } from "@noyau/domain/board/decider"
 import {
@@ -35,6 +35,7 @@ import {
 import {
   type ActorId,
   CorrelationId,
+  KanbanColumnId,
   ProjectId,
   type ProjectId as ProjectIdType,
   Sequence,
@@ -42,6 +43,11 @@ import {
   type ThreadId,
 } from "@noyau/protocol/ids"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
+import {
+  WorkspaceRootConflict,
+  WorkspaceRootNotDirectory,
+  WorkspaceRootNotFound,
+} from "@noyau/protocol/project/errors"
 import { ProjectEvent } from "@noyau/protocol/project/events"
 import {
   type DispatchResult,
@@ -61,22 +67,23 @@ import {
 import type { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import { ThreadCommand } from "@noyau/protocol/thread/commands"
 import { ThreadEvent, type ThreadEvent as ThreadEventType } from "@noyau/protocol/thread/events"
-import { TicketCommand } from "@noyau/protocol/ticket/commands"
+import { BoardInitialize, TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketEvent } from "@noyau/protocol/ticket/events"
 import {
   Context,
+  Crypto,
   DateTime,
   Duration,
   Effect,
+  FileSystem,
   Layer,
   Option,
   Queue,
-  type Result,
+  Result,
   Schema,
   Stream,
 } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
-import type { SqlError } from "effect/unstable/sql/SqlError"
 
 import { ServerConfig } from "./config"
 
@@ -104,7 +111,32 @@ const decide = (
   command: CommandType,
 ): Result.Result<ReadonlyArray<DomainEventType>, RejectionType> => {
   if (isProjectCommand(command)) {
-    return decideProject(state.projects, command)
+    const projectDecision = decideProject(state.projects, command)
+    if (command._tag !== "project.create") {
+      return projectDecision
+    }
+    const initializationFields = {
+      commandId: command.commandId,
+      projectId: command.projectId,
+      actorId: command.actorId,
+      correlationId: command.correlationId,
+      issuedAt: command.issuedAt,
+      schemaVersion: command.schemaVersion,
+      payload: command.initialBoard,
+    }
+    const initialization =
+      command.causationId === undefined
+        ? BoardInitialize.make(initializationFields)
+        : BoardInitialize.make({ ...initializationFields, causationId: command.causationId })
+    return projectDecision.pipe(
+      Result.flatMap((projectEvents) =>
+        decideBoard(state.board, initialization).pipe(
+          Result.map((boardEvents) =>
+            Array.from<DomainEventType>(projectEvents).concat(boardEvents),
+          ),
+        ),
+      ),
+    )
   }
   if (isTicketCommand(command)) {
     return decideBoard(state.board, command)
@@ -211,14 +243,77 @@ const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
   }
 })
 
+const columnIdFromDigest = (digest: Uint8Array) => {
+  const bytes = digest.slice(0, 16)
+  const versionByte = bytes[6]
+  const variantByte = bytes[8]
+  if (versionByte === undefined || variantByte === undefined) {
+    throw new Error("SHA-256 digest is shorter than 16 bytes")
+  }
+  bytes[6] = (versionByte & 0x0f) | 0x50
+  bytes[8] = (variantByte & 0x3f) | 0x80
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("")
+  return KanbanColumnId.make(
+    `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`,
+  )
+}
+
+const initialBoardFor = Effect.fn("ControlPlane.initialBoardFor")(function* (commandId: string) {
+  const crypto = yield* Crypto.Crypto
+  const encoder = new TextEncoder()
+  const derive = (role: "active" | "backlog" | "done") =>
+    crypto
+      .digest("SHA-256", encoder.encode(`board:${role}:${commandId}`))
+      .pipe(Effect.map(columnIdFromDigest))
+  const [backlogColumnId, activeColumnId, doneColumnId] = yield* Effect.all([
+    derive("backlog"),
+    derive("active"),
+    derive("done"),
+  ])
+  return { backlogColumnId, activeColumnId, doneColumnId }
+})
+
+const validateWorkspaceRoot = Effect.fn("ControlPlane.validateWorkspaceRoot")(function* (
+  request: ClientCommandRequest,
+) {
+  if (request._tag !== "project.create" && request._tag !== "project.rebind") {
+    return
+  }
+  const workspaceRoot = request.payload.workspaceRoot
+  const fileSystem = yield* FileSystem.FileSystem
+  const info = yield* fileSystem
+    .stat(workspaceRoot)
+    .pipe(
+      Effect.catchTag("PlatformError", (error) =>
+        Effect.fail(
+          error.reason._tag === "NotFound"
+            ? new WorkspaceRootNotFound({ workspaceRoot })
+            : new ServiceUnavailable({ service: "filesystem" }),
+        ),
+      ),
+    )
+  if (info.type !== "Directory") {
+    return yield* new WorkspaceRootNotDirectory({ workspaceRoot })
+  }
+})
+
 const enrichCommand = Effect.fn("ControlPlane.enrichCommand")(function* (
   request: ClientCommandRequest,
   actorId: ActorId,
 ) {
   const projectId = yield* requestProjectId(request)
   const issuedAt = yield* DateTime.now
+  const enrichedRequest =
+    request._tag === "project.create"
+      ? {
+          ...request,
+          initialBoard: yield* initialBoardFor(request.commandId).pipe(
+            Effect.mapError(() => new ServiceUnavailable({ service: "crypto" })),
+          ),
+        }
+      : request
   return yield* decodeCommand({
-    ...request,
+    ...enrichedRequest,
     projectId,
     actorId,
     correlationId: CorrelationId.make(request.commandId),
@@ -240,8 +335,7 @@ const toEnvelope = (event: PersistedEvent<DomainEventType>) =>
     event: event.event,
   }).pipe(Effect.orDie)
 
-const unavailable = (service: string) => (_error: SqlError | Schema.SchemaError) =>
-  new ServiceUnavailable({ service })
+const unavailable = (service: string) => () => new ServiceUnavailable({ service })
 
 type LiveInput =
   | { readonly kind: "event"; readonly event: PersistedEvent<DomainEventType> }
@@ -418,12 +512,36 @@ export interface ControlPlaneHooks {
   readonly afterThreadSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
 }
 
+const validateCrossProjectInvariants = Effect.fn("ControlPlane.validateCrossProjectInvariants")(
+  function* (command: CommandType) {
+    if (command._tag !== "project.create" && command._tag !== "project.rebind") {
+      return null
+    }
+    const owner = yield* findWorkspaceRootOwner(
+      command.payload.workspaceRoot,
+      command._tag === "project.rebind" ? command.payload.projectId : undefined,
+    )
+    return Option.match(owner, {
+      onNone: () => null,
+      onSome: (projectId) =>
+        command._tag === "project.create" && projectId === command.payload.projectId
+          ? null
+          : new WorkspaceRootConflict({
+              workspaceRoot: command.payload.workspaceRoot,
+              projectId,
+            }),
+    })
+  },
+)
+
 export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
   Layer.effect(
     ControlPlane,
     Effect.gen(function* () {
       const config = yield* ServerConfig
       const sql = yield* SqlClient
+      const fileSystem = yield* FileSystem.FileSystem
+      const crypto = yield* Crypto.Crypto
       const reactor = yield* makeDrainableWorker(
         (_event: PersistedEvent<DomainEventType>) => Effect.void,
       )
@@ -436,6 +554,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         initialState: () => emptyControlState,
         decide,
         evolve,
+        validate: validateCrossProjectInvariants,
         project: (event) => projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql)),
         reactor,
       })
@@ -447,9 +566,13 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
 
       const dispatch: ControlPlaneService["dispatch"] = Effect.fn("ControlPlane.dispatch")(
         function* (request, actorId) {
+          yield* validateWorkspaceRoot(request).pipe(
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+          )
           const command = yield* enrichCommand(request, actorId).pipe(
             Effect.provideService(SqlClient, sql),
-            Effect.mapError(unavailable("sqlite")),
+            Effect.provideService(Crypto.Crypto, crypto),
+            Effect.catchTag("SqlError", unavailable("sqlite")),
           )
           const receipt = yield* worker
             .dispatch(command)
