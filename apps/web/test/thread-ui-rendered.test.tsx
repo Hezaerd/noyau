@@ -3,7 +3,16 @@
 import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
 import { ProjectId, ThreadId, TicketId } from "@noyau/protocol/ids"
 import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
-import { cleanup, render, screen } from "@testing-library/react"
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Link,
+  Outlet,
+  RouterProvider,
+} from "@tanstack/react-router"
+import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"
 import { useState } from "react"
@@ -13,6 +22,7 @@ import { TicketDialog } from "../src/components/board/TicketDialog"
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { CursorReadinessChip } from "../src/components/thread/CursorReadinessChip"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
+import { ThreadHeader } from "../src/components/thread/ThreadHeader"
 import { ThreadRuntimeModePicker } from "../src/components/thread/ThreadRuntimeModePicker"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
 import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
@@ -32,6 +42,48 @@ const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const secondThreadId = ThreadId.make("20000000-0000-4000-8000-000000000002")
 const ticketId = TicketId.make("30000000-0000-4000-8000-000000000001")
 const linkedTicketId = TicketId.make("30000000-0000-4000-8000-000000000002")
+
+const renderThreadHeaderWithRouter = () => {
+  const rootRoute = createRootRoute({
+    component: () => <Outlet />,
+  })
+  const threadRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/projects/$projectId/thread/$threadId",
+    component: () => (
+      <ThreadHeader
+        projectId={projectId}
+        projectName="Noyau"
+        title="Corriger la reprise"
+        provider="cursor"
+        linkedTickets={[{ id: ticketId, title: "Préparer la reprise" }]}
+        cursor={{ installed: true, handshakeOk: true }}
+        runtimeMode="full-access"
+        onRuntimeModeChange={vi.fn()}
+        canCreateTicket
+        onCreateTicket={vi.fn()}
+      />
+    ),
+  })
+  const boardRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/projects/$projectId/board",
+    component: () => (
+      <Link to="/projects/$projectId/thread/$threadId" params={{ projectId, threadId }}>
+        Thread
+      </Link>
+    ),
+  })
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([threadRoute, boardRoute]),
+    history: createMemoryHistory({
+      initialEntries: [`/projects/${projectId}/thread/${threadId}`],
+    }),
+  })
+
+  render(<RouterProvider router={router} />)
+  return router
+}
 
 const makeThread = (id: ThreadId, title: string): ThreadShellType =>
   Schema.decodeSync(ThreadShell)({
@@ -80,6 +132,23 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByText("Threads")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Corriger la reprise" })).toBeTruthy()
     expect(screen.getByRole("link", { name: "Documenter Cursor" })).toBeTruthy()
+  })
+
+  it("renders accessible Thread header destinations and navigates back to the Tableau", async () => {
+    const user = userEvent.setup()
+    const router = renderThreadHeaderWithRouter()
+    const returnLink = await screen.findByRole("link", { name: "Retour au Tableau" })
+    const ticketLink = screen.getByRole("link", {
+      name: "Ouvrir le Ticket Préparer la reprise dans le Tableau",
+    })
+
+    expect(returnLink.getAttribute("href")).toBe(`/projects/${projectId}/board`)
+    expect(ticketLink.getAttribute("href")).toBe(`/projects/${projectId}/board?ticket=${ticketId}`)
+
+    await user.click(returnLink)
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(`/projects/${projectId}/board`)
+    })
   })
 
   it("renders Session lastError and human interruption separately", () => {

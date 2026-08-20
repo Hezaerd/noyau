@@ -2,15 +2,7 @@ import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import {
-  ApprovalRequestId,
-  KanbanColumnId,
-  TicketId,
-  type ProjectId,
-  type ThreadId,
-} from "@noyau/protocol/ids"
-import { Link } from "@tanstack/react-router"
-import { ArrowLeftIcon, ListPlusIcon } from "lucide-react"
+import { ApprovalRequestId, TicketId, type ProjectId, type ThreadId } from "@noyau/protocol/ids"
 import {
   useCallback,
   useEffect,
@@ -22,16 +14,13 @@ import {
 } from "react"
 
 import { useControlPlane } from "@/components/control-plane-context"
-import { CursorReadinessChip } from "@/components/thread/CursorReadinessChip"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
-import { ThreadRuntimeModePicker } from "@/components/thread/ThreadRuntimeModePicker"
+import { ThreadHeader } from "@/components/thread/ThreadHeader"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import {
-  ThreadTicketChips,
   ThreadTicketLinkEditor,
   type ThreadTicketLink,
 } from "@/components/thread/ThreadTicketLinks"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -42,6 +31,7 @@ import {
   loadThreadSnapshot,
   subscribeThread,
 } from "@/lib/control-plane"
+import { createTicketFromThread as createTicketFromThreadFlow } from "@/lib/create-ticket-from-thread"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import {
   makeApprovalRespondRequest,
@@ -52,13 +42,7 @@ import {
   makeThreadTurnStartRequest,
   makeUserInputRespondRequest,
 } from "@/lib/thread-commands"
-import { threadTicketDescription } from "@/lib/thread-ticket-draft"
-import {
-  makeTicketCreateRequest,
-  makeTicketThreadLinkRequest,
-  makeTicketThreadUnlinkRequest,
-  makeTicketUpdateRequest,
-} from "@/lib/ticket-commands"
+import { makeTicketThreadLinkRequest, makeTicketThreadUnlinkRequest } from "@/lib/ticket-commands"
 
 const transcriptLabel = (item: TranscriptItem): string => {
   switch (item._tag) {
@@ -374,92 +358,32 @@ export function ThreadPage({ projectId, threadId, onCreated, onTicketCreated }: 
     if (threadId === undefined || snapshot === undefined || board === undefined) {
       return
     }
-    const column = board.columns.find((candidate) => !candidate.done)
-    if (column === undefined) {
-      setError("Aucune colonne non terminale ne permet de créer un Ticket.")
-      return
-    }
-    const createRequest = await buildCommand(
-      makeTicketCreateRequest({
-        projectId,
-        title: snapshot.thread.title,
-        placement: { columnId: KanbanColumnId.make(column.id) },
-      }),
-    )
-    if (!createRequest.ok) {
-      setError(createRequest.details)
-      return
-    }
-    const ticketId = createRequest.value.payload.ticketId
-    if (!(await dispatch(createRequest.value))) {
-      return
-    }
-
-    const description = threadTicketDescription(snapshot.transcript)
-    if (description !== "") {
-      const updateRequest = await buildCommand(makeTicketUpdateRequest({ ticketId, description }))
-      if (!updateRequest.ok || !(await dispatch(updateRequest.value))) {
-        if (!updateRequest.ok) {
-          setError(updateRequest.details)
-        }
-        return
-      }
-    }
-
-    const linkRequest = await buildCommand(makeTicketThreadLinkRequest({ ticketId, threadId }))
-    if (!linkRequest.ok || !(await dispatch(linkRequest.value))) {
-      if (!linkRequest.ok) {
-        setError(linkRequest.details)
-      }
-      return
-    }
-    onTicketCreated(ticketId)
+    await createTicketFromThreadFlow({
+      projectId,
+      threadId,
+      snapshot,
+      board,
+      buildCommand,
+      dispatch,
+      onError: setError,
+      onTicketCreated,
+    })
   }
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="border-b border-border/65 bg-background/80 px-4 py-4 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="truncate text-2xl font-semibold tracking-[-0.04em]">{title}</h1>
-              <Badge variant="outline">{snapshot?.thread.provider ?? "cursor"}</Badge>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {project?.name ?? "Project"} · Conversation Cursor durable
-            </p>
-            <ThreadTicketChips projectId={projectId} tickets={linkedTicketLinks} />
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              render={
-                <Link
-                  to="/projects/$projectId/board"
-                  params={{ projectId }}
-                  aria-label="Retour au Tableau"
-                />
-              }
-              variant="outline"
-              size="sm"
-            >
-              <ArrowLeftIcon data-icon="inline-start" />
-              Tableau
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={threadId === undefined || board === undefined}
-              onClick={() => void createTicketFromThread()}
-            >
-              <ListPlusIcon data-icon="inline-start" />
-              Créer un Ticket
-            </Button>
-            <CursorReadinessChip status={cursor} />
-            <ThreadRuntimeModePicker value={runtimeMode} onChange={selectRuntimeMode} />
-          </div>
-        </div>
-      </header>
+      <ThreadHeader
+        projectId={projectId}
+        projectName={project?.name}
+        title={title}
+        provider={snapshot?.thread.provider ?? "cursor"}
+        linkedTickets={linkedTicketLinks}
+        cursor={cursor}
+        runtimeMode={runtimeMode}
+        onRuntimeModeChange={selectRuntimeMode}
+        canCreateTicket={threadId !== undefined && board !== undefined}
+        onCreateTicket={() => void createTicketFromThread()}
+      />
 
       <div className="min-h-0 flex-1">
         <ScrollArea className="h-full" scrollbarGutter>

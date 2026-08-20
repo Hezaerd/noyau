@@ -20,8 +20,8 @@ describe("app Palette", () => {
 
   it("round-trips local recent preferences and rejects invalid data", () => {
     expect(
-      parseRecentActionIds(serializeRecentActionIds(["board.search", "navigate.inbox"])),
-    ).toEqual(["board.search", "navigate.inbox"])
+      parseRecentActionIds(serializeRecentActionIds(["board.search", "navigate.board"])),
+    ).toEqual(["board.search", "navigate.board"])
     expect(parseRecentActionIds('{"not":"an array"}')).toEqual([])
   })
 
@@ -34,21 +34,21 @@ describe("app Palette", () => {
 
   it("keeps only recents that remain in the current Catalogue", () => {
     expect(
-      applicableRecentActionIds(["ticket.create", "navigate.channel"], [item("navigate.channel")]),
-    ).toEqual(["navigate.channel"])
+      applicableRecentActionIds(["ticket.create", "navigate.thread"], [item("navigate.thread")]),
+    ).toEqual(["navigate.thread"])
   })
 
   it("orders groups and removes recent duplicates", () => {
     const groups = buildPaletteGroups(
       [item("ticket.create"), item("board.search")],
-      [item("navigate.inbox")],
+      [item("navigate.board")],
       ["board.search"],
     )
 
     expect(groups.map((group) => group.id)).toEqual(["recents", "actions", "navigation"])
     expect(groups[0]?.items.map(({ id }) => id)).toEqual(["board.search"])
     expect(groups[1]?.items.map(({ id }) => id)).toEqual(["ticket.create"])
-    expect(groups[2]?.items.map(({ id }) => id)).toEqual(["navigate.inbox"])
+    expect(groups[2]?.items.map(({ id }) => id)).toEqual(["navigate.board"])
   })
 
   it("omits empty groups", () => {
