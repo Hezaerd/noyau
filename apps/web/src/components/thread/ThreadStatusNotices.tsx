@@ -1,3 +1,5 @@
+import { threadStatusNoticesVisible } from "@/lib/thread-transcript"
+
 const interruptedLabel = "You stopped"
 
 export function ThreadStatusNotices({
@@ -10,6 +12,10 @@ export function ThreadStatusNotices({
     | undefined
   readonly latestTurn: { readonly state: string } | null | undefined
 }) {
+  if (!threadStatusNoticesVisible(session, latestTurn)) {
+    return null
+  }
+
   return (
     <>
       {session?.status === "error" && session.lastError !== null ? (
@@ -17,7 +23,7 @@ export function ThreadStatusNotices({
           <p className="text-xs font-semibold uppercase tracking-wide text-destructive">
             Session error
           </p>
-          <p className="mt-1 text-sm">{session.lastError}</p>
+          <p className="mt-1 text-sm">{session.lastError ?? ""}</p>
         </div>
       ) : null}
       {latestTurn?.state === "interrupted" ? (

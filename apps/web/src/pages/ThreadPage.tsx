@@ -1,7 +1,6 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, TicketId, type ProjectId, type ThreadId } from "@noyau/protocol/ids"
 import {
   useCallback,
@@ -20,9 +19,7 @@ import {
   ThreadTicketLinkEditor,
   type ThreadTicketLink,
 } from "@/components/thread/ThreadTicketLinks"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import {
   buildCommand,
   dispatchCommand,
@@ -39,39 +36,8 @@ import {
   makeThreadTurnStartRequest,
   makeUserInputRespondRequest,
 } from "@/lib/thread-commands"
+import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
 import { makeTicketThreadLinkRequest, makeTicketThreadUnlinkRequest } from "@/lib/ticket-commands"
-
-const transcriptLabel = (item: TranscriptItem): string => {
-  switch (item._tag) {
-    case "transcript.user":
-      return "You"
-    case "transcript.assistant":
-      return "Cursor"
-    case "transcript.tool":
-      return item.name
-    case "transcript.permission":
-      return "Permission request"
-    case "transcript.user-input":
-      return "Question from Cursor"
-    case "transcript.plan":
-      return "Plan"
-  }
-}
-
-const transcriptItemKey = (item: TranscriptItem): string => {
-  switch (item._tag) {
-    case "transcript.user":
-    case "transcript.assistant":
-      return `${item._tag}-${item.turnId}-${item.text}`
-    case "transcript.tool":
-      return `${item._tag}-${item.turnId}-${item.toolCallId}`
-    case "transcript.permission":
-    case "transcript.user-input":
-      return `${item._tag}-${item.turnId}-${item.requestId}`
-    case "transcript.plan":
-      return `${item._tag}-${item.turnId}-${item.markdown}`
-  }
-}
 
 interface ThreadPageProps {
   readonly projectId: ProjectId
@@ -136,7 +102,25 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         setLoading(false)
         setError(undefined)
       },
-      onEvent: () => {
+      onEvent: (envelope) => {
+        const event = envelope.event
+        if (
+          event._tag === "thread.transcript-appended" ||
+          event._tag === "thread.turn.started" ||
+          event._tag === "approval.responded" ||
+          event._tag === "user-input.responded"
+        ) {
+          setSnapshot((current) => {
+            if (current === undefined) {
+              return current
+            }
+            return applyThreadEnvelope(current, envelope) ?? current
+          })
+          if (event._tag === "thread.turn.started") {
+            setRuntimeMode((current) => event.runtimeMode ?? current)
+          }
+          return
+        }
         void refreshThread()
         void refreshBoard()
       },
@@ -337,105 +321,22 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="min-h-0 flex-1">
-        <ScrollArea className="h-full" scrollbarGutter>
-          <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 sm:px-6">
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Chargement du Thread…</p>
-            ) : null}
-            {error === undefined ? null : (
-              <div
-                role="alert"
-                className="rounded-xl border border-destructive/35 bg-destructive/10 p-3 text-sm"
-              >
-                {error}
-              </div>
-            )}
-            <ThreadStatusNotices
-              session={snapshot?.session}
-              latestTurn={snapshot?.thread.latestTurn}
-            />
-
-            {snapshot?.transcript.map((item) => (
-              <article
-                key={transcriptItemKey(item)}
-                className={`rounded-2xl border p-4 ${
-                  item._tag === "transcript.user"
-                    ? "ml-8 border-primary/25 bg-primary/5"
-                    : "mr-8 border-border/70 bg-card"
-                }`}
-              >
-                <div className="mb-2 text-xs font-medium text-muted-foreground">
-                  {transcriptLabel(item)}
-                </div>
-                {item._tag === "transcript.user" || item._tag === "transcript.assistant" ? (
-                  <p className="whitespace-pre-wrap text-sm leading-6">{item.text}</p>
-                ) : null}
-                {item._tag === "transcript.tool" ? (
-                  <p className="text-sm">
-                    {item.outputSummary ?? "Action Cursor"} · {item.status}
-                  </p>
-                ) : null}
-                {item._tag === "transcript.plan" ? (
-                  <p className="whitespace-pre-wrap text-sm leading-6">{item.markdown}</p>
-                ) : null}
-                {item._tag === "transcript.permission" ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm">
-                      {item.status === "resolved"
-                        ? "Permission traitée."
-                        : "Cursor demande une permission."}
-                    </span>
-                    {item.status === "pending" ? (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={() => void respondToApproval(item.requestId, "accept")}
-                        >
-                          Autoriser
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void respondToApproval(item.requestId, "decline")}
-                        >
-                          Refuser
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                ) : null}
-                {item._tag === "transcript.user-input" ? (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-sm">{item.prompt ?? "Cursor attend une réponse."}</p>
-                    {item.status === "pending" ? (
-                      <div className="flex gap-2">
-                        <Input
-                          value={answerByRequest[item.requestId] ?? ""}
-                          onChange={(event) =>
-                            setAnswerByRequest((current) => ({
-                              ...current,
-                              [item.requestId]: event.target.value,
-                            }))
-                          }
-                          aria-label="Réponse à Cursor"
-                        />
-                        <Button onClick={() => void respondToUserInput(item.requestId)}>
-                          Répondre
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </article>
-            ))}
-
-            {threadId === undefined ? (
-              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                Le titre du Thread sera le premier prompt envoyé.
-              </div>
-            ) : null}
-
-            {threadId === undefined ? null : (
+        <ThreadTranscript
+          transcript={snapshot?.transcript ?? []}
+          isRunning={isRunning}
+          isNewThread={threadId === undefined}
+          loading={loading}
+          error={error}
+          notices={
+            threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (
+              <ThreadStatusNotices
+                session={snapshot?.session}
+                latestTurn={snapshot?.thread.latestTurn}
+              />
+            ) : null
+          }
+          footer={
+            threadId === undefined ? null : (
               <ThreadTicketLinkEditor
                 linkedTickets={linkedTicketLinks}
                 linkableTickets={linkableTicketLinks}
@@ -446,9 +347,22 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                 }}
                 onUnlink={(ticketId) => void unlinkTicket(ticketId)}
               />
-            )}
-          </div>
-        </ScrollArea>
+            )
+          }
+          answerByRequest={answerByRequest}
+          onAnswerChange={(requestId, value) => {
+            setAnswerByRequest((current) => ({
+              ...current,
+              [requestId]: value,
+            }))
+          }}
+          onRespondApproval={(requestId, decision) => {
+            void respondToApproval(requestId, decision)
+          }}
+          onRespondUserInput={(requestId) => {
+            void respondToUserInput(requestId)
+          }}
+        />
       </div>
 
       <ThreadComposer

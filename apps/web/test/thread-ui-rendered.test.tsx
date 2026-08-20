@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
 import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
-import { ProjectId, ThreadId, TicketId } from "@noyau/protocol/ids"
+import { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import { ProjectId, ThreadId, TicketId, TurnId } from "@noyau/protocol/ids"
 import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -13,6 +14,7 @@ import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSec
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
 import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
+import { ThreadTranscriptItem } from "../src/components/thread/ThreadTranscriptItem"
 import type { BoardTicket } from "../src/lib/board-model"
 
 Object.defineProperty(HTMLElement.prototype, "getAnimations", {
@@ -161,5 +163,28 @@ describe("rendered Thread UI evidence", () => {
     render(<TicketDialog {...baseProps} ticketThreads={[linked]} />)
     await user.click(screen.getByRole("button", { name: "Délier le Thread Thread de reprise" }))
     expect(onUnlinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
+  })
+
+  it("renders streamed assistant markdown inside a Message row", () => {
+    const item = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.assistant",
+      threadId,
+      turnId: TurnId.make("40000000-0000-4000-8000-000000000001"),
+      text: "Voici **un** plan.",
+    })
+
+    render(
+      <ThreadTranscriptItem
+        item={item}
+        streaming
+        answer=""
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("Cursor")).toBeTruthy()
+    expect(screen.getByText("un")).toBeTruthy()
   })
 })

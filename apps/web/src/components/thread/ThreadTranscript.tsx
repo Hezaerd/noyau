@@ -1,0 +1,131 @@
+import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import { ArrowDownIcon } from "lucide-react"
+import type { ReactNode } from "react"
+
+import { ThreadTranscriptItem } from "@/components/thread/ThreadTranscriptItem"
+import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@/components/ui/message-scroller"
+import { Spinner } from "@/components/ui/spinner"
+import { transcriptRowId } from "@/lib/thread-transcript"
+
+export function ThreadTranscript({
+  transcript,
+  isRunning,
+  isNewThread,
+  loading,
+  error,
+  notices,
+  footer,
+  answerByRequest,
+  onAnswerChange,
+  onRespondApproval,
+  onRespondUserInput,
+}: {
+  readonly transcript: ReadonlyArray<TranscriptItem>
+  readonly isRunning: boolean
+  readonly isNewThread: boolean
+  readonly loading: boolean
+  readonly error: string | undefined
+  readonly notices: ReactNode
+  readonly footer: ReactNode
+  readonly answerByRequest: Record<string, string>
+  readonly onAnswerChange: (requestId: string, value: string) => void
+  readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
+  readonly onRespondUserInput: (requestId: string) => void
+}) {
+  const lastItem = transcript.at(-1)
+  const showThinking =
+    isRunning &&
+    (lastItem === undefined ||
+      lastItem._tag === "transcript.user" ||
+      lastItem._tag === "transcript.tool")
+
+  return (
+    <MessageScrollerProvider autoScroll>
+      <MessageScroller>
+        <MessageScrollerViewport aria-label="Transcript du Thread">
+          <MessageScrollerContent
+            aria-busy={isRunning}
+            className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6"
+          >
+            {loading ? (
+              <MessageScrollerItem messageId="thread-loading">
+                <p className="text-sm text-muted-foreground">Chargement du Thread…</p>
+              </MessageScrollerItem>
+            ) : null}
+            {error === undefined ? null : (
+              <MessageScrollerItem messageId="thread-error">
+                <div
+                  role="alert"
+                  className="rounded-xl border border-destructive/35 bg-destructive/10 p-3 text-sm"
+                >
+                  {error}
+                </div>
+              </MessageScrollerItem>
+            )}
+            {notices === null || notices === undefined ? null : (
+              <MessageScrollerItem messageId="thread-notices">{notices}</MessageScrollerItem>
+            )}
+
+            {transcript.map((item, index) => (
+              <MessageScrollerItem
+                key={transcriptRowId(item, index)}
+                messageId={transcriptRowId(item, index)}
+                scrollAnchor={item._tag === "transcript.user"}
+              >
+                <ThreadTranscriptItem
+                  item={item}
+                  streaming={isRunning && item === lastItem}
+                  answer={
+                    item._tag === "transcript.user-input"
+                      ? (answerByRequest[item.requestId] ?? "")
+                      : ""
+                  }
+                  onAnswerChange={onAnswerChange}
+                  onRespondApproval={onRespondApproval}
+                  onRespondUserInput={onRespondUserInput}
+                />
+              </MessageScrollerItem>
+            ))}
+
+            {showThinking ? (
+              <MessageScrollerItem messageId="thread-thinking">
+                <Marker role="status">
+                  <MarkerIcon>
+                    <Spinner />
+                  </MarkerIcon>
+                  <MarkerContent>Cursor écrit…</MarkerContent>
+                </Marker>
+              </MessageScrollerItem>
+            ) : null}
+
+            {isNewThread ? (
+              <MessageScrollerItem messageId="thread-empty">
+                <Marker variant="separator">
+                  <MarkerContent>Le titre du Thread sera le premier prompt envoyé.</MarkerContent>
+                </Marker>
+              </MessageScrollerItem>
+            ) : null}
+
+            {footer === null || footer === undefined ? null : (
+              <MessageScrollerItem messageId="thread-footer" scrollAnchor={false}>
+                {footer}
+              </MessageScrollerItem>
+            )}
+          </MessageScrollerContent>
+        </MessageScrollerViewport>
+        <MessageScrollerButton>
+          <ArrowDownIcon />
+          <span className="sr-only">Aller au dernier message</span>
+        </MessageScrollerButton>
+      </MessageScroller>
+    </MessageScrollerProvider>
+  )
+}
