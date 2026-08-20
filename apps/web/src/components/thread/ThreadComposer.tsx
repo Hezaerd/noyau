@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 
 export function ThreadComposer({
-  isNewThread,
   isRunning,
   disabled,
   text,
@@ -15,7 +14,6 @@ export function ThreadComposer({
   onDrop,
   onInterrupt,
 }: {
-  readonly isNewThread: boolean
   readonly isRunning: boolean
   readonly disabled: boolean
   readonly text: string
@@ -46,9 +44,7 @@ export function ThreadComposer({
               event.preventDefault()
             }
           }}
-          placeholder={
-            isNewThread ? "Premier prompt : il donnera son titre au Thread…" : "Écrire un message…"
-          }
+          placeholder="Écrire un message…"
           aria-label="Composer un message"
           disabled={isRunning || disabled}
           rows={3}

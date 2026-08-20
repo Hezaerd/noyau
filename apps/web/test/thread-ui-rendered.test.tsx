@@ -134,7 +134,6 @@ describe("rendered Thread UI evidence", () => {
   it("gates the composer while Cursor is unavailable", () => {
     render(
       <ThreadComposer
-        isNewThread
         isRunning={false}
         disabled
         text=""

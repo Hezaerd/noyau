@@ -380,7 +380,6 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         <ThreadTranscript
           transcript={snapshot?.transcript ?? []}
           isRunning={isRunning}
-          isNewThread={threadId === undefined}
           loading={loading}
           error={error}
           notices={
@@ -422,7 +421,6 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       </div>
 
       <ThreadComposer
-        isNewThread={threadId === undefined}
         isRunning={isRunning}
         disabled={project?.available !== true || !cursorReady}
         text={text}
