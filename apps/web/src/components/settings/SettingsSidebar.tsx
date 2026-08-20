@@ -12,6 +12,7 @@ import {
 } from "react"
 
 import { scrollToSettingsTargetId } from "@/components/settings/settings-layout"
+import { SidebarBrandTitlebar } from "@/components/sidebar/SidebarBrandTitlebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
@@ -184,12 +185,7 @@ export function SettingsSidebar(): ReactElement {
   return (
     <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
       <SidebarHeader className="gap-0 p-0">
-        <div
-          className="drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center px-3"
-          data-desktop-sidebar-titlebar=""
-        >
-          <p className="truncate text-sm font-semibold tracking-[-0.02em]">Paramètres</p>
-        </div>
+        <SidebarBrandTitlebar />
       </SidebarHeader>
       <SidebarContent className="overflow-x-hidden">
         <SidebarGroup className="gap-2 p-3">
