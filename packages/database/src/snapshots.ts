@@ -130,7 +130,7 @@ const decodeThreadSnapshot = Schema.decodeUnknownEffect(ThreadSnapshot)
 const decodeShellSnapshot = Schema.decodeUnknownEffect(ShellSnapshot)
 const decodeResumeCursor = Schema.decodeEffect(Schema.fromJsonString(ResumeCursor))
 const decodeTranscriptItem = Schema.decodeEffect(Schema.fromJsonString(TranscriptItem))
-const decodeJson = Schema.decodeEffect(Schema.UnknownFromJsonString)
+const decodeJson = Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))
 const encodeEnvironment = Schema.encodeEffect(Environment)
 
 const readLatestSequence = Effect.fn("Snapshots.readLatestSequence")(function* () {
