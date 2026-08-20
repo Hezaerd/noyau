@@ -148,6 +148,7 @@ export default defineConfig({
           "typescript/no-explicit-any": "off",
           "typescript/no-unsafe-type-assertion": "off",
           "typescript/restrict-template-expressions": "off",
+          "anti-slop/require-safety-comment-for-type-assertion": "off",
         },
       },
     ],
