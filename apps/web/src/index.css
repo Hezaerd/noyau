@@ -7,7 +7,13 @@
 @layer base {
   :root {
     --desktop-native-controls-inset: 0px;
-    --desktop-titlebar-content-left: 0px;
+    --desktop-controls-left: 0.75rem;
+    --desktop-titlebar-control-size: 1.75rem;
+    --desktop-titlebar-control-gap: 0.75rem;
+    --desktop-titlebar-content-left: calc(
+      var(--desktop-controls-left) + var(--desktop-titlebar-control-size) +
+        var(--desktop-titlebar-control-gap)
+    );
     --desktop-titlebar-height: 3.5rem;
     --desktop-window-right-resize-inset: 0px;
     font-synthesis: none;
@@ -68,7 +74,7 @@
 }
 
 .electron-macos {
-  --desktop-titlebar-content-left: 92px;
+  --desktop-controls-left: 92px;
 }
 
 .wco {
@@ -82,15 +88,18 @@
   --desktop-window-right-resize-inset: 6px;
 }
 
-.electron-macos [data-desktop-sidebar-titlebar] {
+[data-desktop-sidebar-titlebar] {
   padding-left: var(--desktop-titlebar-content-left);
 }
 
-.electron-macos
-  [data-slot="sidebar"][data-state="collapsed"]
-  ~ [data-slot="sidebar-inset"]
-  [data-desktop-page-titlebar] {
+[data-sidebar-state="collapsed"] [data-desktop-page-titlebar] {
   padding-left: var(--desktop-titlebar-content-left);
+}
+
+@media (width < 48rem) {
+  [data-desktop-page-titlebar] {
+    padding-left: var(--desktop-titlebar-content-left);
+  }
 }
 
 .wco [data-desktop-page-titlebar] {

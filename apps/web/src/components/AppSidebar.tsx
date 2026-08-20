@@ -51,9 +51,10 @@ export function AppSidebar() {
           className="drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center gap-2 border-b border-sidebar-border/70 px-3"
           data-desktop-sidebar-titlebar=""
         >
-          <div className="grid size-8 shrink-0 place-items-center rounded-xl bg-sidebar-primary font-semibold text-sidebar-primary-foreground shadow-lg/5">
-            N
-          </div>
+          <div
+            aria-hidden
+            className="size-8 shrink-0 rounded-xl bg-sidebar-primary shadow-lg/5"
+          />
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold tracking-[-0.02em]">Noyau</p>
           </div>
