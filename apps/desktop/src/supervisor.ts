@@ -41,6 +41,10 @@ const ServerStatusResponse = Schema.Struct({
   runningTurn: Schema.Boolean,
 })
 
+class RpcProbeTimeout extends Schema.TaggedError<RpcProbeTimeout>()("RpcProbeTimeout", {
+  message: Schema.String,
+}) {}
+
 export type SupervisorPhase = "stopped" | "starting" | "ready" | "backoff" | "degraded" | "stopping"
 
 export interface SupervisorState {
@@ -165,7 +169,7 @@ export const probeRpc = async (
     return yield* client[RPC_METHODS.getConfig]({}).pipe(
       Effect.timeoutOrElse({
         duration: 500,
-        orElse: () => Effect.fail(new Error("Timed out waiting for server.getConfig")),
+        orElse: () => new RpcProbeTimeout({ message: "Timed out waiting for server.getConfig" }),
       }),
     )
   })
