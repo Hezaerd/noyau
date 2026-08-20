@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
+import { EventEmitter } from "node:events"
 import { constants } from "node:fs"
 import { access } from "node:fs/promises"
 import { delimiter, join } from "node:path"
@@ -87,7 +88,7 @@ const ToolUpdate = Schema.Struct({
   title: Schema.optionalKey(Schema.String),
   kind: Schema.optionalKey(Schema.String),
   status: Schema.optionalKey(Schema.Literals(["pending", "in_progress", "completed", "failed"])),
-  rawOutput: Schema.optionalKey(Schema.Unknown),
+  rawOutput: Schema.optionalKey(Schema.String),
 })
 const PlanUpdate = Schema.Struct({
   sessionUpdate: Schema.Literal("plan"),
@@ -210,33 +211,33 @@ const mapSchemaError = (operation: string) => (cause: Schema.SchemaError) =>
     cause,
   })
 
+const childExited = (child: ChildProcessWithoutNullStreams) =>
+  child.exitCode !== null || child.signalCode !== null
+
+const waitForChildExit = (child: ChildProcessWithoutNullStreams): Effect.Effect<void> =>
+  childExited(child)
+    ? Effect.void
+    : Effect.sleep("10 millis").pipe(Effect.flatMap(() => waitForChildExit(child)))
+
 const terminateChild = (child: ChildProcessWithoutNullStreams) =>
-  Effect.callback<void>((resume) => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      resume(Effect.void)
-      return
+  Effect.suspend(() => {
+    if (childExited(child)) {
+      return Effect.void
     }
-    let finished = false
-    const finish = () => {
-      if (finished) {
-        return
-      }
-      finished = true
-      clearTimeout(forceTimer)
-      resume(Effect.void)
-    }
-    child.once("exit", finish)
     child.kill("SIGTERM")
-    const forceTimer = setTimeout(() => {
-      if (child.exitCode === null && child.signalCode === null) {
-        child.kill("SIGKILL")
-      }
-      finish()
-    }, 2_000)
-    return Effect.sync(() => {
-      child.off("exit", finish)
-      clearTimeout(forceTimer)
-    })
+    return waitForChildExit(child).pipe(
+      Effect.raceFirst(
+        Effect.sleep("2 seconds").pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              if (!childExited(child)) {
+                child.kill("SIGKILL")
+              }
+            }),
+          ),
+        ),
+      ),
+    )
   })
 
 const spawnChild = Effect.fn("CursorAdapter.spawn")(function* (
@@ -255,7 +256,7 @@ const spawnChild = Effect.fn("CursorAdapter.spawn")(function* (
           windowsHide: true,
           stdio: ["pipe", "pipe", "pipe"],
         })
-        child.on("error", () => {
+        EventEmitter.prototype.on.call(child, "error", () => {
           // The JSON-RPC reader turns the resulting pipe closure into the typed transport error.
         })
         return child
@@ -283,7 +284,7 @@ const initialize = Effect.fn("CursorAdapter.initialize")(function* (
     clientInfo: { name: "noyau", version: clientVersion },
   })
   const response = yield* decodeInitialize(raw).pipe(Effect.mapError(mapSchemaError("initialize")))
-  if (response.protocolVersion !== ACP_VERSION || ! response.agentCapabilities.loadSession) {
+  if (response.protocolVersion !== ACP_VERSION || !response.agentCapabilities.loadSession) {
     return yield* new AcpTransportError({
       detail: "Cursor ACP is missing protocol v1 or session/load capability",
     })
@@ -411,6 +412,7 @@ const sessionSignal = (
 const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   options: CursorAdapterOptions = {},
 ) {
+  const providerScope = yield* Effect.scope
   const environment = options.environment ?? process.env
   const platform = options.platform ?? process.platform
   const configuredPath = options.binaryPath ?? environment.NOYAU_CURSOR_PATH
@@ -439,7 +441,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
             })
             yield* initialize(connection, clientVersion)
             return { installed: true, handshakeOk: true }
-          }).pipe(Effect.catch(() => Effect.succeed({ installed: true, handshakeOk: false }))),
+          }).pipe(Effect.orElseSucceed(() => ({ installed: true, handshakeOk: false }))),
         )
   const providerStatus = yield* probe
 
@@ -563,7 +565,11 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       Effect.mapError(mapSchemaError("session/update")),
     )
     const replayMetadata = notification["_meta"]
-    if (loading() || replayMetadata?.isReplay === true || notification.sessionId !== control.sessionId) {
+    if (
+      loading() ||
+      replayMetadata?.isReplay === true ||
+      notification.sessionId !== control.sessionId
+    ) {
       return
     }
     switch (notification.update.sessionUpdate) {
@@ -600,9 +606,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         yield* control.emit({
           _tag: "transcript",
           item:
-            typeof update.rawOutput === "string"
-              ? { ...item, outputSummary: update.rawOutput }
-              : item,
+            update.rawOutput === undefined ? item : { ...item, outputSummary: update.rawOutput },
         })
         return
       }
@@ -830,7 +834,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     }
     active.set(input.threadId, control)
     yield* emit(sessionSignal(control, "starting", input.resumeCursor))
-    const fiber = yield* Effect.forkScoped(runTurn(control), { startImmediately: true })
+    const fiber = yield* Effect.forkIn(runTurn(control), providerScope, { startImmediately: true })
     control.fiber = fiber
   })
 
@@ -859,7 +863,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     }
     yield* control.connection
       .notify("session/cancel", { sessionId: control.sessionId })
-      .pipe(Effect.catch(() => Effect.void))
+      .pipe(Effect.ignore)
     yield* Deferred.await(control.promptSettled).pipe(
       Effect.raceFirst(
         Effect.sleep("2 seconds").pipe(

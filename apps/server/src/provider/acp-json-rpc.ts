@@ -20,7 +20,7 @@ export class AcpRequestError extends Schema.TaggedError<AcpRequestError>()("AcpR
 
 export type AcpConnectionError = AcpRequestError | AcpTransportError
 
-const JsonRpcId = Schema.Union([Schema.String, Schema.Number, Schema.Null])
+const JsonRpcId = Schema.Union([Schema.String, Schema.Finite, Schema.Null])
 const JsonRpcError = Schema.Struct({
   code: Schema.Int,
   message: Schema.NonEmptyString,
@@ -37,6 +37,7 @@ const JsonRpcEnvelope = Schema.Struct({
 type JsonRpcEnvelope = (typeof JsonRpcEnvelope)["Type"]
 
 const decodeEnvelope = Schema.decodeUnknownEffect(Schema.fromJsonString(JsonRpcEnvelope))
+const encodeEnvelope = Schema.encodeEffect(Schema.fromJsonString(JsonRpcEnvelope))
 
 export interface AcpConnectionHandlers {
   readonly notification: (
@@ -82,21 +83,26 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
   const stderr = createInterface({ input: child.stderr, crlfDelay: Infinity })
 
   const write = (envelope: JsonRpcEnvelope) =>
-    Effect.callback<void, AcpTransportError>((resume) => {
-      if (closed || child.stdin.destroyed || !child.stdin.writable) {
-        resume(Effect.fail(transportError("Cursor ACP stdin is closed")))
-        return
-      }
-      child.stdin.write(`${JSON.stringify(envelope)}\n`, "utf8", (cause) => {
-        resume(
-          cause === null || cause === undefined
-            ? Effect.void
-            : Effect.fail(transportError("Failed to write Cursor ACP stdin", cause)),
-        )
-      })
-    })
+    encodeEnvelope(envelope).pipe(
+      Effect.mapError((cause) => transportError("Failed to encode Cursor ACP JSON-RPC", cause)),
+      Effect.flatMap((encoded) =>
+        Effect.callback<void, AcpTransportError>((resume) => {
+          if (closed || child.stdin.destroyed || !child.stdin.writable) {
+            resume(Effect.fail(transportError("Cursor ACP stdin is closed")))
+            return
+          }
+          child.stdin.write(`${encoded}\n`, "utf8", (cause) => {
+            resume(
+              cause === null || cause === undefined
+                ? Effect.void
+                : Effect.fail(transportError("Failed to write Cursor ACP stdin", cause)),
+            )
+          })
+        }),
+      ),
+    )
 
-  const failPending = (error: AcpTransportError) =>
+  const failPending = (error: AcpConnectionError) =>
     Effect.gen(function* () {
       if (closed) {
         return
@@ -146,14 +152,14 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
       yield* handlers.request(envelope.id, envelope.method, envelope.params).pipe(
         Effect.flatMap((result) => reply(envelope.id!, result)),
         Effect.catchTags({
-            AcpRequestError: (error) => replyRequestError(envelope.id!, error),
+          AcpRequestError: (error) => replyRequestError(envelope.id!, error),
           AcpTransportError: (error) =>
             replyError(envelope.id!, {
               code: -32_603,
               message: error.detail,
             }),
         }),
-        Effect.catch(() => Effect.void),
+        Effect.ignore,
         Effect.forkScoped,
       )
       return
@@ -182,10 +188,7 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
               detail: envelope.error.message,
               data: envelope.error.data,
             })
-      yield* Deferred.fail(
-        entry.deferred,
-        requestError,
-      )
+      yield* Deferred.fail(entry.deferred, requestError)
       return
     }
     yield* Deferred.succeed(entry.deferred, envelope.result)
@@ -220,7 +223,7 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
         }
       }),
     ),
-    Effect.catch(() => Effect.void),
+    Effect.ignore,
     Effect.forkScoped,
   )
 
@@ -232,10 +235,7 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
     }),
   )
 
-  const request = Effect.fn("AcpJsonRpc.request")(function* (
-    method: string,
-    params: Schema.Json,
-  ) {
+  const request = Effect.fn("AcpJsonRpc.request")(function* (method: string, params: Schema.Json) {
     if (closed) {
       return yield* transportError("Cursor ACP connection is closed")
     }
@@ -253,8 +253,7 @@ export const makeAcpConnection = Effect.fn("AcpJsonRpc.makeConnection")(function
     return yield* Deferred.await(deferred)
   })
 
-  const notify = (method: string, params: Schema.Json) =>
-    write({ jsonrpc: "2.0", method, params })
+  const notify = (method: string, params: Schema.Json) => write({ jsonrpc: "2.0", method, params })
 
   return {
     request,

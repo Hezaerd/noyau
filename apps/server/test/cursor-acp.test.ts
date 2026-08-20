@@ -58,8 +58,8 @@ const withProvider = <A, E>(
   use: (
     provider: ProviderPort["Service"],
     evidence: { readonly requestLog: string; readonly exitLog: string },
-  ) => Effect.Effect<A, E, never>,
-): Effect.Effect<A, E, never> =>
+  ) => Effect.Effect<A, E>,
+): Effect.Effect<A, E> =>
   Effect.scoped(
     Effect.gen(function* () {
       const evidence = yield* makeOptions(scenario)

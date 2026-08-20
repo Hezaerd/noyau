@@ -448,16 +448,14 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         reactor,
       })
       dispatchInternal = (command) =>
-        worker
-          .dispatch(command)
-          .pipe(
-            Effect.flatMap((receipt) =>
-              receipt.response._tag === "accepted"
-                ? Effect.void
-                : Effect.fail(receipt.response.error),
-            ),
-            Effect.orDie,
-          )
+        worker.dispatch(command).pipe(
+          Effect.flatMap((receipt) =>
+            receipt.response._tag === "accepted"
+              ? Effect.void
+              : Effect.fail(receipt.response.error),
+          ),
+          Effect.orDie,
+        )
       const cursorStatus = yield* provider.status
       const environment = new Environment({
         id: config.environmentId,

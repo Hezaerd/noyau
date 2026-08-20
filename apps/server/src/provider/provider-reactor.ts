@@ -41,7 +41,9 @@ const projectRoot = Effect.fn("ProviderReactor.projectRoot")(function* (projectI
   const sql = yield* SqlClient
   const rows = yield* sql<
     (typeof ProjectRootRow)["Encoded"]
-  >`SELECT workspace_root FROM projection_projects WHERE project_id = ${projectId}`
+  >`SELECT workspace_root FROM projection_projects WHERE project_id = ${projectId}`.pipe(
+    Effect.orDie,
+  )
   const row = rows[0]
   if (row === undefined) {
     return yield* Effect.die(`Projection project ${projectId} has no WorkspaceRoot`)
@@ -71,7 +73,7 @@ const makeInternalCommand = Effect.fn("ProviderReactor.makeInternalCommand")(fun
 const commandForSignal = (
   runtimeMode: RuntimeMode,
   signal: ProviderSignal,
-  updatedAt: string,
+  updatedAt: DateTime.Utc,
 ): InternalCommandBody => {
   switch (signal._tag) {
     case "session":
@@ -125,10 +127,7 @@ const ingestSignal = Effect.fn("ProviderReactor.ingestSignal")(function* (
   signal: ProviderSignal,
 ) {
   const now = yield* DateTime.now
-  const command = yield* makeInternalCommand(
-    persisted,
-    commandForSignal(runtimeMode, signal, DateTime.formatIso(now)),
-  )
+  const command = yield* makeInternalCommand(persisted, commandForSignal(runtimeMode, signal, now))
   yield* dispatchInternal(command)
 })
 
@@ -173,6 +172,7 @@ export const makeProviderReactor = (
           return Effect.gen(function* () {
             const snapshot = yield* readThreadSnapshot(threadEvent.threadId).pipe(
               Effect.provideService(SqlClient, sql),
+              Effect.orDie,
             )
             if (Option.isNone(snapshot)) {
               return yield* Effect.die(`Thread ${threadEvent.threadId} projection is missing`)
@@ -203,6 +203,7 @@ export const makeProviderReactor = (
           return Effect.gen(function* () {
             const snapshot = yield* readThreadSnapshot(threadEvent.threadId).pipe(
               Effect.provideService(SqlClient, sql),
+              Effect.orDie,
             )
             if (Option.isNone(snapshot) || snapshot.value.session === null) {
               return
