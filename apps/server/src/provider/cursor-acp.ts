@@ -12,7 +12,7 @@ import type {
 } from "@noyau/protocol/entities/approvals"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
-import { Deferred, Effect, Fiber, Layer, Schema } from "effect"
+import { Deferred, Effect, Fiber, Layer } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import { CursorAskQuestionRequest } from "./cursor-acp-extension.ts"
@@ -22,6 +22,7 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "./provider-port.ts"
+import { deriveToolCallPresentation } from "./tool-call-presentation.ts"
 
 const ACP_VERSION = 1 as const
 const CURSOR_AUTH_METHOD = "cursor_login"
@@ -185,21 +186,6 @@ const toolStatus = (status: AcpSchema.ToolCallStatus | null | undefined) => {
   }
 }
 
-const decodeRawOutput = Schema.decodeUnknownOption(Schema.Json)
-const decodeRawOutputString = Schema.decodeUnknownOption(Schema.String)
-const encodeRawOutputJson = Schema.encodeUnknownSync(Schema.fromJsonString(Schema.Unknown))
-
-const rawOutputSummary = (rawOutput: Schema.Json) => {
-  if (rawOutput === null) {
-    return undefined
-  }
-  const asString = decodeRawOutputString(rawOutput)
-  if (asString._tag === "Some") {
-    return asString.value.length === 0 ? undefined : asString.value
-  }
-  return encodeRawOutputJson(rawOutput)
-}
-
 const errorDetail = (error: AcpError.AcpError) => {
   if (error._tag === "AcpRequestError") {
     const method = error.method ?? "request"
@@ -343,16 +329,21 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       )
     }
     const requestId = request.toolCall.toolCallId
+    const presentation = deriveToolCallPresentation(request.toolCall)
+    const permissionTool = {
+      _tag: "transcript.tool" as const,
+      threadId: control.input.threadId,
+      turnId: control.input.turnId,
+      toolCallId: ToolCallId.make(request.toolCall.toolCallId),
+      name: presentation.name,
+      status: "in_progress" as const,
+    }
     yield* control.emit({
       _tag: "transcript",
-      item: {
-        _tag: "transcript.tool",
-        threadId: control.input.threadId,
-        turnId: control.input.turnId,
-        toolCallId: ToolCallId.make(request.toolCall.toolCallId),
-        name: request.toolCall.title ?? request.toolCall.kind ?? "Cursor tool",
-        status: "in_progress",
-      },
+      item:
+        presentation.outputSummary === undefined
+          ? permissionTool
+          : { ...permissionTool, outputSummary: presentation.outputSummary },
     })
     const outcome = yield* Effect.gen(function* () {
       if (control.input.runtimeMode === "full-access") {
@@ -454,20 +445,21 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       }
       case "tool_call":
       case "tool_call_update": {
-        const decodedRawOutput = decodeRawOutput(update.rawOutput)
-        const outputSummary =
-          decodedRawOutput._tag === "Some" ? rawOutputSummary(decodedRawOutput.value) : undefined
+        const presentation = deriveToolCallPresentation(update)
         const item = {
           _tag: "transcript.tool" as const,
           threadId: control.input.threadId,
           turnId: control.input.turnId,
           toolCallId: ToolCallId.make(update.toolCallId),
-          name: update.title ?? update.kind ?? "Cursor tool",
+          name: presentation.name,
           status: toolStatus(update.status),
         }
         yield* control.emit({
           _tag: "transcript",
-          item: outputSummary === undefined ? item : { ...item, outputSummary },
+          item:
+            presentation.outputSummary === undefined
+              ? item
+              : { ...item, outputSummary: presentation.outputSummary },
         })
         return
       }

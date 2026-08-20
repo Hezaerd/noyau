@@ -1,5 +1,7 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 
+import { transcriptToolCaption } from "@/lib/thread-transcript"
+
 const transcriptLine = (item: TranscriptItem): string | undefined => {
   switch (item._tag) {
     case "transcript.user":
@@ -9,7 +11,7 @@ const transcriptLine = (item: TranscriptItem): string | undefined => {
     case "transcript.plan":
       return `Plan:\n${item.markdown}`
     case "transcript.tool":
-      return `Cursor · ${item.name}: ${item.outputSummary ?? item.status}`
+      return `Cursor · ${transcriptToolCaption(item)}`
     case "transcript.permission":
       return `Permission request: ${item.status}`
     case "transcript.user-input":
