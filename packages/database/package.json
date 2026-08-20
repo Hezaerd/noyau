@@ -4,22 +4,21 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./board/observability": "./src/board/observability.ts",
-    "./board/store": "./src/board/store.ts",
+    "./command-worker": "./src/command-worker.ts",
+    "./drainable-worker": "./src/drainable-worker.ts",
     "./migrations": "./src/migrations.ts",
-    "./project-stream": "./src/project-stream.ts"
+    "./node-sqlite-client": "./src/node-sqlite-client.ts",
+    "./sqlite": "./src/sqlite.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vp test run"
   },
   "dependencies": {
-    "@noyau/domain": "workspace:*",
     "@noyau/protocol": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@effect/sql-pglite": "catalog:",
     "@effect/vitest": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"

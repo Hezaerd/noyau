@@ -4,7 +4,9 @@ Couche de persistance de l'Environment local : journal append-only, receipts et 
 `node:sqlite`. Le SQL explicite passe par le `SqlClient` Effect, décodé par `Schema`
 ([ADR-0012](../../docs/adr/0012-sqlite-locale-et-txqueue.md)).
 
-Le package peut encore contenir une outbox SQL et un dialecte Postgres : ne pas les étendre.
+Le package expose l'adaptateur `node:sqlite`, les migrations statiques et un worker générique
+auquel la composition serveur injecte decider, projector SQL et reactor. Il ne contient ni dialecte
+PostgreSQL, ni outbox durable.
 
 ## Langage
 
