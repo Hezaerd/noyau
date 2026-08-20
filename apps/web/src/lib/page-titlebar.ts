@@ -1,5 +1,7 @@
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 
+import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"
+
 export const NEW_THREAD_TITLE = "Nouveau Thread"
 
 export type PageTitlebar =
@@ -9,6 +11,7 @@ export type PageTitlebar =
       readonly projectName: string | undefined
       readonly threadTitle: string
     }
+  | { readonly kind: "settings"; readonly tabLabel: string }
 
 export const resolvePageTitlebar = (input: {
   readonly pathname: string
@@ -37,6 +40,13 @@ export const resolvePageTitlebar = (input: {
 
   if (input.pathname === "/") {
     return { kind: "plain", title: "Tableau" }
+  }
+
+  if (isSettingsPath(input.pathname)) {
+    return {
+      kind: "settings",
+      tabLabel: resolveSettingsTabFromPathname(input.pathname).label,
+    }
   }
 
   return { kind: "plain", title: "Control room" }

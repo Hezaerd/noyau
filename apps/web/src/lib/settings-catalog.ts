@@ -77,6 +77,18 @@ export const isSettingsTabId = (value: string): value is SettingsTabId =>
 export const parseSettingsTabId = (value: string): SettingsTabId =>
   isSettingsTabId(value) ? value : DEFAULT_SETTINGS_TAB
 
+export const resolveSettingsTabFromPathname = (pathname: string): SettingsTab => {
+  if (pathname === "/settings") {
+    return getSettingsTab(DEFAULT_SETTINGS_TAB)
+  }
+
+  const segment = pathname.startsWith("/settings/")
+    ? (pathname.slice("/settings/".length).split("/")[0] ?? "")
+    : ""
+
+  return getSettingsTab(parseSettingsTabId(segment))
+}
+
 export const getSettingsTab = (id: SettingsTabId): SettingsTab => {
   const tab = settingsTabById.get(id)
   if (tab === undefined) {

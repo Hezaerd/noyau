@@ -4,6 +4,7 @@ import {
   DEFAULT_SETTINGS_TAB,
   isSettingsPath,
   parseSettingsTabId,
+  resolveSettingsTabFromPathname,
   searchSettings,
   SETTINGS_ITEMS,
   SETTINGS_TAB_IDS,
@@ -31,6 +32,13 @@ describe("settings catalog", () => {
     expect(parseSettingsTabId("appearance")).toBe("appearance")
     expect(parseSettingsTabId("keybindings")).toBe("keybindings")
     expect(parseSettingsTabId("unknown")).toBe(DEFAULT_SETTINGS_TAB)
+  })
+
+  it("resolves the tab from a Paramètres pathname", () => {
+    expect(resolveSettingsTabFromPathname("/settings").id).toBe(DEFAULT_SETTINGS_TAB)
+    expect(resolveSettingsTabFromPathname("/settings/appearance").id).toBe("appearance")
+    expect(resolveSettingsTabFromPathname("/settings/keybindings").id).toBe("keybindings")
+    expect(resolveSettingsTabFromPathname("/settings/unknown").id).toBe(DEFAULT_SETTINGS_TAB)
   })
 
   it("searches titles and keywords without accents", () => {

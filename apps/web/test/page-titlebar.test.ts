@@ -42,6 +42,17 @@ describe("page titlebar", () => {
     })
   })
 
+  it("resolves Paramètres routes to the tab breadcrumb", () => {
+    expect(resolvePageTitlebar({ pathname: "/settings", projects, threads })).toEqual({
+      kind: "settings",
+      tabLabel: "Apparence",
+    })
+    expect(resolvePageTitlebar({ pathname: "/settings/keybindings", projects, threads })).toEqual({
+      kind: "settings",
+      tabLabel: "Raccourcis",
+    })
+  })
+
   it("labels a new Thread and falls back when the shell is still empty", () => {
     expect(
       resolvePageTitlebar({
