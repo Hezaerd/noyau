@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { assert, describe, it } from "@effect/vitest"
 import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
 import { makeDrainableWorker } from "@noyau/database/drainable-worker"
-import { projectDomainEvent } from "@noyau/database/projections"
+import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/database/projections"
 import { readBoardSnapshot, readShellSnapshot, readThreadSnapshot } from "@noyau/database/snapshots"
 import { layer as sqliteLayer } from "@noyau/database/sqlite"
 import { decide } from "@noyau/domain/board/decider"
@@ -34,6 +34,7 @@ const ids = {
   terminalThread: Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000002"),
   actor: Schema.decodeSync(ActorId)("human:test"),
 }
+const workspaceRoot = Schema.decodeSync(WorkspaceRoot)("/workspace")
 
 const occurredAt = (iso: string) => Schema.decodeSync(Schema.DateTimeUtcFromString)(iso)
 const encodeBoardSnapshot = Schema.encodeEffect(BoardSnapshot)
@@ -93,7 +94,7 @@ const projectFixture = () =>
       ProjectCreated.make({
         projectId: ids.project,
         name: "Noyau",
-        workspaceRoot: Schema.decodeSync(WorkspaceRoot)("/workspace"),
+        workspaceRoot,
       }),
     ),
   )
@@ -104,6 +105,23 @@ const expectSome = <A>(option: Option.Option<A>, message: string): A => {
 }
 
 describe("SQL projections", () => {
+  it.effect("résout le propriétaire durable d'un WorkspaceRoot avec exclusion de rebind", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          const owner = yield* findWorkspaceRootOwner(workspaceRoot)
+          const excluded = yield* findWorkspaceRootOwner(workspaceRoot, ids.project)
+
+          assert.deepStrictEqual(owner, Option.some(ids.project))
+          assert.deepStrictEqual(excluded, Option.none())
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    ),
+  )
+
   it.effect("prouve create Ticket → move → reload snapshot depuis SQLite", () => {
     const directory = mkdtempSync(join(tmpdir(), "noyau-board-projection-"))
     const filename = join(directory, "state.sqlite")
