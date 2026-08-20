@@ -40,6 +40,20 @@ describe("ThreadMarkdown", () => {
     expect(screen.getAllByText("Copié")).toHaveLength(1)
   })
 
+  it("toasts an error when clipboard write is denied", async () => {
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+      new Error("Write permission denied"),
+    )
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: () => false,
+    })
+    renderMarkdown("```ts\nconst ready = true\n```")
+
+    fireEvent.click(screen.getByRole("button", { name: "Copier le code" }))
+    expect(await screen.findByText("Copie impossible")).toBeTruthy()
+  })
+
   it("renders KaTeX for block math", () => {
     renderMarkdown("$$\nE = mc^2\n$$")
     expect(document.querySelector(".katex")).not.toBeNull()

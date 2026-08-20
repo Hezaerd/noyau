@@ -16,6 +16,13 @@ export function CodeCopyButton({ code }: { readonly code: string }) {
         type: "success",
       })
     },
+    onError: () => {
+      toastManager.add({
+        description: "Le presse-papiers a refusé le bloc de code.",
+        title: "Copie impossible",
+        type: "error",
+      })
+    },
   })
 
   return (
