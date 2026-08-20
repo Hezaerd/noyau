@@ -63,7 +63,7 @@ export const decodeBootstrap = Effect.fn("ServerConfig.decodeBootstrap")(functio
 })
 
 export const readBootstrapFd = Effect.fn("ServerConfig.readBootstrapFd")(function* (fd: number) {
-  const encoded = yield* Effect.async<string, BootstrapConfigError>((resume) => {
+  const encoded = yield* Effect.callback<string, BootstrapConfigError>((resume) => {
     readFile(fd, { encoding: "utf8" }, (cause, data) => {
       resume(
         cause === null
