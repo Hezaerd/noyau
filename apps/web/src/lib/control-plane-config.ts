@@ -36,11 +36,16 @@ export const decodeControlPlaneConfig = (
 
 const desktopRuntimeConfig = () => {
   const query = new URLSearchParams(globalThis.location?.search ?? "")
-  return {
-    ...import.meta.env,
-    VITE_NOYAU_RPC_URL: query.get("rpc") ?? import.meta.env.VITE_NOYAU_RPC_URL,
-    VITE_NOYAU_BEARER_TOKEN: query.get("token") ?? import.meta.env.VITE_NOYAU_BEARER_TOKEN,
-  } satisfies ControlPlaneEnvironmentInput
+  const runtime = { ...import.meta.env } satisfies ControlPlaneEnvironmentInput
+  const rpcUrl = query.get("rpc")
+  const bearerToken = query.get("token")
+  if (rpcUrl !== null) {
+    runtime.VITE_NOYAU_RPC_URL = rpcUrl
+  }
+  if (bearerToken !== null) {
+    runtime.VITE_NOYAU_BEARER_TOKEN = bearerToken
+  }
+  return runtime
 }
 
 export const controlPlaneConfig = decodeControlPlaneConfig(desktopRuntimeConfig())
