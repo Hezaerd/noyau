@@ -51,8 +51,6 @@ export const ticketActivityAction = (envelope: EventEnvelope): string => {
       return "a ajouté une dépendance"
     case "ticket.dependency.removed":
       return "a retiré une dépendance"
-    case "message.sent":
-      return "a envoyé un message lié au ticket"
     case "kanbanColumn.created":
       return "a créé une colonne"
     case "kanbanColumn.updated":
@@ -61,6 +59,8 @@ export const ticketActivityAction = (envelope: EventEnvelope): string => {
       return "a déplacé une colonne"
     case "kanbanColumn.deleted":
       return "a supprimé une colonne"
+    default:
+      return "a enregistré une activité"
   }
 }
 

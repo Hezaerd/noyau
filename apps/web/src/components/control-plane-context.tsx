@@ -20,11 +20,11 @@ import { subscribeShell } from "@/lib/control-plane"
 const LAST_PROJECT_STORAGE_KEY = "noyau.last-project-id"
 
 export interface ControlPlaneContextValue {
-  readonly shell?: ShellSnapshot
+  readonly shell: ShellSnapshot | undefined
   readonly projects: ReadonlyArray<ProjectShell>
   readonly threads: ReadonlyArray<ThreadShell>
-  readonly lastProjectId?: ProjectId
-  readonly error?: string
+  readonly lastProjectId: ProjectId | undefined
+  readonly error: string | undefined
   readonly selectProject: (projectId: ProjectId) => void
 }
 
@@ -117,27 +117,16 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
     writeLastProjectId(projectId)
   }, [])
 
-  const value = useMemo<ControlPlaneContextValue>(
-    () => {
-      const base = {
-        shell,
-        projects: shell?.projects ?? [],
-        threads: shell?.threads ?? [],
-        selectProject,
-      }
-      if (lastProjectId !== undefined && error !== undefined) {
-        return { ...base, lastProjectId, error }
-      }
-      if (lastProjectId !== undefined) {
-        return { ...base, lastProjectId }
-      }
-      if (error !== undefined) {
-        return { ...base, error }
-      }
-      return base
-    },
-    [error, lastProjectId, selectProject, shell],
-  )
+  const value = useMemo<ControlPlaneContextValue>(() => {
+    return {
+      shell,
+      projects: shell?.projects ?? [],
+      threads: shell?.threads ?? [],
+      lastProjectId,
+      error,
+      selectProject,
+    }
+  }, [error, lastProjectId, selectProject, shell])
 
   return <ControlPlaneContext.Provider value={value}>{children}</ControlPlaneContext.Provider>
 }

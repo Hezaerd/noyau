@@ -41,7 +41,11 @@ export function HomePage() {
           Enregistrer un dossier
         </Button>
       </main>
-      <ProjectFolderDialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen} />
+      <ProjectFolderDialog
+        open={linkDialogOpen}
+        projectId={undefined}
+        onOpenChange={setLinkDialogOpen}
+      />
     </>
   )
 }

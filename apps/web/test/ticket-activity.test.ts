@@ -23,6 +23,7 @@ const envelopeFor = (event: DomainEventType) =>
     causationId: "90000000-0000-4000-8000-000000000001",
     occurredAt: "2026-08-19T15:30:00.000Z",
     schemaVersion: 1,
+    sequence: 1,
     event: encodeEvent(event),
   })
 
