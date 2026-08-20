@@ -22,6 +22,7 @@ import {
   type ThreadState,
   withAvailableProjects,
 } from "@noyau/domain/thread/projector"
+import { recoverAfterBoot } from "@noyau/domain/thread/recovery"
 import type { ClientCommandRequest, Command as CommandType } from "@noyau/protocol/commands"
 import { Command } from "@noyau/protocol/commands"
 import { Environment } from "@noyau/protocol/entities/environment"
@@ -159,6 +160,14 @@ const evolve = (state: ControlState, event: DomainEventType): ControlState => {
     threads: withAvailableProjects(threads, availableProjectIds),
   }
 }
+
+const recoverControlStateAfterBoot = (
+  state: ControlState,
+  recoveredAt: DateTime.Utc,
+): ControlState => ({
+  ...state,
+  threads: recoverAfterBoot(state.threads, recoveredAt).reduce(evolveThread, state.threads),
+})
 
 const ScopeRow = Schema.Struct({ project_id: Schema.String })
 const MigrationRow = Schema.Struct({ migration_id: Schema.Int })
@@ -542,6 +551,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
     Effect.gen(function* () {
       const config = yield* ServerConfig
       const sql = yield* SqlClient
+      const recoveredAt = yield* DateTime.now
       const fileSystem = yield* FileSystem.FileSystem
       const crypto = yield* Crypto.Crypto
       const reactor = yield* makeDrainableWorker(
@@ -554,6 +564,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         metadata: (command) => command,
         aggregate: (command) => ({ kind: "project", id: command.projectId }),
         initialState: () => emptyControlState,
+        recoverStateAfterReplay: (state) => recoverControlStateAfterBoot(state, recoveredAt),
         decide,
         evolve,
         validate: (command) =>
