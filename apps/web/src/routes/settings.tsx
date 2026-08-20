@@ -8,8 +8,6 @@ import {
 import { useCallback, type ReactElement } from "react"
 
 import { useSettingsEscape } from "@/components/settings/settings-layout"
-import { SettingsSidebar } from "@/components/settings/SettingsSidebar"
-import { SidebarInset } from "@/components/ui/sidebar"
 import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
 
 function SettingsLayout(): ReactElement {
@@ -25,14 +23,7 @@ function SettingsLayout(): ReactElement {
 
   useSettingsEscape(navigateBack)
 
-  return (
-    <>
-      <SettingsSidebar />
-      <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
-        <Outlet />
-      </SidebarInset>
-    </>
-  )
+  return <Outlet />
 }
 
 export const Route = createFileRoute("/settings")({

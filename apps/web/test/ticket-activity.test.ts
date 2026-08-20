@@ -9,6 +9,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   ticketActivityAction,
+  ticketActivityActor,
   ticketActivityFromSnapshot,
   ticketActivityItem,
 } from "../src/lib/ticket-activity"
@@ -19,11 +20,11 @@ const columnId = "20000000-0000-4000-8000-000000000001"
 const otherColumnId = "20000000-0000-4000-8000-000000000002"
 const encodeEvent = Schema.encodeSync(DomainEvent)
 
-const envelopeFor = (event: DomainEventType) =>
+const envelopeFor = (event: DomainEventType, actorId = "70000000-0000-4000-8000-000000000001") =>
   Schema.decodeSync(EventEnvelope)({
     eventId: "60000000-0000-4000-8000-000000000001",
     projectId: "10000000-0000-4000-8000-000000000001",
-    actorId: "70000000-0000-4000-8000-000000000001",
+    actorId,
     correlationId: "80000000-0000-4000-8000-000000000001",
     causationId: "90000000-0000-4000-8000-000000000001",
     occurredAt: "2026-08-19T15:30:00.000Z",
@@ -95,13 +96,42 @@ describe("ticket activity", () => {
     }
   })
 
-  it("keeps the authoritative actor and timestamp", () => {
+  it("labels the local human as Vous and keeps other actors", () => {
+    expect(ticketActivityActor("human:local")).toBe("Vous")
+    expect(ticketActivityActor("human:hezaerd")).toBe("Vous")
+    expect(ticketActivityActor("system:cursor")).toBe("system:cursor")
+    expect(ticketActivityActor("70000000-0000-4000-8000-000000000001")).toBe(
+      "70000000-0000-4000-8000-000000000001",
+    )
+  })
+
+  it("keeps the authoritative timestamp and a display actor", () => {
     const item = ticketActivityItem(envelopeFor(decodeEvent({ _tag: "ticket.archived", ticketId })))
 
     expect(item).toMatchObject({
       actor: "70000000-0000-4000-8000-000000000001",
       action: "a archivé le ticket",
       occurredAt: "2026-08-19T15:30:00.000Z",
+    })
+  })
+
+  it("renders human:local activity as Vous", () => {
+    const item = ticketActivityItem(
+      envelopeFor(
+        decodeEvent({
+          _tag: "ticket.created",
+          ticketId,
+          columnId,
+          rank: "aA",
+          title: "Ticket",
+        }),
+        "human:local",
+      ),
+    )
+
+    expect(item).toMatchObject({
+      actor: "Vous",
+      action: "a créé le ticket",
     })
   })
 

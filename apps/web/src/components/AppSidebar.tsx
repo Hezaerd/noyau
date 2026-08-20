@@ -6,11 +6,11 @@ import { useState } from "react"
 import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { ProjectSidebarItem } from "@/components/sidebar/ProjectSidebarItem"
+import { SidebarBrandTitlebar } from "@/components/sidebar/SidebarBrandTitlebar"
 import { Button } from "@/components/ui/button"
 import { CommandDialogTrigger } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import {
-  Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
@@ -39,17 +39,9 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
+    <>
       <SidebarHeader className="gap-0 p-0">
-        <div
-          className="drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center gap-2 border-b border-sidebar-border/70 px-3"
-          data-desktop-sidebar-titlebar=""
-        >
-          <div aria-hidden className="size-8 shrink-0 rounded-xl bg-sidebar-primary shadow-lg/5" />
-          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-            <p className="truncate text-sm font-semibold tracking-[-0.02em]">Noyau</p>
-          </div>
-        </div>
+        <SidebarBrandTitlebar />
 
         <div className="p-3">
           <CommandDialogTrigger
@@ -150,6 +142,6 @@ export function AppSidebar() {
           }
         }}
       />
-    </Sidebar>
+    </>
   )
 }

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { MessageCircleIcon, PencilIcon, Trash2Icon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
+import { ThreadArchiveConfirmDialog } from "@/components/sidebar/ThreadArchiveConfirmDialog"
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
 import {
   ContextMenu,
@@ -30,6 +31,7 @@ export function ThreadSidebarItem({
   const navigate = useNavigate()
   const titleInputRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [title, setTitle] = useState(thread.title)
 
@@ -101,47 +103,60 @@ export function ThreadSidebarItem({
   }
 
   return (
-    <ContextMenu onOpenChange={setMenuOpen}>
-      <ContextMenuTrigger render={<div />}>
-        <SidebarMenuButton
-          render={
-            <Link
-              to="/projects/$projectId/thread/$threadId"
-              params={{ projectId: project.id, threadId: thread.id }}
-              onClick={onSelect}
-            />
-          }
-          isActive={isActive}
-          tooltip={{
-            hidden: menuOpen,
-            side: "right",
-            align: "start",
-            sideOffset: 8,
-            className: "max-w-80 text-left whitespace-normal [&_[data-slot=tooltip-viewport]]:p-0",
-            children: <ThreadSidebarPopover project={project} thread={thread} />,
-          }}
-          className="h-8 pl-8 text-sidebar-foreground/58"
-        >
-          <MessageCircleIcon />
-          <span className="truncate">{thread.title}</span>
-        </SidebarMenuButton>
-      </ContextMenuTrigger>
-      <ContextMenuPopup align="start" className="w-44">
-        <ContextMenuItem
-          closeOnClick
-          onClick={() => {
-            setRenaming(true)
-          }}
-        >
-          <PencilIcon />
-          Renommer
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem closeOnClick variant="destructive" onClick={archiveThread}>
-          <Trash2Icon />
-          Archiver
-        </ContextMenuItem>
-      </ContextMenuPopup>
-    </ContextMenu>
+    <>
+      <ContextMenu onOpenChange={setMenuOpen}>
+        <ContextMenuTrigger render={<div />}>
+          <SidebarMenuButton
+            render={
+              <Link
+                to="/projects/$projectId/thread/$threadId"
+                params={{ projectId: project.id, threadId: thread.id }}
+                onClick={onSelect}
+              />
+            }
+            isActive={isActive}
+            tooltip={{
+              hidden: menuOpen,
+              side: "right",
+              align: "start",
+              sideOffset: 8,
+              className:
+                "max-w-80 text-left whitespace-normal [&_[data-slot=tooltip-viewport]]:p-0",
+              children: <ThreadSidebarPopover project={project} thread={thread} />,
+            }}
+            className="h-8 pl-8 text-sidebar-foreground/58"
+          >
+            <MessageCircleIcon />
+            <span className="truncate">{thread.title}</span>
+          </SidebarMenuButton>
+        </ContextMenuTrigger>
+        <ContextMenuPopup align="start" className="w-44">
+          <ContextMenuItem
+            closeOnClick
+            onClick={() => {
+              setRenaming(true)
+            }}
+          >
+            <PencilIcon />
+            Renommer
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            closeOnClick
+            variant="destructive"
+            onClick={() => requestAnimationFrame(() => setArchiveConfirmOpen(true))}
+          >
+            <Trash2Icon />
+            Archiver
+          </ContextMenuItem>
+        </ContextMenuPopup>
+      </ContextMenu>
+      <ThreadArchiveConfirmDialog
+        open={archiveConfirmOpen}
+        threadTitle={thread.title}
+        onOpenChange={setArchiveConfirmOpen}
+        onConfirm={archiveThread}
+      />
+    </>
   )
 }
