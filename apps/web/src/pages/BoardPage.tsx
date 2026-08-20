@@ -99,11 +99,7 @@ import {
   type BoardTicket,
 } from "@/lib/board-model"
 import { boardStateFromSnapshot } from "@/lib/board-snapshot"
-import {
-  buildAndDispatchCommand,
-  loadBoardSnapshot,
-  subscribeProject,
-} from "@/lib/control-plane"
+import { buildAndDispatchCommand, loadBoardSnapshot, subscribeProject } from "@/lib/control-plane"
 import {
   makeKanbanColumnCreateRequest,
   makeKanbanColumnDeleteRequest,
@@ -710,22 +706,18 @@ export function BoardPage({
   }, [selectedTicketId])
 
   useEffect(() => {
-    return subscribeProject(
-      projectId,
-      undefined,
-      {
-        onSnapshot: (snapshot) => {
-          setState(boardStateFromSnapshot(snapshot))
-          setLoading(false)
-          setControlPlaneError(undefined)
-        },
-        onEvent: (event) => {
-          setProjectEvents((current) => [...current, event])
-          void refreshBoard()
-        },
-        onError: setControlPlaneError,
+    return subscribeProject(projectId, undefined, {
+      onSnapshot: (snapshot) => {
+        setState(boardStateFromSnapshot(snapshot))
+        setLoading(false)
+        setControlPlaneError(undefined)
       },
-    )
+      onEvent: (event) => {
+        setProjectEvents((current) => [...current, event])
+        void refreshBoard()
+      },
+      onError: setControlPlaneError,
+    })
   }, [projectId, refreshBoard])
 
   const visibleByColumn = new Map(

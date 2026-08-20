@@ -2,6 +2,7 @@ import type { ProjectId } from "@noyau/protocol/ids"
 import { useState } from "react"
 
 import { useControlPlane } from "@/components/control-plane-context"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogDescription,
@@ -10,7 +11,6 @@ import {
   DialogPopup,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
@@ -22,13 +22,13 @@ interface ProjectFolderDialogProps {
   readonly onOpenChange: (open: boolean) => void
 }
 
-const folderName = (path: string): string => path.replace(/[\\/]+$/u, "").split(/[\\/]/u).pop() ?? path
+const folderName = (path: string): string =>
+  path
+    .replace(/[\\/]+$/u, "")
+    .split(/[\\/]/u)
+    .pop() ?? path
 
-export function ProjectFolderDialog({
-  open,
-  projectId,
-  onOpenChange,
-}: ProjectFolderDialogProps) {
+export function ProjectFolderDialog({ open, projectId, onOpenChange }: ProjectFolderDialogProps) {
   const { projects } = useControlPlane()
   const project = projects.find((candidate) => candidate.id === projectId)
   const [workspaceRoot, setWorkspaceRoot] = useState("")
@@ -56,9 +56,7 @@ export function ProjectFolderDialog({
     }
     setSubmitting(true)
     const result = projectId
-      ? await buildAndDispatchCommand(
-          makeProjectRebindRequest({ projectId, workspaceRoot: path }),
-        )
+      ? await buildAndDispatchCommand(makeProjectRebindRequest({ projectId, workspaceRoot: path }))
       : await buildAndDispatchCommand(
           makeProjectCreateRequest({ name: projectName, workspaceRoot: path }),
         )
@@ -85,7 +83,9 @@ export function ProjectFolderDialog({
     >
       <DialogPopup className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{project === undefined ? "Relier un dossier" : "Relier le dossier"}</DialogTitle>
+          <DialogTitle>
+            {project === undefined ? "Relier un dossier" : "Relier le dossier"}
+          </DialogTitle>
           <DialogDescription>
             Noyau travaille directement dans un dossier déjà présent sur cette machine.
           </DialogDescription>

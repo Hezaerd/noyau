@@ -3,13 +3,25 @@ import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { EventEnvelope } from "@noyau/protocol/events"
 import type { ProjectId, Sequence } from "@noyau/protocol/ids"
 import type { DispatchResult } from "@noyau/protocol/receipts"
-import type { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import {
   ControlPlaneRpcs,
+  RPC_METHODS,
   type ProjectStreamItem,
   type ShellStreamItem,
 } from "@noyau/protocol/rpc"
-import { Cause, Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Option, Stream } from "effect"
+import type { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
+import {
+  Cause,
+  Context,
+  Crypto,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Stream,
+} from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
 import type { RpcClientError } from "effect/unstable/rpc/RpcClientError"
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup"
@@ -57,8 +69,8 @@ const runtime = ManagedRuntime.make(
   ),
 )
 
-const runOperation = async <A, E>(
-  operation: Effect.Effect<A, E, ControlPlaneClient | Crypto.Crypto>,
+const runOperation = async <A, E, R>(
+  operation: Effect.Effect<A, E, R>,
 ): Promise<ControlPlaneResult<A>> => {
   const exit = await runtime.runPromiseExit(operation)
 
@@ -76,26 +88,24 @@ const dispatch = Effect.fn("ControlPlaneClient.dispatchCommand")(function* (
     "noyau.command_type": request._tag,
   })
   const client = yield* ControlPlaneClient
-  return yield* client.DispatchCommand(request)
+  return yield* client[RPC_METHODS.dispatchCommand](request)
 })
 
 const getProjectSnapshot = Effect.fn("ControlPlaneClient.getProjectSnapshot")(function* (
   projectId: ProjectId,
 ) {
   const client = yield* ControlPlaneClient
-  const item = yield* client
-    .SubscribeProject({ projectId })
-    .pipe(
-      Stream.filter(
-        (frame): frame is Extract<ProjectStreamItem, { readonly kind: "snapshot" }> =>
-          frame.kind === "snapshot",
-      ),
-      Stream.runHead,
-    )
-  return Option.match(item, {
-    onNone: () => Effect.fail(new Error("Project subscription ended before its snapshot.")),
-    onSome: (frame) => Effect.succeed(frame.snapshot),
-  })
+  const item = yield* client[RPC_METHODS.subscribeProject]({ projectId }).pipe(
+    Stream.filter(
+      (frame): frame is Extract<ProjectStreamItem, { readonly kind: "snapshot" }> =>
+        frame.kind === "snapshot",
+    ),
+    Stream.runHead,
+  )
+  if (Option.isNone(item)) {
+    return yield* Effect.fail(new Error("Project subscription ended before its snapshot."))
+  }
+  return item.value.snapshot
 })
 
 export const loadBoardSnapshot = (
@@ -141,12 +151,14 @@ const sequenceOf = (item: ShellStreamItem | ProjectStreamItem): Sequence | undef
   return undefined
 }
 
-export const acceptsSequence = (lastSequence: Sequence | undefined, nextSequence: Sequence): boolean =>
-  lastSequence === undefined || nextSequence > lastSequence
+export const acceptsSequence = (
+  lastSequence: Sequence | undefined,
+  nextSequence: Sequence,
+): boolean => lastSequence === undefined || nextSequence > lastSequence
 
-const consumeStream = <Item extends ShellStreamItem | ProjectStreamItem, Snapshot, Event>(
-  stream: Stream.Stream<Item, RpcClientError>,
-  callbacks: StreamCallbacks<Snapshot, Event>,
+const consumeShellStream = (
+  stream: Stream.Stream<ShellStreamItem, RpcClientError>,
+  callbacks: StreamCallbacks<ShellSnapshot, ShellLiveEvent>,
 ) => {
   let lastSequence: Sequence | undefined
   return stream.pipe(
@@ -162,9 +174,36 @@ const consumeStream = <Item extends ShellStreamItem | ProjectStreamItem, Snapsho
         }
         lastSequence = sequence
         if (item.kind === "snapshot") {
-          callbacks.onSnapshot(item.snapshot as Snapshot)
-        } else {
-          callbacks.onEvent(item.event as Event)
+          callbacks.onSnapshot(item.snapshot)
+        } else if (item.kind === "event") {
+          callbacks.onEvent(item.event)
+        }
+      }),
+    ),
+  )
+}
+
+const consumeProjectStream = (
+  stream: Stream.Stream<ProjectStreamItem, RpcClientError>,
+  callbacks: StreamCallbacks<BoardSnapshot, EventEnvelope>,
+) => {
+  let lastSequence: Sequence | undefined
+  return stream.pipe(
+    Stream.runForEach((item) =>
+      Effect.sync(() => {
+        const sequence = sequenceOf(item)
+        if (
+          item.kind === "synchronized" ||
+          sequence === undefined ||
+          !acceptsSequence(lastSequence, sequence)
+        ) {
+          return
+        }
+        lastSequence = sequence
+        if (item.kind === "snapshot") {
+          callbacks.onSnapshot(item.snapshot)
+        } else if (item.kind === "event") {
+          callbacks.onEvent(item.event)
         }
       }),
     ),
@@ -177,8 +216,8 @@ export const subscribeShell = (
 ) => {
   const stream = Effect.gen(function* () {
     const client = yield* ControlPlaneClient
-    return yield* consumeStream(
-      client.SubscribeShell(afterSequence === undefined ? {} : { afterSequence }),
+    return yield* consumeShellStream(
+      client[RPC_METHODS.subscribeShell](afterSequence === undefined ? {} : { afterSequence }),
       callbacks,
     )
   })
@@ -192,8 +231,8 @@ export const subscribeProject = (
 ) => {
   const stream = Effect.gen(function* () {
     const client = yield* ControlPlaneClient
-    return yield* consumeStream(
-      client.SubscribeProject(
+    return yield* consumeProjectStream(
+      client[RPC_METHODS.subscribeProject](
         afterSequence === undefined ? { projectId } : { projectId, afterSequence },
       ),
       callbacks,

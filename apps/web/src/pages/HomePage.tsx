@@ -1,8 +1,8 @@
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 
-import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { useControlPlane } from "@/components/control-plane-context"
+import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { Button } from "@/components/ui/button"
 
 export function HomePage() {
@@ -21,7 +21,11 @@ export function HomePage() {
   }, [lastProjectId, navigate])
 
   if (shell === undefined) {
-    return <main className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Connexion au control plane…</main>
+    return (
+      <main className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        Connexion au control plane…
+      </main>
+    )
   }
 
   return (

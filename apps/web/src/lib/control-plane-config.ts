@@ -19,44 +19,31 @@ export type ControlPlaneConfig = (typeof ControlPlaneConfig)["Type"]
 const decodeEnvironment = Schema.decodeUnknownSync(ControlPlaneEnvironment)
 const decodeConfig = Schema.decodeUnknownSync(ControlPlaneConfig)
 
-const readDesktopBootstrap = (): { readonly rpcUrl?: string; readonly bearerToken?: string } => {
-  if (typeof window === "undefined") {
-    return {}
-  }
-  const query = new URLSearchParams(window.location.search)
-  const rpcUrl = query.get("rpc")
-  const bearerToken = query.get("token")
-  return {
-    ...(rpcUrl === null ? {} : { rpcUrl }),
-    ...(bearerToken === null ? {} : { bearerToken }),
-  }
-}
-
 export const decodeControlPlaneConfig = (
   input: ControlPlaneEnvironmentInput,
 ): ControlPlaneConfig => {
   const environment = decodeEnvironment(input)
-  const desktopBootstrap = readDesktopBootstrap()
   return decodeConfig({
-    rpcUrl: desktopBootstrap.rpcUrl ?? environment.VITE_NOYAU_RPC_URL ?? DEFAULT_RPC_URL,
-    bearerToken:
-      desktopBootstrap.bearerToken ??
-      environment.VITE_NOYAU_BEARER_TOKEN ??
-      DEFAULT_BEARER_TOKEN,
+    rpcUrl: environment.VITE_NOYAU_RPC_URL ?? DEFAULT_RPC_URL,
+    bearerToken: environment.VITE_NOYAU_BEARER_TOKEN ?? DEFAULT_BEARER_TOKEN,
   })
 }
 
 const desktopRuntimeConfig = (): ControlPlaneEnvironmentInput => {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return {}
   }
-  const query = new URLSearchParams(window.location.search)
+  const query = new URLSearchParams(globalThis.window.location.search)
   const rpcUrl = query.get("rpc")
   const bearerToken = query.get("token")
-  return {
-    ...(rpcUrl === null ? {} : { VITE_NOYAU_RPC_URL: rpcUrl }),
-    ...(bearerToken === null ? {} : { VITE_NOYAU_BEARER_TOKEN: bearerToken }),
+  const config: Record<string, string> = {}
+  if (rpcUrl !== null) {
+    config.VITE_NOYAU_RPC_URL = rpcUrl
   }
+  if (bearerToken !== null) {
+    config.VITE_NOYAU_BEARER_TOKEN = bearerToken
+  }
+  return config
 }
 
 export const controlPlaneConfig = decodeControlPlaneConfig({

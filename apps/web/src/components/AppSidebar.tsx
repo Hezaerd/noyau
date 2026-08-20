@@ -1,5 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router"
 import type { ProjectId } from "@noyau/protocol/ids"
+import { Link, useRouterState } from "@tanstack/react-router"
 import {
   ChevronsUpDownIcon,
   LayoutGridIcon,
@@ -10,8 +10,8 @@ import {
 import { useState } from "react"
 
 import { AppearanceMenu } from "@/components/AppearanceMenu"
-import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { useControlPlane } from "@/components/control-plane-context"
+import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { CommandDialogTrigger } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"

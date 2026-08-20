@@ -1,6 +1,6 @@
-import { ProjectCreateRequest, ProjectRebindRequest } from "@noyau/protocol/project/commands"
 import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { CommandId, ProjectId } from "@noyau/protocol/ids"
+import { ProjectCreateRequest, ProjectRebindRequest } from "@noyau/protocol/project/commands"
 import { Crypto, Effect, Schema } from "effect"
 
 const uuid = Effect.fnUntraced(function* () {
@@ -13,12 +13,13 @@ export const makeProjectCreateRequest = Effect.fnUntraced(function* (input: {
   readonly workspaceRoot: string
 }) {
   const [commandId, projectId] = yield* Effect.all([uuid(), uuid()])
+  const workspaceRoot = yield* Schema.decodeEffect(WorkspaceRoot)(input.workspaceRoot)
   return ProjectCreateRequest.make({
     commandId: CommandId.make(commandId),
     payload: {
       projectId: ProjectId.make(projectId),
       name: input.name.trim(),
-      workspaceRoot: Schema.decodeSync(WorkspaceRoot)(input.workspaceRoot),
+      workspaceRoot,
     },
   })
 })
@@ -27,11 +28,12 @@ export const makeProjectRebindRequest = Effect.fnUntraced(function* (input: {
   readonly projectId: ProjectId
   readonly workspaceRoot: string
 }) {
+  const workspaceRoot = yield* Schema.decodeEffect(WorkspaceRoot)(input.workspaceRoot)
   return ProjectRebindRequest.make({
     commandId: CommandId.make(yield* uuid()),
     payload: {
       projectId: input.projectId,
-      workspaceRoot: Schema.decodeSync(WorkspaceRoot)(input.workspaceRoot),
+      workspaceRoot,
     },
   })
 })

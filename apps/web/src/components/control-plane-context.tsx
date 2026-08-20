@@ -1,5 +1,10 @@
-import type { ProjectShell, ShellLiveEvent, ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
 import { ProjectId } from "@noyau/protocol/ids"
+import type {
+  ProjectShell,
+  ShellLiveEvent,
+  ShellSnapshot,
+  ThreadShell,
+} from "@noyau/protocol/shell"
 import {
   createContext,
   useCallback,
@@ -46,7 +51,9 @@ const applyShellEvent = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellS
       return {
         ...snapshot,
         projects: snapshot.projects.some((project) => project.id === event.project.id)
-          ? snapshot.projects.map((project) => (project.id === event.project.id ? event.project : project))
+          ? snapshot.projects.map((project) =>
+              project.id === event.project.id ? event.project : project,
+            )
           : [...snapshot.projects, event.project],
       }
     case "project-removed":
@@ -59,7 +66,9 @@ const applyShellEvent = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellS
       return {
         ...snapshot,
         threads: snapshot.threads.some((thread) => thread.id === event.thread.id)
-          ? snapshot.threads.map((thread) => (thread.id === event.thread.id ? event.thread : thread))
+          ? snapshot.threads.map((thread) =>
+              thread.id === event.thread.id ? event.thread : thread,
+            )
           : [...snapshot.threads, event.thread],
       }
     case "thread-removed":

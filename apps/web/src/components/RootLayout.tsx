@@ -1,8 +1,8 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router"
 
 import { AppPaletteProvider } from "@/components/AppPalette"
-import { ControlPlaneProvider } from "@/components/control-plane-context"
 import { AppSidebar } from "@/components/AppSidebar"
+import { ControlPlaneProvider } from "@/components/control-plane-context"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 
