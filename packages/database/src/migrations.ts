@@ -2,9 +2,11 @@ import { Effect, Layer } from "effect"
 import * as Migrator from "effect/unstable/sql/Migrator"
 
 import JournalMigration from "./migrations/001_journal"
+import ProjectionsMigration from "./migrations/002_projections"
 
 export const migrations: Migrator.Loader = Migrator.fromRecord({
   "1_journal": JournalMigration,
+  "2_projections": ProjectionsMigration,
 })
 
 const migrate = Migrator.make({})

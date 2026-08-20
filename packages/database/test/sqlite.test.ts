@@ -26,7 +26,18 @@ describe("SQLite persistence", () => {
         assert.strictEqual(foreignKeys[0]?.foreign_keys, 1)
         assert.includeMembers(
           tables.map(({ name }) => name),
-          ["aggregate_heads", "events", "receipts"],
+          [
+            "aggregate_heads",
+            "events",
+            "projection_columns",
+            "projection_projects",
+            "projection_sessions",
+            "projection_threads",
+            "projection_tickets",
+            "projection_transcript",
+            "projection_turns",
+            "receipts",
+          ],
         )
         assert.notInclude(
           tables.map(({ name }) => name),

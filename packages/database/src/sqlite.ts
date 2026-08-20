@@ -5,6 +5,7 @@ import type { SqlError } from "effect/unstable/sql/SqlError"
 
 import { runMigrations } from "./migrations"
 import * as NodeSqliteClient from "./node-sqlite-client"
+import { recoverSessionsAfterBoot } from "./session-recovery"
 
 export interface SqlitePersistenceConfig {
   readonly filename: string
@@ -17,6 +18,7 @@ const setupLayer = Layer.effectDiscard(
     yield* sql`PRAGMA busy_timeout = 5000`
     yield* sql`PRAGMA foreign_keys = ON`
     yield* runMigrations()
+    yield* recoverSessionsAfterBoot()
   }),
 )
 

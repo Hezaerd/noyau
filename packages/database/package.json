@@ -8,6 +8,9 @@
     "./drainable-worker": "./src/drainable-worker.ts",
     "./migrations": "./src/migrations.ts",
     "./node-sqlite-client": "./src/node-sqlite-client.ts",
+    "./projections": "./src/projections.ts",
+    "./session-recovery": "./src/session-recovery.ts",
+    "./snapshots": "./src/snapshots.ts",
     "./sqlite": "./src/sqlite.ts"
   },
   "scripts": {
@@ -15,6 +18,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@noyau/domain": "workspace:*",
     "@noyau/protocol": "workspace:*",
     "effect": "catalog:"
   },
