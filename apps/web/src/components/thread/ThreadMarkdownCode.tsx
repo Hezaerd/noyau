@@ -65,15 +65,18 @@ export function ThreadMarkdownCode({
   const code = codeText(children)
 
   return (
-    <CodeBlock
-      className={className}
-      code={code}
-      isIncomplete={isIncomplete}
-      language={fence.language}
-      lineNumbers={lineNumbers}
-      startLine={startLine}
-    >
-      <CodeCopyButton code={code} />
-    </CodeBlock>
+    <div className="relative">
+      <CodeBlock
+        className={className}
+        code={code}
+        isIncomplete={isIncomplete}
+        language={fence.language}
+        lineNumbers={lineNumbers}
+        startLine={startLine}
+      />
+      <div className="absolute top-1.5 right-1.5 z-10">
+        <CodeCopyButton code={code} />
+      </div>
+    </div>
   )
 }
