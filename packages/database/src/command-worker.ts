@@ -74,6 +74,7 @@ export interface CommandWorkerOptions<
   readonly metadata: (command: Command) => DurableCommand
   readonly aggregate: (command: Command) => AggregateRef
   readonly initialState: (aggregate: AggregateRef) => State
+  readonly recoverStateAfterReplay?: (state: State, aggregate: AggregateRef) => State
   readonly decide: (
     state: State,
     command: Command,
@@ -202,6 +203,7 @@ export const makeCommandWorker = <
       for (const row of rows) {
         state = options.evolve(state, (yield* rowToEvent(row)).event)
       }
+      state = options.recoverStateAfterReplay?.(state, aggregate) ?? state
       states.set(aggregateKey(aggregate), state)
       return state
     })

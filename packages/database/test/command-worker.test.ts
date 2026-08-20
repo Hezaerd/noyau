@@ -78,35 +78,39 @@ const command = (
 const makeOptions = (
   reactor: DrainableWorker<CounterPersistedEvent>,
   decisions: { count: number },
-) => ({
-  commandSchema: CounterCommand,
-  eventSchema: CounterEvent,
-  rejectionSchema: CounterRejected,
-  metadata: (input: CounterCommand) => input,
-  aggregate: (input: CounterCommand) => ({ kind: "counter", id: input.aggregateId }),
-  initialState: () => 0,
-  decide: (state: number, input: CounterCommand) => {
-    decisions.count = decisions.count + 1
-    return input.reject
-      ? Result.fail(CounterRejected.make({ reason: `rejected at ${state}` }))
-      : Result.succeed([CounterEvent.make({ amount: input.amount })])
-  },
-  evolve: (state: number, event: CounterEvent) => state + event.amount,
-  project: (event: CounterPersistedEvent) =>
-    Effect.gen(function* () {
-      const sql = yield* SqlClient
-      yield* sql`
-        INSERT INTO counter_projection (aggregate_id, value)
-        VALUES (${event.aggregate.id}, ${event.event.amount})
-        ON CONFLICT (aggregate_id) DO UPDATE
-          SET value = value + excluded.value
-      `
-      if (event.event.amount === 13) {
-        return yield* new ProjectionFailure()
-      }
-    }),
-  reactor,
-})
+  recoverStateAfterReplay?: (state: number) => number,
+) => {
+  const options = {
+    commandSchema: CounterCommand,
+    eventSchema: CounterEvent,
+    rejectionSchema: CounterRejected,
+    metadata: (input: CounterCommand) => input,
+    aggregate: (input: CounterCommand) => ({ kind: "counter", id: input.aggregateId }),
+    initialState: () => 0,
+    decide: (state: number, input: CounterCommand) => {
+      decisions.count = decisions.count + 1
+      return input.reject
+        ? Result.fail(CounterRejected.make({ reason: `rejected at ${state}` }))
+        : Result.succeed([CounterEvent.make({ amount: input.amount })])
+    },
+    evolve: (state: number, event: CounterEvent) => state + event.amount,
+    project: (event: CounterPersistedEvent) =>
+      Effect.gen(function* () {
+        const sql = yield* SqlClient
+        yield* sql`
+          INSERT INTO counter_projection (aggregate_id, value)
+          VALUES (${event.aggregate.id}, ${event.event.amount})
+          ON CONFLICT (aggregate_id) DO UPDATE
+            SET value = value + excluded.value
+        `
+        if (event.event.amount === 13) {
+          return yield* new ProjectionFailure()
+        }
+      }),
+    reactor,
+  }
+  return recoverStateAfterReplay === undefined ? options : { ...options, recoverStateAfterReplay }
+}
 
 const projectionValue = (aggregateId: string) =>
   Effect.gen(function* () {
@@ -221,6 +225,39 @@ describe("durable command worker", () => {
           assert.strictEqual(Option.getOrUndefined(yield* Fiber.join(published))?.sequence, 1)
         }),
       ),
+    )
+
+    it.effect("récupère une fois l'état de décision après le replay du journal", () =>
+      Effect.gen(function* () {
+        yield* prepareStore
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const reactor = yield* makeDrainableWorker(
+              (_event: CounterPersistedEvent) => Effect.void,
+            )
+            const worker = yield* makeCommandWorker(makeOptions(reactor, { count: 0 }))
+            yield* worker.dispatch(command("bbbbbbbb-0000-4000-8000-000000000013", "recovery", 2))
+          }),
+        )
+
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const reactor = yield* makeDrainableWorker(
+              (_event: CounterPersistedEvent) => Effect.void,
+            )
+            const worker = yield* makeCommandWorker(
+              makeOptions(reactor, { count: 0 }, (state) => state + 10),
+            )
+            const rejected = yield* worker.dispatch(
+              command("bbbbbbbb-0000-4000-8000-000000000014", "recovery", 0, true),
+            )
+            assert.deepStrictEqual(rejected.response, {
+              _tag: "rejected",
+              error: CounterRejected.make({ reason: "rejected at 12" }),
+            })
+          }),
+        )
+      }),
     )
 
     it.effect("rollback une projection en échec sans receipt ni événement", () =>
