@@ -21,6 +21,7 @@ import {
   Layer,
   ManagedRuntime,
   Option,
+  Schema,
   Stream,
 } from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
@@ -72,6 +73,13 @@ const runtime = ManagedRuntime.make(
 
 type ControlPlaneStreamError = RpcClientError | Forbidden | MissingIdentity | ServiceUnavailable
 
+class ProjectSnapshotUnavailable extends Schema.TaggedError<ProjectSnapshotUnavailable>()(
+  "ProjectSnapshotUnavailable",
+  {
+    message: Schema.NonEmptyString,
+  },
+) {}
+
 const runOperation = async <A, E>(
   operation: Effect.Effect<A, E, ControlPlaneClient>,
 ): Promise<ControlPlaneResult<A>> => {
@@ -106,7 +114,11 @@ const getProjectSnapshot = Effect.fn("ControlPlaneClient.getProjectSnapshot")(fu
     Stream.runHead,
   )
   if (Option.isNone(item)) {
-    return yield* Effect.fail(new Error("Project subscription ended before its snapshot."))
+    return yield* Effect.fail(
+      new ProjectSnapshotUnavailable({
+        message: "Project subscription ended before its snapshot.",
+      }),
+    )
   }
   return item.value.snapshot
 })
