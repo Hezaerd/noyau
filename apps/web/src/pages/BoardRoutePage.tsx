@@ -2,7 +2,7 @@ import { ProjectId } from "@noyau/protocol/ids"
 import { useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 
-import { useControlPlane } from "@/components/control-plane-context"
+import { useControlPlane } from "@/hooks/use-control-plane"
 import { useRedirectIfProjectGone } from "@/hooks/use-redirect-if-project-gone"
 import { type BoardSearch, type BoardSearchPatch } from "@/lib/board-model"
 import { BoardPage } from "@/pages/BoardPage"

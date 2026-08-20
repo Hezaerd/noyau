@@ -1,8 +1,8 @@
-import { existsSync, renameSync, statSync, writeFileSync } from "node:fs"
-import { extname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
-import { Effect } from "effect"
+import * as NodeServices from "@effect/platform-node/NodeServices"
+import { Config, Effect, FileSystem, Layer, ManagedRuntime, Option, Path, Schema } from "effect"
+import { FetchHttpClient } from "effect/unstable/http"
 import {
   app,
   BrowserWindow,
@@ -41,43 +41,82 @@ import {
   getWindowTitleBarOptions,
 } from "./window-chrome"
 
-const isDevelopment = process.env.NOYAU_DESKTOP_DEV === "1"
-const isSmokeTest = process.env.NOYAU_DESKTOP_SMOKE_TEST === "1"
-const smokeCompleteFile = process.env.NOYAU_DESKTOP_SMOKE_COMPLETE_FILE
-const smokeControlFile = process.env.NOYAU_DESKTOP_SMOKE_CONTROL_FILE
-const appDisplayName = isDevelopment ? "Noyau (Dev)" : "Noyau"
-const rendererRoot = join(__dirname, "renderer")
-const preloadPath = join(__dirname, "preload.cjs")
+const desktopRuntime = ManagedRuntime.make(
+  Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer),
+)
 
+class DesktopError extends Schema.TaggedError<DesktopError>()("DesktopError", {
+  message: Schema.String,
+  cause: Schema.optionalKey(Schema.Defect()),
+}) {}
+
+const desktopError = (message: string, cause?: unknown) =>
+  new DesktopError(cause === undefined ? { message } : { message, cause })
+
+const SmokeControlPayload = Schema.Struct({
+  state: Schema.Unknown,
+  bootstrap: Schema.NullOr(Schema.Unknown),
+})
+const encodeSmokeControl = Schema.encodeEffect(Schema.fromJsonString(SmokeControlPayload))
+
+interface DesktopFlags {
+  readonly isDevelopment: boolean
+  readonly isSmokeTest: boolean
+  readonly smokeCompleteFile: Option.Option<string>
+  readonly smokeControlFile: Option.Option<string>
+}
+
+let flags: DesktopFlags = {
+  isDevelopment: false,
+  isSmokeTest: false,
+  smokeCompleteFile: Option.none(),
+  smokeControlFile: Option.none(),
+}
+let rendererRoot = ""
+let preloadPath = ""
 let mainWindow: BrowserWindow | undefined
 let serverSupervisor: ServerSupervisor | undefined
 let quitAllowed = false
 let quitInProgress = false
 
-const publishSmokeSupervisorState = (state: SupervisorState): void => {
-  if (!isSmokeTest || smokeControlFile === undefined) {
+const loadDesktopFlags = Effect.fn("loadDesktopFlags")(function* () {
+  return {
+    isDevelopment: yield* Config.boolean("NOYAU_DESKTOP_DEV").pipe(Config.withDefault(false)),
+    isSmokeTest: yield* Config.boolean("NOYAU_DESKTOP_SMOKE_TEST").pipe(Config.withDefault(false)),
+    smokeCompleteFile: yield* Config.option(Config.string("NOYAU_DESKTOP_SMOKE_COMPLETE_FILE")),
+    smokeControlFile: yield* Config.option(Config.string("NOYAU_DESKTOP_SMOKE_CONTROL_FILE")),
+  } satisfies DesktopFlags
+})
+
+const publishSmokeSupervisorState = Effect.fn("publishSmokeSupervisorState")(function* (
+  state: SupervisorState,
+) {
+  if (!flags.isSmokeTest || Option.isNone(flags.smokeControlFile)) {
     return
   }
-  const temporaryPath = `${smokeControlFile}.tmp`
-  writeFileSync(
-    temporaryPath,
-    `${JSON.stringify({ state, bootstrap: serverSupervisor?.bootstrap ?? null })}\n`,
-    { mode: 0o600 },
-  )
-  renameSync(temporaryPath, smokeControlFile)
-}
+  const fs = yield* FileSystem.FileSystem
+  const controlFile = flags.smokeControlFile.value
+  const temporaryPath = `${controlFile}.tmp`
+  const encoded = yield* encodeSmokeControl({
+    state,
+    bootstrap: serverSupervisor?.bootstrap ?? null,
+  })
+  yield* fs.writeFileString(temporaryPath, `${encoded}\n`, { mode: 0o600 })
+  yield* fs.rename(temporaryPath, controlFile)
+})
 
-const waitForSmokeCompletion = (): Promise<void> => {
-  if (smokeCompleteFile === undefined) {
-    return Promise.reject(
-      new Error("NOYAU_DESKTOP_SMOKE_COMPLETE_FILE is required by the desktop smoke test"),
+const waitForSmokeCompletion = Effect.fn("waitForSmokeCompletion")(function* () {
+  const completeFile = Option.getOrUndefined(flags.smokeCompleteFile)
+  if (completeFile === undefined) {
+    return yield* desktopError(
+      "NOYAU_DESKTOP_SMOKE_COMPLETE_FILE is required by the desktop smoke test",
     )
   }
-  if (existsSync(smokeCompleteFile)) {
-    return Promise.resolve()
+  const fs = yield* FileSystem.FileSystem
+  while (!(yield* fs.exists(completeFile))) {
+    yield* Effect.sleep(25)
   }
-  return new Promise((resolve) => setTimeout(resolve, 25)).then(waitForSmokeCompletion)
-}
+})
 
 const syncMainWindowAppearance = (): void => {
   if (mainWindow === undefined || mainWindow.isDestroyed()) {
@@ -93,7 +132,7 @@ const syncMainWindowAppearance = (): void => {
 
 const registerThemeBridge = (): void => {
   ipcMain.handle(SET_THEME_CHANNEL, (_event, input) =>
-    Effect.runPromise(decodeAppearancePreference(input)).then((theme) => {
+    desktopRuntime.runPromise(decodeAppearancePreference(input)).then((theme) => {
       nativeTheme.themeSource = theme
       return undefined
     }),
@@ -102,25 +141,16 @@ const registerThemeBridge = (): void => {
 }
 
 const registerFolderPickerBridge = (): void => {
-  ipcMain.handle(PICK_FOLDER_CHANNEL, async () => {
-    const result = await dialog.showOpenDialog({
-      properties: ["openDirectory"],
-    })
-    return result.canceled ? undefined : result.filePaths[0]
-  })
+  ipcMain.handle(PICK_FOLDER_CHANNEL, () =>
+    desktopRuntime.runPromise(
+      Effect.promise(() =>
+        dialog.showOpenDialog({
+          properties: ["openDirectory"],
+        }),
+      ).pipe(Effect.map((result) => (result.canceled ? undefined : result.filePaths[0]))),
+    ),
+  )
 }
-
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: DESKTOP_SCHEME,
-    privileges: {
-      standard: true,
-      secure: true,
-      supportFetchAPI: true,
-      corsEnabled: true,
-    },
-  },
-])
 
 const withSecurityHeaders = (response: Response): Response => {
   const headers = new Headers(response.headers)
@@ -128,7 +158,7 @@ const withSecurityHeaders = (response: Response): Response => {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
+      `script-src 'self' 'unsafe-inline'${flags.isDevelopment ? " 'unsafe-eval'" : ""}`,
       "connect-src 'self' http: https: ws: wss:",
       "img-src 'self' data: blob: http: https:",
       "style-src 'self' 'unsafe-inline'",
@@ -138,7 +168,7 @@ const withSecurityHeaders = (response: Response): Response => {
       "frame-ancestors 'none'",
     ].join("; "),
   )
-  if (isDevelopment) {
+  if (flags.isDevelopment) {
     headers.set("Cache-Control", "no-store")
   }
 
@@ -149,30 +179,48 @@ const withSecurityHeaders = (response: Response): Response => {
   })
 }
 
-const fetchDevelopmentRenderer = (requestUrl: URL): Promise<Response> => {
+const fetchDevelopmentRenderer = Effect.fn("fetchDevelopmentRenderer")(function* (requestUrl: URL) {
   const targetUrl = new URL(`${requestUrl.pathname}${requestUrl.search}`, DEVELOPMENT_RENDERER_URL)
-  return net.fetch(targetUrl.toString()).then(withSecurityHeaders)
-}
+  const response = yield* Effect.tryPromise({
+    try: () => net.fetch(targetUrl.toString()),
+    catch: (cause) => desktopError("Failed to fetch the development renderer", cause),
+  })
+  return withSecurityHeaders(response)
+})
 
-const fetchProductionRenderer = async (requestUrl: URL): Promise<Response> => {
-  const requestedAssetPath = resolveRendererAssetPath(rendererRoot, requestUrl.pathname)
+const isExistingFile = Effect.fn("isExistingFile")(function* (filePath: string) {
+  const fs = yield* FileSystem.FileSystem
+  const exists = yield* fs.exists(filePath)
+  if (!exists) {
+    return false
+  }
+  const info = yield* fs.stat(filePath)
+  return info.type === "File"
+})
+
+const fetchProductionRenderer = Effect.fn("fetchProductionRenderer")(function* (requestUrl: URL) {
+  const path = yield* Path.Path
+  const requestedAssetPath = yield* resolveRendererAssetPath(rendererRoot, requestUrl.pathname)
   if (requestedAssetPath === undefined) {
     return new Response(null, { status: 400 })
   }
 
-  const servesExistingFile = existsSync(requestedAssetPath) && statSync(requestedAssetPath).isFile()
+  const servesExistingFile = yield* isExistingFile(requestedAssetPath)
   const assetPath =
-    servesExistingFile || extname(requestUrl.pathname) !== ""
+    servesExistingFile || path.extname(requestUrl.pathname) !== ""
       ? requestedAssetPath
-      : join(rendererRoot, "index.html")
+      : path.join(rendererRoot, "index.html")
 
-  if (!existsSync(assetPath) || !statSync(assetPath).isFile()) {
+  if (!(yield* isExistingFile(assetPath))) {
     return new Response(null, { status: 404 })
   }
 
-  const response = await net.fetch(pathToFileURL(assetPath).toString())
+  const response = yield* Effect.tryPromise({
+    try: () => net.fetch(pathToFileURL(assetPath).toString()),
+    catch: (cause) => desktopError("Failed to fetch the packaged renderer", cause),
+  })
   return withSecurityHeaders(response)
-}
+})
 
 const registerRendererProtocol = (): void => {
   protocol.handle(DESKTOP_SCHEME, (request) => {
@@ -181,9 +229,11 @@ const registerRendererProtocol = (): void => {
       return new Response(null, { status: 404 })
     }
 
-    return isDevelopment
-      ? fetchDevelopmentRenderer(requestUrl)
-      : fetchProductionRenderer(requestUrl)
+    return desktopRuntime.runPromise(
+      flags.isDevelopment
+        ? fetchDevelopmentRenderer(requestUrl)
+        : fetchProductionRenderer(requestUrl),
+    )
   })
 }
 
@@ -194,7 +244,7 @@ const openExternalUrl = (url: string): void => {
   }
 }
 
-const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
+const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: ServerBootstrap) {
   const shouldUseDarkColors = nativeTheme.shouldUseDarkColors
   const window = new BrowserWindow({
     width: 1440,
@@ -231,7 +281,7 @@ const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
     callback(isRendererPermissionAllowed(permission))
   })
   window.once("ready-to-show", () => {
-    if (!isSmokeTest) {
+    if (!flags.isSmokeTest) {
       window.show()
     }
   })
@@ -241,12 +291,18 @@ const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
     }
   })
   window.webContents.once("did-finish-load", () => {
-    if (isSmokeTest) {
-      void waitForSmokeCompletion()
-        .then(() => {
-          process.stdout.write("NOYAU_DESKTOP_SMOKE_TEST_OK\n")
-          return serverSupervisor?.stop()
-        })
+    if (flags.isSmokeTest) {
+      void desktopRuntime
+        .runPromise(
+          waitForSmokeCompletion().pipe(
+            Effect.andThen(
+              Effect.sync(() => {
+                process.stdout.write("NOYAU_DESKTOP_SMOKE_TEST_OK\n")
+              }),
+            ),
+            Effect.andThen(serverSupervisor?.stop() ?? Effect.void),
+          ),
+        )
         .finally(() => {
           quitAllowed = true
           app.quit()
@@ -254,17 +310,39 @@ const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
     }
   })
 
-  await window.loadURL(desktopUrlForServer(bootstrap.host, bootstrap.port, bootstrap.bearerToken))
-}
+  yield* Effect.promise(() =>
+    window.loadURL(desktopUrlForServer(bootstrap.host, bootstrap.port, bootstrap.bearerToken)),
+  )
+})
 
-const launch = async (): Promise<void> => {
-  await app.whenReady()
-  const externalBootstrap = decodeExternalBootstrap()
+const launch = Effect.fn("launch")(function* () {
+  const path = yield* Path.Path
+  flags = yield* loadDesktopFlags()
+  rendererRoot = path.join(__dirname, "renderer")
+  preloadPath = path.join(__dirname, "preload.cjs")
+  const appDisplayName = flags.isDevelopment ? "Noyau (Dev)" : "Noyau"
+
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: DESKTOP_SCHEME,
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        corsEnabled: true,
+      },
+    },
+  ])
+  app.setName(appDisplayName)
+  app.setAboutPanelOptions({ applicationName: appDisplayName })
+
+  yield* Effect.promise(() => app.whenReady())
+  const externalBootstrap = yield* decodeExternalBootstrap()
   const baseSupervisorOptions = {
-    serverEntryPath: resolveServerEntryPath(__dirname),
-    dataDirectory: join(app.getPath("userData"), "environment"),
+    serverEntryPath: yield* resolveServerEntryPath(__dirname),
+    dataDirectory: path.join(app.getPath("userData"), "environment"),
     onStateChange: (state: SupervisorState) => {
-      publishSmokeSupervisorState(state)
+      void desktopRuntime.runPromise(publishSmokeSupervisorState(state))
       if (state.phase === "degraded") {
         process.stderr.write(
           `[noyau-desktop] server supervisor degraded: ${state.lastError ?? "unknown"}\n`,
@@ -277,7 +355,7 @@ const launch = async (): Promise<void> => {
       ? baseSupervisorOptions
       : { ...baseSupervisorOptions, externalBootstrap }
   serverSupervisor = new ServerSupervisor(supervisorOptions)
-  await serverSupervisor.start()
+  yield* serverSupervisor.start()
   registerRendererProtocol()
   registerThemeBridge()
   registerFolderPickerBridge()
@@ -286,19 +364,17 @@ const launch = async (): Promise<void> => {
   )
   const bootstrap = serverSupervisor.bootstrap
   if (bootstrap === undefined) {
-    throw new Error("The Noyau Server supervisor did not provide a bootstrap")
+    return yield* desktopError("The Noyau Server supervisor did not provide a bootstrap")
   }
-  await createMainWindow(bootstrap)
+  yield* createMainWindow(bootstrap)
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      void createMainWindow(bootstrap)
+      void desktopRuntime.runPromise(createMainWindow(bootstrap))
     }
   })
-}
+})
 
-app.setName(appDisplayName)
-app.setAboutPanelOptions({ applicationName: appDisplayName })
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit()
@@ -314,12 +390,12 @@ app.on("before-quit", (event) => {
     return
   }
   quitInProgress = true
-  void serverSupervisor
-    .stop()
+  void desktopRuntime
+    .runPromise(serverSupervisor.stop())
     .then(() => {
       quitAllowed = true
       app.quit()
-      return undefined
+      return desktopRuntime.dispose()
     })
     .catch((cause) => {
       quitInProgress = false
@@ -327,7 +403,7 @@ app.on("before-quit", (event) => {
     })
 })
 
-void launch().catch((cause) => {
+void desktopRuntime.runPromise(launch()).catch((cause) => {
   process.stderr.write(`Failed to launch Noyau Desktop: ${String(cause)}\n`)
   quitAllowed = true
   app.quit()

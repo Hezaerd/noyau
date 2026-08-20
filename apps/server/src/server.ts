@@ -6,7 +6,7 @@ import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer"
 import * as Sqlite from "@noyau/database/sqlite"
 import type { Forbidden, MissingIdentity } from "@noyau/protocol/errors"
 import { ControlPlaneRpcs } from "@noyau/protocol/rpc"
-import { Effect, FileSystem, Layer } from "effect"
+import { Effect, FileSystem, Layer, Path } from "effect"
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 
@@ -169,7 +169,13 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),
-  Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
+  Layer.provideMerge(
+    sqlitePersistenceLayer.pipe(
+      Layer.provideMerge(
+        serverConfigLayer.pipe(Layer.provide(Layer.mergeAll(Path.layer, NodeFileSystem.layer))),
+      ),
+    ),
+  ),
   Layer.provideMerge(NodeFileSystem.layer),
   Layer.provide(NodeCrypto.layer),
 )

@@ -1,30 +1,7 @@
-import {
-  Outlet,
-  createFileRoute,
-  redirect,
-  useCanGoBack,
-  useNavigate,
-} from "@tanstack/react-router"
-import { useCallback, type ReactElement } from "react"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { useSettingsEscape } from "@/components/settings/settings-layout"
+import { SettingsRouteLayout } from "@/components/settings/SettingsRouteLayout"
 import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
-
-function SettingsLayout(): ReactElement {
-  const navigate = useNavigate()
-  const canGoBack = useCanGoBack()
-  const navigateBack = useCallback(() => {
-    if (canGoBack) {
-      window.history.back()
-      return
-    }
-    void navigate({ to: "/" })
-  }, [canGoBack, navigate])
-
-  useSettingsEscape(navigateBack)
-
-  return <Outlet />
-}
 
 export const Route = createFileRoute("/settings")({
   beforeLoad: ({ location }) => {
@@ -36,5 +13,5 @@ export const Route = createFileRoute("/settings")({
       })
     }
   },
-  component: SettingsLayout,
+  component: SettingsRouteLayout,
 })

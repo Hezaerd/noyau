@@ -11,7 +11,6 @@ import {
   type ReactElement,
 } from "react"
 
-import { scrollToSettingsTargetId } from "@/components/settings/settings-layout"
 import { sidebarSearchChromeClassName } from "@/components/sidebar/sidebar-search-chrome"
 import { SidebarBrandTitlebar } from "@/components/sidebar/SidebarBrandTitlebar"
 import { Button } from "@/components/ui/button"
@@ -35,6 +34,7 @@ import {
   type SettingsSearchHit,
   type SettingsTabId,
 } from "@/lib/settings-catalog"
+import { scrollToSettingsTargetId } from "@/lib/settings-scroll"
 
 const SETTINGS_TAB_ICONS = {
   appearance: PaletteIcon,

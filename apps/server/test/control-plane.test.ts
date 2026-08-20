@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto"
-import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
@@ -33,11 +32,7 @@ const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
 const projectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000001")
 const otherProjectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000002")
 const threadId = Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000001")
-const fakeCursorAgent = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "fixtures",
-  "fake-cursor-acp.mjs",
-)
+const fakeCursorAgent = fileURLToPath(new URL("./fixtures/fake-cursor-acp.mjs", import.meta.url))
 
 const uuid = (index: number) => `30000000-0000-4000-8000-${index.toString().padStart(12, "0")}`
 
@@ -117,7 +112,6 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
         binaryPath: process.execPath,
         binaryArgs: [fakeCursorAgent],
         environment: {
-          ...process.env,
           PATH: "",
           NOYAU_FAKE_ACP_SCENARIO: scenario,
         },

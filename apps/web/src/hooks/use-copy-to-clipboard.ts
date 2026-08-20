@@ -1,3 +1,4 @@
+import { Effect, Fiber } from "effect"
 import { useEffect, useRef, useState } from "react"
 
 import { writeClipboardText } from "@/lib/clipboard"
@@ -19,7 +20,16 @@ export function useCopyToClipboard({
   onError,
 }: UseCopyToClipboardOptions = {}): UseCopyToClipboardResult {
   const [isCopied, setIsCopied] = useState(false)
-  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timeoutFiberRef = useRef<Fiber.Fiber<void> | null>(null)
+
+  const clearCopiedTimeout = () => {
+    const fiber = timeoutFiberRef.current
+    if (fiber === null) {
+      return
+    }
+    Effect.runFork(Fiber.interrupt(fiber))
+    timeoutFiberRef.current = null
+  }
 
   const copyToClipboard = (value: string): void => {
     if (value.length === 0) {
@@ -28,16 +38,20 @@ export function useCopyToClipboard({
 
     void writeClipboardText(value).then(
       () => {
-        if (timeoutIdRef.current !== null) {
-          clearTimeout(timeoutIdRef.current)
-        }
+        clearCopiedTimeout()
         setIsCopied(true)
         onCopy?.()
         if (timeout !== 0) {
-          timeoutIdRef.current = setTimeout(() => {
-            setIsCopied(false)
-            timeoutIdRef.current = null
-          }, timeout)
+          timeoutFiberRef.current = Effect.runFork(
+            Effect.sleep(timeout).pipe(
+              Effect.andThen(
+                Effect.sync(() => {
+                  setIsCopied(false)
+                  timeoutFiberRef.current = null
+                }),
+              ),
+            ),
+          )
         }
         return undefined
       },
@@ -50,9 +64,7 @@ export function useCopyToClipboard({
 
   useEffect(() => {
     return () => {
-      if (timeoutIdRef.current !== null) {
-        clearTimeout(timeoutIdRef.current)
-      }
+      clearCopiedTimeout()
     }
   }, [])
 

@@ -1,9 +1,7 @@
-import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { assert, describe, it } from "@effect/vitest"
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import { assert, layer } from "@effect/vitest"
 import { ApprovalRequestId, ProviderSessionId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { cursorProviderLayer, resolveCursorExecutable } from "@noyau/server/provider/cursor-acp"
 import {
@@ -11,11 +9,11 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
-import { Deferred, Effect, Fiber, Layer } from "effect"
+import { Deferred, Effect, Fiber, FileSystem, Layer, Path } from "effect"
 import { TestClock } from "effect/testing"
 
-const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures")
-const fakeAgent = join(fixtures, "fake-cursor-acp.mjs")
+const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
+const fakeAgent = fileURLToPath(new URL("./fixtures/fake-cursor-acp.mjs", import.meta.url))
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const turnId = TurnId.make("30000000-0000-4000-8000-000000000001")
 
@@ -32,9 +30,11 @@ const input = (
 })
 
 const makeOptions = Effect.fn("CursorAdapterTest.makeOptions")(function* (scenario: string) {
-  const directory = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "noyau-fake-acp-")))
-  const requestLog = join(directory, "requests.ndjson")
-  const exitLog = join(directory, "exit.log")
+  const fileSystem = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-fake-acp-" })
+  const requestLog = path.join(directory, "requests.ndjson")
+  const exitLog = path.join(directory, "exit.log")
   return {
     requestLog,
     exitLog,
@@ -42,7 +42,6 @@ const makeOptions = Effect.fn("CursorAdapterTest.makeOptions")(function* (scenar
       binaryPath: process.execPath,
       binaryArgs: [fakeAgent],
       environment: {
-        ...process.env,
         PATH: "",
         NOYAU_FAKE_ACP_SCENARIO: scenario,
         NOYAU_FAKE_ACP_REQUEST_LOG: requestLog,
@@ -53,13 +52,13 @@ const makeOptions = Effect.fn("CursorAdapterTest.makeOptions")(function* (scenar
   } as const
 })
 
-const withProvider = <A, E>(
+const withProvider = <A, E, R>(
   scenario: string,
   use: (
     provider: ProviderPort["Service"],
     evidence: { readonly requestLog: string; readonly exitLog: string },
-  ) => Effect.Effect<A, E>,
-): Effect.Effect<A, E> =>
+  ) => Effect.Effect<A, E, R>,
+) =>
   Effect.scoped(
     Effect.gen(function* () {
       const evidence = yield* makeOptions(scenario)
@@ -85,18 +84,23 @@ const capture = Effect.fn("CursorAdapterTest.capture")(function* (
   return signals
 })
 
-const readLog = (path: string) => Effect.promise(() => readFile(path, "utf8"))
+const readLog = Effect.fn("CursorAdapterTest.readLog")(function* (filePath: string) {
+  const fileSystem = yield* FileSystem.FileSystem
+  return yield* fileSystem.readFileString(filePath)
+})
 
-describe("Cursor ACP adapter", () => {
+layer(platformLayer)("Cursor ACP adapter", (it) => {
   it.effect("detects cursor-agent on PATH and falls back to a configured executable", () =>
     Effect.gen(function* () {
-      const directory = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "noyau-cursor-path-")))
-      const pathExecutable = join(directory, "cursor-agent")
-      const configured = join(directory, "configured-cursor")
-      yield* Effect.promise(() => writeFile(pathExecutable, "#!/bin/sh\nexit 0\n", "utf8"))
-      yield* Effect.promise(() => writeFile(configured, "#!/bin/sh\nexit 0\n", "utf8"))
-      yield* Effect.promise(() => chmod(pathExecutable, 0o755))
-      yield* Effect.promise(() => chmod(configured, 0o755))
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-cursor-path-" })
+      const pathExecutable = path.join(directory, "cursor-agent")
+      const configured = path.join(directory, "configured-cursor")
+      yield* fileSystem.writeFileString(pathExecutable, "#!/bin/sh\nexit 0\n")
+      yield* fileSystem.writeFileString(configured, "#!/bin/sh\nexit 0\n")
+      yield* fileSystem.chmod(pathExecutable, 0o755)
+      yield* fileSystem.chmod(configured, 0o755)
 
       assert.strictEqual(
         yield* resolveCursorExecutable(configured, { PATH: directory }, "linux"),

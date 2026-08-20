@@ -1,39 +1,31 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
-import { assert, describe, it } from "@effect/vitest"
+import { assert, layer } from "@effect/vitest"
 import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { WorkspaceRootAccess, workspaceRootAccessLayer } from "@noyau/server/workspace-root"
-import { Context, Effect, Layer, Schema } from "effect"
+import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect"
 
-describe("WorkspaceRootAccess", () => {
-  it.effect("accepts only an accessible existing directory", () => {
-    const directory = mkdtempSync(join(tmpdir(), "noyau-workspace-root-"))
-    const file = join(directory, "file.txt")
-    const missing = join(directory, "missing")
-    writeFileSync(file, "not a directory")
-    const available = Schema.decodeSync(WorkspaceRoot)(directory)
-    const regularFile = Schema.decodeSync(WorkspaceRoot)(file)
-    const nonexistent = Schema.decodeSync(WorkspaceRoot)(missing)
+const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
 
-    return Effect.scoped(
-      Effect.gen(function* () {
-        const services = yield* Layer.build(
-          workspaceRootAccessLayer.pipe(Layer.provide(NodeFileSystem.layer)),
-        )
-        const access = Context.get(services, WorkspaceRootAccess)
-        assert.isTrue(yield* access.isAvailable(available))
-        assert.isFalse(yield* access.isAvailable(regularFile))
-        assert.isFalse(yield* access.isAvailable(nonexistent))
-      }),
-    ).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          rmSync(directory, { force: true, recursive: true })
-        }),
-      ),
-    )
-  })
+layer(platformLayer)("WorkspaceRootAccess", (it) => {
+  it.effect("accepts only an accessible existing directory", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "noyau-workspace-root-",
+      })
+      const file = path.join(directory, "file.txt")
+      const missing = path.join(directory, "missing")
+      yield* fileSystem.writeFileString(file, "not a directory")
+      const available = yield* Schema.decodeEffect(WorkspaceRoot)(directory)
+      const regularFile = yield* Schema.decodeEffect(WorkspaceRoot)(file)
+      const nonexistent = yield* Schema.decodeEffect(WorkspaceRoot)(missing)
+
+      const services = yield* Layer.build(workspaceRootAccessLayer)
+      const access = Context.get(services, WorkspaceRootAccess)
+      assert.isTrue(yield* access.isAvailable(available))
+      assert.isFalse(yield* access.isAvailable(regularFile))
+      assert.isFalse(yield* access.isAvailable(nonexistent))
+    }),
+  )
 })

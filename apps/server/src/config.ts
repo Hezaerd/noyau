@@ -1,8 +1,5 @@
-import { readFile } from "node:fs"
-import { join } from "node:path"
-
 import { EnvironmentId } from "@noyau/protocol/ids"
-import { Config, Context, Effect, Layer, Redacted, Schema } from "effect"
+import { Config, Context, Effect, FileSystem, Layer, Path, Redacted, Schema } from "effect"
 
 export type NoyauEnvironment = "development" | "test" | "production"
 
@@ -63,38 +60,32 @@ export const decodeBootstrap = Effect.fn("ServerConfig.decodeBootstrap")(functio
 })
 
 export const readBootstrapFd = Effect.fn("ServerConfig.readBootstrapFd")(function* (fd: number) {
-  const encoded = yield* Effect.callback<string, BootstrapConfigError>((resume) => {
-    readFile(fd, { encoding: "utf8" }, (cause, data) => {
-      resume(
-        cause === null
-          ? Effect.succeed(data)
-          : Effect.fail(new BootstrapConfigError({ source: `fd${fd}`, cause })),
-      )
-    })
-  })
+  const fileSystem = yield* FileSystem.FileSystem
+  const encoded = yield* fileSystem
+    .readFileString(`/dev/fd/${fd}`)
+    .pipe(Effect.mapError((cause) => new BootstrapConfigError({ source: `fd${fd}`, cause })))
   return yield* decodeBootstrap(`fd${fd}`, encoded)
 })
 
-const standaloneBootstrap = Config.all({
-  dataDirectory: Config.string("NOYAU_DATA_DIR").pipe(
-    Config.withDefault(join(process.cwd(), ".noyau")),
-  ),
-  host: Config.string("NOYAU_HOST").pipe(Config.withDefault("127.0.0.1")),
-  port: Config.int("NOYAU_PORT").pipe(Config.withDefault(3001)),
-  bearerToken: Config.string("NOYAU_BEARER_TOKEN").pipe(
-    Config.withDefault("noyau-development-token"),
-  ),
-  actorId: Config.string("NOYAU_ACTOR_ID").pipe(Config.withDefault("human:local")),
-  environmentId: Config.string("NOYAU_ENVIRONMENT_ID").pipe(
-    Config.withDefault("00000000-0000-4000-8000-000000000001"),
-  ),
-  environmentCreatedAt: Config.string("NOYAU_ENVIRONMENT_CREATED_AT").pipe(
-    Config.withDefault("1970-01-01T00:00:00.000Z"),
-  ),
-  bootstrapVersion: Config.string("NOYAU_BOOTSTRAP_VERSION").pipe(Config.withDefault("1")),
-  bundleVersion: Config.string("NOYAU_BUNDLE_VERSION").pipe(Config.withDefault("0.0.0")),
-  serverVersion: Config.string("NOYAU_SERVER_VERSION").pipe(Config.withDefault("0.0.0")),
-})
+const standaloneBootstrap = (dataDirectory: string) =>
+  Config.all({
+    dataDirectory: Config.string("NOYAU_DATA_DIR").pipe(Config.withDefault(dataDirectory)),
+    host: Config.string("NOYAU_HOST").pipe(Config.withDefault("127.0.0.1")),
+    port: Config.int("NOYAU_PORT").pipe(Config.withDefault(3001)),
+    bearerToken: Config.string("NOYAU_BEARER_TOKEN").pipe(
+      Config.withDefault("noyau-development-token"),
+    ),
+    actorId: Config.string("NOYAU_ACTOR_ID").pipe(Config.withDefault("human:local")),
+    environmentId: Config.string("NOYAU_ENVIRONMENT_ID").pipe(
+      Config.withDefault("00000000-0000-4000-8000-000000000001"),
+    ),
+    environmentCreatedAt: Config.string("NOYAU_ENVIRONMENT_CREATED_AT").pipe(
+      Config.withDefault("1970-01-01T00:00:00.000Z"),
+    ),
+    bootstrapVersion: Config.string("NOYAU_BOOTSTRAP_VERSION").pipe(Config.withDefault("1")),
+    bundleVersion: Config.string("NOYAU_BUNDLE_VERSION").pipe(Config.withDefault("0.0.0")),
+    serverVersion: Config.string("NOYAU_SERVER_VERSION").pipe(Config.withDefault("0.0.0")),
+  })
 
 interface StandaloneBootstrapInput {
   readonly dataDirectory: string
@@ -125,16 +116,19 @@ export const serverEnvironment = Config.literals(
 ).pipe(Config.withDefault("development"))
 
 export const loadServerConfig = Effect.gen(function* () {
+  const path = yield* Path.Path
   const environment = yield* serverEnvironment
   const bootstrapFd = yield* Config.option(Config.int("NOYAU_BOOTSTRAP_FD"))
   const bootstrap =
     bootstrapFd._tag === "Some"
       ? yield* readBootstrapFd(bootstrapFd.value)
-      : yield* standaloneBootstrap.pipe(Effect.flatMap(decodeStandaloneBootstrap))
+      : yield* standaloneBootstrap(path.resolve(".noyau")).pipe(
+          Effect.flatMap(decodeStandaloneBootstrap),
+        )
   return {
     environment,
     dataDirectory: bootstrap.dataDirectory,
-    databaseFile: join(bootstrap.dataDirectory, "noyau.sqlite"),
+    databaseFile: path.join(bootstrap.dataDirectory, "noyau.sqlite"),
     host: bootstrap.host,
     port: bootstrap.port,
     bearerToken: Redacted.make(bootstrap.bearerToken),

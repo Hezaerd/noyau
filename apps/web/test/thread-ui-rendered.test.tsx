@@ -6,7 +6,7 @@ import { ProjectId, ThreadId, TicketId, TurnId } from "@noyau/protocol/ids"
 import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { TicketDialog } from "../src/components/board/TicketDialog"
@@ -132,63 +132,79 @@ describe("rendered Thread UI evidence", () => {
     expect(composer?.className).toMatch(/bottom-0/)
   })
 
-  it("edits TicketThread links from the Thread side", async () => {
-    const user = userEvent.setup()
-    const onSelectionChange = vi.fn()
-    const onUnlink = vi.fn()
-    render(
-      <ThreadTicketLinkEditor
-        linkedTickets={[{ id: linkedTicketId, title: "Déjà lié" }]}
-        linkableTickets={[{ id: ticketId, title: "Ajouter ce Ticket" }]}
-        selection={null}
-        onSelectionChange={onSelectionChange}
-        onUnlink={onUnlink}
-      />,
-    )
+  it("edits TicketThread links from the Thread side", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onSelectionChange = vi.fn()
+        const onUnlink = vi.fn()
+        render(
+          <ThreadTicketLinkEditor
+            linkedTickets={[{ id: linkedTicketId, title: "Déjà lié" }]}
+            linkableTickets={[{ id: ticketId, title: "Ajouter ce Ticket" }]}
+            selection={null}
+            onSelectionChange={onSelectionChange}
+            onUnlink={onUnlink}
+          />,
+        )
 
-    await user.click(screen.getByRole("combobox", { name: "Lier un ticket" }))
-    await user.click(screen.getByRole("option", { name: "Ajouter ce Ticket" }))
-    expect(onSelectionChange).toHaveBeenCalledWith(ticketId)
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("combobox", { name: "Lier un ticket" })),
+        )
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("option", { name: "Ajouter ce Ticket" })),
+        )
+        expect(onSelectionChange).toHaveBeenCalledWith(ticketId)
 
-    await user.click(screen.getByRole("button", { name: "Délier le ticket Déjà lié" }))
-    expect(onUnlink).toHaveBeenCalledWith(linkedTicketId)
-  })
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("button", { name: "Délier le ticket Déjà lié" })),
+        )
+        expect(onUnlink).toHaveBeenCalledWith(linkedTicketId)
+      }),
+    ))
 
-  it("edits TicketThread links from the Ticket side", async () => {
-    const user = userEvent.setup()
-    const thread = makeThread(threadId, "Thread de reprise")
-    const onLinkThread = vi.fn()
-    const onUnlinkThread = vi.fn()
-    const baseProps = {
-      ticket,
-      tickets: [ticket],
-      ticketDependencies: [],
-      threads: [thread],
-      activity: [],
-      activityLoading: false,
-      focusTitle: false,
-      onClose: vi.fn(),
-      onTitleFocusComplete: vi.fn(),
-      onUpdate: vi.fn(),
-      onAddDependency: vi.fn(),
-      onRemoveDependency: vi.fn(),
-      onLinkThread,
-      onUnlinkThread,
-      archiveBlockedByTitles: [],
-      onArchive: vi.fn(),
-    } as const
+  it("edits TicketThread links from the Ticket side", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const thread = makeThread(threadId, "Thread de reprise")
+        const onLinkThread = vi.fn()
+        const onUnlinkThread = vi.fn()
+        const baseProps = {
+          ticket,
+          tickets: [ticket],
+          ticketDependencies: [],
+          threads: [thread],
+          activity: [],
+          activityLoading: false,
+          focusTitle: false,
+          onClose: vi.fn(),
+          onTitleFocusComplete: vi.fn(),
+          onUpdate: vi.fn(),
+          onAddDependency: vi.fn(),
+          onRemoveDependency: vi.fn(),
+          onLinkThread,
+          onUnlinkThread,
+          archiveBlockedByTitles: [],
+          onArchive: vi.fn(),
+        } as const
 
-    render(<TicketDialog {...baseProps} ticketThreads={[]} />)
-    await user.click(screen.getByText("Ajouter un Thread lié"))
-    await user.click(screen.getByRole("option", { name: "Thread de reprise" }))
-    expect(onLinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
+        render(<TicketDialog {...baseProps} ticketThreads={[]} />)
+        yield* Effect.promise(() => user.click(screen.getByText("Ajouter un Thread lié")))
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("option", { name: "Thread de reprise" })),
+        )
+        expect(onLinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
 
-    cleanup()
-    const linked: TicketThread = { ticketId: TicketId.make(ticket.id), threadId: thread.id }
-    render(<TicketDialog {...baseProps} ticketThreads={[linked]} />)
-    await user.click(screen.getByRole("button", { name: "Délier le Thread Thread de reprise" }))
-    expect(onUnlinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
-  })
+        cleanup()
+        const linked: TicketThread = { ticketId: TicketId.make(ticket.id), threadId: thread.id }
+        render(<TicketDialog {...baseProps} ticketThreads={[linked]} />)
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("button", { name: "Délier le Thread Thread de reprise" })),
+        )
+        expect(onUnlinkThread).toHaveBeenCalledWith(ticket.id, thread.id)
+      }),
+    ))
 
   it("renders a tool call as a verb and object, not a JSON dump", () => {
     const item = Schema.decodeSync(TranscriptItem)({
@@ -217,45 +233,49 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.queryByText("Cursor tool")).toBeNull()
   })
 
-  it("collapses a burst of file changes behind one toggle", async () => {
-    const user = userEvent.setup()
-    const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
-    const transcript = ["index.astro", "ClinicCard.astro", "base.css"].map((path, index) =>
-      Schema.decodeSync(TranscriptItem)({
-        _tag: "transcript.tool",
-        threadId,
-        turnId,
-        toolCallId: `tool-${String(index)}`,
-        name: "Wrote file",
-        status: "completed",
-        action: "file_change",
-        outputSummary: path,
+  it("collapses a burst of file changes behind one toggle", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
+        const transcript = ["index.astro", "ClinicCard.astro", "base.css"].map((path, index) =>
+          Schema.decodeSync(TranscriptItem)({
+            _tag: "transcript.tool",
+            threadId,
+            turnId,
+            toolCallId: `tool-${String(index)}`,
+            name: "Wrote file",
+            status: "completed",
+            action: "file_change",
+            outputSummary: path,
+          }),
+        )
+
+        render(
+          <ThreadTranscript
+            transcript={transcript}
+            isRunning={false}
+            loading={false}
+            error={undefined}
+            notices={null}
+            footer={null}
+            answerByRequest={{}}
+            onAnswerChange={vi.fn()}
+            onRespondApproval={vi.fn()}
+            onRespondUserInput={vi.fn()}
+          />,
+        )
+
+        expect(screen.getByRole("button", { name: "Changed 3 files" })).toBeTruthy()
+        expect(screen.queryByText("index.astro")).toBeNull()
+
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("button", { name: "Changed 3 files" })),
+        )
+        expect(screen.getByText("index.astro")).toBeTruthy()
+        expect(screen.getByText("ClinicCard.astro")).toBeTruthy()
       }),
-    )
-
-    render(
-      <ThreadTranscript
-        transcript={transcript}
-        isRunning={false}
-        isNewThread={false}
-        loading={false}
-        error={undefined}
-        notices={null}
-        footer={null}
-        answerByRequest={{}}
-        onAnswerChange={vi.fn()}
-        onRespondApproval={vi.fn()}
-        onRespondUserInput={vi.fn()}
-      />,
-    )
-
-    expect(screen.getByRole("button", { name: "Changed 3 files" })).toBeTruthy()
-    expect(screen.queryByText("index.astro")).toBeNull()
-
-    await user.click(screen.getByRole("button", { name: "Changed 3 files" }))
-    expect(screen.getByText("index.astro")).toBeTruthy()
-    expect(screen.getByText("ClinicCard.astro")).toBeTruthy()
-  })
+    ))
 
   it("renders streamed assistant markdown inside a Message row", () => {
     const item = Schema.decodeSync(TranscriptItem)({

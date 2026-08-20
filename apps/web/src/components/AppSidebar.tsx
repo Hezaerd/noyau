@@ -3,7 +3,6 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import { PlusIcon, SearchIcon, SettingsIcon } from "lucide-react"
 import { useState } from "react"
 
-import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { ProjectSidebarItem } from "@/components/sidebar/ProjectSidebarItem"
 import { sidebarSearchChromeClassName } from "@/components/sidebar/sidebar-search-chrome"
@@ -22,6 +21,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { useControlPlane } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
 

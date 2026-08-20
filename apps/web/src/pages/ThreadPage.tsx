@@ -1,7 +1,7 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import { ApprovalRequestId, TicketId, type ProjectId, type ThreadId } from "@noyau/protocol/ids"
+import { TicketId, type ProjectId, type ThreadId } from "@noyau/protocol/ids"
 import {
   useCallback,
   useEffect,
@@ -12,7 +12,6 @@ import {
   type FormEvent,
 } from "react"
 
-import { useControlPlane } from "@/components/control-plane-context"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import {
@@ -20,26 +19,18 @@ import {
   type ThreadTicketLink,
 } from "@/components/thread/ThreadTicketLinks"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
-import {
-  buildCommand,
-  dispatchCommand,
-  loadBoardSnapshot,
-  loadThreadSnapshot,
-  subscribeThread,
-} from "@/lib/control-plane"
+import { useControlPlane } from "@/hooks/use-control-plane"
+import { loadBoardSnapshot, loadThreadSnapshot, subscribeThread } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import {
-  DEFAULT_THREAD_TITLE,
-  makeApprovalRespondRequest,
-  makeThreadCreateRequest,
-  makeThreadId,
-  makeThreadTurnInterruptRequest,
-  makeThreadTurnStartRequest,
-  makeUserInputRespondRequest,
-  seedTitleFromPrompt,
-} from "@/lib/thread-commands"
+  interruptTurn as interruptTurnAction,
+  linkTicket as linkTicketAction,
+  respondToApproval as respondToApprovalAction,
+  respondToUserInput as respondToUserInputAction,
+  submitTurn as submitTurnAction,
+  unlinkTicket as unlinkTicketAction,
+} from "@/lib/thread-page-actions"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
-import { makeTicketThreadLinkRequest, makeTicketThreadUnlinkRequest } from "@/lib/ticket-commands"
 
 interface ThreadPageProps {
   readonly projectId: ProjectId
@@ -61,32 +52,36 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const [linkedTicketSelection, setLinkedTicketSelection] = useState<string | null>(null)
   const cursorReady = isCursorReady(cursor)
 
-  const refreshThread = useCallback(async () => {
+  const refreshThread = useCallback(() => {
     if (threadId === undefined) {
       setLoading(false)
       return
     }
-    const result = await loadThreadSnapshot(threadId)
-    if (!result.ok) {
-      setError(result.details)
+    void loadThreadSnapshot(threadId).then((result) => {
+      if (!result.ok) {
+        setError(result.details)
+        setLoading(false)
+        return undefined
+      }
+      setSnapshot(result.value)
+      setRuntimeMode(result.value.thread.runtimeMode)
+      setError(undefined)
       setLoading(false)
-      return
-    }
-    setSnapshot(result.value)
-    setRuntimeMode(result.value.thread.runtimeMode)
-    setError(undefined)
-    setLoading(false)
+      return undefined
+    })
   }, [threadId])
 
-  const refreshBoard = useCallback(async () => {
-    const result = await loadBoardSnapshot(projectId)
-    if (result.ok) {
-      setBoard(result.value)
-    }
+  const refreshBoard = useCallback(() => {
+    void loadBoardSnapshot(projectId).then((result) => {
+      if (result.ok) {
+        setBoard(result.value)
+      }
+      return undefined
+    })
   }, [projectId])
 
   useEffect(() => {
-    void refreshBoard()
+    refreshBoard()
   }, [refreshBoard])
 
   useEffect(() => {
@@ -96,7 +91,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       return
     }
     setLoading(true)
-    void refreshThread()
+    refreshThread()
     return subscribeThread(threadId, undefined, {
       onSnapshot: (next) => {
         setSnapshot(next)
@@ -125,8 +120,8 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
           }
           return
         }
-        void refreshThread()
-        void refreshBoard()
+        refreshThread()
+        refreshBoard()
       },
       onError: setError,
     })
@@ -155,22 +150,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const isRunning =
     snapshot?.session?.status === "running" || snapshot?.thread.latestTurn?.state === "running"
 
-  const dispatch = async (
-    request: Parameters<typeof dispatchCommand>[0],
-    successMessage?: string,
-  ) => {
-    const result = await dispatchCommand(request)
-    if (!result.ok) {
-      setError(result.details)
-      return false
-    }
-    if (successMessage !== undefined) {
-      setComposerError(undefined)
-    }
-    return true
-  }
-
-  const submitTurn = async (event: FormEvent<HTMLFormElement>) => {
+  const submitTurn = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const prompt = text.trim()
     if (prompt === "" || isRunning || project?.available !== true || !cursorReady) {
@@ -178,66 +158,34 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     }
     setText("")
     setComposerError(undefined)
-
-    if (threadId === undefined) {
-      const nextThreadId = await buildCommand(makeThreadId())
-      if (!nextThreadId.ok) {
-        setComposerError(nextThreadId.details)
-        return
+    void submitTurnAction({ projectId, threadId, prompt, runtimeMode }).then((result) => {
+      if (result.kind === "composer-error") {
+        setComposerError(result.details)
+        return undefined
       }
-      const createRequest = await buildCommand(
-        makeThreadCreateRequest({
-          threadId: nextThreadId.value,
-          projectId,
-          title: DEFAULT_THREAD_TITLE,
-          runtimeMode,
-        }),
-      )
-      if (!createRequest.ok || !(await dispatch(createRequest.value))) {
-        if (!createRequest.ok) {
-          setComposerError(createRequest.details)
-        }
-        return
+      if (result.kind === "error") {
+        setError(result.details)
+        return undefined
       }
-      const startRequest = await buildCommand(
-        makeThreadTurnStartRequest({
-          threadId: nextThreadId.value,
-          text: prompt,
-          titleSeed: seedTitleFromPrompt(prompt),
-          runtimeMode,
-        }),
-      )
-      if (!startRequest.ok || !(await dispatch(startRequest.value))) {
-        if (!startRequest.ok) {
-          setComposerError(startRequest.details)
-        }
-        return
+      if (result.kind === "created") {
+        onCreated(result.threadId)
       }
-      onCreated(nextThreadId.value)
-      return
-    }
-
-    const startRequest = await buildCommand(
-      makeThreadTurnStartRequest({ threadId, text: prompt, runtimeMode }),
-    )
-    if (!startRequest.ok) {
-      setComposerError(startRequest.details)
-      return
-    }
-    await dispatch(startRequest.value)
+      return undefined
+    })
   }
 
-  const interruptTurn = async () => {
+  const interruptTurn = () => {
     if (threadId === undefined) {
       return
     }
-    const input = activeTurn === undefined ? { threadId } : { threadId, turnId: activeTurn }
-    const request = await buildCommand(makeThreadTurnInterruptRequest(input))
-    if (!request.ok) {
-      setError(request.details)
-      return
-    }
-    await dispatch(request.value)
+    void interruptTurnAction(
+      activeTurn === undefined ? { threadId } : { threadId, turnId: activeTurn },
+    ).then((result) => {
+      if (!result.ok) {
+        setError(result.details)
+      }
+      return undefined
+    })
   }
 
   const rejectImages = (
@@ -254,25 +202,19 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     setComposerError("Les images ne sont pas prises en charge dans les Threads v0.1.")
   }
 
-  const respondToApproval = async (requestId: string, decision: "accept" | "decline") => {
+  const respondToApproval = (requestId: string, decision: "accept" | "decline") => {
     if (threadId === undefined) {
       return
     }
-    const request = await buildCommand(
-      makeApprovalRespondRequest({
-        threadId,
-        requestId: ApprovalRequestId.make(requestId),
-        decision,
-      }),
-    )
-    if (request.ok) {
-      await dispatch(request.value)
-    } else {
-      setError(request.details)
-    }
+    void respondToApprovalAction({ threadId, requestId, decision }).then((result) => {
+      if (!result.ok) {
+        setError(result.details)
+      }
+      return undefined
+    })
   }
 
-  const respondToUserInput = async (requestId: string) => {
+  const respondToUserInput = (requestId: string) => {
     if (threadId === undefined) {
       return
     }
@@ -280,47 +222,49 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     if (answer === undefined || answer === "") {
       return
     }
-    const request = await buildCommand(
-      makeUserInputRespondRequest({
-        threadId,
-        requestId: ApprovalRequestId.make(requestId),
-        answer,
-      }),
-    )
-    if (request.ok) {
-      await dispatch(request.value)
-    } else {
-      setError(request.details)
-    }
+    void respondToUserInputAction({ threadId, requestId, answer }).then((result) => {
+      if (!result.ok) {
+        setError(result.details)
+      }
+      return undefined
+    })
   }
 
-  const linkTicket = async (ticketId: string | null) => {
+  const linkTicket = (ticketId: string | null) => {
     setLinkedTicketSelection(null)
     if (threadId === undefined || ticketId === null) {
       return
     }
-    const request = await buildCommand(
-      makeTicketThreadLinkRequest({ ticketId: TicketId.make(ticketId), threadId }),
-    )
-    if (request.ok) {
-      await dispatch(request.value)
-      await refreshBoard()
-    } else {
-      setError(request.details)
-    }
+    void linkTicketAction({
+      threadId,
+      ticketId: TicketId.make(ticketId),
+      projectId,
+    }).then((result) => {
+      if (!result.ok) {
+        setError(result.details)
+        return undefined
+      }
+      if (result.board.ok) {
+        setBoard(result.board.value)
+      }
+      return undefined
+    })
   }
 
-  const unlinkTicket = async (ticketId: TicketId) => {
+  const unlinkTicket = (ticketId: TicketId) => {
     if (threadId === undefined) {
       return
     }
-    const request = await buildCommand(makeTicketThreadUnlinkRequest({ ticketId, threadId }))
-    if (request.ok) {
-      await dispatch(request.value)
-      await refreshBoard()
-    } else {
-      setError(request.details)
-    }
+    void unlinkTicketAction({ threadId, ticketId, projectId }).then((result) => {
+      if (!result.ok) {
+        setError(result.details)
+        return undefined
+      }
+      if (result.board.ok) {
+        setBoard(result.board.value)
+      }
+      return undefined
+    })
   }
 
   return (
@@ -347,9 +291,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
                 selection={linkedTicketSelection}
                 onSelectionChange={(ticketId) => {
                   setLinkedTicketSelection(ticketId)
-                  void linkTicket(ticketId)
+                  linkTicket(ticketId)
                 }}
-                onUnlink={(ticketId) => void unlinkTicket(ticketId)}
+                onUnlink={(ticketId) => unlinkTicket(ticketId)}
               />
             )
           }
@@ -361,10 +305,10 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
             }))
           }}
           onRespondApproval={(requestId, decision) => {
-            void respondToApproval(requestId, decision)
+            respondToApproval(requestId, decision)
           }}
           onRespondUserInput={(requestId) => {
-            void respondToUserInput(requestId)
+            respondToUserInput(requestId)
           }}
         />
       </div>
@@ -378,7 +322,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         onTextChange={setText}
         onPaste={rejectImages}
         onDrop={rejectImages}
-        onInterrupt={() => void interruptTurn()}
+        onInterrupt={() => interruptTurn()}
       />
     </main>
   )

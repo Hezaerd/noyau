@@ -5,7 +5,7 @@ import { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -39,6 +39,7 @@ afterEach(() => {
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const threadTitle = "Corriger la reprise"
+const workspaceRoot = Schema.decodeSync(WorkspaceRoot)("/tmp/noyau")
 
 const thread = Schema.decodeSync(ThreadShell)({
   id: threadId,
@@ -55,70 +56,93 @@ const thread = Schema.decodeSync(ThreadShell)({
 }) satisfies ThreadShellType
 
 describe("thread archive confirmation", () => {
-  it("does not archive until the confirmation is accepted", async () => {
-    const user = userEvent.setup()
-    const onConfirm = vi.fn()
-    render(
-      <ThreadArchiveConfirmDialog
-        open
-        threadTitle={threadTitle}
-        onOpenChange={vi.fn()}
-        onConfirm={onConfirm}
-      />,
-    )
+  it("does not archive until the confirmation is accepted", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onConfirm = vi.fn()
+        render(
+          <ThreadArchiveConfirmDialog
+            open
+            threadTitle={threadTitle}
+            onOpenChange={vi.fn()}
+            onConfirm={onConfirm}
+          />,
+        )
 
-    expect(screen.getByRole("alertdialog")).toBeTruthy()
-    expect(screen.getByText(/quittera la sidebar/)).toBeTruthy()
-    await user.click(screen.getByRole("button", { name: "Annuler" }))
-    expect(onConfirm).not.toHaveBeenCalled()
+        expect(screen.getByRole("alertdialog")).toBeTruthy()
+        expect(screen.getByText(/quittera la sidebar/)).toBeTruthy()
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Annuler" })))
+        expect(onConfirm).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole("button", { name: "Archiver" }))
-    expect(onConfirm).toHaveBeenCalledTimes(1)
-  })
-
-  it("opens the confirmation from the sidebar before archiving", async () => {
-    const user = userEvent.setup()
-    render(
-      <SidebarProvider>
-        <ThreadSidebarItem
-          thread={thread}
-          project={{
-            id: projectId,
-            name: "noyau",
-            workspaceRoot: Schema.decodeSync(WorkspaceRoot)("/tmp/noyau"),
-          }}
-          isActive={false}
-          onSelect={vi.fn()}
-        />
-      </SidebarProvider>,
-    )
-
-    expect(screen.queryByRole("alertdialog")).toBeNull()
-    await user.pointer({
-      keys: "[MouseRight]",
-      target: screen.getByRole("link", { name: threadTitle }),
-    })
-    await user.click(await screen.findByRole("menuitem", { name: "Archiver" }))
-
-    const confirmation = await waitFor(() => screen.getByRole("alertdialog"))
-    expect(confirmation).toBeTruthy()
-    expect(buildAndDispatchCommand).not.toHaveBeenCalled()
-
-    await user.click(within(confirmation).getByRole("button", { name: "Annuler" }))
-    expect(buildAndDispatchCommand).not.toHaveBeenCalled()
-
-    await user.pointer({
-      keys: "[MouseRight]",
-      target: screen.getByRole("link", { name: threadTitle }),
-    })
-    await user.click(await screen.findByRole("menuitem", { name: "Archiver" }))
-    await user.click(
-      within(await waitFor(() => screen.getByRole("alertdialog"))).getByRole("button", {
-        name: "Archiver",
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archiver" })))
+        expect(onConfirm).toHaveBeenCalledTimes(1)
       }),
-    )
-    await waitFor(() => {
-      expect(buildAndDispatchCommand).toHaveBeenCalledTimes(1)
-    })
-  })
+    ))
+
+  it("opens the confirmation from the sidebar before archiving", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        render(
+          <SidebarProvider>
+            <ThreadSidebarItem
+              thread={thread}
+              project={{
+                id: projectId,
+                name: "noyau",
+                workspaceRoot,
+              }}
+              isActive={false}
+              onSelect={vi.fn()}
+            />
+          </SidebarProvider>,
+        )
+
+        expect(screen.queryByRole("alertdialog")).toBeNull()
+        yield* Effect.promise(() =>
+          user.pointer({
+            keys: "[MouseRight]",
+            target: screen.getByRole("link", { name: threadTitle }),
+          }),
+        )
+        const archiveItem = yield* Effect.promise(() =>
+          screen.findByRole("menuitem", { name: "Archiver" }),
+        )
+        yield* Effect.promise(() => user.click(archiveItem))
+
+        const confirmation = yield* Effect.promise(() =>
+          waitFor(() => screen.getByRole("alertdialog")),
+        )
+        expect(confirmation).toBeTruthy()
+        expect(buildAndDispatchCommand).not.toHaveBeenCalled()
+
+        yield* Effect.promise(() =>
+          user.click(within(confirmation).getByRole("button", { name: "Annuler" })),
+        )
+        expect(buildAndDispatchCommand).not.toHaveBeenCalled()
+
+        yield* Effect.promise(() =>
+          user.pointer({
+            keys: "[MouseRight]",
+            target: screen.getByRole("link", { name: threadTitle }),
+          }),
+        )
+        const secondArchiveItem = yield* Effect.promise(() =>
+          screen.findByRole("menuitem", { name: "Archiver" }),
+        )
+        yield* Effect.promise(() => user.click(secondArchiveItem))
+        const secondConfirmation = yield* Effect.promise(() =>
+          waitFor(() => screen.getByRole("alertdialog")),
+        )
+        yield* Effect.promise(() =>
+          user.click(within(secondConfirmation).getByRole("button", { name: "Archiver" })),
+        )
+        yield* Effect.promise(() =>
+          waitFor(() => {
+            expect(buildAndDispatchCommand).toHaveBeenCalledTimes(1)
+          }),
+        )
+      }),
+    ))
 })

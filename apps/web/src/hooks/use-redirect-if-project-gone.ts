@@ -2,7 +2,7 @@ import type { ProjectId } from "@noyau/protocol/ids"
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
 
-import { useControlPlane } from "@/components/control-plane-context"
+import { useControlPlane } from "@/hooks/use-control-plane"
 import { destinationAfterProjectRemoval } from "@/lib/project-navigation"
 
 export const useRedirectIfProjectGone = (projectId: ProjectId) => {

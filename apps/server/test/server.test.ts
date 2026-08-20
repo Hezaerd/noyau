@@ -36,11 +36,15 @@ const routes = serverRoutesLayer.pipe(
 )
 
 describe("server routes", () => {
-  it("exposes readiness only after the control plane and protects the RPC upgrade", async () => {
-    const runtime = ManagedRuntime.make(infrastructure)
-    const context = await runtime.context()
-    const { dispose, handler } = HttpRouter.toWebHandler(routes, { disableLogger: true })
-    try {
+  it.effect("exposes readiness only after the control plane and protects the RPC upgrade", () =>
+    Effect.gen(function* () {
+      const runtime = ManagedRuntime.make(infrastructure)
+      yield* Effect.addFinalizer(() => Effect.promise(() => runtime.dispose()))
+      const context = yield* Effect.promise(() => runtime.context())
+      const { dispose, handler } = HttpRouter.toWebHandler(routes, { disableLogger: true })
+      yield* Effect.addFinalizer(() => Effect.promise(() => dispose()))
+      const request = (url: string, init?: RequestInit) =>
+        Effect.promise(() => handler(new Request(url, init), context))
       const [
         live,
         ready,
@@ -53,44 +57,32 @@ describe("server routes", () => {
         internalStatusMissing,
         internalStatusForbidden,
         internalStatus,
-      ] = await Promise.all([
-        handler(new Request("http://localhost/health/live"), context),
-        handler(new Request("http://localhost/health/ready"), context),
-        handler(new Request("http://localhost/rpc"), context),
-        handler(
-          new Request("http://localhost/rpc", {
+      ] = yield* Effect.all(
+        [
+          request("http://localhost/health/live"),
+          request("http://localhost/health/ready"),
+          request("http://localhost/rpc"),
+          request("http://localhost/rpc", {
             headers: { authorization: "Bearer wrong-token" },
           }),
-          context,
-        ),
-        handler(new Request("http://localhost/api/v1/projects/legacy/tasks"), context),
-        handler(new Request("http://localhost/internal/config"), context),
-        handler(
-          new Request("http://localhost/internal/config", {
+          request("http://localhost/api/v1/projects/legacy/tasks"),
+          request("http://localhost/internal/config"),
+          request("http://localhost/internal/config", {
             headers: { authorization: "Bearer wrong-token" },
           }),
-          context,
-        ),
-        handler(
-          new Request("http://localhost/internal/config", {
+          request("http://localhost/internal/config", {
             headers: { authorization: "Bearer test-launch-token" },
           }),
-          context,
-        ),
-        handler(new Request("http://localhost/internal/status"), context),
-        handler(
-          new Request("http://localhost/internal/status", {
+          request("http://localhost/internal/status"),
+          request("http://localhost/internal/status", {
             headers: { authorization: "Bearer wrong-token" },
           }),
-          context,
-        ),
-        handler(
-          new Request("http://localhost/internal/status", {
+          request("http://localhost/internal/status", {
             headers: { authorization: "Bearer test-launch-token" },
           }),
-          context,
-        ),
-      ])
+        ],
+        { concurrency: "unbounded" },
+      )
       assert.strictEqual(live.status, 200)
       assert.strictEqual(ready.status, 200)
       assert.strictEqual(missing.status, 401)
@@ -102,10 +94,9 @@ describe("server routes", () => {
       assert.strictEqual(internalStatusMissing.status, 401)
       assert.strictEqual(internalStatusForbidden.status, 403)
       assert.strictEqual(internalStatus.status, 200)
-      assert.deepStrictEqual(await internalStatus.json(), { runningTurn: false })
-    } finally {
-      await dispose()
-      await runtime.dispose()
-    }
-  })
+      assert.deepStrictEqual(yield* Effect.promise(() => internalStatus.json()), {
+        runningTurn: false,
+      })
+    }),
+  )
 })

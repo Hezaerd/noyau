@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp run -r --parallel dev",
-    "dev:desktop": "node apps/desktop/scripts/dev-stack.mjs",
+    "dev:desktop": "node apps/desktop/scripts/dev-stack.ts",
     "dev:server": "node --watch apps/server/src/main.ts",
     "dev:web": "vp -C apps/web dev",
     "build": "vp run -r --cache build",

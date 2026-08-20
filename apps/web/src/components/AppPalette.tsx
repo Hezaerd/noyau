@@ -7,7 +7,6 @@ import {
   type AppPaletteAction,
   type AppPaletteContextValue,
 } from "@/components/app-palette-context"
-import { useControlPlane } from "@/components/control-plane-context"
 import {
   Command,
   CommandCollection,
@@ -25,6 +24,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
+import { useControlPlane } from "@/hooks/use-control-plane"
 import {
   buildPaletteGroups,
   filterPaletteGroups,

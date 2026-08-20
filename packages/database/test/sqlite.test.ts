@@ -1,12 +1,11 @@
-import { mkdtempSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it as standaloneIt, layer } from "@effect/vitest"
 import { runMigrations } from "@noyau/database/migrations"
 import { layer as sqliteLayer, memoryLayer } from "@noyau/database/sqlite"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, FileSystem, Layer, Path } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
+
+const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
 
 describe("SQLite persistence", () => {
   layer(memoryLayer)((it) => {
@@ -79,22 +78,18 @@ describe("SQLite persistence", () => {
     )
   })
 
-  standaloneIt.effect("active WAL sur un fichier possédé par la connexion Node", () => {
-    const directory = mkdtempSync(join(tmpdir(), "noyau-sqlite-"))
-    const filename = join(directory, "state.sqlite")
-    return Effect.scoped(
+  layer(platformLayer)((it) => {
+    it.effect("active WAL sur un fichier possédé par la connexion Node", () =>
       Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-sqlite-" })
+        const filename = path.join(directory, "state.sqlite")
         const context = yield* Layer.build(sqliteLayer({ filename }))
         const sql = Context.get(context, SqlClient)
         const rows = yield* sql<{ journal_mode: string }>`PRAGMA journal_mode`
         assert.strictEqual(rows[0]?.journal_mode, "wal")
       }),
-    ).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          rmSync(directory, { force: true, recursive: true })
-        }),
-      ),
     )
   })
 

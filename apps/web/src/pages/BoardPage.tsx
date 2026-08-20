@@ -54,7 +54,6 @@ import {
 import { type AppPaletteAction, useAppPaletteActions } from "@/components/app-palette-context"
 import { TicketArchiveConfirmDialog } from "@/components/board/TicketArchiveConfirmDialog"
 import { TicketDialog } from "@/components/board/TicketDialog"
-import { useControlPlane } from "@/components/control-plane-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -77,6 +76,7 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useControlPlane } from "@/hooks/use-control-plane"
 import { useKeybindings } from "@/hooks/use-keybindings"
 import {
   createBoardActions,
@@ -103,8 +103,9 @@ import {
   type BoardState,
   type BoardTicket,
 } from "@/lib/board-model"
+import { refreshBoard as fetchBoardSnapshot, runBoardCommand } from "@/lib/board-page-actions"
 import { boardStateFromSnapshot } from "@/lib/board-snapshot"
-import { buildAndDispatchCommand, loadBoardSnapshot, subscribeProject } from "@/lib/control-plane"
+import { subscribeProject } from "@/lib/control-plane"
 import { isKeybindingRecorderActive } from "@/lib/keybindings"
 import {
   makeKanbanColumnCreateRequest,
@@ -698,18 +699,21 @@ export function BoardPage({
       .map((priority) => ({ value: priority, label: priorityLabels[priority] })),
   ]
 
-  const refreshBoard = useCallback(async () => {
-    const snapshot = await loadBoardSnapshot(projectId)
+  const applyBoardSnapshot = (snapshot: Awaited<ReturnType<typeof fetchBoardSnapshot>>) => {
     if (!snapshot.ok) {
       setControlPlaneError(snapshot.details)
       setLoading(false)
-      return false
+      return undefined
     }
     setState(boardStateFromSnapshot(snapshot.value))
     setTicketActivityByTicket(snapshot.value.ticketActivity)
     setControlPlaneError(undefined)
     setLoading(false)
-    return true
+    return undefined
+  }
+
+  const refreshBoard = useCallback(() => {
+    void fetchBoardSnapshot(projectId).then(applyBoardSnapshot)
   }, [projectId])
 
   useEffect(() => {
@@ -730,7 +734,7 @@ export function BoardPage({
         setControlPlaneError(undefined)
       },
       onEvent: (_event) => {
-        void refreshBoard()
+        refreshBoard()
       },
       onError: setControlPlaneError,
     })
@@ -745,21 +749,21 @@ export function BoardPage({
     requestAnimationFrame(() => focusTicket(boardRef, ticketId))
   }
 
-  const runCommand = async <A extends ClientCommandRequest, E>(
+  const runCommand = <A extends ClientCommandRequest, E>(
     request: Effect.Effect<A, E, Crypto.Crypto>,
     successMessage: string,
   ) => {
-    const result = await buildAndDispatchCommand(request)
-    if (!result.ok) {
-      setControlPlaneError(result.details)
-      setAnnouncement("La commande n’a pas pu être envoyée au control plane.")
-      await refreshBoard()
-      return false
-    }
-    setControlPlaneError(undefined)
-    setAnnouncement(successMessage)
-    await refreshBoard()
-    return true
+    void runBoardCommand(projectId, request).then(({ result, snapshot }) => {
+      if (!result.ok) {
+        setControlPlaneError(result.details)
+        setAnnouncement("La commande n’a pas pu être envoyée au control plane.")
+      } else {
+        setControlPlaneError(undefined)
+        setAnnouncement(successMessage)
+      }
+      applyBoardSnapshot(snapshot)
+      return undefined
+    })
   }
 
   const persistTicketPlacement = (next: BoardState, ticketId: string, message: string) => {
@@ -789,7 +793,7 @@ export function BoardPage({
               beforeTicketId: TicketId.make(beforeTicket.id),
               afterTicketId: TicketId.make(afterTicket.id),
             }
-    void runCommand(
+    runCommand(
       makeTicketMoveRequest({
         ticketId: TicketId.make(ticketId),
         placement,
@@ -1013,7 +1017,7 @@ export function BoardPage({
 
   const createInColumn = (columnId: string, title: string) => {
     setCreatingColumnId(undefined)
-    void runCommand(
+    runCommand(
       makeTicketCreateRequest({
         projectId,
         title: title.trim(),
@@ -1029,7 +1033,7 @@ export function BoardPage({
       onCloseTicket()
     }
     const ticketId = TicketId.make(ticket.id)
-    void runCommand(
+    runCommand(
       makeTicketArchiveRequest(
         blockedBy.length > 0 ? { ticketId, acknowledgeOpenDependencies: true } : { ticketId },
       ),
@@ -1053,7 +1057,7 @@ export function BoardPage({
       next = moveTicket(next, ticket.id, destination.id)
     }
     setState({ ...next, columns: next.columns.filter((candidate) => candidate.id !== column.id) })
-    void runCommand(
+    runCommand(
       makeKanbanColumnDeleteRequest({
         columnId: KanbanColumnId.make(column.id),
         destinationColumnId: KanbanColumnId.make(destination.id),
@@ -1248,7 +1252,7 @@ export function BoardPage({
                       candidate.id === column.id ? { ...candidate, name: name.trim() } : candidate,
                     ),
                   }))
-                  void runCommand(
+                  runCommand(
                     makeKanbanColumnUpdateRequest({
                       columnId: KanbanColumnId.make(column.id),
                       name: name.trim(),
@@ -1263,7 +1267,7 @@ export function BoardPage({
                       candidate.id === column.id ? { ...candidate, color } : candidate,
                     ),
                   }))
-                  void runCommand(
+                  runCommand(
                     makeKanbanColumnUpdateRequest({
                       columnId: KanbanColumnId.make(column.id),
                       color,
@@ -1292,7 +1296,7 @@ export function BoardPage({
                             color: "#A855F7",
                             beforeColumnId: KanbanColumnId.make(done.id),
                           }
-                    void runCommand(
+                    runCommand(
                       makeKanbanColumnCreateRequest({ ...columnInput, projectId }),
                       `Colonne ${newColumnName.trim()} ajoutée.`,
                     )
@@ -1414,7 +1418,7 @@ export function BoardPage({
                 dueAt: patch.dueAt === undefined ? null : patch.dueAt,
               }
             }
-            void runCommand(makeTicketUpdateRequest(updateInput), "Détails du ticket mis à jour.")
+            runCommand(makeTicketUpdateRequest(updateInput), "Détails du ticket mis à jour.")
           }
         }}
         onAddDependency={(ticketId, dependsOnTicketId) => {
@@ -1422,7 +1426,7 @@ export function BoardPage({
             setAnnouncement("Cette dépendance créerait un doublon ou un cycle.")
             return
           }
-          void runCommand(
+          runCommand(
             makeTicketDependencyAddRequest({
               ticketId: TicketId.make(ticketId),
               dependsOnTicketId: TicketId.make(dependsOnTicketId),
@@ -1431,7 +1435,7 @@ export function BoardPage({
           )
         }}
         onRemoveDependency={(ticketId, dependsOnTicketId) => {
-          void runCommand(
+          runCommand(
             makeTicketDependencyRemoveRequest({
               ticketId: TicketId.make(ticketId),
               dependsOnTicketId: TicketId.make(dependsOnTicketId),
@@ -1440,7 +1444,7 @@ export function BoardPage({
           )
         }}
         onLinkThread={(ticketId, threadId) => {
-          void runCommand(
+          runCommand(
             makeTicketThreadLinkRequest({
               ticketId: TicketId.make(ticketId),
               threadId,
@@ -1449,7 +1453,7 @@ export function BoardPage({
           )
         }}
         onUnlinkThread={(ticketId, threadId) => {
-          void runCommand(
+          runCommand(
             makeTicketThreadUnlinkRequest({
               ticketId: TicketId.make(ticketId),
               threadId,

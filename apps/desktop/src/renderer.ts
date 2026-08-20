@@ -1,4 +1,4 @@
-import { isAbsolute, relative, resolve } from "node:path"
+import { Effect, Option, Path } from "effect"
 
 export const DESKTOP_SCHEME = "noyau"
 export const DESKTOP_HOST = "app"
@@ -14,24 +14,25 @@ export const desktopUrlForServer = (host: string, port: number, bearerToken: str
   return `${DESKTOP_URL}?${query.toString()}`
 }
 
-export const resolveRendererAssetPath = (
+export const resolveRendererAssetPath = Effect.fn("resolveRendererAssetPath")(function* (
   rendererRoot: string,
   requestPathname: string,
-): string | undefined => {
-  let decodedPathname: string
-  try {
-    decodedPathname = decodeURIComponent(requestPathname)
-  } catch {
+) {
+  const path = yield* Path.Path
+  const decodedPathname = yield* Effect.try(() => decodeURIComponent(requestPathname)).pipe(
+    Effect.option,
+  )
+  if (Option.isNone(decodedPathname)) {
     return undefined
   }
 
-  const relativePath = decodedPathname.replace(/^\/+/u, "")
-  const candidate = resolve(rendererRoot, relativePath === "" ? "index.html" : relativePath)
-  const candidateRelativePath = relative(rendererRoot, candidate)
+  const relativePath = decodedPathname.value.replace(/^\/+/u, "")
+  const candidate = path.resolve(rendererRoot, relativePath === "" ? "index.html" : relativePath)
+  const candidateRelativePath = path.relative(rendererRoot, candidate)
 
-  if (candidateRelativePath.startsWith("..") || isAbsolute(candidateRelativePath)) {
+  if (candidateRelativePath.startsWith("..") || path.isAbsolute(candidateRelativePath)) {
     return undefined
   }
 
   return candidate
-}
+})
