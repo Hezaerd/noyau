@@ -7,7 +7,10 @@
     "./board/decider": "./src/board/decider.ts",
     "./board/projector": "./src/board/projector.ts",
     "./project/decider": "./src/project/decider.ts",
-    "./project/projector": "./src/project/projector.ts"
+    "./project/projector": "./src/project/projector.ts",
+    "./thread/decider": "./src/thread/decider.ts",
+    "./thread/projector": "./src/thread/projector.ts",
+    "./thread/recovery": "./src/thread/recovery.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
