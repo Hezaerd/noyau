@@ -1,8 +1,10 @@
+import type { TranscriptToolAction } from "@noyau/protocol/entities/transcript"
 import { Schema } from "effect"
 
 const FALLBACK_NAME = "Cursor tool"
 const MAX_SUMMARY_LENGTH = 160
 const GENERIC_TITLES = new Set(["terminal", "tool call", "cursor tool"])
+const WRITE_TITLES = new Set(["write", "write file", "wrote file"])
 
 const CommandParts = Schema.Union([Schema.String, Schema.Array(Schema.String)])
 
@@ -33,15 +35,25 @@ const ToolCallRawInput = Schema.Struct({
 })
 
 const decodeRawInput = Schema.decodeUnknownOption(ToolCallRawInput)
+const decodeRawContent = Schema.decodeUnknownOption(
+  Schema.Struct({
+    content: Schema.optionalKey(Schema.String),
+  }),
+)
 
 export interface ToolCallPresentationInput {
   readonly title?: string | null
   readonly kind?: string | null
   readonly locations?: ReadonlyArray<{ readonly path: string }> | null
+  readonly content?: ReadonlyArray<{
+    readonly type?: string | null
+    readonly path?: string | null
+  }> | null
   readonly rawInput?: typeof ToolCallRawInput.Encoded | Schema.Json
 }
 
 export interface ToolCallPresentation {
+  readonly action: TranscriptToolAction
   readonly name: string
   readonly outputSummary?: string
 }
@@ -123,13 +135,33 @@ const maybePathLike = (value: string | undefined): string | undefined => {
   return undefined
 }
 
+const extractDiffPath = (content: ToolCallPresentationInput["content"]): string | undefined => {
+  if (content === undefined || content === null) {
+    return undefined
+  }
+  for (const block of content) {
+    if (block.type === "diff") {
+      const path = maybePathLike(asTrimmedString(block.path ?? undefined))
+      if (path !== undefined) {
+        return path
+      }
+    }
+  }
+  return undefined
+}
+
 const extractPrimaryPath = (
   locations: ToolCallPresentationInput["locations"],
+  content: ToolCallPresentationInput["content"],
   rawInput: typeof ToolCallRawInput.Type | undefined,
 ): string | undefined => {
   const locationPath = maybePathLike(asTrimmedString(locations?.[0]?.path))
   if (locationPath !== undefined) {
     return locationPath
+  }
+  const diffPath = extractDiffPath(content)
+  if (diffPath !== undefined) {
+    return diffPath
   }
   for (const candidate of [
     rawInput?.path,
@@ -158,10 +190,17 @@ const extractQuery = (rawInput: typeof ToolCallRawInput.Type | undefined): strin
   asTrimmedString(rawInput?.input?.query) ??
   asTrimmedString(rawInput?.input?.pattern)
 
+const extractRawContentString = (
+  rawInput: ToolCallPresentationInput["rawInput"],
+): string | undefined => {
+  const decoded = decodeRawContent(rawInput)
+  return decoded._tag === "Some" ? asTrimmedString(decoded.value.content) : undefined
+}
+
 const classifyAction = (
   kind: string | undefined,
   title: string | undefined,
-): "command" | "read" | "file_change" | "search" | "fetch" | "think" | "other" => {
+): TranscriptToolAction => {
   const normalizedKind = kind?.toLowerCase()
   const normalizedTitle = title?.toLowerCase()
   if (normalizedKind === "execute" || normalizedTitle === "terminal") {
@@ -174,7 +213,8 @@ const classifyAction = (
     normalizedKind === "edit" ||
     normalizedKind === "move" ||
     normalizedKind === "delete" ||
-    normalizedKind === "write"
+    normalizedKind === "write" ||
+    (normalizedTitle !== undefined && WRITE_TITLES.has(normalizedTitle))
   ) {
     return "file_change"
   }
@@ -190,7 +230,41 @@ const classifyAction = (
   return "other"
 }
 
+const inferActionFromPayload = (
+  command: string | undefined,
+  query: string | undefined,
+  rawContent: string | undefined,
+): TranscriptToolAction | undefined => {
+  if (command !== undefined) {
+    return "command"
+  }
+  if (query !== undefined) {
+    return query.includes("://") ? "fetch" : "search"
+  }
+  if (rawContent !== undefined) {
+    return "file_change"
+  }
+  return undefined
+}
+
 const collapseWhitespace = (value: string): string => value.replace(/\s+/gu, " ").trim()
+
+const looksLikeJsonDump = (value: string): boolean => {
+  const trimmed = value.trim()
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    return false
+  }
+  return (
+    trimmed.includes('"content"') || trimmed.includes("\\n") || /"[A-Za-z_]\w*":/u.test(trimmed)
+  )
+}
+
+const rejectDump = (value: string | undefined): string | undefined => {
+  if (value === undefined || looksLikeJsonDump(value)) {
+    return undefined
+  }
+  return value
+}
 
 const truncateSummary = (value: string): string => {
   const collapsed = collapseWhitespace(value)
@@ -216,11 +290,16 @@ const isEquivalent = (left: string | undefined, right: string | undefined): bool
   return normalizedLeft !== undefined && normalizedLeft === normalizedRight
 }
 
-const withOptionalSummary = (name: string, detail: string | undefined): ToolCallPresentation => {
-  if (detail === undefined || isEquivalent(detail, name)) {
-    return { name }
+const withOptionalSummary = (
+  action: TranscriptToolAction,
+  name: string,
+  detail: string | undefined,
+): ToolCallPresentation => {
+  const summary = rejectDump(detail)
+  if (summary === undefined || isEquivalent(summary, name)) {
+    return { action, name }
   }
-  return { name, outputSummary: truncateSummary(detail) }
+  return { action, name, outputSummary: truncateSummary(summary) }
 }
 
 const usableTitle = (title: string | undefined): string | undefined => {
@@ -230,9 +309,18 @@ const usableTitle = (title: string | undefined): string | undefined => {
   return GENERIC_TITLES.has(title.toLowerCase()) ? undefined : title
 }
 
+const isWriteLabel = (kind: string | undefined, title: string | undefined): boolean => {
+  const normalizedKind = kind?.toLowerCase()
+  const normalizedTitle = title?.toLowerCase()
+  return (
+    normalizedKind === "write" ||
+    (normalizedTitle !== undefined && WRITE_TITLES.has(normalizedTitle))
+  )
+}
+
 /**
  * Maps an ACP tool_call to the compact TranscriptTool caption. Never uses
- * rawOutput — that payload is often a whole file serialized as JSON.
+ * rawOutput or rawInput.content — those payloads are often a whole file.
  */
 export const deriveToolCallPresentation = (
   input: ToolCallPresentationInput,
@@ -241,26 +329,31 @@ export const deriveToolCallPresentation = (
   const kind = asTrimmedString(input.kind ?? undefined)
   const decodedRawInput = decodeRawInput(input.rawInput)
   const rawInput = decodedRawInput._tag === "Some" ? decodedRawInput.value : undefined
+  const rawContent = extractRawContentString(input.rawInput)
   const command = extractCommand(rawInput, title)
-  const primaryPath = extractPrimaryPath(input.locations, rawInput)
+  const primaryPath = extractPrimaryPath(input.locations, input.content, rawInput)
   const query = extractQuery(rawInput)
-  const action = classifyAction(kind, title)
+  const classified = classifyAction(kind, title)
+  const inferred =
+    classified === "other" ? inferActionFromPayload(command, query, rawContent) : undefined
+  const action = inferred ?? classified
+  const wrote = isWriteLabel(kind, title) || (classified === "other" && rawContent !== undefined)
   const nameFallback = usableTitle(title) ?? kind ?? FALLBACK_NAME
 
   switch (action) {
     case "command":
-      return withOptionalSummary("Ran command", command)
+      return withOptionalSummary("command", "Ran command", command)
     case "read":
-      return withOptionalSummary("Read file", primaryPath)
+      return withOptionalSummary("read", "Read file", primaryPath)
     case "file_change":
-      return withOptionalSummary("Changed files", primaryPath)
+      return withOptionalSummary("file_change", wrote ? "Wrote file" : "Changed files", primaryPath)
     case "search":
-      return withOptionalSummary("Searched files", query ?? primaryPath)
+      return withOptionalSummary("search", "Searched files", query ?? primaryPath)
     case "fetch":
-      return withOptionalSummary("Fetched", query ?? primaryPath)
+      return withOptionalSummary("fetch", "Fetched", query ?? primaryPath)
     case "think":
-      return { name: usableTitle(title) ?? "Thinking" }
+      return { action: "think", name: usableTitle(title) ?? "Thinking" }
     case "other":
-      return withOptionalSummary(nameFallback, command ?? primaryPath ?? query)
+      return withOptionalSummary("other", nameFallback, command ?? primaryPath ?? query)
   }
 }

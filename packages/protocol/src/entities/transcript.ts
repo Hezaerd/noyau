@@ -4,6 +4,17 @@ import { Schema } from "effect"
 export const TranscriptToolStatus = Schema.Literals(["in_progress", "completed", "error"])
 export type TranscriptToolStatus = (typeof TranscriptToolStatus)["Type"]
 
+export const TranscriptToolAction = Schema.Literals([
+  "command",
+  "read",
+  "file_change",
+  "search",
+  "fetch",
+  "think",
+  "other",
+])
+export type TranscriptToolAction = (typeof TranscriptToolAction)["Type"]
+
 export const TranscriptRequestStatus = Schema.Literals(["pending", "resolved"])
 export type TranscriptRequestStatus = (typeof TranscriptRequestStatus)["Type"]
 
@@ -27,6 +38,7 @@ export const TranscriptTool = Schema.TaggedStruct("transcript.tool", {
   toolCallId: ToolCallId,
   name: Schema.NonEmptyString,
   status: TranscriptToolStatus,
+  action: Schema.optionalKey(TranscriptToolAction),
   outputSummary: Schema.optionalKey(Schema.String),
 })
 export type TranscriptTool = (typeof TranscriptTool)["Type"]

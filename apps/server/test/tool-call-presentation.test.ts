@@ -10,6 +10,7 @@ describe("deriveToolCallPresentation", () => {
         rawInput: { query: "mentions légales" },
       }),
     ).toEqual({
+      action: "search",
       name: "Searched files",
       outputSummary: "mentions légales",
     })
@@ -23,6 +24,7 @@ describe("deriveToolCallPresentation", () => {
         locations: [{ path: "src/pages/mentions-legales.astro" }],
       }),
     ).toEqual({
+      action: "read",
       name: "Read file",
       outputSummary: "src/pages/mentions-legales.astro",
     })
@@ -36,6 +38,7 @@ describe("deriveToolCallPresentation", () => {
         rawInput: { command: "bun run lint" },
       }),
     ).toEqual({
+      action: "command",
       name: "Ran command",
       outputSummary: "bun run lint",
     })
@@ -48,6 +51,7 @@ describe("deriveToolCallPresentation", () => {
         rawInput: { executable: "rg", args: ["-n", "ToolCall"] },
       }),
     ).toEqual({
+      action: "command",
       name: "Ran command",
       outputSummary: "rg -n ToolCall",
     })
@@ -61,8 +65,47 @@ describe("deriveToolCallPresentation", () => {
         rawInput: { path: "apps/web/src/lib/thread-transcript.ts" },
       }),
     ).toEqual({
+      action: "file_change",
       name: "Changed files",
       outputSummary: "apps/web/src/lib/thread-transcript.ts",
+    })
+  })
+
+  it("infers a write from rawInput.content and never uses the file body", () => {
+    expect(
+      deriveToolCallPresentation({
+        rawInput: {
+          content: '# VETOSUD — Prototype commercial\nimport { Image } from "astro:assets";\n',
+        },
+      }),
+    ).toEqual({
+      action: "file_change",
+      name: "Wrote file",
+    })
+  })
+
+  it("uses an ACP diff path when Cursor omits locations", () => {
+    expect(
+      deriveToolCallPresentation({
+        rawInput: { content: 'export const title = "VetoSud";\n' },
+        content: [{ type: "diff", path: "src/pages/index.astro" }],
+      }),
+    ).toEqual({
+      action: "file_change",
+      name: "Wrote file",
+      outputSummary: "src/pages/index.astro",
+    })
+  })
+
+  it("drops a JSON dump that slipped into a summary field", () => {
+    expect(
+      deriveToolCallPresentation({
+        kind: "search",
+        rawInput: { query: '{"content":"# VETOSUD — Prototype commercial"}' },
+      }),
+    ).toEqual({
+      action: "search",
+      name: "Searched files",
     })
   })
 
@@ -74,6 +117,7 @@ describe("deriveToolCallPresentation", () => {
         rawInput: {},
       }),
     ).toEqual({
+      action: "read",
       name: "Read file",
     })
   })
@@ -84,12 +128,14 @@ describe("deriveToolCallPresentation", () => {
         title: "Inspect files",
       }),
     ).toEqual({
+      action: "other",
       name: "Inspect files",
     })
   })
 
   it("never uses a missing title as Cursor tool when kind is present", () => {
     expect(deriveToolCallPresentation({ kind: "think" })).toEqual({
+      action: "think",
       name: "Thinking",
     })
   })
@@ -106,6 +152,7 @@ describe("deriveToolCallPresentation", () => {
         },
       }),
     ).toEqual({
+      action: "read",
       name: "Read file",
       outputSummary: "src/index.ts",
     })
@@ -117,7 +164,10 @@ describe("deriveToolCallPresentation", () => {
       kind: "execute",
       rawInput: { command },
     })
-    expect(presentation.name).toBe("Ran command")
+    expect(presentation).toMatchObject({
+      action: "command",
+      name: "Ran command",
+    })
     expect(presentation.outputSummary?.endsWith("…")).toBe(true)
     expect(presentation.outputSummary?.length).toBeLessThanOrEqual(160)
   })

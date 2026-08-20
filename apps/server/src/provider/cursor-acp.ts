@@ -11,6 +11,7 @@ import type {
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
+import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
 import { Deferred, Effect, Fiber, Layer } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
@@ -22,7 +23,7 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "./provider-port.ts"
-import { deriveToolCallPresentation } from "./tool-call-presentation.ts"
+import { deriveToolCallPresentation, type ToolCallPresentation } from "./tool-call-presentation.ts"
 
 const ACP_VERSION = 1 as const
 const CURSOR_AUTH_METHOD = "cursor_login"
@@ -186,6 +187,26 @@ const toolStatus = (status: AcpSchema.ToolCallStatus | null | undefined) => {
   }
 }
 
+const toTranscriptTool = (
+  control: ActiveTurn,
+  toolCallId: string,
+  status: TranscriptTool["status"],
+  presentation: ToolCallPresentation,
+): TranscriptTool => {
+  const item = {
+    _tag: "transcript.tool" as const,
+    threadId: control.input.threadId,
+    turnId: control.input.turnId,
+    toolCallId: ToolCallId.make(toolCallId),
+    name: presentation.name,
+    status,
+    action: presentation.action,
+  }
+  return presentation.outputSummary === undefined
+    ? item
+    : { ...item, outputSummary: presentation.outputSummary }
+}
+
 const errorDetail = (error: AcpError.AcpError) => {
   if (error._tag === "AcpRequestError") {
     const method = error.method ?? "request"
@@ -330,20 +351,9 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     }
     const requestId = request.toolCall.toolCallId
     const presentation = deriveToolCallPresentation(request.toolCall)
-    const permissionTool = {
-      _tag: "transcript.tool" as const,
-      threadId: control.input.threadId,
-      turnId: control.input.turnId,
-      toolCallId: ToolCallId.make(request.toolCall.toolCallId),
-      name: presentation.name,
-      status: "in_progress" as const,
-    }
     yield* control.emit({
       _tag: "transcript",
-      item:
-        presentation.outputSummary === undefined
-          ? permissionTool
-          : { ...permissionTool, outputSummary: presentation.outputSummary },
+      item: toTranscriptTool(control, requestId, "in_progress", presentation),
     })
     const outcome = yield* Effect.gen(function* () {
       if (control.input.runtimeMode === "full-access") {
@@ -446,20 +456,14 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       case "tool_call":
       case "tool_call_update": {
         const presentation = deriveToolCallPresentation(update)
-        const item = {
-          _tag: "transcript.tool" as const,
-          threadId: control.input.threadId,
-          turnId: control.input.turnId,
-          toolCallId: ToolCallId.make(update.toolCallId),
-          name: presentation.name,
-          status: toolStatus(update.status),
-        }
         yield* control.emit({
           _tag: "transcript",
-          item:
-            presentation.outputSummary === undefined
-              ? item
-              : { ...item, outputSummary: presentation.outputSummary },
+          item: toTranscriptTool(
+            control,
+            update.toolCallId,
+            toolStatus(update.status),
+            presentation,
+          ),
         })
         return
       }

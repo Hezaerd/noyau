@@ -1,6 +1,10 @@
 import { Thread } from "@noyau/protocol/entities/thread"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import type {
+  TranscriptItem,
+  TranscriptTool,
+  TranscriptToolAction,
+} from "@noyau/protocol/entities/transcript"
 import type { EventEnvelope } from "@noyau/protocol/events"
 import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
 
@@ -90,9 +94,158 @@ export const transcriptLabel = (item: TranscriptItem): string => {
   }
 }
 
-export const transcriptToolCaption = (
-  item: Extract<TranscriptItem, { readonly _tag: "transcript.tool" }>,
-): string => (item.outputSummary === undefined ? item.name : `${item.name} · ${item.outputSummary}`)
+const actionFromName = (name: string): TranscriptToolAction | undefined => {
+  switch (name) {
+    case "ran command":
+      return "command"
+    case "read file":
+      return "read"
+    case "changed files":
+    case "wrote file":
+      return "file_change"
+    case "searched files":
+      return "search"
+    case "fetched":
+      return "fetch"
+    case "thinking":
+      return "think"
+    default:
+      return undefined
+  }
+}
+
+export interface PresentedTranscriptTool {
+  readonly action: TranscriptToolAction
+  readonly name: string
+  readonly outputSummary?: string
+}
+
+const looksLikeJsonDump = (value: string): boolean => {
+  const trimmed = value.trim()
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    return false
+  }
+  return (
+    trimmed.includes('"content"') || trimmed.includes("\\n") || /"[A-Za-z_]\w*":/u.test(trimmed)
+  )
+}
+
+export const presentTranscriptTool = (item: TranscriptTool): PresentedTranscriptTool => {
+  const dump = item.outputSummary !== undefined && looksLikeJsonDump(item.outputSummary)
+  const name = item.name.toLowerCase() === "cursor tool" && dump ? "Wrote file" : item.name
+  const action =
+    item.action ?? actionFromName(name.toLowerCase()) ?? (dump ? "file_change" : "other")
+  if (dump || item.outputSummary === undefined) {
+    return { action, name }
+  }
+  return { action, name, outputSummary: item.outputSummary }
+}
+
+export const transcriptToolVerb = (item: TranscriptTool): string => {
+  const presented = presentTranscriptTool(item)
+  switch (presented.action) {
+    case "command":
+      return "Ran"
+    case "read":
+      return "Read"
+    case "file_change":
+      return presented.name.toLowerCase().startsWith("wrote") ? "Wrote" : "Changed"
+    case "search":
+      return "Searched"
+    case "fetch":
+      return "Fetched"
+    case "think":
+      return "Thinking"
+    case "other":
+      return presented.name
+  }
+}
+
+export const transcriptToolObject = (item: TranscriptTool): string | undefined =>
+  presentTranscriptTool(item).outputSummary
+
+export const transcriptToolCaption = (item: TranscriptTool): string => {
+  const presented = presentTranscriptTool(item)
+  return presented.outputSummary === undefined
+    ? presented.name
+    : `${presented.name} · ${presented.outputSummary}`
+}
+
+export const transcriptToolGroupLabel = (action: TranscriptToolAction, count: number): string => {
+  switch (action) {
+    case "command":
+      return count === 1 ? "Ran 1 command" : `Ran ${count} commands`
+    case "read":
+      return count === 1 ? "Read 1 file" : `Read ${count} files`
+    case "file_change":
+      return count === 1 ? "Changed 1 file" : `Changed ${count} files`
+    case "search":
+      return count === 1 ? "Searched 1 time" : `Searched ${count} times`
+    case "fetch":
+      return count === 1 ? "Fetched 1 time" : `Fetched ${count} times`
+    case "think":
+      return count === 1 ? "1 thought" : `${count} thoughts`
+    case "other":
+      return count === 1 ? "1 tool call" : `${count} tool calls`
+  }
+}
+
+export type TranscriptRow =
+  | { readonly kind: "item"; readonly item: TranscriptItem; readonly index: number }
+  | {
+      readonly kind: "tool-group"
+      readonly action: TranscriptToolAction
+      readonly items: ReadonlyArray<TranscriptTool>
+      readonly startIndex: number
+    }
+
+export const groupTranscriptRows = (
+  transcript: ReadonlyArray<TranscriptItem>,
+): ReadonlyArray<TranscriptRow> => {
+  const rows: Array<TranscriptRow> = []
+  let index = 0
+  while (index < transcript.length) {
+    const item = transcript[index]
+    if (item === undefined || item._tag !== "transcript.tool") {
+      if (item !== undefined) {
+        rows.push({ kind: "item", item, index })
+      }
+      index += 1
+      continue
+    }
+    const action = presentTranscriptTool(item).action
+    const items: Array<TranscriptTool> = [item]
+    const startIndex = index
+    index += 1
+    while (index < transcript.length) {
+      const next = transcript[index]
+      if (
+        next === undefined ||
+        next._tag !== "transcript.tool" ||
+        next.turnId !== item.turnId ||
+        presentTranscriptTool(next).action !== action
+      ) {
+        break
+      }
+      items.push(next)
+      index += 1
+    }
+    if (items.length >= 2) {
+      rows.push({ kind: "tool-group", action, items, startIndex })
+    } else {
+      rows.push({ kind: "item", item, index: startIndex })
+    }
+  }
+  return rows
+}
+
+export const transcriptGroupRowId = (items: ReadonlyArray<TranscriptTool>): string => {
+  const first = items[0]
+  if (first === undefined) {
+    return "transcript.tool-group"
+  }
+  return `transcript.tool-group:${first.turnId}:${presentTranscriptTool(first).action}:${first.toolCallId}`
+}
 
 /**
  * Stable row id for MessageScroller. Assistant text grows in place, so the id
