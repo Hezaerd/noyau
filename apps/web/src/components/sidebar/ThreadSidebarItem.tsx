@@ -1,26 +1,20 @@
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import { Link, useNavigate } from "@tanstack/react-router"
-import {
-  EllipsisVerticalIcon,
-  MessageCircleIcon,
-  PencilIcon,
-  RefreshCwIcon,
-  Trash2Icon,
-} from "lucide-react"
+import { MessageCircleIcon, PencilIcon, Trash2Icon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
-import { Input } from "@/components/ui/input"
-import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu"
-import { SidebarMenuAction, SidebarMenuButton } from "@/components/ui/sidebar"
-import { Spinner } from "@/components/ui/spinner"
-import { buildAndDispatchCommand } from "@/lib/control-plane"
 import {
-  makeThreadArchiveRequest,
-  makeThreadMetaUpdateRequest,
-  makeThreadTitleRegenerateRequest,
-} from "@/lib/thread-commands"
-import { cn } from "@/lib/utils"
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuPopup,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
+import { Input } from "@/components/ui/input"
+import { SidebarMenuButton } from "@/components/ui/sidebar"
+import { buildAndDispatchCommand } from "@/lib/control-plane"
+import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 
 export function ThreadSidebarItem({
   thread,
@@ -37,12 +31,10 @@ export function ThreadSidebarItem({
   const titleInputRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
   const [title, setTitle] = useState(thread.title)
 
   useEffect(() => {
     setTitle(thread.title)
-    setRegenerating(false)
   }, [thread.title])
 
   useEffect(() => {
@@ -65,18 +57,6 @@ export function ThreadSidebarItem({
     }
     void buildAndDispatchCommand(
       makeThreadMetaUpdateRequest({ threadId: thread.id, title: nextTitle }),
-    )
-  }
-
-  const regenerateTitle = () => {
-    setRegenerating(true)
-    void buildAndDispatchCommand(makeThreadTitleRegenerateRequest({ threadId: thread.id })).then(
-      (result) => {
-        if (!result.ok) {
-          setRegenerating(false)
-        }
-        return undefined
-      },
     )
   }
 
@@ -121,66 +101,47 @@ export function ThreadSidebarItem({
   }
 
   return (
-    <div className="group/thread relative">
-      <SidebarMenuButton
-        render={
-          <Link
-            to="/projects/$projectId/thread/$threadId"
-            params={{ projectId: project.id, threadId: thread.id }}
-            onClick={onSelect}
-          />
-        }
-        isActive={isActive}
-        tooltip={{
-          hidden: menuOpen,
-          side: "right",
-          align: "start",
-          sideOffset: 8,
-          className: "max-w-80 text-left whitespace-normal [&_[data-slot=tooltip-viewport]]:p-0",
-          children: <ThreadSidebarPopover project={project} thread={thread} />,
-        }}
-        className="h-8 pe-8 pl-8 text-sidebar-foreground/58"
-      >
-        <MessageCircleIcon />
-        <span className="truncate">{thread.title}</span>
-        {regenerating ? <Spinner className="ml-auto size-3.5" /> : null}
-      </SidebarMenuButton>
-      <Menu open={menuOpen} onOpenChange={setMenuOpen}>
-        <MenuTrigger
+    <ContextMenu onOpenChange={setMenuOpen}>
+      <ContextMenuTrigger render={<div />}>
+        <SidebarMenuButton
           render={
-            <SidebarMenuAction
-              showOnHover={false}
-              aria-label={`Actions du Thread ${thread.title}`}
-              className={cn(
-                "opacity-0 group-hover/thread:opacity-100 group-focus-within/thread:opacity-100 data-popup-open:opacity-100",
-                (isActive || menuOpen) && "opacity-100",
-              )}
-            >
-              <EllipsisVerticalIcon />
-            </SidebarMenuAction>
+            <Link
+              to="/projects/$projectId/thread/$threadId"
+              params={{ projectId: project.id, threadId: thread.id }}
+              onClick={onSelect}
+            />
           }
-        />
-        <MenuPopup align="start" side="right" className="w-44">
-          <MenuItem
-            closeOnClick
-            onClick={() => {
-              setRenaming(true)
-            }}
-          >
-            <PencilIcon />
-            Renommer
-          </MenuItem>
-          <MenuItem closeOnClick disabled={regenerating} onClick={regenerateTitle}>
-            <RefreshCwIcon />
-            Régénérer le titre
-          </MenuItem>
-          <MenuSeparator />
-          <MenuItem closeOnClick variant="destructive" onClick={archiveThread}>
-            <Trash2Icon />
-            Archiver
-          </MenuItem>
-        </MenuPopup>
-      </Menu>
-    </div>
+          isActive={isActive}
+          tooltip={{
+            hidden: menuOpen,
+            side: "right",
+            align: "start",
+            sideOffset: 8,
+            className: "max-w-80 text-left whitespace-normal [&_[data-slot=tooltip-viewport]]:p-0",
+            children: <ThreadSidebarPopover project={project} thread={thread} />,
+          }}
+          className="h-8 pl-8 text-sidebar-foreground/58"
+        >
+          <MessageCircleIcon />
+          <span className="truncate">{thread.title}</span>
+        </SidebarMenuButton>
+      </ContextMenuTrigger>
+      <ContextMenuPopup align="start" className="w-44">
+        <ContextMenuItem
+          closeOnClick
+          onClick={() => {
+            setRenaming(true)
+          }}
+        >
+          <PencilIcon />
+          Renommer
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem closeOnClick variant="destructive" onClick={archiveThread}>
+          <Trash2Icon />
+          Archiver
+        </ContextMenuItem>
+      </ContextMenuPopup>
+    </ContextMenu>
   )
 }
