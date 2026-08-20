@@ -1,5 +1,5 @@
 import type { ThreadShell } from "@noyau/protocol/shell"
-import { Children, type ReactNode } from "react"
+import { Fragment, type ReactNode } from "react"
 
 export function ThreadSidebarSection({
   threads,
@@ -8,7 +8,9 @@ export function ThreadSidebarSection({
   readonly threads: ReadonlyArray<Pick<ThreadShell, "id" | "title">>
   readonly renderThread: (thread: Pick<ThreadShell, "id" | "title">) => ReactNode
 }) {
-  const renderedThreads = Children.toArray(threads.map(renderThread))
+  const renderedThreads = threads.map((thread) => (
+    <Fragment key={thread.id}>{renderThread(thread)}</Fragment>
+  ))
 
   return (
     <section aria-label="Threads" className="mt-1">
