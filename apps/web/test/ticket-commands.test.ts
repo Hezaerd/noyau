@@ -3,6 +3,7 @@ import { Crypto, Effect } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  makeTicketArchiveRequest,
   makeTicketDependencyAddRequest,
   makeTicketDependencyRemoveRequest,
 } from "../src/lib/ticket-commands"
@@ -24,6 +25,18 @@ describe("ticket dependency command builders", () => {
 
     expect(request._tag).toBe("ticket.dependency.add")
     expect(request.payload).toEqual({ ticketId, dependsOnTicketId })
+  })
+
+  it("builds the archive command and optional dependency acknowledgement", () => {
+    const request = runBuilder(makeTicketArchiveRequest({ ticketId }))
+
+    expect(request._tag).toBe("ticket.archive")
+    expect(request.payload).toEqual({ ticketId })
+
+    const acknowledged = runBuilder(
+      makeTicketArchiveRequest({ ticketId, acknowledgeOpenDependencies: true }),
+    )
+    expect(acknowledged.payload).toEqual({ ticketId, acknowledgeOpenDependencies: true })
   })
 
   it("builds the authoritative remove command", () => {

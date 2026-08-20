@@ -10,6 +10,7 @@ import {
   KanbanColumnCreateRequest,
   KanbanColumnDeleteRequest,
   KanbanColumnUpdateRequest,
+  TicketArchiveRequest,
   TicketAssignRequest,
   TicketCreateRequest,
   TicketDependencyAddRequest,
@@ -60,6 +61,22 @@ export const makeTicketAssignRequest = Effect.fnUntraced(function* (
   return TicketAssignRequest.make({
     commandId: CommandId.make(yield* uuid()),
     payload: input,
+  })
+})
+
+export const makeTicketArchiveRequest = Effect.fnUntraced(function* (input: {
+  readonly ticketId: TicketId
+  readonly acknowledgeOpenDependencies?: boolean
+}) {
+  return TicketArchiveRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload:
+      input.acknowledgeOpenDependencies === undefined
+        ? { ticketId: input.ticketId }
+        : {
+            ticketId: input.ticketId,
+            acknowledgeOpenDependencies: input.acknowledgeOpenDependencies,
+          },
   })
 })
 

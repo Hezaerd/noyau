@@ -198,6 +198,8 @@ describe("rendered Thread UI evidence", () => {
       onRemoveDependency: vi.fn(),
       onLinkThread,
       onUnlinkThread,
+      archiveBlockedByTitles: [],
+      onArchive: vi.fn(),
     } as const
 
     render(<TicketDialog {...baseProps} ticketThreads={[]} />)

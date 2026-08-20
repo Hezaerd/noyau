@@ -138,6 +138,13 @@ export const dependentsForTicket = (
     .filter((dependency) => dependency.dependsOnTicketId === ticketId)
     .map((dependency) => dependency.ticketId)
 
+export const openDependencyTitles = (state: BoardState, ticketId: string): ReadonlyArray<string> =>
+  dependenciesForTicket(state, ticketId).flatMap((dependsOnTicketId) => {
+    const prerequisite = state.tickets.find((ticket) => ticket.id === dependsOnTicketId)
+    const column = state.columns.find((candidate) => candidate.id === prerequisite?.columnId)
+    return prerequisite !== undefined && column?.done !== true ? [prerequisite.title] : []
+  })
+
 const dependencyPathReaches = (
   dependencies: ReadonlyArray<BoardTicketDependency>,
   fromTicketId: string,

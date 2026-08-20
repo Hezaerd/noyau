@@ -28,6 +28,7 @@ import { fr } from "date-fns/locale"
 import type { Crypto } from "effect"
 import { type Effect } from "effect"
 import {
+  ArchiveIcon,
   CalendarIcon,
   CircleIcon,
   EllipsisIcon,
@@ -51,6 +52,7 @@ import {
 } from "react"
 
 import { type AppPaletteAction, useAppPaletteActions } from "@/components/app-palette-context"
+import { TicketArchiveConfirmDialog } from "@/components/board/TicketArchiveConfirmDialog"
 import { TicketDialog } from "@/components/board/TicketDialog"
 import { useControlPlane } from "@/components/control-plane-context"
 import { Badge } from "@/components/ui/badge"
@@ -87,6 +89,7 @@ import {
   isTicketPriority,
   moveTicket,
   moveTicketToAdjacentColumn,
+  openDependencyTitles,
   priorities,
   reorderTicket,
   ticketDependencyIssue,
@@ -107,6 +110,7 @@ import {
   makeKanbanColumnCreateRequest,
   makeKanbanColumnDeleteRequest,
   makeKanbanColumnUpdateRequest,
+  makeTicketArchiveRequest,
   makeTicketCreateRequest,
   makeTicketDependencyAddRequest,
   makeTicketDependencyRemoveRequest,
@@ -169,6 +173,8 @@ function BoardActionIcon({ action }: { readonly action: ExecutableBoardAction })
       return <CircleIcon className={priorityStyles[action.appearance.priority]} />
     case "rename":
       return <PencilIcon />
+    case "archive":
+      return <ArchiveIcon />
     case "delete":
       return <Trash2Icon />
   }
@@ -657,6 +663,7 @@ export function BoardPage({
   const [creatingColumnId, setCreatingColumnId] = useState<string>()
   const [editingColumnId, setEditingColumnId] = useState<string>()
   const [renamingTicketId, setRenamingTicketId] = useState<string>()
+  const [ticketToArchive, setTicketToArchive] = useState<BoardTicket>()
   const [addingColumn, setAddingColumn] = useState(false)
   const [newColumnName, setNewColumnName] = useState("")
   const [announcement, setAnnouncement] = useState(
@@ -1016,6 +1023,20 @@ export function BoardPage({
     )
   }
 
+  const archiveTicket = (ticket: BoardTicket) => {
+    const blockedBy = openDependencyTitles(state, ticket.id)
+    if (search.ticket === ticket.id) {
+      onCloseTicket()
+    }
+    const ticketId = TicketId.make(ticket.id)
+    void runCommand(
+      makeTicketArchiveRequest(
+        blockedBy.length > 0 ? { ticketId, acknowledgeOpenDependencies: true } : { ticketId },
+      ),
+      `Ticket ${ticket.title} archivé.`,
+    )
+  }
+
   const removeColumn = (column: BoardColumn) => {
     if (column.done) {
       return
@@ -1094,6 +1115,12 @@ export function BoardPage({
       renameTicket: (ticketId) => {
         setRenamingTicketId(ticketId)
         onOpenTicket(ticketId)
+      },
+      archiveTicket: (ticketId) => {
+        const ticket = state.tickets.find((candidate) => candidate.id === ticketId)
+        if (ticket !== undefined) {
+          setTicketToArchive(ticket)
+        }
       },
     },
     keybindings,
@@ -1429,6 +1456,33 @@ export function BoardPage({
             }),
             "Thread détaché du ticket.",
           )
+        }}
+        archiveBlockedByTitles={
+          selectedTicket === undefined ? [] : openDependencyTitles(state, selectedTicket.id)
+        }
+        onArchive={(ticketId) => {
+          const ticket = state.tickets.find((candidate) => candidate.id === ticketId)
+          if (ticket !== undefined) {
+            archiveTicket(ticket)
+          }
+        }}
+      />
+      <TicketArchiveConfirmDialog
+        open={ticketToArchive !== undefined}
+        ticketTitle={ticketToArchive?.title ?? ""}
+        blockedByTitles={
+          ticketToArchive === undefined ? [] : openDependencyTitles(state, ticketToArchive.id)
+        }
+        onOpenChange={(open) => {
+          if (!open) {
+            setTicketToArchive(undefined)
+          }
+        }}
+        onConfirm={() => {
+          if (ticketToArchive !== undefined) {
+            archiveTicket(ticketToArchive)
+            setTicketToArchive(undefined)
+          }
         }}
       />
     </main>
