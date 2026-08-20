@@ -60,3 +60,23 @@ _À éviter_ : history, shortcut, historique
 **Catalogue**:
 Union des Actions de navigation, des verbes de la page courante et de ses résultats recherchables.
 _À éviter_ : registry, command list
+
+**Paramètres**:
+Surface dédiée des préférences persistées de l'app, adressable par `/settings`.
+_À éviter_ : options, réglages, preferences, page de config
+
+**Tab Paramètres**:
+Catégorie adressable du catalogue Paramètres (`/settings/$tab`).
+_À éviter_ : section Settings, page d'options, onglet générique
+
+**Préférence**:
+Valeur persistée d'un item du catalogue Paramètres, distincte d'une Command du control plane.
+_À éviter_ : option, config, setting
+
+**Keybinding**:
+Association persistée entre une Action et un Raccourci, surchargeable depuis les Paramètres.
+_À éviter_ : shortcut, hotkey, binding
+
+**Raccourci**:
+Combinaison de touches au format tanstack (`Mod+K`).
+_À éviter_ : shortcut, hotkey

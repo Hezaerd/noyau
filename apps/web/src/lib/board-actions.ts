@@ -1,6 +1,7 @@
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 
 import type { BoardState } from "@/lib/board-model"
+import { resolveKeybindings, type ResolvedKeybindings } from "@/lib/keybindings"
 
 export type BoardActionSurface = "context-menu" | "palette"
 
@@ -66,6 +67,7 @@ const targetsMatch = (
 export const createBoardActions = (
   state: BoardState,
   actions: BoardActions,
+  keybindings: ResolvedKeybindings = resolveKeybindings(new Map()),
 ): ReadonlyArray<ExecutableBoardAction> => [
   {
     id: "ticket.create",
@@ -73,7 +75,7 @@ export const createBoardActions = (
     searchValue: "Créer un ticket",
     groupId: "actions",
     groupLabel: "Actions",
-    shortcut: "C",
+    shortcut: keybindings["board.ticket.create"],
     surfaces: ["palette"],
     appearance: { kind: "create" },
     execute: actions.createTicket,
@@ -84,7 +86,7 @@ export const createBoardActions = (
     searchValue: "Rechercher",
     groupId: "actions",
     groupLabel: "Actions",
-    shortcut: "/",
+    shortcut: keybindings["board.search"],
     surfaces: ["palette"],
     appearance: { kind: "search" },
     execute: actions.focusSearch,
@@ -107,7 +109,7 @@ export const createBoardActions = (
       searchValue: `Renommer ${ticket.title}`,
       groupId: "tickets",
       groupLabel: "Tickets",
-      shortcut: "F2",
+      shortcut: keybindings["board.ticket.rename"],
       surfaces: ["context-menu"],
       target: { kind: "ticket", id: ticket.id },
       appearance: { kind: "rename" },
@@ -121,7 +123,7 @@ export const createBoardActions = (
       searchValue: `Renommer la colonne ${column.name}`,
       groupId: "columns",
       groupLabel: "Colonnes",
-      shortcut: "F2",
+      shortcut: keybindings["board.column.rename"],
       surfaces: ["context-menu"],
       target: { kind: "column", id: column.id },
       appearance: { kind: "rename" },

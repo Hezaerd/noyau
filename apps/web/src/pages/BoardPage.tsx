@@ -75,6 +75,7 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useKeybindings } from "@/hooks/use-keybindings"
 import {
   createBoardActions,
   groupBoardActions,
@@ -101,6 +102,7 @@ import {
 } from "@/lib/board-model"
 import { boardStateFromSnapshot } from "@/lib/board-snapshot"
 import { buildAndDispatchCommand, loadBoardSnapshot, subscribeProject } from "@/lib/control-plane"
+import { isKeybindingRecorderActive } from "@/lib/keybindings"
 import {
   makeKanbanColumnCreateRequest,
   makeKanbanColumnDeleteRequest,
@@ -637,6 +639,7 @@ export function BoardPage({
   onCloseTicket,
 }: BoardPageProps) {
   const { threads } = useControlPlane()
+  const { resolved: keybindings } = useKeybindings()
   const [state, setState] = useState<BoardState>({
     columns: [],
     tickets: [],
@@ -857,12 +860,12 @@ export function BoardPage({
 
   useHotkeys(
     [
-      { hotkey: "ArrowUp", callback: () => navigateVertical(-1) },
-      { hotkey: "ArrowDown", callback: () => navigateVertical(1) },
-      { hotkey: "ArrowLeft", callback: () => navigateHorizontal(-1) },
-      { hotkey: "ArrowRight", callback: () => navigateHorizontal(1) },
+      { hotkey: keybindings["board.navigate.up"], callback: () => navigateVertical(-1) },
+      { hotkey: keybindings["board.navigate.down"], callback: () => navigateVertical(1) },
+      { hotkey: keybindings["board.navigate.left"], callback: () => navigateHorizontal(-1) },
+      { hotkey: keybindings["board.navigate.right"], callback: () => navigateHorizontal(1) },
       {
-        hotkey: "Enter",
+        hotkey: keybindings["board.ticket.open"],
         callback: () => {
           if (activeTicketId !== undefined) {
             onOpenTicket(activeTicketId)
@@ -870,7 +873,7 @@ export function BoardPage({
         },
       },
       {
-        hotkey: "C",
+        hotkey: keybindings["board.ticket.create"],
         callback: () => {
           const active = state.tickets.find((ticket) => ticket.id === activeTicketId)
           const fallback = state.columns.find((column) => !column.done)
@@ -881,15 +884,24 @@ export function BoardPage({
           }
         },
       },
-      { hotkey: "/", callback: () => searchRef.current?.focus() },
-      { hotkey: "Alt+Shift+ArrowUp", callback: () => keyboardMove(-1, false) },
-      { hotkey: "Alt+Shift+ArrowDown", callback: () => keyboardMove(1, false) },
-      { hotkey: "Alt+Shift+ArrowLeft", callback: () => keyboardMove(-1, true) },
-      { hotkey: "Alt+Shift+ArrowRight", callback: () => keyboardMove(1, true) },
+      {
+        hotkey: keybindings["board.ticket.rename"],
+        callback: () => {
+          if (activeTicketId !== undefined) {
+            setRenamingTicketId(activeTicketId)
+            onOpenTicket(activeTicketId)
+          }
+        },
+      },
+      { hotkey: keybindings["board.search"], callback: () => searchRef.current?.focus() },
+      { hotkey: keybindings["board.move.up"], callback: () => keyboardMove(-1, false) },
+      { hotkey: keybindings["board.move.down"], callback: () => keyboardMove(1, false) },
+      { hotkey: keybindings["board.move.left"], callback: () => keyboardMove(-1, true) },
+      { hotkey: keybindings["board.move.right"], callback: () => keyboardMove(1, true) },
     ],
     {
       target: boardRef,
-      enabled: selectedTicket === undefined,
+      enabled: selectedTicket === undefined && !isKeybindingRecorderActive(),
       preventDefault: true,
     },
   )
@@ -1066,22 +1078,26 @@ export function BoardPage({
   )
   useAppPaletteActions(paletteActions)
 
-  const boardActions = createBoardActions(state, {
-    createTicket: createTicketFromPalette,
-    focusSearch: focusBoardSearch,
-    deleteColumn: (columnId) => {
-      const column = state.columns.find((candidate) => candidate.id === columnId)
-      if (column !== undefined) {
-        removeColumn(column)
-      }
+  const boardActions = createBoardActions(
+    state,
+    {
+      createTicket: createTicketFromPalette,
+      focusSearch: focusBoardSearch,
+      deleteColumn: (columnId) => {
+        const column = state.columns.find((candidate) => candidate.id === columnId)
+        if (column !== undefined) {
+          removeColumn(column)
+        }
+      },
+      openTicket: onOpenTicket,
+      renameColumn: setEditingColumnId,
+      renameTicket: (ticketId) => {
+        setRenamingTicketId(ticketId)
+        onOpenTicket(ticketId)
+      },
     },
-    openTicket: onOpenTicket,
-    renameColumn: setEditingColumnId,
-    renameTicket: (ticketId) => {
-      setRenamingTicketId(ticketId)
-      onOpenTicket(ticketId)
-    },
-  })
+    keybindings,
+  )
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {controlPlaneError === undefined ? null : (
@@ -1118,7 +1134,7 @@ export function BoardPage({
                 className="pl-9"
               />
               <KeyboardShortcut
-                hotkey="/"
+                hotkey={keybindings["board.search"]}
                 className="absolute top-1/2 right-2 -translate-y-1/2 text-[0.58rem]"
               />
             </div>
