@@ -19,7 +19,6 @@ import { groupTranscriptRows, transcriptGroupRowId, transcriptRowId } from "@/li
 export function ThreadTranscript({
   transcript,
   isRunning,
-  isNewThread,
   loading,
   error,
   notices,
@@ -31,7 +30,6 @@ export function ThreadTranscript({
 }: {
   readonly transcript: ReadonlyArray<TranscriptItem>
   readonly isRunning: boolean
-  readonly isNewThread: boolean
   readonly loading: boolean
   readonly error: string | undefined
   readonly notices: ReactNode
@@ -112,14 +110,6 @@ export function ThreadTranscript({
                     <Spinner />
                   </MarkerIcon>
                   <MarkerContent>Cursor écrit…</MarkerContent>
-                </Marker>
-              </MessageScrollerItem>
-            ) : null}
-
-            {isNewThread ? (
-              <MessageScrollerItem messageId="thread-empty">
-                <Marker variant="separator">
-                  <MarkerContent>Le titre du Thread sera le premier prompt envoyé.</MarkerContent>
                 </Marker>
               </MessageScrollerItem>
             ) : null}
