@@ -4,6 +4,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { inspect } from "node:util"
 
 import {
   durableJourney,
@@ -63,6 +64,8 @@ const transcriptTexts = (snapshot) =>
 const sessionRequests = (requests) =>
   requests.filter((request) => request.method?.startsWith("session/"))
 
+let desktopOutput = ""
+
 const run = async () => {
   assert.notEqual(
     process.platform,
@@ -80,7 +83,6 @@ const run = async () => {
   const fakeCursorAgent = join(fakeBinDirectory, "cursor-agent")
   let electronProcess
   let sentinelProcess
-  let output = ""
   let shutdownEndpointRequestedAt
 
   try {
@@ -128,7 +130,7 @@ const run = async () => {
     })
     electronProcess.stdout.on("data", (chunk) => {
       const text = chunk.toString()
-      output += text
+      desktopOutput += text
       if (
         shutdownEndpointRequestedAt === undefined &&
         text.includes("NOYAU_DESKTOP_SHUTDOWN_ENDPOINT_REQUESTED")
@@ -137,7 +139,7 @@ const run = async () => {
       }
     })
     electronProcess.stderr.on("data", (chunk) => {
-      output += chunk.toString()
+      desktopOutput += chunk.toString()
     })
     const electronExit = new Promise((resolve) => {
       electronProcess.once("exit", (code, signal) => resolve({ code, signal }))
@@ -227,8 +229,8 @@ const run = async () => {
       shutdownEndpointRequestedAt === undefined
         ? undefined
         : Math.round(performance.now() - shutdownEndpointRequestedAt)
-    assert.equal(exit.code, 0, `Electron exited via ${String(exit.signal)}\n${output}`)
-    assert.match(output, /NOYAU_DESKTOP_SMOKE_TEST_OK/)
+    assert.equal(exit.code, 0, `Electron exited via ${String(exit.signal)}\n${desktopOutput}`)
+    assert.match(desktopOutput, /NOYAU_DESKTOP_SMOKE_TEST_OK/)
     assert.ok(shutdownDuration !== undefined && shutdownDuration < 2_000)
 
     process.stdout.write(
@@ -256,6 +258,8 @@ const run = async () => {
 }
 
 await run().catch((cause) => {
-  process.stderr.write(`Noyau Desktop smoke test failed.\n${String(cause?.stack ?? cause)}\n`)
-  process.exitCode = 1
+  process.stderr.write(
+    `Noyau Desktop smoke test failed.\n${inspect(cause, { depth: 8 })}\n${desktopOutput}`,
+  )
+  process.exit(1)
 })
