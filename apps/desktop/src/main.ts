@@ -66,13 +66,16 @@ const publishSmokeSupervisorState = (state: SupervisorState): void => {
   renameSync(temporaryPath, smokeControlFile)
 }
 
-const waitForSmokeCompletion = async (): Promise<void> => {
+const waitForSmokeCompletion = (): Promise<void> => {
   if (smokeCompleteFile === undefined) {
-    throw new Error("NOYAU_DESKTOP_SMOKE_COMPLETE_FILE is required by the desktop smoke test")
+    return Promise.reject(
+      new Error("NOYAU_DESKTOP_SMOKE_COMPLETE_FILE is required by the desktop smoke test"),
+    )
   }
-  while (!existsSync(smokeCompleteFile)) {
-    await new Promise((resolve) => setTimeout(resolve, 25))
+  if (existsSync(smokeCompleteFile)) {
+    return Promise.resolve()
   }
+  return new Promise((resolve) => setTimeout(resolve, 25)).then(waitForSmokeCompletion)
 }
 
 const syncMainWindowAppearance = (): void => {

@@ -5,18 +5,14 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/protocol/rpc"
-import { Crypto, Effect, Option, Stream } from "effect"
-import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
-import { Socket } from "effect/unstable/socket"
-
+import {
+  durableJourney,
+  readRecoveredJourney,
+  resumeJourney,
+  startInitialJourney,
+} from "./durable-smoke-rpc.ts"
 import { desktopDir, resolveElectronLaunchCommand } from "./electron-launcher.mjs"
 
-const projectId = "85000000-0000-4000-8000-000000000001"
-const threadId = "85000000-0000-4000-8000-000000000002"
-const firstPrompt = "Keep this fake ACP Turn running across restart"
-const secondPrompt = "Resume through session/load without replay"
-const commandId = (index) => `85000000-0000-4000-8000-${index.toString().padStart(12, "0")}`
 const fixturePath = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -27,64 +23,6 @@ const fixturePath = join(
   "fake-cursor-acp.mjs",
 )
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
-
-const cryptoService = Crypto.make({
-  randomBytes: (size) => globalThis.crypto.getRandomValues(new Uint8Array(size)),
-  digest: (algorithm, data) =>
-    Effect.promise(() =>
-      globalThis.crypto.subtle
-        .digest(algorithm, new Uint8Array(data))
-        .then((digest) => new Uint8Array(digest)),
-    ),
-})
-
-const withRpcClient = (bootstrap, use) => {
-  const rpcUrl = new URL(`ws://${bootstrap.host}:${bootstrap.port}/rpc`)
-  rpcUrl.searchParams.set("token", bootstrap.bearerToken)
-  const socketLayer = Effect.provide(
-    Socket.makeWebSocket(rpcUrl.toString()),
-    Socket.layerWebSocketConstructorGlobal,
-  )
-  const client = RpcClient.make(ControlPlaneRpcs).pipe(
-    Effect.provide(RpcClient.layerProtocolSocket()),
-    Effect.provideServiceEffect(Socket.Socket, socketLayer),
-    Effect.provide(RpcSerialization.layerNdjson),
-    Effect.provideService(Crypto.Crypto, cryptoService),
-  )
-  return Effect.scoped(client.pipe(Effect.flatMap(use)))
-}
-
-const firstSnapshot = (stream, label) =>
-  stream.pipe(
-    Stream.filter((item) => item.kind === "snapshot"),
-    Stream.runHead,
-    Effect.flatMap(
-      Option.match({
-        onNone: () => Effect.fail(new Error(`${label} stream ended before its snapshot`)),
-        onSome: (item) => Effect.succeed(item.snapshot),
-      }),
-    ),
-  )
-
-const readBoard = (client) =>
-  firstSnapshot(client[RPC_METHODS.subscribeProject]({ projectId }), "Project")
-
-const readThread = (client) =>
-  firstSnapshot(client[RPC_METHODS.subscribeThread]({ threadId }), "Thread")
-
-const waitForThread = (client, predicate, label) =>
-  Effect.gen(function* () {
-    for (let attempt = 0; attempt < 200; attempt += 1) {
-      const snapshot = yield* readThread(client)
-      if (predicate(snapshot)) {
-        return snapshot
-      }
-      yield* Effect.sleep("25 millis")
-    }
-    return yield* Effect.fail(new Error(`Timed out waiting for ${label}`))
-  })
-
-const dispatch = (client, request) => client[RPC_METHODS.dispatchCommand](request)
 
 const parseRequestLog = async (requestLog) => {
   try {
@@ -101,21 +39,22 @@ const parseRequestLog = async (requestLog) => {
   }
 }
 
-const waitForControl = async (controlFile, predicate, label) => {
-  for (let attempt = 0; attempt < 400; attempt += 1) {
-    try {
-      const control = JSON.parse(await readFile(controlFile, "utf8"))
-      if (predicate(control)) {
-        return control
-      }
-    } catch (cause) {
-      if (cause?.code !== "ENOENT" && !(cause instanceof SyntaxError)) {
-        throw cause
-      }
-    }
-    await delay(25)
+const waitForControl = async (controlFile, predicate, label, attempts = 400) => {
+  if (attempts <= 0) {
+    throw new Error(`Timed out waiting for ${label}`)
   }
-  throw new Error(`Timed out waiting for ${label}`)
+  try {
+    const control = JSON.parse(await readFile(controlFile, "utf8"))
+    if (predicate(control)) {
+      return control
+    }
+  } catch (cause) {
+    if (cause?.code !== "ENOENT" && !(cause instanceof SyntaxError)) {
+      throw cause
+    }
+  }
+  await delay(25)
+  return waitForControl(controlFile, predicate, label, attempts - 1)
 }
 
 const boardContent = ({ snapshotSequence: _snapshotSequence, ...content }) => content
@@ -214,36 +153,7 @@ const run = async () => {
       "initial Electron-supervised server",
     )
     const initialPid = initialControl.state.pid
-    const initial = await Effect.runPromise(
-      withRpcClient(initialControl.bootstrap, (client) =>
-        Effect.gen(function* () {
-          yield* dispatch(client, {
-            _tag: "project.create",
-            commandId: commandId(1),
-            payload: { projectId, name: "Durable Journey", workspaceRoot },
-          })
-          yield* dispatch(client, {
-            _tag: "thread.create",
-            commandId: commandId(2),
-            payload: { threadId, projectId, title: "Durable smoke Thread" },
-          })
-          yield* dispatch(client, {
-            _tag: "thread.turn.start",
-            commandId: commandId(3),
-            payload: { threadId, text: firstPrompt },
-          })
-          const thread = yield* waitForThread(
-            client,
-            (snapshot) =>
-              snapshot.session?.status === "running" &&
-              snapshot.session.resumeCursor?.sessionId === "durable-smoke-session" &&
-              transcriptTexts(snapshot).includes("prompt-open"),
-            "the first fake ACP Turn to remain running",
-          )
-          return { board: yield* readBoard(client), thread }
-        }),
-      ),
-    )
+    const initial = await startInitialJourney(initialControl.bootstrap, workspaceRoot)
     const initialRequests = await parseRequestLog(requestLog)
     assert.equal(
       sessionRequests(initialRequests).filter((request) => request.method === "session/new").length,
@@ -265,19 +175,7 @@ const run = async () => {
         control.bootstrap !== null,
       "the restarted Electron-supervised server child",
     )
-    const recovered = await Effect.runPromise(
-      withRpcClient(restartedControl.bootstrap, (client) =>
-        Effect.gen(function* () {
-          const thread = yield* waitForThread(
-            client,
-            (snapshot) =>
-              snapshot.session?.status === "error" && snapshot.thread.latestTurn?.state === "error",
-            "boot recovery to settle the running Session as error",
-          )
-          return { board: yield* readBoard(client), thread }
-        }),
-      ),
-    )
+    const recovered = await readRecoveredJourney(restartedControl.bootstrap)
 
     assert.deepEqual(boardContent(recovered.board), boardContent(initial.board))
     assert.equal(recovered.thread.thread.id, initial.thread.thread.id)
@@ -302,36 +200,7 @@ const run = async () => {
       "boot recovery must not call session/load",
     )
 
-    const resumed = await Effect.runPromise(
-      withRpcClient(restartedControl.bootstrap, (client) =>
-        Effect.gen(function* () {
-          yield* dispatch(client, {
-            _tag: "thread.turn.start",
-            commandId: commandId(4),
-            payload: { threadId, text: secondPrompt },
-          })
-          const running = yield* waitForThread(
-            client,
-            (snapshot) =>
-              snapshot.turns.length === 2 &&
-              snapshot.session?.status === "running" &&
-              transcriptTexts(snapshot).filter((text) => text === "prompt-open").length === 2,
-            "the resumed fake ACP Turn",
-          )
-          yield* dispatch(client, {
-            _tag: "session.stop",
-            commandId: commandId(5),
-            payload: { threadId },
-          })
-          yield* waitForThread(
-            client,
-            (snapshot) => snapshot.thread.latestTurn?.state === "interrupted",
-            "the resumed Turn to stop",
-          )
-          return running
-        }),
-      ),
-    )
+    const resumed = await resumeJourney(restartedControl.bootstrap)
     assert.deepEqual(resumed.session?.resumeCursor, recovered.thread.session?.resumeCursor)
     assert.doesNotMatch(transcriptTexts(resumed).join("\n"), /replayed text|load-gated text/)
 
@@ -343,7 +212,7 @@ const run = async () => {
     assert.equal(prompts.length, 2, "each human Turn sends exactly one prompt")
     assert.deepEqual(
       prompts.map((request) => request.params.prompt[0].text),
-      [firstPrompt, secondPrompt],
+      [durableJourney.firstPrompt, durableJourney.secondPrompt],
     )
     assert.equal(loads.length, 1)
     assert.equal(loads[0].params.sessionId, "durable-smoke-session")
