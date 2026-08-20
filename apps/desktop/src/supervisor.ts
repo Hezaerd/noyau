@@ -4,7 +4,10 @@ import { readFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { join } from "node:path"
 
-import { Schema } from "effect"
+import { ControlPlaneRpcs } from "@noyau/protocol/rpc"
+import { Effect, Layer, Schema } from "effect"
+import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
+import { Socket } from "effect/unstable/socket"
 
 export const FORCE_KILL_AFTER_MS = 2_000
 export const MAX_RESTART_FAILURES = 5
@@ -30,16 +33,9 @@ export const ServerBootstrap = Schema.Struct({
 export type ServerBootstrap = (typeof ServerBootstrap)["Type"]
 
 type FetchImplementation = (input: string, init?: RequestInit) => Promise<Response>
+type WebSocketConstructor = Socket.WebSocketConstructor["Service"]
 
 const defaultFetch: FetchImplementation = (input, init) => fetch(input, init)
-
-const ServerConfigResponse = Schema.Struct({
-  environmentId: Schema.NonEmptyString,
-  bundleVersion: Schema.NonEmptyString,
-  serverVersion: Schema.NonEmptyString,
-  databaseSchemaVersion: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-  actorId: Schema.NonEmptyString,
-})
 
 const ServerStatusResponse = Schema.Struct({
   runningTurn: Schema.Boolean,
@@ -150,43 +146,31 @@ export const makeServerBootstrap = async (options: {
   serverVersion: options.serverVersion ?? "0.1.0",
 })
 
-const fetchServerConfig = async (
+export const probeRpc = async (
   bootstrap: ServerBootstrap,
-  fetchImpl: FetchImplementation,
+  webSocketConstructor: WebSocketConstructor = (url, protocols) =>
+    new globalThis.WebSocket(url, protocols),
 ): Promise<void> => {
-  const response = await fetchImpl(`http://${bootstrap.host}:${bootstrap.port}/internal/config`, {
-    headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
-    signal: AbortSignal.timeout(500),
-  })
-  if (!response.ok) {
-    throw new Error(`server.getConfig returned HTTP ${response.status}`)
-  }
-  Schema.decodeUnknownSync(ServerConfigResponse)(await response.json())
-}
+  const rpcRequest = Effect.gen(function* () {
+    const client = yield* RpcClient.make(ControlPlaneRpcs)
+    const result = yield* client.GetConfig({}).pipe(Effect.timeout(500))
+    if (result._tag === "None") {
+      return yield* Effect.fail(new Error("Timed out waiting for server.getConfig"))
+    }
+    return result.value
+  }).pipe(
+    Effect.provide(RpcClient.layerProtocolSocket({ retryTransientErrors: false })),
+    Effect.provide(
+      Socket.layerWebSocket(`ws://${bootstrap.host}:${bootstrap.port}/rpc`, {
+        openTimeout: 500,
+        protocols: [`noyau-bearer.${bootstrap.bearerToken}`],
+      }),
+    ),
+    Effect.provide(RpcSerialization.layerJson),
+    Effect.provide(Layer.succeed(Socket.WebSocketConstructor)(webSocketConstructor)),
+  )
 
-const probeRpc = async (bootstrap: ServerBootstrap): Promise<void> => {
-  const WebSocketConstructor = globalThis.WebSocket
-  if (WebSocketConstructor === undefined) {
-    throw new Error("The desktop runtime does not provide WebSocket")
-  }
-  await new Promise<void>((resolve, reject) => {
-    const socket = new WebSocketConstructor(
-      `ws://${bootstrap.host}:${bootstrap.port}/rpc?token=${encodeURIComponent(bootstrap.bearerToken)}`,
-    )
-    const timeout = setTimeout(() => {
-      socket.close()
-      reject(new Error("Timed out opening the RPC WebSocket"))
-    }, 500)
-    socket.addEventListener("open", () => {
-      clearTimeout(timeout)
-      socket.close()
-      resolve()
-    })
-    socket.addEventListener("error", () => {
-      clearTimeout(timeout)
-      reject(new Error("The RPC WebSocket rejected the launch bearer"))
-    })
-  })
+  await Effect.runPromise(Effect.scoped(rpcRequest))
 }
 
 export const waitForServerReady = async (
@@ -213,7 +197,6 @@ export const waitForServerReady = async (
         signal: AbortSignal.timeout(500),
       })
       if (live.ok) {
-        await fetchServerConfig(bootstrap, fetchImpl)
         await (options.probeRpc ?? probeRpc)(bootstrap)
         return
       }
