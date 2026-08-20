@@ -78,6 +78,7 @@ const command = (
 const makeOptions = (
   reactor: DrainableWorker<CounterPersistedEvent>,
   decisions: { count: number },
+  recoverStateAfterReplay?: (state: number) => number,
 ) => ({
   commandSchema: CounterCommand,
   eventSchema: CounterEvent,
@@ -92,6 +93,7 @@ const makeOptions = (
       : Result.succeed([CounterEvent.make({ amount: input.amount })])
   },
   evolve: (state: number, event: CounterEvent) => state + event.amount,
+  ...(recoverStateAfterReplay === undefined ? {} : { recoverStateAfterReplay }),
   project: (event: CounterPersistedEvent) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient
@@ -221,6 +223,39 @@ describe("durable command worker", () => {
           assert.strictEqual(Option.getOrUndefined(yield* Fiber.join(published))?.sequence, 1)
         }),
       ),
+    )
+
+    it.effect("récupère une fois l'état de décision après le replay du journal", () =>
+      Effect.gen(function* () {
+        yield* prepareStore
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const reactor = yield* makeDrainableWorker(
+              (_event: CounterPersistedEvent) => Effect.void,
+            )
+            const worker = yield* makeCommandWorker(makeOptions(reactor, { count: 0 }))
+            yield* worker.dispatch(command("bbbbbbbb-0000-4000-8000-000000000013", "recovery", 2))
+          }),
+        )
+
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const reactor = yield* makeDrainableWorker(
+              (_event: CounterPersistedEvent) => Effect.void,
+            )
+            const worker = yield* makeCommandWorker(
+              makeOptions(reactor, { count: 0 }, (state) => state + 10),
+            )
+            const rejected = yield* worker.dispatch(
+              command("bbbbbbbb-0000-4000-8000-000000000014", "recovery", 0, true),
+            )
+            assert.deepStrictEqual(rejected.response, {
+              _tag: "rejected",
+              error: CounterRejected.make({ reason: "rejected at 12" }),
+            })
+          }),
+        )
+      }),
     )
 
     it.effect("rollback une projection en échec sans receipt ni événement", () =>
