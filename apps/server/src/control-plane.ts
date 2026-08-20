@@ -274,27 +274,25 @@ const initialBoardFor = Effect.fn("ControlPlane.initialBoardFor")(function* (com
 })
 
 const validateWorkspaceRoot = Effect.fn("ControlPlane.validateWorkspaceRoot")(function* (
-  request: ClientCommandRequest,
+  command: CommandType,
 ) {
-  if (request._tag !== "project.create" && request._tag !== "project.rebind") {
-    return
+  if (command._tag !== "project.create" && command._tag !== "project.rebind") {
+    return null
   }
-  const workspaceRoot = request.payload.workspaceRoot
+  const workspaceRoot = command.payload.workspaceRoot
   const fileSystem = yield* FileSystem.FileSystem
-  const info = yield* fileSystem
-    .stat(workspaceRoot)
-    .pipe(
-      Effect.catchTag("PlatformError", (error) =>
-        Effect.fail(
-          error.reason._tag === "NotFound"
-            ? new WorkspaceRootNotFound({ workspaceRoot })
-            : new ServiceUnavailable({ service: "filesystem" }),
-        ),
-      ),
+  const result = yield* fileSystem.stat(workspaceRoot).pipe(
+    Effect.map((info) => ({ _tag: "Found" as const, info })),
+    Effect.catchTag("PlatformError", (error) =>
+      error.reason._tag === "NotFound"
+        ? Effect.succeed({ _tag: "Missing" as const })
+        : Effect.fail(new ServiceUnavailable({ service: "filesystem" })),
     )
-  if (info.type !== "Directory") {
-    return yield* new WorkspaceRootNotDirectory({ workspaceRoot })
+  )
+  if (result._tag === "Missing") {
+    return new WorkspaceRootNotFound({ workspaceRoot })
   }
+  return result.info.type === "Directory" ? null : new WorkspaceRootNotDirectory({ workspaceRoot })
 })
 
 const enrichCommand = Effect.fn("ControlPlane.enrichCommand")(function* (
@@ -512,8 +510,12 @@ export interface ControlPlaneHooks {
   readonly afterThreadSnapshot?: (snapshotSequence: SequenceType) => Effect.Effect<void>
 }
 
-const validateCrossProjectInvariants = Effect.fn("ControlPlane.validateCrossProjectInvariants")(
+const validateProjectLifecycle = Effect.fn("ControlPlane.validateProjectLifecycle")(
   function* (command: CommandType) {
+    const workspaceRootRejection = yield* validateWorkspaceRoot(command)
+    if (workspaceRootRejection !== null) {
+      return workspaceRootRejection
+    }
     if (command._tag !== "project.create" && command._tag !== "project.rebind") {
       return null
     }
@@ -554,7 +556,10 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         initialState: () => emptyControlState,
         decide,
         evolve,
-        validate: validateCrossProjectInvariants,
+        validate: (command) =>
+          validateProjectLifecycle(command).pipe(
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+          ),
         project: (event) => projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql)),
         reactor,
       })
@@ -566,9 +571,6 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
 
       const dispatch: ControlPlaneService["dispatch"] = Effect.fn("ControlPlane.dispatch")(
         function* (request, actorId) {
-          yield* validateWorkspaceRoot(request).pipe(
-            Effect.provideService(FileSystem.FileSystem, fileSystem),
-          )
           const command = yield* enrichCommand(request, actorId).pipe(
             Effect.provideService(SqlClient, sql),
             Effect.provideService(Crypto.Crypto, crypto),
@@ -578,7 +580,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             .dispatch(command)
             .pipe(
               Effect.mapError((error) =>
-                error._tag === "CommandIdConflict"
+                error._tag === "CommandIdConflict" || error._tag === "ServiceUnavailable"
                   ? error
                   : new ServiceUnavailable({ service: "sqlite" }),
               ),

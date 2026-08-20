@@ -209,32 +209,54 @@ describe("ControlPlane", () => {
     ),
   )
 
-  it.effect("requires an existing directory for create and rebind at the IO boundary", () =>
+  it.effect("persists stable existing-directory rejections for create and rebind", () =>
     run(
       Effect.gen(function* () {
         const controlPlane = yield* ControlPlane
+        const sql = yield* SqlClient
         const missing = `/tmp/noyau-missing-${uuid(90)}`
-        const missingCreate = yield* controlPlane
-          .dispatch(projectCreate(uuid(1), projectId, missing), actorId)
-          .pipe(Effect.flip)
-        const fileCreate = yield* controlPlane
-          .dispatch(projectCreate(uuid(2), projectId, "/etc/hosts"), actorId)
+        const missingCreateRequest = projectCreate(uuid(1), projectId, missing)
+        const fileCreateRequest = projectCreate(uuid(2), projectId, "/etc/hosts")
+        const missingCreate = yield* controlPlane.dispatch(missingCreateRequest, actorId).pipe(
+          Effect.flip,
+        )
+        const missingCreateRetry = yield* controlPlane.dispatch(missingCreateRequest, actorId).pipe(
+          Effect.flip,
+        )
+        const fileCreate = yield* controlPlane.dispatch(fileCreateRequest, actorId).pipe(Effect.flip)
+        const fileCreateRetry = yield* controlPlane
+          .dispatch(fileCreateRequest, actorId)
           .pipe(Effect.flip)
         assert.instanceOf(missingCreate, WorkspaceRootNotFound)
+        assert.deepStrictEqual(missingCreateRetry, missingCreate)
         assert.instanceOf(fileCreate, WorkspaceRootNotDirectory)
+        assert.deepStrictEqual(fileCreateRetry, fileCreate)
 
         yield* controlPlane.dispatch(projectCreate(uuid(3), projectId, "/tmp"), actorId)
-        const missingRebind = yield* controlPlane
-          .dispatch(
-            request({
-              _tag: "project.rebind",
-              commandId: uuid(4),
-              payload: { projectId, workspaceRoot: missing },
-            }),
-            actorId,
-          )
+        const missingRebindRequest = request({
+          _tag: "project.rebind",
+          commandId: uuid(4),
+          payload: { projectId, workspaceRoot: missing },
+        })
+        const missingRebind = yield* controlPlane.dispatch(missingRebindRequest, actorId).pipe(
+          Effect.flip,
+        )
+        const missingRebindRetry = yield* controlPlane
+          .dispatch(missingRebindRequest, actorId)
           .pipe(Effect.flip)
         assert.instanceOf(missingRebind, WorkspaceRootNotFound)
+        assert.deepStrictEqual(missingRebindRetry, missingRebind)
+
+        const receipts = yield* sql<{ response: string }>`
+          SELECT response
+          FROM receipts
+          WHERE command_id IN (${uuid(1)}, ${uuid(2)}, ${uuid(4)})
+          ORDER BY command_id
+        `
+        assert.strictEqual(receipts.length, 3)
+        assert.isTrue(receipts[0]?.response.includes('"WorkspaceRootNotFound"'))
+        assert.isTrue(receipts[1]?.response.includes('"WorkspaceRootNotDirectory"'))
+        assert.isTrue(receipts[2]?.response.includes('"WorkspaceRootNotFound"'))
       }),
     ),
   )
