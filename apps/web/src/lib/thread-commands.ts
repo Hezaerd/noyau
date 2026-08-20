@@ -21,6 +21,24 @@ const uuid = Effect.fnUntraced(function* () {
   return yield* crypto.randomUUIDv4
 })
 
+type ThreadCreatePayload = {
+  readonly threadId: ThreadId
+  readonly projectId: ProjectId
+  readonly title: string
+  readonly runtimeMode?: RuntimeModeType
+}
+
+type ThreadTurnStartPayload = {
+  readonly threadId: ThreadId
+  readonly text: string
+  readonly runtimeMode?: RuntimeModeType
+}
+
+type ThreadTurnInterruptPayload = {
+  readonly threadId: ThreadId
+  readonly turnId?: TurnId
+}
+
 export const makeThreadId = Effect.fnUntraced(function* () {
   return ThreadId.make(yield* uuid())
 })
@@ -31,12 +49,7 @@ export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
   readonly title: string
   readonly runtimeMode?: RuntimeModeType
 }) {
-  let payload: {
-    readonly threadId: ThreadId
-    readonly projectId: ProjectId
-    readonly title: string
-    readonly runtimeMode?: RuntimeModeType
-  } = {
+  let payload: ThreadCreatePayload = {
     threadId: input.threadId,
     projectId: input.projectId,
     title: input.title.trim(),
@@ -55,11 +68,7 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   readonly text: string
   readonly runtimeMode?: RuntimeModeType
 }) {
-  let payload: {
-    readonly threadId: ThreadId
-    readonly text: string
-    readonly runtimeMode?: RuntimeModeType
-  } = {
+  let payload: ThreadTurnStartPayload = {
     threadId: input.threadId,
     text: input.text.trim(),
   }
@@ -76,7 +85,7 @@ export const makeThreadTurnInterruptRequest = Effect.fnUntraced(function* (input
   readonly threadId: ThreadId
   readonly turnId?: TurnId
 }) {
-  let payload: { readonly threadId: ThreadId; readonly turnId?: TurnId } = {
+  let payload: ThreadTurnInterruptPayload = {
     threadId: input.threadId,
   }
   if (input.turnId !== undefined) {
