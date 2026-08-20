@@ -3,7 +3,7 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
-import { PanelLeftIcon } from "lucide-react"
+import { PanelLeftCloseIcon, PanelLeftIcon } from "lucide-react"
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
@@ -152,6 +152,7 @@ export function SidebarProvider({
           "group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-sidebar",
           className,
         )}
+        data-sidebar-state={state}
         data-slot="sidebar-wrapper"
         // SAFETY: CSS custom properties are valid on React.CSSProperties via index signature.
         style={
@@ -277,11 +278,17 @@ export function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>): React.ReactElement {
-  const { toggleSidebar } = useSidebar()
+  const { isMobile, open, openMobile, toggleSidebar } = useSidebar()
+  const isOpen = isMobile ? openMobile : open
 
   return (
     <Button
-      className={cn("size-7", className)}
+      {...props}
+      aria-pressed={isOpen}
+      className={cn(
+        "size-[var(--desktop-titlebar-control-size)]! [-webkit-app-region:no-drag]",
+        className,
+      )}
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
       onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
@@ -290,10 +297,9 @@ export function SidebarTrigger({
       }}
       size="icon"
       variant="ghost"
-      {...props}
     >
-      <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
+      {isOpen ? <PanelLeftCloseIcon /> : <PanelLeftIcon />}
+      <span className="sr-only">Basculer la sidebar</span>
     </Button>
   )
 }

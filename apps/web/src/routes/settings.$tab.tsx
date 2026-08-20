@@ -4,8 +4,6 @@ import type { ReactElement } from "react"
 
 import { SETTINGS_PANELS, useSettingsTabRestore } from "@/components/settings/settings-panels"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { DEFAULT_SETTINGS_TAB, getSettingsTab, parseSettingsTabId } from "@/lib/settings-catalog"
 
 function SettingsTabPage(): ReactElement {
@@ -20,8 +18,6 @@ function SettingsTabPage(): ReactElement {
         className="drag-region sticky top-0 z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
         data-desktop-page-titlebar=""
       >
-        <SidebarTrigger className="-ml-1 text-muted-foreground" />
-        <Separator orientation="vertical" className="h-4" />
         <nav aria-label="Fil d’Ariane" className="flex min-w-0 items-center gap-1.5 text-sm">
           <span className="text-muted-foreground">Paramètres</span>
           <span className="text-muted-foreground/50">/</span>
