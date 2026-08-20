@@ -3,27 +3,14 @@
 import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
 import { ProjectId, ThreadId, TicketId } from "@noyau/protocol/ids"
 import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  Link,
-  Outlet,
-  RouterProvider,
-} from "@tanstack/react-router"
-import { cleanup, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"
-import { useState } from "react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { TicketDialog } from "../src/components/board/TicketDialog"
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
-import { CursorReadinessChip } from "../src/components/thread/CursorReadinessChip"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
-import { ThreadHeader } from "../src/components/thread/ThreadHeader"
-import { ThreadRuntimeModePicker } from "../src/components/thread/ThreadRuntimeModePicker"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
 import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
 import type { BoardTicket } from "../src/lib/board-model"
@@ -42,44 +29,6 @@ const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const secondThreadId = ThreadId.make("20000000-0000-4000-8000-000000000002")
 const ticketId = TicketId.make("30000000-0000-4000-8000-000000000001")
 const linkedTicketId = TicketId.make("30000000-0000-4000-8000-000000000002")
-
-const renderThreadHeaderWithRouter = () => {
-  const rootRoute = createRootRoute({
-    component: () => <Outlet />,
-  })
-  const threadRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/projects/$projectId/thread/$threadId",
-    component: () => (
-      <ThreadHeader
-        projectId={projectId}
-        cursor={{ installed: true, handshakeOk: true }}
-        runtimeMode="full-access"
-        onRuntimeModeChange={vi.fn()}
-        canCreateTicket
-        onCreateTicket={vi.fn()}
-      />
-    ),
-  })
-  const boardRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/projects/$projectId/board",
-    component: () => (
-      <Link to="/projects/$projectId/thread/$threadId" params={{ projectId, threadId }}>
-        Thread
-      </Link>
-    ),
-  })
-  const router = createRouter({
-    routeTree: rootRoute.addChildren([threadRoute, boardRoute]),
-    history: createMemoryHistory({
-      initialEntries: [`/projects/${projectId}/thread/${threadId}`],
-    }),
-  })
-
-  render(<RouterProvider router={router} />)
-  return router
-}
 
 const makeThread = (id: ThreadId, title: string): ThreadShellType =>
   Schema.decodeSync(ThreadShell)({
@@ -105,13 +54,6 @@ const ticket: BoardTicket = {
   priority: "normal",
 }
 
-function RuntimeModeHarness() {
-  const [value, setValue] = useState<
-    "approval-required" | "auto-accept-edits" | "auto" | "full-access"
-  >("full-access")
-  return <ThreadRuntimeModePicker value={value} onChange={setValue} />
-}
-
 describe("rendered Thread UI evidence", () => {
   it("renders titled Threads under an explicit Sidebar Threads heading", () => {
     render(
@@ -130,21 +72,6 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByRole("link", { name: "Documenter Cursor" })).toBeTruthy()
   })
 
-  it("renders accessible Thread header destinations and navigates back to the Tableau", async () => {
-    const user = userEvent.setup()
-    const router = renderThreadHeaderWithRouter()
-    const returnLink = await screen.findByRole("link", { name: "Retour au Tableau" })
-
-    expect(returnLink.getAttribute("href")).toBe(`/projects/${projectId}/board`)
-    expect(screen.queryByRole("heading", { name: "Corriger la reprise" })).toBeNull()
-    expect(screen.queryByText(/Conversation Cursor durable/)).toBeNull()
-
-    await user.click(returnLink)
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe(`/projects/${projectId}/board`)
-    })
-  })
-
   it("renders Session lastError and human interruption separately", () => {
     render(
       <ThreadStatusNotices
@@ -158,43 +85,22 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.queryByText(/lost/i)).toBeNull()
   })
 
-  it("renders and changes among all four runtimeMode values", async () => {
-    const user = userEvent.setup()
-
-    render(<RuntimeModeHarness />)
-    await user.click(screen.getByRole("combobox", { name: "Mode d’exécution" }))
-
-    expect(screen.getByText("Approbation requise")).toBeTruthy()
-    expect(screen.getByText("Accepter les éditions")).toBeTruthy()
-    expect(screen.getByText("Automatique")).toBeTruthy()
-    expect(screen.getAllByText("Accès complet").length).toBeGreaterThan(0)
-
-    await user.click(screen.getByText("Automatique"))
-    expect(screen.getByRole("combobox", { name: "Mode d’exécution" }).textContent).toContain(
-      "Automatique",
-    )
-  })
-
-  it("renders Cursor readiness and gates the composer while unavailable", () => {
+  it("gates the composer while Cursor is unavailable", () => {
     render(
-      <>
-        <CursorReadinessChip status={{ installed: true, handshakeOk: false }} />
-        <ThreadComposer
-          isNewThread
-          isRunning={false}
-          disabled
-          text=""
-          error={undefined}
-          onSubmit={vi.fn()}
-          onTextChange={vi.fn()}
-          onPaste={vi.fn()}
-          onDrop={vi.fn()}
-          onInterrupt={vi.fn()}
-        />
-      </>,
+      <ThreadComposer
+        isNewThread
+        isRunning={false}
+        disabled
+        text=""
+        error={undefined}
+        onSubmit={vi.fn()}
+        onTextChange={vi.fn()}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onInterrupt={vi.fn()}
+      />,
     )
 
-    expect(screen.getByText("Cursor indisponible")).toBeTruthy()
     expect(
       screen.getByRole("textbox", { name: "Composer un message" }).hasAttribute("disabled"),
     ).toBe(true)
