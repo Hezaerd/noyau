@@ -51,4 +51,5 @@ export const boardFixture: BoardState = {
     },
   ],
   ticketDependencies: [{ ticketId: "ticket-projection", dependsOnTicketId: "ticket-http" }],
+  ticketThreads: [],
 }
