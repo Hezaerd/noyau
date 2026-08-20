@@ -49,6 +49,18 @@ export function WorkspaceBreadcrumbSeparator() {
   )
 }
 
+export function SettingsPageTitle({ tabLabel }: { readonly tabLabel: string }) {
+  return (
+    <WorkspaceBreadcrumb ariaLabel="Fil d’Ariane">
+      <WorkspaceBreadcrumbItem>Paramètres</WorkspaceBreadcrumbItem>
+      <WorkspaceBreadcrumbSeparator />
+      <WorkspaceBreadcrumbItem current className="min-w-0">
+        <h1 className="min-w-0 truncate">{tabLabel}</h1>
+      </WorkspaceBreadcrumbItem>
+    </WorkspaceBreadcrumb>
+  )
+}
+
 export function ThreadPageTitle({
   projectName,
   threadTitle,

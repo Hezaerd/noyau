@@ -1,15 +1,18 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router"
+import { RotateCcwIcon } from "lucide-react"
 
 import { AppPaletteProvider } from "@/components/AppPalette"
 import { AppSidebar } from "@/components/AppSidebar"
 import { ControlPlaneProvider } from "@/components/control-plane-context"
 import { SettingsSidebar } from "@/components/settings/SettingsSidebar"
+import { Button } from "@/components/ui/button"
 import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
-import { ThreadPageTitle } from "@/components/WorkspaceBreadcrumb"
+import { SettingsPageTitle, ThreadPageTitle } from "@/components/WorkspaceBreadcrumb"
 import { useControlPlane } from "@/hooks/use-control-plane"
+import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
 import { resolvePageTitlebar } from "@/lib/page-titlebar"
-import { isSettingsPath } from "@/lib/settings-catalog"
+import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"
 
 function SidebarControl() {
   return (
@@ -37,11 +40,34 @@ function DesktopPageTitle() {
   const { projects, threads } = useControlPlane()
   const titlebar = resolvePageTitlebar({ pathname, projects, threads })
 
+  if (titlebar.kind === "settings") {
+    return <SettingsPageTitle tabLabel={titlebar.tabLabel} />
+  }
+
   if (titlebar.kind === "thread") {
     return <ThreadPageTitle projectName={titlebar.projectName} threadTitle={titlebar.threadTitle} />
   }
 
   return <h1 className="truncate font-medium tracking-[-0.015em]">{titlebar.title}</h1>
+}
+
+function SettingsRestoreAction() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const tab = resolveSettingsTabFromPathname(pathname)
+  const { canRestore, restore } = useSettingsTabRestore(tab.id)
+
+  if (!tab.restorable) {
+    return null
+  }
+
+  return (
+    <div className="ms-auto">
+      <Button type="button" size="xs" variant="ghost" disabled={!canRestore} onClick={restore}>
+        <RotateCcwIcon data-icon="inline-start" />
+        Restaurer les défauts
+      </Button>
+    </div>
+  )
 }
 
 export function RootLayout() {
@@ -58,22 +84,19 @@ export function RootLayout() {
             {isSettings ? <SettingsSidebar /> : <AppSidebar />}
           </Sidebar>
           <SidebarInset className="min-h-0 min-w-0 overflow-hidden overscroll-y-none">
-            {isSettings ? (
-              <Outlet />
-            ) : (
-              <>
-                <header
-                  className="drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
-                  data-desktop-page-titlebar=""
-                >
-                  <div className="flex min-w-0 items-center text-sm">
-                    <DesktopPageTitle />
-                  </div>
-                </header>
+            {/* Keep the page titlebar mounted: swapping it with the Settings
+                header unmounts the chrome for one frame. */}
+            <header
+              className="drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
+              data-desktop-page-titlebar=""
+            >
+              <div className="flex min-w-0 items-center text-sm">
+                <DesktopPageTitle />
+              </div>
+              {isSettings ? <SettingsRestoreAction /> : null}
+            </header>
 
-                <Outlet />
-              </>
-            )}
+            <Outlet />
           </SidebarInset>
           <SidebarControl />
         </SidebarProvider>
