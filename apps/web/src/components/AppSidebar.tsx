@@ -13,6 +13,7 @@ import { useState } from "react"
 import { AppearanceMenu } from "@/components/AppearanceMenu"
 import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
+import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { CommandDialogTrigger } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
@@ -146,26 +147,27 @@ export function AppSidebar() {
                       <LayoutGridIcon />
                       <span>Tableau</span>
                     </SidebarMenuButton>
-                    <div className="mt-1 flex flex-col gap-0.5">
-                      <SidebarMenuButton
-                        render={
-                          <Link
-                            to="/projects/$projectId/thread/$threadId"
-                            params={{ projectId: project.id, threadId: "new" }}
-                            onClick={() => {
-                              selectProject(project.id)
-                              closeMobileNavigation()
-                            }}
-                          />
-                        }
-                        isActive={pathname === `/projects/${project.id}/thread/new`}
-                        tooltip="Nouveau Thread"
-                        className="h-8 pl-8 text-sidebar-foreground/58"
-                      >
-                        <MessageCirclePlusIcon />
-                        <span>Nouveau Thread</span>
-                      </SidebarMenuButton>
-                      {projectThreads.map((thread) => (
+                    <SidebarMenuButton
+                      render={
+                        <Link
+                          to="/projects/$projectId/thread/$threadId"
+                          params={{ projectId: project.id, threadId: "new" }}
+                          onClick={() => {
+                            selectProject(project.id)
+                            closeMobileNavigation()
+                          }}
+                        />
+                      }
+                      isActive={pathname === `/projects/${project.id}/thread/new`}
+                      tooltip="Nouveau Thread"
+                      className="mt-1 h-8 pl-8 text-sidebar-foreground/58"
+                    >
+                      <MessageCirclePlusIcon />
+                      <span>Nouveau Thread</span>
+                    </SidebarMenuButton>
+                    <ThreadSidebarSection
+                      threads={projectThreads}
+                      renderThread={(thread) => (
                         <SidebarMenuButton
                           key={thread.id}
                           render={
@@ -185,8 +187,8 @@ export function AppSidebar() {
                           <MessageCircleIcon />
                           <span className="truncate">{thread.title}</span>
                         </SidebarMenuButton>
-                      ))}
-                    </div>
+                      )}
+                    />
                   </SidebarMenuItem>
                 )
               })}

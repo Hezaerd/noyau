@@ -25,6 +25,9 @@ export default defineConfig({
       outExtensions: () => ({ js: ".cjs" }),
       sourcemap: true,
       clean: true,
+      deps: {
+        alwaysBundle: (id: string) => id === "@noyau/protocol" || id.startsWith("@noyau/protocol/"),
+      },
     },
     {
       entry: ["src/preload.ts"],

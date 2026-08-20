@@ -22,6 +22,13 @@ export function ThreadRoutePage() {
           replace: true,
         })
       }}
+      onTicketCreated={(createdTicketId) => {
+        void navigate({
+          to: "/projects/$projectId/board",
+          params: { projectId: routeProjectId },
+          search: { ticket: createdTicketId },
+        })
+      }}
     />
   )
 }

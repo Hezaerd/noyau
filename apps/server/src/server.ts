@@ -16,6 +16,7 @@ import { authenticateBearer, rpcIdentityLayer } from "./identity"
 import { loggerLayer } from "./observability"
 import { cursorProviderLayer } from "./provider/cursor-acp"
 import { rpcHandlersLayer } from "./rpc-handlers"
+import { workspaceRootAccessLayer } from "./workspace-root"
 
 export const sqlitePersistenceLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -165,7 +166,9 @@ export const nodeServerLayer = Layer.mergeAll(
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(cursorProviderLayer()),
+  Layer.provideMerge(workspaceRootAccessLayer),
   Layer.provideMerge(sqlitePersistenceLayer.pipe(Layer.provideMerge(serverConfigLayer))),
+  Layer.provideMerge(NodeFileSystem.layer),
   Layer.provide(NodeCrypto.layer),
 )
 

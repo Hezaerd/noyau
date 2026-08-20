@@ -22,6 +22,7 @@ const ignorePatterns = [
   "**/dist-electron/**",
   "**/coverage/**",
   "**/routeTree.gen.ts",
+  ".worktrees/**",
   "repos/**",
   "tools/oxlint/anti-slop/**",
   ...agentIgnorePatterns,

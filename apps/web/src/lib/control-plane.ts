@@ -66,12 +66,32 @@ const browserCrypto = Crypto.make({
   },
 })
 
-const runtime = ManagedRuntime.make(
-  Layer.merge(
-    ControlPlaneClient.layer(controlPlaneConfig),
-    Layer.succeed(Crypto.Crypto)(browserCrypto),
-  ),
-)
+const makeTransportSession = () =>
+  ManagedRuntime.make(
+    Layer.merge(
+      ControlPlaneClient.layer(controlPlaneConfig),
+      Layer.succeed(Crypto.Crypto)(browserCrypto),
+    ),
+  )
+
+type TransportSession = ReturnType<typeof makeTransportSession>
+
+let activeTransportSession = makeTransportSession()
+const retiredSessions = new WeakMap<TransportSession, Promise<void>>()
+
+const replaceTransportSession = (failedSession: TransportSession): Promise<void> => {
+  const retired = retiredSessions.get(failedSession)
+  if (retired !== undefined) {
+    return retired
+  }
+  if (activeTransportSession !== failedSession) {
+    return Promise.resolve()
+  }
+  activeTransportSession = makeTransportSession()
+  const disposal = failedSession.dispose()
+  retiredSessions.set(failedSession, disposal)
+  return disposal
+}
 
 type ControlPlaneStreamError = RpcClientError | Forbidden | MissingIdentity | ServiceUnavailable
 
@@ -85,7 +105,7 @@ class ProjectSnapshotUnavailable extends Schema.TaggedError<ProjectSnapshotUnava
 const runOperation = async <A, E>(
   operation: Effect.Effect<A, E, ControlPlaneClient>,
 ): Promise<ControlPlaneResult<A>> => {
-  const exit = await runtime.runPromiseExit(operation)
+  const exit = await activeTransportSession.runPromiseExit(operation)
 
   return Exit.match(exit, {
     onFailure: (cause) => ({ ok: false, details: Cause.pretty(cause) }),
@@ -162,7 +182,7 @@ export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
 const runOperationWithCrypto = async <A, E>(
   operation: Effect.Effect<A, E, ControlPlaneClient | Crypto.Crypto>,
 ): Promise<ControlPlaneResult<A>> => {
-  const exit = await runtime.runPromiseExit(operation)
+  const exit = await activeTransportSession.runPromiseExit(operation)
   return Exit.match(exit, {
     onFailure: (cause) => ({ ok: false, details: Cause.pretty(cause) }),
     onSuccess: (value) => ({ ok: true, value }),
@@ -179,30 +199,135 @@ type StreamCallbacks<Snapshot, Event> = {
   readonly onError: (details: string) => void
 }
 
-const startSubscription = <Snapshot, Event>(
-  stream: Effect.Effect<void, ControlPlaneStreamError, ControlPlaneClient>,
+type SequencedSnapshot = { readonly snapshotSequence: Sequence }
+type SequencedEvent = { readonly sequence: Sequence }
+type SequencedFrame<Snapshot extends SequencedSnapshot, Event extends SequencedEvent> =
+  | { readonly kind: "snapshot"; readonly snapshot: Snapshot }
+  | { readonly kind: "event"; readonly event: Event }
+  | { readonly kind: "synchronized" }
+
+export const makeSequencedFrameConsumer = <
+  Snapshot extends SequencedSnapshot,
+  Event extends SequencedEvent,
+>(
+  initialAfterSequence: Sequence | undefined,
   callbacks: StreamCallbacks<Snapshot, Event>,
 ) => {
-  const fiber = runtime.runFork(
-    stream.pipe(
-      Effect.tapCause((cause) => Effect.sync(() => callbacks.onError(Cause.pretty(cause)))),
-    ),
-  )
-  return () => {
-    runtime.runFork(Fiber.interrupt(fiber))
+  let lastSequence = initialAfterSequence
+  let acceptsLiveEvents = initialAfterSequence !== undefined
+
+  return {
+    afterSequence: () => lastSequence,
+    consume: (item: SequencedFrame<Snapshot, Event>): void => {
+      if (item.kind === "synchronized") {
+        return
+      }
+      if (item.kind === "event" && !acceptsLiveEvents) {
+        return
+      }
+      const sequence =
+        item.kind === "snapshot" ? item.snapshot.snapshotSequence : item.event.sequence
+      if (!acceptsSequence(lastSequence, sequence)) {
+        return
+      }
+      lastSequence = sequence
+      if (item.kind === "snapshot") {
+        acceptsLiveEvents = true
+        callbacks.onSnapshot(item.snapshot)
+      } else {
+        callbacks.onEvent(item.event)
+      }
+    },
   }
 }
 
-const sequenceOf = (
-  item: ShellStreamItem | ProjectStreamItem | ThreadStreamItem,
-): Sequence | undefined => {
-  if (item.kind === "snapshot") {
-    return item.snapshot.snapshotSequence
+type ReconnectSchedule = (reconnect: () => void, attempt: number) => () => void
+
+const scheduleReconnect: ReconnectSchedule = (reconnect, attempt) => {
+  const delay = Math.min(100 * 2 ** Math.max(0, attempt - 1), 2_000)
+  const timeout = globalThis.setTimeout(reconnect, delay)
+  return () => globalThis.clearTimeout(timeout)
+}
+
+export interface SubscriptionSupervisorOptions<Session> {
+  readonly afterSequence: () => Sequence | undefined
+  readonly currentSession: () => Session
+  readonly startAttempt: (
+    session: Session,
+    afterSequence: Sequence | undefined,
+    onFailure: (details: string) => void,
+  ) => () => void
+  readonly replaceSession: (failedSession: Session) => Promise<void>
+  readonly onError: (details: string) => void
+  readonly schedule?: ReconnectSchedule
+}
+
+export const superviseSubscription = <Session>({
+  afterSequence,
+  currentSession,
+  startAttempt,
+  replaceSession,
+  onError,
+  schedule = scheduleReconnect,
+}: SubscriptionSupervisorOptions<Session>): (() => void) => {
+  let stopped = false
+  let retrying = false
+  let attempt = 0
+  let stopAttempt: (() => void) | undefined
+  let cancelReconnect: (() => void) | undefined
+
+  const connect = (): void => {
+    if (stopped) {
+      return
+    }
+    const session = currentSession()
+    stopAttempt = startAttempt(session, afterSequence(), (details) => {
+      if (stopped || retrying) {
+        return
+      }
+      retrying = true
+      attempt += 1
+      stopAttempt?.()
+      stopAttempt = undefined
+      onError(details)
+      void replaceSession(session).then(() => {
+        if (stopped) {
+          return
+        }
+        cancelReconnect = schedule(() => {
+          cancelReconnect = undefined
+          retrying = false
+          connect()
+        }, attempt)
+        return undefined
+      })
+    })
   }
-  if (item.kind === "event") {
-    return item.event.sequence
+
+  connect()
+  return () => {
+    stopped = true
+    cancelReconnect?.()
+    stopAttempt?.()
   }
-  return undefined
+}
+
+const startSubscriptionAttempt = (
+  session: TransportSession,
+  stream: Effect.Effect<void, ControlPlaneStreamError, ControlPlaneClient>,
+  onFailure: (details: string) => void,
+) => {
+  const fiber = session.runFork(
+    stream.pipe(
+      Effect.matchCauseEffect({
+        onFailure: (cause) => Effect.sync(() => onFailure(Cause.pretty(cause))),
+        onSuccess: () => Effect.sync(() => onFailure("Control plane subscription ended.")),
+      }),
+    ),
+  )
+  return () => {
+    session.runFork(Fiber.interrupt(fiber))
+  }
 }
 
 export const acceptsSequence = (
@@ -212,70 +337,37 @@ export const acceptsSequence = (
 
 const consumeShellStream = (
   stream: Stream.Stream<ShellStreamItem, ControlPlaneStreamError>,
-  callbacks: StreamCallbacks<ShellSnapshot, ShellLiveEvent>,
-) => {
-  let lastSequence: Sequence | undefined
-  return stream.pipe(
-    Stream.runForEach((item) =>
-      Effect.sync(() => {
-        const sequence = sequenceOf(item)
-        if (
-          item.kind === "synchronized" ||
-          sequence === undefined ||
-          !acceptsSequence(lastSequence, sequence)
-        ) {
-          return
-        }
-        lastSequence = sequence
-        if (item.kind === "snapshot") {
-          callbacks.onSnapshot(item.snapshot)
-        } else if (item.kind === "event") {
-          callbacks.onEvent(item.event)
-        }
-      }),
-    ),
-  )
-}
+  consumer: ReturnType<typeof makeSequencedFrameConsumer<ShellSnapshot, ShellLiveEvent>>,
+) => stream.pipe(Stream.runForEach((item) => Effect.sync(() => consumer.consume(item))))
 
 const consumeProjectStream = (
   stream: Stream.Stream<ProjectStreamItem, ControlPlaneStreamError>,
-  callbacks: StreamCallbacks<BoardSnapshot, EventEnvelope>,
-) => {
-  let lastSequence: Sequence | undefined
-  return stream.pipe(
-    Stream.runForEach((item) =>
-      Effect.sync(() => {
-        const sequence = sequenceOf(item)
-        if (
-          item.kind === "synchronized" ||
-          sequence === undefined ||
-          !acceptsSequence(lastSequence, sequence)
-        ) {
-          return
-        }
-        lastSequence = sequence
-        if (item.kind === "snapshot") {
-          callbacks.onSnapshot(item.snapshot)
-        } else if (item.kind === "event") {
-          callbacks.onEvent(item.event)
-        }
-      }),
-    ),
-  )
-}
+  consumer: ReturnType<typeof makeSequencedFrameConsumer<BoardSnapshot, EventEnvelope>>,
+) => stream.pipe(Stream.runForEach((item) => Effect.sync(() => consumer.consume(item))))
 
 export const subscribeShell = (
   afterSequence: Sequence | undefined,
   callbacks: StreamCallbacks<ShellSnapshot, ShellLiveEvent>,
 ) => {
-  const stream = Effect.gen(function* () {
-    const client = yield* ControlPlaneClient
-    return yield* consumeShellStream(
-      client[RPC_METHODS.subscribeShell](afterSequence === undefined ? {} : { afterSequence }),
-      callbacks,
-    )
+  const consumer = makeSequencedFrameConsumer(afterSequence, callbacks)
+  return superviseSubscription({
+    afterSequence: consumer.afterSequence,
+    currentSession: () => activeTransportSession,
+    replaceSession: replaceTransportSession,
+    onError: callbacks.onError,
+    startAttempt: (session, resumeAfterSequence, onFailure) => {
+      const stream = Effect.gen(function* () {
+        const client = yield* ControlPlaneClient
+        return yield* consumeShellStream(
+          client[RPC_METHODS.subscribeShell](
+            resumeAfterSequence === undefined ? {} : { afterSequence: resumeAfterSequence },
+          ),
+          consumer,
+        )
+      })
+      return startSubscriptionAttempt(session, stream, onFailure)
+    },
   })
-  return startSubscription(stream, callbacks)
 }
 
 export const subscribeProject = (
@@ -283,58 +375,58 @@ export const subscribeProject = (
   afterSequence: Sequence | undefined,
   callbacks: StreamCallbacks<BoardSnapshot, EventEnvelope>,
 ) => {
-  const stream = Effect.gen(function* () {
-    const client = yield* ControlPlaneClient
-    return yield* consumeProjectStream(
-      client[RPC_METHODS.subscribeProject](
-        afterSequence === undefined ? { projectId } : { projectId, afterSequence },
-      ),
-      callbacks,
-    )
+  const consumer = makeSequencedFrameConsumer(afterSequence, callbacks)
+  return superviseSubscription({
+    afterSequence: consumer.afterSequence,
+    currentSession: () => activeTransportSession,
+    replaceSession: replaceTransportSession,
+    onError: callbacks.onError,
+    startAttempt: (session, resumeAfterSequence, onFailure) => {
+      const stream = Effect.gen(function* () {
+        const client = yield* ControlPlaneClient
+        return yield* consumeProjectStream(
+          client[RPC_METHODS.subscribeProject](
+            resumeAfterSequence === undefined
+              ? { projectId }
+              : { projectId, afterSequence: resumeAfterSequence },
+          ),
+          consumer,
+        )
+      })
+      return startSubscriptionAttempt(session, stream, onFailure)
+    },
   })
-  return startSubscription(stream, callbacks)
 }
 
 const consumeThreadStream = (
   stream: Stream.Stream<ThreadStreamItem, ControlPlaneStreamError>,
-  callbacks: StreamCallbacks<ThreadSnapshot, EventEnvelope>,
-) => {
-  let lastSequence: Sequence | undefined
-  return stream.pipe(
-    Stream.runForEach((item) =>
-      Effect.sync(() => {
-        const sequence = sequenceOf(item)
-        if (
-          item.kind === "synchronized" ||
-          sequence === undefined ||
-          !acceptsSequence(lastSequence, sequence)
-        ) {
-          return
-        }
-        lastSequence = sequence
-        if (item.kind === "snapshot") {
-          callbacks.onSnapshot(item.snapshot)
-        } else if (item.kind === "event") {
-          callbacks.onEvent(item.event)
-        }
-      }),
-    ),
-  )
-}
+  consumer: ReturnType<typeof makeSequencedFrameConsumer<ThreadSnapshot, EventEnvelope>>,
+) => stream.pipe(Stream.runForEach((item) => Effect.sync(() => consumer.consume(item))))
 
 export const subscribeThread = (
   threadId: ThreadSnapshot["thread"]["id"],
   afterSequence: Sequence | undefined,
   callbacks: StreamCallbacks<ThreadSnapshot, EventEnvelope>,
 ) => {
-  const stream = Effect.gen(function* () {
-    const client = yield* ControlPlaneClient
-    return yield* consumeThreadStream(
-      client[RPC_METHODS.subscribeThread](
-        afterSequence === undefined ? { threadId } : { threadId, afterSequence },
-      ),
-      callbacks,
-    )
+  const consumer = makeSequencedFrameConsumer(afterSequence, callbacks)
+  return superviseSubscription({
+    afterSequence: consumer.afterSequence,
+    currentSession: () => activeTransportSession,
+    replaceSession: replaceTransportSession,
+    onError: callbacks.onError,
+    startAttempt: (session, resumeAfterSequence, onFailure) => {
+      const stream = Effect.gen(function* () {
+        const client = yield* ControlPlaneClient
+        return yield* consumeThreadStream(
+          client[RPC_METHODS.subscribeThread](
+            resumeAfterSequence === undefined
+              ? { threadId }
+              : { threadId, afterSequence: resumeAfterSequence },
+          ),
+          consumer,
+        )
+      })
+      return startSubscriptionAttempt(session, stream, onFailure)
+    },
   })
-  return startSubscription(stream, callbacks)
 }

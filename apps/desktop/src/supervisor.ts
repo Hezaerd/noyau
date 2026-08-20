@@ -4,7 +4,10 @@ import { readFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { join } from "node:path"
 
-import { Schema } from "effect"
+import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/protocol/rpc"
+import { Effect, Layer, ManagedRuntime, Schema } from "effect"
+import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
+import { Socket } from "effect/unstable/socket"
 
 export const FORCE_KILL_AFTER_MS = 2_000
 export const MAX_RESTART_FAILURES = 5
@@ -30,20 +33,17 @@ export const ServerBootstrap = Schema.Struct({
 export type ServerBootstrap = (typeof ServerBootstrap)["Type"]
 
 type FetchImplementation = (input: string, init?: RequestInit) => Promise<Response>
+type WebSocketConstructor = Socket.WebSocketConstructor["Service"]
 
 const defaultFetch: FetchImplementation = (input, init) => fetch(input, init)
-
-const ServerConfigResponse = Schema.Struct({
-  environmentId: Schema.NonEmptyString,
-  bundleVersion: Schema.NonEmptyString,
-  serverVersion: Schema.NonEmptyString,
-  databaseSchemaVersion: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-  actorId: Schema.NonEmptyString,
-})
 
 const ServerStatusResponse = Schema.Struct({
   runningTurn: Schema.Boolean,
 })
+
+class RpcProbeTimeout extends Schema.TaggedError<RpcProbeTimeout>()("RpcProbeTimeout", {
+  message: Schema.String,
+}) {}
 
 export type SupervisorPhase = "stopped" | "starting" | "ready" | "backoff" | "degraded" | "stopping"
 
@@ -150,43 +150,35 @@ export const makeServerBootstrap = async (options: {
   serverVersion: options.serverVersion ?? "0.1.0",
 })
 
-const fetchServerConfig = async (
+export const probeRpc = async (
   bootstrap: ServerBootstrap,
-  fetchImpl: FetchImplementation,
+  webSocketConstructor: WebSocketConstructor = (url, protocols) =>
+    new globalThis.WebSocket(url, protocols),
 ): Promise<void> => {
-  const response = await fetchImpl(`http://${bootstrap.host}:${bootstrap.port}/internal/config`, {
-    headers: { authorization: `Bearer ${bootstrap.bearerToken}` },
-    signal: AbortSignal.timeout(500),
-  })
-  if (!response.ok) {
-    throw new Error(`server.getConfig returned HTTP ${response.status}`)
-  }
-  Schema.decodeUnknownSync(ServerConfigResponse)(await response.json())
-}
-
-const probeRpc = async (bootstrap: ServerBootstrap): Promise<void> => {
-  const WebSocketConstructor = globalThis.WebSocket
-  if (WebSocketConstructor === undefined) {
-    throw new Error("The desktop runtime does not provide WebSocket")
-  }
-  await new Promise<void>((resolve, reject) => {
-    const socket = new WebSocketConstructor(
-      `ws://${bootstrap.host}:${bootstrap.port}/rpc?token=${encodeURIComponent(bootstrap.bearerToken)}`,
+  const rpcLayer = RpcClient.layerProtocolSocket({ retryTransientErrors: false }).pipe(
+    Layer.provide(
+      Socket.layerWebSocket(`ws://${bootstrap.host}:${bootstrap.port}/rpc`, {
+        openTimeout: 500,
+        protocols: [`noyau-bearer.${bootstrap.bearerToken}`],
+      }).pipe(Layer.provide(Layer.succeed(Socket.WebSocketConstructor)(webSocketConstructor))),
+    ),
+    Layer.provide(RpcSerialization.layerJson),
+  )
+  const rpcRequest = Effect.gen(function* () {
+    const client = yield* RpcClient.make(ControlPlaneRpcs)
+    return yield* client[RPC_METHODS.getConfig]({}).pipe(
+      Effect.timeoutOrElse({
+        duration: 500,
+        orElse: () => new RpcProbeTimeout({ message: "Timed out waiting for server.getConfig" }),
+      }),
     )
-    const timeout = setTimeout(() => {
-      socket.close()
-      reject(new Error("Timed out opening the RPC WebSocket"))
-    }, 500)
-    socket.addEventListener("open", () => {
-      clearTimeout(timeout)
-      socket.close()
-      resolve()
-    })
-    socket.addEventListener("error", () => {
-      clearTimeout(timeout)
-      reject(new Error("The RPC WebSocket rejected the launch bearer"))
-    })
   })
+  const runtime = ManagedRuntime.make(rpcLayer)
+  try {
+    await runtime.runPromise(Effect.scoped(rpcRequest))
+  } finally {
+    await runtime.dispose()
+  }
 }
 
 export const waitForServerReady = async (
@@ -213,7 +205,6 @@ export const waitForServerReady = async (
         signal: AbortSignal.timeout(500),
       })
       if (live.ok) {
-        await fetchServerConfig(bootstrap, fetchImpl)
         await (options.probeRpc ?? probeRpc)(bootstrap)
         return
       }

@@ -1,4 +1,6 @@
+import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { EventEnvelope } from "@noyau/protocol/events"
+import type { TicketId } from "@noyau/protocol/ids"
 import { DateTime } from "effect"
 
 export interface TicketActivityItem {
@@ -7,6 +9,12 @@ export interface TicketActivityItem {
   readonly action: string
   readonly occurredAt: string
 }
+
+export const ticketActivityFromSnapshot = (
+  snapshot: BoardSnapshot,
+  ticketId: TicketId,
+): ReadonlyArray<EventEnvelope> =>
+  snapshot.ticketActivity.find((activity) => activity.ticketId === ticketId)?.events ?? []
 
 const ticketUpdatedAction = (
   event: Extract<EventEnvelope["event"], { readonly _tag: "ticket.updated" }>,

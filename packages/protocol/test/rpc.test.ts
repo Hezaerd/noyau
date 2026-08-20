@@ -116,6 +116,7 @@ describe("ControlPlaneRpcs", () => {
         tickets: [],
         ticketDependencies: [],
         ticketThreads: [],
+        ticketActivity: [],
       },
     })
     expect(snapshot.kind).toBe("snapshot")

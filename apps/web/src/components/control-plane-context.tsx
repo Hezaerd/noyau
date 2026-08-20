@@ -1,3 +1,4 @@
+import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
 import { ProjectId } from "@noyau/protocol/ids"
 import type {
   ProjectShell,
@@ -21,6 +22,7 @@ const LAST_PROJECT_STORAGE_KEY = "noyau.last-project-id"
 
 export interface ControlPlaneContextValue {
   readonly shell: ShellSnapshot | undefined
+  readonly cursor: CursorProviderStatus | undefined
   readonly projects: ReadonlyArray<ProjectShell>
   readonly threads: ReadonlyArray<ThreadShell>
   readonly lastProjectId: ProjectId | undefined
@@ -120,6 +122,7 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
   const value = useMemo<ControlPlaneContextValue>(() => {
     return {
       shell,
+      cursor: shell?.environment.cursor,
       projects: shell?.projects ?? [],
       threads: shell?.threads ?? [],
       lastProjectId,
