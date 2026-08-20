@@ -38,7 +38,7 @@ electronProcess.stderr.on("data", (chunk) => {
 })
 
 const timeout = setTimeout(() => {
-  electronProcess.kill("SIGTERM")
+  electronProcess.kill()
 }, 15_000)
 
 electronProcess.once("exit", (code) => {
