@@ -36,6 +36,11 @@ describe("keyboard-shortcut", () => {
     expect(getShortcutSegments(HOTKEY_COMMAND_PALETTE, "windows")).toEqual(["Ctrl", "K"])
   })
 
+  it("formats settings shortcut for macOS and Windows", () => {
+    expect(getShortcutSegments("Mod+,", "mac")).toEqual(["⌘", ","])
+    expect(getShortcutSegments("Mod+,", "windows")).toEqual(["Ctrl", ","])
+  })
+
   it("formats mod+enter for macOS and Windows", () => {
     expect(getShortcutSegments("Mod+Enter", "mac")).toEqual(["⌘", "↵"])
     expect(getShortcutSegments("Mod+Enter", "windows")).toEqual(["Ctrl", "↵"])

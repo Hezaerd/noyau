@@ -30,12 +30,15 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { useKeybinding } from "@/hooks/use-keybindings"
+import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { isMobile, setOpenMobile } = useSidebar()
   const paletteHotkey = useKeybinding("palette.open")
+  const settingsHotkey = useKeybinding("settings.open")
   const { projects, threads, selectProject } = useControlPlane()
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [rebindProjectId, setRebindProjectId] = useState<ProjectId>()
@@ -194,22 +197,32 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Ouvrir les Paramètres"
-          className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          render={
-            <Link
-              to="/settings/$tab"
-              params={{ tab: "appearance" }}
-              onClick={closeMobileNavigation}
-            />
-          }
-        >
-          <SettingsIcon />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Ouvrir les Paramètres"
+                className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                render={
+                  <Link
+                    to="/settings/$tab"
+                    params={{ tab: DEFAULT_SETTINGS_TAB }}
+                    onClick={closeMobileNavigation}
+                  />
+                }
+              >
+                <SettingsIcon />
+              </Button>
+            }
+          />
+          <TooltipPopup side="top" className="inline-flex items-center gap-1.5">
+            Paramètres
+            <KeyboardShortcut hotkey={settingsHotkey} />
+          </TooltipPopup>
+        </Tooltip>
       </SidebarFooter>
       <ProjectFolderDialog
         open={folderDialogOpen || rebindProjectId !== undefined}
