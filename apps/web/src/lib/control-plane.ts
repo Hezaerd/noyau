@@ -51,7 +51,7 @@ class ControlPlaneClient extends Context.Service<
     return Layer.effect(ControlPlaneClient, RpcClient.make(ControlPlaneRpcs)).pipe(
       Layer.provide(RpcClient.layerProtocolSocket()),
       Layer.provide(socketLayer),
-      Layer.provide(RpcSerialization.layerNdjson),
+      Layer.provide(RpcSerialization.layerJson),
     )
   }
 }
