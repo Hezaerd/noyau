@@ -75,7 +75,7 @@ export const decodeExternalBootstrap = (): ServerBootstrap | undefined => {
       JSON.parse(readFileSync(3, { encoding: "utf8" })),
     )
   } catch (cause) {
-    throw new Error(`Failed to decode the external server bootstrap: ${String(cause)}`)
+    throw new Error(`Failed to decode the external server bootstrap: ${String(cause)}`, { cause })
   }
 }
 
@@ -86,7 +86,7 @@ export const reserveLoopbackPort = async (): Promise<number> => {
     server.listen({ host: "127.0.0.1", port: 0 }, () => resolve())
   })
   const address = server.address()
-  if (address === null || typeof address === "string") {
+  if (address === null || !("port" in address)) {
     server.close()
     throw new Error("The loopback server did not expose a TCP port")
   }
@@ -131,11 +131,12 @@ const fetchServerConfig = async (
 }
 
 const probeRpc = async (bootstrap: ServerBootstrap): Promise<void> => {
-  if (typeof WebSocket === "undefined") {
+  const WebSocketConstructor = globalThis.WebSocket
+  if (WebSocketConstructor === undefined) {
     throw new Error("The desktop runtime does not provide WebSocket")
   }
   await new Promise<void>((resolve, reject) => {
-    const socket = new WebSocket(
+    const socket = new WebSocketConstructor(
       `ws://${bootstrap.host}:${bootstrap.port}/rpc?token=${encodeURIComponent(bootstrap.bearerToken)}`,
     )
     const timeout = setTimeout(() => {
@@ -168,9 +169,11 @@ export const waitForServerReady = async (
   const sleep =
     options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)))
   const startedAt = Date.now()
-  let lastError: unknown
-
-  while (Date.now() - startedAt < timeoutMs) {
+  let lastError = new Error("The server has not started listening")
+  const attempt = async (): Promise<void> => {
+    if (Date.now() - startedAt >= timeoutMs) {
+      throw new Error(`Timed out waiting for server.getConfig: ${String(lastError)}`)
+    }
     try {
       const live = await fetchImpl(`http://${bootstrap.host}:${bootstrap.port}/health/ready`, {
         signal: AbortSignal.timeout(500),
@@ -182,30 +185,36 @@ export const waitForServerReady = async (
       }
       lastError = new Error(`health/readiness returned HTTP ${live.status}`)
     } catch (cause) {
-      lastError = cause
+      lastError = cause instanceof Error ? cause : new Error(String(cause), { cause })
     }
     await sleep(100)
+    return attempt()
   }
-
-  throw new Error(`Timed out waiting for server.getConfig: ${String(lastError)}`)
+  return attempt()
 }
 
 const waitForExit = (child: ChildProcess, timeoutMs: number): Promise<boolean> =>
   new Promise((resolve) => {
+    let settled = false
+    const finish = (exited: boolean) => {
+      if (settled) return
+      settled = true
+      resolve(exited)
+    }
     if (child.exitCode !== null || child.signalCode !== null) {
-      resolve(true)
+      finish(true)
       return
     }
     let timer: NodeJS.Timeout | undefined = setTimeout(() => {
       timer = undefined
-      resolve(false)
+      finish(false)
     }, timeoutMs)
     child.once("exit", () => {
       if (timer !== undefined) {
         clearTimeout(timer)
         timer = undefined
       }
-      resolve(true)
+      finish(true)
     })
   })
 
@@ -278,39 +287,35 @@ export class ServerSupervisor {
   }
 
   private async startWithRetries(): Promise<void> {
-    for (;;) {
-      if (this.stopping) {
-        return
-      }
-      const bootstrap = await makeServerBootstrap({
-        dataDirectory: this.options.dataDirectory,
-        bundleVersion: this.options.bundleVersion,
-        serverVersion: this.options.serverVersion,
-        actorId: this.options.actorId,
-        environmentId: this.options.environmentId,
-      })
-      this.bootstrapValue = bootstrap
-      this.setState({ phase: "starting", failures: this.failureTimes.length })
+    if (this.stopping) {
+      return
+    }
+    const bootstrap = await makeServerBootstrap({
+      dataDirectory: this.options.dataDirectory,
+      bundleVersion: this.options.bundleVersion,
+      serverVersion: this.options.serverVersion,
+      actorId: this.options.actorId,
+      environmentId: this.options.environmentId,
+    })
+    this.bootstrapValue = bootstrap
+    this.setState({ phase: "starting", failures: this.failureTimes.length })
 
-      try {
-        await this.spawn(bootstrap)
-        await waitForServerReady(bootstrap)
-        this.setState({
-          phase: "ready",
-          failures: this.failureTimes.length,
-          pid: this.child?.pid ?? undefined,
-        })
-        return
-      } catch (cause) {
-        this.recordFailure(cause)
-        await this.killCapturedChild()
-        if (this.stateValue.phase === "degraded") {
-          throw cause
-        }
-        await new Promise((resolve) =>
-          setTimeout(resolve, restartDelayMs(this.failureTimes.length)),
-        )
+    try {
+      await this.spawn(bootstrap)
+      await waitForServerReady(bootstrap)
+      this.setState({
+        phase: "ready",
+        failures: this.failureTimes.length,
+        pid: this.child?.pid ?? undefined,
+      })
+    } catch (cause) {
+      this.recordFailure(cause)
+      await this.killCapturedChild()
+      if (this.stateValue.phase === "degraded") {
+        throw cause
       }
+      await new Promise((resolve) => setTimeout(resolve, restartDelayMs(this.failureTimes.length)))
+      return this.startWithRetries()
     }
   }
 

@@ -35,22 +35,16 @@ export const decodeControlPlaneConfig = (
 }
 
 const desktopRuntimeConfig = (): ControlPlaneEnvironmentInput => {
-  if (typeof window === "undefined") {
-    return {}
-  }
-  const query = new URLSearchParams(window.location.search)
+  const query = new URLSearchParams(globalThis.location?.search ?? "")
   const rpcUrl = query.get("rpc")
   const bearerToken = query.get("token")
-  return {
-    ...(rpcUrl === null ? {} : { VITE_NOYAU_RPC_URL: rpcUrl }),
-    ...(bearerToken === null ? {} : { VITE_NOYAU_BEARER_TOKEN: bearerToken }),
-  }
+  const runtime = { ...import.meta.env }
+  if (rpcUrl !== null) runtime.VITE_NOYAU_RPC_URL = rpcUrl
+  if (bearerToken !== null) runtime.VITE_NOYAU_BEARER_TOKEN = bearerToken
+  return runtime
 }
 
-export const controlPlaneConfig = decodeControlPlaneConfig({
-  ...import.meta.env,
-  ...desktopRuntimeConfig(),
-})
+export const controlPlaneConfig = decodeControlPlaneConfig(desktopRuntimeConfig())
 
 /**
  * La route garde un slug lisible tant que le registre des projets n'est pas
