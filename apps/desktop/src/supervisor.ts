@@ -5,7 +5,7 @@ import { createServer } from "node:net"
 import { join } from "node:path"
 
 import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/protocol/rpc"
-import { Effect, Layer, Schema } from "effect"
+import { Effect, Layer, ManagedRuntime, Schema } from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
 import { Socket } from "effect/unstable/socket"
 
@@ -151,6 +151,15 @@ export const probeRpc = async (
   webSocketConstructor: WebSocketConstructor = (url, protocols) =>
     new globalThis.WebSocket(url, protocols),
 ): Promise<void> => {
+  const rpcLayer = RpcClient.layerProtocolSocket({ retryTransientErrors: false }).pipe(
+    Layer.provide(
+      Socket.layerWebSocket(`ws://${bootstrap.host}:${bootstrap.port}/rpc`, {
+        openTimeout: 500,
+        protocols: [`noyau-bearer.${bootstrap.bearerToken}`],
+      }).pipe(Layer.provide(Layer.succeed(Socket.WebSocketConstructor)(webSocketConstructor))),
+    ),
+    Layer.provide(RpcSerialization.layerJson),
+  )
   const rpcRequest = Effect.gen(function* () {
     const client = yield* RpcClient.make(ControlPlaneRpcs)
     return yield* client[RPC_METHODS.getConfig]({}).pipe(
@@ -159,21 +168,13 @@ export const probeRpc = async (
         orElse: () => Effect.fail(new Error("Timed out waiting for server.getConfig")),
       }),
     )
-  }).pipe(
-    Effect.provide(
-      RpcClient.layerProtocolSocket({ retryTransientErrors: false }).pipe(
-        Layer.provide(
-          Socket.layerWebSocket(`ws://${bootstrap.host}:${bootstrap.port}/rpc`, {
-            openTimeout: 500,
-            protocols: [`noyau-bearer.${bootstrap.bearerToken}`],
-          }).pipe(Layer.provide(Layer.succeed(Socket.WebSocketConstructor)(webSocketConstructor))),
-        ),
-        Layer.provide(RpcSerialization.layerJson),
-      ),
-    ),
-  )
-
-  await Effect.runPromise(Effect.scoped(rpcRequest))
+  })
+  const runtime = ManagedRuntime.make(rpcLayer)
+  try {
+    await runtime.runPromise(Effect.scoped(rpcRequest))
+  } finally {
+    await runtime.dispose()
+  }
 }
 
 export const waitForServerReady = async (
