@@ -222,7 +222,7 @@ const enrichCommand = Effect.fn("ControlPlane.enrichCommand")(function* (
     projectId,
     actorId,
     correlationId: CorrelationId.make(request.commandId),
-    issuedAt,
+    issuedAt: DateTime.formatIso(issuedAt),
     schemaVersion: 1,
   }).pipe(Effect.orDie)
 })
