@@ -8,7 +8,6 @@
     "./control-plane": "./src/control-plane.ts",
     "./identity": "./src/identity.ts",
     "./observability": "./src/observability.ts",
-    "./provider/acp-json-rpc": "./src/provider/acp-json-rpc.ts",
     "./provider/cursor-acp": "./src/provider/cursor-acp.ts",
     "./provider/provider-port": "./src/provider/provider-port.ts",
     "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
@@ -24,7 +23,8 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-beta.107",
+    "@effect/platform-node": "catalog:",
+    "@noyau/acp": "workspace:*",
     "@noyau/database": "workspace:*",
     "@noyau/domain": "workspace:*",
     "@noyau/protocol": "workspace:*",

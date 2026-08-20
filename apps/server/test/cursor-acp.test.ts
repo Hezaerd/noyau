@@ -170,7 +170,8 @@ describe("Cursor ACP adapter", () => {
             (signal) =>
               signal._tag === "transcript" &&
               signal.item._tag === "transcript.tool" &&
-              signal.item.status === "completed",
+              signal.item.status === "completed" &&
+              signal.item.outputSummary === '{"ok":true,"bytes":12}',
           ),
         )
         assert.isTrue(
@@ -266,7 +267,7 @@ describe("Cursor ACP adapter", () => {
         assert.strictEqual(failed?._tag, "session")
         if (failed?._tag === "session") {
           assert.isString(failed.lastError)
-          assert.include(failed.lastError ?? "", "transport ruptured")
+          assert.include(failed.lastError ?? "", "session/prompt")
         }
         assert.isFalse(
           signals.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
@@ -294,11 +295,16 @@ describe("Cursor ACP adapter", () => {
           ),
         )
         yield* Deferred.await(permissionOpened)
-        yield* provider.respondApproval(threadId, ApprovalRequestId.make("900"), "accept")
+        yield* provider.respondApproval(
+          threadId,
+          ApprovalRequestId.make("permission-tool"),
+          "accept",
+        )
         yield* provider.drain
 
         const log = yield* readLog(evidence.requestLog)
-        assert.include(log, '"configId":"mode","value":"ask"')
+        assert.include(log, '"configId":"mode"')
+        assert.include(log, '"value":"ask"')
         assert.include(
           log,
           '"id":900,"result":{"outcome":{"outcome":"selected","optionId":"once"}}',

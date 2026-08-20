@@ -636,7 +636,7 @@ describe("ControlPlane", () => {
         if (snapshot?.kind === "snapshot") {
           assert.strictEqual(snapshot.snapshot.thread.latestTurn?.state, "error")
           assert.strictEqual(snapshot.snapshot.session?.status, "error")
-          assert.include(snapshot.snapshot.session?.lastError ?? "", "transport ruptured")
+          assert.include(snapshot.snapshot.session?.lastError ?? "", "session/prompt")
         }
       }),
     ),

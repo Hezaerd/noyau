@@ -38,6 +38,8 @@ Cible de sortie : macOS et Windows natif. Linux, WSL, client web distribué et m
 - `apps/server` : même bundle que l'entrée autonome `noyau serve` ;
 - Effect RPC sur WebSocket loopback ([ADR-0003](adr/0003-frontiere-client-effect-rpc-websocket.md)) ;
 - Cursor ACP local comme unique provider réel ([ADR-0013](adr/0013-session-projetee-et-cursor.md)).
+  Le fil de fer ACP est `@noyau/acp` ([ADR-0014](adr/0014-fil-de-fer-acp.md)), pas un port
+  multi-harnais.
 
 Effect n'est pas imposé à l'état local ni au rendu React.
 
@@ -328,6 +330,7 @@ packages/
   domain/    # deciders et projectors purs
   protocol/  # contrats Schema, RPC, commandes et événements
   database/  # journal SQLite, receipts, projections
+  acp/       # fil de fer ACP (codegen spec + AcpClient)
   config/    # configuration TypeScript partagée
 ```
 

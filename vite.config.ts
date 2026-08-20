@@ -22,6 +22,7 @@ const ignorePatterns = [
   "**/dist-electron/**",
   "**/coverage/**",
   "**/routeTree.gen.ts",
+  "packages/acp/src/_generated/**",
   ".worktrees/**",
   "repos/**",
   "tools/oxlint/anti-slop/**",
@@ -79,7 +80,7 @@ export default defineConfig({
     rules: {
       ...effectRecommended.rules,
       ...antiSlopRules,
-      "no-underscore-dangle": ["error", { allow: ["_tag"] }],
+      "no-underscore-dangle": ["error", { allow: ["_tag", "_meta"] }],
       "import/no-cycle": "error",
       "import/no-relative-parent-imports": "error",
       "typescript/consistent-type-imports": "error",
@@ -96,6 +97,26 @@ export default defineConfig({
     // Un bloc `lint` dans un vite.config.ts de package est ignoré par `vp lint` :
     // la configuration par workspace passe obligatoirement par ces overrides.
     overrides: [
+      {
+        // Fil de fer ACP : codegen + JSON-RPC stdio calqué sur t3code. Les règles
+        // anti-slop et les imports `_internal` ne s'appliquent pas à cette frontière.
+        files: ["packages/acp/**"],
+        rules: {
+          "import/no-relative-parent-imports": "off",
+          "no-shadow": "off",
+          "unicorn/consistent-function-scoping": "off",
+          "typescript/no-unsafe-type-assertion": "off",
+          "effecttsgo/strict-effect-provide": "off",
+          "anti-slop/no-object-parameters": "off",
+          "anti-slop/no-unknown-parameters": "off",
+          "anti-slop/no-unknown-returns": "off",
+          "anti-slop/no-runtime-typeof": "off",
+          "anti-slop/no-conditional-empty-object-spread": "off",
+          "anti-slop/require-safety-comment-for-type-assertion": "off",
+          "anti-slop/no-unsafe-dictionary-type": "off",
+          "anti-slop/no-known-value-widening": "off",
+        },
+      },
       {
         files: ["apps/web/**"],
         plugins: ["react"],
