@@ -22,8 +22,16 @@ const electronProcess = NodeChildProcess.spawn(command, commandArguments, {
 })
 
 let output = ""
+let shutdownEndpointRequestedAt
 electronProcess.stdout.on("data", (chunk) => {
-  output += chunk.toString()
+  const text = chunk.toString()
+  output += text
+  if (
+    shutdownEndpointRequestedAt === undefined &&
+    text.includes("NOYAU_DESKTOP_SHUTDOWN_ENDPOINT_REQUESTED")
+  ) {
+    shutdownEndpointRequestedAt = performance.now()
+  }
 })
 electronProcess.stderr.on("data", (chunk) => {
   output += chunk.toString()
@@ -35,8 +43,19 @@ const timeout = setTimeout(() => {
 
 electronProcess.once("exit", (code) => {
   clearTimeout(timeout)
-  if (code === 0 && output.includes("NOYAU_DESKTOP_SMOKE_TEST_OK")) {
-    process.stdout.write("Noyau Desktop smoke test passed.\n")
+  const shutdownDuration =
+    shutdownEndpointRequestedAt === undefined
+      ? undefined
+      : Math.round(performance.now() - shutdownEndpointRequestedAt)
+  if (
+    code === 0 &&
+    output.includes("NOYAU_DESKTOP_SMOKE_TEST_OK") &&
+    shutdownDuration !== undefined &&
+    shutdownDuration < 2_000
+  ) {
+    process.stdout.write(
+      `Noyau Desktop smoke test passed (${shutdownDuration}ms after endpoint).\n`,
+    )
     process.exit(0)
   }
 

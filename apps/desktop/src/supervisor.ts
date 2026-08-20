@@ -311,6 +311,9 @@ export class ServerSupervisor {
     const child = this.child
     if (bootstrap !== undefined) {
       try {
+        if (process.env.NOYAU_DESKTOP_SMOKE_TEST === "1") {
+          process.stdout.write("NOYAU_DESKTOP_SHUTDOWN_ENDPOINT_REQUESTED\n")
+        }
         await (this.options.fetchImpl ?? defaultFetch)(
           `http://${bootstrap.host}:${bootstrap.port}/internal/shutdown`,
           {
