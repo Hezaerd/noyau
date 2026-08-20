@@ -18,9 +18,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import type { TicketActivity } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import type { TicketActivity } from "@noyau/protocol/board"
 import { KanbanColumnId, type ProjectId, TicketId } from "@noyau/protocol/ids"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
@@ -641,8 +641,9 @@ export function BoardPage({
   const [controlPlaneError, setControlPlaneError] = useState<string>()
   const [loading, setLoading] = useState(true)
   const [ticketActivityError, setTicketActivityError] = useState<string>()
-  const [ticketActivityByTicket, setTicketActivityByTicket] =
-    useState<ReadonlyArray<TicketActivity>>([])
+  const [ticketActivityByTicket, setTicketActivityByTicket] = useState<
+    ReadonlyArray<TicketActivity>
+  >([])
   const [activeTicketId, setActiveTicketId] = useState<string | undefined>(state.tickets[0]?.id)
   const [draggedTicketId, setDraggedTicketId] = useState<string>()
   const [creatingColumnId, setCreatingColumnId] = useState<string>()

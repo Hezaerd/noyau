@@ -202,17 +202,16 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
         rawDependencies,
         rawTicketThreads,
         rawTicketActivity,
-      ] =
-        yield* Effect.all([
-          readLatestSequence(),
-          sql<(typeof ColumnRow)["Encoded"]>`
+      ] = yield* Effect.all([
+        readLatestSequence(),
+        sql<(typeof ColumnRow)["Encoded"]>`
             SELECT
               column_id, project_id, name, color, rank, done, created_at, updated_at
             FROM projection_columns
             WHERE project_id = ${projectId}
             ORDER BY rank, column_id
           `,
-          sql<(typeof TicketRow)["Encoded"]>`
+        sql<(typeof TicketRow)["Encoded"]>`
             SELECT
               ticket_id, project_id, column_id, rank, title, description, priority, due_at,
               done, archived_at, last_active_column_id, assignee_id, created_at, updated_at
@@ -220,21 +219,21 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
             WHERE project_id = ${projectId}
             ORDER BY column_id, rank, ticket_id
           `,
-          sql<(typeof DependencyRow)["Encoded"]>`
+        sql<(typeof DependencyRow)["Encoded"]>`
             SELECT dependency.ticket_id, dependency.depends_on_ticket_id
             FROM projection_ticket_dependencies AS dependency
             JOIN projection_tickets AS ticket ON ticket.ticket_id = dependency.ticket_id
             WHERE ticket.project_id = ${projectId}
             ORDER BY dependency.ticket_id, dependency.depends_on_ticket_id
           `,
-          sql<(typeof TicketThreadRow)["Encoded"]>`
+        sql<(typeof TicketThreadRow)["Encoded"]>`
             SELECT link.ticket_id, link.thread_id
             FROM projection_ticket_threads AS link
             JOIN projection_tickets AS ticket ON ticket.ticket_id = link.ticket_id
             WHERE ticket.project_id = ${projectId}
             ORDER BY link.ticket_id, link.thread_id
           `,
-          sql<(typeof TicketActivityRow)["Encoded"]>`
+        sql<(typeof TicketActivityRow)["Encoded"]>`
             WITH ranked_ticket_events AS (
               SELECT
                 json_extract(event, '$.ticketId') AS ticket_id,
@@ -271,7 +270,7 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
             WHERE activity_rank <= ${TICKET_ACTIVITY_LIMIT}
             ORDER BY ticket_id, sequence DESC
           `,
-        ])
+      ])
       const columns = yield* Effect.forEach(rawColumns, (raw) =>
         decodeColumnRow(raw).pipe(
           Effect.orDie,

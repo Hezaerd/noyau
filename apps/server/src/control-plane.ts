@@ -498,10 +498,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             }
             return
           }
-          if (
-            request._tag === "project.meta.update" ||
-            request._tag === "project.delete"
-          ) {
+          if (request._tag === "project.meta.update" || request._tag === "project.delete") {
             return
           }
           const projectId = yield* requestProjectId(request).pipe(
@@ -519,31 +516,31 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         },
       )
 
-      const readAvailableBoardSnapshot = Effect.fn(
-        "ControlPlane.readAvailableBoardSnapshot",
-      )(function* (projectId: ProjectIdType) {
-        const snapshot = yield* readBoardSnapshot(projectId)
-        if (Option.isNone(snapshot)) {
-          return snapshot
-        }
-        const available = yield* workspaceRoots.isAvailable(snapshot.value.project.workspaceRoot)
-        return Option.some({
-          ...snapshot.value,
-          project: { ...snapshot.value.project, available },
-        })
-      })
+      const readAvailableBoardSnapshot = Effect.fn("ControlPlane.readAvailableBoardSnapshot")(
+        function* (projectId: ProjectIdType) {
+          const snapshot = yield* readBoardSnapshot(projectId)
+          if (Option.isNone(snapshot)) {
+            return snapshot
+          }
+          const available = yield* workspaceRoots.isAvailable(snapshot.value.project.workspaceRoot)
+          return Option.some({
+            ...snapshot.value,
+            project: { ...snapshot.value.project, available },
+          })
+        },
+      )
 
-      const readAvailableShellSnapshot = Effect.fn(
-        "ControlPlane.readAvailableShellSnapshot",
-      )(function* () {
-        const snapshot = yield* readShellSnapshot(environment)
-        const projects = yield* Effect.forEach(snapshot.projects, (project) =>
-          workspaceRoots
-            .isAvailable(project.workspaceRoot)
-            .pipe(Effect.map((available) => ({ ...project, available }))),
-        )
-        return { ...snapshot, projects }
-      })
+      const readAvailableShellSnapshot = Effect.fn("ControlPlane.readAvailableShellSnapshot")(
+        function* () {
+          const snapshot = yield* readShellSnapshot(environment)
+          const projects = yield* Effect.forEach(snapshot.projects, (project) =>
+            workspaceRoots
+              .isAvailable(project.workspaceRoot)
+              .pipe(Effect.map((available) => ({ ...project, available }))),
+          )
+          return { ...snapshot, projects }
+        },
+      )
 
       const dispatch: ControlPlaneService["dispatch"] = Effect.fn("ControlPlane.dispatch")(
         function* (request, actorId) {

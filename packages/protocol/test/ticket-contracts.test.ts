@@ -1,9 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import {
-  BoardSnapshot,
-  TICKET_ACTIVITY_LIMIT,
-  TicketActivity,
-} from "@noyau/protocol/board"
+import { BoardSnapshot, TICKET_ACTIVITY_LIMIT, TicketActivity } from "@noyau/protocol/board"
 import { ClientCommandRequest, Command } from "@noyau/protocol/commands"
 import { KanbanRank } from "@noyau/protocol/entities/kanban-column"
 import { Ticket } from "@noyau/protocol/entities/ticket"

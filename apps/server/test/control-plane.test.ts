@@ -6,10 +6,7 @@ import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { CommandIdConflict } from "@noyau/protocol/errors"
 import { ActorId, ProjectId, ThreadId } from "@noyau/protocol/ids"
-import {
-  ProjectUnavailable,
-  WorkspaceRootUnavailable,
-} from "@noyau/protocol/project/errors"
+import { ProjectUnavailable, WorkspaceRootUnavailable } from "@noyau/protocol/project/errors"
 import {
   ControlPlane,
   makeControlPlaneLayer,
@@ -17,10 +14,7 @@ import {
 } from "@noyau/server/control-plane"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
-import {
-  WorkspaceRootAccess,
-  type WorkspaceRootAccessService,
-} from "@noyau/server/workspace-root"
+import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "@noyau/server/workspace-root"
 import { Crypto, Deferred, Effect, Fiber, Layer, Option, Schema, Stream } from "effect"
 import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
