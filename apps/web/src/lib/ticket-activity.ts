@@ -72,9 +72,13 @@ export const ticketActivityAction = (envelope: EventEnvelope): string => {
   }
 }
 
+/** Label d'affichage : l'acteur local ne fuit pas son `actorId` technique. */
+export const ticketActivityActor = (actorId: string): string =>
+  actorId.startsWith("human:") ? "Vous" : actorId
+
 export const ticketActivityItem = (envelope: EventEnvelope): TicketActivityItem => ({
   id: envelope.eventId,
-  actor: envelope.actorId,
+  actor: ticketActivityActor(envelope.actorId),
   action: ticketActivityAction(envelope),
   occurredAt: DateTime.formatIso(envelope.occurredAt),
 })
