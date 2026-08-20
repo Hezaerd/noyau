@@ -112,7 +112,7 @@ const columnDeletePayload = {
   destinationColumnId: Schema.optionalKey(KanbanColumnId),
 } as const
 
-const boardInitializePayload = Schema.Struct({
+export const BoardInitialization = Schema.Struct({
   backlogColumnId: KanbanColumnId,
   activeColumnId: KanbanColumnId,
   doneColumnId: KanbanColumnId,
@@ -127,6 +127,7 @@ const boardInitializePayload = Schema.Struct({
     },
   ),
 )
+export type BoardInitialization = (typeof BoardInitialization)["Type"]
 
 const request = <Tag extends string, Payload extends Schema.Top>(tag: Tag, payload: Payload) =>
   Schema.TaggedStruct(tag, { ...requestMeta, payload })
@@ -204,7 +205,7 @@ export const KanbanColumnUpdate = command("kanbanColumn.update", Schema.Struct(c
 export const KanbanColumnMove = command("kanbanColumn.move", Schema.Struct(columnMovePayload))
 export const KanbanColumnDelete = command("kanbanColumn.delete", Schema.Struct(columnDeletePayload))
 /** Commande système émise à la création d'un projet, jamais soumise directement par le client. */
-export const BoardInitialize = command("board.initialize", boardInitializePayload)
+export const BoardInitialize = command("board.initialize", BoardInitialization)
 
 export const TicketCommand = Schema.Union([
   TicketCreate,

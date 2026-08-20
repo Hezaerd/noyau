@@ -1,8 +1,10 @@
 import { settledTurnStateForSessionStatus } from "@noyau/domain/thread/projector"
+import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { TranscriptItem as TranscriptItemSchema } from "@noyau/protocol/entities/transcript"
 import type { DomainEvent } from "@noyau/protocol/events"
-import { DateTime, Effect, Schema } from "effect"
+import { ProjectId, type ProjectId as ProjectIdType } from "@noyau/protocol/ids"
+import { DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import type { PersistedEvent } from "./command-worker"
@@ -28,11 +30,43 @@ const TranscriptRow = Schema.Struct({
 const ActiveTurnRow = Schema.Struct({
   active_turn_id: Schema.NullOr(Schema.String),
 })
+const ProjectOwnerRow = Schema.Struct({ project_id: ProjectId })
 
 const decodeCountRow = Schema.decodeEffect(CountRow)
 const decodeOrdinalRow = Schema.decodeEffect(OrdinalRow)
 const decodeTranscriptRow = Schema.decodeEffect(TranscriptRow)
 const decodeActiveTurnRow = Schema.decodeEffect(ActiveTurnRow)
+const decodeProjectOwnerRow = Schema.decodeEffect(ProjectOwnerRow)
+
+/**
+ * Resolves the current owner of a WorkspaceRoot from the durable projection.
+ * The command worker calls this inside its transaction before the pure decider.
+ */
+export const findWorkspaceRootOwner = Effect.fn("Projections.findWorkspaceRootOwner")(function* (
+  workspaceRoot: WorkspaceRoot,
+  excludedProjectId?: ProjectIdType,
+) {
+  const sql = yield* SqlClient
+  const rows =
+    excludedProjectId === undefined
+      ? yield* sql<(typeof ProjectOwnerRow)["Encoded"]>`
+          SELECT project_id
+          FROM projection_projects
+          WHERE workspace_root = ${workspaceRoot}
+          LIMIT 1
+        `
+      : yield* sql<(typeof ProjectOwnerRow)["Encoded"]>`
+          SELECT project_id
+          FROM projection_projects
+          WHERE workspace_root = ${workspaceRoot}
+            AND project_id <> ${excludedProjectId}
+          LIMIT 1
+        `
+  const row = rows[0]
+  return row === undefined
+    ? Option.none<ProjectIdType>()
+    : Option.some((yield* decodeProjectOwnerRow(row).pipe(Effect.orDie)).project_id)
+})
 
 const timeOf = (event: PersistedEvent<DomainEvent>) => DateTime.formatIso(event.occurredAt)
 
