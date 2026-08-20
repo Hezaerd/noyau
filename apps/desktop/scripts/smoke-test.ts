@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert"
-import { fileURLToPath } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { inspect } from "node:util"
 
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -159,8 +159,12 @@ const run = Effect.fn("runDesktopSmoke")(function* () {
   yield* fs.makeDirectory(fakeBinDirectory, { recursive: true })
   yield* fs.makeDirectory(profileDirectory, { recursive: true })
   yield* fs.makeDirectory(workspaceRoot, { recursive: true })
-  const fakeSource = yield* fs.readFileString(fixturePath)
-  yield* fs.writeFileString(fakeCursorAgent, `#!/usr/bin/env node\n${fakeSource}`)
+  // Wrapper only: the fixture imports `effect`. Copied into /tmp it cannot
+  // resolve the monorepo, so the sentinel exits before the first assert.
+  const fixtureHref = pathToFileURL(fixturePath)
+    .href.replaceAll("\\", "\\\\")
+    .replaceAll('"', '\\"')
+  yield* fs.writeFileString(fakeCursorAgent, `#!/usr/bin/env node\nimport "${fixtureHref}"\n`)
   yield* fs.chmod(fakeCursorAgent, 0o755)
 
   const fakeEnvironment = {
