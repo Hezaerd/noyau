@@ -29,13 +29,20 @@ const systemActor = ActorId.make("system:cursor")
 const isThreadEvent = Schema.is(ThreadEvent)
 
 export type DispatchInternal = (command: InternalCommandType) => Effect.Effect<void>
+type InternalCommandEncoded = (typeof InternalCommand)["Encoded"]
 type InternalCommandBody =
-  | Pick<Extract<InternalCommandType, { readonly _tag: "thread.session.set" }>, "_tag" | "payload">
   | Pick<
-      Extract<InternalCommandType, { readonly _tag: "thread.transcript.append" }>,
+      Extract<InternalCommandEncoded, { readonly _tag: "thread.session.set" }>,
       "_tag" | "payload"
     >
-  | Pick<Extract<InternalCommandType, { readonly _tag: "thread.turn.ended" }>, "_tag" | "payload">
+  | Pick<
+      Extract<InternalCommandEncoded, { readonly _tag: "thread.transcript.append" }>,
+      "_tag" | "payload"
+    >
+  | Pick<
+      Extract<InternalCommandEncoded, { readonly _tag: "thread.turn.ended" }>,
+      "_tag" | "payload"
+    >
 
 const projectRoot = Effect.fn("ProviderReactor.projectRoot")(function* (projectId: string) {
   const sql = yield* SqlClient
@@ -73,7 +80,7 @@ const makeInternalCommand = Effect.fn("ProviderReactor.makeInternalCommand")(fun
 const commandForSignal = (
   runtimeMode: RuntimeMode,
   signal: ProviderSignal,
-  updatedAt: DateTime.Utc,
+  updatedAt: string,
 ): InternalCommandBody => {
   switch (signal._tag) {
     case "session":
@@ -127,7 +134,10 @@ const ingestSignal = Effect.fn("ProviderReactor.ingestSignal")(function* (
   signal: ProviderSignal,
 ) {
   const now = yield* DateTime.now
-  const command = yield* makeInternalCommand(persisted, commandForSignal(runtimeMode, signal, now))
+  const command = yield* makeInternalCommand(
+    persisted,
+    commandForSignal(runtimeMode, signal, DateTime.formatIso(now)),
+  )
   yield* dispatchInternal(command)
 })
 
