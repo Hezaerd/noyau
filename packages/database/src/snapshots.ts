@@ -166,9 +166,7 @@ const encodedLatestTurn = (row: (typeof TurnRow)["Type"]) => ({
 })
 
 /** Reads a coherent Board projection at one global journal sequence. */
-export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (
-  projectId: ProjectId,
-) {
+export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (projectId: ProjectId) {
   const sql = yield* SqlClient
   return yield* sql.withTransaction(
     Effect.gen(function* () {
@@ -184,7 +182,7 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (
       const project = yield* decodeProjectRow(projectRow).pipe(Effect.orDie)
       const [snapshotSequence, rawColumns, rawTickets, rawDependencies, rawTicketThreads] =
         yield* Effect.all([
-          readLatestSequence,
+          readLatestSequence(),
           sql<(typeof ColumnRow)["Encoded"]>`
             SELECT
               column_id, project_id, name, color, rank, done, created_at, updated_at
@@ -294,9 +292,7 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (
 })
 
 /** Reads a Thread, its projected Session, ordered Turns, and transcript. */
-export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (
-  threadId: ThreadId,
-) {
+export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (threadId: ThreadId) {
   const sql = yield* SqlClient
   return yield* sql.withTransaction(
     Effect.gen(function* () {
@@ -313,7 +309,7 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (
       }
       const thread = yield* decodeThreadRow(rawThread).pipe(Effect.orDie)
       const [snapshotSequence, rawSessions, rawTurns, rawTranscript] = yield* Effect.all([
-        readLatestSequence,
+        readLatestSequence(),
         sql<(typeof SessionRow)["Encoded"]>`
           SELECT
             thread_id, status, last_error, active_turn_id, runtime_mode, resume_cursor, updated_at
@@ -338,10 +334,7 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (
       const session =
         rawSession === undefined
           ? null
-          : yield* decodeSessionRow(rawSession).pipe(
-              Effect.orDie,
-              Effect.flatMap(encodedSession),
-            )
+          : yield* decodeSessionRow(rawSession).pipe(Effect.orDie, Effect.flatMap(encodedSession))
       const turns = yield* Effect.forEach(rawTurns, (raw) =>
         decodeTurnRow(raw).pipe(
           Effect.orDie,
@@ -402,7 +395,7 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
   return yield* sql.withTransaction(
     Effect.gen(function* () {
       const [snapshotSequence, rawProjects, rawThreads, encodedEnvironment] = yield* Effect.all([
-        readLatestSequence,
+        readLatestSequence(),
         sql<(typeof ProjectRow)["Encoded"]>`
           SELECT project_id, name, workspace_root, available, created_at, updated_at
           FROM projection_projects
@@ -452,9 +445,7 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
             runtimeMode: row.runtime_mode,
             status: row.status,
             latestTurn:
-              row.turn_id === null ||
-              row.turn_state === null ||
-              row.requested_at === null
+              row.turn_id === null || row.turn_state === null || row.requested_at === null
                 ? null
                 : {
                     turnId: row.turn_id,

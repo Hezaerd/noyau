@@ -6,36 +6,25 @@ import { assert, describe, it } from "@effect/vitest"
 import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
 import { makeDrainableWorker } from "@noyau/database/drainable-worker"
 import { projectDomainEvent } from "@noyau/database/projections"
-import {
-  readBoardSnapshot,
-  readShellSnapshot,
-  readThreadSnapshot,
-} from "@noyau/database/snapshots"
+import { readBoardSnapshot, readShellSnapshot, readThreadSnapshot } from "@noyau/database/snapshots"
 import { layer as sqliteLayer } from "@noyau/database/sqlite"
-import { emptyBoardState, evolve } from "@noyau/domain/board/projector"
 import { decide } from "@noyau/domain/board/decider"
+import { emptyBoardState, evolve } from "@noyau/domain/board/projector"
 import { BoardSnapshot } from "@noyau/protocol/board"
 import { Environment } from "@noyau/protocol/entities/environment"
 import { Session } from "@noyau/protocol/entities/session"
 import { type DomainEvent } from "@noyau/protocol/events"
-import {
-  ActorId,
-  CommandId,
-  CorrelationId,
-  ProjectId,
-  ThreadId,
-  TurnId,
-} from "@noyau/protocol/ids"
+import { ActorId, CommandId, CorrelationId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { ProjectCreated } from "@noyau/protocol/project/events"
-import { TicketCommand } from "@noyau/protocol/ticket/commands"
-import { TicketEvent } from "@noyau/protocol/ticket/events"
-import { TicketRejection } from "@noyau/protocol/ticket/errors"
 import {
   ThreadCreated,
   ThreadSessionSet,
   ThreadTranscriptAppended,
   ThreadTurnStarted,
 } from "@noyau/protocol/thread/events"
+import { TicketCommand } from "@noyau/protocol/ticket/commands"
+import { TicketRejection } from "@noyau/protocol/ticket/errors"
+import { TicketEvent } from "@noyau/protocol/ticket/events"
 import { Crypto, Effect, Layer, Option, Schema } from "effect"
 
 const ids = {
@@ -133,10 +122,7 @@ describe("SQL projections", () => {
           })
           const initialized = command({
             _tag: "board.initialize",
-            ...commandMeta(
-              "50000000-0000-4000-8000-000000000001",
-              "2026-08-20T00:01:00.000Z",
-            ),
+            ...commandMeta("50000000-0000-4000-8000-000000000001", "2026-08-20T00:01:00.000Z"),
             payload: {
               backlogColumnId: "60000000-0000-4000-8000-000000000001",
               activeColumnId: "60000000-0000-4000-8000-000000000002",
@@ -145,10 +131,7 @@ describe("SQL projections", () => {
           })
           const created = command({
             _tag: "ticket.create",
-            ...commandMeta(
-              "50000000-0000-4000-8000-000000000002",
-              "2026-08-20T00:02:00.000Z",
-            ),
+            ...commandMeta("50000000-0000-4000-8000-000000000002", "2026-08-20T00:02:00.000Z"),
             payload: {
               projectId: ids.project,
               ticketId: "70000000-0000-4000-8000-000000000001",
@@ -278,11 +261,7 @@ describe("SQL projections", () => {
             ThreadSessionSet.make({
               threadId: ids.terminalThread,
               session: Schema.decodeUnknownSync(Session)({
-                ...runningSession(
-                  ids.terminalThread,
-                  terminalTurnId,
-                  "2026-08-20T00:06:00.000Z",
-                ),
+                ...runningSession(ids.terminalThread, terminalTurnId, "2026-08-20T00:06:00.000Z"),
                 status: "ready",
                 activeTurnId: null,
                 updatedAt: "2026-08-20T00:07:00.000Z",

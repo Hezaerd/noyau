@@ -115,10 +115,7 @@ const projectTranscriptItem = Effect.fn("Projections.projectTranscriptItem")(fun
       AND state = 'running'
   `
   const turnRow = turnRows[0]
-  if (
-    turnRow === undefined ||
-    (yield* decodeCountRow(turnRow).pipe(Effect.orDie)).count === 0
-  ) {
+  if (turnRow === undefined || (yield* decodeCountRow(turnRow).pipe(Effect.orDie)).count === 0) {
     return
   }
 
@@ -585,7 +582,8 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       return
   }
 
-  const threadId = event._tag === "thread.transcript-appended" ? event.item.threadId : event.threadId
+  const threadId =
+    event._tag === "thread.transcript-appended" ? event.item.threadId : event.threadId
   yield* sql`
     UPDATE projection_threads
     SET updated_at = ${occurredAt}
