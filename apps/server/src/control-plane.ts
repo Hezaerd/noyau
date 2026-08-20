@@ -76,6 +76,7 @@ import {
   Stream,
 } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
+import type { SqlError } from "effect/unstable/sql/SqlError"
 
 import { ServerConfig } from "./config"
 
@@ -239,10 +240,8 @@ const toEnvelope = (event: PersistedEvent<DomainEventType>) =>
     event: event.event,
   }).pipe(Effect.orDie)
 
-const unavailable =
-  (service: string) =>
-  (_error: unknown) =>
-    new ServiceUnavailable({ service })
+const unavailable = (service: string) => (_error: SqlError | Schema.SchemaError) =>
+  new ServiceUnavailable({ service })
 
 type LiveInput =
   | { readonly kind: "event"; readonly event: PersistedEvent<DomainEventType> }
