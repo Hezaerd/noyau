@@ -8,7 +8,7 @@ import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
 import { Crypto, Effect, Layer, ManagedRuntime } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 
-import { testServerConfigLayer } from "./fixtures"
+import { testServerConfigLayer } from "./fixtures.ts"
 
 const testCrypto = Crypto.make({
   randomBytes: (size) => new Uint8Array(size),

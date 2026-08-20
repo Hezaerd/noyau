@@ -5,10 +5,10 @@
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
-    "start": "bun scripts/start-electron.mjs",
+    "start": "node scripts/start-electron.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vp test run",
-    "smoke-test": "bun scripts/smoke-test.mjs"
+    "smoke-test": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
     "@noyau/protocol": "workspace:*",

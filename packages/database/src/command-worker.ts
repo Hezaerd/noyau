@@ -11,7 +11,7 @@ import { Crypto, DateTime, Deferred, Effect, PubSub, Queue, Result, Schema, Stre
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 import type { SqlError } from "effect/unstable/sql/SqlError"
 
-import type { DrainableWorker } from "./drainable-worker"
+import type { DrainableWorker } from "./drainable-worker.ts"
 
 export interface AggregateRef {
   readonly kind: string

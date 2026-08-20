@@ -38,8 +38,9 @@ const shutdown = async (exitCode) => {
 }
 
 spawn("vp", ["-C", "apps/web", "dev"])
-
-spawn("bun", ["scripts/dev-electron.mjs"], desktopDirectory)
+spawn("vp", ["-C", "apps/server", "pack", "--watch"])
+spawn("vp", ["-C", "apps/desktop", "pack", "--watch"])
+spawn("node", ["scripts/dev-electron.mjs"], desktopDirectory)
 
 process.once("SIGINT", () => void shutdown(130))
 process.once("SIGTERM", () => void shutdown(143))

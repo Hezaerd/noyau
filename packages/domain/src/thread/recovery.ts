@@ -1,7 +1,7 @@
 import { ThreadSessionSet, type ThreadEvent } from "@noyau/protocol/thread/events"
 import type { DateTime } from "effect"
 
-import type { ThreadState } from "./projector"
+import type { ThreadState } from "./projector.ts"
 
 export const BOOT_RECOVERY_LAST_ERROR = "Provider process lost during server restart"
 

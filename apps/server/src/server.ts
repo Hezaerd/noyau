@@ -10,13 +10,13 @@ import { Effect, FileSystem, Layer } from "effect"
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 
-import { ServerConfig, serverConfigLayer } from "./config"
-import { ControlPlane, controlPlaneLayer } from "./control-plane"
-import { authenticateBearer, rpcIdentityLayer } from "./identity"
-import { loggerLayer } from "./observability"
-import { cursorProviderLayer } from "./provider/cursor-acp"
-import { rpcHandlersLayer } from "./rpc-handlers"
-import { workspaceRootAccessLayer } from "./workspace-root"
+import { ServerConfig, serverConfigLayer } from "./config.ts"
+import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
+import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
+import { loggerLayer } from "./observability.ts"
+import { cursorProviderLayer } from "./provider/cursor-acp.ts"
+import { rpcHandlersLayer } from "./rpc-handlers.ts"
+import { workspaceRootAccessLayer } from "./workspace-root.ts"
 
 export const sqlitePersistenceLayer = Layer.unwrap(
   Effect.gen(function* () {

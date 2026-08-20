@@ -18,13 +18,13 @@ import {
   makeAcpConnection,
   type AcpConnection,
   type AcpConnectionError,
-} from "./acp-json-rpc"
+} from "./acp-json-rpc.ts"
 import {
   ProviderPort,
   type ProviderEmit,
   type ProviderSignal,
   type ProviderTurnInput,
-} from "./provider-port"
+} from "./provider-port.ts"
 
 const ACP_VERSION = 1 as const
 const CURSOR_AUTH_METHOD = "cursor_login"

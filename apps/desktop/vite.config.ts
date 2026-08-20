@@ -4,7 +4,7 @@ export default defineConfig({
   run: {
     tasks: {
       build: {
-        command: "vp pack && bun scripts/copy-renderer.mjs && bun scripts/copy-server.mjs",
+        command: "vp pack && node scripts/copy-renderer.mjs && node scripts/copy-server.mjs",
         dependsOn: ["@noyau/server#build", "@noyau/web#build"],
         // Cette séquence assemble un même dist-electron : `vp pack` le nettoie avant
         // que les deux copies le repeuplent. Le cache indépendant des commandes `&&`
@@ -12,7 +12,7 @@ export default defineConfig({
         cache: false,
       },
       dev: {
-        command: "bun scripts/dev-electron.mjs",
+        command: "vp pack --watch",
         cache: false,
       },
     },

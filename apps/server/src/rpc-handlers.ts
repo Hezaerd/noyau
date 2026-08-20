@@ -2,7 +2,7 @@ import { CurrentActor } from "@noyau/protocol/errors"
 import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/protocol/rpc"
 import { Effect, Stream } from "effect"
 
-import { ControlPlane } from "./control-plane"
+import { ControlPlane } from "./control-plane.ts"
 
 export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
   [RPC_METHODS.dispatchCommand]: (request) =>

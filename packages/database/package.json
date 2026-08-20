@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
+    "@types/node": "^24.13.3",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   }

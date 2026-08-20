@@ -24,9 +24,11 @@ export class UnsupportedNodeSqliteOperation extends Schema.TaggedError<Unsupport
   {},
 ) {}
 
+// `StatementSync.columns()` exists on Node 22.16+ / 23.11+ / 24.
 const checkCompatibility = Effect.sync(() => {
   const [major = 0, minor = 0] = process.versions.node.split(".").map(Number)
-  if ((major === 22 && minor >= 14) || major >= 23) {
+  const supported = (major === 22 && minor >= 16) || (major === 23 && minor >= 11) || major >= 24
+  if (supported) {
     return
   }
   throw new UnsupportedNodeSqliteVersion({ nodeVersion: process.versions.node })

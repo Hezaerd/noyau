@@ -26,7 +26,7 @@ import { Crypto, Deferred, Effect, Fiber, Layer, Option, Schema, Stream } from "
 import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { testServerConfigLayer } from "./fixtures"
+import { testServerConfigLayer } from "./fixtures.ts"
 
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
 const projectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000001")

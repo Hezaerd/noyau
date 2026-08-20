@@ -88,10 +88,10 @@ import {
 } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { ServerConfig } from "./config"
-import { ProviderPort } from "./provider/provider-port"
-import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor"
-import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root"
+import { ServerConfig } from "./config.ts"
+import { ProviderPort } from "./provider/provider-port.ts"
+import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
+import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root.ts"
 
 interface ControlState {
   readonly projects: ProjectCatalog

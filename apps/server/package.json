@@ -17,9 +17,9 @@
     "./workspace-root": "./src/workspace-root.ts"
   },
   "scripts": {
-    "dev": "bun --env-file=../../.env --watch src/main.ts",
+    "dev": "node --watch src/main.ts",
     "start": "node dist/main.mjs",
-    "build": "bun build src/main.ts --outfile dist/main.mjs --target=node --format=esm",
+    "build": "vp pack",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vp test run"
   },
@@ -32,7 +32,11 @@
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
+    "@types/node": "^24.13.3",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
+  },
+  "engines": {
+    "node": "^22.16 || ^23.11 || >=24.10"
   }
 }

@@ -2,7 +2,7 @@ import { assert, describe, layer } from "@effect/vitest"
 import { loggerLayer } from "@noyau/server/observability"
 import { Effect, Layer, Tracer } from "effect"
 
-import { testServerConfigLayer } from "./fixtures"
+import { testServerConfigLayer } from "./fixtures.ts"
 
 const LoggerLayer = loggerLayer.pipe(
   Layer.provide(testServerConfigLayer({ environment: "development" })),

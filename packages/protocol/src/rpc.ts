@@ -14,7 +14,7 @@ import { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import { Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/unstable/rpc"
 
-import type { CurrentActor } from "./errors"
+import type { CurrentActor } from "./errors.ts"
 
 export const CATCH_UP_SEQUENCE_MIN = 0
 export const CATCH_UP_SEQUENCE_MAX = 1000

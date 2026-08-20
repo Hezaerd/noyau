@@ -3,7 +3,7 @@ import { ThreadRejection } from "@noyau/protocol/thread/errors"
 import { TicketRejection } from "@noyau/protocol/ticket/errors"
 import { Schema } from "effect"
 
-import { CommandId, Sequence } from "./ids"
+import { CommandId, Sequence } from "./ids.ts"
 
 export const Rejection = Schema.Union([ProjectRejection, TicketRejection, ThreadRejection])
 export type Rejection = (typeof Rejection)["Type"]

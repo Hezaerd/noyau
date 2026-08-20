@@ -33,7 +33,7 @@ import {
 } from "@noyau/protocol/thread/events"
 import { Result } from "effect"
 
-import type { ThreadProjection, ThreadState, TurnProjection } from "./projector"
+import type { ThreadProjection, ThreadState, TurnProjection } from "./projector.ts"
 
 export type ThreadDecisionError =
   | ApprovalRequestNotFound

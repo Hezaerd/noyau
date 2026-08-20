@@ -20,7 +20,7 @@ import { ThreadEvent } from "@noyau/protocol/thread/events"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { ProviderPort, type ProviderSignal } from "./provider-port"
+import { ProviderPort, type ProviderSignal } from "./provider-port.ts"
 
 const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)

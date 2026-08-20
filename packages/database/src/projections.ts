@@ -7,7 +7,7 @@ import { ProjectId, type ProjectId as ProjectIdType } from "@noyau/protocol/ids"
 import { DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import type { PersistedEvent } from "./command-worker"
+import type { PersistedEvent } from "./command-worker.ts"
 
 const JsonTranscriptItem = Schema.fromJsonString(TranscriptItemSchema)
 const encodeTranscriptItem = Schema.encodeEffect(JsonTranscriptItem)

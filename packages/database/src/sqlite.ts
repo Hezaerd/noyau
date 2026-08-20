@@ -3,9 +3,9 @@ import type { MigrationError } from "effect/unstable/sql/Migrator"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 import type { SqlError } from "effect/unstable/sql/SqlError"
 
-import { runMigrations } from "./migrations"
-import * as NodeSqliteClient from "./node-sqlite-client"
-import { recoverSessionsAfterBoot } from "./session-recovery"
+import { runMigrations } from "./migrations.ts"
+import * as NodeSqliteClient from "./node-sqlite-client.ts"
+import { recoverSessionsAfterBoot } from "./session-recovery.ts"
 
 export interface SqlitePersistenceConfig {
   readonly filename: string
