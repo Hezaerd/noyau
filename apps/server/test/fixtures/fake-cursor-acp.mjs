@@ -61,8 +61,8 @@ const emitLiveUpdates = () => {
     update: {
       sessionUpdate: "plan",
       entries: [
-        { content: "Inspect state", status: "completed" },
-        { content: "Implement change", status: "in_progress" },
+        { content: "Inspect state", priority: "medium", status: "completed" },
+        { content: "Implement change", priority: "high", status: "in_progress" },
       ],
     },
   })
@@ -84,7 +84,7 @@ const emitLiveUpdates = () => {
       title: "Inspect files",
       kind: "search",
       status: "completed",
-      rawOutput: "done",
+      rawOutput: { ok: true, bytes: 12 },
     },
   })
 }
@@ -152,7 +152,7 @@ for await (const line of lines) {
   }
 
   if (message.method === "session/set_config_option") {
-    respond(message.id, {})
+    respond(message.id, { configOptions: [] })
     continue
   }
 
@@ -175,9 +175,9 @@ for await (const line of lines) {
             kind: "edit",
           },
           options: [
-            { optionId: "once", kind: "allow_once" },
-            { optionId: "always", kind: "allow_always" },
-            { optionId: "reject", kind: "reject_once" },
+            { optionId: "once", name: "Allow once", kind: "allow_once" },
+            { optionId: "always", name: "Allow always", kind: "allow_always" },
+            { optionId: "reject", name: "Reject", kind: "reject_once" },
           ],
         },
       })

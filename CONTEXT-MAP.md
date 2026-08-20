@@ -12,6 +12,7 @@ les formes précédentes : ne pas les étendre.
 | Protocol | `packages/protocol/` | Contrat : schémas des IDs, commandes, événements et RPC.            |
 | Domain   | `packages/domain/`   | Décision : deciders et projectors purs sur le journal.              |
 | Database | `packages/database/` | Durabilité : journal SQLite, receipts, projections.                 |
+| ACP      | `packages/acp/`      | Fil de fer ACP : codegen spec, JSON-RPC stdio, `AcpClient`.         |
 | Server   | `apps/server/`       | Frontière RPC, composition, adaptateur Cursor, reactors `TxQueue`.  |
 | Web      | `apps/web/`          | UI React (TanStack Router, Vite) : Tableau, Threads, Dialog Ticket. |
 | Desktop  | `apps/desktop/`      | Electron : superviseur du serveur enfant et chrome hôte.            |
@@ -24,7 +25,8 @@ apps/web     ──(Effect RPC WS loopback)──> apps/server
                                               │
                                               ├──> packages/database
                                               ├──> packages/domain
-                                              `──> packages/protocol
+                                              ├──> packages/protocol
+                                              `──> packages/acp
 
 apps/desktop ──enveloppe──> apps/web
 
@@ -35,10 +37,11 @@ packages/database ──dépend de──> packages/domain ──dépend de──
 - `domain` dépend de `protocol` uniquement. Jamais l'inverse.
 - `database` dépend de `domain` et `protocol`. Le driver concret est `node:sqlite`, fourni par
   l'app ou le test, jamais choisi par le package comme « PG ou PGlite ».
+- `acp` ne dépend de rien (hors `effect`). Fil de fer spec, pas un port multi-provider.
 - `server` enrichit les commandes, possède SQLite, spawn Cursor et pousse les streams RPC.
 - `desktop` supervise le process serveur (fd3, token de lancement, PID). Aucun état métier.
-- Les apps consomment `protocol` pour les types de frontière. Seul `server` consomme `domain` et
-  `database`. Les reactors vivent dans le même processus.
+- Les apps consomment `protocol` pour les types de frontière. Seul `server` consomme `domain`,
+  `database` et `acp`. Les reactors vivent dans le même processus.
 
 ## Langage
 

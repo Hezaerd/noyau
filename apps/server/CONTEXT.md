@@ -29,3 +29,8 @@ _À éviter_ : Channel, SSE, GetTicketActivity
 **commande interne**:
 Ingestion provider (deltas ACP, tools, permissions, fin de Turn). Pas une intention renderer.
 _À éviter_ : CommandRequest client, événement réseau brut
+
+**AcpClient**:
+Fil de fer `@noyau/acp` utilisé par l'adaptateur Cursor. Les extensions (`cursor/ask_question`)
+restent ici.
+_À éviter_ : schémas ACP maison, JSON-RPC maison
