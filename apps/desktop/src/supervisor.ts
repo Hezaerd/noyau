@@ -66,6 +66,26 @@ export interface ServerSupervisorOptions {
   readonly onStateChange?: (state: SupervisorState) => void
 }
 
+type ReadinessOptions = {
+  fetchImpl?: typeof fetch
+  sleep?: (milliseconds: number) => Promise<void>
+  probeRpc?: (bootstrap: ServerBootstrap) => Promise<void>
+}
+
+const readinessOptions = (options: ServerSupervisorOptions): ReadinessOptions => {
+  const result: ReadinessOptions = {}
+  if (options.fetchImpl !== undefined) {
+    result.fetchImpl = options.fetchImpl
+  }
+  if (options.sleep !== undefined) {
+    result.sleep = options.sleep
+  }
+  if (options.probeRpc !== undefined) {
+    result.probeRpc = options.probeRpc
+  }
+  return result
+}
+
 export const restartDelayMs = (failureCount: number): number =>
   RESTART_DELAYS_MS[Math.min(Math.max(failureCount - 1, 0), RESTART_DELAYS_MS.length - 1)] ?? 10_000
 
@@ -247,11 +267,7 @@ export class ServerSupervisor {
     if (this.options.externalBootstrap !== undefined) {
       this.bootstrapValue = this.options.externalBootstrap
       this.setState({ phase: "starting", failures: 0 })
-      await waitForServerReady(this.options.externalBootstrap, {
-        fetchImpl: this.options.fetchImpl,
-        probeRpc: this.options.probeRpc,
-        sleep: this.options.sleep,
-      })
+      await waitForServerReady(this.options.externalBootstrap, readinessOptions(this.options))
       this.setState({ phase: "ready", failures: 0 })
       return
     }
@@ -318,7 +334,13 @@ export class ServerSupervisor {
     if (this.stopping) {
       return
     }
-    const bootstrapOptions: Parameters<typeof makeServerBootstrap>[0] = {
+    const bootstrapOptions: {
+      dataDirectory: string
+      bundleVersion?: string
+      serverVersion?: string
+      actorId?: string
+      environmentId?: string
+    } = {
       dataDirectory: this.options.dataDirectory,
     }
     if (this.options.bundleVersion !== undefined) {
@@ -339,18 +361,15 @@ export class ServerSupervisor {
 
     try {
       await this.spawn(bootstrap)
-      await waitForServerReady(bootstrap, {
-        fetchImpl: this.options.fetchImpl,
-        probeRpc: this.options.probeRpc,
-        sleep: this.options.sleep,
-      })
-      const nextState: SupervisorState = {
-        phase: "ready",
-        failures: this.failureTimes.length,
-      }
-      if (this.child?.pid !== undefined) {
-        nextState.pid = this.child.pid
-      }
+      await waitForServerReady(bootstrap, readinessOptions(this.options))
+      const nextState =
+        this.child?.pid === undefined
+          ? { phase: "ready" as const, failures: this.failureTimes.length }
+          : {
+              phase: "ready" as const,
+              failures: this.failureTimes.length,
+              pid: this.child.pid,
+            }
       this.setState(nextState)
     } catch (cause) {
       this.recordFailure(cause)

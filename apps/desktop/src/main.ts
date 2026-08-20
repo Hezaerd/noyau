@@ -217,7 +217,7 @@ const createMainWindow = async (bootstrap: ServerBootstrap): Promise<void> => {
 const launch = async (): Promise<void> => {
   await app.whenReady()
   const externalBootstrap = decodeExternalBootstrap()
-  const supervisorOptions: ServerSupervisorOptions = {
+  const baseSupervisorOptions = {
     serverEntryPath: resolveServerEntryPath(__dirname),
     dataDirectory: join(app.getPath("userData"), "environment"),
     onStateChange: (state) => {
@@ -228,9 +228,10 @@ const launch = async (): Promise<void> => {
       }
     },
   }
-  if (externalBootstrap !== undefined) {
-    supervisorOptions.externalBootstrap = externalBootstrap
-  }
+  const supervisorOptions: ServerSupervisorOptions =
+    externalBootstrap === undefined
+      ? baseSupervisorOptions
+      : { ...baseSupervisorOptions, externalBootstrap }
   serverSupervisor = new ServerSupervisor(supervisorOptions)
   await serverSupervisor.start()
   registerRendererProtocol()
