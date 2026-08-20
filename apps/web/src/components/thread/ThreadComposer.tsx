@@ -50,11 +50,10 @@ export function ThreadComposer({
           disabled={isRunning || disabled}
           rows={3}
         />
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">
-            Images refusées dans la coupe v0.1.
-            {error === undefined ? null : ` ${error}`}
-          </p>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {error === undefined ? null : (
+            <p className="mr-auto text-xs text-muted-foreground">{error}</p>
+          )}
           <div className="flex gap-2">
             {isRunning ? (
               <Button type="button" variant="outline" onClick={onInterrupt}>
