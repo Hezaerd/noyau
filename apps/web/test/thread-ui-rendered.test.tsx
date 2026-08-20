@@ -10,12 +10,15 @@ import { Schema } from "effect"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { TicketDialog } from "../src/components/board/TicketDialog"
+import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
 import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
+import { ThreadTitleBar } from "../src/components/thread/ThreadTitleBar"
 import { ThreadTranscript } from "../src/components/thread/ThreadTranscript"
 import { ThreadTranscriptItem } from "../src/components/thread/ThreadTranscriptItem"
+import { ThreadPageTitle } from "../src/components/WorkspaceBreadcrumb"
 import type { BoardTicket } from "../src/lib/board-model"
 
 Object.defineProperty(HTMLElement.prototype, "getAnimations", {
@@ -75,6 +78,24 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByRole("link", { name: "Documenter Cursor" })).toBeTruthy()
   })
 
+  it("renders a compact Thread popover with the available shell facts", () => {
+    render(
+      <ThreadSidebarPopover
+        thread={makeThread(threadId, "Ajouter shortcut pour les settings")}
+        project={{
+          name: "noyau",
+          workspaceRoot: "/Users/hezaerd/code/noyau",
+        }}
+      />,
+    )
+
+    expect(screen.getByText("Ajouter shortcut pour les settings")).toBeTruthy()
+    expect(screen.getByText("noyau")).toBeTruthy()
+    expect(screen.getByText("Cursor")).toBeTruthy()
+    expect(screen.getByText("Accès complet")).toBeTruthy()
+    expect(screen.queryByText("/Users/hezaerd/code/noyau")).toBeNull()
+  })
+
   it("renders Session lastError and human interruption separately", () => {
     render(
       <ThreadStatusNotices
@@ -86,6 +107,29 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByRole("alert").textContent).toContain("ACP indisponible")
     expect(screen.getByText(/You stopped/)).toBeTruthy()
     expect(screen.queryByText(/lost/i)).toBeNull()
+  })
+
+  it("renames and regenerates a Thread title from the title bar", async () => {
+    const user = userEvent.setup()
+    const onRename = vi.fn(async () => true)
+    const onRegenerate = vi.fn(async () => true)
+    render(
+      <ThreadTitleBar
+        title="Nouveau thread"
+        isRegenerating={false}
+        onRename={onRename}
+        onRegenerate={onRegenerate}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Nouveau thread" }))
+    await user.clear(screen.getByRole("textbox", { name: "Renommer le Thread" }))
+    await user.type(screen.getByRole("textbox", { name: "Renommer le Thread" }), "Reprise Session")
+    await user.keyboard("{Enter}")
+    expect(onRename).toHaveBeenCalledWith("Reprise Session")
+
+    await user.click(screen.getByRole("button", { name: "Régénérer le titre" }))
+    expect(onRegenerate).toHaveBeenCalledTimes(1)
   })
 
   it("gates the composer while Cursor is unavailable", () => {
@@ -257,5 +301,13 @@ describe("rendered Thread UI evidence", () => {
 
     expect(screen.queryByText("Cursor")).toBeNull()
     expect(screen.getByText("un")).toBeTruthy()
+  })
+
+  it("renders the chrome as Project / Thread instead of a static Thread label", () => {
+    render(<ThreadPageTitle projectName="noyau" threadTitle="Exclure les subtrees du graphe" />)
+
+    expect(screen.getByRole("navigation", { name: "Fil d’Ariane du Thread" })).toBeTruthy()
+    expect(screen.getByText("noyau")).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Exclure les subtrees du graphe" })).toBeTruthy()
   })
 })

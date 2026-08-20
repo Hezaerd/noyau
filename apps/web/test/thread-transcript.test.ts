@@ -212,6 +212,19 @@ describe("thread transcript projection", () => {
     }
   })
 
+  it("applies a generated title locally", () => {
+    const next = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.title-seeded",
+        threadId: ids.thread,
+        title: "Fix session resume",
+      }),
+    )
+
+    expect(next?.thread.title).toBe("Fix session resume")
+  })
+
   it("leaves structural events to a snapshot refresh", () => {
     expect(
       applyThreadEnvelope(

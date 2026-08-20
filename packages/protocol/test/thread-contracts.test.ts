@@ -11,6 +11,11 @@ import {
   ThreadCommandRequest,
   ThreadTurnStart,
 } from "@noyau/protocol/thread/commands"
+import {
+  canReplaceThreadTitle,
+  DEFAULT_THREAD_TITLE,
+  seedTitleFromPrompt,
+} from "@noyau/protocol/thread/title"
 import { Effect, Schema } from "effect"
 
 const ids = {
@@ -262,6 +267,28 @@ describe("Thread commands", () => {
     expect(Schema.decodeUnknownSync(ThreadCommandRequest)(request)._tag).toBe(tag)
   })
 
+  it("accepte thread.meta.update avec regenerateTitle seul", () => {
+    const request = {
+      _tag: "thread.meta.update" as const,
+      commandId: ids.command,
+      payload: { threadId: ids.thread, regenerateTitle: true as const },
+    }
+    expect(Schema.decodeUnknownSync(ThreadCommandRequest)(request).payload).toEqual({
+      threadId: ids.thread,
+      regenerateTitle: true,
+    })
+  })
+
+  it("rejette title et regenerateTitle ensemble", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(ThreadCommandRequest)({
+        _tag: "thread.meta.update",
+        commandId: ids.command,
+        payload: { threadId: ids.thread, title: "Titre", regenerateTitle: true },
+      }),
+    ).toThrow()
+  })
+
   it("rejette permissionMode comme tag de commande", () => {
     expect(() =>
       Schema.decodeUnknownSync(ThreadCommandRequest)({
@@ -306,5 +333,21 @@ describe("Thread events and receipts", () => {
       response: { _tag: "accepted", sequence: 44 },
     })
     expect(receipt.response).toEqual({ _tag: "accepted", sequence: 44 })
+  })
+})
+
+describe("Thread title helpers", () => {
+  it("sème un titre compact depuis le premier prompt", () => {
+    expect(seedTitleFromPrompt("  Corriger le flux de reprise  ")).toBe(
+      "Corriger le flux de reprise",
+    )
+    expect(seedTitleFromPrompt(`"Titre entre quotes"`)).toBe("Titre entre quotes")
+    expect(seedTitleFromPrompt("A".repeat(80))).toBe(`${"A".repeat(47)}...`)
+  })
+
+  it("autorise le remplacement du placeholder ou du seed seulement", () => {
+    expect(canReplaceThreadTitle(DEFAULT_THREAD_TITLE)).toBe(true)
+    expect(canReplaceThreadTitle("Inspecte le projet", "Inspecte le projet")).toBe(true)
+    expect(canReplaceThreadTitle("Titre manuel", "Inspecte le projet")).toBe(false)
   })
 })

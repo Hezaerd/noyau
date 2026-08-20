@@ -7,6 +7,7 @@ import type {
 } from "@noyau/protocol/entities/turn"
 import type { ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import type { ThreadEvent } from "@noyau/protocol/thread/events"
+import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
 
 export interface TurnProjection {
   readonly turnId: TurnId
@@ -221,9 +222,11 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
           return thread
         }
         const firstTurn = thread.turns.length === 0
+        const titleSeed = event.titleSeed ?? event.text
         return {
           ...thread,
-          title: firstTurn ? (event.titleSeed ?? event.text) : thread.title,
+          title:
+            firstTurn && canReplaceThreadTitle(thread.title, titleSeed) ? titleSeed : thread.title,
           runtimeMode: event.runtimeMode ?? thread.runtimeMode,
           turns: [
             ...thread.turns,

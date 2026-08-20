@@ -6,6 +6,7 @@ import type {
   TranscriptToolAction,
 } from "@noyau/protocol/entities/transcript"
 import type { EventEnvelope } from "@noyau/protocol/events"
+import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
 
 const replaceTranscriptItem = (
   transcript: ReadonlyArray<TranscriptItem>,
@@ -292,10 +293,14 @@ export const applyThreadEnvelope = (
         return snapshot
       }
       const firstTurn = snapshot.turns.length === 0
+      const titleSeed = event.titleSeed ?? event.text
       const threadFields = {
         id: snapshot.thread.id,
         projectId: snapshot.thread.projectId,
-        title: firstTurn ? (event.titleSeed ?? event.text) : snapshot.thread.title,
+        title:
+          firstTurn && canReplaceThreadTitle(snapshot.thread.title, titleSeed)
+            ? titleSeed
+            : snapshot.thread.title,
         provider: snapshot.thread.provider,
         runtimeMode: event.runtimeMode ?? snapshot.thread.runtimeMode,
         status: snapshot.thread.status,
@@ -361,6 +366,32 @@ export const applyThreadEnvelope = (
           "transcript.user-input",
         ),
       }
+    case "thread.title-seeded":
+    case "thread.meta-updated": {
+      const title = event.title
+      if (title === undefined || event.threadId !== snapshot.thread.id) {
+        return snapshot
+      }
+      const threadFields = {
+        id: snapshot.thread.id,
+        projectId: snapshot.thread.projectId,
+        title,
+        provider: snapshot.thread.provider,
+        runtimeMode: snapshot.thread.runtimeMode,
+        status: snapshot.thread.status,
+        session: snapshot.thread.session,
+        latestTurn: snapshot.thread.latestTurn,
+        createdAt: snapshot.thread.createdAt,
+        updatedAt: envelope.occurredAt,
+      }
+      return {
+        ...snapshot,
+        thread:
+          snapshot.thread.archivedAt === undefined
+            ? new Thread(threadFields)
+            : new Thread({ ...threadFields, archivedAt: snapshot.thread.archivedAt }),
+      }
+    }
     default:
       return undefined
   }

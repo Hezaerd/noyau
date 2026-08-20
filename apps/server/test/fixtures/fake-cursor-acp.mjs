@@ -185,6 +185,17 @@ for await (const line of lines) {
       })
       continue
     }
+    if (scenario === "thread-title") {
+      notify("session/update", {
+        sessionId: activeSessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: '{"title":"Fix session resume"}' },
+        },
+      })
+      completePrompt("end_turn")
+      continue
+    }
     if (scenario === "cancel" || scenario === "ignore-cancel") {
       notify("session/update", {
         sessionId: activeSessionId,

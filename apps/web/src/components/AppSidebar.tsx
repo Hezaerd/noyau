@@ -3,7 +3,6 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import {
   ChevronsUpDownIcon,
   LayoutGridIcon,
-  MessageCircleIcon,
   MessageCirclePlusIcon,
   PlusIcon,
   SearchIcon,
@@ -13,6 +12,7 @@ import { useState } from "react"
 
 import { useControlPlane } from "@/components/control-plane-context"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
+import { ThreadSidebarItem } from "@/components/sidebar/ThreadSidebarItem"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { Button } from "@/components/ui/button"
 import { CommandDialogTrigger } from "@/components/ui/command"
@@ -101,7 +101,9 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {projects.map((project) => {
-                const projectThreads = threads.filter((thread) => thread.projectId === project.id)
+                const projectThreads = threads.filter(
+                  (thread) => thread.projectId === project.id && thread.status === "active",
+                )
                 return (
                   <SidebarMenuItem key={project.id}>
                     <div className="mb-1 flex items-center gap-2.5 rounded-lg px-2 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
@@ -167,25 +169,15 @@ export function AppSidebar() {
                     <ThreadSidebarSection
                       threads={projectThreads}
                       renderThread={(thread) => (
-                        <SidebarMenuButton
-                          key={thread.id}
-                          render={
-                            <Link
-                              to="/projects/$projectId/thread/$threadId"
-                              params={{ projectId: project.id, threadId: thread.id }}
-                              onClick={() => {
-                                selectProject(project.id)
-                                closeMobileNavigation()
-                              }}
-                            />
-                          }
+                        <ThreadSidebarItem
+                          thread={thread}
+                          project={project}
                           isActive={pathname === `/projects/${project.id}/thread/${thread.id}`}
-                          tooltip={thread.title}
-                          className="h-8 pl-8 text-sidebar-foreground/58"
-                        >
-                          <MessageCircleIcon />
-                          <span className="truncate">{thread.title}</span>
-                        </SidebarMenuButton>
+                          onSelect={() => {
+                            selectProject(project.id)
+                            closeMobileNavigation()
+                          }}
+                        />
                       )}
                     />
                   </SidebarMenuItem>

@@ -91,6 +91,8 @@ import { SqlClient } from "effect/unstable/sql/SqlClient"
 import { ServerConfig } from "./config.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
+import { TextGeneration } from "./text-generation/text-generation.ts"
+import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root.ts"
 
 interface ControlState {
@@ -586,10 +588,23 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const fileSystem = yield* FileSystem.FileSystem
       const crypto = yield* Crypto.Crypto
       let dispatchInternal = workerNotReady
+      const textGeneration = yield* TextGeneration
       const processProviderEvent = yield* makeProviderReactor((command) =>
         dispatchInternal(command),
       ).pipe(Effect.provideService(ProviderPort, provider), Effect.provideService(SqlClient, sql))
-      const reactor = yield* makeDrainableWorker(processProviderEvent)
+      const processTitleEvent = yield* makeThreadTitleReactor((command) =>
+        dispatchInternal(command),
+      ).pipe(
+        Effect.provideService(TextGeneration, textGeneration),
+        Effect.provideService(SqlClient, sql),
+      )
+      const providerReactor = yield* makeDrainableWorker(processProviderEvent)
+      const titleReactor = yield* makeDrainableWorker(processTitleEvent)
+      const reactor = {
+        enqueue: (event: PersistedEvent<DomainEventType>) =>
+          Effect.andThen(providerReactor.enqueue(event), titleReactor.enqueue(event)),
+        drain: Effect.andThen(providerReactor.drain, titleReactor.drain),
+      }
       const worker = yield* makeCommandWorker({
         commandSchema: Command,
         eventSchema: DomainEvent,

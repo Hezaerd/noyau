@@ -34,3 +34,7 @@ _À éviter_ : CommandRequest client, événement réseau brut
 Fil de fer `@noyau/acp` utilisé par l'adaptateur Cursor. Les extensions (`cursor/ask_question`)
 restent ici.
 _À éviter_ : schémas ACP maison, JSON-RPC maison
+
+**TextGeneration**:
+Session ACP éphémère hors Turn, pour un Titre généré. Pas le `session/prompt` du Thread.
+_À éviter_ : Turn, ProviderPort.startTurn

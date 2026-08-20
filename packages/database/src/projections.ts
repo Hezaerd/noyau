@@ -4,6 +4,7 @@ import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { TranscriptItem as TranscriptItemSchema } from "@noyau/protocol/entities/transcript"
 import type { DomainEvent } from "@noyau/protocol/events"
 import { ProjectId, type ProjectId as ProjectIdType } from "@noyau/protocol/ids"
+import { DEFAULT_THREAD_TITLE } from "@noyau/protocol/thread/title"
 import { DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -570,10 +571,12 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         )
       `
       if (ordinal === 1) {
+        const titleSeed = event.titleSeed ?? event.text
         yield* sql`
           UPDATE projection_threads
-          SET title = ${event.titleSeed ?? event.text}
+          SET title = ${titleSeed}
           WHERE thread_id = ${event.threadId}
+            AND (title = ${DEFAULT_THREAD_TITLE} OR title = ${titleSeed})
         `
       }
       if (event.runtimeMode !== undefined) {

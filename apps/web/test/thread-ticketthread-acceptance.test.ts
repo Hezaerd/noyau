@@ -6,10 +6,15 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { acceptsSequence } from "../src/lib/control-plane"
 import {
+  DEFAULT_THREAD_TITLE,
+  makeThreadArchiveRequest,
   makeThreadCreateRequest,
+  makeThreadMetaUpdateRequest,
   makeThreadRuntimeModeSetRequest,
+  makeThreadTitleRegenerateRequest,
   makeThreadTurnStartRequest,
   runtimeModes,
+  seedTitleFromPrompt,
 } from "../src/lib/thread-commands"
 import {
   makeTicketThreadLinkRequest,
@@ -31,25 +36,44 @@ const runBuilder = <A, E>(builder: Effect.Effect<A, E, Crypto.Crypto>): A =>
   Effect.runSync(builder.pipe(Effect.provideService(Crypto.Crypto, crypto)))
 
 describe("Thread and TicketThread UI acceptance contract", () => {
-  it("seeds a required Thread title from the first prompt and starts a text-only Turn", () => {
+  it("creates a Thread with the placeholder title and seeds the first Turn", () => {
     const prompt = "  Corriger le flux de reprise  "
     const created = runBuilder(
       makeThreadCreateRequest({
         threadId: ids.threadId,
         projectId: ids.projectId,
-        title: prompt,
+        title: DEFAULT_THREAD_TITLE,
       }),
     )
     const started = runBuilder(
       makeThreadTurnStartRequest({
         threadId: ids.threadId,
         text: prompt,
+        titleSeed: seedTitleFromPrompt(prompt),
       }),
     )
 
-    expect(created.payload.title).toBe("Corriger le flux de reprise")
+    expect(created.payload.title).toBe(DEFAULT_THREAD_TITLE)
     expect(started.payload.text).toBe("Corriger le flux de reprise")
+    expect(started.payload.titleSeed).toBe("Corriger le flux de reprise")
     expect(Schema.is(ThreadTurnStartRequest)(started)).toBe(true)
+  })
+
+  it("renames a Thread and asks for title regeneration without a new title", () => {
+    const renamed = runBuilder(
+      makeThreadMetaUpdateRequest({
+        threadId: ids.threadId,
+        title: "Reprise Session",
+      }),
+    )
+    const regenerated = runBuilder(
+      makeThreadTitleRegenerateRequest({
+        threadId: ids.threadId,
+      }),
+    )
+
+    expect(renamed.payload).toEqual({ threadId: ids.threadId, title: "Reprise Session" })
+    expect(regenerated.payload).toEqual({ threadId: ids.threadId, regenerateTitle: true })
   })
 
   it("rejects image attachments at the same boundary used by the composer", () => {
@@ -90,6 +114,21 @@ describe("Thread and TicketThread UI acceptance contract", () => {
     expect(modeRequest.payload.runtimeMode).toBe("approval-required")
     expect(linkRequest._tag).toBe("ticket.thread.link")
     expect(unlinkRequest._tag).toBe("ticket.thread.unlink")
+  })
+
+  it("renames and archives a Thread from the sidebar actions", () => {
+    const renamed = runBuilder(
+      makeThreadMetaUpdateRequest({
+        threadId: ids.threadId,
+        title: "  Titre mis à jour  ",
+      }),
+    )
+    const archived = runBuilder(makeThreadArchiveRequest({ threadId: ids.threadId }))
+
+    expect(renamed._tag).toBe("thread.meta.update")
+    expect(renamed.payload.title).toBe("Titre mis à jour")
+    expect(archived._tag).toBe("thread.archive")
+    expect(archived.payload.threadId).toBe(ids.threadId)
   })
 
   it("uses the snapshot-first Thread stream and only accepts newer deltas", () => {
