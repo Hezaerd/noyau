@@ -123,15 +123,27 @@ const AskQuestionRequest = Schema.Struct({
     ),
   ),
 })
+const AssistantNotification = Schema.Struct({
+  sessionId: Schema.NonEmptyString,
+  update: AssistantUpdate,
+})
+const ToolNotification = Schema.Struct({
+  sessionId: Schema.NonEmptyString,
+  update: ToolUpdate,
+})
+const PlanNotification = Schema.Struct({
+  sessionId: Schema.NonEmptyString,
+  update: PlanUpdate,
+})
 
 const decodeInitialize = Schema.decodeUnknownEffect(InitializeResponse)
 const decodeNewSession = Schema.decodeUnknownEffect(NewSessionResponse)
 const decodeSessionSetup = Schema.decodeUnknownEffect(SessionSetupResponse)
 const decodePrompt = Schema.decodeUnknownEffect(PromptResponse)
 const decodeSessionUpdate = Schema.decodeUnknownEffect(SessionUpdate)
-const decodeAssistantUpdate = Schema.decodeUnknownEffect(AssistantUpdate)
-const decodeToolUpdate = Schema.decodeUnknownEffect(ToolUpdate)
-const decodePlanUpdate = Schema.decodeUnknownEffect(PlanUpdate)
+const decodeAssistantNotification = Schema.decodeUnknownEffect(AssistantNotification)
+const decodeToolNotification = Schema.decodeUnknownEffect(ToolNotification)
+const decodePlanNotification = Schema.decodeUnknownEffect(PlanNotification)
 const decodePermissionRequest = Schema.decodeUnknownEffect(PermissionRequest)
 const decodeAskQuestionRequest = Schema.decodeUnknownEffect(AskQuestionRequest)
 
@@ -584,7 +596,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     }
     switch (notification.update.sessionUpdate) {
       case "agent_message_chunk": {
-        const update = yield* decodeAssistantUpdate(notification.update).pipe(
+        const { update } = yield* decodeAssistantNotification(params).pipe(
           Effect.mapError(mapSchemaError("assistant update")),
         )
         if (update.content.text.length > 0) {
@@ -602,7 +614,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       }
       case "tool_call":
       case "tool_call_update": {
-        const update = yield* decodeToolUpdate(notification.update).pipe(
+        const { update } = yield* decodeToolNotification(params).pipe(
           Effect.mapError(mapSchemaError("tool update")),
         )
         const item = {
@@ -621,7 +633,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         return
       }
       case "plan": {
-        const update = yield* decodePlanUpdate(notification.update).pipe(
+        const { update } = yield* decodePlanNotification(params).pipe(
           Effect.mapError(mapSchemaError("plan update")),
         )
         const markdown = update.entries
