@@ -40,6 +40,7 @@ import {
   paletteItemHotkey,
   paletteItemModifierPressed,
 } from "@/lib/keyboard-shortcut"
+import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
 
 const RECENT_ACTIONS_STORAGE_KEY = "noyau.palette.recent-actions"
 
@@ -108,6 +109,35 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [open])
 
+  const openSettings = useCallback(() => {
+    if (pathname.startsWith("/settings")) {
+      return
+    }
+    setOpen(false)
+    setQuery("")
+    void navigate({
+      to: "/settings/$tab",
+      params: { tab: DEFAULT_SETTINGS_TAB },
+    })
+  }, [navigate, pathname])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        isKeybindingRecorderActive() ||
+        !matchesKeybinding(event, "settings.open")
+      ) {
+        return
+      }
+      event.preventDefault()
+      openSettings()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [openSettings])
+
   const navigationActions = useMemo<ReadonlyArray<AppPaletteAction>>(() => {
     const actions: Array<AppPaletteAction & { readonly path: string }> = [
       {
@@ -116,11 +146,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
         searchValue: "Aller aux Paramètres settings apparence raccourcis keybindings",
         path: "/settings/appearance",
         icon: <SettingsIcon />,
-        execute: () =>
-          navigate({
-            to: "/settings/$tab",
-            params: { tab: "appearance" },
-          }),
+        execute: openSettings,
       },
     ]
     if (lastProjectId !== undefined) {
@@ -143,7 +169,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
       }
       return action.path !== pathname
     })
-  }, [lastProjectId, navigate, pathname])
+  }, [lastProjectId, navigate, openSettings, pathname])
 
   const contextualActions = useMemo(
     () => pageActions.filter((action) => action.category !== "ticket"),

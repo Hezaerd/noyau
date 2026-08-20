@@ -6,6 +6,7 @@ export type KeybindingGroupId = (typeof KEYBINDING_GROUP_IDS)[number]
 
 export const KEYBINDING_IDS = [
   "palette.open",
+  "settings.open",
   "board.search",
   "board.ticket.create",
   "board.ticket.open",
@@ -45,6 +46,13 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Ouvrir la Palette",
     description: "Ouvre la Palette depuis n’importe quelle page.",
     defaultHotkey: "Mod+K",
+  },
+  {
+    id: "settings.open",
+    group: "global",
+    title: "Ouvrir les Paramètres",
+    description: "Ouvre les Paramètres depuis n’importe quelle page.",
+    defaultHotkey: "Mod+,",
   },
   {
     id: "board.search",

@@ -77,6 +77,8 @@ describe("keybinding overrides", () => {
     ).toEqual(["board.column.rename"])
     expect(keybindingConflicts("palette.open", "Mod+K", resolved, "mac")).toEqual([])
     expect(isKeybindingId("palette.open")).toBe(true)
+    expect(isKeybindingId("settings.open")).toBe(true)
+    expect(defaultKeybinding("settings.open")).toBe("Mod+,")
     expect(isKeybindingId("unknown")).toBe(false)
   })
 })

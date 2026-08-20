@@ -19,6 +19,7 @@ export type KeybindingOverrides = ReadonlyMap<KeybindingId, Hotkey>
 
 export interface ResolvedKeybindings {
   readonly "palette.open": Hotkey
+  readonly "settings.open": Hotkey
   readonly "board.search": Hotkey
   readonly "board.ticket.create": Hotkey
   readonly "board.ticket.open": Hotkey
@@ -93,6 +94,7 @@ export const resolveKeybindings = (
   overrides: KeybindingOverrides = currentOverrides,
 ): ResolvedKeybindings => ({
   "palette.open": overrides.get("palette.open") ?? defaultKeybinding("palette.open"),
+  "settings.open": overrides.get("settings.open") ?? defaultKeybinding("settings.open"),
   "board.search": overrides.get("board.search") ?? defaultKeybinding("board.search"),
   "board.ticket.create":
     overrides.get("board.ticket.create") ?? defaultKeybinding("board.ticket.create"),
