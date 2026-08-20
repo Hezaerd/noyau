@@ -937,7 +937,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
 
   const drain = Effect.gen(function* () {
     const entries = [...turnFibers.entries()]
-    yield* Effect.forEach(entries, ([, fiber]) => Fiber.await(fiber), { discard: true })
+    yield* Effect.forEach(entries, ([, fiber]) => Fiber.join(fiber), { discard: true })
     for (const [threadId, fiber] of entries) {
       if (turnFibers.get(threadId) === fiber) {
         turnFibers.delete(threadId)
