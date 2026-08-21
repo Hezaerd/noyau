@@ -24,7 +24,6 @@ export function ThreadTranscript({
   loading,
   error,
   notices,
-  footer,
   answerByRequest,
   onAnswerChange,
   onRespondApproval,
@@ -35,7 +34,6 @@ export function ThreadTranscript({
   readonly loading: boolean
   readonly error: string | undefined
   readonly notices: ReactNode
-  readonly footer: ReactNode
   readonly answerByRequest: Record<string, string>
   readonly onAnswerChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
@@ -113,12 +111,6 @@ export function ThreadTranscript({
                 </Marker>
               </MessageScrollerItem>
             ) : null}
-
-            {footer === null || footer === undefined ? null : (
-              <MessageScrollerItem messageId="thread-footer" scrollAnchor={false}>
-                {footer}
-              </MessageScrollerItem>
-            )}
           </MessageScrollerContent>
         </MessageScrollerViewport>
         {minimapItems.length >= TURN_MINIMAP_MIN_ITEMS ? (
