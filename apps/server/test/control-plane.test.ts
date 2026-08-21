@@ -505,6 +505,47 @@ describe("ControlPlane", () => {
     }),
   )
 
+  it.effect("buffers live Thread events before the snapshot is released", () =>
+    Effect.gen(function* () {
+      const snapshotRead = yield* Deferred.make<void>()
+      const releaseSnapshot = yield* Deferred.make<void>()
+      const hooks: ControlPlaneHooks = {
+        afterThreadSnapshot: () =>
+          Deferred.succeed(snapshotRead, undefined).pipe(
+            Effect.andThen(Deferred.await(releaseSnapshot)),
+          ),
+      }
+      const program = Effect.gen(function* () {
+        const controlPlane = yield* ControlPlane
+        yield* controlPlane.dispatch(projectCreate(), actorId)
+        yield* controlPlane.dispatch(threadCreate, actorId)
+        const subscription = yield* controlPlane
+          .subscribeThread({ threadId, requestCompletionMarker: true })
+          .pipe(Stream.take(3), Stream.runCollect, Effect.forkChild)
+        yield* Deferred.await(snapshotRead)
+        const started = yield* controlPlane.dispatch(
+          request({
+            _tag: "thread.turn.start",
+            commandId: uuid(13),
+            payload: { threadId, text: "Stream live" },
+          }),
+          actorId,
+        )
+        yield* Deferred.succeed(releaseSnapshot, undefined)
+        const frames = yield* Fiber.join(subscription)
+
+        assert.strictEqual(frames[0]?.kind, "snapshot")
+        assert.strictEqual(frames[1]?.kind, "event")
+        assert.strictEqual(
+          frames[1]?.kind === "event" ? frames[1].event.sequence : -1,
+          started.sequence,
+        )
+        assert.strictEqual(frames[2]?.kind, "synchronized")
+      })
+      yield* run(program, hooks)
+    }),
+  )
+
   it.effect("serves shell and thread snapshots and coalesces shell updates", () =>
     Effect.gen(function* () {
       const snapshotRead = yield* Deferred.make<void>()
