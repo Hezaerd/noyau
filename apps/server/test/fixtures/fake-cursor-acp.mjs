@@ -1,9 +1,10 @@
-import { appendFileSync } from "node:fs"
 import { createInterface } from "node:readline"
 
-import { Config, Effect, Option } from "effect"
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import { Config, Effect, FileSystem, ManagedRuntime, Option } from "effect"
 
-const { exitLog, requestLog, scenario, sessionId } = Effect.runSync(
+const runtime = ManagedRuntime.make(NodeFileSystem.layer)
+const { exitLog, fileSystem, requestLog, scenario, sessionId } = await runtime.runPromise(
   Effect.gen(function* () {
     return {
       scenario: yield* Config.string("NOYAU_FAKE_ACP_SCENARIO").pipe(Config.withDefault("success")),
@@ -12,6 +13,7 @@ const { exitLog, requestLog, scenario, sessionId } = Effect.runSync(
       sessionId: yield* Config.string("NOYAU_FAKE_ACP_SESSION_ID").pipe(
         Config.withDefault("fake-session-new"),
       ),
+      fileSystem: yield* FileSystem.FileSystem,
     }
   }),
 )
@@ -33,30 +35,37 @@ const respond = (id, result) => write({ jsonrpc: "2.0", id, result })
 const fail = (id, message) => write({ jsonrpc: "2.0", id, error: { code: -32_603, message } })
 const notify = (method, params) => write({ jsonrpc: "2.0", method, params })
 
+const appendLine = (path, line) => fileSystem.writeFileString(path, `${line}\n`, { flag: "a" })
+
 const logRequest = (message) => {
-  if (Option.isSome(requestLog)) {
-    appendFileSync(requestLog.value, `${JSON.stringify(message)}\n`, "utf8")
+  if (Option.isNone(requestLog)) {
+    return Effect.void
   }
+  return appendLine(requestLog.value, JSON.stringify(message))
 }
 
 const logExit = (reason) => {
-  if (Option.isSome(exitLog)) {
-    appendFileSync(exitLog.value, `${reason}\n`, "utf8")
+  if (Option.isNone(exitLog)) {
+    return Effect.void
   }
+  return appendLine(exitLog.value, reason)
+}
+
+const shutdown = (reason, code = 0) => {
+  void Effect.runPromise(logExit(reason)).finally(() => {
+    process.exit(code)
+  })
 }
 
 let activePromptId
 let activeSessionId = sessionId
 
 process.once("SIGTERM", () => {
-  logExit("SIGTERM")
-  process.exit(0)
+  shutdown("SIGTERM")
 })
 process.once("SIGINT", () => {
-  logExit("SIGINT")
-  process.exit(0)
+  shutdown("SIGINT")
 })
-process.once("exit", (code) => logExit(`exit:${code}`))
 
 const emitLiveUpdates = () => {
   notify("session/update", {
@@ -111,7 +120,7 @@ const completePrompt = (stopReason = "end_turn") => {
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity })
 for await (const line of lines) {
   const message = JSON.parse(line)
-  logRequest(message)
+  await Effect.runPromise(logRequest(message))
 
   if (message.method === "initialize") {
     respond(message.id, {
@@ -172,6 +181,7 @@ for await (const line of lines) {
     activePromptId = message.id
     if (scenario === "rupture") {
       process.stderr.write("fake Cursor transport ruptured\n")
+      await Effect.runPromise(logExit("exit:17"))
       process.exit(17)
     }
     if (scenario === "permission") {
@@ -238,3 +248,5 @@ for await (const line of lines) {
     fail(message.id, `unsupported method: ${String(message.method)}`)
   }
 }
+
+await Effect.runPromise(logExit("exit:0"))
