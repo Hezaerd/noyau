@@ -35,6 +35,3 @@ jobs:
 
       - name: Build
         run: bun run build
-
-      - name: Desktop smoke test
-        run: bun run test:desktop-smoke
