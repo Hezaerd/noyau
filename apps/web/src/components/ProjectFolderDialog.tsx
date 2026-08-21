@@ -19,6 +19,7 @@ interface ProjectFolderDialogProps {
   readonly open: boolean
   readonly projectId: ProjectId | undefined
   readonly onOpenChange: (open: boolean) => void
+  readonly onProjectCreated?: (projectId: ProjectId) => void
 }
 
 const folderName = (path: string): string =>
@@ -27,7 +28,12 @@ const folderName = (path: string): string =>
     .split(/[\\/]/u)
     .pop() ?? path
 
-export function ProjectFolderDialog({ open, projectId, onOpenChange }: ProjectFolderDialogProps) {
+export function ProjectFolderDialog({
+  open,
+  projectId,
+  onOpenChange,
+  onProjectCreated,
+}: ProjectFolderDialogProps) {
   const { projects } = useControlPlane()
   const project = projects.find((candidate) => candidate.id === projectId)
   const [workspaceRoot, setWorkspaceRoot] = useState("")
@@ -66,6 +72,9 @@ export function ProjectFolderDialog({ open, projectId, onOpenChange }: ProjectFo
       setName("")
       setError(undefined)
       onOpenChange(false)
+      if (result.value !== undefined) {
+        onProjectCreated?.(result.value)
+      }
       return undefined
     })
   }

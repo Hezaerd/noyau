@@ -7,7 +7,7 @@ import { useControlPlane } from "@/hooks/use-control-plane"
 
 export function HomePage() {
   const navigate = useNavigate()
-  const { shell, lastProjectId, projects } = useControlPlane()
+  const { shell, lastProjectId, projects, selectProject } = useControlPlane()
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
 
   useEffect(() => {
@@ -48,6 +48,7 @@ export function HomePage() {
       <ProjectFolderDialog
         open={linkDialogOpen}
         projectId={undefined}
+        onProjectCreated={selectProject}
         onOpenChange={setLinkDialogOpen}
       />
     </>

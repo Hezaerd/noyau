@@ -1,7 +1,7 @@
 import type { ProjectId } from "@noyau/protocol/ids"
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import { SearchIcon, SettingsIcon } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { ProjectDeleteConfirmDialog } from "@/components/sidebar/ProjectDeleteConfirmDialog"
@@ -39,6 +39,7 @@ export function AppSidebar() {
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [rebindProjectId, setRebindProjectId] = useState<ProjectId>()
   const [deleteProjectId, setDeleteProjectId] = useState<ProjectId>()
+  const [pendingProjectId, setPendingProjectId] = useState<ProjectId>()
   const selectedProject = projects.find((project) => project.id === lastProjectId) ?? projects[0]
   const selectedProjectThreads = selectedProject
     ? threads.filter((thread) => thread.projectId === selectedProject.id)
@@ -49,10 +50,12 @@ export function AppSidebar() {
     }
   }
   const openAddProjectDialog = () => {
+    setPendingProjectId(undefined)
     setRebindProjectId(undefined)
     setFolderDialogOpen(true)
   }
   const switchProject = (projectId: ProjectId) => {
+    setPendingProjectId(undefined)
     selectProject(projectId)
     closeMobileNavigation()
     void navigate({
@@ -60,6 +63,20 @@ export function AppSidebar() {
       params: { projectId },
     })
   }
+
+  useEffect(() => {
+    if (
+      pendingProjectId === undefined ||
+      !projects.some((project) => project.id === pendingProjectId)
+    ) {
+      return
+    }
+    setPendingProjectId(undefined)
+    void navigate({
+      to: "/projects/$projectId/board",
+      params: { projectId: pendingProjectId },
+    })
+  }, [navigate, pendingProjectId, projects])
   const deleteProject = () => {
     if (deleteProjectId === undefined) {
       return
@@ -178,6 +195,11 @@ export function AppSidebar() {
       <ProjectFolderDialog
         open={folderDialogOpen || rebindProjectId !== undefined}
         projectId={rebindProjectId}
+        onProjectCreated={(projectId) => {
+          selectProject(projectId)
+          setPendingProjectId(projectId)
+          closeMobileNavigation()
+        }}
         onOpenChange={(open) => {
           if (!open) {
             setFolderDialogOpen(false)
