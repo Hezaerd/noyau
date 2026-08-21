@@ -23,10 +23,6 @@ export function useBrandGaze(hostRef: RefObject<HTMLElement | null>): void {
     if (host === null) {
       return undefined
     }
-    const eyes = host.querySelectorAll<SVGGElement>(".mo-eye")
-    if (eyes.length === 0) {
-      return undefined
-    }
 
     const desktop = window.noyauDesktop
     const pollDesktop = desktop !== undefined
@@ -35,6 +31,8 @@ export function useBrandGaze(hostRef: RefObject<HTMLElement | null>): void {
     let raf = 0
     let inFlight = false
     let cancelled = false
+
+    const eyes = () => host.querySelectorAll<SVGGElement>(".mo-eye")
 
     const tick = () => {
       if (cancelled) {
@@ -57,7 +55,7 @@ export function useBrandGaze(hostRef: RefObject<HTMLElement | null>): void {
           })
       }
       current = lerpGaze(current, target, GAZE_LERP)
-      applyGazeToEyes(eyes, current)
+      applyGazeToEyes(eyes(), current)
       raf = requestAnimationFrame(tick)
     }
 
@@ -77,7 +75,7 @@ export function useBrandGaze(hostRef: RefObject<HTMLElement | null>): void {
       if (!pollDesktop) {
         document.removeEventListener("pointermove", onMove, { capture: true })
       }
-      for (const eye of eyes) {
+      for (const eye of eyes()) {
         eye.style.transform = ""
       }
     }

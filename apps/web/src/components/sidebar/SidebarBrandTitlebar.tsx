@@ -1,15 +1,28 @@
 import { Blobatar } from "@blobatar/react"
 import { useRef, type ReactElement } from "react"
 
+import { useAppearance } from "@/hooks/use-appearance"
 import { useBrandGaze } from "@/hooks/use-brand-gaze"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { resolveAppearance } from "@/lib/appearance"
+import { BRAND_BLOBATAR_NAME, brandBlobatarPalette } from "@/lib/brand-blobatar"
 
 function BrandBlobatar(): ReactElement {
   const hostRef = useRef<HTMLSpanElement>(null)
+  const { preference } = useAppearance()
+  const systemDark = useMediaQuery("(prefers-color-scheme: dark)")
+  const palette = brandBlobatarPalette(resolveAppearance(preference, systemDark))
   useBrandGaze(hostRef)
 
   return (
     <span ref={hostRef} className="brand-blobatar no-drag inline-flex size-8 shrink-0">
-      <Blobatar name="noyau" size={32} hue={246} animate="hover" className="size-8" />
+      <Blobatar
+        name={BRAND_BLOBATAR_NAME}
+        size={32}
+        palette={palette}
+        animate="hover"
+        className="size-8"
+      />
     </span>
   )
 }
