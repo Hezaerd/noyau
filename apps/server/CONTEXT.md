@@ -43,3 +43,13 @@ _À éviter_ : projection durable, liste codée en dur
 **TextGeneration**:
 Session ACP éphémère hors Turn, pour un Titre généré. Pas le `session/prompt` du Thread.
 _À éviter_ : Turn, ProviderPort.startTurn
+
+**setShellFocus**:
+RPC volatile qui pousse la vue UI courante (Tableau ou Thread) pour les effets chrome. Pas une
+Command, pas un fait du journal.
+_À éviter_ : dispatchCommand, présence durable
+
+**DiscordPresence**:
+Activity Discord locale dérivée du ShellFocus. Effet chrome : Discord fermé ne casse jamais une
+commande.
+_À éviter_ : événement Discord, agrégat, Join

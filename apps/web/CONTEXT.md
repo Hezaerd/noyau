@@ -118,6 +118,11 @@ _À éviter_ : modèle, LLM, backend, harnais
 Valeur persistée d'un item du catalogue Paramètres, distincte d'une Command du control plane.
 _À éviter_ : option, config, setting
 
+**ShellFocus**:
+Vue UI volatile poussée au serveur (Tableau ou Thread). Les Paramètres restent sticky sur le
+dernier Project ouvert.
+_À éviter_ : présence, route, Command
+
 **Keybinding**:
 Association persistée entre une Action et un Raccourci, surchargeable depuis les Paramètres.
 _À éviter_ : shortcut, hotkey, binding

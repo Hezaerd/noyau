@@ -9,6 +9,7 @@ import {
   RPC_METHODS,
   requiresFreshSnapshot,
   ShellStreamItem,
+  SetShellFocus,
   SubscribeProject,
   SubscribeShell,
   SubscribeThread,
@@ -16,13 +17,14 @@ import {
 import { Schema } from "effect"
 
 describe("ControlPlaneRpcs", () => {
-  it("expose dispatchCommand, getConfig, probe et les trois streams", () => {
+  it("expose dispatchCommand, getConfig, probe, setShellFocus et les trois streams", () => {
     expect([...ControlPlaneRpcs.requests.keys()].toSorted()).toEqual(
       [
         RPC_METHODS.dispatchCommand,
         RPC_METHODS.subscribeProject,
         RPC_METHODS.subscribeShell,
         RPC_METHODS.subscribeThread,
+        RPC_METHODS.setShellFocus,
         RPC_METHODS.getConfig,
         RPC_METHODS.probe,
       ].toSorted(),
@@ -84,6 +86,27 @@ describe("ControlPlaneRpcs", () => {
     ).toEqual({
       threadId: "20000000-0000-4000-8000-000000000001",
     })
+  })
+
+  it("décode setShellFocus sans le persister comme Command", () => {
+    expect(
+      Schema.decodeSync(SetShellFocus.payloadSchema)({
+        enabled: true,
+        focus: {
+          _tag: "thread",
+          projectId: "10000000-0000-4000-8000-000000000001",
+          threadId: "20000000-0000-4000-8000-000000000001",
+        },
+      }),
+    ).toEqual({
+      enabled: true,
+      focus: {
+        _tag: "thread",
+        projectId: "10000000-0000-4000-8000-000000000001",
+        threadId: "20000000-0000-4000-8000-000000000001",
+      },
+    })
+    expect(Schema.decodeSync(SetShellFocus.successSchema)({})).toEqual({})
   })
 
   it("demande un snapshot frais hors [0, 1000]", () => {

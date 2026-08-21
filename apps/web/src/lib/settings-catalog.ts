@@ -58,6 +58,13 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["project", "projet", "dossier", "folder", "chemin", "add project"],
   },
   {
+    id: "discord-rich-presence",
+    tab: "general",
+    title: "Discord Rich Presence",
+    description: "Affiche le Project et le Thread ouverts sur ton profil Discord.",
+    keywords: ["discord", "rich presence", "status", "activité", "presence"],
+  },
+  {
     id: "appearance",
     tab: "appearance",
     title: "Apparence",

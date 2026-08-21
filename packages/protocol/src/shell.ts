@@ -58,3 +58,22 @@ export const ShellLiveEvent = Schema.Union([
   }),
 ])
 export type ShellLiveEvent = (typeof ShellLiveEvent)["Type"]
+
+/** Vue UI volatile. Pas un fait du journal. */
+export const ShellFocus = Schema.Union([
+  Schema.TaggedStruct("idle", {}),
+  Schema.TaggedStruct("tableau", {
+    projectId: ProjectId,
+  }),
+  Schema.TaggedStruct("thread", {
+    projectId: ProjectId,
+    threadId: ThreadId,
+  }),
+])
+export type ShellFocus = (typeof ShellFocus)["Type"]
+
+export const SetShellFocusInput = Schema.Struct({
+  enabled: Schema.Boolean,
+  focus: ShellFocus,
+})
+export type SetShellFocusInput = (typeof SetShellFocusInput)["Type"]
