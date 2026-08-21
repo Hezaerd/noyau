@@ -1,13 +1,17 @@
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 
+import { ResourceErrorState } from "@/components/failure/FailureSurfaces"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { Button } from "@/components/ui/button"
 import { useControlPlane } from "@/hooks/use-control-plane"
+import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
+import { presentFailure } from "@/lib/failure-presentation"
 
 export function HomePage() {
   const navigate = useNavigate()
-  const { shell, lastProjectId, projects } = useControlPlane()
+  const { shell, lastProjectId, projects, subscriptionStatus } = useControlPlane()
+  const failure = useDelayedSubscriptionFailure(subscriptionStatus)
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
 
   useEffect(() => {
@@ -25,6 +29,19 @@ export function HomePage() {
   }, [lastProjectId, navigate, projects, shell])
 
   if (shell === undefined) {
+    if (failure !== undefined) {
+      return (
+        <ResourceErrorState
+          presentation={presentFailure(failure, {
+            operation: "shell.subscribe",
+            scope: "shell",
+            initiatedByUser: false,
+            hasUsableData: false,
+          })}
+          onRecovery={() => window.location.reload()}
+        />
+      )
+    }
     return (
       <main className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
         Connexion au control plane…

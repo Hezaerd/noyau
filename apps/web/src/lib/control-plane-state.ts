@@ -8,13 +8,15 @@ import type {
 } from "@noyau/protocol/shell"
 import { createContext } from "react"
 
+import type { SubscriptionStatus } from "./control-plane"
+
 export interface ControlPlaneContextValue {
   readonly shell: ShellSnapshot | undefined
   readonly cursor: CursorProviderStatus | undefined
   readonly projects: ReadonlyArray<ProjectShell>
   readonly threads: ReadonlyArray<ThreadShell>
   readonly lastProjectId: ProjectId | undefined
-  readonly error: string | undefined
+  readonly subscriptionStatus: SubscriptionStatus | undefined
   readonly selectProject: (projectId: ProjectId) => void
 }
 

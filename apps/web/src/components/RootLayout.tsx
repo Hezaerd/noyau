@@ -4,13 +4,16 @@ import { RotateCcwIcon } from "lucide-react"
 import { AppPaletteProvider } from "@/components/AppPalette"
 import { AppSidebar } from "@/components/AppSidebar"
 import { ControlPlaneProvider } from "@/components/control-plane-context"
+import { ScopeBanner } from "@/components/failure/FailureSurfaces"
 import { SettingsSidebar } from "@/components/settings/SettingsSidebar"
 import { Button } from "@/components/ui/button"
 import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { SettingsPageTitle, ThreadPageTitle } from "@/components/WorkspaceBreadcrumb"
 import { useControlPlane } from "@/hooks/use-control-plane"
+import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
+import { presentFailure } from "@/lib/failure-presentation"
 import { resolvePageTitlebar } from "@/lib/page-titlebar"
 import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"
 
@@ -70,6 +73,22 @@ function SettingsRestoreAction() {
   )
 }
 
+function ShellConnectionNotice() {
+  const { shell, subscriptionStatus } = useControlPlane()
+  const failure = useDelayedSubscriptionFailure(subscriptionStatus)
+  if (failure === undefined || shell === undefined) return null
+  return (
+    <ScopeBanner
+      presentation={presentFailure(failure, {
+        operation: "shell.subscribe",
+        scope: "shell",
+        initiatedByUser: false,
+        hasUsableData: true,
+      })}
+    />
+  )
+}
+
 export function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isSettings = isSettingsPath(pathname)
@@ -95,6 +114,8 @@ export function RootLayout() {
               </div>
               {isSettings ? <SettingsRestoreAction /> : null}
             </header>
+
+            <ShellConnectionNotice />
 
             <Outlet />
           </SidebarInset>
