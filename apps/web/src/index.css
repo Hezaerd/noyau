@@ -18,20 +18,20 @@
 }
 
 .thread-markdown-codeblock {
-  border-color: color-mix(in srgb, #ffffff 10%, transparent);
-  background-color: #1a1a22;
-  color: #d4d4dc;
+  border-color: var(--border);
+  background-color: var(--code);
+  color: var(--code-foreground);
 }
 
 .thread-markdown-codeblock-header,
 .thread-markdown-codeblock-action {
-  color: color-mix(in srgb, #d4d4dc 72%, transparent);
+  color: var(--muted-foreground);
 }
 
 .thread-markdown-codeblock-action:hover,
 .thread-markdown-codeblock-action[aria-pressed="true"] {
-  background-color: color-mix(in srgb, #ffffff 8%, transparent);
-  color: #d4d4dc;
+  background-color: var(--code-highlight);
+  color: var(--code-foreground);
 }
 
 .thread-markdown-codeblock [data-streamdown="code-block"] {
