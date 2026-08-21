@@ -84,20 +84,41 @@ describe("ThreadMarkdown", () => {
     expect(document.querySelector('[data-streamdown="table-wrapper"]')).toBeNull()
   })
 
-  it("renders a language title and toggles wrap on the code block", () => {
+  it("renders a language icon and toggles wrap on the code block", () => {
     renderMarkdown("```python\nprint('salut')\n```")
 
     const block = document.querySelector(".thread-markdown-codeblock")
     expect(block?.getAttribute("data-language")).toBe("python")
-    expect(block?.querySelector(".thread-markdown-codeblock-header")?.textContent).toContain(
-      "python",
-    )
+    expect(block?.querySelector('[aria-label="Langage : python"]')).not.toBeNull()
+    expect(block?.querySelector("[data-pierre-icon]")).not.toBeNull()
     const wrap = screen.getByRole("button", { name: "Ajuster les lignes" })
     expect(block?.getAttribute("data-wrap")).toBe("false")
 
     fireEvent.click(wrap)
     expect(block?.getAttribute("data-wrap")).toBe("true")
     expect(screen.getByRole("button", { name: "Désactiver le retour à la ligne" })).toBeTruthy()
+  })
+
+  it("renders a citation path with its file icon", () => {
+    renderMarkdown("```16:40:src/greet.py\nprint('salut')\n```")
+
+    const block = document.querySelector(".thread-markdown-codeblock")
+    expect(block?.getAttribute("data-language")).toBe("py")
+    expect(block?.querySelector(".thread-markdown-codeblock-header")?.textContent).toContain(
+      "src/greet.py",
+    )
+    expect(block?.querySelector("[data-pierre-icon]")).not.toBeNull()
+  })
+
+  it("falls back to the language text when Pierre has no specific icon", () => {
+    renderMarkdown("```unknownlang\nnoop\n```")
+
+    const block = document.querySelector(".thread-markdown-codeblock")
+    expect(block?.getAttribute("data-language")).toBe("unknownlang")
+    expect(block?.querySelector(".thread-markdown-codeblock-header")?.textContent).toContain(
+      "unknownlang",
+    )
+    expect(block?.querySelector("[data-pierre-icon]")).toBeNull()
   })
 
   it("applies Shiki token colors on a TypeScript fence", () =>
