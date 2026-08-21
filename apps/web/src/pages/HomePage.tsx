@@ -10,7 +10,7 @@ import { presentFailure } from "@/lib/failure-presentation"
 
 export function HomePage() {
   const navigate = useNavigate()
-  const { shell, lastProjectId, projects, subscriptionStatus } = useControlPlane()
+  const { shell, lastProjectId, projects, selectProject, subscriptionStatus } = useControlPlane()
   const failure = useDelayedSubscriptionFailure(subscriptionStatus)
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
 
@@ -65,6 +65,7 @@ export function HomePage() {
       <ProjectFolderDialog
         open={linkDialogOpen}
         projectId={undefined}
+        onProjectCreated={selectProject}
         onOpenChange={setLinkDialogOpen}
       />
     </>
