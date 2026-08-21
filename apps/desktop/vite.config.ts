@@ -1,5 +1,13 @@
 import { defineConfig } from "vite-plus"
 
+import { desktopPackNeverBundle, isDesktopAlwaysBundled } from "./scripts/desktop-pack-deps.ts"
+
+const desktopPackDeps = {
+  // Effect / @noyau dans l'artefact : le .app packagé n'embarque pas node_modules.
+  alwaysBundle: isDesktopAlwaysBundled,
+  neverBundle: [...desktopPackNeverBundle],
+}
+
 export default defineConfig({
   run: {
     tasks: {
@@ -40,14 +48,7 @@ export default defineConfig({
       outExtensions: () => ({ js: ".cjs" }),
       sourcemap: true,
       clean: true,
-      deps: {
-        // Même frontière que le serveur : le .app packagé n'embarque pas node_modules.
-        alwaysBundle: (id: string) =>
-          id.startsWith("@noyau/") ||
-          id === "effect" ||
-          id.startsWith("@effect/") ||
-          id.startsWith("effect/"),
-      },
+      deps: desktopPackDeps,
     },
     {
       entry: ["src/preload.ts"],
@@ -55,6 +56,7 @@ export default defineConfig({
       outDir: "dist-electron",
       outExtensions: () => ({ js: ".cjs" }),
       sourcemap: true,
+      deps: desktopPackDeps,
     },
   ],
   test: {
