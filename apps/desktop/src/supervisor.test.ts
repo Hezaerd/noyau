@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Fiber, Layer, Schema } from "effect"
+import { ConfigProvider, Effect, Fiber, Layer, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import { FetchHttpClient } from "effect/unstable/http"
 import type { Socket } from "effect/unstable/socket"
@@ -8,6 +8,7 @@ import type { Socket } from "effect/unstable/socket"
 import {
   encodeBootstrap,
   probeRpc,
+  resolveServerEntryPath,
   restartDelayMs,
   ServerSupervisor,
   SupervisorError,
@@ -127,6 +128,59 @@ describe("server supervisor", () => {
   it("writes a single versioned fd3 bootstrap envelope", () => {
     expect(encodeBootstrap(bootstrap)).toBe(`${JSON.stringify(bootstrap)}\n`)
   })
+})
+
+it.layer(Layer.mergeAll(supervisorLayer, ConfigProvider.layer(ConfigProvider.fromUnknown({}))))(
+  "resolveServerEntryPath",
+  (spec) => {
+    spec.effect("uses the desktop directory when the app is unpacked", () =>
+      resolveServerEntryPath("/desktop").pipe(
+        Effect.map((entry) => {
+          expect(entry).toBe("/desktop/server/main.mjs")
+        }),
+      ),
+    )
+
+    spec.effect("reads the packaged server from process.resourcesPath", () =>
+      Effect.gen(function* () {
+        const previous = Object.getOwnPropertyDescriptor(process, "resourcesPath")
+        Object.defineProperty(process, "resourcesPath", {
+          configurable: true,
+          value: "/Contents/Resources",
+        })
+        const entry = yield* resolveServerEntryPath("/desktop", true).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              if (previous === undefined) {
+                Object.defineProperty(process, "resourcesPath", {
+                  configurable: true,
+                  value: undefined,
+                })
+                return
+              }
+              Object.defineProperty(process, "resourcesPath", previous)
+            }),
+          ),
+        )
+        expect(entry).toBe("/Contents/Resources/server/main.mjs")
+      }),
+    )
+  },
+)
+
+it.layer(
+  Layer.mergeAll(
+    supervisorLayer,
+    ConfigProvider.layer(ConfigProvider.fromUnknown({ NOYAU_SERVER_ENTRY: "/custom/server.mjs" })),
+  ),
+)("resolveServerEntryPath override", (spec) => {
+  spec.effect("honors an explicit server entry override", () =>
+    resolveServerEntryPath("/desktop").pipe(
+      Effect.map((entry) => {
+        expect(entry).toBe("/custom/server.mjs")
+      }),
+    ),
+  )
 })
 
 it.layer(supervisorLayer)("server supervisor effects", (spec) => {

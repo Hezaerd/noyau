@@ -571,12 +571,17 @@ export class ServerSupervisor {
 
 export const resolveServerEntryPath = Effect.fn("resolveServerEntryPath")(function* (
   desktopDirectory: string,
+  packaged = false,
 ) {
   const path = yield* Path.Path
   const configured = yield* Config.option(Config.string("NOYAU_SERVER_ENTRY"))
   if (Option.isSome(configured)) {
     return configured.value
   }
-  const packaged = yield* flagEnabled("NOYAU_DESKTOP_PACKAGED")
-  return path.join(packaged ? process.resourcesPath : desktopDirectory, "server", "main.mjs")
+  const envPackaged = yield* flagEnabled("NOYAU_DESKTOP_PACKAGED")
+  return path.join(
+    packaged || envPackaged ? process.resourcesPath : desktopDirectory,
+    "server",
+    "main.mjs",
+  )
 })

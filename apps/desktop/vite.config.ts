@@ -15,6 +15,21 @@ export default defineConfig({
         command: "vp pack --watch",
         cache: false,
       },
+      "package:mac": {
+        command: "node scripts/package-desktop.ts --mac --dir --skip-build",
+        dependsOn: ["build"],
+        cache: false,
+      },
+      "package:mac:dmg": {
+        command: "node scripts/package-desktop.ts --mac --dmg --skip-build",
+        dependsOn: ["build"],
+        cache: false,
+      },
+      "package:win": {
+        command: "node scripts/package-desktop.ts --win --dir --skip-build",
+        dependsOn: ["build"],
+        cache: false,
+      },
     },
   },
   pack: [
@@ -26,7 +41,12 @@ export default defineConfig({
       sourcemap: true,
       clean: true,
       deps: {
-        alwaysBundle: (id: string) => id === "@noyau/protocol" || id.startsWith("@noyau/protocol/"),
+        // Même frontière que le serveur : le .app packagé n'embarque pas node_modules.
+        alwaysBundle: (id: string) =>
+          id.startsWith("@noyau/") ||
+          id === "effect" ||
+          id.startsWith("@effect/") ||
+          id.startsWith("effect/"),
       },
     },
     {

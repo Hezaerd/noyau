@@ -1,0 +1,34 @@
+# Packager local unsigned. Pas de CI, signature, notarization ni updater.
+# appId aligné sur resolveAppIdentity(false) dans scripts/electron-launcher.ts.
+appId: dev.noyau.desktop
+productName: Noyau
+directories:
+  output: release
+files:
+  - dist-electron/main.cjs
+  - dist-electron/preload.cjs
+  - dist-electron/renderer/**/*
+  # Le main bundle déjà effect / @noyau. Sans ça, electron-builder recopie
+  # les dependencies workspace (docs Effect comprises) dans l'ASAR.
+  - "!**/node_modules/**"
+  - "!**/*.map"
+# Serveur enfant hors ASAR : ELECTRON_RUN_AS_NODE charge un vrai fichier ESM.
+extraResources:
+  - from: dist-electron/server
+    to: server
+asar: true
+npmRebuild: false
+nodeGypRebuild: false
+electronLanguages:
+  - en
+mac:
+  identity: null
+  category: public.app-category.developer-tools
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  target:
+    - dir
+win:
+  signAndEditExecutable: false
+  target:
+    - dir
