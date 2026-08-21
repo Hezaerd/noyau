@@ -27,6 +27,7 @@
       "devDependencies": {
         "@effect/vitest": "catalog:",
         "@types/node": "^24.13.3",
+        "blobatar": "^2.3.1",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
       },

@@ -29,6 +29,10 @@ _À éviter_ : error métier, lastError de Session
 Plafond d'arrêt du PID serveur après l'endpoint interne : 2 s.
 _À éviter_ : sweep cursor-agent, SIGTERM portable Windows
 
+**Icône d'app**:
+Marque Dock du bundle brandé, dérivée du blobatar sidebar. Light en Dev, dark en prod.
+_À éviter_ : favicon web, icône Electron stock
+
 **Chrome de fenêtre**:
 Enveloppe visuelle qui relie la surface Noyau aux contrôles de fenêtre du système.
 _À éviter_ : header desktop, barre de titre
