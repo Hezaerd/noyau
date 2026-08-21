@@ -27,7 +27,12 @@ export function ThreadTranscriptTool({ item }: { readonly item: TranscriptTool }
   return (
     <Marker role="status">
       <MarkerIcon>{toolStatusIcon(item.status)}</MarkerIcon>
-      <MarkerContent className="flex min-w-0 items-center gap-2">
+      <MarkerContent
+        className={cn(
+          "flex min-w-0 items-center gap-2",
+          item.status === "in_progress" && "shimmer",
+        )}
+      >
         <span className="shrink-0">{transcriptToolVerb(item)}</span>
         {object === undefined ? null : (
           <span className="truncate font-mono text-foreground/90">{object}</span>
