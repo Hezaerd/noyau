@@ -160,7 +160,8 @@
 }
 
 .electron-macos {
-  --desktop-controls-left: 92px;
+  /* Electron's hiddenInset traffic-light group occupies the left 160px. */
+  --desktop-controls-left: 168px;
 }
 
 .wco {
