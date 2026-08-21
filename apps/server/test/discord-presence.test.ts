@@ -2,9 +2,11 @@ import { assert, describe, it } from "@effect/vitest"
 import { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { activityFromFocus, TABLEAU_PRESENCE_STATE } from "@noyau/server/discord/activity"
 import {
-  DISCORD_APPLICATION_ID,
+  DISCORD_APPLICATION_ID_DEVELOPMENT,
+  DISCORD_APPLICATION_ID_PRODUCTION,
   discordIpcPath,
   encodeDiscordFrame,
+  resolveDiscordApplicationId,
 } from "@noyau/server/discord/ipc"
 import { DiscordPresence, makePresenceController } from "@noyau/server/discord/presence"
 import { Effect, Ref, Schema } from "effect"
@@ -69,7 +71,15 @@ describe("Discord presence mapping", () => {
     assert.strictEqual(frame.readUInt32LE(0), 1)
     assert.strictEqual(frame.readUInt32LE(4), frame.length - 8)
     assert.strictEqual(JSON.parse(frame.subarray(8).toString("utf8")).cmd, "SET_ACTIVITY")
-    assert.strictEqual(DISCORD_APPLICATION_ID, "1540445560736321627")
+    assert.strictEqual(DISCORD_APPLICATION_ID_PRODUCTION, "1540445560736321627")
+    assert.strictEqual(DISCORD_APPLICATION_ID_DEVELOPMENT, "1540464789850169484")
+    assert.notStrictEqual(DISCORD_APPLICATION_ID_PRODUCTION, DISCORD_APPLICATION_ID_DEVELOPMENT)
+    assert.strictEqual(resolveDiscordApplicationId("production"), DISCORD_APPLICATION_ID_PRODUCTION)
+    assert.strictEqual(
+      resolveDiscordApplicationId("development"),
+      DISCORD_APPLICATION_ID_DEVELOPMENT,
+    )
+    assert.strictEqual(resolveDiscordApplicationId("test"), DISCORD_APPLICATION_ID_DEVELOPMENT)
     assert.strictEqual(discordIpcPath(0, "darwin", "/tmp"), "/tmp/discord-ipc-0")
     assert.strictEqual(discordIpcPath(3, "win32", "/tmp"), "\\\\.\\pipe\\discord-ipc-3")
   })

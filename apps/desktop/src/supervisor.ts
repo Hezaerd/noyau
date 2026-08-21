@@ -87,6 +87,7 @@ export interface ServerSupervisorOptions {
   readonly serverVersion?: string
   readonly actorId?: string
   readonly environmentId?: string
+  readonly environment?: "development" | "production"
   readonly externalBootstrap?: ServerBootstrap
   readonly executablePath?: string
   readonly fetchImpl?: FetchImplementation
@@ -109,6 +110,10 @@ const supervisorError = (message: string, cause?: unknown) =>
   new SupervisorError(cause === undefined ? { message } : { message, cause })
 
 const flagEnabled = (name: string) => Config.boolean(name).pipe(Config.withDefault(false))
+
+export const serverEnvironmentFromDesktopDev = (
+  isDevelopment: boolean,
+): "development" | "production" => (isDevelopment ? "development" : "production")
 
 const readinessProbe = (
   options: Pick<ServerSupervisorOptions, "probeRpc">,
@@ -448,6 +453,7 @@ export class ServerSupervisor {
         env: {
           ELECTRON_RUN_AS_NODE: "1",
           NOYAU_BOOTSTRAP_FD: "3",
+          NOYAU_ENV: this.options.environment ?? "production",
         },
         stdin: "ignore",
         stdout: "pipe",
