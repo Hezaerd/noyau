@@ -4,6 +4,7 @@ import { Deferred, Effect, Exit, Scope } from "effect"
 import { ChildProcess } from "effect/unstable/process"
 
 import { desktopDir } from "./electron-launcher.ts"
+import { restoreTty } from "./restore-tty.ts"
 import { scriptRuntime } from "./runtime.ts"
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url))
@@ -27,10 +28,14 @@ const devStack = Effect.fn("devStack")(function* () {
     args: ReadonlyArray<string>,
     cwd: string = repositoryRoot,
   ) {
+    // Effect met `detached: true` hors Windows : l'enfant devient session
+    // leader avec le TTY hérité. Ctrl+C le tue sans restore (mouse-tracking
+    // Ghostty). Rester dans le job et ne jamais lui donner stdin.
     const handle = yield* ChildProcess.make(command, args, {
       cwd,
       extendEnv: true,
-      stdin: "inherit",
+      detached: false,
+      stdin: "ignore",
       stdout: "inherit",
       stderr: "inherit",
     }).pipe(Scope.provide(stackScope))
@@ -57,6 +62,7 @@ const devStack = Effect.fn("devStack")(function* () {
 
   const exitCode = yield* Deferred.await(done)
   process.exitCode = exitCode
+  restoreTty()
   process.exit(exitCode)
 })
 
