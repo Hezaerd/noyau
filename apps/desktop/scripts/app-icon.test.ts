@@ -3,9 +3,12 @@ import { describe, expect, it } from "@effect/vitest"
 import { renderAppIconSvg } from "./app-icon-svg.ts"
 import {
   APP_ICON_VARIANTS,
+  MAC_BUNDLE_ICON_FILE,
   resolveAppIconPath,
+  resolveAppIconPngPath,
   resolveAppIconVariant,
   resolveMacBundleIconPath,
+  resolveMacBundleStockIconPath,
 } from "./app-icon.ts"
 
 describe("app icon", () => {
@@ -26,14 +29,24 @@ describe("app icon", () => {
     })
   })
 
-  it("points each variant at its committed icns", () => {
+  it("points each variant at its committed icns and png", () => {
     expect(resolveAppIconPath("/repo/apps/desktop", true)).toBe(
       "/repo/apps/desktop/assets/dev/app-icon.icns",
     )
     expect(resolveAppIconPath("/repo/apps/desktop", false)).toBe(
       "/repo/apps/desktop/assets/prod/app-icon.icns",
     )
+    expect(resolveAppIconPngPath("/repo/apps/desktop", true)).toBe(
+      "/repo/apps/desktop/assets/dev/app-icon.png",
+    )
+    expect(resolveAppIconPngPath("/repo/apps/desktop", false)).toBe(
+      "/repo/apps/desktop/assets/prod/app-icon.png",
+    )
+    expect(MAC_BUNDLE_ICON_FILE).toBe("icon.icns")
     expect(resolveMacBundleIconPath("/repo/Noyau (Dev).app")).toBe(
+      "/repo/Noyau (Dev).app/Contents/Resources/icon.icns",
+    )
+    expect(resolveMacBundleStockIconPath("/repo/Noyau (Dev).app")).toBe(
       "/repo/Noyau (Dev).app/Contents/Resources/electron.icns",
     )
   })

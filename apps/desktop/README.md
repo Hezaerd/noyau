@@ -15,8 +15,9 @@ Le shell sert le renderer sous l'origine privée `noyau://app/`. En développeme
 redirige vers Vite, fixé sur `http://127.0.0.1:5173/`. Le métier passe uniquement par Effect RPC
 loopback. Une URL RPC distante est hors v0.1.
 
-Sur macOS, le launcher copie `Electron.app` vers `.electron-runtime/Noyau (Dev).app` et patche
-`CFBundleName` pour que le Dock et le menu affichent Noyau plutôt qu'Electron.
+Sur macOS, le launcher copie `Electron.app` vers `.electron-runtime/Noyau (Dev).app`, patche
+`CFBundleName` / `CFBundleIconFile` et pose le blobatar pour que le Dock affiche Noyau plutôt
+qu'Electron. Relancer `bun run dev:desktop` reconstruit le bundle brandé.
 
 ## Build et smoke test
 
