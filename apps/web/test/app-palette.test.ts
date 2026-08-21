@@ -5,6 +5,7 @@ import {
   buildPaletteGroups,
   filterPaletteGroups,
   paletteShortcutIndex,
+  paletteThreadItems,
   parseRecentActionIds,
   serializeRecentActionIds,
   updateRecentActionIds,
@@ -84,6 +85,67 @@ describe("app Palette", () => {
 
     expect(groups[0]?.items.map(({ id }) => id)).toEqual(["ticket-http"])
     expect(filterPaletteGroups(groups, "urgent")[0]?.items).toHaveLength(1)
+    expect(filterPaletteGroups(groups, "mobile")).toEqual([])
+  })
+
+  it("lists only active Threads of the current Project", () => {
+    const items = paletteThreadItems(
+      [
+        {
+          id: "thread-http",
+          title: "Corriger la requête HTTP",
+          projectId: "project-a",
+          status: "active",
+        },
+        {
+          id: "thread-archived",
+          title: "Ancien Thread",
+          projectId: "project-a",
+          status: "archived",
+        },
+        {
+          id: "thread-other",
+          title: "Autre Project",
+          projectId: "project-b",
+          status: "active",
+        },
+      ],
+      "project-a",
+    )
+
+    expect(items).toEqual([
+      {
+        id: "thread.open.thread-http",
+        threadId: "thread-http",
+        label: "Corriger la requête HTTP",
+        searchValue: "Corriger la requête HTTP",
+      },
+    ])
+    expect(paletteThreadItems([], undefined)).toEqual([])
+  })
+
+  it("filters Thread results by title without accents", () => {
+    const groups: Parameters<typeof filterPaletteGroups>[0] = [
+      {
+        id: "threads",
+        label: "Threads",
+        items: [
+          {
+            id: "thread-http",
+            searchValue: "Corriger la requête HTTP",
+          },
+          {
+            id: "thread-ui",
+            searchValue: "Polir le Tableau frontend",
+          },
+        ],
+      },
+    ]
+
+    expect(filterPaletteGroups(groups, "requete")[0]?.items.map(({ id }) => id)).toEqual([
+      "thread-http",
+    ])
+    expect(filterPaletteGroups(groups, "tableau")[0]?.items).toHaveLength(1)
     expect(filterPaletteGroups(groups, "mobile")).toEqual([])
   })
 })
