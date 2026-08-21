@@ -37,6 +37,7 @@ export function AppSidebar() {
   const { isMobile, setOpenMobile } = useSidebar()
   const paletteHotkey = useKeybinding("palette.open")
   const settingsHotkey = useKeybinding("settings.open")
+  const createThreadHotkey = useKeybinding("thread.create")
   const { projects, threads, lastProjectId, selectProject } = useControlPlane()
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [rebindProjectId, setRebindProjectId] = useState<ProjectId>()
@@ -166,6 +167,7 @@ export function AppSidebar() {
                   project={selectedProject}
                   threads={selectedProjectThreads}
                   pathname={pathname}
+                  createThreadHotkey={createThreadHotkey}
                   onSelect={() => {
                     selectProject(selectedProject.id)
                     closeMobileNavigation()
