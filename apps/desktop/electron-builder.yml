@@ -26,9 +26,11 @@ mac:
   category: public.app-category.developer-tools
   hardenedRuntime: false
   gatekeeperAssess: false
+  icon: assets/prod/app-icon.icns
   target:
     - dir
 win:
   signAndEditExecutable: false
+  icon: assets/prod/app-icon.png
   target:
     - dir

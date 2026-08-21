@@ -51,13 +51,13 @@ Ouvrir, ou `xattr -cr` sur le `.app`.
 
 Même layout (`extraResources` → `resources/server/main.mjs`, `app.isPackaged`). Les diffs réels :
 
-| Sujet                | macOS                            | Windows                                              |
-| -------------------- | -------------------------------- | ---------------------------------------------------- |
-| Commande             | `bun run dist:desktop:mac`       | `bun run dist:desktop:win` (sur une machine Windows) |
-| Sortie `dir`         | `Noyau.app`                      | `win-unpacked/Noyau.exe`                             |
-| Artefact partageable | `--dmg`                          | `--nsis` (pas branché ici)                           |
-| Icône                | `.icns` (absente pour l'instant) | `.ico`                                               |
-| Signature            | `identity: null`                 | `signAndEditExecutable: false`                       |
+| Sujet                | macOS                       | Windows                                              |
+| -------------------- | --------------------------- | ---------------------------------------------------- |
+| Commande             | `bun run dist:desktop:mac`  | `bun run dist:desktop:win` (sur une machine Windows) |
+| Sortie `dir`         | `Noyau.app`                 | `win-unpacked/Noyau.exe`                             |
+| Artefact partageable | `--dmg`                     | `--nsis` (pas branché ici)                           |
+| Icône                | `assets/prod/app-icon.icns` | `assets/prod/app-icon.png` (`.ico` plus tard)        |
+| Signature            | `identity: null`            | `signAndEditExecutable: false`                       |
 
 Pas de cross-compile : packager mac depuis un Mac, Windows depuis Windows. Le chrome de fenêtre
 (title bar overlay) et `--no-sandbox` sont déjà gérés hors packager.
