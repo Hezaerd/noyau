@@ -379,7 +379,7 @@ const launch = Effect.fn("launch")(function* () {
   yield* applyDockIcon()
   const externalBootstrap = yield* decodeExternalBootstrap()
   const baseSupervisorOptions = {
-    serverEntryPath: yield* resolveServerEntryPath(__dirname),
+    serverEntryPath: yield* resolveServerEntryPath(__dirname, app.isPackaged),
     dataDirectory: path.join(app.getPath("userData"), "environment"),
     onStateChange: (state: SupervisorState) => {
       void desktopRuntime.runPromise(publishSmokeSupervisorState(state))

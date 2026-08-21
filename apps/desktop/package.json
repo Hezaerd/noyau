@@ -14,13 +14,14 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@noyau/protocol": "workspace:*",
-    "effect": "catalog:",
-    "electron": "43.4.0"
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@types/node": "^24.13.3",
     "blobatar": "^2.3.1",
+    "electron": "43.4.0",
+    "electron-builder": "26.15.6",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
