@@ -1,5 +1,3 @@
-import * as NodeHttp from "node:http"
-
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer"
@@ -7,7 +5,7 @@ import * as Sqlite from "@noyau/database/sqlite"
 import type { Forbidden, MissingIdentity } from "@noyau/protocol/errors"
 import { ControlPlaneRpcs } from "@noyau/protocol/rpc"
 import { Effect, FileSystem, Layer, Path } from "effect"
-import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 
 import { ServerConfig, serverConfigLayer } from "./config.ts"
@@ -142,27 +140,24 @@ export const serverRoutesLayer = Layer.mergeAll(
   websocketRpcLayer,
 )
 
-export const nodeServerLayer = Layer.mergeAll(
-  Layer.effect(
-    HttpServer.HttpServer,
-    Effect.gen(function* () {
-      const config = yield* ServerConfig
-      yield* ControlPlane
-      yield* Effect.logInfo("Noyau Server listening").pipe(
-        Effect.annotateLogs({
-          environment: config.environment,
-          host: config.host,
-          port: config.port,
-        }),
-      )
-      return yield* NodeHttpServer.make(() => NodeHttp.createServer(), {
+export const nodeServerLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const config = yield* ServerConfig
+    yield* ControlPlane
+    yield* Effect.logInfo("Noyau Server listening").pipe(
+      Effect.annotateLogs({
+        environment: config.environment,
         host: config.host,
         port: config.port,
-        gracefulShutdownTimeout: "20 seconds",
-      })
-    }),
-  ),
-  NodeHttpServer.layerHttpServices,
+      }),
+    )
+    const { createServer } = yield* Effect.promise(() => import("node:http"))
+    return NodeHttpServer.layer(createServer, {
+      host: config.host,
+      port: config.port,
+      gracefulShutdownTimeout: "20 seconds",
+    })
+  }),
 )
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
