@@ -21,6 +21,7 @@ import {
   ThreadCreated,
   type ThreadEvent,
   ThreadMetaUpdated,
+  ThreadModelSelectionSet,
   ThreadRestored,
   ThreadRuntimeModeSet,
   ThreadSessionSet,
@@ -170,6 +171,10 @@ export const decide = (
     case "thread.runtime-mode.set":
       return requireThread(state, command.payload.threadId).pipe(
         Result.map(() => [ThreadRuntimeModeSet.make(command.payload)]),
+      )
+    case "thread.model-selection.set":
+      return requireThread(state, command.payload.threadId).pipe(
+        Result.map(() => [ThreadModelSelectionSet.make(command.payload)]),
       )
     case "thread.turn.start":
       return requireThread(state, command.payload.threadId).pipe(

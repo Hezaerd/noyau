@@ -30,8 +30,9 @@ _À éviter_ : EventCursor, offset SQL, position WebSocket
 _À éviter_ : cwdLastBound, ProviderBinding
 
 **modelSelection**:
-Préférence durable d'un Thread pour un modèle Provider et son `reasoningEffort`. `null` demande le
-choix automatique du Provider.
+Préférence durable d'un Thread pour un modèle Provider, son `reasoningEffort` et, si disponibles,
+son `serviceTier` et son option `thinking`. Sa modification est durable indépendamment du
+démarrage d'un Turn ; `null` demande le choix automatique du Provider.
 _À éviter_ : modèle actif garanti, catalogue de modèles
 
 **TicketThread**:

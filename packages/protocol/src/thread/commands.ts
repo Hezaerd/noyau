@@ -85,6 +85,11 @@ const threadRuntimeModePayload = {
   runtimeMode: RuntimeMode,
 } as const
 
+const threadModelSelectionPayload = {
+  threadId: ThreadId,
+  modelSelection: Schema.NullOr(ModelSelection),
+} as const
+
 const turnStartPayload = Schema.Struct({
   threadId: ThreadId,
   text: Schema.NonEmptyString,
@@ -121,6 +126,10 @@ export const ThreadRuntimeModeSetRequest = request(
   "thread.runtime-mode.set",
   Schema.Struct(threadRuntimeModePayload),
 )
+export const ThreadModelSelectionSetRequest = request(
+  "thread.model-selection.set",
+  Schema.Struct(threadModelSelectionPayload),
+)
 export const ThreadTurnStartRequest = request("thread.turn.start", turnStartPayload)
 export const ThreadTurnInterruptRequest = request(
   "thread.turn.interrupt",
@@ -142,6 +151,7 @@ export const ThreadCommandRequest = Schema.Union([
   ThreadRestoreRequest,
   ThreadMetaUpdateRequest,
   ThreadRuntimeModeSetRequest,
+  ThreadModelSelectionSetRequest,
   ThreadTurnStartRequest,
   ThreadTurnInterruptRequest,
   ApprovalRespondRequest,
@@ -158,6 +168,10 @@ export const ThreadMetaUpdate = command("thread.meta.update", threadMetaPayload)
 export const ThreadRuntimeModeSet = command(
   "thread.runtime-mode.set",
   Schema.Struct(threadRuntimeModePayload),
+)
+export const ThreadModelSelectionSet = command(
+  "thread.model-selection.set",
+  Schema.Struct(threadModelSelectionPayload),
 )
 export const ThreadTurnStart = command("thread.turn.start", turnStartPayload)
 export const ThreadTurnInterrupt = command(
@@ -177,6 +191,7 @@ export const ClientThreadCommand = Schema.Union([
   ThreadRestore,
   ThreadMetaUpdate,
   ThreadRuntimeModeSet,
+  ThreadModelSelectionSet,
   ThreadTurnStart,
   ThreadTurnInterrupt,
   ApprovalRespond,

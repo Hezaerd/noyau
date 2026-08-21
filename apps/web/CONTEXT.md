@@ -63,6 +63,20 @@ Libellé UI du `reasoningEffort` porté par la `modelSelection` du Thread. Les v
 proviennent des capacités du modèle Cursor sélectionné.
 _À éviter_ : niveau statique, enum Noyau
 
+**Vitesse**:
+Libellé UI du `serviceTier` optionnel, présenté dans le même menu que l'Effort quand Cursor
+l'annonce pour le modèle sélectionné.
+_À éviter_ : fast mode global, option toujours disponible
+
+**Réflexion**:
+Option booléenne Cursor distincte de l'Effort. Elle est présentée comme activée ou désactivée dans
+le menu de configuration du modèle et reste mémorisée dans la `modelSelection` du Thread.
+
+**Sélection de modèle**:
+Choix durable du Composer attaché au Thread : modèle, Effort, Vitesse et Réflexion. Chaque Thread
+retrouve son dernier choix indépendamment des autres Threads.
+_À éviter_ : choix global, modèle de Session
+
 **Palette**:
 Overlay clavier searchable de l'app qui propose navigation, Actions et résultats contextuels.
 _À éviter_ : Command, Command palette, Spotlight, Menu

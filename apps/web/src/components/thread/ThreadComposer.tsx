@@ -1,21 +1,46 @@
 import type { CursorModel } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } from "react"
+import {
+  ChevronDownIcon,
+  GaugeIcon,
+  LockIcon,
+  LockOpenIcon,
+  PenLineIcon,
+  SparklesIcon,
+} from "lucide-react"
+import type {
+  ClipboardEvent,
+  ComponentType,
+  DragEvent,
+  FormEvent,
+  KeyboardEvent,
+  ReactNode,
+} from "react"
 
+import { ThreadModelPicker } from "@/components/thread/ThreadModelPicker"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group"
 import {
-  Select,
-  SelectGroup,
-  SelectItem,
-  SelectPopup,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuSeparator,
+  MenuTrigger,
+} from "@/components/ui/menu"
+import { Separator } from "@/components/ui/separator"
 import { isRuntimeMode, runtimeModes } from "@/lib/thread-commands"
 
-const automaticValue = "__noyau_automatic__"
+const runtimeModeIcons = {
+  "approval-required": LockIcon,
+  "auto-accept-edits": PenLineIcon,
+  auto: SparklesIcon,
+  "full-access": LockOpenIcon,
+} satisfies Record<RuntimeMode, ComponentType<{ className?: string }>>
 
 const shouldSubmitComposerOnEnter = (event: {
   readonly key: string
@@ -54,19 +79,38 @@ export function ThreadComposer({
   readonly onDrop: (event: DragEvent<HTMLTextAreaElement>) => void
   readonly onInterrupt: () => void
 }) {
-  const sendDisabled = text.trim() === "" || isRunning || disabled
+  const controlsDisabled = isRunning || disabled
+  const sendDisabled = text.trim() === "" || controlsDisabled
   const selectedModel = models.find((model) => model.modelId === modelSelection?.modelId)
-  const modelItems = [
-    { value: automaticValue, label: "Modèle automatique" },
-    ...models.map((model) => ({ value: model.modelId, label: model.label })),
-    ...(modelSelection !== null && selectedModel === undefined
-      ? [{ value: modelSelection.modelId, label: modelSelection.modelId }]
-      : []),
+  const selectedEffort =
+    selectedModel?.reasoningEfforts.find(
+      (effort) => effort.value === modelSelection?.reasoningEffort,
+    ) ?? selectedModel?.reasoningEfforts.find((effort) => effort.isDefault === true)
+  const selectedTier =
+    selectedModel?.serviceTiers.find((tier) => tier.value === modelSelection?.serviceTier) ??
+    selectedModel?.serviceTiers.find((tier) => tier.isDefault === true)
+  const selectedThinking = modelSelection?.thinking ?? selectedModel?.thinking?.defaultValue
+  const hasTraits =
+    (selectedModel?.reasoningEfforts.length ?? 0) > 0 ||
+    (selectedModel?.serviceTiers.length ?? 0) > 0 ||
+    selectedModel?.thinking !== undefined
+  const traitsLabel = [
+    (selectedModel?.reasoningEfforts.length ?? 0) > 0
+      ? (selectedEffort?.label ?? "Effort")
+      : undefined,
+    (selectedModel?.serviceTiers.length ?? 0) > 0
+      ? (selectedTier?.label ?? "Service tier")
+      : undefined,
+    selectedModel?.thinking === undefined
+      ? undefined
+      : `Réflexion ${selectedThinking === true ? "activée" : "désactivée"}`,
   ]
-  const effortItems = [
-    { value: automaticValue, label: "Effort automatique" },
-    ...(selectedModel?.reasoningEfforts ?? []),
-  ]
+    .filter((label) => label !== undefined)
+    .join(" · ")
+  const selectedRuntimeMode =
+    runtimeModes.find((mode) => mode.value === runtimeMode) ?? runtimeModes[0]
+  const SelectedRuntimeModeIcon = runtimeModeIcons[runtimeMode]
+
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (
       !shouldSubmitComposerOnEnter({
@@ -82,12 +126,9 @@ export function ThreadComposer({
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="sticky bottom-0 z-20 shrink-0 border-t bg-background/95 p-4 backdrop-blur-xl sm:px-6"
-    >
+    <form onSubmit={onSubmit} className="sticky bottom-0 shrink-0 px-4 pb-4 sm:px-6">
       <div className="mx-auto flex max-w-3xl flex-col gap-2">
-        <InputGroup>
+        <InputGroup className="rounded-xl bg-background has-[[data-slot=input-group-control]:focus-visible]:ring-0">
           <InputGroupTextarea
             value={text}
             onChange={(event) => {
@@ -101,104 +142,227 @@ export function ThreadComposer({
                 event.preventDefault()
               }
             }}
-            className="min-h-24 max-h-60"
+            className="max-h-52 min-h-24 overflow-hidden [&>textarea]:max-h-52 [&>textarea]:resize-none [&>textarea]:overflow-y-auto"
             placeholder="Écrire un message…"
             aria-label="Composer un message"
-            disabled={isRunning || disabled}
+            disabled={controlsDisabled}
             rows={3}
           />
-          <InputGroupAddon align="block-end" className="flex-wrap gap-2">
-            <Select
-              items={modelItems}
-              value={modelSelection?.modelId ?? automaticValue}
-              disabled={isRunning || disabled || models.length === 0}
-              onValueChange={(value) => {
-                if (value === null || value === automaticValue) {
-                  onModelSelectionChange(null)
-                  return
+          <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
+            <ThreadModelPicker
+              models={models}
+              modelSelection={modelSelection}
+              disabled={controlsDisabled || models.length === 0}
+              onModelSelectionChange={onModelSelectionChange}
+            />
+
+            <Separator orientation="vertical" className="mx-0.5 h-4" />
+
+            {modelSelection !== null && hasTraits ? (
+              <>
+                <Menu>
+                  <MenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={controlsDisabled}
+                        aria-label="Configuration du modèle"
+                      />
+                    }
+                  >
+                    <GaugeIcon data-icon="inline-start" />
+                    <span className="max-w-36 truncate">{traitsLabel}</span>
+                    <ChevronDownIcon data-icon="inline-end" />
+                  </MenuTrigger>
+                  <MenuPopup side="top" align="start" className="w-max">
+                    {(selectedModel?.reasoningEfforts.length ?? 0) > 0 ? (
+                      <MenuGroup>
+                        <MenuGroupLabel>Niveau d’effort</MenuGroupLabel>
+                        <MenuRadioGroup
+                          value={selectedEffort?.value ?? ""}
+                          onValueChange={(reasoningEffort) => {
+                            onModelSelectionChange({ ...modelSelection, reasoningEffort })
+                          }}
+                        >
+                          {selectedModel?.reasoningEfforts.map((effort) => (
+                            <MenuRadioItem
+                              key={effort.value}
+                              value={effort.value}
+                              closeOnClick
+                              hideIndicator
+                              className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
+                            >
+                              <span className="flex min-w-0 flex-col gap-0.5">
+                                <span className="flex items-center gap-1.5">
+                                  <span>{effort.label}</span>
+                                  {effort.isDefault === true ? (
+                                    <Badge variant="outline" size="sm">
+                                      Par défaut
+                                    </Badge>
+                                  ) : null}
+                                </span>
+                                {effort.description === undefined ? null : (
+                                  <span className="whitespace-nowrap text-muted-foreground text-xs">
+                                    {effort.description}
+                                  </span>
+                                )}
+                              </span>
+                            </MenuRadioItem>
+                          ))}
+                        </MenuRadioGroup>
+                      </MenuGroup>
+                    ) : null}
+                    {(selectedModel?.reasoningEfforts.length ?? 0) > 0 &&
+                    ((selectedModel?.serviceTiers.length ?? 0) > 0 ||
+                      selectedModel?.thinking !== undefined) ? (
+                      <MenuSeparator />
+                    ) : null}
+                    {(selectedModel?.serviceTiers.length ?? 0) > 0 ? (
+                      <MenuGroup>
+                        <MenuGroupLabel>Service tier</MenuGroupLabel>
+                        <MenuRadioGroup
+                          value={selectedTier?.value ?? ""}
+                          onValueChange={(serviceTier) => {
+                            onModelSelectionChange({ ...modelSelection, serviceTier })
+                          }}
+                        >
+                          {selectedModel?.serviceTiers.map((tier) => (
+                            <MenuRadioItem
+                              key={tier.value}
+                              value={tier.value}
+                              closeOnClick
+                              hideIndicator
+                              className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
+                            >
+                              <span className="flex min-w-0 flex-col gap-0.5">
+                                <span className="flex items-center gap-1.5">
+                                  <span>{tier.label}</span>
+                                  {tier.isDefault === true ? (
+                                    <Badge variant="outline" size="sm">
+                                      Par défaut
+                                    </Badge>
+                                  ) : null}
+                                </span>
+                                {tier.description === undefined ? null : (
+                                  <span className="whitespace-nowrap text-muted-foreground text-xs">
+                                    {tier.description}
+                                  </span>
+                                )}
+                              </span>
+                            </MenuRadioItem>
+                          ))}
+                        </MenuRadioGroup>
+                      </MenuGroup>
+                    ) : null}
+                    {(selectedModel?.serviceTiers.length ?? 0) > 0 &&
+                    selectedModel?.thinking !== undefined ? (
+                      <MenuSeparator />
+                    ) : null}
+                    {selectedModel?.thinking === undefined ? null : (
+                      <MenuGroup>
+                        <MenuGroupLabel>{selectedModel.thinking.label}</MenuGroupLabel>
+                        <MenuRadioGroup
+                          value={selectedThinking === true ? "on" : "off"}
+                          onValueChange={(value) => {
+                            onModelSelectionChange({ ...modelSelection, thinking: value === "on" })
+                          }}
+                        >
+                          <MenuRadioItem
+                            value="off"
+                            closeOnClick
+                            hideIndicator
+                            className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span>Désactivée</span>
+                              {selectedModel.thinking.defaultValue === false ? (
+                                <Badge variant="outline" size="sm">
+                                  Par défaut
+                                </Badge>
+                              ) : null}
+                            </span>
+                          </MenuRadioItem>
+                          <MenuRadioItem
+                            value="on"
+                            closeOnClick
+                            hideIndicator
+                            className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span>Activée</span>
+                              {selectedModel.thinking.defaultValue === true ? (
+                                <Badge variant="outline" size="sm">
+                                  Par défaut
+                                </Badge>
+                              ) : null}
+                            </span>
+                          </MenuRadioItem>
+                        </MenuRadioGroup>
+                      </MenuGroup>
+                    )}
+                  </MenuPopup>
+                </Menu>
+                <Separator orientation="vertical" className="mx-0.5 h-4" />
+              </>
+            ) : null}
+
+            <Menu>
+              <MenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={controlsDisabled}
+                    aria-label="Niveau d’accès"
+                    className="max-w-52"
+                  />
                 }
-                const model = models.find((candidate) => candidate.modelId === value)
-                const reasoningEffort = model?.reasoningEfforts.some(
-                  (effort) => effort.value === modelSelection?.reasoningEffort,
-                )
-                  ? modelSelection?.reasoningEffort
-                  : undefined
-                onModelSelectionChange(
-                  reasoningEffort === undefined
-                    ? { modelId: value }
-                    : { modelId: value, reasoningEffort },
-                )
-              }}
-            >
-              <SelectTrigger size="sm" className="w-auto max-w-52" aria-label="Modèle">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectPopup alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {modelItems.map((model) => (
-                    <SelectItem key={model.value} value={model.value}>
-                      {model.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectPopup>
-            </Select>
-            <Select
-              items={effortItems}
-              value={modelSelection?.reasoningEffort ?? automaticValue}
-              disabled={
-                isRunning ||
-                disabled ||
-                modelSelection === null ||
-                (selectedModel?.reasoningEfforts.length ?? 0) === 0
-              }
-              onValueChange={(value) => {
-                if (modelSelection === null) {
-                  return
-                }
-                onModelSelectionChange(
-                  value === null || value === automaticValue
-                    ? { modelId: modelSelection.modelId }
-                    : { modelId: modelSelection.modelId, reasoningEffort: value },
-                )
-              }}
-            >
-              <SelectTrigger size="sm" className="w-auto max-w-44" aria-label="Effort">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectPopup alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {effortItems.map((effort) => (
-                    <SelectItem key={effort.value} value={effort.value}>
-                      {effort.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectPopup>
-            </Select>
-            <Select
-              items={runtimeModes}
-              value={runtimeMode}
-              disabled={isRunning || disabled}
-              onValueChange={(value) => {
-                if (value !== null && isRuntimeMode(value)) {
-                  onRuntimeModeChange(value)
-                }
-              }}
-            >
-              <SelectTrigger size="sm" className="w-auto max-w-52" aria-label="Niveau d’accès">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectPopup alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {runtimeModes.map((mode) => (
-                    <SelectItem key={mode.value} value={mode.value}>
-                      {mode.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectPopup>
-            </Select>
+              >
+                <SelectedRuntimeModeIcon data-icon="inline-start" />
+                <span className="truncate">{selectedRuntimeMode.label}</span>
+                <ChevronDownIcon data-icon="inline-end" />
+              </MenuTrigger>
+              <MenuPopup side="top" align="start" className="w-max">
+                <MenuGroup>
+                  <MenuGroupLabel>Niveau d’accès</MenuGroupLabel>
+                  <MenuRadioGroup
+                    value={runtimeMode}
+                    onValueChange={(value) => {
+                      if (isRuntimeMode(value)) {
+                        onRuntimeModeChange(value)
+                      }
+                    }}
+                  >
+                    {runtimeModes.map((mode) => {
+                      const ModeIcon = runtimeModeIcons[mode.value]
+                      return (
+                        <MenuRadioItem
+                          key={mode.value}
+                          value={mode.value}
+                          closeOnClick
+                          hideIndicator
+                          className="py-2 data-checked:bg-accent data-checked:text-accent-foreground data-highlighted:bg-accent/60"
+                        >
+                          <span className="flex items-start gap-2">
+                            <ModeIcon className="mt-0.5 shrink-0" />
+                            <span className="flex flex-col gap-0.5">
+                              <span className="font-medium">{mode.label}</span>
+                              <span className="whitespace-nowrap text-muted-foreground text-xs leading-snug">
+                                {mode.description}
+                              </span>
+                            </span>
+                          </span>
+                        </MenuRadioItem>
+                      )
+                    })}
+                  </MenuRadioGroup>
+                </MenuGroup>
+              </MenuPopup>
+            </Menu>
+
             <div className="ml-auto flex gap-2">
               {isRunning ? (
                 <Button type="button" size="sm" variant="outline" onClick={onInterrupt}>

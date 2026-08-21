@@ -505,11 +505,14 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       yield* sql`
         INSERT INTO projection_threads (
           thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
-          status, created_at, updated_at
+          service_tier, thinking, status, created_at, updated_at
         ) VALUES (
           ${event.threadId}, ${event.projectId}, ${event.title}, ${event.provider},
           ${event.runtimeMode}, ${event.modelSelection?.modelId ?? null},
-          ${event.modelSelection?.reasoningEffort ?? null}, 'active', ${occurredAt}, ${occurredAt}
+          ${event.modelSelection?.reasoningEffort ?? null},
+          ${event.modelSelection?.serviceTier ?? null},
+          ${event.modelSelection?.thinking === undefined ? null : Number(event.modelSelection.thinking)},
+          'active', ${occurredAt}, ${occurredAt}
         )
       `
       return
@@ -545,6 +548,17 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       yield* sql`
         UPDATE projection_sessions
         SET runtime_mode = ${event.runtimeMode}, updated_at = ${occurredAt}
+        WHERE thread_id = ${event.threadId}
+      `
+      return
+    case "thread.model-selection-set":
+      yield* sql`
+        UPDATE projection_threads
+        SET model_id = ${event.modelSelection?.modelId ?? null},
+            reasoning_effort = ${event.modelSelection?.reasoningEffort ?? null},
+            service_tier = ${event.modelSelection?.serviceTier ?? null},
+            thinking = ${event.modelSelection?.thinking === undefined ? null : Number(event.modelSelection.thinking)},
+            updated_at = ${occurredAt}
         WHERE thread_id = ${event.threadId}
       `
       return
@@ -598,7 +612,9 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         yield* sql`
           UPDATE projection_threads
           SET model_id = ${event.modelSelection?.modelId ?? null},
-              reasoning_effort = ${event.modelSelection?.reasoningEffort ?? null}
+              reasoning_effort = ${event.modelSelection?.reasoningEffort ?? null},
+              service_tier = ${event.modelSelection?.serviceTier ?? null},
+              thinking = ${event.modelSelection?.thinking === undefined ? null : Number(event.modelSelection.thinking)}
           WHERE thread_id = ${event.threadId}
         `
       }

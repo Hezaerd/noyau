@@ -11,6 +11,7 @@ import {
   makeApprovalRespondRequest,
   makeThreadCreateRequest,
   makeThreadId,
+  makeThreadModelSelectionSetRequest,
   makeThreadTurnInterruptRequest,
   makeThreadTurnStartRequest,
   makeUserInputRespondRequest,
@@ -123,6 +124,20 @@ export const interruptTurnEffect = Effect.fn("interruptTurn")(function* (input: 
 
 export const interruptTurn = (input: { readonly threadId: ThreadId; readonly turnId?: TurnId }) =>
   Effect.runPromise(interruptTurnEffect(input))
+
+export const setThreadModelSelectionEffect = Effect.fn("setThreadModelSelection")(
+  function* (input: {
+    readonly threadId: ThreadId
+    readonly modelSelection: ModelSelection | null
+  }) {
+    return yield* buildAndDispatch(makeThreadModelSelectionSetRequest(input))
+  },
+)
+
+export const setThreadModelSelection = (input: {
+  readonly threadId: ThreadId
+  readonly modelSelection: ModelSelection | null
+}) => Effect.runPromise(setThreadModelSelectionEffect(input))
 
 export const respondToApprovalEffect = Effect.fn("respondToApproval")(function* (input: {
   readonly threadId: ThreadId

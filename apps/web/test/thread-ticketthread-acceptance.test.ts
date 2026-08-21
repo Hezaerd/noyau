@@ -10,6 +10,7 @@ import {
   makeThreadArchiveRequest,
   makeThreadCreateRequest,
   makeThreadMetaUpdateRequest,
+  makeThreadModelSelectionSetRequest,
   makeThreadRuntimeModeSetRequest,
   makeThreadTitleRegenerateRequest,
   makeThreadTurnStartRequest,
@@ -79,6 +80,17 @@ describe("Thread and TicketThread UI acceptance contract", () => {
 
     expect(created.payload.modelSelection).toEqual(modelSelection)
     expect(started.payload.modelSelection).toEqual(modelSelection)
+
+    const remembered = runBuilder(
+      makeThreadModelSelectionSetRequest({
+        threadId: ids.threadId,
+        modelSelection: { ...modelSelection, serviceTier: "fast" },
+      }),
+    )
+    expect(remembered.payload.modelSelection).toEqual({
+      ...modelSelection,
+      serviceTier: "fast",
+    })
   })
 
   it("renames a Thread and asks for title regeneration without a new title", () => {
