@@ -225,17 +225,112 @@ describe("thread transcript projection", () => {
     expect(next?.thread.title).toBe("Fix session resume")
   })
 
-  it("leaves structural events to a snapshot refresh", () => {
-    expect(
-      applyThreadEnvelope(
-        snapshot,
-        envelopeFor({
-          _tag: "thread.runtime-mode-set",
-          threadId: ids.thread,
-          runtimeMode: "full-access",
-        }),
-      ),
-    ).toBeUndefined()
+  it("applies session-set and runtime-mode-set locally without a snapshot reload", () => {
+    const runningSession = snapshot.session
+    if (runningSession === null) {
+      throw new Error("fixture session")
+    }
+    const afterMode = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.runtime-mode-set",
+        threadId: ids.thread,
+        runtimeMode: "full-access",
+      }),
+    )
+    const afterReady =
+      afterMode === undefined
+        ? undefined
+        : applyThreadEnvelope(
+            afterMode,
+            envelopeFor({
+              _tag: "thread.session-set",
+              threadId: ids.thread,
+              session: {
+                ...runningSession,
+                status: "ready",
+                activeTurnId: null,
+              },
+            }),
+          )
+
+    expect(afterMode?.thread.runtimeMode).toBe("full-access")
+    expect(afterMode?.session?.runtimeMode).toBe("full-access")
+    expect(afterReady?.session?.status).toBe("ready")
+    expect(afterReady?.thread.latestTurn?.state).toBe("completed")
+    expect(afterReady?.turns[0]?.state).toBe("completed")
+  })
+
+  it("keeps concatenating assistant deltas after a running session-set", () => {
+    const runningSession = snapshot.session
+    if (runningSession === null) {
+      throw new Error("fixture session")
+    }
+    const afterSession = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.session-set",
+        threadId: ids.thread,
+        session: runningSession,
+      }),
+    )
+    const afterDelta =
+      afterSession === undefined
+        ? undefined
+        : applyThreadEnvelope(
+            afterSession,
+            envelopeFor({
+              _tag: "thread.transcript-appended",
+              item: {
+                _tag: "transcript.assistant",
+                threadId: ids.thread,
+                turnId: ids.turn,
+                text: "Bonjour",
+              },
+            }),
+          )
+
+    expect(afterSession?.session?.status).toBe("running")
+    expect(afterDelta?.transcript.at(-1)).toMatchObject({
+      _tag: "transcript.assistant",
+      text: "Bonjour",
+    })
+  })
+
+  it("ignores assistant deltas once the Session has settled the Turn", () => {
+    const runningSession = snapshot.session
+    if (runningSession === null) {
+      throw new Error("fixture session")
+    }
+    const settled = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.session-set",
+        threadId: ids.thread,
+        session: {
+          ...runningSession,
+          status: "ready",
+          activeTurnId: null,
+        },
+      }),
+    )
+    const afterDelta =
+      settled === undefined
+        ? undefined
+        : applyThreadEnvelope(
+            settled,
+            envelopeFor({
+              _tag: "thread.transcript-appended",
+              item: {
+                _tag: "transcript.assistant",
+                threadId: ids.thread,
+                turnId: ids.turn,
+                text: "trop tard",
+              },
+            }),
+          )
+
+    expect(afterDelta?.transcript.at(-1)?._tag).toBe("transcript.user")
   })
 
   it("renders a compact tool caption without status or raw output", () => {
