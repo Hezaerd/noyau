@@ -7,11 +7,16 @@ import { fileURLToPath } from "node:url"
 import { Config, Effect, FileSystem, Option, Schema, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
-import { resolveAppIconPath, resolveMacBundleIconPath } from "./app-icon.ts"
+import {
+  MAC_BUNDLE_ICON_FILE,
+  resolveAppIconPath,
+  resolveMacBundleIconPath,
+  resolveMacBundleStockIconPath,
+} from "./app-icon.ts"
 
 const APP_BASE_NAME = "Noyau"
 const PRODUCTION_BUNDLE_ID = "dev.noyau.desktop"
-const LAUNCHER_VERSION = 2
+const LAUNCHER_VERSION = 3
 const hostPlatform = NodeOS.platform()
 
 class LauncherError extends Schema.TaggedError<LauncherError>()("LauncherError", {
@@ -114,6 +119,10 @@ const setPlistString = Effect.fn("setPlistString")(function* (
   })
 })
 
+const deletePlistKey = Effect.fn("deletePlistKey")(function* (plistPath: string, key: string) {
+  yield* collectProcessOutput("plutil", ["-remove", key, plistPath])
+})
+
 const patchMainBundleInfoPlist = Effect.fn("patchMainBundleInfoPlist")(function* (
   appBundlePath: string,
   displayName: string,
@@ -123,6 +132,8 @@ const patchMainBundleInfoPlist = Effect.fn("patchMainBundleInfoPlist")(function*
   yield* setPlistString(infoPlistPath, "CFBundleDisplayName", displayName)
   yield* setPlistString(infoPlistPath, "CFBundleName", displayName)
   yield* setPlistString(infoPlistPath, "CFBundleIdentifier", bundleId)
+  yield* setPlistString(infoPlistPath, "CFBundleIconFile", MAC_BUNDLE_ICON_FILE)
+  yield* deletePlistKey(infoPlistPath, "CFBundleIconName")
 })
 
 const patchHelperBundleInfoPlists = Effect.fn("patchHelperBundleInfoPlists")(function* (
@@ -215,11 +226,15 @@ const installAppIcon = Effect.fn("installAppIcon")(function* (
     })
   }
 
-  const targetIconPath = resolveMacBundleIconPath(appBundlePath)
-  if (yield* fs.exists(targetIconPath)) {
-    yield* fs.remove(targetIconPath)
+  for (const targetIconPath of [
+    resolveMacBundleIconPath(appBundlePath),
+    resolveMacBundleStockIconPath(appBundlePath),
+  ]) {
+    if (yield* fs.exists(targetIconPath)) {
+      yield* fs.remove(targetIconPath)
+    }
+    yield* fs.copyFile(iconPath, targetIconPath)
   }
-  yield* fs.copyFile(iconPath, targetIconPath)
 })
 
 const buildMacLauncher = Effect.fn("buildMacLauncher")(function* (

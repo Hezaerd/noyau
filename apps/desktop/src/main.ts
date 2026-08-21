@@ -261,6 +261,28 @@ const openExternalUrl = (url: string): void => {
   }
 }
 
+const applyDockIcon = Effect.fn("applyDockIcon")(function* () {
+  if (process.platform !== "darwin" || app.dock === undefined) {
+    return
+  }
+
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const iconPath = path.join(
+    app.getAppPath(),
+    "assets",
+    flags.isDevelopment ? "dev" : "prod",
+    "app-icon.png",
+  )
+  if (!(yield* fs.exists(iconPath))) {
+    return
+  }
+
+  yield* Effect.sync(() => {
+    app.dock?.setIcon(iconPath)
+  })
+})
+
 const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: ServerBootstrap) {
   const shouldUseDarkColors = nativeTheme.shouldUseDarkColors
   const window = new BrowserWindow({
@@ -354,6 +376,7 @@ const launch = Effect.fn("launch")(function* () {
   app.setAboutPanelOptions({ applicationName: appDisplayName })
 
   yield* Effect.promise(() => app.whenReady())
+  yield* applyDockIcon()
   const externalBootstrap = yield* decodeExternalBootstrap()
   const baseSupervisorOptions = {
     serverEntryPath: yield* resolveServerEntryPath(__dirname),

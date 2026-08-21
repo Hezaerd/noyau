@@ -1,6 +1,7 @@
 export const APP_ICON_NAME = "noyau"
 export const APP_ICON_SIZE = 1024
-export const MAC_BUNDLE_ICON_RELATIVE_PATH = "Contents/Resources/electron.icns"
+export const MAC_BUNDLE_ICON_FILE = "icon.icns"
+export const MAC_BUNDLE_STOCK_ICON_FILE = "electron.icns"
 
 export const APP_ICON_VARIANTS = {
   development: {
@@ -36,5 +37,11 @@ export const resolveAppIconDirectory = (
 export const resolveAppIconPath = (desktopDirectory: string, isDevelopment: boolean): string =>
   `${resolveAppIconDirectory(desktopDirectory, resolveAppIconVariant(isDevelopment))}/app-icon.icns`
 
+export const resolveAppIconPngPath = (desktopDirectory: string, isDevelopment: boolean): string =>
+  `${resolveAppIconDirectory(desktopDirectory, resolveAppIconVariant(isDevelopment))}/app-icon.png`
+
 export const resolveMacBundleIconPath = (appBundlePath: string): string =>
-  `${appBundlePath}/${MAC_BUNDLE_ICON_RELATIVE_PATH}`
+  `${appBundlePath}/Contents/Resources/${MAC_BUNDLE_ICON_FILE}`
+
+export const resolveMacBundleStockIconPath = (appBundlePath: string): string =>
+  `${appBundlePath}/Contents/Resources/${MAC_BUNDLE_STOCK_ICON_FILE}`
