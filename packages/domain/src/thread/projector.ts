@@ -1,3 +1,4 @@
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { Session, SessionStatus } from "@noyau/protocol/entities/session"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
@@ -21,6 +22,7 @@ export interface ThreadProjection {
   readonly title: string
   readonly provider: "cursor"
   readonly runtimeMode: RuntimeMode
+  readonly modelSelection: ModelSelection | null
   readonly status: "active" | "archived"
   readonly session: Session | null
   readonly turns: ReadonlyArray<TurnProjection>
@@ -188,6 +190,7 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
             title: event.title,
             provider: event.provider,
             runtimeMode: event.runtimeMode,
+            modelSelection: event.modelSelection ?? null,
             status: "active",
             session: null,
             turns: [],
@@ -228,6 +231,8 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
           title:
             firstTurn && canReplaceThreadTitle(thread.title, titleSeed) ? titleSeed : thread.title,
           runtimeMode: event.runtimeMode ?? thread.runtimeMode,
+          modelSelection:
+            event.modelSelection === undefined ? thread.modelSelection : event.modelSelection,
           turns: [
             ...thread.turns,
             {

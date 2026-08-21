@@ -103,6 +103,7 @@ describe("CursorProviderStatus", () => {
       version: null,
       plan: null,
       binaryPath: null,
+      models: [],
     })
   })
 })

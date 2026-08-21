@@ -298,6 +298,7 @@ layer(platformLayer)("SQL projections", (it) => {
                   title: "Recovery",
                   provider: "cursor",
                   runtimeMode: "full-access",
+                  modelSelection: { modelId: "composer-2.5", reasoningEffort: "medium" },
                 }),
               ),
             )
@@ -308,6 +309,7 @@ layer(platformLayer)("SQL projections", (it) => {
                   threadId: ids.recoveryThread,
                   turnId: recoveryTurnId,
                   text: "Keep this prompt",
+                  modelSelection: { modelId: "composer-2.5", reasoningEffort: "high" },
                 }),
               ),
             )
@@ -334,6 +336,7 @@ layer(platformLayer)("SQL projections", (it) => {
                   title: "Terminal",
                   provider: "cursor",
                   runtimeMode: "full-access",
+                  modelSelection: { modelId: "composer-2.5", reasoningEffort: "medium" },
                 }),
               ),
             )
@@ -423,8 +426,16 @@ layer(platformLayer)("SQL projections", (it) => {
       assert.deepStrictEqual(evidence.recovery.session?.resumeCursor, resumeCursor)
       assert.strictEqual(evidence.recovery.turns.at(-1)?.state, "error")
       assert.strictEqual(evidence.recovery.thread.latestTurn?.state, "error")
+      assert.deepStrictEqual(evidence.recovery.thread.modelSelection, {
+        modelId: "composer-2.5",
+        reasoningEffort: "high",
+      })
       assert.strictEqual(evidence.terminal.turns.at(-1)?.state, "completed")
       assert.strictEqual(evidence.terminal.thread.latestTurn?.state, "completed")
+      assert.deepStrictEqual(evidence.terminal.thread.modelSelection, {
+        modelId: "composer-2.5",
+        reasoningEffort: "medium",
+      })
       assert.strictEqual(evidence.terminal.transcript.length, 1)
       assert.strictEqual(evidence.shell.projects.length, 1)
       assert.strictEqual(evidence.shell.threads.length, 2)

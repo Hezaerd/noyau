@@ -38,6 +38,11 @@ Politique d'outils t3code du Thread (quatre valeurs). Portée par le Thread et e
 création / au tour ; plus exposée dans l'en-tête Thread.
 _À éviter_ : permissionMode
 
+**Effort**:
+Libellé UI du `reasoningEffort` porté par la `modelSelection` du Thread. Les valeurs proposées
+proviennent des capacités du modèle Cursor sélectionné.
+_À éviter_ : niveau statique, enum Noyau
+
 **Palette**:
 Overlay clavier searchable de l'app qui propose navigation, Actions et résultats contextuels.
 _À éviter_ : Command, Command palette, Spotlight, Menu

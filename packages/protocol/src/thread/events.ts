@@ -3,6 +3,7 @@ import {
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
 import { Provider } from "@noyau/protocol/entities/environment"
+import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { Session } from "@noyau/protocol/entities/session"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
@@ -16,6 +17,7 @@ export const ThreadCreated = Schema.TaggedStruct("thread.created", {
   title: Schema.NonEmptyString,
   provider: Provider,
   runtimeMode: RuntimeMode,
+  modelSelection: Schema.optionalKey(ModelSelection),
 })
 export type ThreadCreated = (typeof ThreadCreated)["Type"]
 
@@ -48,6 +50,7 @@ export const ThreadTurnStarted = Schema.TaggedStruct("thread.turn.started", {
   text: Schema.NonEmptyString,
   titleSeed: Schema.optionalKey(Schema.NonEmptyString),
   runtimeMode: Schema.optionalKey(RuntimeMode),
+  modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
 })
 export type ThreadTurnStarted = (typeof ThreadTurnStarted)["Type"]
 

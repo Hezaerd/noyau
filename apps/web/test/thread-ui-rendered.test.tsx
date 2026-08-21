@@ -32,6 +32,16 @@ const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const secondThreadId = ThreadId.make("20000000-0000-4000-8000-000000000002")
 const ticketId = TicketId.make("30000000-0000-4000-8000-000000000001")
+const cursorModels = [
+  {
+    modelId: "composer-2.5",
+    label: "Composer 2.5",
+    reasoningEfforts: [
+      { value: "low", label: "Faible" },
+      { value: "high", label: "Élevé" },
+    ],
+  },
+]
 
 const makeThread = (id: ThreadId, title: string): ThreadShellType =>
   Schema.decodeSync(ThreadShell)({
@@ -112,9 +122,14 @@ describe("rendered Thread UI evidence", () => {
         isRunning={false}
         disabled
         text=""
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
         error={undefined}
         onSubmit={vi.fn()}
         onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
         onInterrupt={vi.fn()}
@@ -129,6 +144,128 @@ describe("rendered Thread UI evidence", () => {
     expect(composer?.className).toMatch(/sticky/)
     expect(composer?.className).toMatch(/bottom-0/)
   })
+
+  it("submits with Enter and keeps Shift+Enter for a new line", () => {
+    const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+    })
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text="Lancer les tests"
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        error={undefined}
+        onSubmit={onSubmit}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onInterrupt={vi.fn()}
+      />,
+    )
+
+    const composer = screen.getByRole("textbox", { name: "Composer un message" })
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: true })
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(composer, { key: "Enter" })
+    expect(onSubmit).toHaveBeenCalledOnce()
+  })
+
+  it("changes the Thread access level from the composer", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onRuntimeModeChange = vi.fn()
+        render(
+          <ThreadComposer
+            isRunning={false}
+            disabled={false}
+            text="Préparer la reprise"
+            runtimeMode="full-access"
+            models={cursorModels}
+            modelSelection={null}
+            error={undefined}
+            onSubmit={vi.fn()}
+            onTextChange={vi.fn()}
+            onRuntimeModeChange={onRuntimeModeChange}
+            onModelSelectionChange={vi.fn()}
+            onPaste={vi.fn()}
+            onDrop={vi.fn()}
+            onInterrupt={vi.fn()}
+          />,
+        )
+
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("combobox", { name: "Niveau d’accès" })),
+        )
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("option", { name: "Approbation requise" })),
+        )
+        expect(onRuntimeModeChange).toHaveBeenCalledWith("approval-required")
+      }),
+    ))
+
+  it("changes the Cursor model and reasoning effort from the composer", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onModelSelectionChange = vi.fn()
+        const { rerender } = render(
+          <ThreadComposer
+            isRunning={false}
+            disabled={false}
+            text="Préparer la reprise"
+            runtimeMode="full-access"
+            models={cursorModels}
+            modelSelection={null}
+            error={undefined}
+            onSubmit={vi.fn()}
+            onTextChange={vi.fn()}
+            onRuntimeModeChange={vi.fn()}
+            onModelSelectionChange={onModelSelectionChange}
+            onPaste={vi.fn()}
+            onDrop={vi.fn()}
+            onInterrupt={vi.fn()}
+          />,
+        )
+
+        yield* Effect.promise(() => user.click(screen.getByRole("combobox", { name: "Modèle" })))
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("option", { name: "Composer 2.5" })),
+        )
+        expect(onModelSelectionChange).toHaveBeenCalledWith({ modelId: "composer-2.5" })
+
+        rerender(
+          <ThreadComposer
+            isRunning={false}
+            disabled={false}
+            text="Préparer la reprise"
+            runtimeMode="full-access"
+            models={cursorModels}
+            modelSelection={{ modelId: "composer-2.5" }}
+            error={undefined}
+            onSubmit={vi.fn()}
+            onTextChange={vi.fn()}
+            onRuntimeModeChange={vi.fn()}
+            onModelSelectionChange={onModelSelectionChange}
+            onPaste={vi.fn()}
+            onDrop={vi.fn()}
+            onInterrupt={vi.fn()}
+          />,
+        )
+        yield* Effect.promise(() => user.click(screen.getByRole("combobox", { name: "Effort" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("option", { name: "Élevé" })))
+        expect(onModelSelectionChange).toHaveBeenLastCalledWith({
+          modelId: "composer-2.5",
+          reasoningEffort: "high",
+        })
+      }),
+    ))
 
   it("edits TicketThread links from the Ticket side", () =>
     Effect.runPromise(

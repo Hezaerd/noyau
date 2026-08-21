@@ -1,3 +1,4 @@
+import * as AcpSchema from "@noyau/acp/schema"
 import { Schema } from "effect"
 
 const CursorAskQuestionOption = Schema.Struct({
@@ -19,3 +20,14 @@ export const CursorAskQuestionRequest = Schema.Struct({
   questions: Schema.optionalKey(Schema.Array(CursorAskQuestion)),
 })
 export type CursorAskQuestionRequest = typeof CursorAskQuestionRequest.Type
+
+const CursorAvailableModel = Schema.Struct({
+  value: Schema.String,
+  name: Schema.String,
+  configOptions: Schema.optionalKey(Schema.Array(AcpSchema.SessionConfigOption)),
+})
+
+export const CursorListAvailableModelsResponse = Schema.Struct({
+  models: Schema.Array(CursorAvailableModel),
+})
+export type CursorListAvailableModelsResponse = typeof CursorListAvailableModelsResponse.Type

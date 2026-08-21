@@ -6,6 +6,7 @@ import {
   emptyCursorProviderStatus,
   type CursorProviderStatus,
 } from "@noyau/protocol/entities/environment"
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ResumeCursor, SessionStatus } from "@noyau/protocol/entities/session"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
@@ -19,6 +20,7 @@ export interface ProviderTurnInput {
   readonly text: string
   readonly workspaceRoot: string
   readonly runtimeMode: RuntimeMode
+  readonly modelSelection: ModelSelection | null
   readonly resumeCursor: ResumeCursor | null
 }
 

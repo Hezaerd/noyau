@@ -20,12 +20,14 @@ const turnId = TurnId.make("30000000-0000-4000-8000-000000000001")
 const input = (
   runtimeMode: ProviderTurnInput["runtimeMode"] = "full-access",
   resumeCursor: ProviderTurnInput["resumeCursor"] = null,
+  modelSelection: ProviderTurnInput["modelSelection"] = null,
 ): ProviderTurnInput => ({
   threadId,
   turnId,
   text: "Implement the adapter",
   workspaceRoot: process.cwd(),
   runtimeMode,
+  modelSelection,
   resumeCursor,
 })
 
@@ -125,6 +127,26 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
                 version: "2026.03.20-test",
                 plan: "Pro",
                 binaryPath: process.execPath,
+                models: [
+                  {
+                    modelId: "composer-2.5",
+                    label: "Composer 2.5",
+                    reasoningEfforts: [
+                      { value: "low", label: "Low" },
+                      { value: "medium", label: "Medium" },
+                      { value: "high", label: "High" },
+                    ],
+                  },
+                  {
+                    modelId: "composer-2.5-fast",
+                    label: "Composer 2.5 Fast",
+                    reasoningEfforts: [
+                      { value: "low", label: "Low" },
+                      { value: "medium", label: "Medium" },
+                      { value: "high", label: "High" },
+                    ],
+                  },
+                ],
               })
             }),
           ),
@@ -140,6 +162,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
                 version: "2026.03.20-test",
                 plan: "Pro",
                 binaryPath: process.execPath,
+                models: [],
               })
             }),
           ),
@@ -155,6 +178,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
                 version: "2026.03.20-test",
                 plan: "Pro",
                 binaryPath: process.execPath,
+                models: [],
               })
             }),
           ),
@@ -170,6 +194,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
                 version: "2026.03.20-test",
                 plan: "Pro",
                 binaryPath: process.execPath,
+                models: [],
               })
             }),
           ),
@@ -216,6 +241,41 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         assert.isTrue(
           signals.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )
+      }),
+    ),
+  )
+
+  it.effect("applies the selected model and reasoning effort before prompting", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        yield* capture(
+          provider,
+          input("full-access", null, {
+            modelId: "composer-2.5-fast",
+            reasoningEffort: "high",
+          }),
+        )
+
+        const log = (yield* readLog(evidence.requestLog))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+        const requests = log.filter((message) => message.id !== undefined)
+        const modelIndex = requests.findIndex(
+          (message) =>
+            message.method === "session/set_config_option" && message.params.configId === "model",
+        )
+        const effortIndex = requests.findIndex(
+          (message) =>
+            message.method === "session/set_config_option" && message.params.configId === "effort",
+        )
+        const promptIndex = requests.findIndex((message) => message.method === "session/prompt")
+
+        assert.isAtLeast(modelIndex, 0)
+        assert.isAbove(effortIndex, modelIndex)
+        assert.isAbove(promptIndex, effortIndex)
+        assert.strictEqual(requests[modelIndex]?.params.value, "composer-2.5-fast")
+        assert.strictEqual(requests[effortIndex]?.params.value, "high")
       }),
     ),
   )

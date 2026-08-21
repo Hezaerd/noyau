@@ -2,6 +2,7 @@ import {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
+import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { Session } from "@noyau/protocol/entities/session"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
@@ -58,6 +59,7 @@ const threadCreatePayload = {
   projectId: ProjectId,
   title: Schema.NonEmptyString,
   runtimeMode: Schema.optionalKey(RuntimeMode),
+  modelSelection: Schema.optionalKey(ModelSelection),
 } as const
 
 const threadIdPayload = {
@@ -88,6 +90,7 @@ const turnStartPayload = Schema.Struct({
   text: Schema.NonEmptyString,
   titleSeed: Schema.optionalKey(Schema.NonEmptyString),
   runtimeMode: Schema.optionalKey(RuntimeMode),
+  modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   attachments: Schema.optionalKey(Schema.Unknown),
   image: Schema.optionalKey(Schema.Unknown),
   images: Schema.optionalKey(Schema.Unknown),
