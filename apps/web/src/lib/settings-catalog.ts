@@ -5,7 +5,7 @@ export const SETTINGS_TAB_IDS = ["general", "appearance", "providers", "keybindi
 
 export type SettingsTabId = (typeof SETTINGS_TAB_IDS)[number]
 
-export const DEFAULT_SETTINGS_TAB = "appearance" satisfies SettingsTabId
+export const DEFAULT_SETTINGS_TAB = "general" satisfies SettingsTabId
 
 export interface SettingsTab {
   readonly id: SettingsTabId

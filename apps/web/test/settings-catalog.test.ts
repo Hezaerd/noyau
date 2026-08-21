@@ -30,6 +30,10 @@ describe("settings catalog", () => {
     expect(isSettingsPath("/settings-room")).toBe(false)
   })
 
+  it("opens Paramètres on Général by default", () => {
+    expect(DEFAULT_SETTINGS_TAB).toBe("general")
+  })
+
   it("falls back to the default tab for an unknown segment", () => {
     expect(parseSettingsTabId("appearance")).toBe("appearance")
     expect(parseSettingsTabId("general")).toBe("general")
