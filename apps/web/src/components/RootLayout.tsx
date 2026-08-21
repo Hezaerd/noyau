@@ -13,6 +13,7 @@ import { SettingsPageTitle, ThreadPageTitle } from "@/components/WorkspaceBreadc
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
+import { useShellFocusReporter } from "@/hooks/use-shell-focus-reporter"
 import { presentFailure } from "@/lib/failure-presentation"
 import { resolvePageTitlebar } from "@/lib/page-titlebar"
 import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"
@@ -89,12 +90,18 @@ function ShellConnectionNotice() {
   )
 }
 
+function ShellFocusReporter() {
+  useShellFocusReporter()
+  return null
+}
+
 export function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isSettings = isSettingsPath(pathname)
 
   return (
     <ControlPlaneProvider>
+      <ShellFocusReporter />
       <AppPaletteProvider>
         <SidebarProvider className="h-svh overflow-hidden">
           {/* Keep the Sidebar shell mounted: remounting it retriggers

@@ -1,14 +1,19 @@
 import { Undo2Icon } from "lucide-react"
-import { useState, type ReactElement } from "react"
+import { useId, useState, type ReactElement } from "react"
 
 import { SettingsPage, SettingsRow, SettingsSection } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
+import { useDiscordPresenceEnabled } from "@/hooks/use-discord-presence-enabled"
 import { useProjectFolderStartDirectory } from "@/hooks/use-project-folder-start-directory"
+import { setDiscordPresenceEnabled } from "@/lib/discord-presence-preference"
 import { setProjectFolderStartDirectory } from "@/lib/project-folder-preference"
 
 export function GeneralSettingsPanel(): ReactElement {
   const startDirectory = useProjectFolderStartDirectory()
+  const discordPresenceEnabled = useDiscordPresenceEnabled()
+  const discordPresenceSwitchId = useId()
   const [draft, setDraft] = useState<string | undefined>()
   const value = draft ?? startDirectory
 
@@ -58,6 +63,21 @@ export function GeneralSettingsPanel(): ReactElement {
                 }}
               />
             </div>
+          }
+        />
+      </SettingsSection>
+      <SettingsSection id="autre" title="Autre">
+        <SettingsRow
+          id="discord-rich-presence"
+          title="Discord Rich Presence"
+          description="Affiche le Project ouvert et le Thread, ou Tableau. Discord desktop doit tourner."
+          control={
+            <Switch
+              id={discordPresenceSwitchId}
+              checked={discordPresenceEnabled}
+              aria-label="Activer Discord Rich Presence"
+              onCheckedChange={(checked) => setDiscordPresenceEnabled(checked)}
+            />
           }
         />
       </SettingsSection>

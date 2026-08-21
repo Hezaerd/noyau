@@ -2,6 +2,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { controlPlaneLayer } from "@noyau/server/control-plane"
+import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { serverRoutesLayer } from "@noyau/server/server"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
@@ -21,6 +22,7 @@ const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(testServerConfigLayer()),
   Layer.provideMerge(unavailableProviderLayer),
   Layer.provideMerge(unavailableTextGenerationLayer),
+  Layer.provideMerge(noopDiscordPresenceLayer),
   Layer.provideMerge(
     Layer.succeed(WorkspaceRootAccess)({
       isAvailable: () => Effect.succeed(true),

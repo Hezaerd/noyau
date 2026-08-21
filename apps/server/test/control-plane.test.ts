@@ -18,6 +18,7 @@ import {
   makeControlPlaneLayer,
   type ControlPlaneHooks,
 } from "@noyau/server/control-plane"
+import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
@@ -96,6 +97,7 @@ const controlPlaneTestLayer = (
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
     Layer.provideMerge(unavailableTextGenerationLayer),
+    Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(workspaceRoots)),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
@@ -106,6 +108,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableTextGenerationLayer),
+    Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(availableWorkspaceRoots)),
     Layer.provideMerge(
       cursorProviderLayer({
@@ -158,6 +161,13 @@ describe("ControlPlane", () => {
         const config = yield* controlPlane.getConfig
         assert.strictEqual(config.databaseSchemaVersion, 5)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
+        assert.deepStrictEqual(
+          yield* controlPlane.setShellFocus({
+            enabled: true,
+            focus: { _tag: "tableau", projectId },
+          }),
+          {},
+        )
       }),
     ),
   )

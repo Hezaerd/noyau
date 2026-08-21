@@ -54,3 +54,8 @@ _À éviter_ : Channel, historique de Message
 **TicketActivity**:
 Suite bornée des faits autoritatifs liés à un Ticket, distincte du transcript d'un Thread.
 _À éviter_ : Thread, commentaire
+
+**ShellFocus**:
+Vue UI volatile du renderer (Tableau ou Thread d'un Project). Elle traverse le RPC et n'entre
+pas dans le journal.
+_À éviter_ : Command, présence, current route

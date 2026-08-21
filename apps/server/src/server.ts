@@ -10,6 +10,7 @@ import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 
 import { ServerConfig, serverConfigLayer } from "./config.ts"
 import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
+import { discordPresenceLayer } from "./discord/ipc.ts"
 import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
 import { loggerLayer } from "./observability.ts"
 import { cursorProviderLayer } from "./provider/cursor-acp.ts"
@@ -164,6 +165,7 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),
+  Layer.provide(discordPresenceLayer),
   Layer.provideMerge(
     sqlitePersistenceLayer.pipe(
       Layer.provideMerge(
