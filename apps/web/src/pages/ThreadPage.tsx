@@ -291,9 +291,11 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         isRunning={isRunning}
         disabled={project?.available !== true || !cursorReady}
         text={text}
+        runtimeMode={runtimeMode}
         error={composerError}
         onSubmit={submitTurn}
         onTextChange={setText}
+        onRuntimeModeChange={setRuntimeMode}
         onPaste={rejectImages}
         onDrop={rejectImages}
         onInterrupt={() => interruptTurn()}

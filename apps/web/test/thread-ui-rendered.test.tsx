@@ -114,9 +114,11 @@ describe("rendered Thread UI evidence", () => {
         isRunning={false}
         disabled
         text=""
+        runtimeMode="full-access"
         error={undefined}
         onSubmit={vi.fn()}
         onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
         onInterrupt={vi.fn()}
@@ -131,6 +133,65 @@ describe("rendered Thread UI evidence", () => {
     expect(composer?.className).toMatch(/sticky/)
     expect(composer?.className).toMatch(/bottom-0/)
   })
+
+  it("submits with Enter and keeps Shift+Enter for a new line", () => {
+    const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+    })
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text="Lancer les tests"
+        runtimeMode="full-access"
+        error={undefined}
+        onSubmit={onSubmit}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onInterrupt={vi.fn()}
+      />,
+    )
+
+    const composer = screen.getByRole("textbox", { name: "Composer un message" })
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: true })
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(composer, { key: "Enter" })
+    expect(onSubmit).toHaveBeenCalledOnce()
+  })
+
+  it("changes the Thread access level from the composer", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onRuntimeModeChange = vi.fn()
+        render(
+          <ThreadComposer
+            isRunning={false}
+            disabled={false}
+            text="Préparer la reprise"
+            runtimeMode="full-access"
+            error={undefined}
+            onSubmit={vi.fn()}
+            onTextChange={vi.fn()}
+            onRuntimeModeChange={onRuntimeModeChange}
+            onPaste={vi.fn()}
+            onDrop={vi.fn()}
+            onInterrupt={vi.fn()}
+          />,
+        )
+
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("combobox", { name: "Niveau d’accès" })),
+        )
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("option", { name: "Approbation requise" })),
+        )
+        expect(onRuntimeModeChange).toHaveBeenCalledWith("approval-required")
+      }),
+    ))
 
   it("edits TicketThread links from the Thread side", () =>
     Effect.runPromise(
