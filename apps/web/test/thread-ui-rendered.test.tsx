@@ -229,8 +229,35 @@ describe("rendered Thread UI evidence", () => {
     )
 
     expect(screen.getByText("Wrote")).toBeTruthy()
+    expect(screen.getByText("Wrote").parentElement?.classList.contains("shimmer")).toBe(false)
     expect(screen.queryByText(/"content"/)).toBeNull()
     expect(screen.queryByText("Cursor tool")).toBeNull()
+  })
+
+  it("shimmers only while a tool call is in progress", () => {
+    const item = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.tool",
+      threadId,
+      turnId: TurnId.make("40000000-0000-4000-8000-000000000001"),
+      toolCallId: "tool-1",
+      name: "Read file",
+      status: "in_progress",
+      action: "read",
+      outputSummary: "src/index.ts",
+    })
+
+    render(
+      <ThreadTranscriptItem
+        item={item}
+        streaming={false}
+        answer=""
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("Read").parentElement?.classList.contains("shimmer")).toBe(true)
   })
 
   it("collapses a burst of file changes behind one toggle", () =>
