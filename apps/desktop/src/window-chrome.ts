@@ -35,6 +35,7 @@ export const getWindowTitleBarOptions = (
   if (platform === "darwin") {
     return {
       titleBarStyle: "hiddenInset",
+      // Renderer inset: apps/web MACOS_TRAFFIC_LIGHTS_LEFT_INSET = 90px.
       trafficLightPosition: { x: 16, y: 18 },
     }
   }

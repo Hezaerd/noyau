@@ -1,4 +1,4 @@
-import { getHotkeysPlatform } from "@/lib/keyboard-shortcut"
+import { getDesktopPlatform, getHotkeysPlatform } from "@/lib/keyboard-shortcut"
 
 export const APPEARANCE_PREFERENCES = ["system", "light", "dark"] as const
 
@@ -34,6 +34,9 @@ declare global {
   }
 }
 
+export const isDesktopRuntime = (): boolean =>
+  window.noyauDesktop !== undefined || /Electron/i.test(navigator.userAgent)
+
 export const getDesktopPlatformClassNames = (platform: string): readonly string[] => {
   switch (getHotkeysPlatform(platform)) {
     case "mac":
@@ -49,11 +52,11 @@ const getWindowControlsOverlay = (): WindowControlsOverlayLike | undefined =>
   navigator.windowControlsOverlay
 
 export const syncDocumentDesktopChrome = (): (() => void) => {
-  if (window.noyauDesktop === undefined) {
+  if (!isDesktopRuntime()) {
     return () => undefined
   }
 
-  const platformClassNames = getDesktopPlatformClassNames(window.noyauDesktop.platform)
+  const platformClassNames = getDesktopPlatformClassNames(getDesktopPlatform())
   const overlay = getWindowControlsOverlay()
   const syncOverlayClass = () => {
     document.documentElement.classList.toggle("wco", overlay?.visible === true)
