@@ -504,10 +504,12 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
     case "thread.created":
       yield* sql`
         INSERT INTO projection_threads (
-          thread_id, project_id, title, provider, runtime_mode, status, created_at, updated_at
+          thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
+          status, created_at, updated_at
         ) VALUES (
           ${event.threadId}, ${event.projectId}, ${event.title}, ${event.provider},
-          ${event.runtimeMode}, 'active', ${occurredAt}, ${occurredAt}
+          ${event.runtimeMode}, ${event.modelSelection?.modelId ?? null},
+          ${event.modelSelection?.reasoningEffort ?? null}, 'active', ${occurredAt}, ${occurredAt}
         )
       `
       return
@@ -589,6 +591,14 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         yield* sql`
           UPDATE projection_threads
           SET runtime_mode = ${event.runtimeMode}
+          WHERE thread_id = ${event.threadId}
+        `
+      }
+      if (event.modelSelection !== undefined) {
+        yield* sql`
+          UPDATE projection_threads
+          SET model_id = ${event.modelSelection?.modelId ?? null},
+              reasoning_effort = ${event.modelSelection?.reasoningEffort ?? null}
           WHERE thread_id = ${event.threadId}
         `
       }

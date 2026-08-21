@@ -69,6 +69,8 @@ const ThreadRow = Schema.Struct({
   title: Schema.String,
   provider: Schema.String,
   runtime_mode: Schema.String,
+  model_id: Schema.NullOr(Schema.String),
+  reasoning_effort: Schema.NullOr(Schema.String),
   status: Schema.String,
   created_at: Schema.String,
   updated_at: Schema.String,
@@ -388,7 +390,7 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
     Effect.gen(function* () {
       const threadRows = yield* sql<(typeof ThreadRow)["Encoded"]>`
         SELECT
-          thread_id, project_id, title, provider, runtime_mode, status,
+          thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort, status,
           created_at, updated_at, archived_at
         FROM projection_threads
         WHERE thread_id = ${threadId}
@@ -456,6 +458,12 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         title: thread.title,
         provider: thread.provider,
         runtimeMode: thread.runtime_mode,
+        modelSelection:
+          thread.model_id === null
+            ? null
+            : thread.reasoning_effort === null
+              ? { modelId: thread.model_id }
+              : { modelId: thread.model_id, reasoningEffort: thread.reasoning_effort },
         status: thread.status,
         session,
         latestTurn,

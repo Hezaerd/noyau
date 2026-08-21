@@ -180,6 +180,7 @@ describe("Thread lifecycle", () => {
     expect(state.threads[0]).toMatchObject({
       provider: "cursor",
       runtimeMode: "full-access",
+      modelSelection: null,
       status: "active",
     })
   })
@@ -192,6 +193,49 @@ describe("Thread lifecycle", () => {
       expect(state.threads[0]?.runtimeMode).toBe(runtimeMode)
     },
   )
+
+  it("persiste la modelSelection du Turn et permet de revenir en automatique", () => {
+    const state = withThread()
+    const selected = apply(
+      state,
+      success(
+        decide(
+          state,
+          command({
+            _tag: "thread.turn.start",
+            ...meta,
+            commandId: ids.turn1,
+            payload: {
+              threadId: ids.thread,
+              text: "Analyse",
+              modelSelection: { modelId: "composer-2.5", reasoningEffort: "high" },
+            },
+          }),
+        ),
+      ),
+    )
+    expect(selected.threads[0]?.modelSelection).toEqual({
+      modelId: "composer-2.5",
+      reasoningEffort: "high",
+    })
+
+    const settled = apply(selected, setSession(selected, "ready", null, later))
+    const automatic = apply(
+      settled,
+      success(
+        decide(
+          settled,
+          command({
+            _tag: "thread.turn.start",
+            ...meta,
+            commandId: ids.turn2,
+            payload: { threadId: ids.thread, text: "Continue", modelSelection: null },
+          }),
+        ),
+      ),
+    )
+    expect(automatic.threads[0]?.modelSelection).toBeNull()
+  })
 
   it("seed le titre avec le premier prompt et garde le provider hors des mutations", () => {
     const state = withThread()

@@ -29,6 +29,11 @@ _À éviter_ : EventCursor, offset SQL, position WebSocket
 `{ schemaVersion: 1, sessionId }` opaque pour `session/load`. La Session n'a pas d'id métier.
 _À éviter_ : cwdLastBound, ProviderBinding
 
+**modelSelection**:
+Préférence durable d'un Thread pour un modèle Provider et son `reasoningEffort`. `null` demande le
+choix automatique du Provider.
+_À éviter_ : modèle actif garanti, catalogue de modèles
+
 **TicketThread**:
 Lien optionnel plusieurs-à-plusieurs entre un Ticket et un Thread du même Project.
 _À éviter_ : sourceThreadId, Thread dédié

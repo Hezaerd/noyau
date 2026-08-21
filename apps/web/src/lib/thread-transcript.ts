@@ -314,6 +314,7 @@ const replaceThread = (
   patch: {
     readonly title?: string
     readonly runtimeMode?: Thread["runtimeMode"]
+    readonly modelSelection?: Thread["modelSelection"]
     readonly status?: Thread["status"]
     readonly session?: Session | null
     readonly latestTurn?: LatestTurn | null
@@ -330,6 +331,8 @@ const replaceThread = (
     title: patch.title ?? current.title,
     provider: current.provider,
     runtimeMode: patch.runtimeMode ?? current.runtimeMode,
+    modelSelection:
+      patch.modelSelection === undefined ? current.modelSelection : patch.modelSelection,
     status: patch.status ?? current.status,
     session: patch.session !== undefined ? patch.session : current.session,
     latestTurn: patch.latestTurn !== undefined ? patch.latestTurn : current.latestTurn,
@@ -419,6 +422,10 @@ export const applyThreadEnvelope = (
               ? titleSeed
               : snapshot.thread.title,
           runtimeMode: event.runtimeMode ?? snapshot.thread.runtimeMode,
+          modelSelection:
+            event.modelSelection === undefined
+              ? snapshot.thread.modelSelection
+              : event.modelSelection,
           latestTurn: latestTurnOf(turns),
           updatedAt: envelope.occurredAt,
         }),
