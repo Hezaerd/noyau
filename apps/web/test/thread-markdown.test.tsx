@@ -73,6 +73,17 @@ describe("ThreadMarkdown", () => {
     expect(document.querySelector(".katex")).not.toBeNull()
   })
 
+  it("renders tables inline without artifact controls", () => {
+    renderMarkdown("| Tentation | Pourquoi non |\n| --- | --- |\n| Formulaire | Hors scope |")
+
+    const table = screen.getByRole("table")
+    const wrapper = table.closest(".thread-markdown-table")
+
+    expect(wrapper).not.toBeNull()
+    expect(wrapper?.querySelector("button")).toBeNull()
+    expect(document.querySelector('[data-streamdown="table-wrapper"]')).toBeNull()
+  })
+
   it("renders a language title and toggles wrap on the code block", () => {
     renderMarkdown("```python\nprint('salut')\n```")
 
