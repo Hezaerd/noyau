@@ -59,6 +59,28 @@ describe("Thread and TicketThread UI acceptance contract", () => {
     expect(Schema.is(ThreadTurnStartRequest)(started)).toBe(true)
   })
 
+  it("carries model and reasoning selection in Thread commands", () => {
+    const modelSelection = { modelId: "composer-2.5", reasoningEffort: "high" } as const
+    const created = runBuilder(
+      makeThreadCreateRequest({
+        threadId: ids.threadId,
+        projectId: ids.projectId,
+        title: DEFAULT_THREAD_TITLE,
+        modelSelection,
+      }),
+    )
+    const started = runBuilder(
+      makeThreadTurnStartRequest({
+        threadId: ids.threadId,
+        text: "Inspecter le projet",
+        modelSelection,
+      }),
+    )
+
+    expect(created.payload.modelSelection).toEqual(modelSelection)
+    expect(started.payload.modelSelection).toEqual(modelSelection)
+  })
+
   it("renames a Thread and asks for title regeneration without a new title", () => {
     const renamed = runBuilder(
       makeThreadMetaUpdateRequest({

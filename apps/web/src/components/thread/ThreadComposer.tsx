@@ -1,3 +1,5 @@
+import type { CursorModel } from "@noyau/protocol/entities/environment"
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent } from "react"
 
@@ -13,6 +15,8 @@ import {
 } from "@/components/ui/select"
 import { isRuntimeMode, runtimeModes } from "@/lib/thread-commands"
 
+const automaticValue = "__noyau_automatic__"
+
 const shouldSubmitComposerOnEnter = (event: {
   readonly key: string
   readonly shiftKey: boolean
@@ -24,10 +28,13 @@ export function ThreadComposer({
   disabled,
   text,
   runtimeMode,
+  models,
+  modelSelection,
   error,
   onSubmit,
   onTextChange,
   onRuntimeModeChange,
+  onModelSelectionChange,
   onPaste,
   onDrop,
   onInterrupt,
@@ -36,15 +43,30 @@ export function ThreadComposer({
   readonly disabled: boolean
   readonly text: string
   readonly runtimeMode: RuntimeMode
+  readonly models: ReadonlyArray<CursorModel>
+  readonly modelSelection: ModelSelection | null
   readonly error: string | undefined
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
   readonly onTextChange: (value: string) => void
   readonly onRuntimeModeChange: (runtimeMode: RuntimeMode) => void
+  readonly onModelSelectionChange: (modelSelection: ModelSelection | null) => void
   readonly onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void
   readonly onDrop: (event: DragEvent<HTMLTextAreaElement>) => void
   readonly onInterrupt: () => void
 }) {
   const sendDisabled = text.trim() === "" || isRunning || disabled
+  const selectedModel = models.find((model) => model.modelId === modelSelection?.modelId)
+  const modelItems = [
+    { value: automaticValue, label: "Modèle automatique" },
+    ...models.map((model) => ({ value: model.modelId, label: model.label })),
+    ...(modelSelection !== null && selectedModel === undefined
+      ? [{ value: modelSelection.modelId, label: modelSelection.modelId }]
+      : []),
+  ]
+  const effortItems = [
+    { value: automaticValue, label: "Effort automatique" },
+    ...(selectedModel?.reasoningEfforts ?? []),
+  ]
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (
       !shouldSubmitComposerOnEnter({
@@ -86,6 +108,74 @@ export function ThreadComposer({
             rows={3}
           />
           <InputGroupAddon align="block-end" className="flex-wrap gap-2">
+            <Select
+              items={modelItems}
+              value={modelSelection?.modelId ?? automaticValue}
+              disabled={isRunning || disabled || models.length === 0}
+              onValueChange={(value) => {
+                if (value === null || value === automaticValue) {
+                  onModelSelectionChange(null)
+                  return
+                }
+                const model = models.find((candidate) => candidate.modelId === value)
+                const reasoningEffort = model?.reasoningEfforts.some(
+                  (effort) => effort.value === modelSelection?.reasoningEffort,
+                )
+                  ? modelSelection?.reasoningEffort
+                  : undefined
+                onModelSelectionChange(
+                  reasoningEffort === undefined
+                    ? { modelId: value }
+                    : { modelId: value, reasoningEffort },
+                )
+              }}
+            >
+              <SelectTrigger size="sm" className="w-auto max-w-52" aria-label="Modèle">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup alignItemWithTrigger={false}>
+                <SelectGroup>
+                  {modelItems.map((model) => (
+                    <SelectItem key={model.value} value={model.value}>
+                      {model.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectPopup>
+            </Select>
+            <Select
+              items={effortItems}
+              value={modelSelection?.reasoningEffort ?? automaticValue}
+              disabled={
+                isRunning ||
+                disabled ||
+                modelSelection === null ||
+                (selectedModel?.reasoningEfforts.length ?? 0) === 0
+              }
+              onValueChange={(value) => {
+                if (modelSelection === null) {
+                  return
+                }
+                onModelSelectionChange(
+                  value === null || value === automaticValue
+                    ? { modelId: modelSelection.modelId }
+                    : { modelId: modelSelection.modelId, reasoningEffort: value },
+                )
+              }}
+            >
+              <SelectTrigger size="sm" className="w-auto max-w-44" aria-label="Effort">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup alignItemWithTrigger={false}>
+                <SelectGroup>
+                  {effortItems.map((effort) => (
+                    <SelectItem key={effort.value} value={effort.value}>
+                      {effort.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectPopup>
+            </Select>
             <Select
               items={runtimeModes}
               value={runtimeMode}

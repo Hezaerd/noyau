@@ -1,5 +1,6 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import {
   ApprovalRequestId,
@@ -54,6 +55,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
   readonly threadId: ThreadId | undefined
   readonly prompt: string
   readonly runtimeMode: RuntimeMode
+  readonly modelSelection: ModelSelection | null
 }): Effect.fn.Return<SubmitTurnResult> {
   const threadId = input.threadId
   if (threadId === undefined) {
@@ -68,6 +70,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
           projectId: input.projectId,
           title: DEFAULT_THREAD_TITLE,
           runtimeMode: input.runtimeMode,
+          modelSelection: input.modelSelection,
         }),
       ),
     )
@@ -85,6 +88,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
           text: input.prompt,
           titleSeed: seedTitleFromPrompt(input.prompt),
           runtimeMode: input.runtimeMode,
+          modelSelection: input.modelSelection,
         }),
       ),
     )
@@ -104,6 +108,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
         threadId,
         text: input.prompt,
         runtimeMode: input.runtimeMode,
+        modelSelection: input.modelSelection,
       }),
     ),
   )
@@ -122,6 +127,7 @@ export const submitTurn = (input: {
   readonly threadId: ThreadId | undefined
   readonly prompt: string
   readonly runtimeMode: RuntimeMode
+  readonly modelSelection: ModelSelection | null
 }) => Effect.runPromise(submitTurnEffect(input))
 
 export const interruptTurnEffect = Effect.fn("interruptTurn")(function* (input: {

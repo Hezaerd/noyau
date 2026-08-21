@@ -1,4 +1,5 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TicketId, type ProjectId, type ThreadId } from "@noyau/protocol/ids"
@@ -48,6 +49,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const [composerError, setComposerError] = useState<string>()
   const [text, setText] = useState("")
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
+  const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
   const [linkedTicketSelection, setLinkedTicketSelection] = useState<string | null>(null)
   const cursorReady = isCursorReady(cursor)
@@ -76,6 +78,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       onSnapshot: (next) => {
         setSnapshot(next)
         setRuntimeMode(next.thread.runtimeMode)
+        setModelSelection(next.thread.modelSelection)
         setLoading(false)
         setError(undefined)
       },
@@ -89,6 +92,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         })
         if (event._tag === "thread.turn.started") {
           setRuntimeMode((current) => event.runtimeMode ?? current)
+          if (event.modelSelection !== undefined) {
+            setModelSelection(event.modelSelection)
+          }
         }
         if (event._tag === "thread.runtime-mode-set") {
           setRuntimeMode(event.runtimeMode)
@@ -132,20 +138,22 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     }
     setText("")
     setComposerError(undefined)
-    void submitTurnAction({ projectId, threadId, prompt, runtimeMode }).then((result) => {
-      if (result.kind === "composer-error") {
-        setComposerError(result.details)
+    void submitTurnAction({ projectId, threadId, prompt, runtimeMode, modelSelection }).then(
+      (result) => {
+        if (result.kind === "composer-error") {
+          setComposerError(result.details)
+          return undefined
+        }
+        if (result.kind === "error") {
+          setError(result.details)
+          return undefined
+        }
+        if (result.kind === "created") {
+          onCreated(result.threadId)
+        }
         return undefined
-      }
-      if (result.kind === "error") {
-        setError(result.details)
-        return undefined
-      }
-      if (result.kind === "created") {
-        onCreated(result.threadId)
-      }
-      return undefined
-    })
+      },
+    )
   }
 
   const interruptTurn = () => {
@@ -292,10 +300,13 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         disabled={project?.available !== true || !cursorReady}
         text={text}
         runtimeMode={runtimeMode}
+        models={cursor?.models ?? []}
+        modelSelection={modelSelection}
         error={composerError}
         onSubmit={submitTurn}
         onTextChange={setText}
         onRuntimeModeChange={setRuntimeMode}
+        onModelSelectionChange={setModelSelection}
         onPaste={rejectImages}
         onDrop={rejectImages}
         onInterrupt={() => interruptTurn()}
