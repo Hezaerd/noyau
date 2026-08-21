@@ -188,8 +188,9 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
       {
         id: "navigate.settings",
         label: "Paramètres",
-        searchValue: "Aller aux Paramètres settings apparence providers raccourcis keybindings",
-        path: "/settings/appearance",
+        searchValue:
+          "Aller aux Paramètres settings général apparence providers raccourcis keybindings",
+        path: `/settings/${DEFAULT_SETTINGS_TAB}`,
         icon: <SettingsIcon />,
         execute: openSettings,
       },

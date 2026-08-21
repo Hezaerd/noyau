@@ -45,7 +45,7 @@ describe("page titlebar", () => {
   it("resolves Paramètres routes to the tab breadcrumb", () => {
     expect(resolvePageTitlebar({ pathname: "/settings", projects, threads })).toEqual({
       kind: "settings",
-      tabLabel: "Apparence",
+      tabLabel: "Général",
     })
     expect(resolvePageTitlebar({ pathname: "/settings/keybindings", projects, threads })).toEqual({
       kind: "settings",
