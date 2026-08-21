@@ -119,7 +119,13 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, { installed: true, handshakeOk: true })
+              assert.deepStrictEqual(status, {
+                installed: true,
+                handshakeOk: true,
+                version: "2026.03.20-test",
+                plan: "Pro",
+                binaryPath: process.execPath,
+              })
             }),
           ),
         ),
@@ -128,7 +134,13 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, { installed: true, handshakeOk: false })
+              assert.deepStrictEqual(status, {
+                installed: true,
+                handshakeOk: false,
+                version: "2026.03.20-test",
+                plan: "Pro",
+                binaryPath: process.execPath,
+              })
             }),
           ),
         ),
@@ -137,7 +149,13 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, { installed: true, handshakeOk: false })
+              assert.deepStrictEqual(status, {
+                installed: true,
+                handshakeOk: false,
+                version: "2026.03.20-test",
+                plan: "Pro",
+                binaryPath: process.execPath,
+              })
             }),
           ),
         ),
@@ -146,7 +164,13 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, { installed: true, handshakeOk: false })
+              assert.deepStrictEqual(status, {
+                installed: true,
+                handshakeOk: false,
+                version: "2026.03.20-test",
+                plan: "Pro",
+                binaryPath: process.execPath,
+              })
             }),
           ),
         ),

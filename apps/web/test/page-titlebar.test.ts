@@ -51,6 +51,10 @@ describe("page titlebar", () => {
       kind: "settings",
       tabLabel: "Raccourcis",
     })
+    expect(resolvePageTitlebar({ pathname: "/settings/providers", projects, threads })).toEqual({
+      kind: "settings",
+      tabLabel: "Providers",
+    })
   })
 
   it("labels a new Thread and falls back when the shell is still empty", () => {

@@ -23,8 +23,19 @@ export type Provider = (typeof Provider)["Type"]
 export const CursorProviderStatus = Schema.Struct({
   installed: Schema.Boolean,
   handshakeOk: Schema.Boolean,
+  version: Schema.NullOr(Schema.NonEmptyString),
+  plan: Schema.NullOr(Schema.NonEmptyString),
+  binaryPath: Schema.NullOr(Schema.NonEmptyString),
 })
 export type CursorProviderStatus = (typeof CursorProviderStatus)["Type"]
+
+export const emptyCursorProviderStatus: CursorProviderStatus = {
+  installed: false,
+  handshakeOk: false,
+  version: null,
+  plan: null,
+  binaryPath: null,
+}
 
 /** Racine locale durable à identité stable, non administrable depuis l'UI. */
 export class Environment extends Schema.Class<Environment>("@noyau/protocol/entities/Environment")({

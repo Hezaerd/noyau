@@ -70,6 +70,11 @@ _À éviter_ : options, réglages, preferences, page de config
 Catégorie adressable du catalogue Paramètres (`/settings/$tab`).
 _À éviter_ : section Settings, page d'options, onglet générique
 
+**Provider**:
+Runtime agent branché à Noyau. Cursor est le seul Provider réel de la v0.1 ; Claude Code et Codex
+sont listés dans les Paramètres comme hors v0.1.
+_À éviter_ : modèle, LLM, backend, harnais
+
 **Préférence**:
 Valeur persistée d'un item du catalogue Paramètres, distincte d'une Command du control plane.
 _À éviter_ : option, config, setting

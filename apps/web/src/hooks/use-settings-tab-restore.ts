@@ -25,5 +25,10 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
         canRestore: hasCustomKeybindings(),
         restore: resetAll,
       }
+    case "providers":
+      return {
+        canRestore: false,
+        restore: () => undefined,
+      }
   }
 }

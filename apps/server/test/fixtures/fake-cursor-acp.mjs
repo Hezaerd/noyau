@@ -3,6 +3,21 @@ import { createInterface } from "node:readline"
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { Config, Effect, FileSystem, ManagedRuntime, Option } from "effect"
 
+const aboutArgs = process.argv.slice(2)
+if (aboutArgs[0] === "about") {
+  if (aboutArgs.includes("--format") && aboutArgs.includes("json")) {
+    process.stdout.write(
+      JSON.stringify({
+        cliVersion: "2026.03.20-test",
+        subscriptionTier: "Pro",
+      }),
+    )
+  } else {
+    process.stdout.write("CLI Version         2026.03.20-test\n")
+  }
+  process.exit(0)
+}
+
 const runtime = ManagedRuntime.make(NodeFileSystem.layer)
 const { exitLog, fileSystem, requestLog, scenario, sessionId } = await runtime.runPromise(
   Effect.gen(function* () {

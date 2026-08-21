@@ -6,12 +6,18 @@ import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
+import { emptyCursorProviderStatus } from "@noyau/protocol/entities/environment"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
-import { Deferred, Effect, Fiber, FileSystem, Layer, Path } from "effect"
+import { Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
+import {
+  isCursorAboutJsonFormatUnsupported,
+  parseCursorAboutOutput,
+  type CursorAboutResult,
+} from "./cursor-about.ts"
 import { CursorAskQuestionRequest } from "./cursor-acp-extension.ts"
 import {
   ProviderPort,
@@ -90,6 +96,67 @@ export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutabl
     return configured
   }
   return null
+})
+
+const ABOUT_TIMEOUT_MS = 8_000
+
+const collectProcessText = <E>(stream: Stream.Stream<Uint8Array, E>) =>
+  Stream.runCollect(stream).pipe(
+    Effect.map((chunks) => {
+      const total = chunks.reduce((size, part) => size + part.length, 0)
+      const bytes = new Uint8Array(total)
+      let offset = 0
+      for (const part of chunks) {
+        bytes.set(part, offset)
+        offset += part.length
+      }
+      return new TextDecoder().decode(bytes)
+    }),
+  )
+
+const runCursorCli = Effect.fn("CursorAdapter.runCli")(function* (
+  executable: string,
+  binaryArgs: ReadonlyArray<string>,
+  args: ReadonlyArray<string>,
+  environment: NodeJS.ProcessEnv,
+) {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+  const handle = yield* spawner.spawn(
+    ChildProcess.make(executable, [...binaryArgs, ...args], {
+      env: environment,
+      detached: false,
+      windowsHide: true,
+    }),
+  )
+  const [stdout, stderr, exitCode] = yield* Effect.all(
+    [
+      collectProcessText(handle.stdout),
+      collectProcessText(handle.stderr),
+      handle.exitCode.pipe(Effect.map(Number)),
+    ],
+    { concurrency: "unbounded" },
+  )
+  return { stdout, stderr, code: exitCode } satisfies CursorAboutResult
+})
+
+const probeCursorAbout = Effect.fn("CursorAdapter.probeAbout")(function* (
+  executable: string,
+  binaryArgs: ReadonlyArray<string>,
+  environment: NodeJS.ProcessEnv,
+) {
+  const jsonResult = yield* runCursorCli(
+    executable,
+    binaryArgs,
+    ["about", "--format", "json"],
+    environment,
+  ).pipe(Effect.scoped)
+  if (!isCursorAboutJsonFormatUnsupported(jsonResult)) {
+    return parseCursorAboutOutput(jsonResult)
+  }
+  const textResult = yield* runCursorCli(executable, binaryArgs, ["about"], environment).pipe(
+    Effect.scoped,
+  )
+  return parseCursorAboutOutput(textResult)
 })
 
 const adapterError = (detail: string, cause?: unknown) =>
@@ -305,14 +372,33 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
 
   const probe =
     executable === null
-      ? Effect.succeed({ installed: false, handshakeOk: false })
-      : Effect.scoped(
-          Effect.gen(function* () {
-            const { acp } = yield* openClient(process.cwd())
-            yield* initialize(acp, clientVersion)
-            return { installed: true, handshakeOk: true }
-          }).pipe(Effect.catchCause(() => Effect.succeed({ installed: true, handshakeOk: false }))),
-        )
+      ? Effect.succeed(emptyCursorProviderStatus)
+      : Effect.gen(function* () {
+          const handshake = yield* Effect.scoped(
+            Effect.gen(function* () {
+              const { acp } = yield* openClient(process.cwd())
+              yield* initialize(acp, clientVersion)
+              return true
+            }).pipe(Effect.catchCause(() => Effect.succeed(false))),
+          )
+          const about = yield* probeCursorAbout(executable, binaryArgs, environment).pipe(
+            Effect.timeoutOption(ABOUT_TIMEOUT_MS),
+            Effect.map(
+              Option.match({
+                onNone: () => ({ version: null, plan: null }),
+                onSome: (value) => value,
+              }),
+            ),
+            Effect.catchCause(() => Effect.succeed({ version: null, plan: null })),
+          )
+          return {
+            installed: true,
+            handshakeOk: handshake,
+            version: about.version,
+            plan: about.plan,
+            binaryPath: executable,
+          }
+        })
   const providerStatus = yield* probe
 
   const emitPermission = Effect.fn("CursorAdapter.emitPermission")(function* (
