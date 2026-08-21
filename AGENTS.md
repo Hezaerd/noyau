@@ -75,6 +75,10 @@ vite.config.ts          # Config unique fmt / lint / test / staged + tâches Vit
 
 Workspaces Bun : `apps/*`, `packages/*`. Stack : Bun, Vite+, Effect v4, TypeScript 7.
 
+Les recherches (ripgrep, Grep, glob) portent sur `apps/` et `packages/` par défaut. Exclure
+`repos/` — les subtrees vendored noient les hits. N'y chercher que si la tâche l'exige
+(signatures Effect, patterns t3code).
+
 ## Toolchain Vite+
 
 Un seul paquet, `vite-plus`, fournit Vite, Rolldown, Vitest, Oxlint, Oxfmt, tsdown et Vite Task,
