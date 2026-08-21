@@ -1,0 +1,117 @@
+import { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectShell } from "@noyau/protocol/shell"
+import type { ReactNode } from "react"
+
+import {
+  Menu,
+  MenuGroup,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuTrigger,
+} from "@/components/ui/menu"
+import { cn } from "@/lib/utils"
+
+const projectNameClassName =
+  "inline-block max-w-64 truncate border-foreground/60 border-b border-dotted align-baseline text-foreground"
+
+export function ThreadDraftHero({
+  projectName,
+  projects,
+  selectedProjectId,
+  onSelectProject,
+  children,
+}: {
+  readonly projectName: string | undefined
+  readonly projects: ReadonlyArray<Pick<ProjectShell, "id" | "name" | "available">>
+  readonly selectedProjectId: ProjectId | undefined
+  readonly onSelectProject: (projectId: ProjectId) => void
+  readonly children: ReactNode
+}) {
+  return (
+    <div
+      className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 sm:px-6"
+      data-slot="thread-draft-hero"
+    >
+      <div className="flex w-full max-w-3xl flex-col items-center gap-8">
+        <h2 className="w-full text-center font-normal text-2xl text-foreground tracking-tight sm:text-3xl">
+          {projectName === undefined ? (
+            "Qu’est-ce qu’on construit ?"
+          ) : (
+            <>
+              Qu’est-ce qu’on construit dans{" "}
+              <ThreadDraftHeroProjectName
+                projectName={projectName}
+                projects={projects}
+                selectedProjectId={selectedProjectId}
+                onSelectProject={onSelectProject}
+              />{" "}
+              ?
+            </>
+          )}
+        </h2>
+        <div className="w-full">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function ThreadDraftHeroProjectName({
+  projectName,
+  projects,
+  selectedProjectId,
+  onSelectProject,
+}: {
+  readonly projectName: string
+  readonly projects: ReadonlyArray<Pick<ProjectShell, "id" | "name" | "available">>
+  readonly selectedProjectId: ProjectId | undefined
+  readonly onSelectProject: (projectId: ProjectId) => void
+}) {
+  if (projects.length < 2) {
+    return (
+      <span className={projectNameClassName} title={projectName}>
+        {projectName}
+      </span>
+    )
+  }
+
+  return (
+    <Menu>
+      <MenuTrigger
+        className={cn(
+          projectNameClassName,
+          "transition-colors hover:border-foreground/80 focus-visible:rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        )}
+        title={projectName}
+      >
+        {projectName}
+      </MenuTrigger>
+      <MenuPopup align="center" className="max-h-80 min-w-40 w-max max-w-64">
+        <MenuGroup>
+          <MenuRadioGroup
+            value={selectedProjectId}
+            onValueChange={(value) => {
+              if (value === undefined || value === selectedProjectId) {
+                return
+              }
+              onSelectProject(ProjectId.make(value))
+            }}
+          >
+            {projects.map((project) => (
+              <MenuRadioItem key={project.id} value={project.id} closeOnClick>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="min-w-0 truncate">{project.name}</span>
+                  {project.available ? null : (
+                    <span className="shrink-0 text-[0.65rem] font-normal text-warning">
+                      Introuvable
+                    </span>
+                  )}
+                </span>
+              </MenuRadioItem>
+            ))}
+          </MenuRadioGroup>
+        </MenuGroup>
+      </MenuPopup>
+    </Menu>
+  )
+}

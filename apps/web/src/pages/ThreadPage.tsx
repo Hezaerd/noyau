@@ -10,6 +10,7 @@ import {
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
+import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import { useControlPlane } from "@/hooks/use-control-plane"
@@ -31,9 +32,10 @@ interface ThreadPageProps {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
   readonly onCreated: (threadId: ThreadId) => void
+  readonly onSelectProject: (projectId: ProjectId) => void
 }
 
-export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) {
+export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
   const { cursor, projects } = useControlPlane()
   const project = projects.find((candidate) => candidate.id === projectId)
   const [snapshot, setSnapshot] = useState<ThreadSnapshot>()
@@ -282,68 +284,86 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   }
 
   const transcriptFailure = streamPresentation ?? actionFailure
+  const isNewThread = threadId === undefined
+  const composerError = composerFailure ?? (isNewThread ? actionFailure : undefined)
+  const transcriptError =
+    transcriptFailure === undefined ? undefined : transcriptFailure.surface === "banner" ? (
+      <ScopeBanner presentation={transcriptFailure} />
+    ) : (
+      <InlineFailure presentation={transcriptFailure} />
+    )
+  const composer = (
+    <ThreadComposer
+      isRunning={isRunning}
+      disabled={loading || project?.available !== true || !cursorReady}
+      text={text}
+      runtimeMode={runtimeMode}
+      models={cursor?.models ?? []}
+      modelSelection={modelSelection}
+      placement={isNewThread ? "hero" : "docked"}
+      error={
+        composerError === undefined ? undefined : (
+          <InlineFailure className="text-xs" presentation={composerError} />
+        )
+      }
+      onSubmit={submitTurn}
+      onTextChange={(value) => {
+        setText(value)
+        setComposerFailure(undefined)
+      }}
+      onRuntimeModeChange={setRuntimeMode}
+      onModelSelectionChange={changeModelSelection}
+      onPaste={rejectImages}
+      onDrop={rejectImages}
+      onInterrupt={() => interruptTurn()}
+    />
+  )
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <ThreadTranscript
-          transcript={snapshot?.transcript ?? []}
-          isRunning={isRunning}
-          loading={loading}
-          error={
-            transcriptFailure === undefined ? undefined : transcriptFailure.surface === "banner" ? (
-              <ScopeBanner presentation={transcriptFailure} />
-            ) : (
-              <InlineFailure presentation={transcriptFailure} />
-            )
-          }
-          notices={
-            threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (
-              <ThreadStatusNotices
-                session={snapshot?.session}
-                latestTurn={snapshot?.thread.latestTurn}
-              />
-            ) : null
-          }
-          answerByRequest={answerByRequest}
-          onAnswerChange={(requestId, value) => {
-            setAnswerByRequest((current) => ({
-              ...current,
-              [requestId]: value,
-            }))
-          }}
-          onRespondApproval={(requestId, decision) => {
-            respondToApproval(requestId, decision)
-          }}
-          onRespondUserInput={(requestId) => {
-            respondToUserInput(requestId)
-          }}
-        />
-      </div>
-
-      <ThreadComposer
-        isRunning={isRunning}
-        disabled={loading || project?.available !== true || !cursorReady}
-        text={text}
-        runtimeMode={runtimeMode}
-        models={cursor?.models ?? []}
-        modelSelection={modelSelection}
-        error={
-          composerFailure === undefined ? undefined : (
-            <InlineFailure className="text-xs" presentation={composerFailure} />
-          )
-        }
-        onSubmit={submitTurn}
-        onTextChange={(value) => {
-          setText(value)
-          setComposerFailure(undefined)
-        }}
-        onRuntimeModeChange={setRuntimeMode}
-        onModelSelectionChange={changeModelSelection}
-        onPaste={rejectImages}
-        onDrop={rejectImages}
-        onInterrupt={() => interruptTurn()}
-      />
+      {isNewThread ? (
+        <ThreadDraftHero
+          projectName={project?.name}
+          projects={projects}
+          selectedProjectId={projectId}
+          onSelectProject={onSelectProject}
+        >
+          {composer}
+        </ThreadDraftHero>
+      ) : (
+        <>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ThreadTranscript
+              transcript={snapshot?.transcript ?? []}
+              isRunning={isRunning}
+              loading={loading}
+              error={transcriptError}
+              notices={
+                threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (
+                  <ThreadStatusNotices
+                    session={snapshot?.session}
+                    latestTurn={snapshot?.thread.latestTurn}
+                  />
+                ) : null
+              }
+              answerByRequest={answerByRequest}
+              onAnswerChange={(requestId, value) => {
+                setAnswerByRequest((current) => ({
+                  ...current,
+                  [requestId]: value,
+                }))
+              }}
+              onRespondApproval={(requestId, decision) => {
+                respondToApproval(requestId, decision)
+              }}
+              onRespondUserInput={(requestId) => {
+                respondToUserInput(requestId)
+              }}
+            />
+          </div>
+          {composer}
+        </>
+      )}
     </main>
   )
 }

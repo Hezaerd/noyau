@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/menu"
 import { Separator } from "@/components/ui/separator"
 import { isRuntimeMode, runtimeModes } from "@/lib/thread-commands"
+import { cn } from "@/lib/utils"
 
 const runtimeModeIcons = {
   "approval-required": LockIcon,
@@ -56,6 +57,7 @@ export function ThreadComposer({
   models,
   modelSelection,
   error,
+  placement = "docked",
   onSubmit,
   onTextChange,
   onRuntimeModeChange,
@@ -71,6 +73,7 @@ export function ThreadComposer({
   readonly models: ReadonlyArray<CursorModel>
   readonly modelSelection: ModelSelection | null
   readonly error: ReactNode
+  readonly placement?: "docked" | "hero"
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
   readonly onTextChange: (value: string) => void
   readonly onRuntimeModeChange: (runtimeMode: RuntimeMode) => void
@@ -126,8 +129,13 @@ export function ThreadComposer({
   }
 
   return (
-    <form onSubmit={onSubmit} className="sticky bottom-0 shrink-0 px-4 pb-4 sm:px-6">
-      <div className="mx-auto flex max-w-3xl flex-col gap-2">
+    <form
+      onSubmit={onSubmit}
+      className={cn(placement === "hero" ? "w-full" : "sticky bottom-0 shrink-0 px-4 pb-4 sm:px-6")}
+    >
+      <div
+        className={cn("flex flex-col gap-2", placement === "hero" ? "w-full" : "mx-auto max-w-3xl")}
+      >
         <InputGroup className="rounded-xl bg-background has-[[data-slot=input-group-control]:focus-visible]:ring-0">
           <InputGroupTextarea
             value={text}
@@ -145,6 +153,7 @@ export function ThreadComposer({
             className="max-h-52 min-h-24 overflow-hidden [&>textarea]:max-h-52 [&>textarea]:resize-none [&>textarea]:overflow-y-auto"
             placeholder="Écrire un message…"
             aria-label="Composer un message"
+            autoFocus={placement === "hero"}
             disabled={controlsDisabled}
             rows={3}
           />
