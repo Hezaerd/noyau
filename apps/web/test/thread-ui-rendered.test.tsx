@@ -152,6 +152,40 @@ describe("rendered Thread UI evidence", () => {
     const composerGroup = composerControl.closest('[data-slot="input-group"]')
     expect(composerGroup?.className).toMatch(/ring-0/)
     expect(composerGroup?.className).toMatch(/rounded-xl/)
+    expect(composerGroup?.className).toMatch(
+      /has-\[\[data-slot=input-group-control\]:disabled\]:opacity-50/,
+    )
+    expect(composerGroup?.className).not.toMatch(/(?:^|\s)has-disabled:/)
+  })
+
+  it("keeps an empty enabled composer undimmed while Send stays disabled", () => {
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text=""
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        error={undefined}
+        onSubmit={vi.fn()}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onInterrupt={vi.fn()}
+      />,
+    )
+
+    const composerControl = screen.getByRole("textbox", { name: "Composer un message" })
+    expect(composerControl.hasAttribute("disabled")).toBe(false)
+    expect(screen.getByRole("button", { name: "Envoyer" }).hasAttribute("disabled")).toBe(true)
+    const composerGroup = composerControl.closest('[data-slot="input-group"]')
+    expect(composerGroup?.className).toMatch(
+      /has-\[\[data-slot=input-group-control\]:disabled\]:opacity-50/,
+    )
+    expect(composerGroup?.className).not.toMatch(/(?:^|\s)has-disabled:/)
   })
 
   it("submits with Enter and keeps Shift+Enter for a new line", () => {
