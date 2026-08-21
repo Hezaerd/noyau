@@ -3,7 +3,11 @@ import { isValidElement, type ComponentProps, type ReactNode } from "react"
 import { CodeBlock, type ExtraProps, useIsCodeFenceIncomplete } from "streamdown"
 
 import { ThreadMarkdownCodeBlock } from "@/components/thread/ThreadMarkdownCodeBlock"
-import { parseCodeFence, resolveCodeBlockTitle } from "@/lib/code-fence"
+import {
+  parseCodeFence,
+  resolveCodeBlockFenceTitle,
+  resolveCodeBlockLanguage,
+} from "@/lib/code-fence"
 import { cn } from "@/lib/utils"
 
 const languageClassPattern = /language-(\S+)/
@@ -65,7 +69,11 @@ export function ThreadMarkdownCode({
   const code = codeText(children)
 
   return (
-    <ThreadMarkdownCodeBlock code={code} title={resolveCodeBlockTitle(fence)}>
+    <ThreadMarkdownCodeBlock
+      code={code}
+      language={resolveCodeBlockLanguage(fence)}
+      fenceTitle={resolveCodeBlockFenceTitle(fence, metastring)}
+    >
       <CodeBlock
         className={className}
         code={code}
