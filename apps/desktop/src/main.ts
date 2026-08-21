@@ -17,7 +17,11 @@ import {
 } from "electron"
 
 import { cursorPointInContent, GET_CURSOR_POINT_CHANNEL } from "./cursor-point"
-import { PICK_FOLDER_CHANNEL } from "./folder-picker"
+import {
+  type FolderPickerOptions,
+  PICK_FOLDER_CHANNEL,
+  resolveFolderPickerDefaultPath,
+} from "./folder-picker"
 import { isRendererPermissionAllowed } from "./permissions"
 import {
   DESKTOP_HOST,
@@ -143,10 +147,11 @@ const registerThemeBridge = (): void => {
 }
 
 const registerFolderPickerBridge = (): void => {
-  ipcMain.handle(PICK_FOLDER_CHANNEL, () =>
+  ipcMain.handle(PICK_FOLDER_CHANNEL, (_event, options: FolderPickerOptions | undefined) =>
     desktopRuntime.runPromise(
       Effect.promise(() =>
         dialog.showOpenDialog({
+          defaultPath: resolveFolderPickerDefaultPath(options?.initialPath, app.getPath("home")),
           properties: ["openDirectory"],
         }),
       ).pipe(Effect.map((result) => (result.canceled ? undefined : result.filePaths[0]))),

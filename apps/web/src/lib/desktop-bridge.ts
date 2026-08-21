@@ -14,7 +14,7 @@ export interface CursorClientPoint {
 export interface NoyauDesktopBridge {
   readonly platform: string
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
-  readonly pickFolder: () => Promise<string | undefined>
+  readonly pickFolder: (options?: { readonly initialPath?: string }) => Promise<string | undefined>
   readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
 }
 

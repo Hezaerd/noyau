@@ -1,5 +1,13 @@
 import { useCanGoBack, useLocation, useNavigate } from "@tanstack/react-router"
-import { ArrowLeftIcon, BotIcon, KeyboardIcon, PaletteIcon, SearchIcon, XIcon } from "lucide-react"
+import {
+  ArrowLeftIcon,
+  BotIcon,
+  FolderKanbanIcon,
+  KeyboardIcon,
+  PaletteIcon,
+  SearchIcon,
+  XIcon,
+} from "lucide-react"
 import {
   useCallback,
   useEffect,
@@ -37,6 +45,7 @@ import {
 import { scrollToSettingsTargetId } from "@/lib/settings-scroll"
 
 const SETTINGS_TAB_ICONS = {
+  general: FolderKanbanIcon,
   appearance: PaletteIcon,
   providers: BotIcon,
   keybindings: KeyboardIcon,
