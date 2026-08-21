@@ -4,6 +4,7 @@ import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { KanbanColumnId, type ProjectId, type ThreadId, type TicketId } from "@noyau/protocol/ids"
 import { type Crypto, Effect } from "effect"
 
+import { invalidInputFailure, type AppFailure } from "./app-failure"
 import type { ControlPlaneResult } from "./control-plane"
 import { threadTicketDescription } from "./thread-ticket-draft"
 import {
@@ -31,7 +32,7 @@ export interface CreateTicketFromThreadOptions {
   readonly board: TicketCreationBoard
   readonly buildCommand: BuildTicketCommand
   readonly dispatch: (request: ClientCommandRequest) => Promise<boolean>
-  readonly onError: (details: string) => void
+  readonly onError: (failure: AppFailure) => void
   readonly onTicketCreated: (ticketId: TicketId) => void
 }
 
@@ -47,7 +48,7 @@ export const createTicketFromThreadEffect = Effect.fn("createTicketFromThread")(
 }: CreateTicketFromThreadOptions) {
   const column = board.columns.find((candidate) => !candidate.done)
   if (column === undefined) {
-    onError("Aucune colonne non terminale ne permet de créer un Ticket.")
+    onError(invalidInputFailure("Aucune colonne non terminale ne permet de créer un Ticket."))
     return
   }
 
@@ -61,7 +62,7 @@ export const createTicketFromThreadEffect = Effect.fn("createTicketFromThread")(
     ),
   )
   if (!createRequest.ok) {
-    onError(createRequest.details)
+    onError(createRequest.failure)
     return
   }
 
@@ -76,7 +77,7 @@ export const createTicketFromThreadEffect = Effect.fn("createTicketFromThread")(
       buildCommand(makeTicketUpdateRequest({ ticketId, description })),
     )
     if (!updateRequest.ok) {
-      onError(updateRequest.details)
+      onError(updateRequest.failure)
       return
     }
     if (!(yield* Effect.promise(() => dispatch(updateRequest.value)))) {
@@ -88,7 +89,7 @@ export const createTicketFromThreadEffect = Effect.fn("createTicketFromThread")(
     buildCommand(makeTicketThreadLinkRequest({ ticketId, threadId })),
   )
   if (!linkRequest.ok) {
-    onError(linkRequest.details)
+    onError(linkRequest.failure)
     return
   }
   if (!(yield* Effect.promise(() => dispatch(linkRequest.value)))) {

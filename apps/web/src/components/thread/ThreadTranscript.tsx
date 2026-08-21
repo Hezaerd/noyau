@@ -33,7 +33,7 @@ export function ThreadTranscript({
   readonly transcript: ReadonlyArray<TranscriptItem>
   readonly isRunning: boolean
   readonly loading: boolean
-  readonly error: string | undefined
+  readonly error: ReactNode
   readonly notices: ReactNode
   readonly footer: ReactNode
   readonly answerByRequest: Record<string, string>
@@ -60,14 +60,7 @@ export function ThreadTranscript({
               </MessageScrollerItem>
             ) : null}
             {error === undefined ? null : (
-              <MessageScrollerItem messageId="thread-error">
-                <div
-                  role="alert"
-                  className="rounded-xl border border-destructive/35 bg-destructive/10 p-3 text-sm"
-                >
-                  {error}
-                </div>
-              </MessageScrollerItem>
+              <MessageScrollerItem messageId="thread-error">{error}</MessageScrollerItem>
             )}
             {notices === null || notices === undefined ? null : (
               <MessageScrollerItem messageId="thread-notices">{notices}</MessageScrollerItem>

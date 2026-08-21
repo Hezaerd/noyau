@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/context-menu"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
+import { presentFailure } from "@/lib/failure-presentation"
+import { showFailureToast } from "@/lib/failure-toast"
 import { makeProjectDeleteRequest } from "@/lib/project-commands"
 import { destinationAfterProjectRemoval, isViewingProject } from "@/lib/project-navigation"
 import { cn } from "@/lib/utils"
@@ -48,7 +50,18 @@ export function ProjectSidebarItem({
   const deleteProject = () => {
     void buildAndDispatchCommand(makeProjectDeleteRequest({ projectId: project.id })).then(
       (result) => {
-        if (!result.ok || !viewingThisProject) {
+        if (!result.ok) {
+          showFailureToast(
+            presentFailure(result.failure, {
+              operation: "project.delete",
+              scope: "project",
+              initiatedByUser: true,
+              hasUsableData: true,
+            }),
+          )
+          return undefined
+        }
+        if (!viewingThisProject) {
           return undefined
         }
         const destination = destinationAfterProjectRemoval(remainingProjects)

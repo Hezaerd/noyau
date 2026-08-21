@@ -12,6 +12,11 @@ import {
   type FormEvent,
 } from "react"
 
+import {
+  InlineFailure,
+  ResourceErrorState,
+  ScopeBanner,
+} from "@/components/failure/FailureSurfaces"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import {
@@ -20,8 +25,11 @@ import {
 } from "@/components/thread/ThreadTicketLinks"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import { useControlPlane } from "@/hooks/use-control-plane"
-import { loadBoardSnapshot, subscribeThread } from "@/lib/control-plane"
+import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
+import { invalidInputFailure } from "@/lib/app-failure"
+import { loadBoardSnapshot, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
+import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import {
   interruptTurn as interruptTurnAction,
   linkTicket as linkTicketAction,
@@ -44,18 +52,29 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const [snapshot, setSnapshot] = useState<ThreadSnapshot>()
   const [board, setBoard] = useState<BoardSnapshot>()
   const [loading, setLoading] = useState(threadId !== undefined)
-  const [error, setError] = useState<string>()
-  const [composerError, setComposerError] = useState<string>()
+  const [actionFailure, setActionFailure] = useState<FailurePresentation>()
+  const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const [text, setText] = useState("")
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
   const [linkedTicketSelection, setLinkedTicketSelection] = useState<string | null>(null)
   const cursorReady = isCursorReady(cursor)
+  const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
 
   const refreshBoard = useCallback(() => {
     void loadBoardSnapshot(projectId).then((result) => {
       if (result.ok) {
         setBoard(result.value)
+      } else {
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "project.subscribe",
+            scope: "resource",
+            initiatedByUser: false,
+            hasUsableData: true,
+          }),
+        )
       }
       return undefined
     })
@@ -69,15 +88,17 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     if (threadId === undefined) {
       setSnapshot(undefined)
       setLoading(false)
+      setSubscriptionStatus(undefined)
       return
     }
     setLoading(true)
+    setSubscriptionStatus(undefined)
     return subscribeThread(threadId, undefined, {
       onSnapshot: (next) => {
         setSnapshot(next)
         setRuntimeMode(next.thread.runtimeMode)
         setLoading(false)
-        setError(undefined)
+        setActionFailure(undefined)
       },
       onEvent: (envelope) => {
         const event = envelope.event
@@ -94,9 +115,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
           setRuntimeMode(event.runtimeMode)
         }
       },
-      onError: (details) => {
-        setError(details)
-        setLoading(false)
+      onStatus: (status) => {
+        setSubscriptionStatus(status)
+        if (status._tag === "Reconnecting") setLoading(false)
       },
     })
   }, [threadId])
@@ -131,19 +152,34 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       return
     }
     setText("")
-    setComposerError(undefined)
+    setComposerFailure(undefined)
     void submitTurnAction({ projectId, threadId, prompt, runtimeMode }).then((result) => {
       if (result.kind === "composer-error") {
-        setComposerError(result.details)
+        setComposerFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
         return undefined
       }
       if (result.kind === "error") {
-        setError(result.details)
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
         return undefined
       }
       if (result.kind === "created") {
         onCreated(result.threadId)
       }
+      setActionFailure(undefined)
       return undefined
     })
   }
@@ -156,7 +192,16 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       activeTurn === undefined ? { threadId } : { threadId, turnId: activeTurn },
     ).then((result) => {
       if (!result.ok) {
-        setError(result.details)
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.interrupt",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
+      } else {
+        setActionFailure(undefined)
       }
       return undefined
     })
@@ -173,7 +218,17 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       return
     }
     event.preventDefault()
-    setComposerError("Les images ne sont pas prises en charge dans les Threads v0.1.")
+    setComposerFailure(
+      presentFailure(
+        invalidInputFailure("Les images ne sont pas prises en charge dans les Threads v0.1."),
+        {
+          operation: "thread.turn.start",
+          scope: "field",
+          initiatedByUser: true,
+          hasUsableData: true,
+        },
+      ),
+    )
   }
 
   const respondToApproval = (requestId: string, decision: "accept" | "decline") => {
@@ -182,7 +237,16 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     }
     void respondToApprovalAction({ threadId, requestId, decision }).then((result) => {
       if (!result.ok) {
-        setError(result.details)
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.respond",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
+      } else {
+        setActionFailure(undefined)
       }
       return undefined
     })
@@ -198,7 +262,16 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     }
     void respondToUserInputAction({ threadId, requestId, answer }).then((result) => {
       if (!result.ok) {
-        setError(result.details)
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.respond",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
+      } else {
+        setActionFailure(undefined)
       }
       return undefined
     })
@@ -215,11 +288,28 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       projectId,
     }).then((result) => {
       if (!result.ok) {
-        setError(result.details)
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.ticket.link",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
         return undefined
       }
+      setActionFailure(undefined)
       if (result.board.ok) {
         setBoard(result.board.value)
+      } else {
+        setActionFailure(
+          presentFailure(result.board.failure, {
+            operation: "project.subscribe",
+            scope: "resource",
+            initiatedByUser: false,
+            hasUsableData: board !== undefined,
+          }),
+        )
       }
       return undefined
     })
@@ -231,15 +321,58 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     }
     void unlinkTicketAction({ threadId, ticketId, projectId }).then((result) => {
       if (!result.ok) {
-        setError(result.details)
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.ticket.link",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
         return undefined
       }
+      setActionFailure(undefined)
       if (result.board.ok) {
         setBoard(result.board.value)
+      } else {
+        setActionFailure(
+          presentFailure(result.board.failure, {
+            operation: "project.subscribe",
+            scope: "resource",
+            initiatedByUser: false,
+            hasUsableData: board !== undefined,
+          }),
+        )
       }
       return undefined
     })
   }
+
+  const streamPresentation =
+    subscriptionFailure === undefined
+      ? undefined
+      : presentFailure(subscriptionFailure, {
+          operation: "thread.subscribe",
+          scope: "resource",
+          initiatedByUser: false,
+          hasUsableData: snapshot !== undefined,
+        })
+
+  if (
+    threadId !== undefined &&
+    snapshot === undefined &&
+    !loading &&
+    streamPresentation !== undefined
+  ) {
+    return (
+      <ResourceErrorState
+        presentation={streamPresentation}
+        onRecovery={() => window.location.reload()}
+      />
+    )
+  }
+
+  const transcriptFailure = streamPresentation ?? actionFailure
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -248,7 +381,13 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
           transcript={snapshot?.transcript ?? []}
           isRunning={isRunning}
           loading={loading}
-          error={error}
+          error={
+            transcriptFailure === undefined ? undefined : transcriptFailure.surface === "banner" ? (
+              <ScopeBanner presentation={transcriptFailure} />
+            ) : (
+              <InlineFailure presentation={transcriptFailure} />
+            )
+          }
           notices={
             threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (
               <ThreadStatusNotices
@@ -291,9 +430,16 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         isRunning={isRunning}
         disabled={project?.available !== true || !cursorReady}
         text={text}
-        error={composerError}
+        error={
+          composerFailure === undefined ? undefined : (
+            <InlineFailure className="text-xs" presentation={composerFailure} />
+          )
+        }
         onSubmit={submitTurn}
-        onTextChange={setText}
+        onTextChange={(value) => {
+          setText(value)
+          setComposerFailure(undefined)
+        }}
         onPaste={rejectImages}
         onDrop={rejectImages}
         onInterrupt={() => interruptTurn()}

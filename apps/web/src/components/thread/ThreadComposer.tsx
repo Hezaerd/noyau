@@ -1,4 +1,4 @@
-import type { ClipboardEvent, DragEvent, FormEvent } from "react"
+import type { ClipboardEvent, DragEvent, FormEvent, ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -17,7 +17,7 @@ export function ThreadComposer({
   readonly isRunning: boolean
   readonly disabled: boolean
   readonly text: string
-  readonly error: string | undefined
+  readonly error: ReactNode
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
   readonly onTextChange: (value: string) => void
   readonly onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void
@@ -46,12 +46,16 @@ export function ThreadComposer({
           }}
           placeholder="Écrire un message…"
           aria-label="Composer un message"
+          aria-describedby={error === undefined ? undefined : "thread-composer-error"}
+          aria-invalid={error === undefined ? undefined : true}
           disabled={isRunning || disabled}
           rows={3}
         />
         <div className="flex flex-wrap items-center justify-end gap-2">
           {error === undefined ? null : (
-            <p className="mr-auto text-xs text-muted-foreground">{error}</p>
+            <div className="mr-auto" id="thread-composer-error">
+              {error}
+            </div>
           )}
           <div className="flex gap-2">
             {isRunning ? (

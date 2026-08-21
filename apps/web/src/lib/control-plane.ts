@@ -13,29 +13,30 @@ import {
   type ThreadStreamItem,
 } from "@noyau/protocol/rpc"
 import type { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
-import {
-  Cause,
-  Context,
-  Crypto,
-  Effect,
-  Exit,
-  Fiber,
-  Layer,
-  ManagedRuntime,
-  Option,
-  Schema,
-  Stream,
-} from "effect"
+import type { Cause } from "effect"
+import { Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Option, Stream } from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
 import type { RpcClientError } from "effect/unstable/rpc/RpcClientError"
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup"
 import { Socket } from "effect/unstable/socket"
 
+import {
+  normalizeCause,
+  ResourceSnapshotUnavailable,
+  subscriptionEnded,
+  technicalFailureDetails,
+  type AppFailure,
+  type FailurePhase,
+} from "./app-failure"
 import { controlPlaneConfig, type ControlPlaneConfig } from "./control-plane-config"
 
 export type ControlPlaneResult<A> =
   | { readonly ok: true; readonly value: A }
-  | { readonly ok: false; readonly details: string }
+  | { readonly ok: false; readonly failure: AppFailure }
+
+export type SubscriptionStatus =
+  | { readonly _tag: "Connected" }
+  | { readonly _tag: "Reconnecting"; readonly attempt: number; readonly failure: AppFailure }
 
 class ControlPlaneClient extends Context.Service<
   ControlPlaneClient,
@@ -95,28 +96,40 @@ const replaceTransportSession = (failedSession: TransportSession): Promise<void>
 
 type ControlPlaneStreamError = RpcClientError | Forbidden | MissingIdentity | ServiceUnavailable
 
-class ProjectSnapshotUnavailable extends Schema.TaggedError<ProjectSnapshotUnavailable>()(
-  "ProjectSnapshotUnavailable",
-  {
-    message: Schema.NonEmptyString,
-  },
-) {}
+const reportTechnicalFailure = <E>(cause: Cause.Cause<E>, failure: AppFailure) => {
+  if (failure._tag === "UnexpectedFailure") {
+    Effect.runFork(
+      Effect.logError(technicalFailureDetails(cause)).pipe(
+        Effect.annotateLogs({ incidentId: failure.incidentId, source: "control-plane" }),
+      ),
+    )
+  }
+}
 
-const matchOperationExit = <A>(exit: Exit.Exit<A, unknown>): ControlPlaneResult<A> =>
+const matchOperationExit = <A>(
+  exit: Exit.Exit<A, unknown>,
+  phase: FailurePhase,
+): ControlPlaneResult<A> =>
   Exit.match(exit, {
-    onFailure: (cause) => ({ ok: false, details: Cause.pretty(cause) }),
+    onFailure: (cause) => {
+      const failure = normalizeCause(cause, phase)
+      reportTechnicalFailure(cause, failure)
+      return { ok: false, failure }
+    },
     onSuccess: (value) => ({ ok: true, value }),
   })
 
 const runOperation = <A, E>(
   operation: Effect.Effect<A, E, ControlPlaneClient>,
+  phase: FailurePhase,
 ): Promise<ControlPlaneResult<A>> =>
-  activeTransportSession.runPromiseExit(operation).then(matchOperationExit)
+  activeTransportSession.runPromiseExit(operation).then((exit) => matchOperationExit(exit, phase))
 
 const runOperationWithCrypto = <A, E>(
   operation: Effect.Effect<A, E, ControlPlaneClient | Crypto.Crypto>,
+  phase: FailurePhase,
 ): Promise<ControlPlaneResult<A>> =>
-  activeTransportSession.runPromiseExit(operation).then(matchOperationExit)
+  activeTransportSession.runPromiseExit(operation).then((exit) => matchOperationExit(exit, phase))
 
 const dispatch = Effect.fn("ControlPlaneClient.dispatchCommand")(function* (
   request: ClientCommandRequest,
@@ -141,16 +154,15 @@ const getProjectSnapshot = Effect.fn("ControlPlaneClient.getProjectSnapshot")(fu
     Stream.runHead,
   )
   if (Option.isNone(item)) {
-    return yield* new ProjectSnapshotUnavailable({
-      message: "Project subscription ended before its snapshot.",
-    })
+    return yield* new ResourceSnapshotUnavailable({ resource: "project" })
   }
   return item.value.snapshot
 })
 
 export const loadBoardSnapshot = (
   projectId: ProjectId,
-): Promise<ControlPlaneResult<BoardSnapshot>> => runOperation(getProjectSnapshot(projectId))
+): Promise<ControlPlaneResult<BoardSnapshot>> =>
+  runOperation(getProjectSnapshot(projectId), "snapshot")
 
 const getThreadSnapshot = Effect.fn("ControlPlaneClient.getThreadSnapshot")(function* (
   threadId: ThreadSnapshot["thread"]["id"],
@@ -164,34 +176,35 @@ const getThreadSnapshot = Effect.fn("ControlPlaneClient.getThreadSnapshot")(func
     Stream.runHead,
   )
   if (Option.isNone(item)) {
-    return yield* new ProjectSnapshotUnavailable({
-      message: "Thread subscription ended before its snapshot.",
-    })
+    return yield* new ResourceSnapshotUnavailable({ resource: "thread" })
   }
   return item.value.snapshot
 })
 
 export const loadThreadSnapshot = (
   threadId: ThreadSnapshot["thread"]["id"],
-): Promise<ControlPlaneResult<ThreadSnapshot>> => runOperation(getThreadSnapshot(threadId))
+): Promise<ControlPlaneResult<ThreadSnapshot>> =>
+  runOperation(getThreadSnapshot(threadId), "snapshot")
 
 export const dispatchCommand = (
   request: ClientCommandRequest,
-): Promise<ControlPlaneResult<DispatchResult>> => runOperation(dispatch(request))
+): Promise<ControlPlaneResult<DispatchResult>> => runOperation(dispatch(request), "command")
 
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,
 ): Promise<ControlPlaneResult<DispatchResult>> =>
-  runOperationWithCrypto(request.pipe(Effect.flatMap((built) => dispatch(built))))
+  runOperationWithCrypto(request, "input").then((built) =>
+    built.ok ? dispatchCommand(built.value) : built,
+  )
 
 export const buildCommand = <A, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,
-): Promise<ControlPlaneResult<A>> => runOperationWithCrypto(request)
+): Promise<ControlPlaneResult<A>> => runOperationWithCrypto(request, "input")
 
 type StreamCallbacks<Snapshot, Event> = {
   readonly onSnapshot: (snapshot: Snapshot) => void
   readonly onEvent: (event: Event) => void
-  readonly onError: (details: string) => void
+  readonly onStatus: (status: SubscriptionStatus) => void
 }
 
 type SequencedSnapshot = { readonly snapshotSequence: Sequence }
@@ -214,6 +227,7 @@ export const makeSequencedFrameConsumer = <
   return {
     afterSequence: () => lastSequence,
     consume: (item: SequencedFrame<Snapshot, Event>): void => {
+      callbacks.onStatus({ _tag: "Connected" })
       if (item.kind === "synchronized") {
         return
       }
@@ -257,10 +271,10 @@ export interface SubscriptionSupervisorOptions<Session> {
   readonly startAttempt: (
     session: Session,
     afterSequence: Sequence | undefined,
-    onFailure: (details: string) => void,
+    onFailure: (failure: AppFailure) => void,
   ) => () => void
   readonly replaceSession: (failedSession: Session) => Promise<void>
-  readonly onError: (details: string) => void
+  readonly onStatus: (status: SubscriptionStatus) => void
   readonly schedule?: ReconnectSchedule
 }
 
@@ -269,7 +283,7 @@ export const superviseSubscription = <Session>({
   currentSession,
   startAttempt,
   replaceSession,
-  onError,
+  onStatus,
   schedule = scheduleReconnect,
 }: SubscriptionSupervisorOptions<Session>): (() => void) => {
   let stopped = false
@@ -283,7 +297,7 @@ export const superviseSubscription = <Session>({
       return
     }
     const session = currentSession()
-    stopAttempt = startAttempt(session, afterSequence(), (details) => {
+    stopAttempt = startAttempt(session, afterSequence(), (failure) => {
       if (stopped || retrying) {
         return
       }
@@ -291,7 +305,7 @@ export const superviseSubscription = <Session>({
       attempt += 1
       stopAttempt?.()
       stopAttempt = undefined
-      onError(details)
+      onStatus({ _tag: "Reconnecting", attempt, failure })
       void replaceSession(session).then(() => {
         if (stopped) {
           return
@@ -317,13 +331,17 @@ export const superviseSubscription = <Session>({
 const startSubscriptionAttempt = (
   session: TransportSession,
   stream: Effect.Effect<void, ControlPlaneStreamError, ControlPlaneClient>,
-  onFailure: (details: string) => void,
+  onFailure: (failure: AppFailure) => void,
 ) => {
   const fiber = session.runFork(
     stream.pipe(
       Effect.matchCauseEffect({
-        onFailure: (cause) => Effect.sync(() => onFailure(Cause.pretty(cause))),
-        onSuccess: () => Effect.sync(() => onFailure("Control plane subscription ended.")),
+        onFailure: (cause) => {
+          const failure = normalizeCause(cause, "stream")
+          reportTechnicalFailure(cause, failure)
+          return Effect.sync(() => onFailure(failure))
+        },
+        onSuccess: () => Effect.sync(() => onFailure(subscriptionEnded())),
       }),
     ),
   )
@@ -356,7 +374,7 @@ export const subscribeShell = (
     afterSequence: consumer.afterSequence,
     currentSession: () => activeTransportSession,
     replaceSession: replaceTransportSession,
-    onError: callbacks.onError,
+    onStatus: callbacks.onStatus,
     startAttempt: (session, resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
         const client = yield* ControlPlaneClient
@@ -382,7 +400,7 @@ export const subscribeProject = (
     afterSequence: consumer.afterSequence,
     currentSession: () => activeTransportSession,
     replaceSession: replaceTransportSession,
-    onError: callbacks.onError,
+    onStatus: callbacks.onStatus,
     startAttempt: (session, resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
         const client = yield* ControlPlaneClient
@@ -415,7 +433,7 @@ export const subscribeThread = (
     afterSequence: consumer.afterSequence,
     currentSession: () => activeTransportSession,
     replaceSession: replaceTransportSession,
-    onError: callbacks.onError,
+    onStatus: callbacks.onStatus,
     startAttempt: (session, resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
         const client = yield* ControlPlaneClient

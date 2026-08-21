@@ -10,6 +10,7 @@ import {
 } from "@noyau/protocol/ids"
 import { type Crypto, Effect } from "effect"
 
+import type { AppFailure } from "./app-failure"
 import {
   buildCommand,
   dispatchCommand,
@@ -31,12 +32,12 @@ import { makeTicketThreadLinkRequest, makeTicketThreadUnlinkRequest } from "./ti
 export type SubmitTurnResult =
   | { readonly kind: "created"; readonly threadId: ThreadId }
   | { readonly kind: "started" }
-  | { readonly kind: "composer-error"; readonly details: string }
-  | { readonly kind: "error"; readonly details: string }
+  | { readonly kind: "composer-error"; readonly failure: AppFailure }
+  | { readonly kind: "error"; readonly failure: AppFailure }
 
 export type ThreadLinkResult =
   | { readonly ok: true; readonly board: ControlPlaneResult<BoardSnapshot> }
-  | { readonly ok: false; readonly details: string }
+  | { readonly ok: false; readonly failure: AppFailure }
 
 const buildAndDispatch = Effect.fn("buildAndDispatch")(function* <
   A extends ClientCommandRequest,
@@ -59,7 +60,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
   if (threadId === undefined) {
     const nextThreadId = yield* Effect.promise(() => buildCommand(makeThreadId()))
     if (!nextThreadId.ok) {
-      return { kind: "composer-error", details: nextThreadId.details }
+      return { kind: "composer-error", failure: nextThreadId.failure }
     }
     const createRequest = yield* Effect.promise(() =>
       buildCommand(
@@ -72,11 +73,11 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
       ),
     )
     if (!createRequest.ok) {
-      return { kind: "composer-error", details: createRequest.details }
+      return { kind: "composer-error", failure: createRequest.failure }
     }
     const created = yield* Effect.promise(() => dispatchCommand(createRequest.value))
     if (!created.ok) {
-      return { kind: "error", details: created.details }
+      return { kind: "error", failure: created.failure }
     }
     const startRequest = yield* Effect.promise(() =>
       buildCommand(
@@ -89,11 +90,11 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
       ),
     )
     if (!startRequest.ok) {
-      return { kind: "composer-error", details: startRequest.details }
+      return { kind: "composer-error", failure: startRequest.failure }
     }
     const started = yield* Effect.promise(() => dispatchCommand(startRequest.value))
     if (!started.ok) {
-      return { kind: "error", details: started.details }
+      return { kind: "error", failure: started.failure }
     }
     return { kind: "created", threadId: nextThreadId.value }
   }
@@ -108,11 +109,11 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
     ),
   )
   if (!startRequest.ok) {
-    return { kind: "composer-error", details: startRequest.details }
+    return { kind: "composer-error", failure: startRequest.failure }
   }
   const started = yield* Effect.promise(() => dispatchCommand(startRequest.value))
   if (!started.ok) {
-    return { kind: "error", details: started.details }
+    return { kind: "error", failure: started.failure }
   }
   return { kind: "started" }
 })

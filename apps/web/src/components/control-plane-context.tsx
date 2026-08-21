@@ -1,7 +1,7 @@
 import type { ProjectId } from "@noyau/protocol/ids"
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 
-import { subscribeShell } from "@/lib/control-plane"
+import { subscribeShell, type SubscriptionStatus } from "@/lib/control-plane"
 import {
   applyShellEvent,
   ControlPlaneContext,
@@ -13,19 +13,18 @@ import { nextLastProjectId } from "@/lib/project-navigation"
 
 export function ControlPlaneProvider({ children }: { readonly children: ReactNode }) {
   const [shell, setShell] = useState<ControlPlaneContextValue["shell"]>()
-  const [error, setError] = useState<string>()
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const [lastProjectId, setLastProjectId] = useState(readLastProjectId)
 
   useEffect(() => {
     return subscribeShell(undefined, {
       onSnapshot: (next) => {
         setShell(next)
-        setError(undefined)
       },
       onEvent: (event) => {
         setShell((current) => (current === undefined ? current : applyShellEvent(current, event)))
       },
-      onError: setError,
+      onStatus: setSubscriptionStatus,
     })
   }, [])
 
@@ -53,10 +52,10 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
       projects: shell?.projects ?? [],
       threads: shell?.threads ?? [],
       lastProjectId,
-      error,
+      subscriptionStatus,
       selectProject,
     }
-  }, [error, lastProjectId, selectProject, shell])
+  }, [lastProjectId, selectProject, shell, subscriptionStatus])
 
   return <ControlPlaneContext.Provider value={value}>{children}</ControlPlaneContext.Provider>
 }
