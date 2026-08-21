@@ -14,7 +14,6 @@ import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPop
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
-import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
 import { ThreadTranscript } from "../src/components/thread/ThreadTranscript"
 import { ThreadTranscriptItem } from "../src/components/thread/ThreadTranscriptItem"
 import { ThreadPageTitle } from "../src/components/WorkspaceBreadcrumb"
@@ -33,7 +32,6 @@ const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const secondThreadId = ThreadId.make("20000000-0000-4000-8000-000000000002")
 const ticketId = TicketId.make("30000000-0000-4000-8000-000000000001")
-const linkedTicketId = TicketId.make("30000000-0000-4000-8000-000000000002")
 
 const makeThread = (id: ThreadId, title: string): ThreadShellType =>
   Schema.decodeSync(ThreadShell)({
@@ -131,37 +129,6 @@ describe("rendered Thread UI evidence", () => {
     expect(composer?.className).toMatch(/sticky/)
     expect(composer?.className).toMatch(/bottom-0/)
   })
-
-  it("edits TicketThread links from the Thread side", () =>
-    Effect.runPromise(
-      Effect.gen(function* () {
-        const user = userEvent.setup()
-        const onSelectionChange = vi.fn()
-        const onUnlink = vi.fn()
-        render(
-          <ThreadTicketLinkEditor
-            linkedTickets={[{ id: linkedTicketId, title: "Déjà lié" }]}
-            linkableTickets={[{ id: ticketId, title: "Ajouter ce Ticket" }]}
-            selection={null}
-            onSelectionChange={onSelectionChange}
-            onUnlink={onUnlink}
-          />,
-        )
-
-        yield* Effect.promise(() =>
-          user.click(screen.getByRole("combobox", { name: "Lier un ticket" })),
-        )
-        yield* Effect.promise(() =>
-          user.click(screen.getByRole("option", { name: "Ajouter ce Ticket" })),
-        )
-        expect(onSelectionChange).toHaveBeenCalledWith(ticketId)
-
-        yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Délier le ticket Déjà lié" })),
-        )
-        expect(onUnlink).toHaveBeenCalledWith(linkedTicketId)
-      }),
-    ))
 
   it("edits TicketThread links from the Ticket side", () =>
     Effect.runPromise(
@@ -285,7 +252,6 @@ describe("rendered Thread UI evidence", () => {
             loading={false}
             error={undefined}
             notices={null}
-            footer={null}
             answerByRequest={{}}
             onAnswerChange={vi.fn()}
             onRespondApproval={vi.fn()}
@@ -320,7 +286,6 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        footer={null}
         answerByRequest={{}}
         onAnswerChange={vi.fn()}
         onRespondApproval={vi.fn()}
@@ -366,7 +331,6 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        footer={null}
         answerByRequest={{}}
         onAnswerChange={vi.fn()}
         onRespondApproval={vi.fn()}
@@ -412,7 +376,6 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        footer={null}
         answerByRequest={{}}
         onAnswerChange={vi.fn()}
         onRespondApproval={vi.fn()}
@@ -429,7 +392,6 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        footer={null}
         answerByRequest={{}}
         onAnswerChange={vi.fn()}
         onRespondApproval={vi.fn()}
