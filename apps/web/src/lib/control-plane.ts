@@ -49,7 +49,7 @@ class ControlPlaneClient extends Context.Service<
     )
 
     return Layer.effect(ControlPlaneClient, RpcClient.make(ControlPlaneRpcs)).pipe(
-      Layer.provide(RpcClient.layerProtocolSocket()),
+      Layer.provide(RpcClient.layerProtocolSocket({ retryTransientErrors: true })),
       Layer.provide(socketLayer),
       Layer.provide(RpcSerialization.layerJson),
     )
