@@ -3,6 +3,7 @@ import type { ChildProcessSpawner } from "effect/unstable/process"
 import { ChildProcess } from "effect/unstable/process"
 
 import { desktopDir, resolveElectronLaunchCommand } from "./electron-launcher.ts"
+import { restoreTty } from "./restore-tty.ts"
 import { scriptRuntime } from "./runtime.ts"
 import { waitForResources } from "./wait-for-resources.ts"
 
@@ -44,7 +45,8 @@ const devElectron = Effect.fn("devElectron")(function* () {
         NOYAU_DESKTOP_DEV: "1",
         NOYAU_SERVER_ENTRY: serverEntry,
       },
-      stdin: "inherit",
+      detached: false,
+      stdin: "ignore",
       stdout: "inherit",
       stderr: "inherit",
     }).pipe(Scope.provide(electronScope))
@@ -136,6 +138,7 @@ const devElectron = Effect.fn("devElectron")(function* () {
 
   const exitCode = yield* Deferred.await(done)
   yield* shutdown(exitCode)
+  restoreTty()
 })
 
 void scriptRuntime.runPromise(Effect.scoped(devElectron()))
