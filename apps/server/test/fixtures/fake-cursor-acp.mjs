@@ -55,6 +55,51 @@ const reasoningOption = {
   ],
 }
 
+const serviceTierOption = {
+  type: "select",
+  id: "service_tier",
+  name: "Service tier",
+  category: "service_tier",
+  currentValue: "normal",
+  options: [
+    { value: "normal", name: "Normal" },
+    { value: "fast", name: "Fast", description: "1.5x speed, increased usage" },
+  ],
+}
+
+const fastOption = {
+  type: "boolean",
+  id: "fast",
+  name: "Fast",
+  category: "model_config",
+  description: "1.5x speed, increased usage",
+  currentValue: false,
+}
+
+const onOffReasoningOption = {
+  type: "select",
+  id: "reasoning",
+  name: "Reasoning",
+  category: "thought_level",
+  currentValue: "true",
+  options: [
+    { value: "false", name: "Off" },
+    { value: "true", name: "On" },
+  ],
+}
+
+const thinkingOption = {
+  type: "select",
+  id: "thinking",
+  name: "Thinking",
+  category: "model_config",
+  currentValue: "true",
+  options: [
+    { value: "false", name: "Off" },
+    { value: "true", name: "On" },
+  ],
+}
+
 const modelOption = {
   type: "select",
   id: "model",
@@ -67,7 +112,16 @@ const modelOption = {
   ],
 }
 
-const configOptions = [modelOption, reasoningOption]
+const traitModelOption = {
+  ...modelOption,
+  options: [
+    { value: "composer-2.5", name: "Composer 2.5" },
+    { value: "claude-opus-5", name: "Claude Opus 5" },
+  ],
+}
+
+const configOptions = [modelOption, reasoningOption, serviceTierOption]
+const traitConfigOptions = [traitModelOption, fastOption, thinkingOption]
 
 const write = (message) => {
   process.stdout.write(`${JSON.stringify(message)}\n`)
@@ -185,25 +239,43 @@ for await (const line of lines) {
 
   if (message.method === "cursor/list_available_models") {
     respond(message.id, {
-      models: [
-        {
-          value: "composer-2.5",
-          name: "Composer 2.5",
-          configOptions: [reasoningOption],
-        },
-        {
-          value: "composer-2.5-fast",
-          name: "Composer 2.5 Fast",
-          configOptions: [reasoningOption],
-        },
-      ],
+      models:
+        scenario === "model-traits"
+          ? [
+              {
+                value: "composer-2.5",
+                name: "Composer 2.5",
+                configOptions: [fastOption],
+              },
+              {
+                value: "claude-opus-5",
+                name: "Claude Opus 5",
+                configOptions: [onOffReasoningOption, thinkingOption],
+              },
+            ]
+          : [
+              {
+                value: "composer-2.5",
+                name: "Composer 2.5",
+                configOptions: [reasoningOption, serviceTierOption],
+              },
+              {
+                value: "composer-2.5-fast",
+                name: "Composer 2.5 Fast",
+                configOptions: [reasoningOption, serviceTierOption],
+              },
+            ],
     })
     continue
   }
 
   if (message.method === "session/new") {
     activeSessionId = sessionId
-    respond(message.id, { sessionId, modes, configOptions })
+    respond(message.id, {
+      sessionId,
+      modes,
+      configOptions: scenario === "model-traits" ? traitConfigOptions : configOptions,
+    })
     continue
   }
 
@@ -228,12 +300,17 @@ for await (const line of lines) {
         content: { type: "text", text: "load-gated text must be ignored" },
       },
     })
-    respond(message.id, { modes, configOptions })
+    respond(message.id, {
+      modes,
+      configOptions: scenario === "model-traits" ? traitConfigOptions : configOptions,
+    })
     continue
   }
 
   if (message.method === "session/set_config_option") {
-    respond(message.id, { configOptions })
+    respond(message.id, {
+      configOptions: scenario === "model-traits" ? traitConfigOptions : configOptions,
+    })
     continue
   }
 

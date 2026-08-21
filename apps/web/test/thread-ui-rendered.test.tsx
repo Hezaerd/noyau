@@ -37,8 +37,12 @@ const cursorModels = [
     modelId: "composer-2.5",
     label: "Composer 2.5",
     reasoningEfforts: [
-      { value: "low", label: "Faible" },
+      { value: "low", label: "Faible", isDefault: true },
       { value: "high", label: "Élevé" },
+    ],
+    serviceTiers: [
+      { value: "normal", label: "Normal", isDefault: true },
+      { value: "fast", label: "Fast", description: "1,5× plus rapide, usage accru" },
     ],
   },
 ]
@@ -143,6 +147,11 @@ describe("rendered Thread UI evidence", () => {
     const composer = screen.getByRole("textbox", { name: "Composer un message" }).closest("form")
     expect(composer?.className).toMatch(/sticky/)
     expect(composer?.className).toMatch(/bottom-0/)
+    const composerControl = screen.getByRole("textbox", { name: "Composer un message" })
+    expect(composerControl.parentElement?.className).toMatch(/before:hidden/)
+    const composerGroup = composerControl.closest('[data-slot="input-group"]')
+    expect(composerGroup?.className).toMatch(/ring-0/)
+    expect(composerGroup?.className).toMatch(/rounded-xl/)
   })
 
   it("submits with Enter and keeps Shift+Enter for a new line", () => {
@@ -201,10 +210,35 @@ describe("rendered Thread UI evidence", () => {
         )
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("combobox", { name: "Niveau d’accès" })),
+          user.click(screen.getByRole("button", { name: "Niveau d’accès" })),
         )
+        const selectedMode = screen.getByRole("menuitemradio", { name: /Accès complet/ })
+        expect(selectedMode.getAttribute("aria-checked")).toBe("true")
+        expect(selectedMode.querySelector('[data-slot="menu-radio-item-indicator"]')).toBeNull()
+        expect(selectedMode.querySelector(".lucide-lock-open")).not.toBeNull()
+        expect(selectedMode.className).toMatch(/data-checked:bg-accent/)
+        const modeDescription = screen.getByText(
+          "Autorise les commandes et les éditions sans confirmation.",
+        )
+        expect(modeDescription.className).toMatch(/whitespace-nowrap/)
+        expect(modeDescription.closest('[data-slot="menu-popup"]')?.className).toMatch(/w-max/)
+        expect(
+          screen
+            .getByRole("menuitemradio", { name: /Approbation requise/ })
+            .querySelector(".lucide-lock"),
+        ).not.toBeNull()
+        expect(
+          screen
+            .getByRole("menuitemradio", { name: /Accepter les éditions/ })
+            .querySelector(".lucide-pen-line"),
+        ).not.toBeNull()
+        expect(
+          screen
+            .getByRole("menuitemradio", { name: /Automatique/ })
+            .querySelector(".lucide-sparkles"),
+        ).not.toBeNull()
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("option", { name: "Approbation requise" })),
+          user.click(screen.getByRole("menuitemradio", { name: /Approbation requise/ })),
         )
         expect(onRuntimeModeChange).toHaveBeenCalledWith("approval-required")
       }),
@@ -234,7 +268,11 @@ describe("rendered Thread UI evidence", () => {
           />,
         )
 
-        yield* Effect.promise(() => user.click(screen.getByRole("combobox", { name: "Modèle" })))
+        const modelTrigger = screen.getByRole("button", { name: "Modèle" })
+        expect(modelTrigger.querySelector('[data-icon="inline-start"]')).toBeTruthy()
+        yield* Effect.promise(() => user.click(modelTrigger))
+        expect(screen.getByRole("combobox", { name: "Rechercher un modèle" })).toBeTruthy()
+        expect(screen.getByText("Cursor")).toBeTruthy()
         yield* Effect.promise(() =>
           user.click(screen.getByRole("option", { name: "Composer 2.5" })),
         )
@@ -258,11 +296,104 @@ describe("rendered Thread UI evidence", () => {
             onInterrupt={vi.fn()}
           />,
         )
-        yield* Effect.promise(() => user.click(screen.getByRole("combobox", { name: "Effort" })))
-        yield* Effect.promise(() => user.click(screen.getByRole("option", { name: "Élevé" })))
+        expect(screen.getAllByRole("separator")).toHaveLength(2)
+        const traitsTrigger = screen.getByRole("button", { name: "Configuration du modèle" })
+        expect(traitsTrigger.textContent).toContain("Faible · Normal")
+        yield* Effect.promise(() => user.click(traitsTrigger))
+        expect(screen.queryByText("Effort automatique")).toBeNull()
+        expect(screen.getByText("Niveau d’effort")).toBeTruthy()
+        expect(screen.getByText("Service tier")).toBeTruthy()
+        expect(screen.getAllByText("Par défaut")).toHaveLength(2)
+        const tierDescription = screen.getByText("1,5× plus rapide, usage accru")
+        expect(tierDescription.className).toMatch(/whitespace-nowrap/)
+        expect(tierDescription.closest('[data-slot="menu-popup"]')?.className).toMatch(/w-max/)
+        expect(
+          screen.getByRole("menuitemradio", { name: /Faible/ }).getAttribute("aria-checked"),
+        ).toBe("true")
+        expect(
+          screen.getByRole("menuitemradio", { name: /Normal/ }).getAttribute("aria-checked"),
+        ).toBe("true")
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("menuitemradio", { name: "Élevé" })),
+        )
         expect(onModelSelectionChange).toHaveBeenLastCalledWith({
           modelId: "composer-2.5",
           reasoningEffort: "high",
+        })
+
+        rerender(
+          <ThreadComposer
+            isRunning={false}
+            disabled={false}
+            text="Préparer la reprise"
+            runtimeMode="full-access"
+            models={cursorModels}
+            modelSelection={{ modelId: "composer-2.5", reasoningEffort: "high" }}
+            error={undefined}
+            onSubmit={vi.fn()}
+            onTextChange={vi.fn()}
+            onRuntimeModeChange={vi.fn()}
+            onModelSelectionChange={onModelSelectionChange}
+            onPaste={vi.fn()}
+            onDrop={vi.fn()}
+            onInterrupt={vi.fn()}
+          />,
+        )
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("button", { name: "Configuration du modèle" })),
+        )
+        yield* Effect.promise(() => user.click(screen.getByRole("menuitemradio", { name: /Fast/ })))
+        expect(onModelSelectionChange).toHaveBeenLastCalledWith({
+          modelId: "composer-2.5",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+        })
+      }),
+    ))
+
+  it("shows Cursor thinking as reflection instead of an On/Off effort", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onModelSelectionChange = vi.fn()
+        render(
+          <ThreadComposer
+            isRunning={false}
+            disabled={false}
+            text="Préparer la reprise"
+            runtimeMode="full-access"
+            models={[
+              {
+                ...cursorModels[0],
+                reasoningEfforts: [],
+                serviceTiers: [],
+                thinking: { label: "Réflexion", defaultValue: true },
+              },
+            ]}
+            modelSelection={{ modelId: "composer-2.5" }}
+            error={undefined}
+            onSubmit={vi.fn()}
+            onTextChange={vi.fn()}
+            onRuntimeModeChange={vi.fn()}
+            onModelSelectionChange={onModelSelectionChange}
+            onPaste={vi.fn()}
+            onDrop={vi.fn()}
+            onInterrupt={vi.fn()}
+          />,
+        )
+
+        const traitsTrigger = screen.getByRole("button", { name: "Configuration du modèle" })
+        expect(traitsTrigger.textContent).toContain("Réflexion activée")
+        yield* Effect.promise(() => user.click(traitsTrigger))
+        expect(screen.queryByText("Niveau d’effort")).toBeNull()
+        expect(screen.getByText("Réflexion")).toBeTruthy()
+        expect(screen.getByRole("menuitemradio", { name: /Activée/ })).toBeTruthy()
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("menuitemradio", { name: "Désactivée" })),
+        )
+        expect(onModelSelectionChange).toHaveBeenLastCalledWith({
+          modelId: "composer-2.5",
+          thinking: false,
         })
       }),
     ))

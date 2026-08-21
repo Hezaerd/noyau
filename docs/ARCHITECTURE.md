@@ -239,7 +239,7 @@ Commandes client :
 - Project : create, meta, rebind, delete ;
 - Tableau : colonnes et Tickets (create / update / move / complete / reopen / archive / restore,
   dépendances) ;
-- Thread : create, archive, meta, `runtimeMode` ;
+- Thread : create, archive, meta, `runtimeMode`, `modelSelection` ;
 - Turn : `thread.turn.start`, `thread.turn.interrupt` ;
 - `approval.respond`, `user-input.respond`, `session.stop`.
 

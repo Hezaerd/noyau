@@ -76,6 +76,39 @@ describe("project.create enrichment", () => {
 })
 
 describe("CursorProviderStatus", () => {
+  it("préserve les options dynamiques et les valeurs par défaut de chaque modèle", () => {
+    const decoded = Schema.decodeSync(CursorProviderStatus)({
+      installed: true,
+      handshakeOk: true,
+      version: null,
+      plan: null,
+      binaryPath: null,
+      models: [
+        {
+          modelId: "composer-2.5",
+          label: "Composer 2.5",
+          reasoningEfforts: [
+            { value: "medium", label: "Medium", isDefault: true },
+            { value: "high", label: "High" },
+          ],
+          serviceTiers: [
+            { value: "normal", label: "Normal", isDefault: true },
+            {
+              value: "fast",
+              label: "Fast",
+              description: "1.5x speed, increased usage",
+            },
+          ],
+          thinking: { label: "Réflexion", defaultValue: true },
+        },
+      ],
+    })
+
+    expect(decoded.models?.[0]?.reasoningEfforts[0]?.isDefault).toBe(true)
+    expect(decoded.models?.[0]?.serviceTiers[1]?.description).toBe("1.5x speed, increased usage")
+    expect(decoded.models?.[0]?.thinking?.defaultValue).toBe(true)
+  })
+
   it("décode version, plan et binaryPath, et ignore un email", () => {
     const decoded = Schema.decodeUnknownSync(CursorProviderStatus)({
       installed: true,

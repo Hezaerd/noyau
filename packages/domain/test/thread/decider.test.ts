@@ -237,6 +237,54 @@ describe("Thread lifecycle", () => {
     expect(automatic.threads[0]?.modelSelection).toBeNull()
   })
 
+  it("mémorise immédiatement la modelSelection choisie pour le Thread", () => {
+    const state = withThread()
+    const selected = apply(
+      state,
+      success(
+        decide(
+          state,
+          command({
+            _tag: "thread.model-selection.set",
+            ...meta,
+            payload: {
+              threadId: ids.thread,
+              modelSelection: {
+                modelId: "composer-2.5",
+                reasoningEffort: "high",
+                serviceTier: "fast",
+                thinking: true,
+              },
+            },
+          }),
+        ),
+      ),
+    )
+
+    expect(selected.threads[0]?.modelSelection).toEqual({
+      modelId: "composer-2.5",
+      reasoningEffort: "high",
+      serviceTier: "fast",
+      thinking: true,
+    })
+
+    const automatic = apply(
+      selected,
+      success(
+        decide(
+          selected,
+          command({
+            _tag: "thread.model-selection.set",
+            ...meta,
+            commandId: ids.command2,
+            payload: { threadId: ids.thread, modelSelection: null },
+          }),
+        ),
+      ),
+    )
+    expect(automatic.threads[0]?.modelSelection).toBeNull()
+  })
+
   it("seed le titre avec le premier prompt et garde le provider hors des mutations", () => {
     const state = withThread()
     const started = apply(state, startTurn(state, ids.turn1, "Inspecte le projet"))

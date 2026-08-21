@@ -133,8 +133,16 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
                     label: "Composer 2.5",
                     reasoningEfforts: [
                       { value: "low", label: "Low" },
-                      { value: "medium", label: "Medium" },
+                      { value: "medium", label: "Medium", isDefault: true },
                       { value: "high", label: "High" },
+                    ],
+                    serviceTiers: [
+                      { value: "normal", label: "Normal", isDefault: true },
+                      {
+                        value: "fast",
+                        label: "Fast",
+                        description: "1.5x speed, increased usage",
+                      },
                     ],
                   },
                   {
@@ -142,8 +150,16 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
                     label: "Composer 2.5 Fast",
                     reasoningEfforts: [
                       { value: "low", label: "Low" },
-                      { value: "medium", label: "Medium" },
+                      { value: "medium", label: "Medium", isDefault: true },
                       { value: "high", label: "High" },
+                    ],
+                    serviceTiers: [
+                      { value: "normal", label: "Normal", isDefault: true },
+                      {
+                        value: "fast",
+                        label: "Fast",
+                        description: "1.5x speed, increased usage",
+                      },
                     ],
                   },
                 ],
@@ -245,7 +261,40 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
     ),
   )
 
-  it.effect("applies the selected model and reasoning effort before prompting", () =>
+  it.effect("normalizes Cursor fast and thinking options without inventing an On/Off effort", () =>
+    withProvider("model-traits", (provider) =>
+      provider.status.pipe(
+        Effect.tap((status) =>
+          Effect.sync(() => {
+            assert.deepStrictEqual(status.models, [
+              {
+                modelId: "composer-2.5",
+                label: "Composer 2.5",
+                reasoningEfforts: [],
+                serviceTiers: [
+                  { value: "standard", label: "Standard", isDefault: true },
+                  {
+                    value: "fast",
+                    label: "Fast",
+                    description: "1.5x speed, increased usage",
+                  },
+                ],
+              },
+              {
+                modelId: "claude-opus-5",
+                label: "Claude Opus 5",
+                reasoningEfforts: [],
+                serviceTiers: [],
+                thinking: { label: "Réflexion", defaultValue: true },
+              },
+            ])
+          }),
+        ),
+      ),
+    ),
+  )
+
+  it.effect("applies the selected model, reasoning effort, and service tier before prompting", () =>
     withProvider("success", (provider, evidence) =>
       Effect.gen(function* () {
         yield* capture(
@@ -253,6 +302,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
           input("full-access", null, {
             modelId: "composer-2.5-fast",
             reasoningEffort: "high",
+            serviceTier: "fast",
           }),
         )
 
@@ -269,13 +319,73 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
           (message) =>
             message.method === "session/set_config_option" && message.params.configId === "effort",
         )
+        const tierIndex = requests.findIndex(
+          (message) =>
+            message.method === "session/set_config_option" &&
+            message.params.configId === "service_tier",
+        )
         const promptIndex = requests.findIndex((message) => message.method === "session/prompt")
 
         assert.isAtLeast(modelIndex, 0)
         assert.isAbove(effortIndex, modelIndex)
-        assert.isAbove(promptIndex, effortIndex)
+        assert.isAbove(tierIndex, effortIndex)
+        assert.isAbove(promptIndex, tierIndex)
         assert.strictEqual(requests[modelIndex]?.params.value, "composer-2.5-fast")
         assert.strictEqual(requests[effortIndex]?.params.value, "high")
+        assert.strictEqual(requests[tierIndex]?.params.value, "fast")
+      }),
+    ),
+  )
+
+  it.effect("applies normalized fast selections as ACP booleans", () =>
+    withProvider("model-traits", (provider, evidence) =>
+      Effect.gen(function* () {
+        yield* capture(
+          provider,
+          input("full-access", null, {
+            modelId: "composer-2.5",
+            serviceTier: "fast",
+          }),
+        )
+
+        const requests = (yield* readLog(evidence.requestLog))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+          .filter((message) => message.method === "session/set_config_option")
+
+        const fastRequest = requests.find((message) => message.params.configId === "fast")
+        assert.deepInclude(fastRequest?.params, {
+          configId: "fast",
+          type: "boolean",
+          value: true,
+        })
+      }),
+    ),
+  )
+
+  it.effect("applies Cursor thinking selections with the advertised ACP value type", () =>
+    withProvider("model-traits", (provider, evidence) =>
+      Effect.gen(function* () {
+        yield* capture(
+          provider,
+          input("full-access", null, {
+            modelId: "claude-opus-5",
+            thinking: false,
+          }),
+        )
+
+        const requests = (yield* readLog(evidence.requestLog))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+          .filter((message) => message.method === "session/set_config_option")
+
+        const thinkingRequest = requests.find((message) => message.params.configId === "thinking")
+        assert.deepInclude(thinkingRequest?.params, {
+          configId: "thinking",
+          value: "false",
+        })
       }),
     ),
   )

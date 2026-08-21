@@ -57,7 +57,9 @@ _À éviter_ : permissionMode, AgentProfile
 
 **modelSelection**:
 Préférence durable du Thread pour le modèle Provider de ses prochains Turns. Elle peut inclure un
-`reasoningEffort` et reste distincte du modèle effectivement accepté par une Session.
+`reasoningEffort`, un `serviceTier` et une option `thinking`. Le dernier choix du Composer reste
+attaché au Thread pour ses prochains Turns et reste distinct du modèle effectivement accepté par
+une Session.
 _À éviter_ : modèle de Session, capacité Provider
 
 **Responsable**:

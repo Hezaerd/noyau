@@ -267,6 +267,7 @@ const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
     case "thread.restore":
     case "thread.meta.update":
     case "thread.runtime-mode.set":
+    case "thread.model-selection.set":
     case "thread.turn.start":
     case "thread.turn.interrupt":
     case "approval.respond":

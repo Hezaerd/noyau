@@ -25,6 +25,7 @@ import {
 import { ProjectCreated, ProjectDeleted } from "@noyau/protocol/project/events"
 import {
   ThreadCreated,
+  ThreadModelSelectionSet,
   ThreadSessionSet,
   ThreadTranscriptAppended,
   ThreadTurnStarted,
@@ -309,7 +310,11 @@ layer(platformLayer)("SQL projections", (it) => {
                   threadId: ids.recoveryThread,
                   turnId: recoveryTurnId,
                   text: "Keep this prompt",
-                  modelSelection: { modelId: "composer-2.5", reasoningEffort: "high" },
+                  modelSelection: {
+                    modelId: "composer-2.5",
+                    reasoningEffort: "high",
+                    serviceTier: "fast",
+                  },
                 }),
               ),
             )
@@ -398,6 +403,20 @@ layer(platformLayer)("SQL projections", (it) => {
                 }),
               ),
             )
+            yield* projectDomainEvent(
+              persisted(
+                10,
+                ThreadModelSelectionSet.make({
+                  threadId: ids.terminalThread,
+                  modelSelection: {
+                    modelId: "composer-2.5-fast",
+                    reasoningEffort: "high",
+                    serviceTier: "fast",
+                    thinking: false,
+                  },
+                }),
+              ),
+            )
           }).pipe(Effect.provideService(SqlClient, sql))
         }),
       )
@@ -429,12 +448,15 @@ layer(platformLayer)("SQL projections", (it) => {
       assert.deepStrictEqual(evidence.recovery.thread.modelSelection, {
         modelId: "composer-2.5",
         reasoningEffort: "high",
+        serviceTier: "fast",
       })
       assert.strictEqual(evidence.terminal.turns.at(-1)?.state, "completed")
       assert.strictEqual(evidence.terminal.thread.latestTurn?.state, "completed")
       assert.deepStrictEqual(evidence.terminal.thread.modelSelection, {
-        modelId: "composer-2.5",
-        reasoningEffort: "medium",
+        modelId: "composer-2.5-fast",
+        reasoningEffort: "high",
+        serviceTier: "fast",
+        thinking: false,
       })
       assert.strictEqual(evidence.terminal.transcript.length, 1)
       assert.strictEqual(evidence.shell.projects.length, 1)

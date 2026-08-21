@@ -9,6 +9,7 @@ export type FailureOperation =
   | "project.subscribe"
   | "shell.subscribe"
   | "thread.archive"
+  | "thread.model-selection.set"
   | "thread.rename"
   | "thread.subscribe"
   | "thread.ticket.link"

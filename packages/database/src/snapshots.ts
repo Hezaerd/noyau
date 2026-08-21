@@ -1,5 +1,6 @@
 import { BoardSnapshot, TICKET_ACTIVITY_LIMIT } from "@noyau/protocol/board"
 import { Environment } from "@noyau/protocol/entities/environment"
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { ResumeCursor } from "@noyau/protocol/entities/session"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
@@ -71,6 +72,8 @@ const ThreadRow = Schema.Struct({
   runtime_mode: Schema.String,
   model_id: Schema.NullOr(Schema.String),
   reasoning_effort: Schema.NullOr(Schema.String),
+  service_tier: Schema.NullOr(Schema.String),
+  thinking: Schema.NullOr(Schema.Int),
   status: Schema.String,
   created_at: Schema.String,
   updated_at: Schema.String,
@@ -390,8 +393,8 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
     Effect.gen(function* () {
       const threadRows = yield* sql<(typeof ThreadRow)["Encoded"]>`
         SELECT
-          thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort, status,
-          created_at, updated_at, archived_at
+          thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
+          service_tier, thinking, status, created_at, updated_at, archived_at
         FROM projection_threads
         WHERE thread_id = ${threadId}
       `
@@ -452,18 +455,24 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         latest === undefined
           ? null
           : encodedLatestTurn(yield* decodeTurnRow(latest).pipe(Effect.orDie))
+      const modelSelection: ModelSelection | null =
+        thread.model_id === null ? null : { modelId: thread.model_id }
+      if (modelSelection !== null && thread.reasoning_effort !== null) {
+        Object.assign(modelSelection, { reasoningEffort: thread.reasoning_effort })
+      }
+      if (modelSelection !== null && thread.service_tier !== null) {
+        Object.assign(modelSelection, { serviceTier: thread.service_tier })
+      }
+      if (modelSelection !== null && thread.thinking !== null) {
+        Object.assign(modelSelection, { thinking: thread.thinking === 1 })
+      }
       const encodedThread = {
         id: thread.thread_id,
         projectId: thread.project_id,
         title: thread.title,
         provider: thread.provider,
         runtimeMode: thread.runtime_mode,
-        modelSelection:
-          thread.model_id === null
-            ? null
-            : thread.reasoning_effort === null
-              ? { modelId: thread.model_id }
-              : { modelId: thread.model_id, reasoningEffort: thread.reasoning_effort },
+        modelSelection,
         status: thread.status,
         session,
         latestTurn,

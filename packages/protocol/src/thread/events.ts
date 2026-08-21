@@ -44,6 +44,12 @@ export const ThreadRuntimeModeSet = Schema.TaggedStruct("thread.runtime-mode-set
 })
 export type ThreadRuntimeModeSet = (typeof ThreadRuntimeModeSet)["Type"]
 
+export const ThreadModelSelectionSet = Schema.TaggedStruct("thread.model-selection-set", {
+  threadId: ThreadId,
+  modelSelection: Schema.NullOr(ModelSelection),
+})
+export type ThreadModelSelectionSet = (typeof ThreadModelSelectionSet)["Type"]
+
 export const ThreadTurnStarted = Schema.TaggedStruct("thread.turn.started", {
   threadId: ThreadId,
   turnId: TurnId,
@@ -110,6 +116,7 @@ export const ThreadEvent = Schema.Union([
   ThreadRestored,
   ThreadMetaUpdated,
   ThreadRuntimeModeSet,
+  ThreadModelSelectionSet,
   ThreadTurnStarted,
   ThreadTurnInterrupted,
   ApprovalResponded,

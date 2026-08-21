@@ -22,6 +22,7 @@ import {
   interruptTurn as interruptTurnAction,
   respondToApproval as respondToApprovalAction,
   respondToUserInput as respondToUserInputAction,
+  setThreadModelSelection as setThreadModelSelectionAction,
   submitTurn as submitTurnAction,
 } from "@/lib/thread-page-actions"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
@@ -54,8 +55,11 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       setSubscriptionStatus(undefined)
       return
     }
+    setSnapshot(undefined)
     setLoading(true)
     setSubscriptionStatus(undefined)
+    setRuntimeMode("full-access")
+    setModelSelection(null)
     return subscribeThread(threadId, undefined, {
       onSnapshot: (next) => {
         setSnapshot(next)
@@ -80,6 +84,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         }
         if (event._tag === "thread.runtime-mode-set") {
           setRuntimeMode(event.runtimeMode)
+        }
+        if (event._tag === "thread.model-selection-set") {
+          setModelSelection(event.modelSelection)
         }
       },
       onStatus: (status) => {
@@ -178,6 +185,29 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
           hasUsableData: true,
         },
       ),
+    )
+  }
+
+  const changeModelSelection = (nextSelection: ModelSelection | null) => {
+    setModelSelection(nextSelection)
+    setComposerFailure(undefined)
+    if (threadId === undefined) {
+      return
+    }
+    void setThreadModelSelectionAction({ threadId, modelSelection: nextSelection }).then(
+      (result) => {
+        if (!result.ok) {
+          setComposerFailure(
+            presentFailure(result.failure, {
+              operation: "thread.model-selection.set",
+              scope: "field",
+              initiatedByUser: true,
+              hasUsableData: snapshot !== undefined,
+            }),
+          )
+        }
+        return undefined
+      },
     )
   }
 
@@ -293,7 +323,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
 
       <ThreadComposer
         isRunning={isRunning}
-        disabled={project?.available !== true || !cursorReady}
+        disabled={loading || project?.available !== true || !cursorReady}
         text={text}
         runtimeMode={runtimeMode}
         models={cursor?.models ?? []}
@@ -309,7 +339,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
           setComposerFailure(undefined)
         }}
         onRuntimeModeChange={setRuntimeMode}
-        onModelSelectionChange={setModelSelection}
+        onModelSelectionChange={changeModelSelection}
         onPaste={rejectImages}
         onDrop={rejectImages}
         onInterrupt={() => interruptTurn()}
