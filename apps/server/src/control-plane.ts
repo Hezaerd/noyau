@@ -81,9 +81,11 @@ import {
   FileSystem,
   Layer,
   Option,
+  PubSub,
   Queue,
   Result,
   Schema,
+  type Scope,
   Stream,
 } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
@@ -374,11 +376,21 @@ type LiveInput =
   | { readonly kind: "synchronized" }
 
 const makeLiveBuffer = Effect.fn("ControlPlane.makeLiveBuffer")(function* (
-  events: Stream.Stream<PersistedEvent<DomainEventType>>,
+  subscribeEvents: Effect.Effect<
+    PubSub.Subscription<PersistedEvent<DomainEventType>>,
+    never,
+    Scope.Scope
+  >,
 ) {
+  // Register synchronously before reading the boundary/snapshot. Starting a
+  // Stream.fromPubSub fiber leaves a gap where a committed event can be missed.
+  const events = yield* subscribeEvents
   const buffer = yield* Queue.unbounded<LiveInput>()
   yield* Effect.forkScoped(
-    events.pipe(Stream.runForEach((event) => Queue.offer(buffer, { kind: "event", event }))),
+    PubSub.take(events).pipe(
+      Effect.flatMap((event) => Queue.offer(buffer, { kind: "event", event })),
+      Effect.forever,
+    ),
     { startImmediately: true },
   )
   return buffer
@@ -725,7 +737,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const subscribeProject: ControlPlaneService["subscribeProject"] = (input) =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const buffer = yield* makeLiveBuffer(worker.streamEvents)
+            const buffer = yield* makeLiveBuffer(worker.subscribeEvents)
             const head = yield* worker.latestSequence.pipe(
               Effect.mapError(unavailable("project-stream")),
             )
@@ -798,7 +810,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const subscribeThread: ControlPlaneService["subscribeThread"] = (input) =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const buffer = yield* makeLiveBuffer(worker.streamEvents)
+            const buffer = yield* makeLiveBuffer(worker.subscribeEvents)
             const head = yield* worker.latestSequence.pipe(
               Effect.mapError(unavailable("thread-stream")),
             )
@@ -869,7 +881,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const subscribeShell: ControlPlaneService["subscribeShell"] = (input) =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const buffer = yield* makeLiveBuffer(worker.streamEvents)
+            const buffer = yield* makeLiveBuffer(worker.subscribeEvents)
             const head = yield* worker.latestSequence.pipe(
               Effect.mapError(unavailable("shell-stream")),
             )
