@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "streamdown/styles.css";
 @import "katex/dist/katex.min.css";
+@import "blobatar/motion.css";
 @import "./styles/coss-color-tokens.css";
 
 /* CodeBlock reserve un header langue h-8 + une hint 200px : bande vide en haut. */
@@ -198,8 +199,19 @@
 .drag-region input,
 .drag-region textarea,
 .drag-region select,
-.drag-region a {
+.drag-region a,
+.drag-region svg,
+.drag-region img,
+.no-drag {
   -webkit-app-region: no-drag;
+}
+
+.brand-blobatar .mo-eyes {
+  animation-name: none;
+}
+
+.brand-blobatar .mo-eye > * {
+  animation-name: mo-blink;
 }
 
 .no-theme-transitions *,

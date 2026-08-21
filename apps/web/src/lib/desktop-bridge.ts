@@ -4,10 +4,18 @@ export const APPEARANCE_PREFERENCES = ["system", "light", "dark"] as const
 
 export type AppearancePreference = (typeof APPEARANCE_PREFERENCES)[number]
 
+export interface CursorClientPoint {
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
+}
+
 export interface NoyauDesktopBridge {
   readonly platform: string
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
   readonly pickFolder: () => Promise<string | undefined>
+  readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
 }
 
 interface WindowControlsOverlayLike {

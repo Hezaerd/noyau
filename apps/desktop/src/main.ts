@@ -11,10 +11,12 @@ import {
   nativeTheme,
   net,
   protocol,
+  screen,
   session,
   shell,
 } from "electron"
 
+import { cursorPointInContent, GET_CURSOR_POINT_CHANNEL } from "./cursor-point"
 import { PICK_FOLDER_CHANNEL } from "./folder-picker"
 import { isRendererPermissionAllowed } from "./permissions"
 import {
@@ -150,6 +152,16 @@ const registerFolderPickerBridge = (): void => {
       ).pipe(Effect.map((result) => (result.canceled ? undefined : result.filePaths[0]))),
     ),
   )
+}
+
+const registerCursorPointBridge = (): void => {
+  ipcMain.handle(GET_CURSOR_POINT_CHANNEL, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window === null || window.isDestroyed() || !window.isFocused()) {
+      return undefined
+    }
+    return cursorPointInContent(screen.getCursorScreenPoint(), window.getContentBounds())
+  })
 }
 
 const withSecurityHeaders = (response: Response): Response => {
@@ -359,6 +371,7 @@ const launch = Effect.fn("launch")(function* () {
   registerRendererProtocol()
   registerThemeBridge()
   registerFolderPickerBridge()
+  registerCursorPointBridge()
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
     isRendererPermissionAllowed(permission),
   )
