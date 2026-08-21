@@ -160,8 +160,8 @@
 }
 
 .electron-macos {
-  /* Electron's hiddenInset traffic-light group occupies the left 160px. */
-  --desktop-controls-left: 168px;
+  /* hiddenInset traffic lights at x=16 plus the 12×3 / 8×2 group. */
+  --desktop-controls-left: 90px;
 }
 
 .wco {
@@ -173,20 +173,6 @@
 
 .electron-windows {
   --desktop-window-right-resize-inset: 6px;
-}
-
-[data-desktop-sidebar-titlebar] {
-  padding-left: var(--desktop-titlebar-content-left);
-}
-
-[data-sidebar-state="collapsed"] [data-desktop-page-titlebar] {
-  padding-left: var(--desktop-titlebar-content-left);
-}
-
-@media (width < 48rem) {
-  [data-desktop-page-titlebar] {
-    padding-left: var(--desktop-titlebar-content-left);
-  }
 }
 
 .wco [data-desktop-page-titlebar] {
