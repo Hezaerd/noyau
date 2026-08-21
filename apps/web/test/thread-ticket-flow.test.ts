@@ -4,6 +4,7 @@ import { KanbanColumnId, ProjectId, ThreadId, TurnId, type TicketId } from "@noy
 import { Crypto, Effect, Schema } from "effect"
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { invalidInputFailure } from "../src/lib/app-failure"
 import {
   createTicketFromThreadEffect,
   type ThreadTicketDraftSource,
@@ -137,7 +138,7 @@ describe("Thread to Ticket flow", () => {
           buildCommand: () =>
             Promise.resolve({
               ok: false,
-              details: "Ticket refusé",
+              failure: invalidInputFailure("Ticket refusé"),
             }),
           dispatch: (request) => {
             dispatched.push(request)
@@ -148,7 +149,7 @@ describe("Thread to Ticket flow", () => {
         })
 
         expect(dispatched).toEqual([])
-        expect(onError).toHaveBeenCalledWith("Ticket refusé")
+        expect(onError).toHaveBeenCalledWith(invalidInputFailure("Ticket refusé"))
         expect(onTicketCreated).not.toHaveBeenCalled()
       }),
     ))

@@ -2,10 +2,12 @@ import { Sequence } from "@noyau/protocol/ids"
 import { Effect } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
+import { invalidInputFailure, type AppFailure } from "../src/lib/app-failure"
 import {
   acceptsSequence,
   makeSequencedFrameConsumer,
   superviseSubscription,
+  type SubscriptionStatus,
 } from "../src/lib/control-plane"
 
 describe("control plane stream cursor", () => {
@@ -29,7 +31,7 @@ describe("control plane stream cursor", () => {
     >(undefined, {
       onSnapshot: (snapshot) => accepted.push(`snapshot:${snapshot.label}`),
       onEvent: (event) => accepted.push(`event:${event.label}`),
-      onError: () => undefined,
+      onStatus: () => undefined,
     })
 
     consumer.consume({ kind: "event", event: { sequence: Sequence.make(9), label: "early" } })
@@ -53,7 +55,7 @@ describe("control plane stream cursor", () => {
         interface Attempt {
           readonly session: Session
           readonly afterSequence: Sequence | undefined
-          readonly fail: (details: string) => void
+          readonly fail: (failure: AppFailure) => void
         }
 
         let session: Session = { id: 1 }
@@ -61,9 +63,9 @@ describe("control plane stream cursor", () => {
         const attempts: Array<Attempt> = []
         const replaced: Array<number> = []
         const reconnects: Array<() => void> = []
-        const errors: Array<string> = []
+        const statuses: Array<SubscriptionStatus> = []
 
-        const stop = superviseSubscription({
+        const stop = superviseSubscription<Session>({
           afterSequence: () => cursor,
           currentSession: () => session,
           startAttempt: (attemptSession, afterSequence, fail) => {
@@ -77,7 +79,7 @@ describe("control plane stream cursor", () => {
             }
             return Promise.resolve()
           },
-          onError: (details) => errors.push(details),
+          onStatus: (status) => statuses.push(status),
           schedule: (reconnect) => {
             reconnects.push(reconnect)
             return () => undefined
@@ -85,11 +87,17 @@ describe("control plane stream cursor", () => {
         })
 
         cursor = Sequence.make(42)
-        attempts[0]?.fail("socket closed")
+        attempts[0]?.fail(invalidInputFailure("socket closed"))
         yield* Effect.promise(() => Promise.resolve())
 
         expect(replaced).toEqual([1])
-        expect(errors).toEqual(["socket closed"])
+        expect(statuses).toEqual([
+          {
+            _tag: "Reconnecting",
+            attempt: 1,
+            failure: invalidInputFailure("socket closed"),
+          },
+        ])
         expect(reconnects).toHaveLength(1)
         reconnects[0]?.()
         expect(attempts[1]).toMatchObject({
@@ -98,8 +106,8 @@ describe("control plane stream cursor", () => {
         })
 
         stop()
-        attempts[1]?.fail("ignored after stop")
-        expect(errors).toEqual(["socket closed"])
+        attempts[1]?.fail(invalidInputFailure("ignored after stop"))
+        expect(statuses).toHaveLength(1)
       }),
     ))
 })

@@ -1,6 +1,7 @@
 import type { ProjectId } from "@noyau/protocol/ids"
 import { useState } from "react"
 
+import { InlineFailure } from "@/components/failure/FailureSurfaces"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -13,6 +14,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useControlPlane } from "@/hooks/use-control-plane"
+import { invalidInputFailure } from "@/lib/app-failure"
+import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { pickProjectFolder, submitProjectFolder } from "@/lib/project-folder"
 
 interface ProjectFolderDialogProps {
@@ -38,7 +41,7 @@ export function ProjectFolderDialog({
   const project = projects.find((candidate) => candidate.id === projectId)
   const [workspaceRoot, setWorkspaceRoot] = useState("")
   const [name, setName] = useState("")
-  const [error, setError] = useState<string>()
+  const [failure, setFailure] = useState<FailurePresentation>()
   const [submitting, setSubmitting] = useState(false)
 
   const chooseFolder = () => {
@@ -47,6 +50,7 @@ export function ProjectFolderDialog({
         return undefined
       }
       setWorkspaceRoot(path)
+      setFailure(undefined)
       if (name.trim() === "") {
         setName(folderName(path))
       }
@@ -58,19 +62,33 @@ export function ProjectFolderDialog({
     const path = workspaceRoot.trim()
     const projectName = (name.trim() || folderName(path)).trim()
     if (path === "" || projectName === "") {
-      setError("Choisis un dossier existant et donne-lui un nom.")
+      setFailure(
+        presentFailure(invalidInputFailure("Choisis un dossier existant et donne-lui un nom."), {
+          operation: "project.folder.submit",
+          scope: "field",
+          initiatedByUser: true,
+          hasUsableData: true,
+        }),
+      )
       return
     }
     setSubmitting(true)
     void submitProjectFolder({ projectId, workspaceRoot: path, projectName }).then((result) => {
       setSubmitting(false)
       if (!result.ok) {
-        setError(result.details)
+        setFailure(
+          presentFailure(result.failure, {
+            operation: "project.folder.submit",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
         return undefined
       }
       setWorkspaceRoot("")
       setName("")
-      setError(undefined)
+      setFailure(undefined)
       onOpenChange(false)
       if (result.value !== undefined) {
         onProjectCreated?.(result.value)
@@ -84,7 +102,7 @@ export function ProjectFolderDialog({
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
-          setError(undefined)
+          setFailure(undefined)
         }
         onOpenChange(nextOpen)
       }}
@@ -104,8 +122,13 @@ export function ProjectFolderDialog({
               <Label htmlFor="project-name">Nom du Project</Label>
               <Input
                 id="project-name"
+                aria-describedby={failure === undefined ? undefined : "project-folder-error"}
+                aria-invalid={failure === undefined ? undefined : true}
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  setName(event.target.value)
+                  setFailure(undefined)
+                }}
                 placeholder="Mon Project"
               />
             </div>
@@ -115,8 +138,13 @@ export function ProjectFolderDialog({
             <div className="flex gap-2">
               <Input
                 id="workspace-root"
+                aria-describedby={failure === undefined ? undefined : "project-folder-error"}
+                aria-invalid={failure === undefined ? undefined : true}
                 value={workspaceRoot}
-                onChange={(event) => setWorkspaceRoot(event.target.value)}
+                onChange={(event) => {
+                  setWorkspaceRoot(event.target.value)
+                  setFailure(undefined)
+                }}
                 placeholder="/Users/moi/Projet"
               />
               <Button type="button" variant="outline" onClick={() => chooseFolder()}>
@@ -124,10 +152,8 @@ export function ProjectFolderDialog({
               </Button>
             </div>
           </div>
-          {error === undefined ? null : (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
+          {failure === undefined ? null : (
+            <InlineFailure id="project-folder-error" presentation={failure} />
           )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

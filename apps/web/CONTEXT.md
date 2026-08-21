@@ -33,6 +33,26 @@ _À éviter_ : Channel, Message, forum, Workbench
 Diagnostic visible d'une Session en `error`. Remplace tout badge `lost`.
 _À éviter_ : lost, failed, requested
 
+**Échec**:
+Résultat attendu d'une opération qui n'a pas abouti et dont l'humain peut comprendre la cause ou
+la correction.
+_À éviter_ : exception, crash, erreur globale
+
+**Indisponibilité**:
+État temporaire ou durable dans lequel une capacité nécessaire ne peut plus être utilisée. Elle
+reste visible tant que la capacité n'est pas rétablie.
+_À éviter_ : échec ponctuel, notification
+
+**Défaut**:
+Comportement inattendu qui ne fait pas partie des rejets prévus du domaine. Il est identifié pour
+le diagnostic sans exposer ses détails techniques dans l'interface.
+_À éviter_ : rejet, validation
+
+**Présentation d'échec**:
+Expression locale d'un Échec selon son contexte et sa récupérabilité : inline, toast, bannière,
+état de page ou silencieuse.
+_À éviter_ : erreur serveur, message brut
+
 **runtimeMode**:
 Politique d'outils t3code du Thread (quatre valeurs). Portée par le Thread et envoyée à la
 création / au tour ; plus exposée dans l'en-tête Thread.

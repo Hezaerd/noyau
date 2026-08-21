@@ -15,6 +15,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
+import { presentFailure } from "@/lib/failure-presentation"
+import { showFailureToast } from "@/lib/failure-toast"
 import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 
 export function ThreadSidebarItem({
@@ -59,13 +61,37 @@ export function ThreadSidebarItem({
     }
     void buildAndDispatchCommand(
       makeThreadMetaUpdateRequest({ threadId: thread.id, title: nextTitle }),
-    )
+    ).then((result) => {
+      if (!result.ok) {
+        setTitle(thread.title)
+        showFailureToast(
+          presentFailure(result.failure, {
+            operation: "thread.rename",
+            scope: "project",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
+      }
+      return undefined
+    })
   }
 
   const archiveThread = () => {
     void buildAndDispatchCommand(makeThreadArchiveRequest({ threadId: thread.id })).then(
       (result) => {
-        if (!result.ok || !isActive) {
+        if (!result.ok) {
+          showFailureToast(
+            presentFailure(result.failure, {
+              operation: "thread.archive",
+              scope: "project",
+              initiatedByUser: true,
+              hasUsableData: true,
+            }),
+          )
+          return undefined
+        }
+        if (!isActive) {
           return undefined
         }
         return navigate({

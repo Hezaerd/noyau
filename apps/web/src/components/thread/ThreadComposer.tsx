@@ -1,7 +1,7 @@
 import type { CursorModel } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent } from "react"
+import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group"
@@ -45,7 +45,7 @@ export function ThreadComposer({
   readonly runtimeMode: RuntimeMode
   readonly models: ReadonlyArray<CursorModel>
   readonly modelSelection: ModelSelection | null
-  readonly error: string | undefined
+  readonly error: ReactNode
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
   readonly onTextChange: (value: string) => void
   readonly onRuntimeModeChange: (runtimeMode: RuntimeMode) => void
@@ -211,11 +211,7 @@ export function ThreadComposer({
             </div>
           </InputGroupAddon>
         </InputGroup>
-        {error === undefined ? null : (
-          <p className="text-xs text-muted-foreground" role="alert">
-            {error}
-          </p>
-        )}
+        {error === undefined ? null : <div id="thread-composer-error">{error}</div>}
       </div>
     </form>
   )

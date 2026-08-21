@@ -25,6 +25,8 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
+import { presentFailure } from "@/lib/failure-presentation"
+import { showFailureToast } from "@/lib/failure-toast"
 import { makeProjectDeleteRequest } from "@/lib/project-commands"
 import { destinationAfterProjectRemoval, isViewingProject } from "@/lib/project-navigation"
 import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
@@ -84,7 +86,18 @@ export function AppSidebar() {
     const removedProjectId = deleteProjectId
     void buildAndDispatchCommand(makeProjectDeleteRequest({ projectId: removedProjectId })).then(
       (result) => {
-        if (!result.ok || !isViewingProject(pathname, removedProjectId)) {
+        if (!result.ok) {
+          showFailureToast(
+            presentFailure(result.failure, {
+              operation: "project.delete",
+              scope: "project",
+              initiatedByUser: true,
+              hasUsableData: true,
+            }),
+          )
+          return undefined
+        }
+        if (!isViewingProject(pathname, removedProjectId)) {
           return undefined
         }
         const destination = destinationAfterProjectRemoval(

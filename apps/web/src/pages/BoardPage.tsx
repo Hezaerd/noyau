@@ -54,6 +54,7 @@ import {
 import { type AppPaletteAction, useAppPaletteActions } from "@/components/app-palette-context"
 import { TicketArchiveConfirmDialog } from "@/components/board/TicketArchiveConfirmDialog"
 import { TicketDialog } from "@/components/board/TicketDialog"
+import { ResourceErrorState, ScopeBanner } from "@/components/failure/FailureSurfaces"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -77,6 +78,7 @@ import {
 } from "@/components/ui/menu"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useControlPlane } from "@/hooks/use-control-plane"
+import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useKeybindings } from "@/hooks/use-keybindings"
 import {
   createBoardActions,
@@ -105,7 +107,9 @@ import {
 } from "@/lib/board-model"
 import { refreshBoard as fetchBoardSnapshot, runBoardCommand } from "@/lib/board-page-actions"
 import { boardStateFromSnapshot } from "@/lib/board-snapshot"
-import { subscribeProject } from "@/lib/control-plane"
+import { subscribeProject, type SubscriptionStatus } from "@/lib/control-plane"
+import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
+import { showFailureToast } from "@/lib/failure-toast"
 import { isKeybindingRecorderActive } from "@/lib/keybindings"
 import {
   makeKanbanColumnCreateRequest,
@@ -653,7 +657,8 @@ export function BoardPage({
     ticketDependencies: [],
     ticketThreads: [],
   })
-  const [controlPlaneError, setControlPlaneError] = useState<string>()
+  const [boardFailure, setBoardFailure] = useState<FailurePresentation>()
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const [loading, setLoading] = useState(true)
   const [ticketActivityError, setTicketActivityError] = useState<string>()
   const [ticketActivityByTicket, setTicketActivityByTicket] = useState<
@@ -673,6 +678,8 @@ export function BoardPage({
   const boardRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const dragStartStateRef = useRef<BoardState | undefined>(undefined)
+  const hasBoardDataRef = useRef(false)
+  const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const filters: BoardFilters = {
     query: search.q ?? "",
     ...(search.priority !== undefined && { priority: search.priority }),
@@ -699,22 +706,33 @@ export function BoardPage({
       .map((priority) => ({ value: priority, label: priorityLabels[priority] })),
   ]
 
-  const applyBoardSnapshot = (snapshot: Awaited<ReturnType<typeof fetchBoardSnapshot>>) => {
-    if (!snapshot.ok) {
-      setControlPlaneError(snapshot.details)
+  const applyBoardSnapshot = useCallback(
+    (snapshot: Awaited<ReturnType<typeof fetchBoardSnapshot>>) => {
+      if (!snapshot.ok) {
+        setBoardFailure(
+          presentFailure(snapshot.failure, {
+            operation: "project.subscribe",
+            scope: "resource",
+            initiatedByUser: false,
+            hasUsableData: hasBoardDataRef.current,
+          }),
+        )
+        setLoading(false)
+        return undefined
+      }
+      hasBoardDataRef.current = snapshot.value.columns.length > 0
+      setState(boardStateFromSnapshot(snapshot.value))
+      setTicketActivityByTicket(snapshot.value.ticketActivity)
+      setBoardFailure(undefined)
       setLoading(false)
       return undefined
-    }
-    setState(boardStateFromSnapshot(snapshot.value))
-    setTicketActivityByTicket(snapshot.value.ticketActivity)
-    setControlPlaneError(undefined)
-    setLoading(false)
-    return undefined
-  }
+    },
+    [],
+  )
 
   const refreshBoard = useCallback(() => {
     void fetchBoardSnapshot(projectId).then(applyBoardSnapshot)
-  }, [projectId])
+  }, [applyBoardSnapshot, projectId])
 
   useEffect(() => {
     if (selectedTicketId === undefined) {
@@ -725,18 +743,24 @@ export function BoardPage({
   }, [selectedTicketId])
 
   useEffect(() => {
+    setLoading(true)
+    setSubscriptionStatus(undefined)
     setTicketActivityByTicket([])
     return subscribeProject(projectId, undefined, {
       onSnapshot: (snapshot) => {
+        hasBoardDataRef.current = snapshot.columns.length > 0
         setState(boardStateFromSnapshot(snapshot))
         setTicketActivityByTicket(snapshot.ticketActivity)
         setLoading(false)
-        setControlPlaneError(undefined)
+        setBoardFailure(undefined)
       },
       onEvent: (_event) => {
         refreshBoard()
       },
-      onError: setControlPlaneError,
+      onStatus: (status) => {
+        setSubscriptionStatus(status)
+        if (status._tag === "Reconnecting") setLoading(false)
+      },
     })
   }, [projectId, refreshBoard])
 
@@ -755,10 +779,16 @@ export function BoardPage({
   ) => {
     void runBoardCommand(projectId, request).then(({ result, snapshot }) => {
       if (!result.ok) {
-        setControlPlaneError(result.details)
+        const presentation = presentFailure(result.failure, {
+          operation: "ticket.command",
+          scope: "project",
+          initiatedByUser: true,
+          hasUsableData: true,
+        })
+        if (presentation.surface === "toast") showFailureToast(presentation)
+        else setBoardFailure(presentation)
         setAnnouncement("La commande n’a pas pu être envoyée au control plane.")
       } else {
-        setControlPlaneError(undefined)
         setAnnouncement(successMessage)
       }
       applyBoardSnapshot(snapshot)
@@ -1129,12 +1159,30 @@ export function BoardPage({
     },
     keybindings,
   )
+  const streamPresentation =
+    subscriptionFailure === undefined
+      ? undefined
+      : presentFailure(subscriptionFailure, {
+          operation: "project.subscribe",
+          scope: "project",
+          initiatedByUser: false,
+          hasUsableData: state.columns.length > 0,
+        })
+  const persistentFailure = streamPresentation ?? boardFailure
+
+  if (
+    !loading &&
+    state.columns.length === 0 &&
+    persistentFailure !== undefined &&
+    persistentFailure.surface === "page"
+  ) {
+    return <ResourceErrorState presentation={persistentFailure} onRecovery={refreshBoard} />
+  }
+
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {controlPlaneError === undefined ? null : (
-        <div className="border-b border-rose-500/25 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
-          Control plane indisponible : {controlPlaneError}
-        </div>
+      {persistentFailure === undefined || persistentFailure.surface === "toast" ? null : (
+        <ScopeBanner presentation={persistentFailure} onRecovery={refreshBoard} />
       )}
       <header className="border-b border-border/65 bg-background/80 px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
