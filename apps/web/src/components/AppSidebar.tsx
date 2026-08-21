@@ -1,10 +1,12 @@
 import type { ProjectId } from "@noyau/protocol/ids"
-import { Link, useRouterState } from "@tanstack/react-router"
-import { PlusIcon, SearchIcon, SettingsIcon } from "lucide-react"
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
+import { SearchIcon, SettingsIcon } from "lucide-react"
 import { useState } from "react"
 
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
+import { ProjectDeleteConfirmDialog } from "@/components/sidebar/ProjectDeleteConfirmDialog"
 import { ProjectSidebarItem } from "@/components/sidebar/ProjectSidebarItem"
+import { ProjectSwitcher } from "@/components/sidebar/ProjectSwitcher"
 import { sidebarSearchChromeClassName } from "@/components/sidebar/sidebar-search-chrome"
 import { SidebarBrandTitlebar } from "@/components/sidebar/SidebarBrandTitlebar"
 import { Button } from "@/components/ui/button"
@@ -15,7 +17,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   useSidebar,
@@ -23,20 +24,64 @@ import {
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
+import { buildAndDispatchCommand } from "@/lib/control-plane"
+import { makeProjectDeleteRequest } from "@/lib/project-commands"
+import { destinationAfterProjectRemoval, isViewingProject } from "@/lib/project-navigation"
 import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
 
 export function AppSidebar() {
+  const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { isMobile, setOpenMobile } = useSidebar()
   const paletteHotkey = useKeybinding("palette.open")
   const settingsHotkey = useKeybinding("settings.open")
-  const { projects, threads, selectProject } = useControlPlane()
+  const { projects, threads, lastProjectId, selectProject } = useControlPlane()
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [rebindProjectId, setRebindProjectId] = useState<ProjectId>()
+  const [deleteProjectId, setDeleteProjectId] = useState<ProjectId>()
+  const selectedProject = projects.find((project) => project.id === lastProjectId) ?? projects[0]
+  const selectedProjectThreads = selectedProject
+    ? threads.filter((thread) => thread.projectId === selectedProject.id)
+    : []
   const closeMobileNavigation = () => {
     if (isMobile) {
       setOpenMobile(false)
     }
+  }
+  const openAddProjectDialog = () => {
+    setRebindProjectId(undefined)
+    setFolderDialogOpen(true)
+  }
+  const switchProject = (projectId: ProjectId) => {
+    selectProject(projectId)
+    closeMobileNavigation()
+    void navigate({
+      to: "/projects/$projectId/board",
+      params: { projectId },
+    })
+  }
+  const deleteProject = () => {
+    if (deleteProjectId === undefined) {
+      return
+    }
+    const removedProjectId = deleteProjectId
+    void buildAndDispatchCommand(makeProjectDeleteRequest({ projectId: removedProjectId })).then(
+      (result) => {
+        if (!result.ok || !isViewingProject(pathname, removedProjectId)) {
+          return undefined
+        }
+        const destination = destinationAfterProjectRemoval(
+          projects.filter((project) => project.id !== removedProjectId),
+        )
+        return destination.to === "/"
+          ? navigate({ to: "/", replace: true })
+          : navigate({
+              to: destination.to,
+              params: { projectId: destination.projectId },
+              replace: true,
+            })
+      },
+    )
   }
 
   return (
@@ -62,44 +107,41 @@ export function AppSidebar() {
             />
           </CommandDialogTrigger>
         </div>
+        <ProjectSwitcher
+          projects={projects}
+          selectedProject={selectedProject}
+          onSelect={switchProject}
+          onAdd={openAddProjectDialog}
+          onRebind={() => {
+            if (selectedProject !== undefined) {
+              setFolderDialogOpen(false)
+              setRebindProjectId(selectedProject.id)
+            }
+          }}
+          onRemove={() => {
+            if (selectedProject !== undefined) {
+              setDeleteProjectId(selectedProject.id)
+            }
+          }}
+        />
       </SidebarHeader>
 
       <SidebarContent className="px-1">
         <SidebarGroup className="pt-1">
-          <SidebarGroupLabel className="flex items-center justify-between">
-            <span>Projects</span>
-            <button
-              type="button"
-              className="rounded p-1 text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              aria-label="Relier un dossier"
-              title="Relier un dossier"
-              onClick={() => {
-                setRebindProjectId(undefined)
-                setFolderDialogOpen(true)
-              }}
-            >
-              <PlusIcon />
-            </button>
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {projects.map((project) => (
+              {selectedProject === undefined ? null : (
                 <ProjectSidebarItem
-                  key={project.id}
-                  project={project}
-                  threads={threads.filter((thread) => thread.projectId === project.id)}
-                  remainingProjects={projects.filter((candidate) => candidate.id !== project.id)}
+                  key={selectedProject.id}
+                  project={selectedProject}
+                  threads={selectedProjectThreads}
                   pathname={pathname}
                   onSelect={() => {
-                    selectProject(project.id)
+                    selectProject(selectedProject.id)
                     closeMobileNavigation()
                   }}
-                  onRebind={() => {
-                    setFolderDialogOpen(false)
-                    setRebindProjectId(project.id)
-                  }}
                 />
-              ))}
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -143,6 +185,21 @@ export function AppSidebar() {
           }
         }}
       />
+      {deleteProjectId === undefined ? null : (
+        <ProjectDeleteConfirmDialog
+          open
+          projectName={
+            projects.find((project) => project.id === deleteProjectId)?.name ?? "ce Project"
+          }
+          threadCount={threads.filter((thread) => thread.projectId === deleteProjectId).length}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteProjectId(undefined)
+            }
+          }}
+          onConfirm={deleteProject}
+        />
+      )}
     </>
   )
 }
