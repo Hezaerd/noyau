@@ -60,7 +60,7 @@ export function SettingsSection({
   className,
   ...sectionProps
 }: ComponentPropsWithoutRef<"section"> & {
-  readonly title: string
+  readonly title?: string
   readonly children: ReactNode
 }): ReactElement {
   const targetRef = useSettingsSearchTarget(sectionProps.id)
@@ -72,11 +72,32 @@ export function SettingsSection({
       tabIndex={sectionProps.id === undefined ? sectionProps.tabIndex : -1}
       className={cn("flex flex-col gap-3", className)}
     >
-      <h2 className="px-3 text-lg font-semibold tracking-[-0.025em] text-foreground sm:px-4">
-        {title}
-      </h2>
+      {title === undefined ? null : (
+        <h2 className="px-3 text-lg font-semibold tracking-[-0.025em] text-foreground sm:px-4">
+          {title}
+        </h2>
+      )}
       <div className="flex flex-col">{children}</div>
     </section>
+  )
+}
+
+export function SettingsTarget({
+  className,
+  children,
+  ...targetProps
+}: ComponentPropsWithoutRef<"div">): ReactElement {
+  const targetRef = useSettingsSearchTarget(targetProps.id)
+
+  return (
+    <div
+      {...targetProps}
+      ref={targetRef}
+      tabIndex={targetProps.id === undefined ? targetProps.tabIndex : -1}
+      className={className}
+    >
+      {children}
+    </div>
   )
 }
 

@@ -63,7 +63,13 @@ const occurredAt = (iso: string) => Schema.decodeSync(Schema.DateTimeUtcFromStri
 const encodeBoardSnapshot = Schema.encodeEffect(BoardSnapshot)
 const environment = Schema.decodeSync(Environment)({
   id: "90000000-0000-4000-8000-000000000001",
-  cursor: { installed: true, handshakeOk: true },
+  cursor: {
+    installed: true,
+    handshakeOk: true,
+    version: null,
+    plan: null,
+    binaryPath: null,
+  },
   createdAt: "2026-08-20T00:00:00.000Z",
 })
 

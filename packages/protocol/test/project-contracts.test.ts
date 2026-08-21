@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import {
+  CursorProviderStatus,
+  emptyCursorProviderStatus,
+  WorkspaceRoot,
+} from "@noyau/protocol/entities/environment"
 import { ProjectCommand, ProjectCreateRequest } from "@noyau/protocol/project/commands"
 import { Schema } from "effect"
 
@@ -68,5 +72,37 @@ describe("project.create enrichment", () => {
       doneColumnId: ids.done,
     })
     expect(ProjectCreateRequest.fields).not.toHaveProperty("initialBoard")
+  })
+})
+
+describe("CursorProviderStatus", () => {
+  it("décode version, plan et binaryPath, et ignore un email", () => {
+    const decoded = Schema.decodeUnknownSync(CursorProviderStatus)({
+      installed: true,
+      handshakeOk: true,
+      version: "2026.04.09-f2b0fcd",
+      plan: "Team",
+      binaryPath: "/usr/local/bin/cursor-agent",
+      userEmail: "secret@example.com",
+    })
+
+    expect(decoded).toEqual({
+      installed: true,
+      handshakeOk: true,
+      version: "2026.04.09-f2b0fcd",
+      plan: "Team",
+      binaryPath: "/usr/local/bin/cursor-agent",
+    })
+    expect(decoded).not.toHaveProperty("userEmail")
+  })
+
+  it("fournit un statut inactif sans CLI", () => {
+    expect(emptyCursorProviderStatus).toEqual({
+      installed: false,
+      handshakeOk: false,
+      version: null,
+      plan: null,
+      binaryPath: null,
+    })
   })
 })

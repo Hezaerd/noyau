@@ -23,6 +23,7 @@ describe("settings catalog", () => {
   it("recognizes Paramètres routes without matching neighboring paths", () => {
     expect(isSettingsPath("/settings")).toBe(true)
     expect(isSettingsPath("/settings/appearance")).toBe(true)
+    expect(isSettingsPath("/settings/providers")).toBe(true)
     expect(isSettingsPath("/settings/keybindings")).toBe(true)
     expect(isSettingsPath("/")).toBe(false)
     expect(isSettingsPath("/settings-room")).toBe(false)
@@ -30,6 +31,7 @@ describe("settings catalog", () => {
 
   it("falls back to the default tab for an unknown segment", () => {
     expect(parseSettingsTabId("appearance")).toBe("appearance")
+    expect(parseSettingsTabId("providers")).toBe("providers")
     expect(parseSettingsTabId("keybindings")).toBe("keybindings")
     expect(parseSettingsTabId("unknown")).toBe(DEFAULT_SETTINGS_TAB)
   })
@@ -37,6 +39,7 @@ describe("settings catalog", () => {
   it("resolves the tab from a Paramètres pathname", () => {
     expect(resolveSettingsTabFromPathname("/settings").id).toBe(DEFAULT_SETTINGS_TAB)
     expect(resolveSettingsTabFromPathname("/settings/appearance").id).toBe("appearance")
+    expect(resolveSettingsTabFromPathname("/settings/providers").id).toBe("providers")
     expect(resolveSettingsTabFromPathname("/settings/keybindings").id).toBe("keybindings")
     expect(resolveSettingsTabFromPathname("/settings/unknown").id).toBe(DEFAULT_SETTINGS_TAB)
   })
@@ -45,7 +48,11 @@ describe("settings catalog", () => {
     expect(searchSettings("theme").map((hit) => hit.id)).toEqual(["appearance"])
     expect(searchSettings("sombre").map((hit) => hit.tab.id)).toEqual(["appearance"])
     expect(searchSettings("")).toEqual([])
-    expect(searchSettings("cursor")).toEqual([])
+    expect(searchSettings("cursor").map((hit) => hit.id)).toEqual(["providers", "provider-cursor"])
+    expect(searchSettings("claude").map((hit) => hit.id)).toEqual([
+      "providers",
+      "provider-claude-code",
+    ])
     expect(searchSettings("palette").map((hit) => hit.tab.id)).toEqual(["keybindings"])
   })
 })
