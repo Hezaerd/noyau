@@ -1,3 +1,4 @@
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode as RuntimeModeType } from "@noyau/protocol/entities/runtime-mode"
 import {
   CommandId,
@@ -29,6 +30,7 @@ type ThreadCreatePayload = {
   readonly projectId: ProjectId
   readonly title: string
   readonly runtimeMode?: RuntimeModeType
+  readonly modelSelection?: ModelSelection
 }
 
 type ThreadTurnStartPayload = {
@@ -36,6 +38,7 @@ type ThreadTurnStartPayload = {
   readonly text: string
   readonly titleSeed?: string
   readonly runtimeMode?: RuntimeModeType
+  readonly modelSelection?: ModelSelection | null
 }
 
 type ThreadTurnInterruptPayload = {
@@ -52,6 +55,7 @@ export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
   readonly projectId: ProjectId
   readonly title: string
   readonly runtimeMode?: RuntimeModeType
+  readonly modelSelection?: ModelSelection | null
 }) {
   let payload: ThreadCreatePayload = {
     threadId: input.threadId,
@@ -60,6 +64,9 @@ export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
   }
   if (input.runtimeMode !== undefined) {
     payload = Object.assign(payload, { runtimeMode: input.runtimeMode })
+  }
+  if (input.modelSelection !== undefined && input.modelSelection !== null) {
+    payload = Object.assign(payload, { modelSelection: input.modelSelection })
   }
   return ThreadCreateRequest.make({
     commandId: CommandId.make(yield* uuid()),
@@ -72,6 +79,7 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   readonly text: string
   readonly titleSeed?: string
   readonly runtimeMode?: RuntimeModeType
+  readonly modelSelection?: ModelSelection | null
 }) {
   let payload: ThreadTurnStartPayload = {
     threadId: input.threadId,
@@ -82,6 +90,9 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   }
   if (input.runtimeMode !== undefined) {
     payload = Object.assign(payload, { runtimeMode: input.runtimeMode })
+  }
+  if (input.modelSelection !== undefined) {
+    payload = Object.assign(payload, { modelSelection: input.modelSelection })
   }
   return ThreadTurnStartRequest.make({
     commandId: CommandId.make(yield* uuid()),

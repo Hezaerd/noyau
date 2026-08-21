@@ -1,16 +1,8 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import { TicketId, type ProjectId, type ThreadId } from "@noyau/protocol/ids"
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type DragEvent,
-  type ClipboardEvent,
-  type FormEvent,
-} from "react"
+import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import { useEffect, useState, type DragEvent, type ClipboardEvent, type FormEvent } from "react"
 
 import {
   InlineFailure,
@@ -19,24 +11,18 @@ import {
 } from "@/components/failure/FailureSurfaces"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
-import {
-  ThreadTicketLinkEditor,
-  type ThreadTicketLink,
-} from "@/components/thread/ThreadTicketLinks"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { invalidInputFailure } from "@/lib/app-failure"
-import { loadBoardSnapshot, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
+import { subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import {
   interruptTurn as interruptTurnAction,
-  linkTicket as linkTicketAction,
   respondToApproval as respondToApprovalAction,
   respondToUserInput as respondToUserInputAction,
   submitTurn as submitTurnAction,
-  unlinkTicket as unlinkTicketAction,
 } from "@/lib/thread-page-actions"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
 
@@ -50,39 +36,16 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const { cursor, projects } = useControlPlane()
   const project = projects.find((candidate) => candidate.id === projectId)
   const [snapshot, setSnapshot] = useState<ThreadSnapshot>()
-  const [board, setBoard] = useState<BoardSnapshot>()
   const [loading, setLoading] = useState(threadId !== undefined)
   const [actionFailure, setActionFailure] = useState<FailurePresentation>()
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const [text, setText] = useState("")
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
+  const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
-  const [linkedTicketSelection, setLinkedTicketSelection] = useState<string | null>(null)
   const cursorReady = isCursorReady(cursor)
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
-
-  const refreshBoard = useCallback(() => {
-    void loadBoardSnapshot(projectId).then((result) => {
-      if (result.ok) {
-        setBoard(result.value)
-      } else {
-        setActionFailure(
-          presentFailure(result.failure, {
-            operation: "project.subscribe",
-            scope: "resource",
-            initiatedByUser: false,
-            hasUsableData: true,
-          }),
-        )
-      }
-      return undefined
-    })
-  }, [projectId])
-
-  useEffect(() => {
-    refreshBoard()
-  }, [refreshBoard])
 
   useEffect(() => {
     if (threadId === undefined) {
@@ -97,6 +60,7 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       onSnapshot: (next) => {
         setSnapshot(next)
         setRuntimeMode(next.thread.runtimeMode)
+        setModelSelection(next.thread.modelSelection)
         setLoading(false)
         setActionFailure(undefined)
       },
@@ -110,6 +74,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         })
         if (event._tag === "thread.turn.started") {
           setRuntimeMode((current) => event.runtimeMode ?? current)
+          if (event.modelSelection !== undefined) {
+            setModelSelection(event.modelSelection)
+          }
         }
         if (event._tag === "thread.runtime-mode-set") {
           setRuntimeMode(event.runtimeMode)
@@ -122,25 +89,6 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     })
   }, [threadId])
 
-  const linkedTicketIds = useMemo(
-    () =>
-      threadId === undefined
-        ? []
-        : (board?.ticketThreads ?? [])
-            .filter((ticketThread) => ticketThread.threadId === threadId)
-            .map((ticketThread) => ticketThread.ticketId),
-    [board?.ticketThreads, threadId],
-  )
-  const linkedTicketSet = new Set(linkedTicketIds)
-  const linkableTickets = (board?.tickets ?? []).filter((ticket) => !linkedTicketSet.has(ticket.id))
-  const linkedTicketLinks = linkedTicketIds.map((ticketId) => ({
-    id: ticketId,
-    title: board?.tickets.find((ticket) => ticket.id === ticketId)?.title ?? ticketId,
-  })) satisfies ReadonlyArray<ThreadTicketLink>
-  const linkableTicketLinks = linkableTickets.map((ticket) => ({
-    id: ticket.id,
-    title: ticket.title,
-  })) satisfies ReadonlyArray<ThreadTicketLink>
   const activeTurn = snapshot?.session?.activeTurnId ?? snapshot?.thread.latestTurn?.turnId
   const isRunning =
     snapshot?.session?.status === "running" || snapshot?.thread.latestTurn?.state === "running"
@@ -153,35 +101,37 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     }
     setText("")
     setComposerFailure(undefined)
-    void submitTurnAction({ projectId, threadId, prompt, runtimeMode }).then((result) => {
-      if (result.kind === "composer-error") {
-        setComposerFailure(
-          presentFailure(result.failure, {
-            operation: "thread.turn.start",
-            scope: "action",
-            initiatedByUser: true,
-            hasUsableData: snapshot !== undefined,
-          }),
-        )
+    void submitTurnAction({ projectId, threadId, prompt, runtimeMode, modelSelection }).then(
+      (result) => {
+        if (result.kind === "composer-error") {
+          setComposerFailure(
+            presentFailure(result.failure, {
+              operation: "thread.turn.start",
+              scope: "action",
+              initiatedByUser: true,
+              hasUsableData: snapshot !== undefined,
+            }),
+          )
+          return undefined
+        }
+        if (result.kind === "error") {
+          setActionFailure(
+            presentFailure(result.failure, {
+              operation: "thread.turn.start",
+              scope: "action",
+              initiatedByUser: true,
+              hasUsableData: snapshot !== undefined,
+            }),
+          )
+          return undefined
+        }
+        if (result.kind === "created") {
+          onCreated(result.threadId)
+        }
+        setActionFailure(undefined)
         return undefined
-      }
-      if (result.kind === "error") {
-        setActionFailure(
-          presentFailure(result.failure, {
-            operation: "thread.turn.start",
-            scope: "action",
-            initiatedByUser: true,
-            hasUsableData: snapshot !== undefined,
-          }),
-        )
-        return undefined
-      }
-      if (result.kind === "created") {
-        onCreated(result.threadId)
-      }
-      setActionFailure(undefined)
-      return undefined
-    })
+      },
+    )
   }
 
   const interruptTurn = () => {
@@ -277,77 +227,6 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     })
   }
 
-  const linkTicket = (ticketId: string | null) => {
-    setLinkedTicketSelection(null)
-    if (threadId === undefined || ticketId === null) {
-      return
-    }
-    void linkTicketAction({
-      threadId,
-      ticketId: TicketId.make(ticketId),
-      projectId,
-    }).then((result) => {
-      if (!result.ok) {
-        setActionFailure(
-          presentFailure(result.failure, {
-            operation: "thread.ticket.link",
-            scope: "action",
-            initiatedByUser: true,
-            hasUsableData: true,
-          }),
-        )
-        return undefined
-      }
-      setActionFailure(undefined)
-      if (result.board.ok) {
-        setBoard(result.board.value)
-      } else {
-        setActionFailure(
-          presentFailure(result.board.failure, {
-            operation: "project.subscribe",
-            scope: "resource",
-            initiatedByUser: false,
-            hasUsableData: board !== undefined,
-          }),
-        )
-      }
-      return undefined
-    })
-  }
-
-  const unlinkTicket = (ticketId: TicketId) => {
-    if (threadId === undefined) {
-      return
-    }
-    void unlinkTicketAction({ threadId, ticketId, projectId }).then((result) => {
-      if (!result.ok) {
-        setActionFailure(
-          presentFailure(result.failure, {
-            operation: "thread.ticket.link",
-            scope: "action",
-            initiatedByUser: true,
-            hasUsableData: true,
-          }),
-        )
-        return undefined
-      }
-      setActionFailure(undefined)
-      if (result.board.ok) {
-        setBoard(result.board.value)
-      } else {
-        setActionFailure(
-          presentFailure(result.board.failure, {
-            operation: "project.subscribe",
-            scope: "resource",
-            initiatedByUser: false,
-            hasUsableData: board !== undefined,
-          }),
-        )
-      }
-      return undefined
-    })
-  }
-
   const streamPresentation =
     subscriptionFailure === undefined
       ? undefined
@@ -396,20 +275,6 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
               />
             ) : null
           }
-          footer={
-            threadId === undefined ? null : (
-              <ThreadTicketLinkEditor
-                linkedTickets={linkedTicketLinks}
-                linkableTickets={linkableTicketLinks}
-                selection={linkedTicketSelection}
-                onSelectionChange={(ticketId) => {
-                  setLinkedTicketSelection(ticketId)
-                  linkTicket(ticketId)
-                }}
-                onUnlink={(ticketId) => unlinkTicket(ticketId)}
-              />
-            )
-          }
           answerByRequest={answerByRequest}
           onAnswerChange={(requestId, value) => {
             setAnswerByRequest((current) => ({
@@ -430,6 +295,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         isRunning={isRunning}
         disabled={project?.available !== true || !cursorReady}
         text={text}
+        runtimeMode={runtimeMode}
+        models={cursor?.models ?? []}
+        modelSelection={modelSelection}
         error={
           composerFailure === undefined ? undefined : (
             <InlineFailure className="text-xs" presentation={composerFailure} />
@@ -440,6 +308,8 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
           setText(value)
           setComposerFailure(undefined)
         }}
+        onRuntimeModeChange={setRuntimeMode}
+        onModelSelectionChange={setModelSelection}
         onPaste={rejectImages}
         onDrop={rejectImages}
         onInterrupt={() => interruptTurn()}

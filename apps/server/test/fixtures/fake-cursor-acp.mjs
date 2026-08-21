@@ -3,6 +3,21 @@ import { createInterface } from "node:readline"
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { Config, Effect, FileSystem, ManagedRuntime, Option } from "effect"
 
+const aboutArgs = process.argv.slice(2)
+if (aboutArgs[0] === "about") {
+  if (aboutArgs.includes("--format") && aboutArgs.includes("json")) {
+    process.stdout.write(
+      JSON.stringify({
+        cliVersion: "2026.03.20-test",
+        subscriptionTier: "Pro",
+      }),
+    )
+  } else {
+    process.stdout.write("CLI Version         2026.03.20-test\n")
+  }
+  process.exit(0)
+}
+
 const runtime = ManagedRuntime.make(NodeFileSystem.layer)
 const { exitLog, fileSystem, requestLog, scenario, sessionId } = await runtime.runPromise(
   Effect.gen(function* () {
@@ -26,6 +41,33 @@ const modes = {
     { id: "plan", name: "Plan" },
   ],
 }
+
+const reasoningOption = {
+  type: "select",
+  id: "effort",
+  name: "Reasoning effort",
+  category: "thought_level",
+  currentValue: "medium",
+  options: [
+    { value: "low", name: "Low" },
+    { value: "medium", name: "Medium" },
+    { value: "high", name: "High" },
+  ],
+}
+
+const modelOption = {
+  type: "select",
+  id: "model",
+  name: "Model",
+  category: "model",
+  currentValue: "composer-2.5",
+  options: [
+    { value: "composer-2.5", name: "Composer 2.5" },
+    { value: "composer-2.5-fast", name: "Composer 2.5 Fast" },
+  ],
+}
+
+const configOptions = [modelOption, reasoningOption]
 
 const write = (message) => {
   process.stdout.write(`${JSON.stringify(message)}\n`)
@@ -141,9 +183,27 @@ for await (const line of lines) {
     continue
   }
 
+  if (message.method === "cursor/list_available_models") {
+    respond(message.id, {
+      models: [
+        {
+          value: "composer-2.5",
+          name: "Composer 2.5",
+          configOptions: [reasoningOption],
+        },
+        {
+          value: "composer-2.5-fast",
+          name: "Composer 2.5 Fast",
+          configOptions: [reasoningOption],
+        },
+      ],
+    })
+    continue
+  }
+
   if (message.method === "session/new") {
     activeSessionId = sessionId
-    respond(message.id, { sessionId, modes, configOptions: [] })
+    respond(message.id, { sessionId, modes, configOptions })
     continue
   }
 
@@ -168,12 +228,12 @@ for await (const line of lines) {
         content: { type: "text", text: "load-gated text must be ignored" },
       },
     })
-    respond(message.id, { modes, configOptions: [] })
+    respond(message.id, { modes, configOptions })
     continue
   }
 
   if (message.method === "session/set_config_option") {
-    respond(message.id, { configOptions: [] })
+    respond(message.id, { configOptions })
     continue
   }
 

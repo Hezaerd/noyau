@@ -6,13 +6,22 @@ import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
+import { emptyCursorProviderStatus, type CursorModel } from "@noyau/protocol/entities/environment"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
-import { Deferred, Effect, Fiber, FileSystem, Layer, Path } from "effect"
+import { Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Schema, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
-import { CursorAskQuestionRequest } from "./cursor-acp-extension.ts"
+import {
+  isCursorAboutJsonFormatUnsupported,
+  parseCursorAboutOutput,
+  type CursorAboutResult,
+} from "./cursor-about.ts"
+import {
+  CursorAskQuestionRequest,
+  CursorListAvailableModelsResponse,
+} from "./cursor-acp-extension.ts"
 import {
   ProviderPort,
   type ProviderEmit,
@@ -23,8 +32,10 @@ import { deriveToolCallPresentation, type ToolCallPresentation } from "./tool-ca
 
 const ACP_VERSION = 1 as const
 const CURSOR_AUTH_METHOD = "cursor_login"
+const CURSOR_LIST_AVAILABLE_MODELS = "cursor/list_available_models"
 const IMPLEMENT_MODE_ALIASES = ["code", "agent", "default", "chat", "implement"]
 const APPROVAL_MODE_ALIASES = ["ask"]
+const decodeCursorModels = Schema.decodeUnknownEffect(CursorListAvailableModelsResponse)
 
 export interface CursorAdapterOptions {
   readonly binaryPath?: string
@@ -92,6 +103,67 @@ export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutabl
   return null
 })
 
+const ABOUT_TIMEOUT_MS = 8_000
+
+const collectProcessText = <E>(stream: Stream.Stream<Uint8Array, E>) =>
+  Stream.runCollect(stream).pipe(
+    Effect.map((chunks) => {
+      const total = chunks.reduce((size, part) => size + part.length, 0)
+      const bytes = new Uint8Array(total)
+      let offset = 0
+      for (const part of chunks) {
+        bytes.set(part, offset)
+        offset += part.length
+      }
+      return new TextDecoder().decode(bytes)
+    }),
+  )
+
+const runCursorCli = Effect.fn("CursorAdapter.runCli")(function* (
+  executable: string,
+  binaryArgs: ReadonlyArray<string>,
+  args: ReadonlyArray<string>,
+  environment: NodeJS.ProcessEnv,
+) {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+  const handle = yield* spawner.spawn(
+    ChildProcess.make(executable, [...binaryArgs, ...args], {
+      env: environment,
+      detached: false,
+      windowsHide: true,
+    }),
+  )
+  const [stdout, stderr, exitCode] = yield* Effect.all(
+    [
+      collectProcessText(handle.stdout),
+      collectProcessText(handle.stderr),
+      handle.exitCode.pipe(Effect.map(Number)),
+    ],
+    { concurrency: "unbounded" },
+  )
+  return { stdout, stderr, code: exitCode } satisfies CursorAboutResult
+})
+
+const probeCursorAbout = Effect.fn("CursorAdapter.probeAbout")(function* (
+  executable: string,
+  binaryArgs: ReadonlyArray<string>,
+  environment: NodeJS.ProcessEnv,
+) {
+  const jsonResult = yield* runCursorCli(
+    executable,
+    binaryArgs,
+    ["about", "--format", "json"],
+    environment,
+  ).pipe(Effect.scoped)
+  if (!isCursorAboutJsonFormatUnsupported(jsonResult)) {
+    return parseCursorAboutOutput(jsonResult)
+  }
+  const textResult = yield* runCursorCli(executable, binaryArgs, ["about"], environment).pipe(
+    Effect.scoped,
+  )
+  return parseCursorAboutOutput(textResult)
+})
+
 const adapterError = (detail: string, cause?: unknown) =>
   new AcpError.AcpTransportError({
     detail,
@@ -133,6 +205,62 @@ const requestedMode = (runtimeMode: RuntimeMode, modes: AcpSchema.SessionModeSta
     modes.availableModes[0]
   )?.id
 }
+
+const selectOptions = (
+  option: AcpSchema.SessionConfigOption | undefined,
+): ReadonlyArray<AcpSchema.SessionConfigSelectOption> => {
+  if (option?.type !== "select") {
+    return []
+  }
+  return option.options.flatMap((entry) => ("value" in entry ? [entry] : entry.options))
+}
+
+const normalizedConfigToken = (value: string | null | undefined) =>
+  value?.trim().toLowerCase() ?? ""
+
+const isReasoningOption = (option: AcpSchema.SessionConfigOption) => {
+  const id = normalizedConfigToken(option.id)
+  const name = normalizedConfigToken(option.name)
+  const category = normalizedConfigToken(option.category)
+  return (
+    option.type === "select" &&
+    (category === "thought_level" ||
+      id === "effort" ||
+      id === "reasoning" ||
+      name.includes("effort") ||
+      name.includes("reasoning"))
+  )
+}
+
+const reasoningOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
+  options.find(isReasoningOption)
+
+const cursorModels = (response: CursorListAvailableModelsResponse): ReadonlyArray<CursorModel> => {
+  const seen = new Set<string>()
+  const models: Array<CursorModel> = []
+  for (const model of response.models) {
+    const modelId = model.value.trim()
+    const label = model.name.trim()
+    if (modelId === "" || label === "" || seen.has(modelId)) {
+      continue
+    }
+    seen.add(modelId)
+    const efforts = selectOptions(reasoningOption(model.configOptions ?? [])).flatMap((effort) => {
+      const value = effort.value.trim()
+      const effortLabel = effort.name.trim()
+      return value === "" || effortLabel === "" ? [] : [{ value, label: effortLabel }]
+    })
+    models.push({ modelId, label, reasoningEfforts: efforts })
+  }
+  return models
+}
+
+const discoverModels = Effect.fn("CursorAdapter.discoverModels")(function* (
+  acp: AcpClient.AcpClient["Service"],
+) {
+  const response = yield* acp.raw.request(CURSOR_LIST_AVAILABLE_MODELS, {})
+  return cursorModels(yield* decodeCursorModels(response))
+})
 
 const approvalOutcome = (
   decision: ProviderApprovalDecision,
@@ -240,6 +368,7 @@ const clientInfo = (clientVersion: string) => ({
   clientCapabilities: {
     fs: { readTextFile: false, writeTextFile: false },
     terminal: false,
+    _meta: { parameterizedModelPicker: true },
   },
   clientInfo: { name: "noyau", version: clientVersion },
 })
@@ -305,14 +434,37 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
 
   const probe =
     executable === null
-      ? Effect.succeed({ installed: false, handshakeOk: false })
-      : Effect.scoped(
-          Effect.gen(function* () {
-            const { acp } = yield* openClient(process.cwd())
-            yield* initialize(acp, clientVersion)
-            return { installed: true, handshakeOk: true }
-          }).pipe(Effect.catchCause(() => Effect.succeed({ installed: true, handshakeOk: false }))),
-        )
+      ? Effect.succeed(emptyCursorProviderStatus)
+      : Effect.gen(function* () {
+          const capabilities = yield* Effect.scoped(
+            Effect.gen(function* () {
+              const { acp } = yield* openClient(process.cwd())
+              yield* initialize(acp, clientVersion)
+              const models = yield* discoverModels(acp).pipe(
+                Effect.catchCause(() => Effect.succeed([])),
+              )
+              return { handshakeOk: true, models }
+            }).pipe(Effect.catchCause(() => Effect.succeed({ handshakeOk: false, models: [] }))),
+          )
+          const about = yield* probeCursorAbout(executable, binaryArgs, environment).pipe(
+            Effect.timeoutOption(ABOUT_TIMEOUT_MS),
+            Effect.map(
+              Option.match({
+                onNone: () => ({ version: null, plan: null }),
+                onSome: (value) => value,
+              }),
+            ),
+            Effect.catchCause(() => Effect.succeed({ version: null, plan: null })),
+          )
+          return {
+            installed: true,
+            handshakeOk: capabilities.handshakeOk,
+            version: about.version,
+            plan: about.plan,
+            binaryPath: executable,
+            models: capabilities.models,
+          }
+        })
   const providerStatus = yield* probe
 
   const emitPermission = Effect.fn("CursorAdapter.emitPermission")(function* (
@@ -547,6 +699,48 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           sessionId: ProviderSessionId.make(sessionId),
         }
         yield* control.emit(sessionSignal(control, "running", resumeCursor))
+
+        let configOptions = setup.configOptions ?? []
+        const selection = control.input.modelSelection
+        if (selection !== null) {
+          const modelOption = configOptions.find((option) => option.category === "model")
+          const advertisedModel = selectOptions(modelOption).find(
+            (option) => option.value === selection.modelId,
+          )
+          if (modelOption?.type === "select" && advertisedModel !== undefined) {
+            const response = yield* acp.agent.setSessionConfigOption({
+              sessionId,
+              configId: modelOption.id,
+              value: advertisedModel.value,
+            })
+            configOptions = response.configOptions
+          } else if (
+            setup.models?.availableModels.some((model) => model.modelId === selection.modelId) ===
+            true
+          ) {
+            yield* acp.agent.setSessionModel({ sessionId, modelId: selection.modelId })
+          } else {
+            return yield* adapterError(`Cursor model is unavailable: ${selection.modelId}`)
+          }
+
+          if (selection.reasoningEffort !== undefined) {
+            const effortOption = reasoningOption(configOptions)
+            const advertisedEffort = selectOptions(effortOption).find(
+              (option) => option.value === selection.reasoningEffort,
+            )
+            if (effortOption?.type !== "select" || advertisedEffort === undefined) {
+              return yield* adapterError(
+                `Cursor reasoning effort is unavailable: ${selection.reasoningEffort}`,
+              )
+            }
+            const response = yield* acp.agent.setSessionConfigOption({
+              sessionId,
+              configId: effortOption.id,
+              value: advertisedEffort.value,
+            })
+            configOptions = response.configOptions
+          }
+        }
 
         const mode = requestedMode(control.input.runtimeMode, setup.modes ?? undefined)
         if (mode !== undefined && mode !== setup.modes?.currentModeId) {

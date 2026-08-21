@@ -9,6 +9,7 @@ import {
   decodeThreadCommandRequest,
   InternalThreadCommand,
   ThreadCommandRequest,
+  ThreadTurnStartRequest,
   ThreadTurnStart,
 } from "@noyau/protocol/thread/commands"
 import {
@@ -71,6 +72,7 @@ describe("Thread and Session entities", () => {
       title: "Relier le dossier",
       provider: "cursor",
       runtimeMode: "full-access",
+      modelSelection: null,
       status: "active",
       session: null,
       latestTurn: null,
@@ -109,6 +111,10 @@ describe("Thread and Session entities", () => {
         title: "Premier prompt",
         provider: "cursor",
         runtimeMode: "auto",
+        modelSelection: {
+          modelId: "composer-2.5",
+          reasoningEffort: "high",
+        },
         status: "active",
         session: null,
         latestTurn: {
@@ -171,6 +177,29 @@ describe("Thread commands", () => {
     expect(decoded).not.toHaveProperty("actorId")
     expect(Schema.encodeSync(ThreadCommandRequest)(decoded)).toEqual(request)
     expect(Schema.decodeSync(ClientCommandRequest)(request)._tag).toBe("thread.turn.start")
+  })
+
+  it("décode une modelSelection et permet de revenir au choix automatique", () => {
+    const selected = Schema.decodeSync(ThreadTurnStartRequest)({
+      _tag: "thread.turn.start",
+      commandId: ids.command,
+      payload: {
+        threadId: ids.thread,
+        text: "Analyse en profondeur",
+        modelSelection: { modelId: "composer-2.5", reasoningEffort: "high" },
+      },
+    })
+    expect(selected.payload.modelSelection).toEqual({
+      modelId: "composer-2.5",
+      reasoningEffort: "high",
+    })
+
+    const automatic = Schema.decodeSync(ThreadTurnStartRequest)({
+      _tag: "thread.turn.start",
+      commandId: ids.command,
+      payload: { threadId: ids.thread, text: "Choisis", modelSelection: null },
+    })
+    expect(automatic.payload.modelSelection).toBeNull()
   })
 
   it("rejette un payload image sur thread.turn.start", () => {

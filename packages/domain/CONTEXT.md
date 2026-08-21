@@ -55,6 +55,11 @@ Politique d'outils du Thread :
 `approval-required | auto-accept-edits | auto | full-access`.
 _À éviter_ : permissionMode, AgentProfile
 
+**modelSelection**:
+Préférence durable du Thread pour le modèle Provider de ses prochains Turns. Elle peut inclure un
+`reasoningEffort` et reste distincte du modèle effectivement accepté par une Session.
+_À éviter_ : modèle de Session, capacité Provider
+
 **Responsable**:
 Acteur unique et optionnel qui porte la responsabilité principale d'un Ticket. Masqué de l'UI v0.1.
 _À éviter_ : participant, exécutant

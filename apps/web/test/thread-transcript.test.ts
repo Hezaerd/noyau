@@ -41,6 +41,7 @@ const snapshot = Schema.decodeSync(ThreadSnapshot)({
     title: "Premier prompt",
     provider: "cursor",
     runtimeMode: "auto",
+    modelSelection: null,
     status: "active",
     session: null,
     latestTurn: {

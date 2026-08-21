@@ -35,6 +35,11 @@ Fil de fer `@noyau/acp` utilisé par l'adaptateur Cursor. Les extensions (`curso
 restent ici.
 _À éviter_ : schémas ACP maison, JSON-RPC maison
 
+**catalogue Cursor**:
+Capacité volatile découverte par `cursor/list_available_models`, qui expose les modèles et leurs
+niveaux de raisonnement sans devenir un fait du journal.
+_À éviter_ : projection durable, liste codée en dur
+
 **TextGeneration**:
 Session ACP éphémère hors Turn, pour un Titre généré. Pas le `session/prompt` du Thread.
 _À éviter_ : Turn, ProviderPort.startTurn

@@ -24,7 +24,6 @@ export function ThreadTranscript({
   loading,
   error,
   notices,
-  footer,
   answerByRequest,
   onAnswerChange,
   onRespondApproval,
@@ -35,7 +34,6 @@ export function ThreadTranscript({
   readonly loading: boolean
   readonly error: ReactNode
   readonly notices: ReactNode
-  readonly footer: ReactNode
   readonly answerByRequest: Record<string, string>
   readonly onAnswerChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
@@ -52,7 +50,7 @@ export function ThreadTranscript({
         <MessageScrollerViewport aria-label="Transcript du Thread">
           <MessageScrollerContent
             aria-busy={isRunning}
-            className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6"
+            className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6"
           >
             {loading ? (
               <MessageScrollerItem messageId="thread-loading">
@@ -106,12 +104,6 @@ export function ThreadTranscript({
                 </Marker>
               </MessageScrollerItem>
             ) : null}
-
-            {footer === null || footer === undefined ? null : (
-              <MessageScrollerItem messageId="thread-footer" scrollAnchor={false}>
-                {footer}
-              </MessageScrollerItem>
-            )}
           </MessageScrollerContent>
         </MessageScrollerViewport>
         {minimapItems.length >= TURN_MINIMAP_MIN_ITEMS ? (

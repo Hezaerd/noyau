@@ -2,7 +2,11 @@ import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
-import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
+import {
+  emptyCursorProviderStatus,
+  type CursorProviderStatus,
+} from "@noyau/protocol/entities/environment"
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ResumeCursor, SessionStatus } from "@noyau/protocol/entities/session"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
@@ -16,6 +20,7 @@ export interface ProviderTurnInput {
   readonly text: string
   readonly workspaceRoot: string
   readonly runtimeMode: RuntimeMode
+  readonly modelSelection: ModelSelection | null
   readonly resumeCursor: ResumeCursor | null
 }
 
@@ -65,7 +70,7 @@ export class ProviderPort extends Context.Service<ProviderPort, ProviderPortServ
 ) {}
 
 export const unavailableProviderLayer = Layer.succeed(ProviderPort)({
-  status: Effect.succeed({ installed: false, handshakeOk: false }),
+  status: Effect.succeed(emptyCursorProviderStatus),
   startTurn: (_input, _emit) => Effect.void,
   interrupt: (_threadId) => Effect.void,
   stop: (_threadId) => Effect.void,

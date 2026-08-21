@@ -63,7 +63,13 @@ const occurredAt = (iso: string) => Schema.decodeSync(Schema.DateTimeUtcFromStri
 const encodeBoardSnapshot = Schema.encodeEffect(BoardSnapshot)
 const environment = Schema.decodeSync(Environment)({
   id: "90000000-0000-4000-8000-000000000001",
-  cursor: { installed: true, handshakeOk: true },
+  cursor: {
+    installed: true,
+    handshakeOk: true,
+    version: null,
+    plan: null,
+    binaryPath: null,
+  },
   createdAt: "2026-08-20T00:00:00.000Z",
 })
 
@@ -292,6 +298,7 @@ layer(platformLayer)("SQL projections", (it) => {
                   title: "Recovery",
                   provider: "cursor",
                   runtimeMode: "full-access",
+                  modelSelection: { modelId: "composer-2.5", reasoningEffort: "medium" },
                 }),
               ),
             )
@@ -302,6 +309,7 @@ layer(platformLayer)("SQL projections", (it) => {
                   threadId: ids.recoveryThread,
                   turnId: recoveryTurnId,
                   text: "Keep this prompt",
+                  modelSelection: { modelId: "composer-2.5", reasoningEffort: "high" },
                 }),
               ),
             )
@@ -328,6 +336,7 @@ layer(platformLayer)("SQL projections", (it) => {
                   title: "Terminal",
                   provider: "cursor",
                   runtimeMode: "full-access",
+                  modelSelection: { modelId: "composer-2.5", reasoningEffort: "medium" },
                 }),
               ),
             )
@@ -417,8 +426,16 @@ layer(platformLayer)("SQL projections", (it) => {
       assert.deepStrictEqual(evidence.recovery.session?.resumeCursor, resumeCursor)
       assert.strictEqual(evidence.recovery.turns.at(-1)?.state, "error")
       assert.strictEqual(evidence.recovery.thread.latestTurn?.state, "error")
+      assert.deepStrictEqual(evidence.recovery.thread.modelSelection, {
+        modelId: "composer-2.5",
+        reasoningEffort: "high",
+      })
       assert.strictEqual(evidence.terminal.turns.at(-1)?.state, "completed")
       assert.strictEqual(evidence.terminal.thread.latestTurn?.state, "completed")
+      assert.deepStrictEqual(evidence.terminal.thread.modelSelection, {
+        modelId: "composer-2.5",
+        reasoningEffort: "medium",
+      })
       assert.strictEqual(evidence.terminal.transcript.length, 1)
       assert.strictEqual(evidence.shell.projects.length, 1)
       assert.strictEqual(evidence.shell.threads.length, 2)

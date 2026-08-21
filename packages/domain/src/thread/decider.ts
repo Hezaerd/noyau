@@ -132,15 +132,19 @@ export const decide = (
         return Result.fail(new ThreadAlreadyExists({ threadId: command.payload.threadId }))
       }
       return requireAvailableProject(state, { projectId: command.payload.projectId }).pipe(
-        Result.map(() => [
-          ThreadCreated.make({
+        Result.map(() => {
+          let created: Omit<ThreadCreated, "_tag"> = {
             threadId: command.payload.threadId,
             projectId: command.payload.projectId,
             title: command.payload.title,
             provider: "cursor",
             runtimeMode: command.payload.runtimeMode ?? DEFAULT_RUNTIME_MODE,
-          }),
-        ]),
+          }
+          if (command.payload.modelSelection !== undefined) {
+            created = Object.assign(created, { modelSelection: command.payload.modelSelection })
+          }
+          return [ThreadCreated.make(created)]
+        }),
       )
     }
     case "thread.archive":
@@ -191,20 +195,19 @@ export const decide = (
           ),
         ),
         Result.map(() => {
-          const started = {
+          let started: Omit<ThreadTurnStarted, "_tag"> = {
             threadId: command.payload.threadId,
             turnId: TurnId.make(command.commandId),
             text: command.payload.text,
             titleSeed: command.payload.titleSeed ?? command.payload.text,
           }
-          return [
-            command.payload.runtimeMode === undefined
-              ? ThreadTurnStarted.make(started)
-              : ThreadTurnStarted.make({
-                  ...started,
-                  runtimeMode: command.payload.runtimeMode,
-                }),
-          ]
+          if (command.payload.runtimeMode !== undefined) {
+            started = Object.assign(started, { runtimeMode: command.payload.runtimeMode })
+          }
+          if (command.payload.modelSelection !== undefined) {
+            started = Object.assign(started, { modelSelection: command.payload.modelSelection })
+          }
+          return [ThreadTurnStarted.make(started)]
         }),
       )
     case "thread.turn.interrupt":

@@ -1,6 +1,7 @@
 import { KEYBINDINGS } from "@/lib/keybindings-catalog"
+import { PROVIDER_SETTINGS_ITEMS } from "@/lib/providers-catalog"
 
-export const SETTINGS_TAB_IDS = ["appearance", "keybindings"] as const
+export const SETTINGS_TAB_IDS = ["appearance", "providers", "keybindings"] as const
 
 export type SettingsTabId = (typeof SETTINGS_TAB_IDS)[number]
 
@@ -29,6 +30,12 @@ export const SETTINGS_TABS: ReadonlyArray<SettingsTab> = [
     restorable: true,
   },
   {
+    id: "providers",
+    label: "Providers",
+    path: "/settings/providers",
+    restorable: false,
+  },
+  {
     id: "keybindings",
     label: "Raccourcis",
     path: "/settings/keybindings",
@@ -44,6 +51,14 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     description: "Choisis comment Noyau s’affiche : système, clair ou sombre.",
     keywords: ["thème", "theme", "clair", "sombre", "dark", "light", "système"],
   },
+  {
+    id: "providers",
+    tab: "providers",
+    title: "Providers",
+    description: "Providers IA branchés à Noyau : Cursor maintenant, les autres bientôt.",
+    keywords: ["ia", "ai", "agent", "provider", "cursor", "claude", "codex"],
+  },
+  ...PROVIDER_SETTINGS_ITEMS,
   {
     id: "keybindings",
     tab: "keybindings",

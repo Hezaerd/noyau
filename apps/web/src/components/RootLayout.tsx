@@ -106,7 +106,7 @@ export function RootLayout() {
             {/* Keep the page titlebar mounted: swapping it with the Settings
                 header unmounts the chrome for one frame. */}
             <header
-              className="drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background/88 px-3 backdrop-blur-xl sm:px-5"
+              className="drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background px-3 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none sm:px-5"
               data-desktop-page-titlebar=""
             >
               <div className="flex min-w-0 items-center text-sm">

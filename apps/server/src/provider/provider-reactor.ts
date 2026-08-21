@@ -198,6 +198,7 @@ export const makeProviderReactor = (
                 text: threadEvent.text,
                 workspaceRoot,
                 runtimeMode,
+                modelSelection: snapshot.value.thread.modelSelection,
                 resumeCursor: snapshot.value.session?.resumeCursor ?? null,
               },
               (signal) =>

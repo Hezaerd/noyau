@@ -14,7 +14,6 @@ import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPop
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
-import { ThreadTicketLinkEditor } from "../src/components/thread/ThreadTicketLinks"
 import { ThreadTranscript } from "../src/components/thread/ThreadTranscript"
 import { ThreadTranscriptItem } from "../src/components/thread/ThreadTranscriptItem"
 import { ThreadPageTitle } from "../src/components/WorkspaceBreadcrumb"
@@ -33,7 +32,16 @@ const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const secondThreadId = ThreadId.make("20000000-0000-4000-8000-000000000002")
 const ticketId = TicketId.make("30000000-0000-4000-8000-000000000001")
-const linkedTicketId = TicketId.make("30000000-0000-4000-8000-000000000002")
+const cursorModels = [
+  {
+    modelId: "composer-2.5",
+    label: "Composer 2.5",
+    reasoningEfforts: [
+      { value: "low", label: "Faible" },
+      { value: "high", label: "Élevé" },
+    ],
+  },
+]
 
 const makeThread = (id: ThreadId, title: string): ThreadShellType =>
   Schema.decodeSync(ThreadShell)({
@@ -114,9 +122,14 @@ describe("rendered Thread UI evidence", () => {
         isRunning={false}
         disabled
         text=""
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
         error={undefined}
         onSubmit={vi.fn()}
         onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
         onInterrupt={vi.fn()}
@@ -132,34 +145,125 @@ describe("rendered Thread UI evidence", () => {
     expect(composer?.className).toMatch(/bottom-0/)
   })
 
-  it("edits TicketThread links from the Thread side", () =>
+  it("submits with Enter and keeps Shift+Enter for a new line", () => {
+    const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+    })
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text="Lancer les tests"
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        error={undefined}
+        onSubmit={onSubmit}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onInterrupt={vi.fn()}
+      />,
+    )
+
+    const composer = screen.getByRole("textbox", { name: "Composer un message" })
+    fireEvent.keyDown(composer, { key: "Enter", shiftKey: true })
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(composer, { key: "Enter" })
+    expect(onSubmit).toHaveBeenCalledOnce()
+  })
+
+  it("changes the Thread access level from the composer", () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const user = userEvent.setup()
-        const onSelectionChange = vi.fn()
-        const onUnlink = vi.fn()
+        const onRuntimeModeChange = vi.fn()
         render(
-          <ThreadTicketLinkEditor
-            linkedTickets={[{ id: linkedTicketId, title: "Déjà lié" }]}
-            linkableTickets={[{ id: ticketId, title: "Ajouter ce Ticket" }]}
-            selection={null}
-            onSelectionChange={onSelectionChange}
-            onUnlink={onUnlink}
+          <ThreadComposer
+            isRunning={false}
+            disabled={false}
+            text="Préparer la reprise"
+            runtimeMode="full-access"
+            models={cursorModels}
+            modelSelection={null}
+            error={undefined}
+            onSubmit={vi.fn()}
+            onTextChange={vi.fn()}
+            onRuntimeModeChange={onRuntimeModeChange}
+            onModelSelectionChange={vi.fn()}
+            onPaste={vi.fn()}
+            onDrop={vi.fn()}
+            onInterrupt={vi.fn()}
           />,
         )
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("combobox", { name: "Lier un ticket" })),
+          user.click(screen.getByRole("combobox", { name: "Niveau d’accès" })),
         )
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("option", { name: "Ajouter ce Ticket" })),
+          user.click(screen.getByRole("option", { name: "Approbation requise" })),
         )
-        expect(onSelectionChange).toHaveBeenCalledWith(ticketId)
+        expect(onRuntimeModeChange).toHaveBeenCalledWith("approval-required")
+      }),
+    ))
 
-        yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Délier le ticket Déjà lié" })),
+  it("changes the Cursor model and reasoning effort from the composer", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onModelSelectionChange = vi.fn()
+        const { rerender } = render(
+          <ThreadComposer
+            isRunning={false}
+            disabled={false}
+            text="Préparer la reprise"
+            runtimeMode="full-access"
+            models={cursorModels}
+            modelSelection={null}
+            error={undefined}
+            onSubmit={vi.fn()}
+            onTextChange={vi.fn()}
+            onRuntimeModeChange={vi.fn()}
+            onModelSelectionChange={onModelSelectionChange}
+            onPaste={vi.fn()}
+            onDrop={vi.fn()}
+            onInterrupt={vi.fn()}
+          />,
         )
-        expect(onUnlink).toHaveBeenCalledWith(linkedTicketId)
+
+        yield* Effect.promise(() => user.click(screen.getByRole("combobox", { name: "Modèle" })))
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("option", { name: "Composer 2.5" })),
+        )
+        expect(onModelSelectionChange).toHaveBeenCalledWith({ modelId: "composer-2.5" })
+
+        rerender(
+          <ThreadComposer
+            isRunning={false}
+            disabled={false}
+            text="Préparer la reprise"
+            runtimeMode="full-access"
+            models={cursorModels}
+            modelSelection={{ modelId: "composer-2.5" }}
+            error={undefined}
+            onSubmit={vi.fn()}
+            onTextChange={vi.fn()}
+            onRuntimeModeChange={vi.fn()}
+            onModelSelectionChange={onModelSelectionChange}
+            onPaste={vi.fn()}
+            onDrop={vi.fn()}
+            onInterrupt={vi.fn()}
+          />,
+        )
+        yield* Effect.promise(() => user.click(screen.getByRole("combobox", { name: "Effort" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("option", { name: "Élevé" })))
+        expect(onModelSelectionChange).toHaveBeenLastCalledWith({
+          modelId: "composer-2.5",
+          reasoningEffort: "high",
+        })
       }),
     ))
 
@@ -285,7 +389,6 @@ describe("rendered Thread UI evidence", () => {
             loading={false}
             error={undefined}
             notices={null}
-            footer={null}
             answerByRequest={{}}
             onAnswerChange={vi.fn()}
             onRespondApproval={vi.fn()}
@@ -320,7 +423,6 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        footer={null}
         answerByRequest={{}}
         onAnswerChange={vi.fn()}
         onRespondApproval={vi.fn()}
@@ -366,7 +468,6 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        footer={null}
         answerByRequest={{}}
         onAnswerChange={vi.fn()}
         onRespondApproval={vi.fn()}
@@ -412,7 +513,6 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        footer={null}
         answerByRequest={{}}
         onAnswerChange={vi.fn()}
         onRespondApproval={vi.fn()}
@@ -429,7 +529,6 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        footer={null}
         answerByRequest={{}}
         onAnswerChange={vi.fn()}
         onRespondApproval={vi.fn()}
