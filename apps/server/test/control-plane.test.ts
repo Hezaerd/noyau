@@ -590,7 +590,7 @@ describe("ControlPlane", () => {
     }),
   )
 
-  it.effect("runs Cursor post-commit and durably completes end_turn", () =>
+  it.effect("streams Cursor Session dates and durably completes end_turn", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const services = yield* Layer.build(cursorControlPlaneTestLayer("success"))
@@ -608,7 +608,7 @@ describe("ControlPlane", () => {
           actorId,
         )
         yield* controlPlane.dispatch(threadCreate, actorId)
-        yield* controlPlane.dispatch(
+        const started = yield* controlPlane.dispatch(
           request({
             _tag: "thread.turn.start",
             commandId: uuid(22),
@@ -617,6 +617,16 @@ describe("ControlPlane", () => {
           actorId,
         )
         yield* controlPlane.drainReactors
+
+        const liveSession = yield* controlPlane
+          .subscribeThread({ threadId, afterSequence: started.sequence })
+          .pipe(
+            Stream.filter(
+              (frame) => frame.kind === "event" && frame.event.event._tag === "thread.session-set",
+            ),
+            Stream.runHead,
+          )
+        assert.isTrue(Option.isSome(liveSession))
 
         const frames = yield* controlPlane
           .subscribeThread({ threadId })

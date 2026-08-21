@@ -185,6 +185,7 @@ const decodeScopeRow = Schema.decodeEffect(ScopeRow)
 const decodeWorkspaceRootRow = Schema.decodeEffect(WorkspaceRootRow)
 const decodeMigrationRow = Schema.decodeEffect(MigrationRow)
 const decodeCommand = Schema.decodeUnknownEffect(Command)
+const encodeDomainEvent = Schema.encodeUnknownEffect(DomainEvent)
 
 const fallbackProjectId = (id: string): ProjectIdType => ProjectId.make(id)
 
@@ -357,17 +358,22 @@ const enrichCommand = Effect.fn("ControlPlane.enrichCommand")(function* (
 })
 
 const toEnvelope = (event: PersistedEvent<DomainEventType>) =>
-  decodeEventEnvelope({
-    eventId: event.eventId,
-    sequence: event.sequence,
-    projectId: event.projectId,
-    actorId: event.actorId,
-    correlationId: event.correlationId,
-    causationId: event.causationId,
-    occurredAt: DateTime.formatIso(event.occurredAt),
-    schemaVersion: event.schemaVersion,
-    event: event.event,
-  }).pipe(Effect.orDie)
+  encodeDomainEvent(event.event).pipe(
+    Effect.flatMap((encodedEvent) =>
+      decodeEventEnvelope({
+        eventId: event.eventId,
+        sequence: event.sequence,
+        projectId: event.projectId,
+        actorId: event.actorId,
+        correlationId: event.correlationId,
+        causationId: event.causationId,
+        occurredAt: DateTime.formatIso(event.occurredAt),
+        schemaVersion: event.schemaVersion,
+        event: encodedEvent,
+      }),
+    ),
+    Effect.orDie,
+  )
 
 const unavailable = (service: string) => () => new ServiceUnavailable({ service })
 
