@@ -42,11 +42,8 @@ export function ThreadTranscript({
   readonly onRespondUserInput: (requestId: string) => void
 }) {
   const lastItem = transcript.at(-1)
-  const showThinking =
-    isRunning &&
-    (lastItem === undefined ||
-      lastItem._tag === "transcript.user" ||
-      lastItem._tag === "transcript.tool")
+  const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
+  const showWaitingMarker = isRunning && lastAssistant === undefined
   const minimapItems = useMemo(() => deriveTurnMinimapItems(transcript), [transcript])
 
   return (
@@ -92,7 +89,7 @@ export function ThreadTranscript({
                 >
                   <ThreadTranscriptItem
                     item={row.item}
-                    streaming={isRunning && row.item === lastItem}
+                    streaming={isRunning && row.item === lastAssistant}
                     answer={
                       row.item._tag === "transcript.user-input"
                         ? (answerByRequest[row.item.requestId] ?? "")
@@ -106,7 +103,7 @@ export function ThreadTranscript({
               ),
             )}
 
-            {showThinking ? (
+            {showWaitingMarker ? (
               <MessageScrollerItem messageId="thread-thinking">
                 <Marker role="status">
                   <MarkerIcon>

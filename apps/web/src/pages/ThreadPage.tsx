@@ -20,7 +20,7 @@ import {
 } from "@/components/thread/ThreadTicketLinks"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import { useControlPlane } from "@/hooks/use-control-plane"
-import { loadBoardSnapshot, loadThreadSnapshot, subscribeThread } from "@/lib/control-plane"
+import { loadBoardSnapshot, subscribeThread } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import {
   interruptTurn as interruptTurnAction,
@@ -52,25 +52,6 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   const [linkedTicketSelection, setLinkedTicketSelection] = useState<string | null>(null)
   const cursorReady = isCursorReady(cursor)
 
-  const refreshThread = useCallback(() => {
-    if (threadId === undefined) {
-      setLoading(false)
-      return
-    }
-    void loadThreadSnapshot(threadId).then((result) => {
-      if (!result.ok) {
-        setError(result.details)
-        setLoading(false)
-        return undefined
-      }
-      setSnapshot(result.value)
-      setRuntimeMode(result.value.thread.runtimeMode)
-      setError(undefined)
-      setLoading(false)
-      return undefined
-    })
-  }, [threadId])
-
   const refreshBoard = useCallback(() => {
     void loadBoardSnapshot(projectId).then((result) => {
       if (result.ok) {
@@ -91,7 +72,6 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       return
     }
     setLoading(true)
-    refreshThread()
     return subscribeThread(threadId, undefined, {
       onSnapshot: (next) => {
         setSnapshot(next)
@@ -101,31 +81,25 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       },
       onEvent: (envelope) => {
         const event = envelope.event
-        if (
-          event._tag === "thread.transcript-appended" ||
-          event._tag === "thread.turn.started" ||
-          event._tag === "thread.title-seeded" ||
-          event._tag === "thread.meta-updated" ||
-          event._tag === "approval.responded" ||
-          event._tag === "user-input.responded"
-        ) {
-          setSnapshot((current) => {
-            if (current === undefined) {
-              return current
-            }
-            return applyThreadEnvelope(current, envelope) ?? current
-          })
-          if (event._tag === "thread.turn.started") {
-            setRuntimeMode((current) => event.runtimeMode ?? current)
+        setSnapshot((current) => {
+          if (current === undefined) {
+            return current
           }
-          return
+          return applyThreadEnvelope(current, envelope) ?? current
+        })
+        if (event._tag === "thread.turn.started") {
+          setRuntimeMode((current) => event.runtimeMode ?? current)
         }
-        refreshThread()
-        refreshBoard()
+        if (event._tag === "thread.runtime-mode-set") {
+          setRuntimeMode(event.runtimeMode)
+        }
       },
-      onError: setError,
+      onError: (details) => {
+        setError(details)
+        setLoading(false)
+      },
     })
-  }, [refreshBoard, refreshThread, threadId])
+  }, [threadId])
 
   const linkedTicketIds = useMemo(
     () =>

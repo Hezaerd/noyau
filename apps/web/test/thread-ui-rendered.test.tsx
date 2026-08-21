@@ -363,6 +363,56 @@ describe("rendered Thread UI evidence", () => {
     expect(preview?.textContent).toContain("Deuxième réponse")
   })
 
+  it("shows Cursor écrit only while waiting for the first assistant row", () => {
+    const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
+    const user = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.user",
+      threadId,
+      turnId,
+      text: "Ouvre le dossier",
+    })
+    const assistant = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.assistant",
+      threadId,
+      turnId,
+      text: "Voici **un** plan.",
+    })
+
+    const waiting = render(
+      <ThreadTranscript
+        transcript={[user]}
+        isRunning
+        loading={false}
+        error={undefined}
+        notices={null}
+        footer={null}
+        answerByRequest={{}}
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+    expect(waiting.getByText("Cursor écrit…")).toBeTruthy()
+    waiting.unmount()
+
+    render(
+      <ThreadTranscript
+        transcript={[user, assistant]}
+        isRunning
+        loading={false}
+        error={undefined}
+        notices={null}
+        footer={null}
+        answerByRequest={{}}
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+    expect(screen.getByText("un")).toBeTruthy()
+    expect(screen.queryByText("Cursor écrit…")).toBeNull()
+  })
+
   it("renders streamed assistant markdown inside a Message row", () => {
     const item = Schema.decodeSync(TranscriptItem)({
       _tag: "transcript.assistant",
