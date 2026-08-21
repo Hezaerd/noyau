@@ -135,18 +135,24 @@ describe("ThreadMarkdown", () => {
           }),
         )
 
-        const colors = new Set(
-          [
-            ...document.querySelectorAll(
-              "[data-streamdown='code-block-body'] span[style*='--sdm-c']",
-            ),
-          ]
-            .map((node) =>
-              node instanceof HTMLElement ? node.style.getPropertyValue("--sdm-c") : "",
-            )
+        const tokens = [
+          ...document.querySelectorAll(
+            "[data-streamdown='code-block-body'] span[style*='--sdm-c']",
+          ),
+        ].filter((node): node is HTMLElement => node instanceof HTMLElement)
+        const lightColors = new Set(
+          tokens
+            .map((node) => node.style.getPropertyValue("--sdm-c"))
             .filter((color) => color.length > 0),
         )
-        expect(colors.size).toBeGreaterThan(1)
+        expect(lightColors.size).toBeGreaterThan(1)
+        expect(
+          tokens.some((node) => {
+            const light = node.style.getPropertyValue("--sdm-c")
+            const dark = node.style.getPropertyValue("--shiki-dark")
+            return light.length > 0 && dark.length > 0 && light !== dark
+          }),
+        ).toBe(true)
       }),
     ))
 })

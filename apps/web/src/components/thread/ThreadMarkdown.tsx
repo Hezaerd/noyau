@@ -9,7 +9,8 @@ const markdownClassName =
   "max-w-none text-sm leading-6 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc"
 
 const threadCodePlugin = createCodePlugin({
-  themes: ["one-dark-pro", "one-dark-pro"],
+  // [light, dark] — le CSS applique --sdm-c hors .dark, --shiki-dark sous html.dark.
+  themes: ["one-light", "one-dark-pro"],
 })
 
 const streamdownComponents = {
