@@ -50,6 +50,6 @@ Command, pas un fait du journal.
 _À éviter_ : dispatchCommand, présence durable
 
 **DiscordPresence**:
-Activity Discord locale dérivée du ShellFocus. Effet chrome : Discord fermé ne casse jamais une
-commande.
-_À éviter_ : événement Discord, agrégat, Join
+Activity Discord locale dérivée du ShellFocus. Application Discord distincte selon `NOYAU_ENV`
+(prod / dev). Effet chrome : Discord fermé ne casse jamais une commande.
+_À éviter_ : événement Discord, agrégat, Join, une seule Application pour les deux envs

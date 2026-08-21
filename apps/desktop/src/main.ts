@@ -34,6 +34,7 @@ import {
 import {
   decodeExternalBootstrap,
   resolveServerEntryPath,
+  serverEnvironmentFromDesktopDev,
   ServerSupervisor,
   type ServerBootstrap,
   type ServerSupervisorOptions,
@@ -381,6 +382,7 @@ const launch = Effect.fn("launch")(function* () {
   const baseSupervisorOptions = {
     serverEntryPath: yield* resolveServerEntryPath(__dirname, app.isPackaged),
     dataDirectory: path.join(app.getPath("userData"), "environment"),
+    environment: serverEnvironmentFromDesktopDev(flags.isDevelopment),
     onStateChange: (state: SupervisorState) => {
       void desktopRuntime.runPromise(publishSmokeSupervisorState(state))
       if (state.phase === "degraded") {

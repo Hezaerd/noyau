@@ -10,6 +10,7 @@ import {
   probeRpc,
   resolveServerEntryPath,
   restartDelayMs,
+  serverEnvironmentFromDesktopDev,
   ServerSupervisor,
   SupervisorError,
   waitForServerReady,
@@ -127,6 +128,11 @@ describe("server supervisor", () => {
 
   it("writes a single versioned fd3 bootstrap envelope", () => {
     expect(encodeBootstrap(bootstrap)).toBe(`${JSON.stringify(bootstrap)}\n`)
+  })
+
+  it("maps the desktop flag to the server environment", () => {
+    expect(serverEnvironmentFromDesktopDev(true)).toBe("development")
+    expect(serverEnvironmentFromDesktopDev(false)).toBe("production")
   })
 })
 

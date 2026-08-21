@@ -1,6 +1,7 @@
 import { createConnection, type Socket } from "node:net"
 import { tmpdir } from "node:os"
 
+import { serverEnvironment, type NoyauEnvironment } from "@noyau/server/config"
 import { Clock, Duration, Effect, Layer, Option, Queue, Schema } from "effect"
 
 import type { PresenceActivity } from "./activity.ts"
@@ -11,8 +12,14 @@ const FRAME = 1
 const IPC_SLOT_COUNT = 10
 const RECONNECT_DELAY = Duration.seconds(5)
 
-/** Application ID Discord public — pas un secret. */
-export const DISCORD_APPLICATION_ID = "1540445560736321627"
+/** Application IDs Discord publics — pas des secrets. */
+export const DISCORD_APPLICATION_ID_PRODUCTION = "1540445560736321627"
+export const DISCORD_APPLICATION_ID_DEVELOPMENT = "1540464789850169484"
+
+export const resolveDiscordApplicationId = (environment: NoyauEnvironment): string =>
+  environment === "production"
+    ? DISCORD_APPLICATION_ID_PRODUCTION
+    : DISCORD_APPLICATION_ID_DEVELOPMENT
 
 export class DiscordIpcError extends Schema.TaggedError<DiscordIpcError>()("DiscordIpcError", {
   operation: Schema.Literals(["connect", "write"]),
@@ -179,8 +186,9 @@ export const discordPresenceLayer = Layer.effect(
   DiscordPresence,
   Effect.gen(function* () {
     const startedAt = yield* Clock.currentTimeMillis
+    const environment = yield* serverEnvironment
     const queue = yield* Queue.sliding<PresenceActivity | null>(1)
-    yield* runIpcLoop(DISCORD_APPLICATION_ID, tmpdir(), startedAt, queue).pipe(
+    yield* runIpcLoop(resolveDiscordApplicationId(environment), tmpdir(), startedAt, queue).pipe(
       Effect.catchCause((cause) => Effect.logWarning("Discord IPC stopped", { cause })),
       Effect.forkScoped,
     )
