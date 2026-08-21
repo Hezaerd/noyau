@@ -50,7 +50,7 @@ export function ThreadTranscript({
         <MessageScrollerViewport aria-label="Transcript du Thread">
           <MessageScrollerContent
             aria-busy={isRunning}
-            className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6"
+            className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6"
           >
             {loading ? (
               <MessageScrollerItem messageId="thread-loading">
