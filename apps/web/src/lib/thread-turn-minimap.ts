@@ -6,8 +6,8 @@ import { transcriptRowId } from "@/lib/thread-transcript"
 export const TURN_MINIMAP_MIN_ITEMS = 2
 export const TURN_MINIMAP_ITEM_SPACING = 8
 export const TURN_MINIMAP_MAX_HEIGHT_CSS = "calc(100vh - 18rem)"
-/** Matches `max-w-4xl` on the transcript column. */
-export const TURN_MINIMAP_CONTENT_MAX_WIDTH = 896
+/** Matches `max-w-3xl` on the transcript column. */
+export const TURN_MINIMAP_CONTENT_MAX_WIDTH = 768
 export const TURN_MINIMAP_PERSISTENT_GUTTER = 48
 export const TURN_MINIMAP_HIT_STRIP_LEFT = 12
 export const TURN_MINIMAP_HIT_STRIP_MAX_WIDTH = 40

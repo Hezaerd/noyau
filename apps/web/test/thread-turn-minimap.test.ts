@@ -111,15 +111,16 @@ describe("thread turn minimap", () => {
     ).toBeNull()
   })
 
-  it("keeps the hit strip inside the side gutter of the 4xl column", () => {
-    expect(resolveTurnMinimapHasPersistentGutter(896)).toBe(false)
-    expect(resolveTurnMinimapHasPersistentGutter(991)).toBe(false)
-    expect(resolveTurnMinimapHasPersistentGutter(992)).toBe(true)
+  it("keeps the hit strip inside the side gutter of the 3xl column", () => {
+    expect(resolveTurnMinimapHasPersistentGutter(768)).toBe(false)
+    expect(resolveTurnMinimapHasPersistentGutter(863)).toBe(false)
+    expect(resolveTurnMinimapHasPersistentGutter(864)).toBe(true)
 
-    expect(resolveTurnMinimapHitStripWidth(896)).toBe(0)
-    expect(resolveTurnMinimapHitStripWidth(920)).toBe(0)
-    expect(resolveTurnMinimapHitStripWidth(934)).toBe(7)
-    expect(resolveTurnMinimapHitStripWidth(1000)).toBe(40)
+    expect(resolveTurnMinimapHitStripWidth(768)).toBe(0)
+    expect(resolveTurnMinimapHitStripWidth(792)).toBe(0)
+    expect(resolveTurnMinimapHitStripWidth(806)).toBe(7)
+    expect(resolveTurnMinimapHitStripWidth(872)).toBe(40)
+    expect(resolveTurnMinimapHitStripWidth(920)).toBe(40)
     expect(resolveTurnMinimapHitStripWidth(0)).toBe(0)
     expect(resolveTurnMinimapHitStripWidth(Number.NaN)).toBe(0)
 
