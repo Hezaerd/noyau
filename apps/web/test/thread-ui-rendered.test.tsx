@@ -13,6 +13,7 @@ import { TicketDialog } from "../src/components/board/TicketDialog"
 import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
+import { ThreadDraftHero } from "../src/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
 import { ThreadTranscript } from "../src/components/thread/ThreadTranscript"
 import { ThreadTranscriptItem } from "../src/components/thread/ThreadTranscriptItem"
@@ -187,6 +188,80 @@ describe("rendered Thread UI evidence", () => {
     )
     expect(composerGroup?.className).not.toMatch(/(?:^|\s)has-disabled:/)
   })
+
+  it("centers the new-thread composer instead of docking it", () => {
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text=""
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        placement="hero"
+        error={undefined}
+        onSubmit={vi.fn()}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onInterrupt={vi.fn()}
+      />,
+    )
+
+    const composer = screen.getByRole("textbox", { name: "Composer un message" }).closest("form")
+    expect(composer?.className).not.toMatch(/sticky/)
+    expect(composer?.className).not.toMatch(/bottom-0/)
+  })
+
+  it("names the Project in a centered new-thread headline", () => {
+    render(
+      <ThreadDraftHero
+        projectName="noyau"
+        projects={[{ id: projectId, name: "noyau", available: true }]}
+        selectedProjectId={projectId}
+        onSelectProject={vi.fn()}
+      >
+        <div>composer</div>
+      </ThreadDraftHero>,
+    )
+
+    const headline = screen.getByRole("heading", {
+      name: "Qu’est-ce qu’on construit dans noyau ?",
+    })
+    expect(headline.tagName).toBe("H2")
+    expect(headline.closest("[data-slot=thread-draft-hero]")?.className).toMatch(/justify-center/)
+    expect(screen.queryByRole("button", { name: "noyau" })).toBeNull()
+  })
+
+  it("changes Project from the new-thread headline when several are linked", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onSelectProject = vi.fn()
+        const otherProjectId = ProjectId.make("10000000-0000-4000-8000-000000000002")
+        render(
+          <ThreadDraftHero
+            projectName="noyau"
+            projects={[
+              { id: projectId, name: "noyau", available: true },
+              { id: otherProjectId, name: "veto-sud", available: true },
+            ]}
+            selectedProjectId={projectId}
+            onSelectProject={onSelectProject}
+          >
+            <div>composer</div>
+          </ThreadDraftHero>,
+        )
+
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "noyau" })))
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("menuitemradio", { name: "veto-sud" })),
+        )
+        expect(onSelectProject).toHaveBeenCalledWith(otherProjectId)
+      }),
+    ))
 
   it("submits with Enter and keeps Shift+Enter for a new line", () => {
     const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => {
