@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { initializeAppearance } from "@/lib/appearance"
 import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
 import { initializeKeybindings } from "@/lib/keybindings"
+import { initializeProjectFolderStartDirectory } from "@/lib/project-folder-preference"
 
 import { routeTree } from "./routeTree.gen"
 
@@ -15,6 +16,7 @@ import "./index.css"
 syncDocumentDesktopChrome()
 initializeAppearance()
 initializeKeybindings()
+initializeProjectFolderStartDirectory()
 
 const router = createRouter({ routeTree })
 

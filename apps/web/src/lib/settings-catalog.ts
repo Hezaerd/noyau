@@ -1,7 +1,7 @@
 import { KEYBINDINGS } from "@/lib/keybindings-catalog"
 import { PROVIDER_SETTINGS_ITEMS } from "@/lib/providers-catalog"
 
-export const SETTINGS_TAB_IDS = ["appearance", "providers", "keybindings"] as const
+export const SETTINGS_TAB_IDS = ["general", "appearance", "providers", "keybindings"] as const
 
 export type SettingsTabId = (typeof SETTINGS_TAB_IDS)[number]
 
@@ -24,6 +24,12 @@ export interface SettingsItem {
 
 export const SETTINGS_TABS: ReadonlyArray<SettingsTab> = [
   {
+    id: "general",
+    label: "Général",
+    path: "/settings/general",
+    restorable: true,
+  },
+  {
     id: "appearance",
     label: "Apparence",
     path: "/settings/appearance",
@@ -44,6 +50,13 @@ export const SETTINGS_TABS: ReadonlyArray<SettingsTab> = [
 ]
 
 export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
+  {
+    id: "project-folder-start-directory",
+    tab: "general",
+    title: "Ajouter un Project commence dans",
+    description: "Dossier affiché à l’ouverture du navigateur pour relier un Project.",
+    keywords: ["project", "projet", "dossier", "folder", "chemin", "add project"],
+  },
   {
     id: "appearance",
     tab: "appearance",

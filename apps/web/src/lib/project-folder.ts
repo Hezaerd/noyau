@@ -9,13 +9,18 @@ import {
 } from "./control-plane"
 import { makeProjectCreateRequest, makeProjectRebindRequest } from "./project-commands"
 
-export const pickProjectFolderEffect = Effect.fn("pickProjectFolder")(function* () {
+export const pickProjectFolderEffect = Effect.fn("pickProjectFolder")(function* (
+  initialPath: string | undefined,
+) {
   return yield* Effect.promise(
-    () => window.noyauDesktop?.pickFolder() ?? Promise.resolve(undefined),
+    () =>
+      window.noyauDesktop?.pickFolder(initialPath === undefined ? undefined : { initialPath }) ??
+      Promise.resolve(undefined),
   )
 })
 
-export const pickProjectFolder = () => Effect.runPromise(pickProjectFolderEffect())
+export const pickProjectFolder = (initialPath: string | undefined) =>
+  Effect.runPromise(pickProjectFolderEffect(initialPath))
 
 export const submitProjectFolderEffect = Effect.fn("submitProjectFolder")(function* (input: {
   readonly projectId: ProjectId | undefined
