@@ -33,7 +33,8 @@
     "./workspace-root": "./src/workspace-root.ts",
     "./workspace-path-search": "./src/workspace-path-search.ts",
     "./git/git-runtime": "./src/git/git-runtime.ts",
-    "./git/git-plane": "./src/git/git-plane.ts"
+    "./git/git-plane": "./src/git/git-plane.ts",
+    "./host-path": "./src/host-path.ts"
   },
   "scripts": {
     "dev": "node --watch src/main.ts",

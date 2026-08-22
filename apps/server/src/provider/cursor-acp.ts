@@ -74,7 +74,7 @@ const executableExists = (fileSystem: FileSystem.FileSystem, candidate: string) 
     Effect.orElseSucceed(() => false),
   )
 
-/** Resolves the configured executable or the platform Cursor command on PATH. */
+/** Resolves an explicit configured path, else the platform Cursor command on PATH. */
 export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutable")(function* (
   configuredPath: string | undefined,
   environment: NodeJS.ProcessEnv,
@@ -83,6 +83,14 @@ export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutabl
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const command = platform === "win32" ? "cursor-agent.exe" : "cursor-agent"
+  const configured = configuredPath?.trim()
+  const configuredIsExplicitPath =
+    configured !== undefined &&
+    configured.length > 0 &&
+    (path.isAbsolute(configured) || configured.includes("/") || configured.includes("\\"))
+  if (configuredIsExplicitPath && (yield* executableExists(fileSystem, configured))) {
+    return configured
+  }
   const pathValue = environment.PATH ?? environment.Path ?? ""
   const delimiter = path.sep === "\\" ? ";" : ":"
   for (const directory of pathValue.split(delimiter)) {
@@ -94,7 +102,6 @@ export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutabl
       return candidate
     }
   }
-  const configured = configuredPath?.trim()
   if (
     configured !== undefined &&
     configured.length > 0 &&
