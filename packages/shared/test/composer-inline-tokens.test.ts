@@ -56,6 +56,19 @@ describe("collectComposerInlineTokens", () => {
     ])
   })
 
+  it("collects mentions wrapped in markdown or trailing punctuation", () => {
+    expect(collectComposerInlineTokens("voir **@astro.config.mjs**.")).toEqual([
+      {
+        type: "mention",
+        value: "astro.config.mjs",
+        source: "@astro.config.mjs",
+        start: 7,
+        end: 24,
+      },
+    ])
+    expect(collectComposerInlineTokens("voir (@src/a.ts)")[0]?.source).toBe("@src/a.ts")
+  })
+
   it("treats scoped-looking paths as mentions", () => {
     expect(collectComposerInlineTokens("install @scope/package")).toEqual([
       {

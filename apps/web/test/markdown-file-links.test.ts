@@ -5,6 +5,7 @@ import {
   collectThreadMarkdownFileLinks,
   fileLinkChipLabel,
   resolveInlineCodeFileLinkMeta,
+  rewriteComposerMentionsToMarkdownFileLinks,
   rewriteMarkdownFileLinkDestinations,
   transformThreadMarkdownFileHref,
   resolveMarkdownFileLinkMeta,
@@ -53,6 +54,28 @@ describe("rewriteMarkdownFileUriHref", () => {
     expect(rewritten).toContain("https://file.invalid/?p=")
     expect(rewritten).toContain("https://example.com")
     expect(rewritten).toContain("[nope](src/hidden.ts)")
+  })
+
+  it("turns composer @path mentions into markdown file links", () => {
+    expect(
+      rewriteComposerMentionsToMarkdownFileLinks(
+        "Que peux tu me dire que le fichier @astro.config.mjs",
+      ),
+    ).toBe("Que peux tu me dire que le fichier [astro.config.mjs](astro.config.mjs)")
+    expect(rewriteComposerMentionsToMarkdownFileLinks("Voir @src/adapter.ts ensuite")).toBe(
+      "Voir [adapter.ts](src/adapter.ts) ensuite",
+    )
+    expect(rewriteComposerMentionsToMarkdownFileLinks("Voir [greet.py](src/greet.py)")).toBe(
+      "Voir [greet.py](src/greet.py)",
+    )
+    expect(
+      rewriteComposerMentionsToMarkdownFileLinks(
+        "Garde `@astro.config.mjs` et\n```\n@hidden.ts\n```",
+      ),
+    ).toBe("Garde `@astro.config.mjs` et\n```\n@hidden.ts\n```")
+    expect(rewriteComposerMentionsToMarkdownFileLinks("Le fichier **@astro.config.mjs**.")).toBe(
+      "Le fichier **[astro.config.mjs](astro.config.mjs)**.",
+    )
   })
 
   it("unwraps angle-bracketed file uri hrefs", () => {

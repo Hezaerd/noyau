@@ -19,7 +19,17 @@ export type ComposerPromptSegment =
   | { readonly type: "mention"; readonly path: string; readonly source: string }
 
 const SKILL_TOKEN_REGEX = /(^|\s)\$([a-zA-Z][a-zA-Z0-9:_-]*)(?=\s|$)/g
-const MENTION_TOKEN_REGEX = /(^|\s)@(?:"((?:\\.|[^"\\])*)"|([^\s@"]+))(?=\s|$)/g
+const MENTION_TOKEN_REGEX = /(^|[\s"'(*_~])@(?:"((?:\\.|[^"\\])*)"|([^\s@"]+))/g
+
+const trimUnquotedMentionPath = (path: string): string => {
+  let current = path
+  let next = current
+  do {
+    current = next
+    next = current.replace(/[*_~,;:!?)"']+$/, "").replace(/\.+$/, "")
+  } while (next !== current)
+  return current
+}
 const MAX_FILE_LINK_LABEL_LENGTH = 512
 const FILE_LINK_TOKEN_REGEX = new RegExp(
   `(^|\\s)\\[((?:\\\\.|[^\\]\\\\]){0,${MAX_FILE_LINK_LABEL_LENGTH}})\\]\\(([^)\\s]+)\\)(?=\\s|$)`,
@@ -69,12 +79,14 @@ const collectMentionTokens = (text: string): ComposerInlineToken[] => {
     const fullMatch = match[0]
     const prefix = match[1] ?? ""
     const quotedPath = match[2]
-    const path = quotedPath !== undefined ? quotedPath.replace(/\\(.)/g, "$1") : (match[3] ?? "")
+    const rawPath = quotedPath !== undefined ? quotedPath.replace(/\\(.)/g, "$1") : (match[3] ?? "")
+    const path = quotedPath !== undefined ? rawPath : trimUnquotedMentionPath(rawPath)
     if (!path) {
       continue
     }
     const start = (match.index ?? 0) + prefix.length
-    const end = start + fullMatch.length - prefix.length
+    const trimmedLength = quotedPath !== undefined ? 0 : rawPath.length - path.length
+    const end = start + fullMatch.length - prefix.length - trimmedLength
     const token: ComposerInlineToken = {
       type: "mention",
       value: path,

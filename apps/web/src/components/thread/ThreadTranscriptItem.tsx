@@ -37,7 +37,7 @@ export function ThreadTranscriptItem({
       <Message align="end">
         <MessageContent>
           <Bubble variant="default" align="end">
-            <BubbleContent>
+            <BubbleContent className="leading-6">
               <ThreadMarkdown
                 text={item.text}
                 workspaceRoot={workspaceRoot}

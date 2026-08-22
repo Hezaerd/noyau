@@ -8,7 +8,11 @@ import { Spinner } from "@/components/ui/spinner"
 import { toastManager } from "@/components/ui/toast"
 import { FILE_CHIP_ICON_CLASS_NAME, TRANSCRIPT_FILE_CHIP_CLASS_NAME } from "@/lib/file-chip"
 import { loadFilePreview, peekFilePreview } from "@/lib/file-preview"
-import { fileLinkChipLabel, type MarkdownFileLinkMeta } from "@/lib/markdown-file-links"
+import {
+  encodeThreadMarkdownFileHref,
+  fileLinkChipLabel,
+  type MarkdownFileLinkMeta,
+} from "@/lib/markdown-file-links"
 import { openFilesystemPath } from "@/lib/open-path"
 import { inferEntryKindFromPath } from "@/lib/pierre-icons"
 import { cn } from "@/lib/utils"
@@ -116,17 +120,14 @@ export function ThreadMarkdownFileChip({
       <PreviewCardTrigger
         closeDelay={PREVIEW_CLOSE_DELAY_MS}
         delay={PREVIEW_DELAY_MS}
-        render={
-          <button
-            type="button"
-            className={cn(TRANSCRIPT_FILE_CHIP_CLASS_NAME, className)}
-            data-thread-markdown-file-chip=""
-            aria-label={`Ouvrir ${meta.displayPath}`}
-            onClick={() => {
-              openFileChip(meta.filePath)
-            }}
-          />
-        }
+        href={encodeThreadMarkdownFileHref(meta.filePath)}
+        className={cn(className, TRANSCRIPT_FILE_CHIP_CLASS_NAME)}
+        data-thread-markdown-file-chip=""
+        aria-label={`Ouvrir ${meta.displayPath}`}
+        onClick={(event) => {
+          event.preventDefault()
+          openFileChip(meta.filePath)
+        }}
       >
         <PierreEntryIcon
           pathValue={meta.filePath}
