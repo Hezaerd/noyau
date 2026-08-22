@@ -246,6 +246,10 @@ describe("rendered Thread UI evidence", () => {
     expect(headline.tagName).toBe("H2")
     expect(headline.closest("[data-slot=thread-draft-hero]")?.className).toMatch(/justify-center/)
     expect(screen.queryByRole("button", { name: "noyau" })).toBeNull()
+    const projectName = screen.getByText("noyau")
+    expect(projectName.className).toMatch(/\binline\b/)
+    expect(projectName.className).not.toMatch(/inline-block/)
+    expect(projectName.className).not.toMatch(/truncate/)
   })
 
   it("changes Project from the new-thread headline when several are linked", () =>
@@ -268,7 +272,11 @@ describe("rendered Thread UI evidence", () => {
           </ThreadDraftHero>,
         )
 
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "noyau" })))
+        const projectName = screen.getByRole("button", { name: "noyau" })
+        expect(projectName.className).toMatch(/\binline\b/)
+        expect(projectName.className).not.toMatch(/inline-block/)
+        expect(projectName.className).not.toMatch(/truncate/)
+        yield* Effect.promise(() => user.click(projectName))
         yield* Effect.promise(() =>
           user.click(screen.getByRole("menuitemradio", { name: "veto-sud" })),
         )
