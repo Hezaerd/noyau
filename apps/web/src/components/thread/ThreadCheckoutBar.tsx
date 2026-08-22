@@ -1,11 +1,18 @@
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
-import type { GitStackedAction, VcsRef, VcsStatusResult } from "@noyau/protocol/git"
+import type { VcsRef, VcsStatusResult } from "@noyau/protocol/git"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import { GitBranchIcon, GitCommitHorizontalIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import {
+  ChevronDownIcon,
+  FolderGit2Icon,
+  FolderIcon,
+  GitBranchIcon,
+  SearchIcon,
+} from "lucide-react"
+import { useEffect, useState, type ReactNode } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Menu,
   MenuGroup,
@@ -16,6 +23,7 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import {
+  branchPickerBadge,
   envModeOf,
   resolveBranchSelectionTarget,
   resolveLocalCheckoutBranchMismatch,
@@ -24,23 +32,38 @@ import {
 import {
   buildCommand,
   dispatchCommand,
-  gitDraft,
-  gitRunStackedAction,
   vcsCreateRef,
   vcsListRefs,
   vcsStatus,
   vcsSwitchRef,
 } from "@/lib/control-plane"
-import { makeGitActionId, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
+import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 
-const stackedActions: ReadonlyArray<{ readonly value: GitStackedAction; readonly label: string }> =
-  [
-    { value: "commit", label: "Commit" },
-    { value: "push", label: "Push" },
-    { value: "create_pr", label: "Créer une PR" },
-    { value: "commit_push", label: "Commit + push" },
-    { value: "commit_push_pr", label: "Commit + push + PR" },
-  ]
+const checkoutTriggerClassName =
+  "min-w-0 font-medium text-muted-foreground/70 hover:text-foreground/80"
+
+function CheckoutMenuTrigger({
+  disabled,
+  children,
+}: {
+  readonly disabled: boolean
+  readonly children: ReactNode
+}) {
+  return (
+    <MenuTrigger
+      render={
+        <Button
+          variant="ghost"
+          size="xs"
+          disabled={disabled}
+          className={checkoutTriggerClassName}
+        />
+      }
+    >
+      {children}
+    </MenuTrigger>
+  )
+}
 
 export function ThreadCheckoutBar({
   projectId,
@@ -49,6 +72,7 @@ export function ThreadCheckoutBar({
   worktreePath,
   disabled,
   envMode,
+  envModeLocked,
   onEnvModeChange,
   onBaseBranchChange,
 }: {
@@ -58,6 +82,7 @@ export function ThreadCheckoutBar({
   readonly worktreePath: string | null
   readonly disabled: boolean
   readonly envMode: ThreadEnvMode
+  readonly envModeLocked: boolean
   readonly onEnvModeChange: (mode: ThreadEnvMode) => void
   readonly onBaseBranchChange: (branch: string) => void
 }) {
@@ -65,8 +90,7 @@ export function ThreadCheckoutBar({
   const [refs, setRefs] = useState<ReadonlyArray<VcsRef>>([])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string>()
-  const [draftTitle, setDraftTitle] = useState("")
-  const [draftBody, setDraftBody] = useState("")
+  const [branchQuery, setBranchQuery] = useState("")
   const mismatch = resolveLocalCheckoutBranchMismatch({
     envMode,
     threadBranch: branch,
@@ -167,9 +191,9 @@ export function ThreadCheckoutBar({
     })
   }
 
-  const createBranch = () => {
-    const name = window.prompt("Nom de la branche")
-    if (name === null || name.trim() === "") {
+  const createBranch = (requestedName?: string) => {
+    const name = (requestedName ?? window.prompt("Nom de la branche") ?? "").trim()
+    if (name === "") {
       return
     }
     setBusy(true)
@@ -190,129 +214,116 @@ export function ThreadCheckoutBar({
     )
   }
 
-  const generateDraft = (kind: "commit" | "pr") => {
-    setBusy(true)
-    void gitDraft({ ...scope, kind }).then((result) => {
-      setBusy(false)
-      if (!result.ok) {
-        setNotice(result.failure._tag)
-        return undefined
-      }
-      setDraftTitle(result.value.title)
-      setDraftBody(result.value.body ?? "")
-      return undefined
-    })
-  }
-
-  const runAction = (action: GitStackedAction) => {
-    setBusy(true)
-    const title = draftTitle.trim()
-    const body = draftBody.trim()
-    void buildCommand(makeGitActionId()).then((built) => {
-      if (!built.ok) {
-        setBusy(false)
-        setNotice(built.failure._tag)
-        return undefined
-      }
-      return gitRunStackedAction(
-        Object.assign(
-          { ...scope, action, actionId: built.value },
-          title === "" ? {} : { commitMessage: title, pullRequestTitle: title },
-          body === "" ? {} : { pullRequestBody: body },
-        ),
-      ).then((result) => {
-        setBusy(false)
-        if (!result.ok) {
-          setNotice(result.failure._tag)
-          return undefined
-        }
-        if (result.value.pullRequest.url !== undefined) {
-          setNotice(result.value.pullRequest.url)
-        }
-        refresh()
-        return undefined
-      })
-    })
-  }
-
   const localRefs = refs.filter((ref) => !ref.isRemote)
+  const trimmedBranchQuery = branchQuery.trim()
+  const filteredRefs =
+    trimmedBranchQuery === ""
+      ? localRefs
+      : localRefs.filter((ref) => ref.name.toLowerCase().includes(trimmedBranchQuery.toLowerCase()))
+  const showCreateBranch = trimmedBranchQuery !== "" && filteredRefs.length === 0
   const boundMode = envModeOf({ branch, worktreePath })
+  const EnvModeIcon = envMode === "worktree" ? FolderGit2Icon : FolderIcon
+  const controlsDisabled = disabled || busy
+  const branchLabel = status === undefined ? (branch ?? "…") : statusLabel(status)
 
   return (
-    <div className="flex flex-col gap-2 border-t px-3 py-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <Menu>
-          <MenuTrigger render={<Button variant="ghost" size="sm" disabled={disabled || busy} />}>
+    <div className="flex flex-col gap-1">
+      <div
+        data-slot="thread-checkout-bar"
+        className="mx-6 -mt-px flex items-center gap-1 overflow-x-clip rounded-b-xl border border-t-0 bg-background px-2 py-1 shadow-xs/5"
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <Menu>
+            <CheckoutMenuTrigger disabled={controlsDisabled || envModeLocked}>
+              <EnvModeIcon data-icon="inline-start" />
+              {envMode === "worktree" ? "Worktree" : "Local"}
+            </CheckoutMenuTrigger>
+            <MenuPopup align="start" side="top">
+              <MenuGroup>
+                <MenuGroupLabel>Checkout</MenuGroupLabel>
+                <MenuItem
+                  onClick={() => {
+                    onEnvModeChange("local")
+                    if (boundMode === "worktree") {
+                      bindCheckout({ branch: status?.refName ?? branch, worktreePath: null })
+                    }
+                  }}
+                >
+                  <FolderIcon data-icon="inline-start" />
+                  Local — WorkspaceRoot
+                </MenuItem>
+                <MenuItem onClick={() => onEnvModeChange("worktree")}>
+                  <FolderGit2Icon data-icon="inline-start" />
+                  Worktree — isolé au premier envoi
+                </MenuItem>
+              </MenuGroup>
+            </MenuPopup>
+          </Menu>
+        </div>
+        <Menu
+          onOpenChange={(open) => {
+            if (!open) {
+              setBranchQuery("")
+            }
+          }}
+        >
+          <CheckoutMenuTrigger disabled={controlsDisabled}>
             <GitBranchIcon data-icon="inline-start" />
-            {envMode === "worktree" ? "Worktree" : "Local"}
-          </MenuTrigger>
-          <MenuPopup>
-            <MenuGroup>
-              <MenuGroupLabel>Checkout</MenuGroupLabel>
-              <MenuItem
-                onClick={() => {
-                  onEnvModeChange("local")
-                  if (boundMode === "worktree") {
-                    bindCheckout({ branch: status?.refName ?? branch, worktreePath: null })
-                  }
-                }}
-              >
-                Local — WorkspaceRoot
-              </MenuItem>
-              <MenuItem onClick={() => onEnvModeChange("worktree")}>
-                Worktree — isolé au premier envoi
-              </MenuItem>
-            </MenuGroup>
-          </MenuPopup>
-        </Menu>
-        <Menu>
-          <MenuTrigger render={<Button variant="ghost" size="sm" disabled={disabled || busy} />}>
-            {statusLabel(status)}
-          </MenuTrigger>
-          <MenuPopup className="max-h-72 overflow-y-auto">
+            <span className="min-w-0 max-w-[240px] truncate">{branchLabel}</span>
+            <ChevronDownIcon data-icon="inline-end" />
+          </CheckoutMenuTrigger>
+          <MenuPopup align="end" side="top" className="w-80">
+            <div className="px-2 pt-1.5 pb-1">
+              <div className="relative border-b border-border/70 pb-1.5 transition-colors focus-within:border-ring">
+                <SearchIcon
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1.5 left-0 size-4 text-muted-foreground/55"
+                />
+                <Input
+                  unstyled
+                  size="sm"
+                  type="search"
+                  value={branchQuery}
+                  placeholder="Rechercher une branche…"
+                  aria-label="Rechercher une branche"
+                  className="[&_input]:h-6.5 [&_input]:bg-transparent [&_input]:ps-5 [&_input]:font-sans"
+                  onKeyDown={(event) => {
+                    event.stopPropagation()
+                  }}
+                  onChange={(event) => {
+                    setBranchQuery(event.target.value)
+                  }}
+                />
+              </div>
+            </div>
             <MenuGroup>
               <MenuGroupLabel>Branches</MenuGroupLabel>
-              {localRefs.map((ref) => (
-                <MenuItem key={ref.name} onClick={() => selectRef(ref)}>
-                  {ref.current ? "• " : ""}
-                  {ref.name}
-                  {ref.worktreePath !== null ? " · worktree" : ""}
-                </MenuItem>
-              ))}
-              <MenuSeparator />
-              <MenuItem onClick={createBranch}>Nouvelle branche…</MenuItem>
-            </MenuGroup>
-          </MenuPopup>
-        </Menu>
-        <Menu>
-          <MenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={disabled || busy || status?.isRepo !== true}
-              />
-            }
-          >
-            <GitCommitHorizontalIcon data-icon="inline-start" />
-            Git
-          </MenuTrigger>
-          <MenuPopup>
-            <MenuGroup>
-              <MenuGroupLabel>Brouillon</MenuGroupLabel>
-              <MenuItem onClick={() => generateDraft("commit")}>
-                Générer le message de commit
-              </MenuItem>
-              <MenuItem onClick={() => generateDraft("pr")}>Générer le texte de PR</MenuItem>
-            </MenuGroup>
-            <MenuSeparator />
-            <MenuGroup>
-              <MenuGroupLabel>Actions</MenuGroupLabel>
-              {stackedActions.map((action) => (
-                <MenuItem key={action.value} onClick={() => runAction(action.value)}>
-                  {action.label}
-                </MenuItem>
-              ))}
+              {filteredRefs.map((ref) => {
+                const badge = branchPickerBadge(ref, status?.cwd ?? "")
+                return (
+                  <MenuItem key={ref.name} className="w-full" onClick={() => selectRef(ref)}>
+                    <span className="flex w-full min-w-0 items-center justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate">{ref.name}</span>
+                      {badge === null ? null : (
+                        <span className="shrink-0 text-[10px] text-muted-foreground/45">
+                          {badge}
+                        </span>
+                      )}
+                    </span>
+                  </MenuItem>
+                )
+              })}
+              {filteredRefs.length === 0 && !showCreateBranch ? (
+                <p className="px-2 py-1.5 text-muted-foreground text-xs">Aucune branche</p>
+              ) : null}
+              {showCreateBranch ? (
+                <>
+                  <MenuSeparator />
+                  <MenuItem onClick={() => createBranch(trimmedBranchQuery)}>
+                    Créer « {trimmedBranchQuery} »
+                  </MenuItem>
+                </>
+              ) : null}
             </MenuGroup>
           </MenuPopup>
         </Menu>
@@ -325,12 +336,6 @@ export function ThreadCheckoutBar({
             . Restaure avec le sélecteur de branche.
           </AlertDescription>
         </Alert>
-      ) : null}
-      {draftTitle !== "" ? (
-        <p className="text-muted-foreground text-xs">
-          Brouillon : {draftTitle}
-          {draftBody === "" ? "" : ` — ${draftBody}`}
-        </p>
       ) : null}
       {notice === undefined ? null : <p className="text-muted-foreground text-xs">{notice}</p>}
     </div>
