@@ -322,7 +322,7 @@ describe("ThreadMarkdown", () => {
         renderMarkdown("Regarde [guide](docs/guide.md)")
         const user = userEvent.setup()
         yield* Effect.promise(() =>
-          user.hover(screen.getByRole("button", { name: /Ouvrir .*guide\.md/ })),
+          user.hover(screen.getByRole("link", { name: /Ouvrir .*guide\.md/ })),
         )
         yield* Effect.promise(() =>
           waitFor(() => {

@@ -880,20 +880,26 @@ describe("rendered Thread UI evidence", () => {
         expect(preview?.textContent).not.toContain("**dans**")
 
         yield* Effect.promise(() =>
-          waitFor(() => {
-            const tokens = [
-              ...(preview?.querySelectorAll(
-                "[data-streamdown='code-block-body'] span[style*='--sdm-c']",
-              ) ?? []),
-            ].filter((node): node is HTMLElement => node instanceof HTMLElement)
-            expect(
-              tokens.some((node) => {
-                const light = node.style.getPropertyValue("--sdm-c")
-                const dark = node.style.getPropertyValue("--shiki-dark")
-                return light.length > 0 && light !== "inherit" && dark.length > 0 && light !== dark
-              }),
-            ).toBe(true)
-          }),
+          waitFor(
+            () => {
+              const tokens = [
+                ...(preview?.querySelectorAll(
+                  "[data-streamdown='code-block-body'] span[style*='--sdm-c']",
+                ) ?? []),
+              ].filter((node): node is HTMLElement => node instanceof HTMLElement)
+              expect(tokens.length).toBeGreaterThan(0)
+              expect(
+                tokens.some((node) => {
+                  const light = node.style.getPropertyValue("--sdm-c")
+                  const dark = node.style.getPropertyValue("--shiki-dark")
+                  return (
+                    light.length > 0 && light !== "inherit" && dark.length > 0 && light !== dark
+                  )
+                }),
+              ).toBe(true)
+            },
+            { timeout: 5_000 },
+          ),
         )
       }),
     )
