@@ -20,9 +20,11 @@ icône dark. Dev = ember, nightly = dark, latest = light. `NOYAU_RELEASE_CHANNEL
 Les artefacts v0.1 sont le DMG macOS Apple Silicon et l’installateur NSIS Windows x64. Linux, Intel
 Mac et signature (Developer ID, Azure Trusted Signing) sont différés.
 
-`electron-updater` exige une application macOS signée. Sans certificat, Noyau ne promet pas
-d’installation automatique : l’utilisateur télécharge la Release et installe à la main. Gatekeeper
-et SmartScreen afficheront un avertissement ; le README de release le documente.
+`electron-updater` exige une application macOS signée Developer ID. Sans certificat, Noyau ne promet
+pas d’installation automatique : l’utilisateur télécharge la Release et installe à la main. Le
+packager pose quand même une signature ad-hoc macOS pour que Gatekeeper ne traite pas le bundle
+comme corrompu. Gatekeeper et SmartScreen afficheront un avertissement ; le README de release le
+documente.
 
 Le packager reste `electron-builder --publish never`. Chaque runner CI dépose un artefact ; un job
 unique crée la GitHub Release. La signature, si elle arrive plus tard, se branche sur ce même flux

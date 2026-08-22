@@ -52,9 +52,10 @@ installateurs versionnés, pas le `.exe` dépaqueté.
 Le serveur enfant est hors ASAR (`Contents/Resources/server/main.mjs` /
 `resources/server/main.mjs`) ; le renderer et le main restent dans `app.asar`.
 
-L’app est unsigned. Sur macOS Sequoia+, Gatekeeper exige
-Réglages système → Confidentialité et sécurité → **Ouvrir quand même** après le premier refus.
-Sur Windows, SmartScreen demande **Informations complémentaires** → **Exécuter quand même**.
+Pas de Developer ID. Sur macOS, `afterPack` pose une signature ad-hoc pour que Gatekeeper
+ne traite pas le bundle comme corrompu. Sequoia+ exige ensuite Réglages système →
+Confidentialité et sécurité → **Ouvrir quand même**. Sur Windows, SmartScreen demande
+**Informations complémentaires** → **Exécuter quand même**.
 
 | Sujet           | macOS                          | Windows                                       |
 | --------------- | ------------------------------ | --------------------------------------------- |
@@ -62,7 +63,7 @@ Sur Windows, SmartScreen demande **Informations complémentaires** → **Exécut
 | Installateur    | `bun run dist:desktop:mac:dmg` | `bun run dist:desktop:win:nsis`               |
 | Release CI      | DMG arm64                      | NSIS x64                                      |
 | Icône           | `assets/prod/app-icon.icns`    | `assets/prod/app-icon.png` (`.ico` plus tard) |
-| Signature       | `identity: null`               | `signAndEditExecutable: false`                |
+| Signature       | ad-hoc (`codesign --sign -`)   | `signAndEditExecutable: false`                |
 
 Pas de cross-compile : packager mac depuis un Mac, Windows depuis Windows. Le chrome de fenêtre
 (title bar overlay) et `--no-sandbox` sont déjà gérés hors packager.

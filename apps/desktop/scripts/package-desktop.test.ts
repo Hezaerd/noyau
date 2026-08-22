@@ -141,6 +141,7 @@ it.layer(NodeServices.layer)("electron-builder config", (spec) => {
       expect(config).toContain("productName: Noyau")
       expect(config).toContain("to: server")
       expect(config).toContain("identity: null")
+      expect(config).toContain("afterPack: scripts/after-pack.cjs")
       expect(config).toContain("icon: assets/prod/app-icon.icns")
       expect(config).toContain("dist-electron/release-channel.json")
       expect(config).toContain('"!**/node_modules/**"')
