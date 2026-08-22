@@ -64,5 +64,6 @@ describe("settings catalog", () => {
       "provider-claude-code",
     ])
     expect(searchSettings("palette").map((hit) => hit.tab.id)).toEqual(["keybindings"])
+    expect(searchSettings("cuelume").map((hit) => hit.id)).toEqual(["turn-cue", "turn-cue-sound"])
   })
 })

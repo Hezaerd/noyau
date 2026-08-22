@@ -163,6 +163,11 @@ _À éviter_ : Provider, extension, plugin, état du Project
 Valeur persistée d'un item du catalogue Paramètres, distincte d'une Command du control plane.
 _À éviter_ : option, config, setting
 
+**Son de Turn**:
+Cue Cuelume joué quand un Turn passe de `running` à un état terminal. Préférence renderer
+(toggle + son). Pas une notification OS.
+_À éviter_ : notification système, événement de journal, fichier audio embarqué
+
 **ShellFocus**:
 Vue UI volatile poussée au serveur (Tableau ou Thread). Les Paramètres restent sticky sur le
 dernier Project ouvert.

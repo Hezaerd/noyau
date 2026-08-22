@@ -65,6 +65,20 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["project", "agent", "skill", "skills.sh", "mcp", "tableau", "ticket"],
   },
   {
+    id: "turn-cue",
+    tab: "general",
+    title: "Son de fin de Turn",
+    description: "Joue un ding quand un Turn se termine.",
+    keywords: ["son", "ding", "sound", "cuelume", "turn", "audio"],
+  },
+  {
+    id: "turn-cue-sound",
+    tab: "general",
+    title: "Son",
+    description: "Joué à la fin d'un Turn.",
+    keywords: ["son", "cuelume", "chime", "arrival", "sparkle", "bloom"],
+  },
+  {
     id: "discord-rich-presence",
     tab: "general",
     title: "Discord Rich Presence",
