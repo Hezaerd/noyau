@@ -49,6 +49,9 @@ par `gh release create`. `main` n’est pas modifié.
 
 ### macOS (Sequoia et plus)
 
+Le DMG contient un .app signé ad-hoc (pas de Developer ID). Sans ça, Gatekeeper
+traite le bundle comme corrompu et **Ouvrir quand même** n’apparaît pas.
+
 Gatekeeper bloque le premier lancement. Le clic droit → Ouvrir ne suffit plus.
 
 1. Ouvrir le DMG, glisser Noyau dans Applications, lancer une première fois.

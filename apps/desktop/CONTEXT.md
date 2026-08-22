@@ -53,5 +53,7 @@ Nom `Noyau (Nightly)`, bundle id `dev.noyau.desktop.nightly`, icône dark.
 _À éviter_ : même bundle id que latest, icône light latest, titre « Noyau » seul
 
 **Release unsigned**:
-GitHub Release avec DMG arm64 et NSIS x64, sans signature ni auto-update.
-_À éviter_ : notarization, `electron-updater`, SmartScreen comme preuve de confiance
+GitHub Release avec DMG arm64 et NSIS x64, sans Developer ID ni auto-update. Le .app
+macOS est signé ad-hoc après pack pour sceller les ressources.
+_À éviter_ : notarization, `electron-updater`, laisser la signature linker d’Electron,
+SmartScreen comme preuve de confiance
