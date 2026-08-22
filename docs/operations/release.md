@@ -9,7 +9,8 @@ Fichier : `.github/workflows/release.yml`.
 
 1. `preflight` calcule la version, puis `bun run check` et `bun run test`.
 2. Deux builders en parallèle packagent un installateur unsigned.
-3. `release` crée une GitHub Release avec le DMG et l’`.exe`.
+3. `release` crée une GitHub Release avec le DMG et l’NSIS versionnés
+   (`Noyau-<version>-<os>-<arch>`). Le binaire dépaqueté `win-unpacked/` n’est pas publié.
 
 Pas de cron, pas de publication npm, pas de manifests `electron-updater`.
 

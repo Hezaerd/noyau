@@ -46,7 +46,8 @@ bun run dist:desktop:win:nsis
 
 Sortie `dir` : `apps/desktop/release/mac-arm64/Noyau.app` (ou `mac/` selon l’arch) et
 `win-unpacked/Noyau.exe`. Les installateurs partageables s’appellent
-`Noyau-<version>-<os>-<arch>.dmg|.exe`.
+`Noyau-<version>-<os>-<arch>.dmg|.exe`. La Release GitHub ne publie que ces
+installateurs versionnés, pas le `.exe` dépaqueté.
 
 Le serveur enfant est hors ASAR (`Contents/Resources/server/main.mjs` /
 `resources/server/main.mjs`) ; le renderer et le main restent dans `app.asar`.

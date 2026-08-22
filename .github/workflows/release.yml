@@ -136,26 +136,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p release-publish
-          shopt -s nullglob
-          copied=0
-          for file in \
-            apps/desktop/release/*.dmg \
-            apps/desktop/release/*.exe \
-            apps/desktop/release/*/*.dmg \
-            apps/desktop/release/*/*.exe; do
-            name="$(basename "$file")"
-            if [[ "$name" == builder-debug* ]]; then
-              continue
-            fi
-            cp "$file" "release-publish/$name"
-            copied=$((copied + 1))
-          done
-          if [[ "$copied" -eq 0 ]]; then
-            echo "No installer artifacts found under apps/desktop/release/" >&2
-            ls -R apps/desktop/release || true
-            exit 1
-          fi
+          node apps/desktop/scripts/collect-release-assets.ts \
+            --from apps/desktop/release \
+            --to release-publish
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
