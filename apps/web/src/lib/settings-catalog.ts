@@ -75,7 +75,7 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     id: "turn-cue-sound",
     tab: "general",
     title: "Son",
-    description: "Cue Cuelume joué à la fin du Turn.",
+    description: "Joué à la fin d'un Turn.",
     keywords: ["son", "cuelume", "chime", "arrival", "sparkle", "bloom"],
   },
   {

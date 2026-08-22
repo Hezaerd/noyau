@@ -111,7 +111,7 @@ export function GeneralSettingsPanel(): ReactElement {
               id="turn-cue-sound"
               className="bg-muted/20 pl-7 sm:pl-9"
               title="Son"
-              description="Cue Cuelume joué à la fin du Turn."
+              description="Joué à la fin d'un Turn."
               control={
                 <Select
                   items={TURN_CUE_SOUND_ITEMS}
