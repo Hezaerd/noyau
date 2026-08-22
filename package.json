@@ -22,6 +22,7 @@
     "dist:desktop:mac": "vp run --filter @noyau/desktop package:mac",
     "dist:desktop:mac:dmg": "vp run --filter @noyau/desktop package:mac:dmg",
     "dist:desktop:win": "vp run --filter @noyau/desktop package:win",
+    "dist:desktop:win:nsis": "vp run --filter @noyau/desktop package:win:nsis",
     "typecheck": "vp run -r --cache typecheck",
     "prepare": "vp config --no-agent && effect-tsgo patch --typescript --oxlint"
   },

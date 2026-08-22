@@ -11,12 +11,30 @@ export interface CursorClientPoint {
   readonly height: number
 }
 
+export type DesktopReleaseChannel = "development" | "latest" | "nightly"
+
 export interface NoyauDesktopBridge {
   readonly platform: string
+  readonly releaseChannel?: DesktopReleaseChannel
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
   readonly pickFolder: (options?: { readonly initialPath?: string }) => Promise<string | undefined>
   readonly openPath: (path: string) => Promise<void>
   readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
+}
+
+export const desktopReleaseChannel = (): DesktopReleaseChannel =>
+  window.noyauDesktop?.releaseChannel ?? "latest"
+
+export const desktopBrandName = (
+  channel: DesktopReleaseChannel = desktopReleaseChannel(),
+): string => {
+  if (channel === "development") {
+    return "Noyau (Dev)"
+  }
+  if (channel === "nightly") {
+    return "Noyau (Nightly)"
+  }
+  return "Noyau"
 }
 
 interface WindowControlsOverlayLike {
@@ -64,11 +82,13 @@ export const syncDocumentDesktopChrome = (): (() => void) => {
   }
 
   document.documentElement.classList.add(...platformClassNames)
+  document.documentElement.dataset.releaseChannel = desktopReleaseChannel()
   syncOverlayClass()
   overlay?.addEventListener("geometrychange", syncOverlayClass)
 
   return () => {
     overlay?.removeEventListener("geometrychange", syncOverlayClass)
     document.documentElement.classList.remove("wco", ...platformClassNames)
+    delete document.documentElement.dataset.releaseChannel
   }
 }

@@ -33,5 +33,19 @@ describe("sidebar brand titlebar", () => {
     expect(titlebar).not.toBeNull()
     expect(titlebar?.className).toContain(SIDEBAR_TITLEBAR_INSET_CLASS)
     expect(titlebar?.className.split(/\s+/)).not.toContain("px-3")
+    expect(titlebar?.textContent).toContain("Noyau")
+  })
+
+  it("labels a nightly desktop session", () => {
+    Object.defineProperty(window, "noyauDesktop", {
+      configurable: true,
+      value: { releaseChannel: "nightly" },
+    })
+    const { container } = render(<SidebarBrandTitlebar />)
+    expect(container.textContent).toContain("Noyau (Nightly)")
+    Object.defineProperty(window, "noyauDesktop", {
+      configurable: true,
+      value: undefined,
+    })
   })
 })

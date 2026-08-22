@@ -30,7 +30,8 @@ Plafond d'arrêt du PID serveur après l'endpoint interne : 2 s.
 _À éviter_ : sweep cursor-agent, SIGTERM portable Windows
 
 **Icône d'app**:
-Marque Dock du bundle brandé, dérivée du blobatar sidebar. Light en Dev, dark en prod.
+Marque Dock du bundle brandé, dérivée du blobatar sidebar. Ember en Dev, dark en nightly,
+light en latest.
 _À éviter_ : favicon web, icône Electron stock
 
 **Chrome de fenêtre**:
@@ -40,3 +41,17 @@ _À éviter_ : header desktop, barre de titre
 **Header de page**:
 Rangée contextuelle qui porte la navigation et l'identité de la page courante.
 _À éviter_ : chrome de fenêtre, barre de titre
+
+**Canal de release**:
+Piste de publication desktop `latest` ou `nightly`, plus `development` en local. latest = tag
+`vX.Y.Z` ; nightly = dispatch Actions. Exposé par `NOYAU_RELEASE_CHANNEL` et
+`window.noyauDesktop.releaseChannel`.
+_À éviter_ : canal beta séparé, dist-tag npm, updater Electron, réutiliser `NOYAU_ENV`
+
+**Marque nightly**:
+Nom `Noyau (Nightly)`, bundle id `dev.noyau.desktop.nightly`, icône dark.
+_À éviter_ : même bundle id que latest, icône light latest, titre « Noyau » seul
+
+**Release unsigned**:
+GitHub Release avec DMG arm64 et NSIS x64, sans signature ni auto-update.
+_À éviter_ : notarization, `electron-updater`, SmartScreen comme preuve de confiance

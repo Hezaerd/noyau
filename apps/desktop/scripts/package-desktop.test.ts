@@ -29,16 +29,44 @@ describe("package desktop", () => {
     expect(parsePackageDesktopArgs([], "darwin")).toEqual({
       platform: "mac",
       target: "dir",
+      arch: undefined,
+      buildVersion: undefined,
       skipBuild: false,
     })
     expect(parsePackageDesktopArgs(["--skip-build", "--dmg"], "darwin")).toEqual({
       platform: "mac",
       target: "dmg",
+      arch: undefined,
+      buildVersion: undefined,
       skipBuild: true,
     })
     expect(parsePackageDesktopArgs([], "win32")).toEqual({
       platform: "win",
       target: "dir",
+      arch: undefined,
+      buildVersion: undefined,
+      skipBuild: false,
+    })
+  })
+
+  it("accepts release architecture and version flags", () => {
+    expect(
+      parsePackageDesktopArgs(
+        ["--mac", "--dmg", "--arch", "arm64", "--build-version", "0.1.0-nightly.20260822.12"],
+        "darwin",
+      ),
+    ).toEqual({
+      platform: "mac",
+      target: "dmg",
+      arch: "arm64",
+      buildVersion: "0.1.0-nightly.20260822.12",
+      skipBuild: false,
+    })
+    expect(parsePackageDesktopArgs(["--win", "--nsis", "--arch", "x64"], "win32")).toEqual({
+      platform: "win",
+      target: "nsis",
+      arch: "x64",
+      buildVersion: undefined,
       skipBuild: false,
     })
   })
@@ -51,6 +79,11 @@ describe("package desktop", () => {
     expect(() => parsePackageDesktopArgs(["--win", "--dmg"], "win32")).toThrow(/macOS target/)
     expect(() => parsePackageDesktopArgs(["--mac", "--nsis"], "darwin")).toThrow(/Windows target/)
     expect(() => parsePackageDesktopArgs(["--unknown"], "darwin")).toThrow(/Unknown packaging flag/)
+    expect(() => parsePackageDesktopArgs(["--arch"], "darwin")).toThrow(/--arch requires a value/)
+    expect(() => parsePackageDesktopArgs(["--arch", "universal"], "darwin")).toThrow(/arm64 or x64/)
+    expect(() => parsePackageDesktopArgs(["--build-version", "not-a-version"], "darwin")).toThrow(
+      /Invalid --build-version/,
+    )
     expect(() => parsePackageDesktopArgs([], "linux")).toThrow(/Package macOS from a Mac/)
     expect(() => assertHostCanPackage("mac", "win32")).toThrow(/Package macOS from a Mac/)
     expect(() => assertHostCanPackage("win", "darwin")).toThrow(
@@ -62,10 +95,37 @@ describe("package desktop", () => {
     expect(resolveElectronBuilderCli().endsWith("electron-builder/cli.js")).toBe(true)
   })
 
-  it("asks electron-builder for an unsigned local artifact", () => {
-    expect(electronBuilderArgs("mac", "dir")).toEqual(["--mac", "dir", "--publish", "never"])
-    expect(electronBuilderArgs("mac", "dmg")).toEqual(["--mac", "dmg", "--publish", "never"])
-    expect(electronBuilderArgs("win", "dir")).toEqual(["--win", "dir", "--publish", "never"])
+  it("asks electron-builder for an unsigned artifact", () => {
+    expect(electronBuilderArgs("mac", "dir", undefined, undefined)).toEqual([
+      "--mac",
+      "dir",
+      "--publish",
+      "never",
+      "-c.extraMetadata.noyauReleaseChannel=latest",
+    ])
+    expect(electronBuilderArgs("mac", "dmg", "arm64", "0.1.0")).toEqual([
+      "--mac",
+      "dmg",
+      "--arm64",
+      "--publish",
+      "never",
+      "-c.extraMetadata.noyauReleaseChannel=latest",
+      "-c.extraMetadata.version=0.1.0",
+    ])
+    expect(electronBuilderArgs("win", "nsis", "x64", "0.1.0-nightly.20260822.1")).toEqual([
+      "--win",
+      "nsis",
+      "--x64",
+      "--publish",
+      "never",
+      "-c.extraMetadata.noyauReleaseChannel=nightly",
+      "-c.extraMetadata.version=0.1.0-nightly.20260822.1",
+      "-c.productName=Noyau (Nightly)",
+      "-c.extraMetadata.productName=Noyau (Nightly)",
+      "-c.appId=dev.noyau.desktop.nightly",
+      "-c.mac.icon=assets/nightly/app-icon.icns",
+      "-c.win.icon=assets/nightly/app-icon.png",
+    ])
   })
 })
 
@@ -82,7 +142,9 @@ it.layer(NodeServices.layer)("electron-builder config", (spec) => {
       expect(config).toContain("to: server")
       expect(config).toContain("identity: null")
       expect(config).toContain("icon: assets/prod/app-icon.icns")
+      expect(config).toContain("dist-electron/release-channel.json")
       expect(config).toContain('"!**/node_modules/**"')
+      expect(config).toContain("artifactName: Noyau-${version}-${os}-${arch}.${ext}")
     }),
   )
 })

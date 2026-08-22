@@ -5,17 +5,26 @@ export const MAC_BUNDLE_STOCK_ICON_FILE = "electron.icns"
 
 export const APP_ICON_VARIANTS = {
   development: {
-    appearance: "light",
+    appearance: "dark",
     directory: "dev",
+    palette: {
+      bg: "#1a1208",
+      head: "#c45c26",
+      eye: "#ffe7c2",
+    },
+  },
+  production: {
+    appearance: "light",
+    directory: "prod",
     palette: {
       bg: "#ebe9f4",
       head: "#6154e0",
       eye: "#f7f5ff",
     },
   },
-  production: {
+  nightly: {
     appearance: "dark",
-    directory: "prod",
+    directory: "nightly",
     palette: {
       bg: "#0a0a0e",
       head: "#302b4b",

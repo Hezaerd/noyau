@@ -43,6 +43,7 @@ const devElectron = Effect.fn("devElectron")(function* () {
       env: {
         ELECTRON_RUN_AS_NODE: undefined,
         NOYAU_DESKTOP_DEV: "1",
+        NOYAU_RELEASE_CHANNEL: "development",
         NOYAU_SERVER_ENTRY: serverEntry,
       },
       detached: false,

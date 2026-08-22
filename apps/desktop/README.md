@@ -29,36 +29,39 @@ bun run --cwd apps/desktop smoke-test
 Le build copie les assets de `apps/web/dist` dans `dist-electron/renderer` afin que l'application
 ne dépende d'aucune distribution web.
 
-## Package local (unsigned)
+## Package et releases (unsigned)
 
-Pas de CI, signature, notarization ni updater. Ça produit un `.app` macOS ouvrable en local.
+CI publie latest/nightly sur GitHub Releases : DMG Apple Silicon et NSIS Windows x64. Pas de
+signature, pas d’auto-update. Nightly s’appelle **Noyau (Nightly)** (icône dark, bundle id
+séparé). Marques : ember en Dev, dark en nightly, light en latest. L’UI lit
+`window.noyauDesktop.releaseChannel` / `NOYAU_RELEASE_CHANNEL`.
+Voir [`docs/operations/release.md`](../../docs/operations/release.md).
 
 ```bash
 bun run dist:desktop:mac
-```
-
-Sortie : `apps/desktop/release/mac-arm64/Noyau.app` (ou `mac/` / `mac-x64/` selon l'arch). Pour un
-`.dmg` partageable sur la même machine :
-
-```bash
 bun run dist:desktop:mac:dmg
+bun run dist:desktop:win
+bun run dist:desktop:win:nsis
 ```
 
-Le serveur enfant est hors ASAR (`Contents/Resources/server/main.mjs`) ; le renderer et le main
-restent dans `app.asar`. L'app est unsigned : si Gatekeeper bloque un déplacement, clic droit →
-Ouvrir, ou `xattr -cr` sur le `.app`.
+Sortie `dir` : `apps/desktop/release/mac-arm64/Noyau.app` (ou `mac/` selon l’arch) et
+`win-unpacked/Noyau.exe`. Les installateurs partageables s’appellent
+`Noyau-<version>-<os>-<arch>.dmg|.exe`.
 
-### Windows plus tard
+Le serveur enfant est hors ASAR (`Contents/Resources/server/main.mjs` /
+`resources/server/main.mjs`) ; le renderer et le main restent dans `app.asar`.
 
-Même layout (`extraResources` → `resources/server/main.mjs`, `app.isPackaged`). Les diffs réels :
+L’app est unsigned. Sur macOS Sequoia+, Gatekeeper exige
+Réglages système → Confidentialité et sécurité → **Ouvrir quand même** après le premier refus.
+Sur Windows, SmartScreen demande **Informations complémentaires** → **Exécuter quand même**.
 
-| Sujet                | macOS                       | Windows                                              |
-| -------------------- | --------------------------- | ---------------------------------------------------- |
-| Commande             | `bun run dist:desktop:mac`  | `bun run dist:desktop:win` (sur une machine Windows) |
-| Sortie `dir`         | `Noyau.app`                 | `win-unpacked/Noyau.exe`                             |
-| Artefact partageable | `--dmg`                     | `--nsis` (pas branché ici)                           |
-| Icône                | `assets/prod/app-icon.icns` | `assets/prod/app-icon.png` (`.ico` plus tard)        |
-| Signature            | `identity: null`            | `signAndEditExecutable: false`                       |
+| Sujet           | macOS                          | Windows                                       |
+| --------------- | ------------------------------ | --------------------------------------------- |
+| Commande locale | `bun run dist:desktop:mac`     | `bun run dist:desktop:win` (machine Windows)  |
+| Installateur    | `bun run dist:desktop:mac:dmg` | `bun run dist:desktop:win:nsis`               |
+| Release CI      | DMG arm64                      | NSIS x64                                      |
+| Icône           | `assets/prod/app-icon.icns`    | `assets/prod/app-icon.png` (`.ico` plus tard) |
+| Signature       | `identity: null`               | `signAndEditExecutable: false`                |
 
 Pas de cross-compile : packager mac depuis un Mac, Windows depuis Windows. Le chrome de fenêtre
 (title bar overlay) et `--no-sandbox` sont déjà gérés hors packager.
