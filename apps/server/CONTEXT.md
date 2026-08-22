@@ -94,9 +94,17 @@ _À éviter_ : PATH figé dans le journal, sweep PATH, champ settings pour le PA
 Port live `git` / `gh` du Server. Les lectures et mutations Git ne passent pas par le journal.
 _À éviter_ : agrégat VCS, outbox SQL
 
+**Publish**:
+Création live d'un dépôt GitHub (`gh repo create`) puis câblage de `origin`. Hors journal.
+_À éviter_ : sourceControl, wizard multi-forge
+
 **GitPlane**:
 Frontière RPC qui résout le cwd (`thread.worktreePath ?? WorkspaceRoot`) puis délègue à `GitRuntime`.
 _À éviter_ : cwd choisi par le client
+
+**EditorOpen**:
+Port live qui sonde le PATH et lance un Éditeur hôte sur le cwd du Checkout.
+_À éviter_ : openPath Desktop, GitRuntime
 
 **Draft Git**:
 Texte de commit ou de PR produit par `TextGeneration` à partir de `git status` / `diff` / `log`.

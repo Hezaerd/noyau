@@ -46,6 +46,10 @@ describe("ControlPlaneRpcs", () => {
         RPC_METHODS.vcsCreateWorktree,
         RPC_METHODS.gitDraft,
         RPC_METHODS.gitRunStackedAction,
+        RPC_METHODS.gitGithubAccount,
+        RPC_METHODS.gitPublishRepository,
+        RPC_METHODS.listEditors,
+        RPC_METHODS.openInEditor,
       ].toSorted(),
     )
   })

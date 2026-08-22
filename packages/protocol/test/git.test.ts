@@ -1,5 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { GitStackedAction, PrepareWorktree, VcsScope, VcsStatusResult } from "@noyau/protocol/git"
+import {
+  GitPublishRepositoryInput,
+  GitStackedAction,
+  PrepareWorktree,
+  VcsScope,
+  VcsStatusResult,
+} from "@noyau/protocol/git"
 import { Schema } from "effect"
 
 describe("git contracts", () => {
@@ -32,6 +38,16 @@ describe("git contracts", () => {
     })
     expect(status.refName).toBe("main")
     expect(Schema.decodeSync(GitStackedAction)("commit_push_pr")).toBe("commit_push_pr")
+  })
+
+  it("décode un Publish GitHub", () => {
+    expect(
+      Schema.decodeSync(GitPublishRepositoryInput)({
+        projectId: "10000000-0000-4000-8000-000000000001",
+        repository: "hezaerd/noyau",
+        visibility: "private",
+      }).visibility,
+    ).toBe("private")
   })
 
   it("décode prepareWorktree pour le premier Turn", () => {

@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/AppSidebar"
 import { ControlPlaneProvider } from "@/components/control-plane-context"
 import { ScopeBanner } from "@/components/failure/FailureSurfaces"
 import { SettingsSidebar } from "@/components/settings/SettingsSidebar"
+import { ThreadHeaderActions } from "@/components/thread/ThreadHeaderActions"
 import { Button } from "@/components/ui/button"
 import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
@@ -85,6 +86,22 @@ function SettingsRestoreAction() {
   )
 }
 
+function ThreadHeaderActionsSlot() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const { projects, threads } = useControlPlane()
+  const titlebar = resolvePageTitlebar({ pathname, projects, threads })
+  if (titlebar.kind !== "thread") {
+    return null
+  }
+  return (
+    <ThreadHeaderActions
+      projectId={titlebar.projectId}
+      threadId={titlebar.threadId}
+      disabled={!titlebar.projectAvailable}
+    />
+  )
+}
+
 function ShellConnectionNotice() {
   const { shell, subscriptionStatus } = useControlPlane()
   const failure = useDelayedSubscriptionFailure(subscriptionStatus)
@@ -130,7 +147,7 @@ export function RootLayout() {
               <div className="flex min-w-0 items-center text-sm">
                 <DesktopPageTitle />
               </div>
-              {isSettings ? <SettingsRestoreAction /> : null}
+              {isSettings ? <SettingsRestoreAction /> : <ThreadHeaderActionsSlot />}
             </header>
 
             <ShellConnectionNotice />

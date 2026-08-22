@@ -18,6 +18,8 @@ export type FailureOperation =
   | "thread.turn.interrupt"
   | "thread.turn.respond"
   | "thread.turn.start"
+  | "thread.git.action"
+  | "thread.open-in"
   | "ticket.command"
 
 export type FailureScope = "action" | "field" | "project" | "resource" | "shell"

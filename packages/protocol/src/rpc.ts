@@ -10,6 +10,12 @@ import {
 } from "@noyau/protocol/attachment-preview"
 import { BoardSnapshot } from "@noyau/protocol/board"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
+import {
+  ListEditorsResult,
+  OpenInEditorFailed,
+  OpenInEditorInput,
+  OpenInEditorResult,
+} from "@noyau/protocol/editor"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { WorkspacePathSearchResult } from "@noyau/protocol/entities/workspace-path"
 import {
@@ -24,6 +30,9 @@ import {
   GitCommandError,
   GitDraftInput,
   GitDraftResult,
+  GitHubAccountResult,
+  GitPublishRepositoryInput,
+  GitPublishRepositoryResult,
   GitRunStackedActionInput,
   GitRunStackedActionResult,
   VcsCreateRefInput,
@@ -73,6 +82,10 @@ export const RPC_METHODS = {
   vcsCreateWorktree: "vcs.createWorktree",
   gitDraft: "git.draft",
   gitRunStackedAction: "git.runStackedAction",
+  gitGithubAccount: "git.githubAccount",
+  gitPublishRepository: "git.publishRepository",
+  listEditors: "workspace.listEditors",
+  openInEditor: "workspace.openInEditor",
 } as const
 
 /**
@@ -277,6 +290,30 @@ export const GitRunStackedAction = Rpc.make(RPC_METHODS.gitRunStackedAction, {
   error: Schema.Union([GitCommandError, ServiceUnavailable]),
 })
 
+export const GitGithubAccount = Rpc.make(RPC_METHODS.gitGithubAccount, {
+  payload: VcsScope,
+  success: GitHubAccountResult,
+  error: ServiceUnavailable,
+})
+
+export const GitPublishRepository = Rpc.make(RPC_METHODS.gitPublishRepository, {
+  payload: GitPublishRepositoryInput,
+  success: GitPublishRepositoryResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
+export const ListEditors = Rpc.make(RPC_METHODS.listEditors, {
+  payload: Schema.Struct({}),
+  success: ListEditorsResult,
+  error: ServiceUnavailable,
+})
+
+export const OpenInEditor = Rpc.make(RPC_METHODS.openInEditor, {
+  payload: OpenInEditorInput,
+  success: OpenInEditorResult,
+  error: Schema.Union([OpenInEditorFailed, ServiceUnavailable]),
+})
+
 /** Contrat unique client/serveur du control plane sur WebSocket. */
 export const ControlPlaneRpcs = RpcGroup.make(
   DispatchCommand,
@@ -299,6 +336,10 @@ export const ControlPlaneRpcs = RpcGroup.make(
   VcsCreateWorktree,
   GitDraft,
   GitRunStackedAction,
+  GitGithubAccount,
+  GitPublishRepository,
+  ListEditors,
+  OpenInEditor,
 ).middleware(NoyauRpcIdentity)
 
 export type ControlPlaneRpcs = typeof ControlPlaneRpcs

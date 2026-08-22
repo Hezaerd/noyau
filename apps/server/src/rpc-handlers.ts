@@ -3,6 +3,7 @@ import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/protocol/rpc"
 import { Effect, Stream } from "effect"
 
 import { ControlPlane } from "./control-plane.ts"
+import { EditorOpen } from "./editor/editor-open.ts"
 import { GitPlane } from "./git/git-plane.ts"
 
 export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
@@ -52,4 +53,11 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
   [RPC_METHODS.gitDraft]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.draft(input))),
   [RPC_METHODS.gitRunStackedAction]: (input) =>
     GitPlane.pipe(Effect.flatMap((git) => git.runStackedAction(input))),
+  [RPC_METHODS.gitGithubAccount]: (input) =>
+    GitPlane.pipe(Effect.flatMap((git) => git.githubAccount(input))),
+  [RPC_METHODS.gitPublishRepository]: (input) =>
+    GitPlane.pipe(Effect.flatMap((git) => git.publishRepository(input))),
+  [RPC_METHODS.listEditors]: () => EditorOpen.pipe(Effect.flatMap((editors) => editors.list)),
+  [RPC_METHODS.openInEditor]: (input) =>
+    EditorOpen.pipe(Effect.flatMap((editors) => editors.open(input))),
 })

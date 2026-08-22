@@ -5,6 +5,11 @@ import type {
 import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/attachment-preview"
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
+import type {
+  ListEditorsResult,
+  OpenInEditorInput,
+  OpenInEditorResult,
+} from "@noyau/protocol/editor"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { WorkspacePathSearchResult } from "@noyau/protocol/entities/workspace-path"
 import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/protocol/errors"
@@ -13,6 +18,9 @@ import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview
 import type {
   GitDraftInput,
   GitDraftResult,
+  GitHubAccountResult,
+  GitPublishRepositoryInput,
+  GitPublishRepositoryResult,
   GitRunStackedActionInput,
   GitRunStackedActionResult,
   VcsCreateRefInput,
@@ -357,6 +365,44 @@ export const gitRunStackedAction = (
     Effect.gen(function* () {
       const client = yield* ControlPlaneClient
       return yield* client[RPC_METHODS.gitRunStackedAction](input)
+    }),
+  )
+
+export const gitGithubAccount = (
+  input: VcsScope,
+): Promise<ControlPlaneResult<GitHubAccountResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.gitGithubAccount](input)
+    }),
+  )
+
+export const gitPublishRepository = (
+  input: GitPublishRepositoryInput,
+): Promise<ControlPlaneResult<GitPublishRepositoryResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.gitPublishRepository](input)
+    }),
+  )
+
+export const listEditors = (): Promise<ControlPlaneResult<ListEditorsResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.listEditors]({})
+    }),
+  )
+
+export const openInEditor = (
+  input: OpenInEditorInput,
+): Promise<ControlPlaneResult<OpenInEditorResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.openInEditor](input)
     }),
   )
 
