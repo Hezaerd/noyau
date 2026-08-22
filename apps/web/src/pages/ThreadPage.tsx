@@ -13,9 +13,19 @@ import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
+import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { invalidInputFailure } from "@/lib/app-failure"
+import { writeComposerDraft } from "@/lib/composer-drafts"
+import {
+  appendComposerImages,
+  composerImageFailureMessage,
+  filesFromClipboard,
+  filesFromFileList,
+  revokeComposerImages,
+  type ComposerImage,
+} from "@/lib/composer-images"
 import { subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
@@ -43,7 +53,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [actionFailure, setActionFailure] = useState<FailurePresentation>()
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
-  const [text, setText] = useState("")
+  const { text, setText, clear: clearDraft } = useComposerDraft(projectId, threadId)
+  const [images, setImages] = useState<ReadonlyArray<ComposerImage>>([])
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
@@ -62,7 +73,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     setSubscriptionStatus(undefined)
     setRuntimeMode("full-access")
     setModelSelection(null)
-    return subscribeThread(threadId, undefined, {
+    const unsubscribe = subscribeThread(threadId, undefined, {
       onSnapshot: (next) => {
         setSnapshot(next)
         setRuntimeMode(next.thread.runtimeMode)
@@ -96,6 +107,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         if (status._tag === "Reconnecting") setLoading(false)
       },
     })
+    return () => {
+      unsubscribe()
+      setImages((current) => {
+        revokeComposerImages(current)
+        return []
+      })
+    }
   }, [threadId])
 
   const activeTurn = snapshot?.session?.activeTurnId ?? snapshot?.thread.latestTurn?.turnId
@@ -105,42 +123,62 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const submitTurn = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const prompt = text.trim()
-    if (prompt === "" || isRunning || project?.available !== true || !cursorReady) {
+    if (
+      (prompt === "" && images.length === 0) ||
+      isRunning ||
+      project?.available !== true ||
+      !cursorReady
+    ) {
       return
     }
-    setText("")
+    const submittedText = text
+    const submittedImages = images
+    const submittedProjectId = projectId
+    const submittedThreadId = threadId
+    clearDraft()
+    setImages([])
     setComposerFailure(undefined)
-    void submitTurnAction({ projectId, threadId, prompt, runtimeMode, modelSelection }).then(
-      (result) => {
-        if (result.kind === "composer-error") {
-          setComposerFailure(
-            presentFailure(result.failure, {
-              operation: "thread.turn.start",
-              scope: "action",
-              initiatedByUser: true,
-              hasUsableData: snapshot !== undefined,
-            }),
-          )
-          return undefined
-        }
-        if (result.kind === "error") {
-          setActionFailure(
-            presentFailure(result.failure, {
-              operation: "thread.turn.start",
-              scope: "action",
-              initiatedByUser: true,
-              hasUsableData: snapshot !== undefined,
-            }),
-          )
-          return undefined
-        }
-        if (result.kind === "created") {
-          onCreated(result.threadId)
-        }
-        setActionFailure(undefined)
+    void submitTurnAction({
+      projectId,
+      threadId,
+      prompt,
+      runtimeMode,
+      modelSelection,
+      attachments: submittedImages.map((image) => image.upload),
+    }).then((result) => {
+      if (result.kind === "composer-error") {
+        writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
+        setImages(submittedImages)
+        setComposerFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
         return undefined
-      },
-    )
+      }
+      if (result.kind === "error") {
+        writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
+        setImages(submittedImages)
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
+        return undefined
+      }
+      if (result.kind === "created") {
+        onCreated(result.threadId)
+      }
+      revokeComposerImages(submittedImages)
+      setActionFailure(undefined)
+      return undefined
+    })
   }
 
   const interruptTurn = () => {
@@ -166,28 +204,40 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     })
   }
 
-  const rejectImages = (
+  const attachFiles = (files: ReadonlyArray<File>) => {
+    if (files.length === 0) {
+      return
+    }
+    void appendComposerImages(images, files).then((result) => {
+      setImages(result.images)
+      if (!result.ok) {
+        setComposerFailure(
+          presentFailure(invalidInputFailure(composerImageFailureMessage(result.reason)), {
+            operation: "thread.turn.start",
+            scope: "field",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
+      } else {
+        setComposerFailure(undefined)
+      }
+      return undefined
+    })
+  }
+
+  const acceptImages = (
     event: ClipboardEvent<HTMLTextAreaElement> | DragEvent<HTMLTextAreaElement>,
   ) => {
-    const hasImage =
+    const files =
       "clipboardData" in event
-        ? Array.from(event.clipboardData.items).some((item) => item.type.startsWith("image/"))
-        : Array.from(event.dataTransfer.files).some((file) => file.type.startsWith("image/"))
-    if (!hasImage) {
+        ? filesFromClipboard(event.clipboardData)
+        : filesFromFileList(event.dataTransfer.files)
+    if (files.length === 0) {
       return
     }
     event.preventDefault()
-    setComposerFailure(
-      presentFailure(
-        invalidInputFailure("Les images ne sont pas prises en charge dans les Threads v0.1."),
-        {
-          operation: "thread.turn.start",
-          scope: "field",
-          initiatedByUser: true,
-          hasUsableData: true,
-        },
-      ),
-    )
+    attachFiles(files)
   }
 
   const changeModelSelection = (nextSelection: ModelSelection | null) => {
@@ -297,6 +347,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       isRunning={isRunning}
       disabled={loading || project?.available !== true || !cursorReady}
       text={text}
+      images={images}
       runtimeMode={runtimeMode}
       models={cursor?.models ?? []}
       modelSelection={modelSelection}
@@ -313,8 +364,19 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }}
       onRuntimeModeChange={setRuntimeMode}
       onModelSelectionChange={changeModelSelection}
-      onPaste={rejectImages}
-      onDrop={rejectImages}
+      onPaste={acceptImages}
+      onDrop={acceptImages}
+      onImagesAdd={attachFiles}
+      onImageRemove={(localId) => {
+        setImages((current) => {
+          const removed = current.find((image) => image.localId === localId)
+          if (removed !== undefined) {
+            URL.revokeObjectURL(removed.previewUrl)
+          }
+          return current.filter((image) => image.localId !== localId)
+        })
+        setComposerFailure(undefined)
+      }}
       onInterrupt={() => interruptTurn()}
     />
   )

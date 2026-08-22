@@ -4,8 +4,10 @@ import {
   InternalCommand,
   type InternalCommand as InternalCommandType,
 } from "@noyau/protocol/commands"
+import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ResumeCursor } from "@noyau/protocol/entities/session"
+import type { ServiceUnavailable } from "@noyau/protocol/errors"
 import type { DomainEvent } from "@noyau/protocol/events"
 import {
   ActorId,
@@ -17,10 +19,10 @@ import {
   type TurnId,
 } from "@noyau/protocol/ids"
 import { ThreadEvent } from "@noyau/protocol/thread/events"
-import { Crypto, DateTime, Effect, Option, Schema } from "effect"
+import { Crypto, DateTime, Effect, Option, Result, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { ProviderPort, type ProviderSignal } from "./provider-port.ts"
+import { ProviderPort, type ProviderSignal, type ProviderTurnAttachment } from "./provider-port.ts"
 
 const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)
@@ -29,6 +31,10 @@ const systemActor = ActorId.make("system:cursor")
 const isThreadEvent = Schema.is(ThreadEvent)
 
 export type DispatchInternal = (command: InternalCommandType) => Effect.Effect<void>
+
+export type LoadTurnAttachments = (
+  attachments: ReadonlyArray<TurnImageAttachment>,
+) => Effect.Effect<ReadonlyArray<ProviderTurnAttachment>, ServiceUnavailable>
 type InternalCommandEncoded = (typeof InternalCommand)["Encoded"]
 type InternalCommandBody =
   | Pick<
@@ -161,6 +167,7 @@ const stopIdleSession = Effect.fn("ProviderReactor.stopIdleSession")(function* (
 /** Maps committed Thread intents to Cursor calls and Cursor signals back to durable commands. */
 export const makeProviderReactor = (
   dispatchInternal: DispatchInternal,
+  loadAttachments: LoadTurnAttachments,
 ): Effect.Effect<
   (persisted: PersistedEvent<DomainEvent>) => Effect.Effect<void>,
   never,
@@ -191,22 +198,41 @@ export const makeProviderReactor = (
             const workspaceRoot = yield* projectRoot(persisted.projectId).pipe(
               Effect.provideService(SqlClient, sql),
             )
-            yield* provider.startTurn(
-              {
-                projectId: ProjectId.make(persisted.projectId),
+            const attachments =
+              threadEvent.attachments === undefined
+                ? undefined
+                : yield* loadAttachments(threadEvent.attachments).pipe(Effect.result)
+            if (attachments !== undefined && Result.isFailure(attachments)) {
+              yield* ingestSignal(dispatchInternal, persisted, runtimeMode, {
+                _tag: "turn-ended",
                 threadId: threadEvent.threadId,
                 turnId: threadEvent.turnId,
-                text: threadEvent.text,
-                workspaceRoot,
-                runtimeMode,
-                modelSelection: snapshot.value.thread.modelSelection,
-                resumeCursor: snapshot.value.session?.resumeCursor ?? null,
-              },
-              (signal) =>
-                ingestSignal(dispatchInternal, persisted, runtimeMode, signal).pipe(
-                  Effect.provideService(SqlClient, sql),
-                  Effect.provideService(Crypto.Crypto, crypto),
-                ),
+                state: "error",
+                lastError: "Pièce jointe illisible.",
+              }).pipe(
+                Effect.provideService(SqlClient, sql),
+                Effect.provideService(Crypto.Crypto, crypto),
+              )
+              return
+            }
+            let turnInput = {
+              projectId: ProjectId.make(persisted.projectId),
+              threadId: threadEvent.threadId,
+              turnId: threadEvent.turnId,
+              text: threadEvent.text ?? "",
+              workspaceRoot,
+              runtimeMode,
+              modelSelection: snapshot.value.thread.modelSelection,
+              resumeCursor: snapshot.value.session?.resumeCursor ?? null,
+            }
+            if (attachments !== undefined) {
+              turnInput = Object.assign(turnInput, { attachments: attachments.success })
+            }
+            yield* provider.startTurn(turnInput, (signal) =>
+              ingestSignal(dispatchInternal, persisted, runtimeMode, signal).pipe(
+                Effect.provideService(SqlClient, sql),
+                Effect.provideService(Crypto.Crypto, crypto),
+              ),
             )
           })
         case "thread.turn.interrupted":

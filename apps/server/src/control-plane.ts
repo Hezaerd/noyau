@@ -28,6 +28,8 @@ import type {
   ProjectAgentIntegration,
   ProjectAgentIntegrationInput,
 } from "@noyau/protocol/agent-integration"
+import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/attachment-preview"
+import type { AttachmentPreviewFailed } from "@noyau/protocol/attachment-preview"
 import type { ClientCommandRequest, Command as CommandType } from "@noyau/protocol/commands"
 import { Command } from "@noyau/protocol/commands"
 import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
@@ -100,6 +102,7 @@ import {
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { AgentSkillInstaller } from "./agent-skill/installer.ts"
+import { loadTurnAttachments, persistTurnUploads, readAttachmentPreview } from "./attachments.ts"
 import { ServerConfig } from "./config.ts"
 import { makePresenceController } from "./discord/presence.ts"
 import { readFilePreview } from "./file-preview.ts"
@@ -350,6 +353,8 @@ const enrichCommand = Effect.fn("ControlPlane.enrichCommand")(function* (
 ) {
   const projectId = yield* requestProjectId(request)
   const issuedAt = yield* DateTime.now
+  const attachments =
+    request._tag === "thread.turn.start" ? yield* persistTurnUploads(request) : undefined
   const enrichedRequest =
     request._tag === "project.create"
       ? {
@@ -358,7 +363,9 @@ const enrichCommand = Effect.fn("ControlPlane.enrichCommand")(function* (
             Effect.mapError(() => new ServiceUnavailable({ service: "crypto" })),
           ),
         }
-      : request
+      : request._tag === "thread.turn.start" && attachments !== undefined
+        ? { ...request, payload: { ...request.payload, attachments } }
+        : request
   return yield* decodeCommand({
     ...enrichedRequest,
     projectId,
@@ -584,6 +591,9 @@ export interface ControlPlaneService {
     ProjectAgentIntegration,
     ProjectNotFound | AgentIntegrationFailed | ServiceUnavailable
   >
+  readonly previewAttachment: (
+    input: PreviewAttachmentInput,
+  ) => Effect.Effect<AttachmentPreview, AttachmentPreviewFailed | ServiceUnavailable>
   readonly probe: Effect.Effect<Record<never, never>>
   readonly drainReactors: Effect.Effect<void>
 }
@@ -650,8 +660,14 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         cursor: cursorStatus,
         createdAt: config.environmentCreatedAt,
       })
-      const processProviderEvent = yield* makeProviderReactor((command) =>
-        dispatchInternal(command),
+      const processProviderEvent = yield* makeProviderReactor(
+        (command) => dispatchInternal(command),
+        (attachments) =>
+          loadTurnAttachments(attachments).pipe(
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(ServerConfig, config),
+          ),
       ).pipe(Effect.provideService(ProviderPort, provider), Effect.provideService(SqlClient, sql))
       const processTitleEvent = yield* makeThreadTitleReactor((command) =>
         dispatchInternal(command),
@@ -774,6 +790,9 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           const command = yield* enrichCommand(request, actorId).pipe(
             Effect.provideService(SqlClient, sql),
             Effect.provideService(Crypto.Crypto, crypto),
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(ServerConfig, config),
             Effect.catchTag("SqlError", unavailable("sqlite")),
           )
           const receipt = yield* worker
@@ -1061,6 +1080,17 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           return yield* agentSkills.remove(input.projectId, workspaceRoot)
         })
 
+      const previewAttachment = Effect.fn("ControlPlane.previewAttachment")(function* (
+        input: PreviewAttachmentInput,
+      ): Effect.fn.Return<AttachmentPreview, AttachmentPreviewFailed | ServiceUnavailable> {
+        const preview = yield* readAttachmentPreview(input.attachmentId).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+          Effect.provideService(ServerConfig, config),
+        )
+        return { kind: "image", mime: preview.mime, bytes: preview.bytes }
+      })
+
       const getConfig = readSchemaVersion().pipe(
         Effect.provideService(SqlClient, sql),
         Effect.map((databaseSchemaVersion) => ({
@@ -1094,6 +1124,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         inspectProjectAgentIntegration,
         installProjectAgentIntegration,
         removeProjectAgentIntegration,
+        previewAttachment,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {
           yield* worker.drainReactors

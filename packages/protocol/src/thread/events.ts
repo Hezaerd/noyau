@@ -2,6 +2,7 @@ import {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
+import { TurnImageAttachments } from "@noyau/protocol/entities/attachment"
 import { Provider } from "@noyau/protocol/entities/environment"
 import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
@@ -53,10 +54,11 @@ export type ThreadModelSelectionSet = (typeof ThreadModelSelectionSet)["Type"]
 export const ThreadTurnStarted = Schema.TaggedStruct("thread.turn.started", {
   threadId: ThreadId,
   turnId: TurnId,
-  text: Schema.NonEmptyString,
+  text: Schema.optionalKey(Schema.NonEmptyString),
   titleSeed: Schema.optionalKey(Schema.NonEmptyString),
   runtimeMode: Schema.optionalKey(RuntimeMode),
   modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+  attachments: Schema.optionalKey(TurnImageAttachments),
 })
 export type ThreadTurnStarted = (typeof ThreadTurnStarted)["Type"]
 

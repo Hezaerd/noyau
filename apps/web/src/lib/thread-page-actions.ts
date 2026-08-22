@@ -1,4 +1,5 @@
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
+import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { ApprovalRequestId, type ProjectId, type ThreadId, type TurnId } from "@noyau/protocol/ids"
@@ -15,7 +16,7 @@ import {
   makeThreadTurnInterruptRequest,
   makeThreadTurnStartRequest,
   makeUserInputRespondRequest,
-  seedTitleFromPrompt,
+  seedTitleFromTurn,
 } from "./thread-commands"
 
 export type SubmitTurnResult =
@@ -41,6 +42,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
   readonly prompt: string
   readonly runtimeMode: RuntimeMode
   readonly modelSelection: ModelSelection | null
+  readonly attachments?: ReadonlyArray<TurnImageUpload>
 }): Effect.fn.Return<SubmitTurnResult> {
   const threadId = input.threadId
   if (threadId === undefined) {
@@ -68,13 +70,24 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
     }
     const startRequest = yield* Effect.promise(() =>
       buildCommand(
-        makeThreadTurnStartRequest({
-          threadId: nextThreadId.value,
-          text: input.prompt,
-          titleSeed: seedTitleFromPrompt(input.prompt),
-          runtimeMode: input.runtimeMode,
-          modelSelection: input.modelSelection,
-        }),
+        makeThreadTurnStartRequest(
+          input.attachments === undefined
+            ? {
+                threadId: nextThreadId.value,
+                text: input.prompt,
+                titleSeed: seedTitleFromTurn(input.prompt, input.attachments),
+                runtimeMode: input.runtimeMode,
+                modelSelection: input.modelSelection,
+              }
+            : {
+                threadId: nextThreadId.value,
+                text: input.prompt,
+                titleSeed: seedTitleFromTurn(input.prompt, input.attachments),
+                runtimeMode: input.runtimeMode,
+                modelSelection: input.modelSelection,
+                attachments: input.attachments,
+              },
+        ),
       ),
     )
     if (!startRequest.ok) {
@@ -89,12 +102,22 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
 
   const startRequest = yield* Effect.promise(() =>
     buildCommand(
-      makeThreadTurnStartRequest({
-        threadId,
-        text: input.prompt,
-        runtimeMode: input.runtimeMode,
-        modelSelection: input.modelSelection,
-      }),
+      makeThreadTurnStartRequest(
+        input.attachments === undefined
+          ? {
+              threadId,
+              text: input.prompt,
+              runtimeMode: input.runtimeMode,
+              modelSelection: input.modelSelection,
+            }
+          : {
+              threadId,
+              text: input.prompt,
+              runtimeMode: input.runtimeMode,
+              modelSelection: input.modelSelection,
+              attachments: input.attachments,
+            },
+      ),
     ),
   )
   if (!startRequest.ok) {
@@ -113,6 +136,7 @@ export const submitTurn = (input: {
   readonly prompt: string
   readonly runtimeMode: RuntimeMode
   readonly modelSelection: ModelSelection | null
+  readonly attachments?: ReadonlyArray<TurnImageUpload>
 }) => Effect.runPromise(submitTurnEffect(input))
 
 export const interruptTurnEffect = Effect.fn("interruptTurn")(function* (input: {

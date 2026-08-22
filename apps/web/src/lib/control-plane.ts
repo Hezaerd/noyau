@@ -2,6 +2,7 @@ import type {
   ProjectAgentIntegration,
   ProjectAgentIntegrationInput,
 } from "@noyau/protocol/agent-integration"
+import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/attachment-preview"
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -248,6 +249,18 @@ export const removeProjectAgentIntegration = (
   input: ProjectAgentIntegrationInput,
 ): Promise<ControlPlaneResult<ProjectAgentIntegration>> =>
   runOperation(requestAgentIntegration(RPC_METHODS.removeProjectAgentIntegration, input), "command")
+
+const requestPreviewAttachment = Effect.fn("ControlPlaneClient.previewAttachment")(function* (
+  input: PreviewAttachmentInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.previewAttachment](input)
+})
+
+export const previewAttachment = (
+  input: PreviewAttachmentInput,
+): Promise<ControlPlaneResult<AttachmentPreview>> =>
+  runOperation(requestPreviewAttachment(input), "command")
 
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,

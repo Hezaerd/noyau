@@ -77,6 +77,11 @@ Choix durable du Composer attaché au Thread : modèle, Effort, Vitesse et Réfl
 retrouve son dernier choix indépendamment des autres Threads.
 _À éviter_ : choix global, modèle de Session
 
+**Brouillon**:
+Texte du Composer gardé en mémoire renderer pendant la session, isolé par Thread — ou par Project
+tant que le Thread n'est pas créé. Perdu au restart. Ce n'est pas une Préférence.
+_À éviter_ : draft persisté, localStorage, état de page
+
 **Palette**:
 Overlay clavier searchable de l'app qui propose navigation, Actions et résultats contextuels.
 _À éviter_ : Command, Command palette, Spotlight, Menu
@@ -132,6 +137,11 @@ _À éviter_ : présence, route, Command
 Aperçu hover d'un fichier mentionné dans le transcript (`text` | `image` | `unsupported`).
 Chargé via `previewFile` au moment où la carte s'ouvre. Le clic ouvre le fichier sur l'hôte.
 _À éviter_ : FilePreviewPanel, Tooltip de chemin, lecture Desktop
+
+**Pièce jointe**:
+Image jointe à un Turn depuis le Composer (paste, drop ou fichier). Le snapshot ne porte que la
+meta ; l'aperçu passe par `previewAttachment`.
+_À éviter_ : FilePreview, dataUrl dans le transcript, brouillon persisté
 
 **Keybinding**:
 Association persistée entre une Action et un Raccourci, surchargeable depuis les Paramètres.

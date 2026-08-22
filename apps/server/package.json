@@ -9,6 +9,7 @@
     "./file-preview": "./src/file-preview.ts",
     "./agent-skill/installer": "./src/agent-skill/installer.ts",
     "./agent-skill/catalog": "./src/agent-skill/catalog.ts",
+    "./attachments": "./src/attachments.ts",
     "./discord/activity": "./src/discord/activity.ts",
     "./discord/presence": "./src/discord/presence.ts",
     "./discord/ipc": "./src/discord/ipc.ts",

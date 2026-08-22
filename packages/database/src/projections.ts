@@ -593,13 +593,15 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         )
       `
       if (ordinal === 1) {
-        const titleSeed = event.titleSeed ?? event.text
-        yield* sql`
-          UPDATE projection_threads
-          SET title = ${titleSeed}
-          WHERE thread_id = ${event.threadId}
-            AND (title = ${DEFAULT_THREAD_TITLE} OR title = ${titleSeed})
-        `
+        const titleSeed = event.titleSeed ?? event.text ?? event.attachments?.[0]?.name
+        if (titleSeed !== undefined) {
+          yield* sql`
+            UPDATE projection_threads
+            SET title = ${titleSeed}
+            WHERE thread_id = ${event.threadId}
+              AND (title = ${DEFAULT_THREAD_TITLE} OR title = ${titleSeed})
+          `
+        }
       }
       if (event.runtimeMode !== undefined) {
         yield* sql`
@@ -618,15 +620,18 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
           WHERE thread_id = ${event.threadId}
         `
       }
-      yield* projectTranscriptItem(
-        {
-          _tag: "transcript.user",
-          threadId: event.threadId,
-          turnId: event.turnId,
-          text: event.text,
-        },
-        persisted.sequence,
-      )
+      let userItem: TranscriptItem = {
+        _tag: "transcript.user",
+        threadId: event.threadId,
+        turnId: event.turnId,
+      }
+      if (event.text !== undefined) {
+        userItem = Object.assign(userItem, { text: event.text })
+      }
+      if (event.attachments !== undefined) {
+        userItem = Object.assign(userItem, { attachments: event.attachments })
+      }
+      yield* projectTranscriptItem(userItem, persisted.sequence)
       break
     }
     case "thread.session-set":

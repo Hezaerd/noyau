@@ -6,6 +6,7 @@ import {
   GetConfig,
   InspectProjectAgentIntegration,
   InstallProjectAgentIntegration,
+  PreviewAttachment,
   PreviewFile,
   Probe,
   ProjectStreamItem,
@@ -33,6 +34,7 @@ describe("ControlPlaneRpcs", () => {
         RPC_METHODS.inspectProjectAgentIntegration,
         RPC_METHODS.installProjectAgentIntegration,
         RPC_METHODS.removeProjectAgentIntegration,
+        RPC_METHODS.previewAttachment,
         RPC_METHODS.getConfig,
         RPC_METHODS.probe,
       ].toSorted(),
@@ -174,6 +176,23 @@ describe("ControlPlaneRpcs", () => {
         status: "outdated",
       }).status,
     ).toBe("outdated")
+  })
+
+  it("décode previewAttachment", () => {
+    expect(
+      Schema.decodeSync(PreviewAttachment.payloadSchema)({
+        attachmentId: "70000000-0000-4000-8000-000000000001-0",
+      }),
+    ).toEqual({
+      attachmentId: "70000000-0000-4000-8000-000000000001-0",
+    })
+    const preview = Schema.decodeSync(PreviewAttachment.successSchema)({
+      kind: "image",
+      mime: "image/png",
+      bytes: "iVBORw0KGgo=",
+    })
+    expect(preview.kind).toBe("image")
+    expect(preview.bytes).toBeInstanceOf(Uint8Array)
   })
 
   it("demande un snapshot frais hors [0, 1000]", () => {

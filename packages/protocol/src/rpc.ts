@@ -3,6 +3,11 @@ import {
   ProjectAgentIntegration,
   ProjectAgentIntegrationInput,
 } from "@noyau/protocol/agent-integration"
+import {
+  AttachmentPreview,
+  AttachmentPreviewFailed,
+  PreviewAttachmentInput,
+} from "@noyau/protocol/attachment-preview"
 import { BoardSnapshot } from "@noyau/protocol/board"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -40,6 +45,7 @@ export const RPC_METHODS = {
   inspectProjectAgentIntegration: "workspace.inspectProjectAgentIntegration",
   installProjectAgentIntegration: "workspace.installProjectAgentIntegration",
   removeProjectAgentIntegration: "workspace.removeProjectAgentIntegration",
+  previewAttachment: "thread.previewAttachment",
   getConfig: "server.getConfig",
   probe: "server.probe",
 } as const
@@ -186,6 +192,12 @@ export const RemoveProjectAgentIntegration = Rpc.make(RPC_METHODS.removeProjectA
   error: agentIntegrationErrors,
 })
 
+export const PreviewAttachment = Rpc.make(RPC_METHODS.previewAttachment, {
+  payload: PreviewAttachmentInput,
+  success: AttachmentPreview,
+  error: Schema.Union([AttachmentPreviewFailed, ServiceUnavailable]),
+})
+
 /** Contrat unique client/serveur du control plane sur WebSocket. */
 export const ControlPlaneRpcs = RpcGroup.make(
   DispatchCommand,
@@ -199,6 +211,7 @@ export const ControlPlaneRpcs = RpcGroup.make(
   InspectProjectAgentIntegration,
   InstallProjectAgentIntegration,
   RemoveProjectAgentIntegration,
+  PreviewAttachment,
 ).middleware(NoyauRpcIdentity)
 
 export type ControlPlaneRpcs = typeof ControlPlaneRpcs

@@ -1,0 +1,89 @@
+// @vitest-environment happy-dom
+
+import { ThreadId } from "@noyau/protocol/ids"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { ThreadPageTitle } from "../src/components/WorkspaceBreadcrumb"
+
+const buildAndDispatchCommand = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ details: undefined, ok: true as const, value: undefined })),
+)
+
+vi.mock("@/lib/control-plane", () => ({
+  buildAndDispatchCommand,
+}))
+
+afterEach(() => {
+  cleanup()
+  buildAndDispatchCommand.mockClear()
+})
+
+const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
+const threadTitle = "Exclure les subtrees du graphe"
+
+const renderTitle = (props?: { readonly threadId?: ThreadId }) =>
+  render(
+    <ThreadPageTitle
+      projectName="noyau"
+      threadId={props?.threadId ?? threadId}
+      threadTitle={threadTitle}
+    />,
+  )
+
+describe("Thread chrome title rename", () => {
+  it("starts an inline rename from a double-click in the chrome", async () => {
+    const user = userEvent.setup()
+    renderTitle()
+
+    await user.dblClick(screen.getByRole("heading", { name: threadTitle }))
+
+    expect(screen.getByRole("textbox", { name: "Titre du Thread" })).toBeTruthy()
+    expect(screen.queryByRole("heading", { name: threadTitle })).toBeNull()
+  })
+
+  it("starts an inline rename from F2 on the Thread page", () => {
+    renderTitle()
+
+    fireEvent.keyDown(window, { key: "F2" })
+
+    expect(screen.getByRole("textbox", { name: "Titre du Thread" })).toBeTruthy()
+  })
+
+  it("commits a new title and leaves the chrome heading", async () => {
+    const user = userEvent.setup()
+    renderTitle()
+
+    await user.dblClick(screen.getByRole("heading", { name: threadTitle }))
+    const input = screen.getByRole("textbox", { name: "Titre du Thread" })
+    await user.clear(input)
+    await user.type(input, "Titre mis à jour")
+    await user.keyboard("{Enter}")
+
+    expect(buildAndDispatchCommand).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole("heading", { name: threadTitle })).toBeTruthy()
+  })
+
+  it("cancels with Escape without dispatching", async () => {
+    const user = userEvent.setup()
+    renderTitle()
+
+    await user.dblClick(screen.getByRole("heading", { name: threadTitle }))
+    await user.keyboard("{Escape}")
+
+    expect(buildAndDispatchCommand).not.toHaveBeenCalled()
+    expect(screen.getByRole("heading", { name: threadTitle })).toBeTruthy()
+  })
+
+  it("does not rename a draft Thread without an id", async () => {
+    const user = userEvent.setup()
+    render(<ThreadPageTitle projectName="noyau" threadTitle="Nouveau Thread" />)
+
+    await user.dblClick(screen.getByRole("heading", { name: "Nouveau Thread" }))
+    fireEvent.keyDown(window, { key: "F2" })
+
+    expect(screen.queryByRole("textbox", { name: "Titre du Thread" })).toBeNull()
+    expect(buildAndDispatchCommand).not.toHaveBeenCalled()
+  })
+})

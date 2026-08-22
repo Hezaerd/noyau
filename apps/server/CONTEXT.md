@@ -69,6 +69,11 @@ Skill portable qui apprend aux agents à employer le MCP Noyau. Son état appart
 WorkspaceRoot et se constate sur le filesystem ; ce n’est ni une Command ni une projection.
 _À éviter_ : préférence, événement d’installation, instructions ACP
 
+**previewAttachment**:
+Lecture sandboxée d'une TurnImageAttachment depuis le dossier Environment `attachments/`.
+Pas une Command, pas un fait du journal.
+_À éviter_ : previewFile, WorkspaceRoot, dataUrl dans le snapshot
+
 **DiscordPresence**:
 Activity Discord locale dérivée du ShellFocus. Application Discord distincte selon `NOYAU_ENV`
 (prod / dev). Effet chrome : Discord fermé ne casse jamais une commande.

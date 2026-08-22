@@ -34,4 +34,6 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     ControlPlane.pipe(Effect.flatMap((service) => service.installProjectAgentIntegration(input))),
   [RPC_METHODS.removeProjectAgentIntegration]: (input) =>
     ControlPlane.pipe(Effect.flatMap((service) => service.removeProjectAgentIntegration(input))),
+  [RPC_METHODS.previewAttachment]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.previewAttachment(input))),
 })

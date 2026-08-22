@@ -69,3 +69,16 @@ _À éviter_ : pièce jointe, FilePreviewPanel, lecture hors sandbox
 Constat RPC de l’Intégration agent présente dans le WorkspaceRoot d’un Project. Il décrit un état
 opérationnel recalculé et non une projection durable.
 _À éviter_ : Event, préférence, propriété du Project
+
+**TurnImageUpload**:
+Octets d'une image qui traversent `thread.turn.start` une seule fois (`dataUrl`).
+_À éviter_ : pièce jointe persistée, événement, blob du journal
+
+**TurnImageAttachment**:
+Meta durable d'une image jointe à un Turn (`id`, `name`, `mimeType`, `sizeBytes`). Les octets
+restent hors journal.
+_À éviter_ : dataUrl, FilePreview, BLOB SQLite
+
+**AttachmentPreview**:
+Aperçu borné d'une TurnImageAttachment persistée. Lecture RPC, pas une Command.
+_À éviter_ : FilePreview, snapshot, pièce jointe inline
