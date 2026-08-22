@@ -169,6 +169,10 @@ for await (const line of lines) {
       protocolVersion: scenario === "wrong-version" ? 2 : 1,
       agentCapabilities: {
         loadSession: scenario !== "missing-load",
+        mcpCapabilities: {
+          http: scenario !== "missing-mcp-http",
+          sse: false,
+        },
       },
     })
     continue

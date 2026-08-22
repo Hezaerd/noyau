@@ -37,6 +37,8 @@ Cible de sortie : macOS et Windows natif. Linux, WSL, client web distribué et m
 - `apps/desktop` : Electron supervise le serveur enfant (`ELECTRON_RUN_AS_NODE`) ;
 - `apps/server` : même bundle que l'entrée autonome `noyau serve` ;
 - Effect RPC sur WebSocket loopback ([ADR-0003](adr/0003-frontiere-client-effect-rpc-websocket.md)) ;
+- MCP HTTP loopback embarqué pour exposer le Tableau aux agents
+  ([ADR-0015](adr/0015-tableau-accessible-aux-agents-par-mcp.md)) ;
 - Cursor ACP local comme unique provider réel ([ADR-0013](adr/0013-session-projetee-et-cursor.md)).
   Le fil de fer ACP est `@noyau/acp` ([ADR-0014](adr/0014-fil-de-fer-acp.md)), pas un port
   multi-harnais.
@@ -54,6 +56,7 @@ Noyau Desktop (Electron main)
        ├─ SQLite (journal, receipts, projections)
        ├─ WorkspaceRoot des Projects
        ├─ processus Cursor ACP (handle + Scope)
+       ├─ MCP HTTP (capacités agent bornées)
        └─ transcripts et resumeCursor
 
 Renderer React
@@ -107,6 +110,7 @@ Noyau Server possède :
 - les Threads, Turns, Sessions projetées et transcripts ;
 - les commandes enrichies, événements, receipts et projections ;
 - l'adaptateur Cursor et les handles des processus spawnés ;
+- le serveur MCP HTTP, ses capacités volatiles bornées et ses toolkits Tableau ;
 - les reactors `TxQueue` pour les effets provider.
 
 Il sérialise les décisions sous un worker unique. Il ne fait confiance à aucune métadonnée
@@ -129,7 +133,9 @@ Le responsable reste dans le modèle Ticket. Il n'est ni affiché ni éditable d
 
 Détection : `cursor-agent` dans le `PATH` (`cursor-agent.exe` sous Windows), sinon chemin
 configuré. Le handshake ACP est la source de vérité. Capacités obligatoires absentes → provider
-inactif. Credentials Cursor restent locaux. Usage promis absent du contrat v0.1.
+inactif, y compris MCP HTTP. Noyau injecte son endpoint et une capacité dédiée dans
+`session/new` et `session/load` ; aucun fallback stdio. Credentials Cursor restent locaux. Usage
+promis absent du contrat v0.1.
 
 ## Modèle de domaine v0.1
 
@@ -250,6 +256,10 @@ Hors contrat : checkpoints, diffs, snooze, pin, settle, terminal, pairing, relay
 Les deltas ACP, tool updates, permissions et fins de Turn sont des **commandes internes**
 (ingestion). Le renderer ne les soumet pas.
 
+Les outils MCP Tableau ne soumettent que des `CommandRequest` publiques autorisées par leur
+capacité. Ils passent par le même `CommandGateway` que le renderer et ne peuvent pas émettre de
+commande interne.
+
 ## Durabilité
 
 `node:sqlite`, WAL, un seul possesseur. Migrations `Migrator` Effect, SQL numéroté, au boot
@@ -295,6 +305,19 @@ la session RPC. Une erreur métier ne démonte pas le transport.
 L'activité Ticket est la lecture des faits Ticket persistés. Elle ne fusionne pas le transcript
 d'un Thread.
 
+## MCP Tableau
+
+Noyau Server monte `/mcp` avec `McpServer.layerHttp` sur son listener loopback. Avant une Session
+Cursor, il émet une capacité volatile dont seul le hash reste en mémoire ; le contexte associé
+borne l'agent à son Project, son Thread, son Turn et ses opérations autorisées. Le secret brut est
+injecté comme bearer dans la configuration MCP HTTP d'ACP.
+
+Les lectures interrogent les projections dans le process serveur. Les mutations décodent leurs
+arguments, construisent une commande publique idempotente et passent par le `CommandGateway`. Le
+finalizer du subprocess provider du Turn révoque la capacité ; une expiration borne les arrêts
+anormaux. Le registre est vide au boot. Cursor sans capability MCP HTTP est inactif et Noyau ne
+fournit pas de fallback stdio.
+
 ## UI
 
 - Tableau-first. Sidebar = Threads titrés. Restart = Tableau du dernier projet.
@@ -323,7 +346,7 @@ ou événement distant, le snapshot autoritatif gagne.
 ```text
 apps/
   web/       # renderer React partagé
-  server/    # frontière RPC et composition du control plane
+  server/    # frontières RPC/MCP et composition du control plane
   desktop/   # Electron : superviseur + chrome, sans état métier
 
 packages/
@@ -344,7 +367,8 @@ Un package n'est créé que lorsqu'une frontière réelle et testée le justifie
 3. Electron + serveur Node : fd3, readiness, backoff / `degraded`, grâce 2 s.
 4. RPC : `dispatchCommand`, `subscribeShell` / `subscribeProject` / `subscribeThread`.
 5. Adaptateur Cursor ACP : handshake, `session/new` / `load`, mapping `runtimeMode`.
-6. UI Tableau-first, sidebar Threads, `lastError`, lien Ticket–Thread, reprise après restart.
+6. MCP HTTP : capacités bornées, outils Tableau et injection Cursor.
+7. UI Tableau-first, sidebar Threads, `lastError`, lien Ticket–Thread, reprise après restart.
 
 ## Choix encore ouverts
 

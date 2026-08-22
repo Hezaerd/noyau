@@ -193,6 +193,7 @@ export const makeProviderReactor = (
             )
             yield* provider.startTurn(
               {
+                projectId: ProjectId.make(persisted.projectId),
                 threadId: threadEvent.threadId,
                 turnId: threadEvent.turnId,
                 text: threadEvent.text,

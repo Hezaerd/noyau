@@ -18,6 +18,7 @@ import {
   makeControlPlaneLayer,
   type ControlPlaneHooks,
 } from "@noyau/server/control-plane"
+import { mcpSessionRegistryLayer } from "@noyau/server/mcp/mcp-session-registry"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
@@ -118,6 +119,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
         clientVersion: "test",
       }),
     ),
+    Layer.provideMerge(mcpSessionRegistryLayer.pipe(Layer.provide(testServerConfigLayer()))),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )

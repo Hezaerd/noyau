@@ -6,8 +6,8 @@ commandes durables, possède SQLite et Cursor, et expose les streams RPC.
 ## Langage
 
 **CommandGateway**:
-Frontière qui authentifie via le bearer de lancement, enrichit et remet une `CommandRequest` au
-modèle de décision.
+Frontière qui reçoit une identité vérifiée par le transport, enrichit et remet une
+`CommandRequest` au modèle de décision.
 _À éviter_ : contrôleur CRUD, mutation endpoint
 
 **dispatchCommand**:
@@ -34,6 +34,16 @@ _À éviter_ : CommandRequest client, événement réseau brut
 Fil de fer `@noyau/acp` utilisé par l'adaptateur Cursor. Les extensions (`cursor/ask_question`)
 restent ici.
 _À éviter_ : schémas ACP maison, JSON-RPC maison
+
+**MCP Noyau**:
+Façade agent du control plane qui expose le Tableau et ses Tickets sans devenir une source de
+vérité distincte.
+_À éviter_ : TodoList agent, bridge SQLite, outil `dispatchCommand` brut
+
+**Capacité MCP**:
+Autorisation volatile et bornée d'un Turn Cursor sur un Project, un Thread et un ensemble
+d'opérations Tableau.
+_À éviter_ : bearer Electron, identité dans les arguments d'outil, permission `runtimeMode`
 
 **catalogue Cursor**:
 Capacité volatile découverte par `cursor/list_available_models`, qui expose les modèles et leurs
