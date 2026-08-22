@@ -63,6 +63,26 @@ Barre du Composer : `local` travaille dans le `WorkspaceRoot` (un `git checkout`
 `worktree` isole au premier envoi. `branch` affiché = snapshot Thread, HEAD live = `vcs.status`.
 _À éviter_ : rebind du Project, héritage de checkout
 
+**Header actions**:
+Cluster droite du Header de page d'un Thread : Open in et Git actions. Chrome, pas une entité.
+_À éviter_ : Thread actions, toolbar, command bar
+
+**Open in**:
+Contrôle qui ouvre le cwd du Checkout dans un Éditeur hôte.
+_À éviter_ : Open IDE, openPath, FilePreview
+
+**Éditeur hôte**:
+Application locale découverte sur le PATH (`cursor | vscode | zed`) pour Open in.
+_À éviter_ : Provider, IDE générique
+
+**Git actions**:
+Contrôle qui lance une action empilée live (`commit | push | create_pr | …`) ou un Publish.
+_À éviter_ : git commands, bouton commit, VCS toolbar
+
+**Créer le repo**:
+Libellé UI du Publish GitHub quand le cwd n'a pas de remote `origin`.
+_À éviter_ : Publish wizard, sourceControl
+
 **Draft Git**:
 Message de commit ou texte de PR généré, éditable avant une action empilée
 (`commit | push | create_pr | commit_push | commit_push_pr`).

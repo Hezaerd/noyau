@@ -1,6 +1,9 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import {
   GitCommandError,
+  type GitHubAccountResult,
+  type GitPublishRepositoryResult,
+  type GitRepositoryVisibility,
   type GitRunStackedActionResult,
   type GitStackedAction,
   type VcsCreateRefResult,
@@ -35,6 +38,33 @@ export const buildTemporaryWorktreeBranchName = (hex: string): string => {
 }
 
 const firstLine = (value: string): string => value.split(/\r?\n/g)[0]?.trim() ?? ""
+
+/**
+ * `gh repo create` prints the canonical HTTPS URL. Parse it instead of a follow-up
+ * `gh repo view`, which can race GitHub's consistency window.
+ */
+export const deriveRepositoryUrlFromCreateOutput = (stdout: string, repository: string) => {
+  const match = stdout.match(/https?:\/\/[^\s]+/)
+  const raw = match?.[0]
+  if (raw !== undefined) {
+    try {
+      const parsed = new URL(raw.replace(/\.git$/, ""))
+      const segments = parsed.pathname
+        .replace(/^\/+|\/+$/g, "")
+        .split("/")
+        .filter(Boolean)
+      const owner = segments[0]
+      const name = segments[1]
+      if (segments.length === 2 && owner !== undefined && name !== undefined) {
+        const nameWithOwner = `${owner}/${name}`
+        return { nameWithOwner, url: `${parsed.origin}/${nameWithOwner}` }
+      }
+    } catch {
+      // Fall through to the input-derived default.
+    }
+  }
+  return { nameWithOwner: repository, url: `https://github.com/${repository}` }
+}
 
 const parseWorktrees = (porcelain: string): ReadonlyArray<VcsWorktree> => {
   const worktrees: Array<VcsWorktree> = []
@@ -115,6 +145,12 @@ export interface GitRuntimeService {
     readonly pullRequestTitle?: string
     readonly pullRequestBody?: string
   }) => Effect.Effect<GitRunStackedActionResult, GitCommandError>
+  readonly githubAccount: (cwd: string) => Effect.Effect<GitHubAccountResult, GitCommandError>
+  readonly publishRepository: (input: {
+    readonly cwd: string
+    readonly repository: string
+    readonly visibility: GitRepositoryVisibility
+  }) => Effect.Effect<GitPublishRepositoryResult, GitCommandError>
 }
 
 export class GitRuntime extends Context.Service<GitRuntime, GitRuntimeService>()(
@@ -469,6 +505,61 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     return { action: input.action, branch, commit, push, pullRequest }
   })
 
+  const githubAccount = Effect.fn("GitRuntime.githubAccount")(function* (cwd: string) {
+    const result = yield* runGh("gh.api.user", cwd, ["api", "user", "--jq", ".login"], {
+      allowNonZero: true,
+    }).pipe(
+      Effect.catchTag("GitCommandError", () => Effect.succeed({ stdout: "", stderr: "", code: 1 })),
+    )
+    const login = firstLine(result.stdout)
+    return { login: result.code === 0 && login.length > 0 ? login : null }
+  })
+
+  const publishRepository = Effect.fn("GitRuntime.publishRepository")(function* (input: {
+    readonly cwd: string
+    readonly repository: string
+    readonly visibility: GitRepositoryVisibility
+  }) {
+    const repository = input.repository.trim()
+    const created = yield* runGh("gh.repo.create", input.cwd, [
+      "repo",
+      "create",
+      repository,
+      `--${input.visibility}`,
+    ])
+    const urls = deriveRepositoryUrlFromCreateOutput(created.stdout, repository)
+    yield* runGit("git.remote.add", input.cwd, ["remote", "add", "origin", urls.url])
+    const head = yield* runGit("git.rev-parse.head", input.cwd, ["rev-parse", "--verify", "HEAD"], {
+      allowNonZero: true,
+    })
+    const branch = yield* currentBranch(input.cwd)
+    if (head.code !== 0) {
+      return {
+        nameWithOwner: urls.nameWithOwner,
+        url: urls.url,
+        remoteName: "origin",
+        branch,
+        status: "remote_added",
+      } satisfies GitPublishRepositoryResult
+    }
+    const pushed = yield* runGit("git.push", input.cwd, ["push", "-u", "origin", "HEAD"], {
+      allowNonZero: true,
+    })
+    if (pushed.code !== 0) {
+      return yield* new GitCommandError({
+        operation: "git.push",
+        detail: pushed.stderr.trim() || pushed.stdout.trim() || "git push failed",
+      })
+    }
+    return {
+      nameWithOwner: urls.nameWithOwner,
+      url: urls.url,
+      remoteName: "origin",
+      branch,
+      status: "pushed",
+    } satisfies GitPublishRepositoryResult
+  })
+
   return GitRuntime.of({
     status: (cwd) => enclose(status(cwd)),
     listRefs: (cwd) => enclose(listRefs(cwd)),
@@ -478,6 +569,8 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     createWorktree: (input) => enclose(createWorktree(input)),
     diffContext: (cwd) => enclose(diffContext(cwd)),
     runStackedAction: (input) => enclose(runStackedAction(input)),
+    githubAccount: (cwd) => enclose(githubAccount(cwd)),
+    publishRepository: (input) => enclose(publishRepository(input)),
   })
 })
 

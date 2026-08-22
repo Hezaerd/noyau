@@ -95,3 +95,15 @@ _À éviter_ : mode durable, politique de lock Git
 **GitRuntime**:
 Capacité live du Server (`vcs.*`, `git.*`) hors journal. L'idempotence client passe par `actionId`.
 _À éviter_ : agrégat Commit, événement Push, outbox Git
+
+**Publish**:
+Opération live GitHub : `gh repo create`, remote `origin`, push HEAD s'il existe. Pas une Command.
+_À éviter_ : sourceControl, wizard multi-forge, `gh repo create --source`
+
+**Open in**:
+RPC `workspace.openInEditor` / `workspace.listEditors`. Pas une Command, pas un fait du journal.
+_À éviter_ : openPath, FilePreview, Command
+
+**Éditeur hôte**:
+Identifiant `cursor | vscode | zed` pour Open in.
+_À éviter_ : Provider, EditorId libre

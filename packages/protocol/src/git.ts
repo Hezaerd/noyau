@@ -163,3 +163,30 @@ export const PrepareWorktree = Schema.Struct({
   startFromOrigin: Schema.optionalKey(Schema.Boolean),
 })
 export type PrepareWorktree = (typeof PrepareWorktree)["Type"]
+
+export const GitRepositoryVisibility = Schema.Literals(["private", "public"])
+export type GitRepositoryVisibility = (typeof GitRepositoryVisibility)["Type"]
+
+export const GitPublishStatus = Schema.Literals(["pushed", "remote_added"])
+export type GitPublishStatus = (typeof GitPublishStatus)["Type"]
+
+export const GitHubAccountResult = Schema.Struct({
+  login: Schema.NullOr(TrimmedNonEmpty),
+})
+export type GitHubAccountResult = (typeof GitHubAccountResult)["Type"]
+
+export const GitPublishRepositoryInput = Schema.Struct({
+  ...VcsScope.fields,
+  repository: TrimmedNonEmpty,
+  visibility: GitRepositoryVisibility,
+})
+export type GitPublishRepositoryInput = (typeof GitPublishRepositoryInput)["Type"]
+
+export const GitPublishRepositoryResult = Schema.Struct({
+  nameWithOwner: TrimmedNonEmpty,
+  url: Schema.NonEmptyString,
+  remoteName: TrimmedNonEmpty,
+  branch: Schema.NullOr(TrimmedNonEmpty),
+  status: GitPublishStatus,
+})
+export type GitPublishRepositoryResult = (typeof GitPublishRepositoryResult)["Type"]

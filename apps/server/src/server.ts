@@ -12,6 +12,8 @@ import { agentSkillInstallerLayer } from "./agent-skill/installer.ts"
 import { ServerConfig, serverConfigLayer } from "./config.ts"
 import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
 import { discordPresenceLayer } from "./discord/ipc.ts"
+import { EditorOpen } from "./editor/editor-open.ts"
+import { editorOpenLayer } from "./editor/node-editor-probe.ts"
 import { GitPlane, gitPlaneLayer } from "./git/git-plane.ts"
 import { hydrateHostPath } from "./host-path.ts"
 import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
@@ -108,6 +110,7 @@ export const websocketRpcLayer = Layer.unwrap(
     const config = yield* ServerConfig
     const controlPlane = yield* ControlPlane
     const gitPlane = yield* GitPlane
+    const editorOpen = yield* EditorOpen
     return HttpRouter.add(
       "GET",
       "/rpc",
@@ -128,6 +131,7 @@ export const websocketRpcLayer = Layer.unwrap(
           Layer.provideMerge(rpcIdentityLayer(actorId)),
           Layer.provide(Layer.succeed(ControlPlane)(controlPlane)),
           Layer.provide(Layer.succeed(GitPlane)(gitPlane)),
+          Layer.provide(Layer.succeed(EditorOpen)(editorOpen)),
           Layer.provideMerge(RpcSerialization.layerJson),
         )
         const connection = yield* Layer.build(connectionLayer)
@@ -173,6 +177,7 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(agentSkillInstallerLayer.pipe(Layer.provide(Path.layer))),
   Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(gitPlaneLayer),
+  Layer.provideMerge(editorOpenLayer),
   Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),
   Layer.provide(discordPresenceLayer),

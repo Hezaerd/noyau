@@ -6,7 +6,7 @@ import { NEW_THREAD_TITLE, resolvePageTitlebar } from "../src/lib/page-titlebar"
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 
-const projects = [{ id: projectId, name: "noyau" }]
+const projects = [{ id: projectId, name: "noyau", available: true }]
 const threads = [{ id: threadId, title: "Exclure les subtrees du graphe" }]
 
 describe("page titlebar", () => {
@@ -37,7 +37,9 @@ describe("page titlebar", () => {
       }),
     ).toEqual({
       kind: "thread",
+      projectId,
       projectName: "noyau",
+      projectAvailable: true,
       threadId,
       threadTitle: "Exclure les subtrees du graphe",
     })
@@ -67,7 +69,9 @@ describe("page titlebar", () => {
       }),
     ).toEqual({
       kind: "thread",
+      projectId,
       projectName: "noyau",
+      projectAvailable: true,
       threadId: undefined,
       threadTitle: NEW_THREAD_TITLE,
     })
@@ -79,7 +83,9 @@ describe("page titlebar", () => {
       }),
     ).toEqual({
       kind: "thread",
+      projectId,
       projectName: undefined,
+      projectAvailable: false,
       threadId,
       threadTitle: "Thread",
     })

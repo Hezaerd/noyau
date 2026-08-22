@@ -13,7 +13,7 @@ import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
 import { Context, Crypto, Effect, Layer, ManagedRuntime, Path } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 
-import { stubGitPlaneLayer, stubGitRuntimeLayer } from "./fixtures.ts"
+import { stubEditorOpenLayer, stubGitPlaneLayer, stubGitRuntimeLayer } from "./fixtures.ts"
 import { testServerConfigLayer } from "./fixtures.ts"
 
 const testCrypto = Crypto.make({
@@ -60,6 +60,7 @@ const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(noopDiscordPresenceLayer),
   Layer.provideMerge(stubGitRuntimeLayer),
   Layer.provideMerge(stubGitPlaneLayer),
+  Layer.provideMerge(stubEditorOpenLayer),
   Layer.provideMerge(
     Layer.succeed(WorkspaceRootAccess)({
       isAvailable: () => Effect.succeed(true),

@@ -30,10 +30,12 @@
     "./text-generation/cursor-text-generation": "./src/text-generation/cursor-text-generation.ts",
     "./rpc-handlers": "./src/rpc-handlers.ts",
     "./server": "./src/server.ts",
+    "./workspace-cwd": "./src/workspace-cwd.ts",
     "./workspace-root": "./src/workspace-root.ts",
     "./workspace-path-search": "./src/workspace-path-search.ts",
     "./git/git-runtime": "./src/git/git-runtime.ts",
     "./git/git-plane": "./src/git/git-plane.ts",
+    "./editor/editor-open": "./src/editor/editor-open.ts",
     "./host-path": "./src/host-path.ts"
   },
   "scripts": {

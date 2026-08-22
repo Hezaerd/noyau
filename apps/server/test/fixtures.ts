@@ -1,5 +1,6 @@
 import { EnvironmentId } from "@noyau/protocol/ids"
 import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
+import { EditorOpen } from "@noyau/server/editor/editor-open"
 import { GitPlane } from "@noyau/server/git/git-plane"
 import { GitRuntime } from "@noyau/server/git/git-runtime"
 import { Effect, Layer, Redacted, Schema } from "effect"
@@ -35,6 +36,20 @@ export const stubGitRuntimeLayer = Layer.succeed(GitRuntime)({
       push: { status: "skipped_not_requested" },
       pullRequest: { status: "skipped_not_requested" },
     }),
+  githubAccount: () => Effect.succeed({ login: null }),
+  publishRepository: (input) =>
+    Effect.succeed({
+      nameWithOwner: input.repository,
+      url: `https://github.com/${input.repository}`,
+      remoteName: "origin",
+      branch: null,
+      status: "remote_added",
+    }),
+})
+
+export const stubEditorOpenLayer = Layer.succeed(EditorOpen)({
+  list: Effect.succeed({ editors: ["cursor"] }),
+  open: (input) => Effect.succeed({ editor: input.editor, cwd: "/tmp/stub" }),
 })
 
 export const stubGitPlaneLayer = Layer.succeed(GitPlane)({
@@ -58,6 +73,15 @@ export const stubGitPlaneLayer = Layer.succeed(GitPlane)({
       commit: { status: "skipped_not_requested" },
       push: { status: "skipped_not_requested" },
       pullRequest: { status: "skipped_not_requested" },
+    }),
+  githubAccount: () => Effect.succeed({ login: null }),
+  publishRepository: (input) =>
+    Effect.succeed({
+      nameWithOwner: input.repository,
+      url: `https://github.com/${input.repository}`,
+      remoteName: "origin",
+      branch: null,
+      status: "remote_added",
     }),
 })
 

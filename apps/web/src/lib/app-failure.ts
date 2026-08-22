@@ -1,4 +1,5 @@
 import { AgentIntegrationFailed } from "@noyau/protocol/agent-integration"
+import { OpenInEditorFailed } from "@noyau/protocol/editor"
 import {
   CommandIdConflict,
   Forbidden,
@@ -26,6 +27,7 @@ const KnownControlPlaneError = Schema.Union([
   FilePreviewFailed,
   ProjectNotFound,
   GitCommandError,
+  OpenInEditorFailed,
   AgentIntegrationFailed,
   RpcClientError,
   ResourceSnapshotUnavailable,
@@ -74,7 +76,7 @@ const fromTypedError = (error: KnownControlPlaneError, phase: FailurePhase): App
   if (Schema.is(ServiceUnavailable)(error)) {
     return { _tag: "Unavailable", service: error.service }
   }
-  if (Schema.is(GitCommandError)(error)) {
+  if (Schema.is(GitCommandError)(error) || Schema.is(OpenInEditorFailed)(error)) {
     return { _tag: "InvalidInput", message: error.detail }
   }
   if (Schema.is(MissingIdentity)(error) || Schema.is(Forbidden)(error)) {
