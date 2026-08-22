@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { toastManager } from "@/components/ui/toast"
 import { FILE_CHIP_ICON_CLASS_NAME, TRANSCRIPT_FILE_CHIP_CLASS_NAME } from "@/lib/file-chip"
 import { loadFilePreview, peekFilePreview } from "@/lib/file-preview"
+import { createImagePreviewUrl } from "@/lib/image-preview-url"
 import {
   encodeThreadMarkdownFileHref,
   fileLinkChipLabel,
@@ -35,11 +36,6 @@ const openFileChip = (path: string): void => {
       })
     },
   )
-}
-
-const imageBlobUrl = (preview: Extract<FilePreview, { readonly kind: "image" }>): string => {
-  const bytes = Uint8Array.from(preview.bytes)
-  return URL.createObjectURL(new Blob([bytes], { type: preview.mime }))
 }
 
 export function ThreadMarkdownFileChip({
@@ -93,7 +89,7 @@ export function ThreadMarkdownFileChip({
     if (preview?.kind !== "image") {
       return
     }
-    const url = imageBlobUrl(preview)
+    const url = createImagePreviewUrl(preview.bytes, preview.mime)
     setImageUrl(url)
     return () => {
       URL.revokeObjectURL(url)
@@ -155,7 +151,11 @@ export function ThreadMarkdownFileChip({
             <ThreadFilePreviewText path={meta.filePath} text={textPreview.text} />
           )}
           {showImage ? (
-            <img alt="" className="mx-auto max-h-52 max-w-full object-contain" src={imageUrl} />
+            <img
+              alt=""
+              className="max-h-32 max-w-full rounded-lg object-contain object-left"
+              src={imageUrl}
+            />
           ) : null}
           {statusLabel === undefined ? null : (
             <p className="text-muted-foreground text-xs">{statusLabel}</p>

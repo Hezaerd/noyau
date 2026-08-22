@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import type { FilePreview } from "@noyau/protocol/file-preview"
 import { ProjectId } from "@noyau/protocol/ids"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -13,16 +14,20 @@ import { clearFilePreviewCache } from "../src/lib/file-preview"
 import { resetMarkdownExternalLinkFavicons } from "../src/lib/markdown-external-links"
 
 const previewFile = vi.hoisted(() =>
-  vi.fn(() =>
-    Promise.resolve({
-      ok: true as const,
-      value: {
-        kind: "text" as const,
-        text: "print('salut')",
-        truncated: false,
-        mtimeMs: 1,
-      },
-    }),
+  vi.fn(
+    (): Promise<{
+      readonly ok: true
+      readonly value: FilePreview
+    }> =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          kind: "text",
+          text: "print('salut')",
+          truncated: false,
+          mtimeMs: 1,
+        },
+      }),
   ),
 )
 
@@ -348,6 +353,34 @@ describe("ThreadMarkdown", () => {
       }),
     ))
 
+  it("left-aligns an image file-chip hover preview", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        previewFile.mockResolvedValueOnce({
+          ok: true,
+          value: {
+            kind: "image" as const,
+            mime: "image/png" as const,
+            bytes: new Uint8Array([137, 80, 78, 71]),
+            mtimeMs: 1,
+          },
+        })
+        renderMarkdown("Regarde [shot.png](docs/shot.png)")
+        const user = userEvent.setup()
+        yield* Effect.promise(() =>
+          user.hover(screen.getByRole("link", { name: /Ouvrir .*shot\.png/ })),
+        )
+        yield* Effect.promise(() =>
+          waitFor(() => {
+            const preview = document.querySelector('[data-slot="preview-card-content"] img')
+            expect(preview?.className).toMatch(/object-left/)
+            expect(preview?.className).not.toMatch(/mx-auto/)
+            expect(preview?.getAttribute("src")?.startsWith("blob:")).toBe(true)
+          }),
+        )
+      }),
+    ))
+
   it("renders a markdown file preview as markdown", () =>
     Effect.runPromise(
       Effect.gen(function* () {
@@ -371,6 +404,42 @@ describe("ThreadMarkdown", () => {
             expect(preview?.getAttribute("data-file-preview-kind")).toBe("markdown")
             expect(preview?.querySelector("h1")?.textContent).toBe("Guide")
             expect(preview?.querySelector("[data-thread-markdown-file-chip]")).toBeNull()
+          }),
+        )
+      }),
+    ))
+
+  it("renders a markdown image link as a left-aligned thumbnail", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        previewFile.mockResolvedValueOnce({
+          ok: true,
+          value: {
+            kind: "image" as const,
+            mime: "image/png" as const,
+            bytes: new Uint8Array([137, 80, 78, 71]),
+            mtimeMs: 1,
+          },
+        })
+        renderMarkdown("Voici ![capture](docs/shot.png)")
+
+        expect(document.querySelector(".thread-markdown")).not.toBeNull()
+        const open = yield* Effect.promise(() =>
+          screen.findByRole("button", { name: /Ouvrir .*shot\.png/ }),
+        )
+        expect(open.closest("span")?.className).toMatch(/inline-flex/)
+        expect(open.querySelector("[data-image-thumbnail]")).not.toBeNull()
+        expect(open.querySelector("[data-image-thumbnail]")?.className).toMatch(/size-14/)
+        expect(document.querySelector('img[src^="https://file.invalid"]')).toBeNull()
+        yield* Effect.promise(() =>
+          waitFor(() => {
+            expect(previewFile).toHaveBeenCalledWith({
+              projectId,
+              path: "/Users/hezaerd/project/docs/shot.png",
+            })
+            const image = open.querySelector("img")
+            expect(image?.getAttribute("alt")).toBe("capture")
+            expect(image?.getAttribute("src")?.startsWith("blob:")).toBe(true)
           }),
         )
       }),

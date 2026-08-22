@@ -10,12 +10,7 @@ import {
   rememberMarkdownExternalLinkFaviconFailure,
   resolveExternalWebLinkHost,
 } from "@/lib/markdown-external-links"
-import {
-  decodeThreadMarkdownFileHref,
-  fileLinkSuffixKey,
-  normalizeMarkdownLinkHrefKey,
-  resolveMarkdownFileLinkMeta,
-} from "@/lib/markdown-file-links"
+import { fileLinkSuffixKey, lookupThreadMarkdownFileLinkMeta } from "@/lib/markdown-file-links"
 import { cn } from "@/lib/utils"
 
 const MARKDOWN_LINK_FAVICON_CLASS_NAME = "block size-full shrink-0 select-none"
@@ -63,15 +58,7 @@ export function ThreadMarkdownLink({
   ...props
 }: ComponentProps<"a"> & ExtraProps) {
   const fileLinks = useThreadMarkdownFileLinks()
-  const encodedTarget = href === undefined ? null : decodeThreadMarkdownFileHref(href)
-  const normalizedHref =
-    href === undefined ? "" : normalizeMarkdownLinkHrefKey(encodedTarget ?? href)
-  const meta =
-    normalizedHref.length === 0
-      ? undefined
-      : (fileLinks.byHref.get(normalizedHref) ??
-        resolveMarkdownFileLinkMeta(normalizedHref, fileLinks.workspaceRoot) ??
-        undefined)
+  const meta = lookupThreadMarkdownFileLinkMeta(href, fileLinks)
 
   if (meta !== undefined) {
     return (

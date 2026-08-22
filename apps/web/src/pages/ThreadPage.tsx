@@ -392,7 +392,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       onModelSelectionChange={changeModelSelection}
       onPaste={acceptImages}
       onDrop={acceptImages}
-      onImagesAdd={attachFiles}
       onImageRemove={(localId) => {
         setImages((current) => {
           const removed = current.find((image) => image.localId === localId)

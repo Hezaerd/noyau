@@ -680,6 +680,26 @@ export const normalizeMarkdownLinkHrefKey = (href: string): string => {
   return rewriteMarkdownFileUriHref(normalizedHref) ?? normalizedHref
 }
 
+export const lookupThreadMarkdownFileLinkMeta = (
+  href: string | undefined,
+  fileLinks: {
+    readonly byHref: ReadonlyMap<string, MarkdownFileLinkMeta>
+    readonly workspaceRoot?: string | undefined
+  },
+): MarkdownFileLinkMeta | undefined => {
+  const encodedTarget = href === undefined ? null : decodeThreadMarkdownFileHref(href)
+  const normalizedHref =
+    href === undefined ? "" : normalizeMarkdownLinkHrefKey(encodedTarget ?? href)
+  if (normalizedHref.length === 0) {
+    return undefined
+  }
+  return (
+    fileLinks.byHref.get(normalizedHref) ??
+    resolveMarkdownFileLinkMeta(normalizedHref, fileLinks.workspaceRoot) ??
+    undefined
+  )
+}
+
 export const extractMarkdownLinkHrefs = (text: string): readonly string[] => {
   const hrefs: string[] = []
   for (const match of text.matchAll(MARKDOWN_LINK_HREF_PATTERN)) {
