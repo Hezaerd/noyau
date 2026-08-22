@@ -1,3 +1,9 @@
+import {
+  DEFAULT_RELEASE_CHANNEL,
+  releaseBrand,
+  type ReleaseChannel,
+} from "@noyau/shared/release-brand"
+
 import { getDesktopPlatform, getHotkeysPlatform } from "@/lib/keyboard-shortcut"
 
 export const APPEARANCE_PREFERENCES = ["system", "light", "dark"] as const
@@ -11,7 +17,7 @@ export interface CursorClientPoint {
   readonly height: number
 }
 
-export type DesktopReleaseChannel = "development" | "latest" | "nightly"
+export type DesktopReleaseChannel = ReleaseChannel
 
 export interface NoyauDesktopBridge {
   readonly platform: string
@@ -23,19 +29,11 @@ export interface NoyauDesktopBridge {
 }
 
 export const desktopReleaseChannel = (): DesktopReleaseChannel =>
-  window.noyauDesktop?.releaseChannel ?? "latest"
+  window.noyauDesktop?.releaseChannel ?? DEFAULT_RELEASE_CHANNEL
 
 export const desktopBrandName = (
   channel: DesktopReleaseChannel = desktopReleaseChannel(),
-): string => {
-  if (channel === "development") {
-    return "Noyau (Dev)"
-  }
-  if (channel === "nightly") {
-    return "Noyau (Nightly)"
-  }
-  return "Noyau"
-}
+): string => releaseBrand(channel).displayName
 
 interface WindowControlsOverlayLike {
   readonly visible: boolean

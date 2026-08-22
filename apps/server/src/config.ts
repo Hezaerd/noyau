@@ -1,8 +1,9 @@
 import { EnvironmentId } from "@noyau/protocol/ids"
+import { RELEASE_CHANNELS, type ReleaseChannel } from "@noyau/shared/release-brand"
 import { Config, Context, Effect, FileSystem, Layer, Path, Redacted, Schema } from "effect"
 
 export type NoyauEnvironment = "development" | "test" | "production"
-export type NoyauReleaseChannel = "development" | "latest" | "nightly"
+export type NoyauReleaseChannel = ReleaseChannel
 
 export const BootstrapConfig = Schema.Struct({
   dataDirectory: Schema.NonEmptyString,
@@ -117,10 +118,9 @@ export const serverEnvironment = Config.literals(
   "NOYAU_ENV",
 ).pipe(Config.withDefault("development"))
 
-export const serverReleaseChannel = Config.literals(
-  ["development", "latest", "nightly"] as const,
-  "NOYAU_RELEASE_CHANNEL",
-).pipe(Config.withDefault("development"))
+export const serverReleaseChannel = Config.literals(RELEASE_CHANNELS, "NOYAU_RELEASE_CHANNEL").pipe(
+  Config.withDefault("development"),
+)
 
 export const loadServerConfig = Effect.gen(function* () {
   const path = yield* Path.Path

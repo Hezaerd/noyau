@@ -39,8 +39,8 @@ Pas de cron. Le tag `v*-nightly.*` est créé par le job `release`.
 
 Nightly a un branding séparé : nom `Noyau (Nightly)`, icône dark, bundle id
 `dev.noyau.desktop.nightly`. Marques : ember en Dev, dark en nightly, light en latest.
-L’app expose `NOYAU_RELEASE_CHANNEL=nightly` (main, serveur enfant,
-`window.noyauDesktop.releaseChannel`).
+Le job injecte `NOYAU_RELEASE_CHANNEL=nightly` au packager, qui fige le canal dans l’artefact.
+Au lancement, Electron le transmet au serveur enfant et à `window.noyauDesktop.releaseChannel`.
 
 La version devient `<next-patch>-nightly.YYYYMMDD.<run_number>`. Le tag `v*-nightly.*` est créé
 par `gh release create`. `main` n’est pas modifié.
@@ -73,6 +73,8 @@ Certaines politiques d’entreprise interdisent ce contournement.
 ```bash
 bun run dist:desktop:mac:dmg    # Apple Silicon
 bun run dist:desktop:win:nsis   # machine Windows
+NOYAU_RELEASE_CHANNEL=nightly node apps/desktop/scripts/package-desktop.ts --mac --dmg
 ```
 
-Les sorties vont dans `apps/desktop/release/`. CI injecte `--arch` et `--build-version`.
+Les sorties vont dans `apps/desktop/release/`. Sans variable, le packaging local cible `latest`.
+CI injecte `NOYAU_RELEASE_CHANNEL`, `--arch` et `--build-version`.

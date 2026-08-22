@@ -1,12 +1,8 @@
 import { Schema } from "effect"
 
-export const PICK_FOLDER_CHANNEL = "noyau:pick-folder"
-
 export const FolderPickerOptionsSchema = Schema.Struct({
   initialPath: Schema.optionalKey(Schema.String),
 })
-
-export type FolderPickerOptions = Schema.Schema.Type<typeof FolderPickerOptionsSchema>
 
 export const decodeFolderPickerOptions = Schema.decodeUnknownEffect(FolderPickerOptionsSchema)
 

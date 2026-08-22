@@ -1,7 +1,5 @@
 import { Effect, Schema } from "effect"
 
-export const OPEN_PATH_CHANNEL = "noyau:open-path"
-
 export class InvalidFilesystemPath extends Schema.TaggedError<InvalidFilesystemPath>()(
   "InvalidFilesystemPath",
   {

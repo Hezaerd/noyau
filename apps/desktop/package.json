@@ -14,6 +14,7 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@noyau/protocol": "workspace:*",
+    "@noyau/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

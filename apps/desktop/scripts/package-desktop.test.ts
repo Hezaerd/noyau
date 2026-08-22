@@ -96,14 +96,14 @@ describe("package desktop", () => {
   })
 
   it("asks electron-builder for an unsigned artifact", () => {
-    expect(electronBuilderArgs("mac", "dir", undefined, undefined)).toEqual([
+    expect(electronBuilderArgs("mac", "dir", undefined, "latest", undefined)).toEqual([
       "--mac",
       "dir",
       "--publish",
       "never",
       "-c.extraMetadata.noyauReleaseChannel=latest",
     ])
-    expect(electronBuilderArgs("mac", "dmg", "arm64", "0.1.0")).toEqual([
+    expect(electronBuilderArgs("mac", "dmg", "arm64", "latest", "0.1.0")).toEqual([
       "--mac",
       "dmg",
       "--arm64",
@@ -112,7 +112,9 @@ describe("package desktop", () => {
       "-c.extraMetadata.noyauReleaseChannel=latest",
       "-c.extraMetadata.version=0.1.0",
     ])
-    expect(electronBuilderArgs("win", "nsis", "x64", "0.1.0-nightly.20260822.1")).toEqual([
+    expect(
+      electronBuilderArgs("win", "nsis", "x64", "nightly", "0.1.0-nightly.20260822.1"),
+    ).toEqual([
       "--win",
       "nsis",
       "--x64",

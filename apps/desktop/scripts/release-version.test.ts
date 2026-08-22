@@ -8,7 +8,6 @@ import {
   githubReleaseFlags,
   latestStableVersion,
   nextPatchVersion,
-  releaseChannelFromVersion,
   resolveReleaseBrand,
   resolveReleaseMeta,
   splitReleaseCliArgs,
@@ -89,8 +88,6 @@ describe("release version", () => {
   })
 
   it("brands nightly separately from latest", () => {
-    expect(releaseChannelFromVersion("0.1.0")).toBe("latest")
-    expect(releaseChannelFromVersion("0.1.1-nightly.20260822.3")).toBe("nightly")
     expect(resolveReleaseBrand("latest")).toEqual({
       displayName: "Noyau",
       bundleId: "dev.noyau.desktop",

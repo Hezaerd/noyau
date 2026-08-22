@@ -1,11 +1,14 @@
 import { contextBridge, ipcRenderer } from "electron"
 
 import { GET_CURSOR_POINT_CHANNEL, type CursorClientPoint } from "./cursor-point"
-import { PICK_FOLDER_CHANNEL, type FolderPickerOptions } from "./folder-picker"
-import { OPEN_PATH_CHANNEL } from "./open-path"
+import { PICK_FOLDER_CHANNEL, type FolderPickerOptions } from "./folder-picker-contract"
+import { OPEN_PATH_CHANNEL } from "./open-path-contract"
+import {
+  decodeReleaseChannelFromMain,
+  GET_RELEASE_CHANNEL_CHANNEL,
+  type DesktopReleaseChannel,
+} from "./release-channel-bridge"
 import { SET_THEME_CHANNEL, type AppearancePreference } from "./theme"
-
-export type DesktopReleaseChannel = "development" | "latest" | "nightly"
 
 export interface NoyauDesktopBridge {
   readonly platform: NodeJS.Platform
@@ -16,17 +19,11 @@ export interface NoyauDesktopBridge {
   readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
 }
 
-const readReleaseChannel = (): DesktopReleaseChannel => {
-  const raw = process.env.NOYAU_RELEASE_CHANNEL
-  if (raw === "development" || raw === "latest" || raw === "nightly") {
-    return raw
-  }
-  return "latest"
-}
-
 const desktopBridge: NoyauDesktopBridge = Object.freeze({
   platform: process.platform,
-  releaseChannel: readReleaseChannel(),
+  releaseChannel: decodeReleaseChannelFromMain(
+    String(ipcRenderer.sendSync(GET_RELEASE_CHANNEL_CHANNEL)),
+  ),
   setTheme: (theme: AppearancePreference): Promise<void> =>
     ipcRenderer.invoke(SET_THEME_CHANNEL, theme).then(() => undefined),
   pickFolder: (options?: FolderPickerOptions): Promise<string | undefined> =>

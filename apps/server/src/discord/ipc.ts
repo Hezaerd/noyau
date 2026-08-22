@@ -2,6 +2,7 @@ import { createConnection, type Socket } from "node:net"
 import { tmpdir } from "node:os"
 
 import { serverReleaseChannel, type NoyauReleaseChannel } from "@noyau/server/config"
+import { releaseBrand } from "@noyau/shared/release-brand"
 import { Clock, Duration, Effect, Layer, Option, Queue, Schema } from "effect"
 
 import type { PresenceActivity } from "./activity.ts"
@@ -13,19 +14,15 @@ const IPC_SLOT_COUNT = 10
 const RECONNECT_DELAY = Duration.seconds(5)
 
 /** Application IDs Discord publics — pas des secrets. */
-export const DISCORD_APPLICATION_ID_LATEST = "1540464789850169484"
-export const DISCORD_APPLICATION_ID_NIGHTLY = "1540445560736321627"
-export const DISCORD_APPLICATION_ID_DEVELOPMENT = "1540812507592265738"
+export const DISCORD_APPLICATION_ID_LATEST = releaseBrand("latest").discord.applicationId
+export const DISCORD_APPLICATION_ID_NIGHTLY = releaseBrand("nightly").discord.applicationId
+export const DISCORD_APPLICATION_ID_DEVELOPMENT = releaseBrand("development").discord.applicationId
 
-export const resolveDiscordApplicationId = (channel: NoyauReleaseChannel): string => {
-  if (channel === "nightly") {
-    return DISCORD_APPLICATION_ID_NIGHTLY
-  }
-  if (channel === "development") {
-    return DISCORD_APPLICATION_ID_DEVELOPMENT
-  }
-  return DISCORD_APPLICATION_ID_LATEST
-}
+export const resolveDiscordApplicationId = (channel: NoyauReleaseChannel): string =>
+  releaseBrand(channel).discord.applicationId
+
+export const resolveDiscordLargeImage = (channel: NoyauReleaseChannel): string =>
+  releaseBrand(channel).discord.largeImage
 
 export class DiscordIpcError extends Schema.TaggedError<DiscordIpcError>()("DiscordIpcError", {
   operation: Schema.Literals(["connect", "write"]),
@@ -36,7 +33,7 @@ interface DiscordHandshake {
   readonly client_id: string
 }
 
-interface DiscordSetActivity {
+export interface DiscordSetActivity {
   readonly cmd: "SET_ACTIVITY"
   readonly nonce: string
   readonly args: {
@@ -47,6 +44,10 @@ interface DiscordSetActivity {
       readonly instance: false
       readonly timestamps: {
         readonly start: number
+      }
+      readonly assets: {
+        readonly large_image: string
+        readonly large_text: string
       }
     } | null
   }
@@ -109,17 +110,19 @@ const openDiscordSocket = Effect.fn("DiscordIpc.open")(function* (
   return socket
 })
 
-const setActivity = (
-  socket: Socket,
+export const makeDiscordSetActivity = (
+  channel: NoyauReleaseChannel,
   activity: PresenceActivity | null,
   nonce: string,
   startedAt: number,
-) =>
-  writeFrame(socket, FRAME, {
+  pid: number,
+): DiscordSetActivity => {
+  const brand = releaseBrand(channel)
+  return {
     cmd: "SET_ACTIVITY",
     nonce,
     args: {
-      pid: process.pid,
+      pid,
       activity:
         activity === null
           ? null
@@ -128,12 +131,30 @@ const setActivity = (
               state: activity.state,
               instance: false,
               timestamps: { start: startedAt },
+              assets: {
+                large_image: brand.discord.largeImage,
+                large_text: brand.displayName,
+              },
             },
     },
-  })
+  }
+}
+
+const setActivity = (
+  socket: Socket,
+  channel: NoyauReleaseChannel,
+  activity: PresenceActivity | null,
+  nonce: string,
+  startedAt: number,
+) =>
+  writeFrame(
+    socket,
+    FRAME,
+    makeDiscordSetActivity(channel, activity, nonce, startedAt, process.pid),
+  )
 
 const runIpcLoop = Effect.fn("DiscordIpc.runLoop")(function* (
-  clientId: string,
+  channel: NoyauReleaseChannel,
   runtimeDir: string,
   startedAt: number,
   queue: Queue.Dequeue<PresenceActivity | null>,
@@ -152,7 +173,7 @@ const runIpcLoop = Effect.fn("DiscordIpc.runLoop")(function* (
     if (socket !== undefined && !socket.destroyed) {
       return socket
     }
-    const next = yield* openDiscordSocket(clientId, runtimeDir)
+    const next = yield* openDiscordSocket(resolveDiscordApplicationId(channel), runtimeDir)
     next.once("error", disconnect)
     next.once("close", disconnect)
     socket = next
@@ -171,7 +192,7 @@ const runIpcLoop = Effect.fn("DiscordIpc.runLoop")(function* (
     const published = yield* ensureSocket().pipe(
       Effect.flatMap((open) => {
         nonce += 1
-        return setActivity(open, desired, String(nonce), startedAt)
+        return setActivity(open, channel, desired, String(nonce), startedAt)
       }),
       Effect.match({
         onFailure: () => false,
@@ -194,7 +215,7 @@ export const discordPresenceLayer = Layer.effect(
     const startedAt = yield* Clock.currentTimeMillis
     const channel = yield* serverReleaseChannel
     const queue = yield* Queue.sliding<PresenceActivity | null>(1)
-    yield* runIpcLoop(resolveDiscordApplicationId(channel), tmpdir(), startedAt, queue).pipe(
+    yield* runIpcLoop(channel, tmpdir(), startedAt, queue).pipe(
       Effect.catchCause((cause) => Effect.logWarning("Discord IPC stopped", { cause })),
       Effect.forkScoped,
     )
