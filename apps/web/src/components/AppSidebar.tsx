@@ -1,6 +1,6 @@
 import type { ProjectId } from "@noyau/protocol/ids"
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
-import { SearchIcon, SettingsIcon } from "lucide-react"
+import { SearchIcon, SettingsIcon, SquarePenIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
@@ -120,23 +120,57 @@ export function AppSidebar() {
       <SidebarHeader className="gap-0 p-0">
         <SidebarBrandTitlebar />
 
-        <div className="p-3">
-          <CommandDialogTrigger
-            render={
-              <button
-                type="button"
-                aria-label="Ouvrir la Palette"
-                className={sidebarSearchChromeClassName}
+        <div className="flex items-center gap-1 p-3">
+          <div className="min-w-0 flex-1">
+            <CommandDialogTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label="Ouvrir la Palette"
+                  className={sidebarSearchChromeClassName}
+                />
+              }
+            >
+              <SearchIcon className="size-3.5 shrink-0" />
+              <span className="group-data-[collapsible=icon]:hidden">Rechercher</span>
+              <KeyboardShortcut
+                hotkey={paletteHotkey}
+                className="ml-auto group-data-[collapsible=icon]:hidden"
               />
-            }
-          >
-            <SearchIcon className="size-3.5 shrink-0" />
-            <span className="group-data-[collapsible=icon]:hidden">Rechercher</span>
-            <KeyboardShortcut
-              hotkey={paletteHotkey}
-              className="ml-auto group-data-[collapsible=icon]:hidden"
-            />
-          </CommandDialogTrigger>
+            </CommandDialogTrigger>
+          </div>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Nouveau Thread"
+                  disabled={selectedProject === undefined}
+                  className="size-9 shrink-0 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  render={
+                    selectedProject === undefined ? undefined : (
+                      <Link
+                        to="/projects/$projectId/thread/$threadId"
+                        params={{ projectId: selectedProject.id, threadId: "new" }}
+                        onClick={() => {
+                          selectProject(selectedProject.id)
+                          closeMobileNavigation()
+                        }}
+                      />
+                    )
+                  }
+                />
+              }
+            >
+              <SquarePenIcon />
+            </TooltipTrigger>
+            <TooltipPopup side="right" className="inline-flex items-center gap-1.5">
+              Nouveau Thread
+              <KeyboardShortcut hotkey={createThreadHotkey} />
+            </TooltipPopup>
+          </Tooltip>
         </div>
         <ProjectSwitcher
           projects={projects}
@@ -167,7 +201,6 @@ export function AppSidebar() {
                   project={selectedProject}
                   threads={selectedProjectThreads}
                   pathname={pathname}
-                  createThreadHotkey={createThreadHotkey}
                   onSelect={() => {
                     selectProject(selectedProject.id)
                     closeMobileNavigation()
