@@ -250,11 +250,11 @@ export function ThreadCheckoutBar({
                   }}
                 >
                   <FolderIcon data-icon="inline-start" />
-                  Local — WorkspaceRoot
+                  Local
                 </MenuItem>
                 <MenuItem onClick={() => onEnvModeChange("worktree")}>
                   <FolderGit2Icon data-icon="inline-start" />
-                  Worktree — isolé au premier envoi
+                  Worktree
                 </MenuItem>
               </MenuGroup>
             </MenuPopup>
