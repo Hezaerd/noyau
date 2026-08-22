@@ -98,8 +98,9 @@ Un profil Electron possède un seul Environment, partagé par ses fenêtres.
 - Le mode dev peut lancer le serveur à part pour le hot reload, avec le même bootstrap, SQLite
   et RPC. Un smoke test couvre le vrai child Electron.
 
-Packaging, installation, mise à jour, logs et réparation du serveur enfant restent un effort
-ultérieur. Ils ne bloquent pas la boucle durable.
+Les releases unsigned latest/nightly (DMG arm64, NSIS x64) sont décrites dans
+[ADR-0017](adr/0017-releases-unsigned-latest-nightly.md). L’auto-update Electron, la signature et
+la réparation du serveur enfant restent un effort ultérieur.
 
 ## Responsabilités v0.1
 

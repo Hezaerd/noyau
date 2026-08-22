@@ -25,6 +25,8 @@ import { ChildProcess } from "effect/unstable/process"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
 import { Socket } from "effect/unstable/socket"
 
+import { RELEASE_CHANNEL_ENV, type DesktopReleaseChannel } from "./release-channel"
+
 export const FORCE_KILL_AFTER_MS = 2_000
 export const MAX_RESTART_FAILURES = 5
 export const RESTART_WINDOW_MS = 60_000
@@ -88,6 +90,7 @@ export interface ServerSupervisorOptions {
   readonly actorId?: string
   readonly environmentId?: string
   readonly environment?: "development" | "production"
+  readonly releaseChannel?: DesktopReleaseChannel
   readonly externalBootstrap?: ServerBootstrap
   readonly executablePath?: string
   readonly fetchImpl?: FetchImplementation
@@ -454,6 +457,7 @@ export class ServerSupervisor {
           ELECTRON_RUN_AS_NODE: "1",
           NOYAU_BOOTSTRAP_FD: "3",
           NOYAU_ENV: this.options.environment ?? "production",
+          [RELEASE_CHANNEL_ENV]: this.options.releaseChannel ?? "latest",
         },
         stdin: "ignore",
         stdout: "pipe",

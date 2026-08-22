@@ -4,6 +4,7 @@ import { renderAppIconSvg } from "./app-icon-svg.ts"
 import {
   APP_ICON_VARIANTS,
   MAC_BUNDLE_ICON_FILE,
+  resolveAppIconDirectory,
   resolveAppIconPath,
   resolveAppIconPngPath,
   resolveAppIconVariant,
@@ -27,6 +28,12 @@ describe("app icon", () => {
       head: "#302b4b",
       eye: "#e2ddff",
     })
+    expect(APP_ICON_VARIANTS.nightly.directory).toBe("nightly")
+    expect(APP_ICON_VARIANTS.nightly.palette).toEqual({
+      bg: "#1a1208",
+      head: "#c45c26",
+      eye: "#ffe7c2",
+    })
   })
 
   it("points each variant at its committed icns and png", () => {
@@ -41,6 +48,9 @@ describe("app icon", () => {
     )
     expect(resolveAppIconPngPath("/repo/apps/desktop", false)).toBe(
       "/repo/apps/desktop/assets/prod/app-icon.png",
+    )
+    expect(`${resolveAppIconDirectory("/repo/apps/desktop", "nightly")}/app-icon.icns`).toBe(
+      "/repo/apps/desktop/assets/nightly/app-icon.icns",
     )
     expect(MAC_BUNDLE_ICON_FILE).toBe("icon.icns")
     expect(resolveMacBundleIconPath("/repo/Noyau (Dev).app")).toBe(
@@ -62,5 +72,7 @@ describe("app icon", () => {
     expect(production).toContain("#302b4b")
     expect(production).toContain("#e2ddff")
     expect(development).not.toBe(production)
+    expect(renderAppIconSvg("nightly")).toContain("#c45c26")
+    expect(renderAppIconSvg("nightly")).not.toBe(production)
   })
 })

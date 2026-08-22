@@ -114,21 +114,22 @@ git subtree pull \
 
 ## Scripts
 
-| Commande                       | Effet                                                         |
-| ------------------------------ | ------------------------------------------------------------- |
-| `bun run check`                | `vp check` (format + lint type-aware + type check) puis `tsc` |
-| `bun run lint`                 | Oxlint type-aware, règles Effect incluses                     |
-| `bun run lint:fix`             | idem avec corrections automatiques                            |
-| `bun run format`               | Oxfmt en écriture                                             |
-| `bun run format:check`         | Oxfmt en vérification                                         |
-| `bun run typecheck`            | `tsc` par workspace, ordonné et caché par Vite Task           |
-| `bun run test`                 | Vitest par workspace, caché par Vite Task                     |
-| `bun run build`                | build par workspace, caché par Vite Task                      |
-| `bun run dist:desktop:mac`     | `.app` macOS local unsigned (`apps/desktop/release/`)         |
-| `bun run dist:desktop:mac:dmg` | idem + `.dmg`                                                 |
-| `bun run dist:desktop:win`     | `.exe` unpacked, à lancer depuis Windows                      |
-| `bun run dev:server`           | serveur local avec rechargement Bun                           |
-| `bun run dev:web`              | serveur de dev de `apps/web`                                  |
+| Commande                        | Effet                                                         |
+| ------------------------------- | ------------------------------------------------------------- |
+| `bun run check`                 | `vp check` (format + lint type-aware + type check) puis `tsc` |
+| `bun run lint`                  | Oxlint type-aware, règles Effect incluses                     |
+| `bun run lint:fix`              | idem avec corrections automatiques                            |
+| `bun run format`                | Oxfmt en écriture                                             |
+| `bun run format:check`          | Oxfmt en vérification                                         |
+| `bun run typecheck`             | `tsc` par workspace, ordonné et caché par Vite Task           |
+| `bun run test`                  | Vitest par workspace, caché par Vite Task                     |
+| `bun run build`                 | build par workspace, caché par Vite Task                      |
+| `bun run dist:desktop:mac`      | `.app` macOS local unsigned (`apps/desktop/release/`)         |
+| `bun run dist:desktop:mac:dmg`  | idem + `.dmg`                                                 |
+| `bun run dist:desktop:win`      | `.exe` unpacked, à lancer depuis Windows                      |
+| `bun run dist:desktop:win:nsis` | installateur NSIS unsigned, à lancer depuis Windows           |
+| `bun run dev:server`            | serveur local avec rechargement Bun                           |
+| `bun run dev:web`               | serveur de dev de `apps/web`                                  |
 
 Les tâches passent par Vite Task (`vp run`), qui remplace Turborepo. Il n'y a pas d'`inputs` ni
 d'`outputs` à déclarer : le suivi automatique observe les fichiers réellement lus et écrits par

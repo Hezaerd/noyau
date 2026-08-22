@@ -40,3 +40,17 @@ _À éviter_ : header desktop, barre de titre
 **Header de page**:
 Rangée contextuelle qui porte la navigation et l'identité de la page courante.
 _À éviter_ : chrome de fenêtre, barre de titre
+
+**Canal de release**:
+Piste de publication desktop `latest` ou `nightly`, plus `development` en local. latest = tag
+`vX.Y.Z` ; nightly = dispatch Actions. Exposé par `NOYAU_RELEASE_CHANNEL` et
+`window.noyauDesktop.releaseChannel`.
+_À éviter_ : canal beta séparé, dist-tag npm, updater Electron, réutiliser `NOYAU_ENV`
+
+**Marque nightly**:
+Nom `Noyau (Nightly)`, bundle id `dev.noyau.desktop.nightly`, icône ember.
+_À éviter_ : même bundle id que latest, icône prod, titre « Noyau » seul
+
+**Release unsigned**:
+GitHub Release avec DMG arm64 et NSIS x64, sans signature ni auto-update.
+_À éviter_ : notarization, `electron-updater`, SmartScreen comme preuve de confiance

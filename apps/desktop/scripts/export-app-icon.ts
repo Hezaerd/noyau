@@ -125,7 +125,7 @@ const exportAppIcons = Effect.fn("exportAppIcons")(function* () {
     })
   }
 
-  const variants: ReadonlyArray<AppIconVariant> = ["development", "production"]
+  const variants: ReadonlyArray<AppIconVariant> = ["development", "production", "nightly"]
   const exported = yield* Effect.forEach(variants, (variant) => exportVariant(variant), {
     concurrency: 1,
   })

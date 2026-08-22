@@ -6,5 +6,6 @@ describe("brand blobatar palette", () => {
   it("uses the theme tokens for each appearance", () => {
     expect(brandBlobatarPalette("light")).toEqual({ head: "#6154e0", eye: "#f7f5ff" })
     expect(brandBlobatarPalette("dark")).toEqual({ head: "#302b4b", eye: "#e2ddff" })
+    expect(brandBlobatarPalette("dark", "nightly")).toEqual({ head: "#e08a3c", eye: "#ffe7c2" })
   })
 })

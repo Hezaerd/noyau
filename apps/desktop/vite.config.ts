@@ -38,6 +38,11 @@ export default defineConfig({
         dependsOn: ["build"],
         cache: false,
       },
+      "package:win:nsis": {
+        command: "node scripts/package-desktop.ts --win --nsis --skip-build",
+        dependsOn: ["build"],
+        cache: false,
+      },
     },
   },
   pack: [

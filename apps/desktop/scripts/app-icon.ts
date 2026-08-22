@@ -22,6 +22,15 @@ export const APP_ICON_VARIANTS = {
       eye: "#e2ddff",
     },
   },
+  nightly: {
+    appearance: "dark",
+    directory: "nightly",
+    palette: {
+      bg: "#1a1208",
+      head: "#c45c26",
+      eye: "#ffe7c2",
+    },
+  },
 } as const
 
 export type AppIconVariant = keyof typeof APP_ICON_VARIANTS

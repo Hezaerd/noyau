@@ -10,6 +10,11 @@ import {
   parsePackageDesktopArgs,
   resolveElectronBuilderCli,
 } from "./package-desktop-plan.ts"
+import {
+  formatPackagedReleaseChannel,
+  releaseChannelFromVersion,
+  resolveReleaseBrand,
+} from "./release-version.ts"
 import { restoreTty } from "./restore-tty.ts"
 import { scriptRuntime } from "./runtime.ts"
 
@@ -47,7 +52,12 @@ const ensurePackagedArtifacts = Effect.fn("ensurePackagedArtifacts")(function* (
 })
 
 const isPackagedOutputName = (entry: string): boolean =>
-  entry === "Noyau.app" || entry === "Noyau.exe" || entry.endsWith(".dmg")
+  entry === "Noyau.app" ||
+  entry === "Noyau.exe" ||
+  entry === "Noyau (Nightly).app" ||
+  entry === "Noyau (Nightly).exe" ||
+  entry.endsWith(".dmg") ||
+  entry.endsWith(".exe")
 
 const findPackagedOutputs = Effect.fn("findPackagedOutputs")(function* () {
   const path = yield* Path.Path
@@ -89,9 +99,19 @@ const packageDesktop = Effect.fn("packageDesktop")(function* () {
     yield* runCommand("vp", ["run", "--filter", "@noyau/desktop", "build"], repositoryRoot)
   }
   yield* ensurePackagedArtifacts()
+  const channel = releaseChannelFromVersion(args.buildVersion)
+  const brand = resolveReleaseBrand(channel)
+  const fs = yield* FileSystem.FileSystem
+  yield* fs.writeFileString(
+    path.join(desktopDir, "dist-electron/release-channel.json"),
+    formatPackagedReleaseChannel(channel),
+  )
   yield* runCommand(
     process.execPath,
-    [resolveElectronBuilderCli(), ...electronBuilderArgs(args.platform, args.target)],
+    [
+      resolveElectronBuilderCli(),
+      ...electronBuilderArgs(args.platform, args.target, args.arch, args.buildVersion),
+    ],
     desktopDir,
   )
 
@@ -99,12 +119,14 @@ const packageDesktop = Effect.fn("packageDesktop")(function* () {
   yield* Effect.sync(() => {
     process.stdout.write(
       [
-        "Noyau Desktop packaged (unsigned, local-only):",
+        `Noyau Desktop packaged (unsigned, ${channel}, ${brand.displayName}):`,
         ...outputs.map((output) => `  ${output}`),
         outputs.length === 0 ? "  (see apps/desktop/release/)" : undefined,
         args.platform === "mac"
-          ? '  open the .app, or: open "apps/desktop/release/mac*/Noyau.app"'
-          : "  run Noyau.exe from the unpacked directory",
+          ? `  open the .app, or: open "apps/desktop/release/mac*/${brand.displayName}.app"`
+          : args.target === "nsis"
+            ? "  run the NSIS installer from apps/desktop/release/"
+            : `  run ${brand.displayName}.exe from the unpacked directory`,
       ]
         .filter((line) => line !== undefined)
         .join("\n") + "\n",

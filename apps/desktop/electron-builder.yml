@@ -1,13 +1,16 @@
-# Packager local unsigned. Pas de CI, signature, notarization ni updater.
+# Packager unsigned. latest/nightly passent par GitHub Releases, sans
+# notarization ni electron-updater (la signature macOS manque encore).
 # appId aligné sur resolveAppIdentity(false) dans scripts/electron-launcher.ts.
 appId: dev.noyau.desktop
 productName: Noyau
+artifactName: Noyau-${version}-${os}-${arch}.${ext}
 directories:
   output: release
 files:
   - dist-electron/main.cjs
   - dist-electron/preload.cjs
   - dist-electron/renderer/**/*
+  - dist-electron/release-channel.json
   # Le main bundle déjà effect / @noyau. Sans ça, electron-builder recopie
   # les dependencies workspace (docs Effect comprises) dans l'ASAR.
   - "!**/node_modules/**"
@@ -34,3 +37,7 @@ win:
   icon: assets/prod/app-icon.png
   target:
     - dir
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true

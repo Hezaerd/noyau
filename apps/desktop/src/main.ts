@@ -29,6 +29,14 @@ import {
 import { decodeOpenPathInput, OPEN_PATH_CHANNEL, openFilesystemPathOnHost } from "./open-path"
 import { isRendererPermissionAllowed } from "./permissions"
 import {
+  decodePackagedReleaseChannelFile,
+  desktopBrandName,
+  desktopIconDirectory,
+  RELEASE_CHANNEL_ENV,
+  resolveDesktopReleaseChannel,
+  type DesktopReleaseChannel,
+} from "./release-channel"
+import {
   DESKTOP_HOST,
   DESKTOP_SCHEME,
   DESKTOP_URL,
@@ -74,6 +82,7 @@ const encodeSmokeControl = Schema.encodeEffect(Schema.fromJsonString(SmokeContro
 interface DesktopFlags {
   readonly isDevelopment: boolean
   readonly isSmokeTest: boolean
+  readonly releaseChannel: DesktopReleaseChannel
   readonly smokeCompleteFile: Option.Option<string>
   readonly smokeControlFile: Option.Option<string>
 }
@@ -81,6 +90,7 @@ interface DesktopFlags {
 let flags: DesktopFlags = {
   isDevelopment: false,
   isSmokeTest: false,
+  releaseChannel: "latest",
   smokeCompleteFile: Option.none(),
   smokeControlFile: Option.none(),
 }
@@ -92,9 +102,28 @@ let quitAllowed = false
 let quitInProgress = false
 
 const loadDesktopFlags = Effect.fn("loadDesktopFlags")(function* () {
+  const path = yield* Path.Path
+  const fs = yield* FileSystem.FileSystem
+  const isDevelopment = yield* Config.boolean("NOYAU_DESKTOP_DEV").pipe(Config.withDefault(false))
+  const envChannel = yield* Config.option(Config.string(RELEASE_CHANNEL_ENV))
+  const packagedChannel = yield* fs
+    .readFileString(path.join(__dirname, "release-channel.json"))
+    .pipe(
+      Effect.flatMap(decodePackagedReleaseChannelFile),
+      Effect.map((file) => file.channel),
+      Effect.orElseSucceed(() => undefined),
+    )
+  const releaseChannel = resolveDesktopReleaseChannel(
+    isDevelopment,
+    Option.getOrUndefined(envChannel),
+    packagedChannel,
+    app.getVersion(),
+  )
+  process.env[RELEASE_CHANNEL_ENV] = releaseChannel
   return {
-    isDevelopment: yield* Config.boolean("NOYAU_DESKTOP_DEV").pipe(Config.withDefault(false)),
+    isDevelopment,
     isSmokeTest: yield* Config.boolean("NOYAU_DESKTOP_SMOKE_TEST").pipe(Config.withDefault(false)),
+    releaseChannel,
     smokeCompleteFile: yield* Config.option(Config.string("NOYAU_DESKTOP_SMOKE_COMPLETE_FILE")),
     smokeControlFile: yield* Config.option(Config.string("NOYAU_DESKTOP_SMOKE_CONTROL_FILE")),
   } satisfies DesktopFlags
@@ -299,7 +328,7 @@ const applyDockIcon = Effect.fn("applyDockIcon")(function* () {
   const iconPath = path.join(
     app.getAppPath(),
     "assets",
-    flags.isDevelopment ? "dev" : "prod",
+    desktopIconDirectory(flags.releaseChannel),
     "app-icon.png",
   )
   if (!(yield* fs.exists(iconPath))) {
@@ -321,7 +350,7 @@ const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: Ser
     show: false,
     autoHideMenuBar: true,
     backgroundColor: getWindowBackgroundColor(shouldUseDarkColors),
-    title: "Noyau",
+    title: desktopBrandName(flags.releaseChannel),
     ...getWindowTitleBarOptions(process.platform, shouldUseDarkColors),
     webPreferences: {
       preload: preloadPath,
@@ -387,7 +416,7 @@ const launch = Effect.fn("launch")(function* () {
   flags = yield* loadDesktopFlags()
   rendererRoot = path.join(__dirname, "renderer")
   preloadPath = path.join(__dirname, "preload.cjs")
-  const appDisplayName = flags.isDevelopment ? "Noyau (Dev)" : "Noyau"
+  const appDisplayName = desktopBrandName(flags.releaseChannel)
 
   protocol.registerSchemesAsPrivileged([
     {
@@ -410,6 +439,7 @@ const launch = Effect.fn("launch")(function* () {
     serverEntryPath: yield* resolveServerEntryPath(__dirname, app.isPackaged),
     dataDirectory: path.join(app.getPath("userData"), "environment"),
     environment: serverEnvironmentFromDesktopDev(flags.isDevelopment),
+    releaseChannel: flags.releaseChannel,
     onStateChange: (state: SupervisorState) => {
       void desktopRuntime.runPromise(publishSmokeSupervisorState(state))
       if (state.phase === "degraded") {
