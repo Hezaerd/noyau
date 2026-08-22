@@ -3,6 +3,7 @@ import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/protocol/rpc"
 import { Effect, Stream } from "effect"
 
 import { ControlPlane } from "./control-plane.ts"
+import { GitPlane } from "./git/git-plane.ts"
 
 export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
   [RPC_METHODS.dispatchCommand]: (request) =>
@@ -32,4 +33,23 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     ControlPlane.pipe(Effect.flatMap((service) => service.setShellFocus(input))),
   [RPC_METHODS.previewFile]: (input) =>
     ControlPlane.pipe(Effect.flatMap((service) => service.previewFile(input))),
+  [RPC_METHODS.inspectProjectAgentIntegration]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.inspectProjectAgentIntegration(input))),
+  [RPC_METHODS.installProjectAgentIntegration]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.installProjectAgentIntegration(input))),
+  [RPC_METHODS.removeProjectAgentIntegration]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.removeProjectAgentIntegration(input))),
+  [RPC_METHODS.previewAttachment]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.previewAttachment(input))),
+  [RPC_METHODS.vcsStatus]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.status(input))),
+  [RPC_METHODS.vcsListRefs]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.listRefs(input))),
+  [RPC_METHODS.vcsSwitchRef]: (input) =>
+    GitPlane.pipe(Effect.flatMap((git) => git.switchRef(input))),
+  [RPC_METHODS.vcsCreateRef]: (input) =>
+    GitPlane.pipe(Effect.flatMap((git) => git.createRef(input))),
+  [RPC_METHODS.vcsCreateWorktree]: (input) =>
+    GitPlane.pipe(Effect.flatMap((git) => git.createWorktree(input))),
+  [RPC_METHODS.gitDraft]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.draft(input))),
+  [RPC_METHODS.gitRunStackedAction]: (input) =>
+    GitPlane.pipe(Effect.flatMap((git) => git.runStackedAction(input))),
 })

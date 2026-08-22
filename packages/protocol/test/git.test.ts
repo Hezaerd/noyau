@@ -1,0 +1,48 @@
+import { describe, expect, it } from "@effect/vitest"
+import { GitStackedAction, PrepareWorktree, VcsScope, VcsStatusResult } from "@noyau/protocol/git"
+import { Schema } from "effect"
+
+describe("git contracts", () => {
+  it("décode une portée VCS projet ou thread", () => {
+    expect(
+      Schema.decodeSync(VcsScope)({
+        projectId: "10000000-0000-4000-8000-000000000001",
+      }).threadId,
+    ).toBeUndefined()
+    expect(
+      Schema.decodeSync(VcsScope)({
+        projectId: "10000000-0000-4000-8000-000000000001",
+        threadId: "20000000-0000-4000-8000-000000000001",
+      }).threadId,
+    ).toBe("20000000-0000-4000-8000-000000000001")
+  })
+
+  it("round-trip un status et les actions empilées", () => {
+    const status = Schema.decodeSync(VcsStatusResult)({
+      isRepo: true,
+      cwd: "/tmp/repo",
+      refName: "main",
+      isDefaultRef: true,
+      hasPrimaryRemote: true,
+      hasWorkingTreeChanges: false,
+      hasUpstream: true,
+      aheadCount: 0,
+      behindCount: 0,
+      worktreePath: null,
+    })
+    expect(status.refName).toBe("main")
+    expect(Schema.decodeSync(GitStackedAction)("commit_push_pr")).toBe("commit_push_pr")
+  })
+
+  it("décode prepareWorktree pour le premier Turn", () => {
+    expect(
+      Schema.decodeSync(PrepareWorktree)({
+        baseBranch: "main",
+        startFromOrigin: true,
+      }),
+    ).toEqual({
+      baseBranch: "main",
+      startFromOrigin: true,
+    })
+  })
+})

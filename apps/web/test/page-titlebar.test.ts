@@ -38,6 +38,7 @@ describe("page titlebar", () => {
     ).toEqual({
       kind: "thread",
       projectName: "noyau",
+      threadId,
       threadTitle: "Exclure les subtrees du graphe",
     })
   })
@@ -67,6 +68,7 @@ describe("page titlebar", () => {
     ).toEqual({
       kind: "thread",
       projectName: "noyau",
+      threadId: undefined,
       threadTitle: NEW_THREAD_TITLE,
     })
     expect(
@@ -78,6 +80,7 @@ describe("page titlebar", () => {
     ).toEqual({
       kind: "thread",
       projectName: undefined,
+      threadId,
       threadTitle: "Thread",
     })
   })

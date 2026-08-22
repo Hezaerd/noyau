@@ -3,6 +3,7 @@ import type { ProjectId } from "@noyau/protocol/ids"
 
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
 import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
+import { ThreadTurnImages } from "@/components/thread/ThreadTurnImages"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,15 +37,22 @@ export function ThreadTranscriptItem({
     return (
       <Message align="end">
         <MessageContent>
-          <Bubble variant="default" align="end">
-            <BubbleContent className="leading-6">
-              <ThreadMarkdown
-                text={item.text}
-                workspaceRoot={workspaceRoot}
-                projectId={projectId}
-              />
-            </BubbleContent>
-          </Bubble>
+          <div className="flex flex-col items-end gap-2">
+            {item.attachments === undefined ? null : (
+              <ThreadTurnImages attachments={item.attachments} />
+            )}
+            {item.text === undefined ? null : (
+              <Bubble variant="default" align="end">
+                <BubbleContent className="leading-6">
+                  <ThreadMarkdown
+                    text={item.text}
+                    workspaceRoot={workspaceRoot}
+                    projectId={projectId}
+                  />
+                </BubbleContent>
+              </Bubble>
+            )}
+          </div>
         </MessageContent>
       </Message>
     )

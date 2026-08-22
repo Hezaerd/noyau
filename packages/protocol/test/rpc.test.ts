@@ -4,9 +4,13 @@ import {
   ControlPlaneRpcs,
   DispatchCommand,
   GetConfig,
+  InspectProjectAgentIntegration,
+  InstallProjectAgentIntegration,
+  PreviewAttachment,
   PreviewFile,
   Probe,
   ProjectStreamItem,
+  RemoveProjectAgentIntegration,
   RPC_METHODS,
   requiresFreshSnapshot,
   SearchWorkspacePaths,
@@ -19,7 +23,7 @@ import {
 import { Schema } from "effect"
 
 describe("ControlPlaneRpcs", () => {
-  it("expose dispatchCommand, getConfig, probe, setShellFocus, previewFile et les trois streams", () => {
+  it("expose les commandes, lectures et trois streams du control plane", () => {
     expect([...ControlPlaneRpcs.requests.keys()].toSorted()).toEqual(
       [
         RPC_METHODS.dispatchCommand,
@@ -28,9 +32,20 @@ describe("ControlPlaneRpcs", () => {
         RPC_METHODS.subscribeThread,
         RPC_METHODS.setShellFocus,
         RPC_METHODS.previewFile,
+        RPC_METHODS.inspectProjectAgentIntegration,
+        RPC_METHODS.installProjectAgentIntegration,
+        RPC_METHODS.removeProjectAgentIntegration,
+        RPC_METHODS.previewAttachment,
         RPC_METHODS.getConfig,
         RPC_METHODS.probe,
         RPC_METHODS.searchWorkspacePaths,
+        RPC_METHODS.vcsStatus,
+        RPC_METHODS.vcsListRefs,
+        RPC_METHODS.vcsSwitchRef,
+        RPC_METHODS.vcsCreateRef,
+        RPC_METHODS.vcsCreateWorktree,
+        RPC_METHODS.gitDraft,
+        RPC_METHODS.gitRunStackedAction,
       ].toSorted(),
     )
   })
@@ -172,6 +187,40 @@ describe("ControlPlaneRpcs", () => {
     if (image.kind === "image") {
       expect(image.bytes).toBeInstanceOf(Uint8Array)
     }
+  })
+
+  it("décode les opérations d'Intégration agent", () => {
+    const input = { projectId: "10000000-0000-4000-8000-000000000001" }
+    expect(Schema.decodeSync(InspectProjectAgentIntegration.payloadSchema)(input)).toEqual(input)
+    expect(Schema.decodeSync(InstallProjectAgentIntegration.payloadSchema)(input)).toEqual(input)
+    expect(Schema.decodeSync(RemoveProjectAgentIntegration.payloadSchema)(input)).toEqual(input)
+    expect(
+      Schema.decodeSync(InspectProjectAgentIntegration.successSchema)({
+        ...input,
+        skillName: "noyau",
+        targetPath: "/tmp/noyau/.agents/skills/noyau",
+        currentVersion: "1.0.0",
+        installedVersion: "0.9.0",
+        status: "outdated",
+      }).status,
+    ).toBe("outdated")
+  })
+
+  it("décode previewAttachment", () => {
+    expect(
+      Schema.decodeSync(PreviewAttachment.payloadSchema)({
+        attachmentId: "70000000-0000-4000-8000-000000000001-0",
+      }),
+    ).toEqual({
+      attachmentId: "70000000-0000-4000-8000-000000000001-0",
+    })
+    const preview = Schema.decodeSync(PreviewAttachment.successSchema)({
+      kind: "image",
+      mime: "image/png",
+      bytes: "iVBORw0KGgo=",
+    })
+    expect(preview.kind).toBe("image")
+    expect(preview.bytes).toBeInstanceOf(Uint8Array)
   })
 
   it("demande un snapshot frais hors [0, 1000]", () => {

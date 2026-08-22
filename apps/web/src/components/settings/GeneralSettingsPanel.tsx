@@ -1,6 +1,7 @@
 import { Undo2Icon } from "lucide-react"
 import { useId, useState, type ReactElement } from "react"
 
+import { ProjectAgentIntegrationSettings } from "@/components/settings/ProjectAgentIntegrationSettings"
 import { SettingsPage, SettingsRow, SettingsSection } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -65,6 +66,7 @@ export function GeneralSettingsPanel(): ReactElement {
             </div>
           }
         />
+        <ProjectAgentIntegrationSettings />
       </SettingsSection>
       <SettingsSection id="autre" title="Autre">
         <SettingsRow

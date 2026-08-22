@@ -16,6 +16,7 @@ import {
   canReplaceThreadTitle,
   DEFAULT_THREAD_TITLE,
   seedTitleFromPrompt,
+  seedTitleFromTurn,
 } from "@noyau/protocol/thread/title"
 import { Effect, Schema } from "effect"
 
@@ -211,30 +212,82 @@ describe("Thread commands", () => {
     expect(automatic.payload.modelSelection).toBeNull()
   })
 
-  it("rejette un payload image sur thread.turn.start", () => {
-    const withImage = {
-      _tag: "thread.turn.start",
+  it("accepte un upload image sur thread.turn.start et refuse le dataUrl sur la commande enrichie", () => {
+    const upload = {
+      type: "image" as const,
+      name: "shot.png",
+      mimeType: "image/png" as const,
+      sizeBytes: 3,
+      dataUrl: "data:image/png;base64,AAAA",
+    }
+    const request = {
+      _tag: "thread.turn.start" as const,
       commandId: ids.command,
+      payload: {
+        threadId: ids.thread,
+        text: "Voici une capture",
+        attachments: [upload],
+      },
+    }
+
+    const decoded = Schema.decodeSync(ThreadTurnStartRequest)(request)
+    expect(decoded.payload.attachments).toEqual([upload])
+    expect(Effect.runSync(decodeThreadCommandRequest(request))._tag).toBe("thread.turn.start")
+
+    expect(() =>
+      Schema.decodeUnknownSync(ThreadTurnStart)({ ...request, ...commandMeta }),
+    ).toThrow()
+
+    const persisted = Schema.decodeSync(ThreadTurnStart)({
+      ...request,
+      ...commandMeta,
       payload: {
         threadId: ids.thread,
         text: "Voici une capture",
         attachments: [
           {
             type: "image",
+            id: `${ids.command}-0`,
             name: "shot.png",
             mimeType: "image/png",
-            sizeBytes: 128,
+            sizeBytes: 3,
+          },
+        ],
+      },
+    })
+    expect(persisted.payload.attachments?.[0]?.id).toBe(`${ids.command}-0`)
+  })
+
+  it("accepte un Turn image-only et rejette image/images hors attachments", () => {
+    const imageOnly = Schema.decodeSync(ThreadTurnStartRequest)({
+      _tag: "thread.turn.start",
+      commandId: ids.command,
+      payload: {
+        threadId: ids.thread,
+        attachments: [
+          {
+            type: "image",
+            name: "shot.png",
+            mimeType: "image/png",
+            sizeBytes: 3,
             dataUrl: "data:image/png;base64,AAAA",
           },
         ],
       },
-    }
+    })
+    expect(imageOnly.payload.text).toBeUndefined()
 
-    expect(() => Schema.decodeUnknownSync(ThreadCommandRequest)(withImage)).toThrow()
     expect(() =>
-      Schema.decodeUnknownSync(ThreadTurnStart)({ ...withImage, ...commandMeta }),
+      Schema.decodeUnknownSync(ThreadCommandRequest)({
+        _tag: "thread.turn.start",
+        commandId: ids.command,
+        payload: {
+          threadId: ids.thread,
+          text: "Prompt",
+          images: [{ name: "screen.png" }],
+        },
+      }),
     ).toThrow()
-    expect(() => Effect.runSync(decodeThreadCommandRequest(withImage))).toThrow()
   })
 
   it("n'expose pas les commandes internes au renderer", () => {
@@ -314,6 +367,23 @@ describe("Thread commands", () => {
     expect(Schema.decodeUnknownSync(ThreadCommandRequest)(request)._tag).toBe(tag)
   })
 
+  it("accepte thread.meta.update avec un Checkout seul", () => {
+    const request = {
+      _tag: "thread.meta.update" as const,
+      commandId: ids.command,
+      payload: {
+        threadId: ids.thread,
+        branch: "main",
+        worktreePath: null,
+      },
+    }
+    expect(Schema.decodeSync(ThreadCommandRequest)(request).payload).toEqual({
+      threadId: ids.thread,
+      branch: "main",
+      worktreePath: null,
+    })
+  })
+
   it("accepte thread.meta.update avec regenerateTitle seul", () => {
     const request = {
       _tag: "thread.meta.update" as const,
@@ -388,6 +458,7 @@ describe("Thread title helpers", () => {
     expect(seedTitleFromPrompt("  Corriger le flux de reprise  ")).toBe(
       "Corriger le flux de reprise",
     )
+    expect(seedTitleFromTurn(undefined, [{ name: "shot.png" }])).toBe("shot.png")
     expect(seedTitleFromPrompt(`"Titre entre quotes"`)).toBe("Titre entre quotes")
     expect(seedTitleFromPrompt("A".repeat(80))).toBe(`${"A".repeat(47)}...`)
   })

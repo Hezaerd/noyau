@@ -309,6 +309,31 @@ describe("Thread lifecycle", () => {
     })
   })
 
+  it("persiste le Checkout sans muter le titre", () => {
+    const state = withThread()
+    const events = success(
+      decide(
+        state,
+        command({
+          _tag: "thread.meta.update",
+          ...meta,
+          payload: {
+            threadId: ids.thread,
+            branch: "noyau/abcd1234",
+            worktreePath: "/tmp/worktrees/repo/noyau-abcd1234",
+          },
+        }),
+      ),
+    )
+    const next = apply(state, events)
+
+    expect(next.threads[0]).toMatchObject({
+      title: DEFAULT_THREAD_TITLE,
+      branch: "noyau/abcd1234",
+      worktreePath: "/tmp/worktrees/repo/noyau-abcd1234",
+    })
+  })
+
   it("demande une régénération de titre sans muter le titre courant", () => {
     const state = withThread()
     const events = success(
@@ -480,8 +505,40 @@ describe("Turn invariants", () => {
     ).toEqual(["Premier prompt", "Nouveau prompt"])
   })
 
-  it("rejette une image même si un appel interne contourne le décodage Schema", () => {
+  it("accepte une pièce jointe persistée et rejette un dataUrl qui fuit vers le decider", () => {
     const state = withThread()
+    const accepted = apply(
+      state,
+      success(
+        decide(
+          state,
+          turnStartCommand({
+            _tag: "thread.turn.start",
+            ...meta,
+            commandId: ids.turn1,
+            payload: {
+              threadId: ids.thread,
+              text: "Capture",
+              attachments: [
+                {
+                  type: "image",
+                  id: `${ids.turn1}-0`,
+                  name: "shot.png",
+                  mimeType: "image/png",
+                  sizeBytes: 3,
+                },
+              ],
+            },
+          }),
+        ),
+      ),
+    )
+    const user = accepted.threads[0]?.transcript.find((item) => item._tag === "transcript.user")
+    expect(user).toMatchObject({
+      text: "Capture",
+      attachments: [{ id: `${ids.turn1}-0`, name: "shot.png" }],
+    })
+
     const valid = turnStartCommand({
       _tag: "thread.turn.start",
       ...meta,
@@ -493,7 +550,7 @@ describe("Turn invariants", () => {
         ...valid,
         payload: {
           ...valid.payload,
-          attachments: [{ type: "image", dataUrl: "data:image/png;base64,AAAA" }],
+          image: { dataUrl: "data:image/png;base64,AAAA" },
         },
       }),
     )

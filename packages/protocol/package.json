@@ -13,6 +13,7 @@
     "./entities/kanban-column": "./src/entities/kanban-column.ts",
     "./entities/ticket": "./src/entities/ticket.ts",
     "./entities/ticket-thread": "./src/entities/ticket-thread.ts",
+    "./entities/checkout": "./src/entities/checkout.ts",
     "./entities/thread": "./src/entities/thread.ts",
     "./entities/session": "./src/entities/session.ts",
     "./entities/turn": "./src/entities/turn.ts",
@@ -35,7 +36,11 @@
     "./events": "./src/events.ts",
     "./receipts": "./src/receipts.ts",
     "./errors": "./src/errors.ts",
+    "./agent-integration": "./src/agent-integration.ts",
     "./file-preview": "./src/file-preview.ts",
+    "./git": "./src/git.ts",
+    "./attachment-preview": "./src/attachment-preview.ts",
+    "./entities/attachment": "./src/entities/attachment.ts",
     "./rpc": "./src/rpc.ts"
   },
   "scripts": {

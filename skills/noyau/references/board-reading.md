@@ -1,0 +1,16 @@
+# Reading and triaging the Tableau
+
+Call `noyau_ticket_list` before selecting work.
+
+- Omit filters or use `state: "open"` for active work.
+- Use `actionability: "actionable"` when choosing work to start.
+- Use `actionability: "blocked"` to diagnose unfinished prerequisites.
+- Use `state: "all"` only when completed Tickets matter to the request.
+
+Use `actionable`, `blockedBy`, priority, due date, column, and
+`linkedToCurrentThread` together. Do not treat visual order alone as authorization to start a
+blocked Ticket. If several Tickets are equally suitable, summarize the trade-off and ask the user
+instead of silently choosing based on title.
+
+Retain `snapshotSequence` as evidence of when the view was read. If a later mutation reports stale
+state or a conflict, list again before retrying.

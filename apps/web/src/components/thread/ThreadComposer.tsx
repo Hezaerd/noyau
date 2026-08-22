@@ -10,10 +10,12 @@ import {
 import {
   ChevronDownIcon,
   GaugeIcon,
+  ImagePlusIcon,
   LockIcon,
   LockOpenIcon,
   PenLineIcon,
   SparklesIcon,
+  XIcon,
 } from "lucide-react"
 import {
   useEffect,
@@ -48,6 +50,7 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import { Separator } from "@/components/ui/separator"
+import type { ComposerImage } from "@/lib/composer-images"
 import { isRuntimeMode, runtimeModes } from "@/lib/thread-commands"
 import { cn } from "@/lib/utils"
 
@@ -68,6 +71,7 @@ export function ThreadComposer({
   isRunning,
   disabled,
   text,
+  images,
   runtimeMode,
   models,
   modelSelection,
@@ -79,12 +83,15 @@ export function ThreadComposer({
   onModelSelectionChange,
   onPaste,
   onDrop,
+  onImagesAdd,
+  onImageRemove,
   onInterrupt,
   searchPaths,
 }: {
   readonly isRunning: boolean
   readonly disabled: boolean
   readonly text: string
+  readonly images: ReadonlyArray<ComposerImage>
   readonly runtimeMode: RuntimeMode
   readonly models: ReadonlyArray<CursorModel>
   readonly modelSelection: ModelSelection | null
@@ -96,11 +103,14 @@ export function ThreadComposer({
   readonly onModelSelectionChange: (modelSelection: ModelSelection | null) => void
   readonly onPaste: (event: ClipboardEvent<HTMLElement>) => void
   readonly onDrop: (event: DragEvent<HTMLElement>) => void
+  readonly onImagesAdd: (files: ReadonlyArray<File>) => void
+  readonly onImageRemove: (localId: string) => void
   readonly onInterrupt: () => void
   readonly searchPaths?: (query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>
 }) {
   const listboxId = useId()
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const pendingCursor = useRef<number | null>(null)
   const [cursor, setCursor] = useState(text.length)
   const [pathEntries, setPathEntries] = useState<ReadonlyArray<WorkspacePathEntry>>([])
@@ -111,7 +121,7 @@ export function ThreadComposer({
   const pathQuery = searchPaths !== undefined && trigger?.kind === "path" ? trigger.query : null
   const pathMenuOpen = pathQuery !== null && dismissedQuery !== pathQuery
   const controlsDisabled = isRunning || disabled
-  const sendDisabled = text.trim() === "" || controlsDisabled
+  const sendDisabled = (text.trim() === "" && images.length === 0) || controlsDisabled
   const selectedModel = models.find((model) => model.modelId === modelSelection?.modelId)
   const selectedEffort =
     selectedModel?.reasoningEfforts.find(
@@ -255,6 +265,35 @@ export function ThreadComposer({
           />
         ) : null}
         <InputGroup className="rounded-xl bg-background dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+          {images.length === 0 ? null : (
+            <div className="flex flex-wrap gap-2 px-3 pt-3">
+              {images.map((image) => (
+                <span
+                  key={image.localId}
+                  className="relative size-16 overflow-hidden rounded-md border"
+                >
+                  <img
+                    alt={image.upload.name}
+                    src={image.previewUrl}
+                    className="size-full object-cover"
+                  />
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="secondary"
+                    disabled={controlsDisabled}
+                    aria-label={`Retirer ${image.upload.name}`}
+                    className="absolute top-0.5 right-0.5 size-5"
+                    onClick={() => {
+                      onImageRemove(image.localId)
+                    }}
+                  >
+                    <XIcon className="size-3" />
+                  </Button>
+                </span>
+              ))}
+            </div>
+          )}
           <span className="relative inline-flex w-full flex-1 before:hidden">
             <ComposerPromptField
               ref={fieldRef}
@@ -494,6 +533,29 @@ export function ThreadComposer({
             </Menu>
 
             <div className="ml-auto flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                multiple
+                hidden
+                onChange={(event) => {
+                  onImagesAdd(Array.from(event.target.files ?? []))
+                  event.target.value = ""
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={controlsDisabled}
+                aria-label="Joindre une image"
+                onClick={() => {
+                  fileInputRef.current?.click()
+                }}
+              >
+                <ImagePlusIcon />
+              </Button>
               {isRunning ? (
                 <Button type="button" size="sm" variant="outline" onClick={onInterrupt}>
                   Interrompre

@@ -64,3 +64,34 @@ _À éviter_ : Command, présence, current route
 Aperçu borné d'un fichier sous le WorkspaceRoot d'un Project (`text` | `image` | `unsupported`).
 Lecture RPC, pas une Command, pas un fait du journal.
 _À éviter_ : pièce jointe, FilePreviewPanel, lecture hors sandbox
+
+**ProjectAgentIntegration**:
+Constat RPC de l’Intégration agent présente dans le WorkspaceRoot d’un Project. Il décrit un état
+opérationnel recalculé et non une projection durable.
+_À éviter_ : Event, préférence, propriété du Project
+
+**TurnImageUpload**:
+Octets d'une image qui traversent `thread.turn.start` une seule fois (`dataUrl`).
+_À éviter_ : pièce jointe persistée, événement, blob du journal
+
+**TurnImageAttachment**:
+Meta durable d'une image jointe à un Turn (`id`, `name`, `mimeType`, `sizeBytes`). Les octets
+restent hors journal.
+_À éviter_ : dataUrl, FilePreview, BLOB SQLite
+
+**AttachmentPreview**:
+Aperçu borné d'une TurnImageAttachment persistée. Lecture RPC, pas une Command.
+_À éviter_ : FilePreview, snapshot, pièce jointe inline
+
+**Checkout**:
+Liaison durable d'un Thread à un cwd Git : `branch` (dernière ref Noyau) et `worktreePath`
+(`null` = `WorkspaceRoot`).
+_À éviter_ : threadEnvMode persisté, cwd de Session
+
+**threadEnvMode**:
+Intention de draft `local | worktree` pour le prochain Turn. Pas un champ du Thread.
+_À éviter_ : mode durable, politique de lock Git
+
+**GitRuntime**:
+Capacité live du Server (`vcs.*`, `git.*`) hors journal. L'idempotence client passe par `actionId`.
+_À éviter_ : agrégat Commit, événement Push, outbox Git

@@ -2,12 +2,15 @@ import {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
+import { TurnImageAttachments } from "@noyau/protocol/entities/attachment"
+import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import { Provider } from "@noyau/protocol/entities/environment"
 import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { Session } from "@noyau/protocol/entities/session"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { TurnSettlementState } from "@noyau/protocol/entities/turn"
+import { PrepareWorktree } from "@noyau/protocol/git"
 import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
@@ -18,6 +21,8 @@ export const ThreadCreated = Schema.TaggedStruct("thread.created", {
   provider: Provider,
   runtimeMode: RuntimeMode,
   modelSelection: Schema.optionalKey(ModelSelection),
+  branch: Schema.optionalKey(ThreadBranch),
+  worktreePath: Schema.optionalKey(ThreadWorktreePath),
 })
 export type ThreadCreated = (typeof ThreadCreated)["Type"]
 
@@ -35,6 +40,8 @@ export const ThreadMetaUpdated = Schema.TaggedStruct("thread.meta-updated", {
   threadId: ThreadId,
   title: Schema.optionalKey(Schema.NonEmptyString),
   regenerateTitle: Schema.optionalKey(Schema.Literal(true)),
+  branch: Schema.optionalKey(ThreadBranch),
+  worktreePath: Schema.optionalKey(ThreadWorktreePath),
 })
 export type ThreadMetaUpdated = (typeof ThreadMetaUpdated)["Type"]
 
@@ -53,10 +60,12 @@ export type ThreadModelSelectionSet = (typeof ThreadModelSelectionSet)["Type"]
 export const ThreadTurnStarted = Schema.TaggedStruct("thread.turn.started", {
   threadId: ThreadId,
   turnId: TurnId,
-  text: Schema.NonEmptyString,
+  text: Schema.optionalKey(Schema.NonEmptyString),
   titleSeed: Schema.optionalKey(Schema.NonEmptyString),
   runtimeMode: Schema.optionalKey(RuntimeMode),
   modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+  prepareWorktree: Schema.optionalKey(PrepareWorktree),
+  attachments: Schema.optionalKey(TurnImageAttachments),
 })
 export type ThreadTurnStarted = (typeof ThreadTurnStarted)["Type"]
 

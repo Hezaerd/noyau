@@ -13,12 +13,14 @@ import {
   WorkspaceRootNotDirectory,
   WorkspaceRootNotFound,
 } from "@noyau/protocol/project/errors"
+import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import {
   ControlPlane,
   makeControlPlaneLayer,
   type ControlPlaneHooks,
 } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
+import { mcpSessionRegistryLayer } from "@noyau/server/mcp/mcp-session-registry"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
@@ -38,6 +40,7 @@ import {
 import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
+import { stubGitRuntimeLayer } from "./fixtures.ts"
 import { testServerConfigLayer } from "./fixtures.ts"
 
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
@@ -104,11 +107,13 @@ const controlPlaneTestLayer = (
   workspaceRoots: WorkspaceRootAccessService = availableWorkspaceRoots,
 ) =>
   makeControlPlaneLayer(hooks).pipe(
+    Layer.provideMerge(unavailableAgentSkillInstallerLayer),
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
+    Layer.provideMerge(stubGitRuntimeLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(workspaceRoots)),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provideMerge(Path.layer),
@@ -117,10 +122,12 @@ const controlPlaneTestLayer = (
 
 const cursorControlPlaneTestLayer = (scenario: string) =>
   makeControlPlaneLayer().pipe(
+    Layer.provideMerge(unavailableAgentSkillInstallerLayer),
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
+    Layer.provideMerge(stubGitRuntimeLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(availableWorkspaceRoots)),
     Layer.provideMerge(
       cursorProviderLayer({
@@ -133,6 +140,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
         clientVersion: "test",
       }),
     ),
+    Layer.provideMerge(mcpSessionRegistryLayer.pipe(Layer.provide(testServerConfigLayer()))),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provideMerge(Path.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
@@ -172,7 +180,7 @@ describe("ControlPlane", () => {
         assert.strictEqual(frames[1]?.kind, "synchronized")
 
         const config = yield* controlPlane.getConfig
-        assert.strictEqual(config.databaseSchemaVersion, 5)
+        assert.strictEqual(config.databaseSchemaVersion, 6)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
         assert.deepStrictEqual(
           yield* controlPlane.setShellFocus({

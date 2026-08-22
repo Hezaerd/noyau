@@ -19,6 +19,7 @@ import {
   canReplaceThreadTitle,
   DEFAULT_THREAD_TITLE,
   sanitizeThreadTitle,
+  seedTitleFromTurn,
 } from "@noyau/protocol/thread/title"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
@@ -72,8 +73,13 @@ const formatThreadTitleContext = (items: ReadonlyArray<TranscriptItem>): string 
   items
     .flatMap((item) => {
       switch (item._tag) {
-        case "transcript.user":
-          return [`USER: ${item.text}`]
+        case "transcript.user": {
+          const parts = [
+            item.text,
+            item.attachments?.map((attachment) => `[image: ${attachment.name}]`).join(" "),
+          ].filter((part): part is string => part !== undefined && part.trim().length > 0)
+          return parts.length === 0 ? [] : [`USER: ${parts.join(" ")}`]
+        }
         case "transcript.assistant":
           return item.text.trim() === "" ? [] : [`ASSISTANT: ${item.text}`]
         default:
@@ -168,8 +174,18 @@ export const makeThreadTitleReactor = (
             if (Option.isNone(snapshot) || snapshot.value.turns.length !== 1) {
               return
             }
-            const titleSeed = threadEvent.titleSeed ?? threadEvent.text
-            if (!canReplaceThreadTitle(snapshot.value.thread.title, titleSeed)) {
+            const titleSeed =
+              threadEvent.titleSeed ?? seedTitleFromTurn(threadEvent.text, threadEvent.attachments)
+            const message =
+              threadEvent.text ??
+              threadEvent.attachments
+                ?.map((attachment) => `[image: ${attachment.name}]`)
+                .join(" ") ??
+              ""
+            if (
+              message.trim() === "" ||
+              !canReplaceThreadTitle(snapshot.value.thread.title, titleSeed)
+            ) {
               return
             }
             const cwd = yield* projectRoot(persisted.projectId).pipe(
@@ -178,7 +194,7 @@ export const makeThreadTitleReactor = (
             yield* applyGeneratedTitle(dispatchInternal, persisted, {
               threadId: threadEvent.threadId,
               cwd,
-              message: threadEvent.text,
+              message,
               titleSeed,
               replaceable: true,
             }).pipe(

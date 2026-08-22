@@ -4,8 +4,10 @@ import {
   InternalCommand,
   type InternalCommand as InternalCommandType,
 } from "@noyau/protocol/commands"
+import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ResumeCursor } from "@noyau/protocol/entities/session"
+import type { ServiceUnavailable } from "@noyau/protocol/errors"
 import type { DomainEvent } from "@noyau/protocol/events"
 import {
   ActorId,
@@ -16,19 +18,29 @@ import {
   type ThreadId,
   type TurnId,
 } from "@noyau/protocol/ids"
+import { ThreadMetaUpdate } from "@noyau/protocol/thread/commands"
 import { ThreadEvent } from "@noyau/protocol/thread/events"
-import { Crypto, DateTime, Effect, Option, Schema } from "effect"
+import { ServerConfig } from "@noyau/server/config"
+import { buildTemporaryWorktreeBranchName, GitRuntime } from "@noyau/server/git/git-runtime"
+import { Crypto, DateTime, Effect, Option, Result, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { ProviderPort, type ProviderSignal } from "./provider-port.ts"
+import { ProviderPort, type ProviderSignal, type ProviderTurnAttachment } from "./provider-port.ts"
 
 const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)
 const decodeInternalCommand = Schema.decodeUnknownEffect(InternalCommand)
+const decodeThreadMetaUpdate = Schema.decodeUnknownEffect(ThreadMetaUpdate)
 const systemActor = ActorId.make("system:cursor")
 const isThreadEvent = Schema.is(ThreadEvent)
 
-export type DispatchInternal = (command: InternalCommandType) => Effect.Effect<void>
+export type DispatchInternal = (
+  command: InternalCommandType | (typeof ThreadMetaUpdate)["Type"],
+) => Effect.Effect<void>
+
+export type LoadTurnAttachments = (
+  attachments: ReadonlyArray<TurnImageAttachment>,
+) => Effect.Effect<ReadonlyArray<ProviderTurnAttachment>, ServiceUnavailable>
 type InternalCommandEncoded = (typeof InternalCommand)["Encoded"]
 type InternalCommandBody =
   | Pick<
@@ -161,15 +173,18 @@ const stopIdleSession = Effect.fn("ProviderReactor.stopIdleSession")(function* (
 /** Maps committed Thread intents to Cursor calls and Cursor signals back to durable commands. */
 export const makeProviderReactor = (
   dispatchInternal: DispatchInternal,
+  loadAttachments: LoadTurnAttachments,
 ): Effect.Effect<
   (persisted: PersistedEvent<DomainEvent>) => Effect.Effect<void>,
   never,
-  ProviderPort | SqlClient | Crypto.Crypto
+  ProviderPort | SqlClient | Crypto.Crypto | GitRuntime | ServerConfig
 > =>
   Effect.gen(function* () {
     const provider = yield* ProviderPort
     const sql = yield* SqlClient
     const crypto = yield* Crypto.Crypto
+    const git = yield* GitRuntime
+    const config = yield* ServerConfig
 
     return (persisted) => {
       const event = persisted.event
@@ -191,21 +206,95 @@ export const makeProviderReactor = (
             const workspaceRoot = yield* projectRoot(persisted.projectId).pipe(
               Effect.provideService(SqlClient, sql),
             )
-            yield* provider.startTurn(
-              {
-                threadId: threadEvent.threadId,
-                turnId: threadEvent.turnId,
-                text: threadEvent.text,
-                workspaceRoot,
-                runtimeMode,
-                modelSelection: snapshot.value.thread.modelSelection,
-                resumeCursor: snapshot.value.session?.resumeCursor ?? null,
-              },
-              (signal) =>
-                ingestSignal(dispatchInternal, persisted, runtimeMode, signal).pipe(
+            let cwd = snapshot.value.thread.worktreePath ?? workspaceRoot
+            const prepare = threadEvent.prepareWorktree
+            if (prepare !== undefined && snapshot.value.thread.worktreePath == null) {
+              const branch =
+                prepare.branch ??
+                buildTemporaryWorktreeBranchName(yield* crypto.randomUUIDv4.pipe(Effect.orDie))
+              const created = yield* git
+                .createWorktree(
+                  Object.assign(
+                    {
+                      cwd: workspaceRoot,
+                      worktreesDir: config.worktreesDir,
+                      baseBranch: prepare.baseBranch,
+                      branch,
+                    },
+                    prepare.startFromOrigin === undefined
+                      ? {}
+                      : { startFromOrigin: prepare.startFromOrigin },
+                  ),
+                )
+                .pipe(Effect.result)
+              if (created._tag === "Failure") {
+                yield* ingestSignal(dispatchInternal, persisted, runtimeMode, {
+                  _tag: "turn-ended",
+                  threadId: threadEvent.threadId,
+                  turnId: threadEvent.turnId,
+                  state: "error",
+                  lastError: created.failure.detail,
+                }).pipe(
                   Effect.provideService(SqlClient, sql),
                   Effect.provideService(Crypto.Crypto, crypto),
-                ),
+                )
+                return
+              }
+              cwd = created.success.worktree.path
+              const issuedAt = yield* DateTime.now
+              const commandId = yield* crypto.randomUUIDv4.pipe(Effect.orDie)
+              const bind = yield* decodeThreadMetaUpdate({
+                _tag: "thread.meta.update",
+                commandId: CommandId.make(commandId),
+                projectId: ProjectId.make(persisted.projectId),
+                actorId: systemActor,
+                correlationId: CorrelationId.make(persisted.correlationId),
+                causationId: EventId.make(persisted.eventId),
+                issuedAt: DateTime.formatIso(issuedAt),
+                schemaVersion: 1,
+                payload: {
+                  threadId: threadEvent.threadId,
+                  branch: created.success.worktree.refName,
+                  worktreePath: created.success.worktree.path,
+                },
+              }).pipe(Effect.orDie)
+              yield* dispatchInternal(bind)
+            }
+            const attachments =
+              threadEvent.attachments === undefined
+                ? undefined
+                : yield* loadAttachments(threadEvent.attachments).pipe(Effect.result)
+            if (attachments !== undefined && Result.isFailure(attachments)) {
+              yield* ingestSignal(dispatchInternal, persisted, runtimeMode, {
+                _tag: "turn-ended",
+                threadId: threadEvent.threadId,
+                turnId: threadEvent.turnId,
+                state: "error",
+                lastError: "Pièce jointe illisible.",
+              }).pipe(
+                Effect.provideService(SqlClient, sql),
+                Effect.provideService(Crypto.Crypto, crypto),
+              )
+              return
+            }
+            let turnInput = {
+              projectId: ProjectId.make(persisted.projectId),
+              threadId: threadEvent.threadId,
+              turnId: threadEvent.turnId,
+              text: threadEvent.text ?? "",
+              workspaceRoot: cwd,
+              runtimeMode,
+              modelSelection: snapshot.value.thread.modelSelection,
+              resumeCursor: snapshot.value.session?.resumeCursor ?? null,
+            }
+            if (attachments !== undefined) {
+              turnInput = Object.assign(turnInput, { attachments: attachments.success })
+            }
+            yield* provider.startTurn(turnInput, (signal) =>
+              ingestSignal(dispatchInternal, persisted, runtimeMode, signal).pipe(
+                Effect.provideService(SqlClient, sql),
+                Effect.provideService(Crypto.Crypto, crypto),
+              ),
             )
           })
         case "thread.turn.interrupted":

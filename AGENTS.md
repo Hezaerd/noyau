@@ -13,6 +13,9 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | **Noyau Server**      | Processus Node local ; unique autorité durable de sa base SQLite.                          |
 | **Project**           | Dossier existant relié, avec un Tableau et des Threads.                                    |
 | **WorkspaceRoot**     | Chemin du dossier où Noyau et Cursor travaillent.                                          |
+| **Checkout**          | Liaison Thread → cwd : `worktreePath` (`null` = WorkspaceRoot) + `branch` (snapshot).      |
+| **threadEnvMode**     | Intention de draft `local \| worktree`. Matérialisée au premier Turn.                      |
+| **GitRuntime**        | Capacité live `git`/`gh` du Server ; hors journal.                                         |
 | **Tableau**           | Projection Kanban unique d'un Project ; colonnes libres et ordre partagé.                  |
 | **Ticket**            | Élément de travail durable : titre, détails, cycle Kanban, audit et dépendances.           |
 | **Responsable**       | Acteur durable optionnel d'un Ticket ; masqué de l'UI v0.1.                                |

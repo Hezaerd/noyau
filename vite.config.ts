@@ -31,6 +31,9 @@ const ignorePatterns = [
 // Codegen ACP : hors lint (anti-slop / type-aware sur ~10k lignes), mais dans fmt
 // pour que `vp run generate` puisse formater après écriture.
 const generatedAcpIgnore = "packages/acp/src/_generated/**"
+// Copie embarquée et déterministe du skill canonique. Le générateur compare le
+// fichier octet pour octet afin de ne pas invalider le cache Vite Task.
+const generatedAgentSkillIgnore = "apps/server/src/agent-skill/generated.ts"
 
 type AntiSlopRule = "error" | ["error", { allowInTypeGuards: true }]
 
@@ -66,7 +69,7 @@ export default defineConfig({
     trailingComma: "all",
     arrowParens: "always",
     sortImports: true,
-    ignorePatterns: [...ignorePatterns, "bun.lock", "docs/**"],
+    ignorePatterns: [...ignorePatterns, generatedAgentSkillIgnore, "bun.lock", "docs/**"],
   },
   lint: {
     plugins: ["typescript", "unicorn", "oxc", "import", "promise", "effecttsgo"],

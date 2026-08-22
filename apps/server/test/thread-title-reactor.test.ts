@@ -6,6 +6,7 @@ import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { ActorId, ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { DEFAULT_THREAD_TITLE } from "@noyau/protocol/thread/title"
+import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import { ControlPlane, makeControlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
@@ -16,6 +17,7 @@ import {
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
 import { Crypto, Effect, Layer, Path, Schema, Stream } from "effect"
 
+import { stubGitRuntimeLayer } from "./fixtures.ts"
 import { testServerConfigLayer } from "./fixtures.ts"
 
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
@@ -49,14 +51,17 @@ const stubTextGenerationLayer = (
 ) =>
   Layer.succeed(TextGeneration)({
     generateThreadTitle: (input) => Effect.succeed(generate(input)),
+    generateGitDraft: () => Effect.succeed({ title: "draft: test", body: "Generated in tests." }),
   })
 
 const layer = (generate: (input: ThreadTitleGenerationInput) => { readonly title: string }) =>
   makeControlPlaneLayer().pipe(
+    Layer.provideMerge(unavailableAgentSkillInstallerLayer),
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
+    Layer.provideMerge(stubGitRuntimeLayer),
     Layer.provideMerge(stubTextGenerationLayer(generate)),
     Layer.provideMerge(
       Layer.succeed(WorkspaceRootAccess)({

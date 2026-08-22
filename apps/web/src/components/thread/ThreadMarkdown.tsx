@@ -1,6 +1,4 @@
 import type { ProjectId } from "@noyau/protocol/ids"
-import { createCodePlugin } from "@streamdown/code"
-import { math } from "@streamdown/math"
 import { useCallback, useMemo } from "react"
 import { defaultUrlTransform, Streamdown, type ExtraProps } from "streamdown"
 
@@ -14,14 +12,10 @@ import {
   rewriteMarkdownFileLinkDestinations,
   transformThreadMarkdownFileHref,
 } from "@/lib/markdown-file-links"
+import { threadMarkdownPlugins } from "@/lib/thread-markdown-plugins"
 
 const markdownClassName =
   "max-w-none text-sm leading-6 [&_a:not(.thread-markdown-file-chip)]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc"
-
-const threadCodePlugin = createCodePlugin({
-  // [light, dark] — le CSS applique --sdm-c hors .dark, --shiki-dark sous html.dark.
-  themes: ["one-light", "one-dark-pro"],
-})
 
 const streamdownComponents = {
   a: ThreadMarkdownLink,
@@ -63,7 +57,7 @@ export function ThreadMarkdown({
         controls={{ code: { copy: false, download: false }, table: false }}
         isAnimating={streaming}
         mode={streaming ? "streaming" : "static"}
-        plugins={{ code: threadCodePlugin, math }}
+        plugins={threadMarkdownPlugins}
         skipHtml
         urlTransform={urlTransform}
       >

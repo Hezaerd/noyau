@@ -136,8 +136,11 @@ describe("rendered Thread UI evidence", () => {
         onTextChange={vi.fn()}
         onRuntimeModeChange={vi.fn()}
         onModelSelectionChange={vi.fn()}
+        images={[]}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
+        onImagesAdd={vi.fn()}
+        onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
       />,
     )
@@ -177,8 +180,11 @@ describe("rendered Thread UI evidence", () => {
         onTextChange={vi.fn()}
         onRuntimeModeChange={vi.fn()}
         onModelSelectionChange={vi.fn()}
+        images={[]}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
+        onImagesAdd={vi.fn()}
+        onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
       />,
     )
@@ -208,8 +214,11 @@ describe("rendered Thread UI evidence", () => {
         onTextChange={vi.fn()}
         onRuntimeModeChange={vi.fn()}
         onModelSelectionChange={vi.fn()}
+        images={[]}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
+        onImagesAdd={vi.fn()}
+        onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
       />,
     )
@@ -284,8 +293,11 @@ describe("rendered Thread UI evidence", () => {
         onTextChange={vi.fn()}
         onRuntimeModeChange={vi.fn()}
         onModelSelectionChange={vi.fn()}
+        images={[]}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
+        onImagesAdd={vi.fn()}
+        onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
       />,
     )
@@ -319,8 +331,11 @@ describe("rendered Thread UI evidence", () => {
           onTextChange={setValue}
           onRuntimeModeChange={vi.fn()}
           onModelSelectionChange={vi.fn()}
+          images={[]}
           onPaste={vi.fn()}
           onDrop={vi.fn()}
+          onImagesAdd={vi.fn()}
+          onImageRemove={vi.fn()}
           onInterrupt={vi.fn()}
           searchPaths={searchPaths}
         />
@@ -370,8 +385,11 @@ describe("rendered Thread UI evidence", () => {
             onTextChange={vi.fn()}
             onRuntimeModeChange={onRuntimeModeChange}
             onModelSelectionChange={vi.fn()}
+            images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
+            onImagesAdd={vi.fn()}
+            onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
         )
@@ -429,8 +447,11 @@ describe("rendered Thread UI evidence", () => {
             onTextChange={vi.fn()}
             onRuntimeModeChange={vi.fn()}
             onModelSelectionChange={onModelSelectionChange}
+            images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
+            onImagesAdd={vi.fn()}
+            onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
         )
@@ -458,8 +479,11 @@ describe("rendered Thread UI evidence", () => {
             onTextChange={vi.fn()}
             onRuntimeModeChange={vi.fn()}
             onModelSelectionChange={onModelSelectionChange}
+            images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
+            onImagesAdd={vi.fn()}
+            onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
         )
@@ -501,8 +525,11 @@ describe("rendered Thread UI evidence", () => {
             onTextChange={vi.fn()}
             onRuntimeModeChange={vi.fn()}
             onModelSelectionChange={onModelSelectionChange}
+            images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
+            onImagesAdd={vi.fn()}
+            onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
         )
@@ -543,8 +570,11 @@ describe("rendered Thread UI evidence", () => {
             onTextChange={vi.fn()}
             onRuntimeModeChange={vi.fn()}
             onModelSelectionChange={onModelSelectionChange}
+            images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
+            onImagesAdd={vi.fn()}
+            onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
         )

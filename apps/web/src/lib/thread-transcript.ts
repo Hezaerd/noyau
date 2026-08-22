@@ -10,6 +10,23 @@ import type { LatestTurn, Turn, TurnSettlementState } from "@noyau/protocol/enti
 import type { EventEnvelope } from "@noyau/protocol/events"
 import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
 
+const userTranscriptFromTurnStarted = (
+  event: Extract<EventEnvelope["event"], { readonly _tag: "thread.turn.started" }>,
+): TranscriptItem => {
+  let userItem: TranscriptItem = {
+    _tag: "transcript.user",
+    threadId: event.threadId,
+    turnId: event.turnId,
+  }
+  if (event.text !== undefined) {
+    userItem = Object.assign(userItem, { text: event.text })
+  }
+  if (event.attachments !== undefined) {
+    userItem = Object.assign(userItem, { attachments: event.attachments })
+  }
+  return userItem
+}
+
 const replaceTranscriptItem = (
   transcript: ReadonlyArray<TranscriptItem>,
   item: TranscriptItem,
@@ -318,6 +335,8 @@ const replaceThread = (
     readonly status?: Thread["status"]
     readonly session?: Session | null
     readonly latestTurn?: LatestTurn | null
+    readonly branch?: Thread["branch"]
+    readonly worktreePath?: Thread["worktreePath"]
     readonly updatedAt?: Thread["updatedAt"]
     readonly archivedAt?: Thread["archivedAt"] | null
   },
@@ -331,6 +350,9 @@ const replaceThread = (
     title: patch.title ?? current.title,
     provider: current.provider,
     runtimeMode: patch.runtimeMode ?? current.runtimeMode,
+    branch: patch.branch !== undefined ? patch.branch : (current.branch ?? null),
+    worktreePath:
+      patch.worktreePath !== undefined ? patch.worktreePath : (current.worktreePath ?? null),
     modelSelection:
       patch.modelSelection === undefined ? current.modelSelection : patch.modelSelection,
     status: patch.status ?? current.status,
@@ -402,7 +424,7 @@ export const applyThreadEnvelope = (
         return withEnvelope(snapshot, envelope, snapshot)
       }
       const firstTurn = snapshot.turns.length === 0
-      const titleSeed = event.titleSeed ?? event.text
+      const titleSeed = event.titleSeed ?? event.text ?? event.attachments?.[0]?.name
       const turns: ReadonlyArray<Turn> = [
         ...snapshot.turns,
         {
@@ -418,7 +440,9 @@ export const applyThreadEnvelope = (
       return withEnvelope(snapshot, envelope, {
         thread: replaceThread(snapshot, {
           title:
-            firstTurn && canReplaceThreadTitle(snapshot.thread.title, titleSeed)
+            firstTurn &&
+            titleSeed !== undefined &&
+            canReplaceThreadTitle(snapshot.thread.title, titleSeed)
               ? titleSeed
               : snapshot.thread.title,
           runtimeMode: event.runtimeMode ?? snapshot.thread.runtimeMode,
@@ -431,15 +455,7 @@ export const applyThreadEnvelope = (
         }),
         session: snapshot.session,
         turns,
-        transcript: [
-          ...snapshot.transcript,
-          {
-            _tag: "transcript.user",
-            threadId: event.threadId,
-            turnId: event.turnId,
-            text: event.text,
-          },
-        ],
+        transcript: [...snapshot.transcript, userTranscriptFromTurnStarted(event)],
       })
     }
     case "thread.session-set": {
@@ -514,12 +530,23 @@ export const applyThreadEnvelope = (
       })
     case "thread.title-seeded":
     case "thread.meta-updated": {
-      const title = event.title
-      if (title === undefined || event.threadId !== snapshot.thread.id) {
+      if (event.threadId !== snapshot.thread.id) {
         return withEnvelope(snapshot, envelope, snapshot)
       }
       return withEnvelope(snapshot, envelope, {
-        thread: replaceThread(snapshot, { title, updatedAt: envelope.occurredAt }),
+        thread: replaceThread(
+          snapshot,
+          Object.assign(
+            { updatedAt: envelope.occurredAt },
+            event.title === undefined ? {} : { title: event.title },
+            event._tag === "thread.meta-updated" && event.branch !== undefined
+              ? { branch: event.branch }
+              : {},
+            event._tag === "thread.meta-updated" && event.worktreePath !== undefined
+              ? { worktreePath: event.worktreePath }
+              : {},
+          ),
+        ),
         session: snapshot.session,
         turns: snapshot.turns,
         transcript: snapshot.transcript,

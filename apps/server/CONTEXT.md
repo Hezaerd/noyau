@@ -6,8 +6,8 @@ commandes durables, possède SQLite et Cursor, et expose les streams RPC.
 ## Langage
 
 **CommandGateway**:
-Frontière qui authentifie via le bearer de lancement, enrichit et remet une `CommandRequest` au
-modèle de décision.
+Frontière qui reçoit une identité vérifiée par le transport, enrichit et remet une
+`CommandRequest` au modèle de décision.
 _À éviter_ : contrôleur CRUD, mutation endpoint
 
 **dispatchCommand**:
@@ -35,6 +35,16 @@ Fil de fer `@noyau/acp` utilisé par l'adaptateur Cursor. Les extensions (`curso
 restent ici.
 _À éviter_ : schémas ACP maison, JSON-RPC maison
 
+**MCP Noyau**:
+Façade agent du control plane qui expose le Tableau et ses Tickets sans devenir une source de
+vérité distincte.
+_À éviter_ : TodoList agent, bridge SQLite, outil `dispatchCommand` brut
+
+**Capacité MCP**:
+Autorisation volatile et bornée d'un Turn Cursor sur un Project, un Thread et un ensemble
+d'opérations Tableau.
+_À éviter_ : bearer Electron, identité dans les arguments d'outil, permission `runtimeMode`
+
 **catalogue Cursor**:
 Capacité volatile découverte par `cursor/list_available_models`, qui expose les modèles et leurs
 niveaux de raisonnement sans devenir un fait du journal.
@@ -45,7 +55,7 @@ Query RPC du `WorkspaceRoot` pour le picker `@` du Composer. Pas une Command, pa
 _À éviter_ : Command, listing Git, index durable
 
 **TextGeneration**:
-Session ACP éphémère hors Turn, pour un Titre généré. Pas le `session/prompt` du Thread.
+Session ACP éphémère hors Turn, pour un Titre généré ou un Draft Git. Pas le `session/prompt` du Thread.
 _À éviter_ : Turn, ProviderPort.startTurn
 
 **setShellFocus**:
@@ -58,7 +68,29 @@ Lecture sandboxée d'un fichier sous le WorkspaceRoot du Project, pour un FilePr
 Pas une Command, pas un fait du journal.
 _À éviter_ : openPath, IPC Desktop, lecture hors WorkspaceRoot
 
+**Intégration agent**:
+Skill portable qui apprend aux agents à employer le MCP Noyau. Son état appartient au
+WorkspaceRoot et se constate sur le filesystem ; ce n’est ni une Command ni une projection.
+_À éviter_ : préférence, événement d’installation, instructions ACP
+
+**previewAttachment**:
+Lecture sandboxée d'une TurnImageAttachment depuis le dossier Environment `attachments/`.
+Pas une Command, pas un fait du journal.
+_À éviter_ : previewFile, WorkspaceRoot, dataUrl dans le snapshot
+
 **DiscordPresence**:
 Activity Discord locale dérivée du ShellFocus. Application Discord distincte selon `NOYAU_ENV`
 (prod / dev). Effet chrome : Discord fermé ne casse jamais une commande.
 _À éviter_ : événement Discord, agrégat, Join, une seule Application pour les deux envs
+
+**GitRuntime**:
+Port live `git` / `gh` du Server. Les lectures et mutations Git ne passent pas par le journal.
+_À éviter_ : agrégat VCS, outbox SQL
+
+**GitPlane**:
+Frontière RPC qui résout le cwd (`thread.worktreePath ?? WorkspaceRoot`) puis délègue à `GitRuntime`.
+_À éviter_ : cwd choisi par le client
+
+**Draft Git**:
+Texte de commit ou de PR produit par `TextGeneration` à partir de `git status` / `diff` / `log`.
+_À éviter_ : Turn, revue de PR

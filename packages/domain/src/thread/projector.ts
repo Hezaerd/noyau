@@ -23,6 +23,8 @@ export interface ThreadProjection {
   readonly provider: "cursor"
   readonly runtimeMode: RuntimeMode
   readonly modelSelection: ModelSelection | null
+  readonly branch: string | null
+  readonly worktreePath: string | null
   readonly status: "active" | "archived"
   readonly session: Session | null
   readonly turns: ReadonlyArray<TurnProjection>
@@ -191,6 +193,8 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
             provider: event.provider,
             runtimeMode: event.runtimeMode,
             modelSelection: event.modelSelection ?? null,
+            branch: event.branch ?? null,
+            worktreePath: event.worktreePath ?? null,
             status: "active",
             session: null,
             turns: [],
@@ -202,16 +206,13 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
       return updateThread(state, event.threadId, (thread) => ({ ...thread, status: "archived" }))
     case "thread.restored":
       return updateThread(state, event.threadId, (thread) => ({ ...thread, status: "active" }))
-    case "thread.meta-updated": {
-      const title = event.title
-      if (title === undefined) {
-        return state
-      }
+    case "thread.meta-updated":
       return updateThread(state, event.threadId, (thread) => ({
         ...thread,
-        title,
+        title: event.title ?? thread.title,
+        branch: event.branch === undefined ? thread.branch : event.branch,
+        worktreePath: event.worktreePath === undefined ? thread.worktreePath : event.worktreePath,
       }))
-    }
     case "thread.runtime-mode-set":
       return updateThread(state, event.threadId, (thread) => ({
         ...thread,
@@ -231,10 +232,23 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
         }
         const firstTurn = thread.turns.length === 0
         const titleSeed = event.titleSeed ?? event.text
+        let userItem: (typeof thread.transcript)[number] = {
+          _tag: "transcript.user",
+          threadId: event.threadId,
+          turnId: event.turnId,
+        }
+        if (event.text !== undefined) {
+          userItem = Object.assign(userItem, { text: event.text })
+        }
+        if (event.attachments !== undefined) {
+          userItem = Object.assign(userItem, { attachments: event.attachments })
+        }
         return {
           ...thread,
           title:
-            firstTurn && canReplaceThreadTitle(thread.title, titleSeed) ? titleSeed : thread.title,
+            firstTurn && titleSeed !== undefined && canReplaceThreadTitle(thread.title, titleSeed)
+              ? titleSeed
+              : thread.title,
           runtimeMode: event.runtimeMode ?? thread.runtimeMode,
           modelSelection:
             event.modelSelection === undefined ? thread.modelSelection : event.modelSelection,
@@ -246,15 +260,7 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
               state: "running",
             },
           ],
-          transcript: [
-            ...thread.transcript,
-            {
-              _tag: "transcript.user",
-              threadId: event.threadId,
-              turnId: event.turnId,
-              text: event.text,
-            },
-          ],
+          transcript: [...thread.transcript, userItem],
         }
       })
     case "thread.turn.interrupted":

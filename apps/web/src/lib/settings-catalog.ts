@@ -58,6 +58,13 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["project", "projet", "dossier", "folder", "chemin", "add project"],
   },
   {
+    id: "project-agent-integration",
+    tab: "general",
+    title: "Intégration agent Noyau",
+    description: "Installe et met à jour le skill Noyau du Project courant.",
+    keywords: ["project", "agent", "skill", "skills.sh", "mcp", "tableau", "ticket"],
+  },
+  {
     id: "discord-rich-presence",
     tab: "general",
     title: "Discord Rich Presence",

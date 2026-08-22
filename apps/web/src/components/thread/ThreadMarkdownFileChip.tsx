@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 
 import { PierreEntryIcon } from "@/components/PierreEntryIcon"
 import { useThreadMarkdownFileLinks } from "@/components/thread/thread-markdown-context"
+import { ThreadFilePreviewText } from "@/components/thread/ThreadFilePreviewText"
 import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "@/components/ui/preview-card"
 import { Spinner } from "@/components/ui/spinner"
 import { toastManager } from "@/components/ui/toast"
@@ -151,9 +152,7 @@ export function ThreadMarkdownFileChip({
             </div>
           ) : null}
           {textPreview === undefined ? null : (
-            <pre className="whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed">
-              {textPreview.text}
-            </pre>
+            <ThreadFilePreviewText path={meta.filePath} text={textPreview.text} />
           )}
           {showImage ? (
             <img alt="" className="mx-auto max-h-52 max-w-full object-contain" src={imageUrl} />

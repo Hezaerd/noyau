@@ -58,6 +58,16 @@ Politique d'outils t3code du Thread (quatre valeurs). Portée par le Thread et e
 création / au tour ; plus exposée dans l'en-tête Thread.
 _À éviter_ : permissionMode
 
+**Checkout**:
+Barre du Composer : `local` travaille dans le `WorkspaceRoot` (un `git checkout` y est permis) ;
+`worktree` isole au premier envoi. `branch` affiché = snapshot Thread, HEAD live = `vcs.status`.
+_À éviter_ : rebind du Project, héritage de checkout
+
+**Draft Git**:
+Message de commit ou texte de PR généré, éditable avant une action empilée
+(`commit | push | create_pr | commit_push | commit_push_pr`).
+_À éviter_ : revue, diff viewer
+
 **Effort**:
 Libellé UI du `reasoningEffort` porté par la `modelSelection` du Thread. Les valeurs proposées
 proviennent des capacités du modèle Cursor sélectionné.
@@ -124,6 +134,11 @@ Runtime agent branché à Noyau. Cursor est le seul Provider réel de la v0.1 ; 
 sont listés dans les Paramètres comme hors v0.1.
 _À éviter_ : modèle, LLM, backend, harnais
 
+**Intégration agent**:
+Configuration facultative d’un Project qui installe le skill Noyau pour aider les agents à
+utiliser son Tableau. Elle reste distincte du Provider et du MCP qui fournit les tools.
+_À éviter_ : Provider, extension, plugin, état du Project
+
 **Préférence**:
 Valeur persistée d'un item du catalogue Paramètres, distincte d'une Command du control plane.
 _À éviter_ : option, config, setting
@@ -137,6 +152,11 @@ _À éviter_ : présence, route, Command
 Aperçu hover d'un fichier mentionné dans le transcript (`text` | `image` | `unsupported`).
 Chargé via `previewFile` au moment où la carte s'ouvre. Le clic ouvre le fichier sur l'hôte.
 _À éviter_ : FilePreviewPanel, Tooltip de chemin, lecture Desktop
+
+**Pièce jointe**:
+Image jointe à un Turn depuis le Composer (paste, drop ou fichier). Le snapshot ne porte que la
+meta ; l'aperçu passe par `previewAttachment`.
+_À éviter_ : FilePreview, dataUrl dans le transcript, brouillon persisté
 
 **Keybinding**:
 Association persistée entre une Action et un Raccourci, surchargeable depuis les Paramètres.
