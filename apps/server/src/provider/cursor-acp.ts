@@ -219,22 +219,147 @@ const selectOptions = (
 const normalizedConfigToken = (value: string | null | undefined) =>
   value?.trim().toLowerCase() ?? ""
 
+const booleanConfigValue = (value: string | null | undefined) => {
+  const normalized = normalizedConfigToken(value)
+  if (["true", "on", "enabled"].includes(normalized)) {
+    return true
+  }
+  if (["false", "off", "disabled"].includes(normalized)) {
+    return false
+  }
+  return undefined
+}
+
+const isBooleanLikeOption = (option: AcpSchema.SessionConfigOption) => {
+  if (option.type === "boolean") {
+    return true
+  }
+  const values = new Set(
+    selectOptions(option).flatMap((entry) => {
+      const value = booleanConfigValue(entry.value) ?? booleanConfigValue(entry.name)
+      return value === undefined ? [] : [value]
+    }),
+  )
+  return values.has(true) && values.has(false)
+}
+
+const reasoningValue = (value: string) => {
+  const normalized = normalizedConfigToken(value).replaceAll("_", "-")
+  return ["low", "medium", "high", "xhigh", "extra-high", "extra high", "max", "ultra"].includes(
+    normalized,
+  )
+}
+
 const isReasoningOption = (option: AcpSchema.SessionConfigOption) => {
+  const id = normalizedConfigToken(option.id)
+  const name = normalizedConfigToken(option.name)
+  return (
+    option.type === "select" &&
+    !isBooleanLikeOption(option) &&
+    (id === "effort" ||
+      id === "reasoning" ||
+      name.includes("effort") ||
+      name.includes("reasoning")) &&
+    selectOptions(option).some((entry) => reasoningValue(entry.value) || reasoningValue(entry.name))
+  )
+}
+
+const reasoningOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
+  options.find(
+    (option) =>
+      isReasoningOption(option) && normalizedConfigToken(option.category) === "model_option",
+  ) ?? options.find(isReasoningOption)
+
+const isServiceTierOption = (option: AcpSchema.SessionConfigOption) => {
   const id = normalizedConfigToken(option.id)
   const name = normalizedConfigToken(option.name)
   const category = normalizedConfigToken(option.category)
   return (
     option.type === "select" &&
-    (category === "thought_level" ||
-      id === "effort" ||
-      id === "reasoning" ||
-      name.includes("effort") ||
-      name.includes("reasoning"))
+    (category === "service_tier" ||
+      id === "service_tier" ||
+      id === "servicetier" ||
+      name.includes("service tier"))
   )
 }
 
-const reasoningOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
-  options.find(isReasoningOption)
+const serviceTierOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
+  options.find(isServiceTierOption)
+
+const isFastOption = (option: AcpSchema.SessionConfigOption) => {
+  const id = normalizedConfigToken(option.id)
+  const name = normalizedConfigToken(option.name)
+  return (
+    normalizedConfigToken(option.category) === "model_config" &&
+    (id === "fast" || name === "fast" || name.includes("fast mode")) &&
+    isBooleanLikeOption(option)
+  )
+}
+
+const fastOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
+  options.find(isFastOption)
+
+const isThinkingOption = (option: AcpSchema.SessionConfigOption) => {
+  const id = normalizedConfigToken(option.id)
+  const name = normalizedConfigToken(option.name)
+  return (
+    normalizedConfigToken(option.category) === "model_config" &&
+    (id === "thinking" || name.includes("thinking")) &&
+    isBooleanLikeOption(option)
+  )
+}
+
+const thinkingOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
+  options.find(isThinkingOption)
+
+const currentBooleanValue = (option: AcpSchema.SessionConfigOption | undefined) => {
+  if (option?.type === "boolean") {
+    return option.currentValue
+  }
+  return option?.type === "select" ? booleanConfigValue(option.currentValue) : undefined
+}
+
+const booleanSelectValue = (option: AcpSchema.SessionConfigOption, requestedValue: boolean) =>
+  selectOptions(option).find(
+    (entry) =>
+      (booleanConfigValue(entry.value) ?? booleanConfigValue(entry.name)) === requestedValue,
+  )?.value
+
+type CursorModelOptionBuilder = {
+  value: string
+  label: string
+  description?: string
+  isDefault?: boolean
+}
+
+type CursorThinkingOptionBuilder = {
+  label: string
+  description?: string
+  defaultValue?: boolean
+}
+
+const cursorModelOption = (
+  option: AcpSchema.SessionConfigSelectOption,
+  currentValue: string | undefined,
+) => {
+  const value = option.value.trim()
+  const label = option.name.trim()
+  const description = option.description?.trim()
+  if (value === "" || label === "") {
+    return undefined
+  }
+  const mapped: CursorModelOptionBuilder = {
+    value,
+    label,
+  }
+  if (description !== undefined && description !== "") {
+    mapped.description = description
+  }
+  if (value === currentValue) {
+    mapped.isDefault = true
+  }
+  return mapped
+}
 
 const cursorModels = (response: CursorListAvailableModelsResponse): ReadonlyArray<CursorModel> => {
   const seen = new Set<string>()
@@ -246,12 +371,58 @@ const cursorModels = (response: CursorListAvailableModelsResponse): ReadonlyArra
       continue
     }
     seen.add(modelId)
-    const efforts = selectOptions(reasoningOption(model.configOptions ?? [])).flatMap((effort) => {
-      const value = effort.value.trim()
-      const effortLabel = effort.name.trim()
-      return value === "" || effortLabel === "" ? [] : [{ value, label: effortLabel }]
+    const reasoning = reasoningOption(model.configOptions ?? [])
+    const reasoningCurrentValue = reasoning?.type === "select" ? reasoning.currentValue : undefined
+    const efforts = selectOptions(reasoning).flatMap((effort) => {
+      if (!reasoningValue(effort.value) && !reasoningValue(effort.name)) {
+        return []
+      }
+      const mapped = cursorModelOption(effort, reasoningCurrentValue)
+      return mapped === undefined ? [] : [mapped]
     })
-    models.push({ modelId, label, reasoningEfforts: efforts })
+    const tier = serviceTierOption(model.configOptions ?? [])
+    const tierCurrentValue = tier?.type === "select" ? tier.currentValue : undefined
+    let serviceTiers = selectOptions(tier).flatMap((option) => {
+      const mapped = cursorModelOption(option, tierCurrentValue)
+      return mapped === undefined ? [] : [mapped]
+    })
+    const fast = fastOption(model.configOptions ?? [])
+    if (serviceTiers.length === 0 && fast !== undefined) {
+      const fastDefault = currentBooleanValue(fast)
+      const standardTier: CursorModelOptionBuilder = { value: "standard", label: "Standard" }
+      const fastTier: CursorModelOptionBuilder = { value: "fast", label: "Fast" }
+      if (fastDefault === false) {
+        standardTier.isDefault = true
+      }
+      if (fastDefault === true) {
+        fastTier.isDefault = true
+      }
+      const fastDescription = fast.description?.trim()
+      if (fastDescription !== undefined && fastDescription !== "") {
+        fastTier.description = fastDescription
+      }
+      serviceTiers = [standardTier, fastTier]
+    }
+    const thinking = thinkingOption(model.configOptions ?? [])
+    const cursorModel = {
+      modelId,
+      label,
+      reasoningEfforts: efforts,
+      serviceTiers,
+    }
+    if (thinking !== undefined) {
+      const thinkingModelOption: CursorThinkingOptionBuilder = { label: "Réflexion" }
+      const thinkingDescription = thinking.description?.trim()
+      if (thinkingDescription !== undefined && thinkingDescription !== "") {
+        thinkingModelOption.description = thinkingDescription
+      }
+      const thinkingDefault = currentBooleanValue(thinking)
+      if (thinkingDefault !== undefined) {
+        thinkingModelOption.defaultValue = thinkingDefault
+      }
+      Object.assign(cursorModel, { thinking: thinkingModelOption })
+    }
+    models.push(cursorModel)
   }
   return models
 }
@@ -764,6 +935,70 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
               configId: effortOption.id,
               value: advertisedEffort.value,
             })
+            configOptions = response.configOptions
+          }
+
+          if (selection.serviceTier !== undefined) {
+            const tierOption = serviceTierOption(configOptions)
+            const fast = fastOption(configOptions)
+            const advertisedTier = selectOptions(tierOption).find(
+              (option) => option.value === selection.serviceTier,
+            )
+            const response =
+              tierOption?.type === "select" && advertisedTier !== undefined
+                ? yield* acp.agent.setSessionConfigOption({
+                    sessionId,
+                    configId: tierOption.id,
+                    value: advertisedTier.value,
+                  })
+                : fast?.type === "boolean" &&
+                    ["standard", "normal", "fast"].includes(selection.serviceTier)
+                  ? yield* acp.agent.setSessionConfigOption({
+                      sessionId,
+                      configId: fast.id,
+                      type: "boolean",
+                      value: selection.serviceTier === "fast",
+                    })
+                  : fast?.type === "select" &&
+                      ["standard", "normal", "fast"].includes(selection.serviceTier)
+                    ? yield* acp.agent.setSessionConfigOption({
+                        sessionId,
+                        configId: fast.id,
+                        value:
+                          booleanSelectValue(fast, selection.serviceTier === "fast") ??
+                          selection.serviceTier,
+                      })
+                    : undefined
+            if (response === undefined) {
+              return yield* adapterError(
+                `Cursor service tier is unavailable: ${selection.serviceTier}`,
+              )
+            }
+            configOptions = response.configOptions
+          }
+
+          if (selection.thinking !== undefined) {
+            const thinking = thinkingOption(configOptions)
+            const response =
+              thinking?.type === "boolean"
+                ? yield* acp.agent.setSessionConfigOption({
+                    sessionId,
+                    configId: thinking.id,
+                    type: "boolean",
+                    value: selection.thinking,
+                  })
+                : thinking?.type === "select"
+                  ? yield* acp.agent.setSessionConfigOption({
+                      sessionId,
+                      configId: thinking.id,
+                      value:
+                        booleanSelectValue(thinking, selection.thinking) ??
+                        String(selection.thinking),
+                    })
+                  : undefined
+            if (response === undefined) {
+              return yield* adapterError("Cursor thinking option is unavailable")
+            }
             configOptions = response.configOptions
           }
         }

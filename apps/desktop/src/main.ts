@@ -22,6 +22,7 @@ import {
   PICK_FOLDER_CHANNEL,
   resolveFolderPickerDefaultPath,
 } from "./folder-picker"
+import { decodeOpenPathInput, OPEN_PATH_CHANNEL, openFilesystemPathOnHost } from "./open-path"
 import { isRendererPermissionAllowed } from "./permissions"
 import {
   DESKTOP_HOST,
@@ -34,6 +35,7 @@ import {
 import {
   decodeExternalBootstrap,
   resolveServerEntryPath,
+  serverEnvironmentFromDesktopDev,
   ServerSupervisor,
   type ServerBootstrap,
   type ServerSupervisorOptions,
@@ -159,6 +161,18 @@ const registerFolderPickerBridge = (): void => {
   )
 }
 
+const registerOpenPathBridge = (): void => {
+  ipcMain.handle(OPEN_PATH_CHANNEL, (_event, input) =>
+    desktopRuntime.runPromise(
+      decodeOpenPathInput(input).pipe(
+        Effect.flatMap((path) =>
+          openFilesystemPathOnHost(path, (resolved) => shell.openPath(resolved)),
+        ),
+      ),
+    ),
+  )
+}
+
 const registerCursorPointBridge = (): void => {
   ipcMain.handle(GET_CURSOR_POINT_CHANNEL, (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
@@ -261,6 +275,28 @@ const openExternalUrl = (url: string): void => {
   }
 }
 
+const applyDockIcon = Effect.fn("applyDockIcon")(function* () {
+  if (process.platform !== "darwin" || app.dock === undefined) {
+    return
+  }
+
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const iconPath = path.join(
+    app.getAppPath(),
+    "assets",
+    flags.isDevelopment ? "dev" : "prod",
+    "app-icon.png",
+  )
+  if (!(yield* fs.exists(iconPath))) {
+    return
+  }
+
+  yield* Effect.sync(() => {
+    app.dock?.setIcon(iconPath)
+  })
+})
+
 const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: ServerBootstrap) {
   const shouldUseDarkColors = nativeTheme.shouldUseDarkColors
   const window = new BrowserWindow({
@@ -354,10 +390,12 @@ const launch = Effect.fn("launch")(function* () {
   app.setAboutPanelOptions({ applicationName: appDisplayName })
 
   yield* Effect.promise(() => app.whenReady())
+  yield* applyDockIcon()
   const externalBootstrap = yield* decodeExternalBootstrap()
   const baseSupervisorOptions = {
-    serverEntryPath: yield* resolveServerEntryPath(__dirname),
+    serverEntryPath: yield* resolveServerEntryPath(__dirname, app.isPackaged),
     dataDirectory: path.join(app.getPath("userData"), "environment"),
+    environment: serverEnvironmentFromDesktopDev(flags.isDevelopment),
     onStateChange: (state: SupervisorState) => {
       void desktopRuntime.runPromise(publishSmokeSupervisorState(state))
       if (state.phase === "degraded") {
@@ -376,6 +414,7 @@ const launch = Effect.fn("launch")(function* () {
   registerRendererProtocol()
   registerThemeBridge()
   registerFolderPickerBridge()
+  registerOpenPathBridge()
   registerCursorPointBridge()
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
     isRendererPermissionAllowed(permission),

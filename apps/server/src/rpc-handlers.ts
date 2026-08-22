@@ -24,4 +24,8 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     Stream.unwrap(ControlPlane.pipe(Effect.map((service) => service.subscribeProject(input)))),
   [RPC_METHODS.subscribeThread]: (input) =>
     Stream.unwrap(ControlPlane.pipe(Effect.map((service) => service.subscribeThread(input)))),
+  [RPC_METHODS.setShellFocus]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.setShellFocus(input))),
+  [RPC_METHODS.previewFile]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.previewFile(input))),
 })

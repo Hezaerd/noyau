@@ -3,6 +3,7 @@ import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { ActorId, EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { controlPlaneLayer } from "@noyau/server/control-plane"
+import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { serverRoutesLayer } from "@noyau/server/server"
@@ -53,6 +54,7 @@ const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(testMcpSessionRegistryLayer),
   Layer.provideMerge(unavailableProviderLayer),
   Layer.provideMerge(unavailableTextGenerationLayer),
+  Layer.provideMerge(noopDiscordPresenceLayer),
   Layer.provideMerge(
     Layer.succeed(WorkspaceRootAccess)({
       isAvailable: () => Effect.succeed(true),

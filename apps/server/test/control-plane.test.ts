@@ -18,6 +18,7 @@ import {
   makeControlPlaneLayer,
   type ControlPlaneHooks,
 } from "@noyau/server/control-plane"
+import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { mcpSessionRegistryLayer } from "@noyau/server/mcp/mcp-session-registry"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
@@ -97,6 +98,7 @@ const controlPlaneTestLayer = (
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
     Layer.provideMerge(unavailableTextGenerationLayer),
+    Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(workspaceRoots)),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
@@ -107,6 +109,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableTextGenerationLayer),
+    Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(availableWorkspaceRoots)),
     Layer.provideMerge(
       cursorProviderLayer({
@@ -158,8 +161,15 @@ describe("ControlPlane", () => {
         assert.strictEqual(frames[1]?.kind, "synchronized")
 
         const config = yield* controlPlane.getConfig
-        assert.strictEqual(config.databaseSchemaVersion, 3)
+        assert.strictEqual(config.databaseSchemaVersion, 5)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
+        assert.deepStrictEqual(
+          yield* controlPlane.setShellFocus({
+            enabled: true,
+            focus: { _tag: "tableau", projectId },
+          }),
+          {},
+        )
       }),
     ),
   )
@@ -507,6 +517,47 @@ describe("ControlPlane", () => {
     }),
   )
 
+  it.effect("buffers live Thread events before the snapshot is released", () =>
+    Effect.gen(function* () {
+      const snapshotRead = yield* Deferred.make<void>()
+      const releaseSnapshot = yield* Deferred.make<void>()
+      const hooks: ControlPlaneHooks = {
+        afterThreadSnapshot: () =>
+          Deferred.succeed(snapshotRead, undefined).pipe(
+            Effect.andThen(Deferred.await(releaseSnapshot)),
+          ),
+      }
+      const program = Effect.gen(function* () {
+        const controlPlane = yield* ControlPlane
+        yield* controlPlane.dispatch(projectCreate(), actorId)
+        yield* controlPlane.dispatch(threadCreate, actorId)
+        const subscription = yield* controlPlane
+          .subscribeThread({ threadId, requestCompletionMarker: true })
+          .pipe(Stream.take(3), Stream.runCollect, Effect.forkChild)
+        yield* Deferred.await(snapshotRead)
+        const started = yield* controlPlane.dispatch(
+          request({
+            _tag: "thread.turn.start",
+            commandId: uuid(13),
+            payload: { threadId, text: "Stream live" },
+          }),
+          actorId,
+        )
+        yield* Deferred.succeed(releaseSnapshot, undefined)
+        const frames = yield* Fiber.join(subscription)
+
+        assert.strictEqual(frames[0]?.kind, "snapshot")
+        assert.strictEqual(frames[1]?.kind, "event")
+        assert.strictEqual(
+          frames[1]?.kind === "event" ? frames[1].event.sequence : -1,
+          started.sequence,
+        )
+        assert.strictEqual(frames[2]?.kind, "synchronized")
+      })
+      yield* run(program, hooks)
+    }),
+  )
+
   it.effect("serves shell and thread snapshots and coalesces shell updates", () =>
     Effect.gen(function* () {
       const snapshotRead = yield* Deferred.make<void>()
@@ -551,7 +602,7 @@ describe("ControlPlane", () => {
     }),
   )
 
-  it.effect("runs Cursor post-commit and durably completes end_turn", () =>
+  it.effect("streams Cursor Session dates and durably completes end_turn", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const services = yield* Layer.build(cursorControlPlaneTestLayer("success"))
@@ -569,7 +620,7 @@ describe("ControlPlane", () => {
           actorId,
         )
         yield* controlPlane.dispatch(threadCreate, actorId)
-        yield* controlPlane.dispatch(
+        const started = yield* controlPlane.dispatch(
           request({
             _tag: "thread.turn.start",
             commandId: uuid(22),
@@ -578,6 +629,16 @@ describe("ControlPlane", () => {
           actorId,
         )
         yield* controlPlane.drainReactors
+
+        const liveSession = yield* controlPlane
+          .subscribeThread({ threadId, afterSequence: started.sequence })
+          .pipe(
+            Stream.filter(
+              (frame) => frame.kind === "event" && frame.event.event._tag === "thread.session-set",
+            ),
+            Stream.runHead,
+          )
+        assert.isTrue(Option.isSome(liveSession))
 
         const frames = yield* controlPlane
           .subscribeThread({ threadId })

@@ -6,6 +6,7 @@ import { AnchoredToastProvider, ToastProvider } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { initializeAppearance } from "@/lib/appearance"
 import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
+import { initializeDiscordPresencePreference } from "@/lib/discord-presence-preference"
 import { initializeKeybindings } from "@/lib/keybindings"
 import { initializeProjectFolderStartDirectory } from "@/lib/project-folder-preference"
 
@@ -17,6 +18,7 @@ syncDocumentDesktopChrome()
 initializeAppearance()
 initializeKeybindings()
 initializeProjectFolderStartDirectory()
+initializeDiscordPresencePreference()
 
 const router = createRouter({ routeTree })
 

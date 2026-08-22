@@ -4,11 +4,13 @@ import {
   ControlPlaneRpcs,
   DispatchCommand,
   GetConfig,
+  PreviewFile,
   Probe,
   ProjectStreamItem,
   RPC_METHODS,
   requiresFreshSnapshot,
   ShellStreamItem,
+  SetShellFocus,
   SubscribeProject,
   SubscribeShell,
   SubscribeThread,
@@ -16,13 +18,15 @@ import {
 import { Schema } from "effect"
 
 describe("ControlPlaneRpcs", () => {
-  it("expose dispatchCommand, getConfig, probe et les trois streams", () => {
+  it("expose dispatchCommand, getConfig, probe, setShellFocus, previewFile et les trois streams", () => {
     expect([...ControlPlaneRpcs.requests.keys()].toSorted()).toEqual(
       [
         RPC_METHODS.dispatchCommand,
         RPC_METHODS.subscribeProject,
         RPC_METHODS.subscribeShell,
         RPC_METHODS.subscribeThread,
+        RPC_METHODS.setShellFocus,
+        RPC_METHODS.previewFile,
         RPC_METHODS.getConfig,
         RPC_METHODS.probe,
       ].toSorted(),
@@ -84,6 +88,69 @@ describe("ControlPlaneRpcs", () => {
     ).toEqual({
       threadId: "20000000-0000-4000-8000-000000000001",
     })
+  })
+
+  it("décode setShellFocus sans le persister comme Command", () => {
+    expect(
+      Schema.decodeSync(SetShellFocus.payloadSchema)({
+        enabled: true,
+        focus: {
+          _tag: "thread",
+          projectId: "10000000-0000-4000-8000-000000000001",
+          threadId: "20000000-0000-4000-8000-000000000001",
+        },
+      }),
+    ).toEqual({
+      enabled: true,
+      focus: {
+        _tag: "thread",
+        projectId: "10000000-0000-4000-8000-000000000001",
+        threadId: "20000000-0000-4000-8000-000000000001",
+      },
+    })
+    expect(Schema.decodeSync(SetShellFocus.successSchema)({})).toEqual({})
+  })
+
+  it("décode previewFile et ses trois kinds", () => {
+    expect(
+      Schema.decodeSync(PreviewFile.payloadSchema)({
+        projectId: "10000000-0000-4000-8000-000000000001",
+        path: "src/greet.py",
+      }),
+    ).toEqual({
+      projectId: "10000000-0000-4000-8000-000000000001",
+      path: "src/greet.py",
+    })
+    expect(
+      Schema.decodeSync(PreviewFile.successSchema)({
+        kind: "text",
+        text: "print('salut')",
+        truncated: false,
+        mtimeMs: 1,
+      }),
+    ).toEqual({
+      kind: "text",
+      text: "print('salut')",
+      truncated: false,
+      mtimeMs: 1,
+    })
+    expect(
+      Schema.decodeSync(PreviewFile.successSchema)({
+        kind: "unsupported",
+        reason: "binary",
+        mtimeMs: 0,
+      }).kind,
+    ).toBe("unsupported")
+    const image = Schema.decodeSync(PreviewFile.successSchema)({
+      kind: "image",
+      mime: "image/png",
+      bytes: "iVBORw0KGgo=",
+      mtimeMs: 2,
+    })
+    expect(image.kind).toBe("image")
+    if (image.kind === "image") {
+      expect(image.bytes).toBeInstanceOf(Uint8Array)
+    }
   })
 
   it("demande un snapshot frais hors [0, 1000]", () => {

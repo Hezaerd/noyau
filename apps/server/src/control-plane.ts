@@ -34,6 +34,8 @@ import {
   DomainEvent,
   type DomainEvent as DomainEventType,
 } from "@noyau/protocol/events"
+import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
+import type { FilePreviewFailed } from "@noyau/protocol/file-preview"
 import {
   type ActorId,
   CorrelationId,
@@ -46,6 +48,7 @@ import {
 } from "@noyau/protocol/ids"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
 import {
+  ProjectNotFound,
   ProjectUnavailable,
   WorkspaceRootConflict,
   WorkspaceRootNotDirectory,
@@ -67,7 +70,7 @@ import {
   type SubscribeThreadInput,
   type ThreadStreamItem,
 } from "@noyau/protocol/rpc"
-import type { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
+import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import { ThreadCommand } from "@noyau/protocol/thread/commands"
 import { ThreadEvent, type ThreadEvent as ThreadEventType } from "@noyau/protocol/thread/events"
 import { BoardInitialize, TicketCommand } from "@noyau/protocol/ticket/commands"
@@ -81,14 +84,19 @@ import {
   FileSystem,
   Layer,
   Option,
+  Path,
+  PubSub,
   Queue,
   Result,
   Schema,
+  type Scope,
   Stream,
 } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { ServerConfig } from "./config.ts"
+import { makePresenceController } from "./discord/presence.ts"
+import { readFilePreview } from "./file-preview.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { TextGeneration } from "./text-generation/text-generation.ts"
@@ -183,6 +191,7 @@ const decodeScopeRow = Schema.decodeEffect(ScopeRow)
 const decodeWorkspaceRootRow = Schema.decodeEffect(WorkspaceRootRow)
 const decodeMigrationRow = Schema.decodeEffect(MigrationRow)
 const decodeCommand = Schema.decodeUnknownEffect(Command)
+const encodeDomainEvent = Schema.encodeUnknownEffect(DomainEvent)
 
 const fallbackProjectId = (id: string): ProjectIdType => ProjectId.make(id)
 
@@ -267,6 +276,7 @@ const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
     case "thread.restore":
     case "thread.meta.update":
     case "thread.runtime-mode.set":
+    case "thread.model-selection.set":
     case "thread.turn.start":
     case "thread.turn.interrupt":
     case "approval.respond":
@@ -354,17 +364,22 @@ const enrichCommand = Effect.fn("ControlPlane.enrichCommand")(function* (
 })
 
 const toEnvelope = (event: PersistedEvent<DomainEventType>) =>
-  decodeEventEnvelope({
-    eventId: event.eventId,
-    sequence: event.sequence,
-    projectId: event.projectId,
-    actorId: event.actorId,
-    correlationId: event.correlationId,
-    causationId: event.causationId,
-    occurredAt: DateTime.formatIso(event.occurredAt),
-    schemaVersion: event.schemaVersion,
-    event: event.event,
-  }).pipe(Effect.orDie)
+  encodeDomainEvent(event.event).pipe(
+    Effect.flatMap((encodedEvent) =>
+      decodeEventEnvelope({
+        eventId: event.eventId,
+        sequence: event.sequence,
+        projectId: event.projectId,
+        actorId: event.actorId,
+        correlationId: event.correlationId,
+        causationId: event.causationId,
+        occurredAt: DateTime.formatIso(event.occurredAt),
+        schemaVersion: event.schemaVersion,
+        event: encodedEvent,
+      }),
+    ),
+    Effect.orDie,
+  )
 
 const unavailable = (service: string) => () => new ServiceUnavailable({ service })
 
@@ -373,11 +388,21 @@ type LiveInput =
   | { readonly kind: "synchronized" }
 
 const makeLiveBuffer = Effect.fn("ControlPlane.makeLiveBuffer")(function* (
-  events: Stream.Stream<PersistedEvent<DomainEventType>>,
+  subscribeEvents: Effect.Effect<
+    PubSub.Subscription<PersistedEvent<DomainEventType>>,
+    never,
+    Scope.Scope
+  >,
 ) {
+  // Register synchronously before reading the boundary/snapshot. Starting a
+  // Stream.fromPubSub fiber leaves a gap where a committed event can be missed.
+  const events = yield* subscribeEvents
   const buffer = yield* Queue.unbounded<LiveInput>()
   yield* Effect.forkScoped(
-    events.pipe(Stream.runForEach((event) => Queue.offer(buffer, { kind: "event", event }))),
+    PubSub.take(events).pipe(
+      Effect.flatMap((event) => Queue.offer(buffer, { kind: "event", event })),
+      Effect.forever,
+    ),
     { startImmediately: true },
   )
   return buffer
@@ -532,6 +557,12 @@ export interface ControlPlaneService {
   ) => Stream.Stream<ThreadStreamItem, ServiceUnavailable>
   readonly getConfig: Effect.Effect<PublicServerConfig, ServiceUnavailable>
   readonly hasRunningTurn: Effect.Effect<boolean, ServiceUnavailable>
+  readonly setShellFocus: (
+    input: SetShellFocusInput,
+  ) => Effect.Effect<Record<never, never>, ServiceUnavailable>
+  readonly previewFile: (
+    input: PreviewFileInput,
+  ) => Effect.Effect<FilePreview, ProjectNotFound | FilePreviewFailed | ServiceUnavailable>
   readonly probe: Effect.Effect<Record<never, never>>
   readonly drainReactors: Effect.Effect<void>
 }
@@ -586,9 +617,17 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const workspaceRoots = yield* WorkspaceRootAccess
       const recoveredAt = yield* DateTime.now
       const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
       const crypto = yield* Crypto.Crypto
       let dispatchInternal = workerNotReady
       const textGeneration = yield* TextGeneration
+      const presence = yield* makePresenceController()
+      const cursorStatus = yield* provider.status
+      const environment = new Environment({
+        id: config.environmentId,
+        cursor: cursorStatus,
+        createdAt: config.environmentCreatedAt,
+      })
       const processProviderEvent = yield* makeProviderReactor((command) =>
         dispatchInternal(command),
       ).pipe(Effect.provideService(ProviderPort, provider), Effect.provideService(SqlClient, sql))
@@ -598,12 +637,27 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         Effect.provideService(TextGeneration, textGeneration),
         Effect.provideService(SqlClient, sql),
       )
+      const processPresenceEvent = (_event: PersistedEvent<DomainEventType>) =>
+        readShellSnapshot(environment).pipe(
+          Effect.provideService(SqlClient, sql),
+          Effect.flatMap(presence.sync),
+          Effect.catchCause((cause) =>
+            Effect.logWarning("Discord presence sync failed", { cause }),
+          ),
+        )
       const providerReactor = yield* makeDrainableWorker(processProviderEvent)
       const titleReactor = yield* makeDrainableWorker(processTitleEvent)
+      const presenceReactor = yield* makeDrainableWorker(processPresenceEvent)
       const reactor = {
         enqueue: (event: PersistedEvent<DomainEventType>) =>
-          Effect.andThen(providerReactor.enqueue(event), titleReactor.enqueue(event)),
-        drain: Effect.andThen(providerReactor.drain, titleReactor.drain),
+          Effect.andThen(
+            providerReactor.enqueue(event),
+            Effect.andThen(titleReactor.enqueue(event), presenceReactor.enqueue(event)),
+          ),
+        drain: Effect.andThen(
+          providerReactor.drain,
+          Effect.andThen(titleReactor.drain, presenceReactor.drain),
+        ),
       }
       const worker = yield* makeCommandWorker({
         commandSchema: Command,
@@ -631,12 +685,6 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           ),
           Effect.orDie,
         )
-      const cursorStatus = yield* provider.status
-      const environment = new Environment({
-        id: config.environmentId,
-        cursor: cursorStatus,
-        createdAt: config.environmentCreatedAt,
-      })
 
       const ensureWorkspaceAvailable = Effect.fn("ControlPlane.ensureWorkspaceAvailable")(
         function* (request: ClientCommandRequest) {
@@ -724,7 +772,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const subscribeProject: ControlPlaneService["subscribeProject"] = (input) =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const buffer = yield* makeLiveBuffer(worker.streamEvents)
+            const buffer = yield* makeLiveBuffer(worker.subscribeEvents)
             const head = yield* worker.latestSequence.pipe(
               Effect.mapError(unavailable("project-stream")),
             )
@@ -797,7 +845,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const subscribeThread: ControlPlaneService["subscribeThread"] = (input) =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const buffer = yield* makeLiveBuffer(worker.streamEvents)
+            const buffer = yield* makeLiveBuffer(worker.subscribeEvents)
             const head = yield* worker.latestSequence.pipe(
               Effect.mapError(unavailable("thread-stream")),
             )
@@ -868,7 +916,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const subscribeShell: ControlPlaneService["subscribeShell"] = (input) =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const buffer = yield* makeLiveBuffer(worker.streamEvents)
+            const buffer = yield* makeLiveBuffer(worker.subscribeEvents)
             const head = yield* worker.latestSequence.pipe(
               Effect.mapError(unavailable("shell-stream")),
             )
@@ -929,6 +977,37 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           }),
         ).pipe(Stream.provideService(SqlClient, sql))
 
+      const setShellFocus = Effect.fn("ControlPlane.setShellFocus")(function* (
+        input: SetShellFocusInput,
+      ): Effect.fn.Return<Record<never, never>, ServiceUnavailable> {
+        yield* presence.setIntent(input)
+        const snapshot = yield* readAvailableShellSnapshot().pipe(
+          Effect.provideService(SqlClient, sql),
+          Effect.mapError(unavailable("shell-snapshot")),
+        )
+        yield* presence.sync(snapshot)
+        return {}
+      })
+
+      const previewFile = Effect.fn("ControlPlane.previewFile")(function* (
+        input: PreviewFileInput,
+      ): Effect.fn.Return<FilePreview, ProjectNotFound | FilePreviewFailed | ServiceUnavailable> {
+        const workspaceRoot = yield* workspaceRootForProject(input.projectId).pipe(
+          Effect.provideService(SqlClient, sql),
+          Effect.mapError(unavailable("sqlite")),
+        )
+        if (Option.isNone(workspaceRoot)) {
+          return yield* new ProjectNotFound({ projectId: input.projectId })
+        }
+        return yield* readFilePreview({
+          requestedPath: input.path,
+          workspaceRoot: workspaceRoot.value,
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+        )
+      })
+
       const getConfig = readSchemaVersion().pipe(
         Effect.provideService(SqlClient, sql),
         Effect.map((databaseSchemaVersion) => ({
@@ -957,6 +1036,8 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         subscribeThread,
         getConfig,
         hasRunningTurn,
+        setShellFocus,
+        previewFile,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {
           yield* worker.drainReactors
@@ -965,6 +1046,6 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         }),
       })
     }),
-  )
+  ).pipe(Layer.provide(Path.layer))
 
 export const controlPlaneLayer = makeControlPlaneLayer()

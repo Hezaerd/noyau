@@ -5,7 +5,7 @@ export const SETTINGS_TAB_IDS = ["general", "appearance", "providers", "keybindi
 
 export type SettingsTabId = (typeof SETTINGS_TAB_IDS)[number]
 
-export const DEFAULT_SETTINGS_TAB = "appearance" satisfies SettingsTabId
+export const DEFAULT_SETTINGS_TAB = "general" satisfies SettingsTabId
 
 export interface SettingsTab {
   readonly id: SettingsTabId
@@ -56,6 +56,13 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     title: "Ajouter un Project commence dans",
     description: "Dossier affiché à l’ouverture du navigateur pour relier un Project.",
     keywords: ["project", "projet", "dossier", "folder", "chemin", "add project"],
+  },
+  {
+    id: "discord-rich-presence",
+    tab: "general",
+    title: "Discord Rich Presence",
+    description: "Affiche le Project et le Thread ouverts sur ton profil Discord.",
+    keywords: ["discord", "rich presence", "status", "activité", "presence"],
   },
   {
     id: "appearance",

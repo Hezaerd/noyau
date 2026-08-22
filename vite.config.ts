@@ -20,6 +20,7 @@ const agentIgnorePatterns = [
 const ignorePatterns = [
   "**/dist/**",
   "**/dist-electron/**",
+  "**/release/**",
   "**/coverage/**",
   "**/routeTree.gen.ts",
   ".worktrees/**",

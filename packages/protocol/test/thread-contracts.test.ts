@@ -114,6 +114,8 @@ describe("Thread and Session entities", () => {
         modelSelection: {
           modelId: "composer-2.5",
           reasoningEffort: "high",
+          serviceTier: "fast",
+          thinking: false,
         },
         status: "active",
         session: null,
@@ -186,12 +188,19 @@ describe("Thread commands", () => {
       payload: {
         threadId: ids.thread,
         text: "Analyse en profondeur",
-        modelSelection: { modelId: "composer-2.5", reasoningEffort: "high" },
+        modelSelection: {
+          modelId: "composer-2.5",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+          thinking: true,
+        },
       },
     })
     expect(selected.payload.modelSelection).toEqual({
       modelId: "composer-2.5",
       reasoningEffort: "high",
+      serviceTier: "fast",
+      thinking: true,
     })
 
     const automatic = Schema.decodeSync(ThreadTurnStartRequest)({
@@ -262,6 +271,7 @@ describe("Thread commands", () => {
     "thread.restore",
     "thread.meta.update",
     "thread.runtime-mode.set",
+    "thread.model-selection.set",
     "thread.turn.interrupt",
     "approval.respond",
     "user-input.respond",
@@ -278,6 +288,14 @@ describe("Thread commands", () => {
       "thread.restore": { threadId: ids.thread },
       "thread.meta.update": { threadId: ids.thread, title: "Titre" },
       "thread.runtime-mode.set": { threadId: ids.thread, runtimeMode: "auto-accept-edits" },
+      "thread.model-selection.set": {
+        threadId: ids.thread,
+        modelSelection: {
+          modelId: "composer-2.5",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+        },
+      },
       "thread.turn.interrupt": { threadId: ids.thread },
       "approval.respond": {
         threadId: ids.thread,

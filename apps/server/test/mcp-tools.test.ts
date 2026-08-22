@@ -112,6 +112,8 @@ const controlPlane = ControlPlane.of({
   subscribeThread: () => Stream.die("unused"),
   getConfig: Effect.die("unused"),
   hasRunningTurn: Effect.die("unused"),
+  setShellFocus: () => Effect.die("unused"),
+  previewFile: () => Effect.die("unused"),
   probe: Effect.die("unused"),
   drainReactors: Effect.die("unused"),
 })

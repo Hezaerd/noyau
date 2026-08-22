@@ -4,5 +4,7 @@ import { Schema } from "effect"
 export const ModelSelection = Schema.Struct({
   modelId: Schema.NonEmptyString,
   reasoningEffort: Schema.optionalKey(Schema.NonEmptyString),
+  serviceTier: Schema.optionalKey(Schema.NonEmptyString),
+  thinking: Schema.optionalKey(Schema.Boolean),
 })
 export type ModelSelection = (typeof ModelSelection)["Type"]

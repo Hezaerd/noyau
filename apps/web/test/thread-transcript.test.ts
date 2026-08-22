@@ -262,6 +262,27 @@ describe("thread transcript projection", () => {
     expect(afterReady?.turns[0]?.state).toBe("completed")
   })
 
+  it("applies the remembered model setup locally without a snapshot reload", () => {
+    const next = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.model-selection-set",
+        threadId: ids.thread,
+        modelSelection: {
+          modelId: "composer-2.5",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+        },
+      }),
+    )
+
+    expect(next?.thread.modelSelection).toEqual({
+      modelId: "composer-2.5",
+      reasoningEffort: "high",
+      serviceTier: "fast",
+    })
+  })
+
   it("keeps concatenating assistant deltas after a running session-set", () => {
     const runningSession = snapshot.session
     if (runningSession === null) {

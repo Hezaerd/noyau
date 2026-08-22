@@ -13,6 +13,12 @@ import { SettingsPageTitle, ThreadPageTitle } from "@/components/WorkspaceBreadc
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
+import { useShellFocusReporter } from "@/hooks/use-shell-focus-reporter"
+import {
+  COLLAPSED_PAGE_TITLEBAR_INSET_CLASS,
+  macosDesktopControlsStyle,
+  NARROW_PAGE_TITLEBAR_INSET_CLASS,
+} from "@/lib/desktop-titlebar"
 import { presentFailure } from "@/lib/failure-presentation"
 import { resolvePageTitlebar } from "@/lib/page-titlebar"
 import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"
@@ -89,14 +95,20 @@ function ShellConnectionNotice() {
   )
 }
 
+function ShellFocusReporter() {
+  useShellFocusReporter()
+  return null
+}
+
 export function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isSettings = isSettingsPath(pathname)
 
   return (
     <ControlPlaneProvider>
+      <ShellFocusReporter />
       <AppPaletteProvider>
-        <SidebarProvider className="h-svh overflow-hidden">
+        <SidebarProvider className="h-svh overflow-hidden" style={macosDesktopControlsStyle()}>
           {/* Keep the Sidebar shell mounted: remounting it retriggers
               transition-[width,left] on the gap and flashes the chrome. */}
           <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
@@ -106,7 +118,7 @@ export function RootLayout() {
             {/* Keep the page titlebar mounted: swapping it with the Settings
                 header unmounts the chrome for one frame. */}
             <header
-              className="drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background px-3 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none sm:px-5"
+              className={`drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background px-3 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none sm:px-5 ${COLLAPSED_PAGE_TITLEBAR_INSET_CLASS} ${NARROW_PAGE_TITLEBAR_INSET_CLASS}`}
               data-desktop-page-titlebar=""
             >
               <div className="flex min-w-0 items-center text-sm">

@@ -7,7 +7,7 @@ import type {
   SchemaVersion,
 } from "@noyau/protocol/ids"
 import type { Scope } from "effect"
-import { Crypto, DateTime, Deferred, Effect, PubSub, Queue, Result, Schema, Stream } from "effect"
+import { Crypto, DateTime, Deferred, Effect, PubSub, Queue, Result, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 import type { SqlError } from "effect/unstable/sql/SqlError"
 
@@ -57,7 +57,11 @@ export interface CommandWorker<Command, Event, State, Rejection, Error> {
   ) => Effect.Effect<ReadonlyArray<PersistedEvent<Event>>, SqlError>
   readonly latestSequence: Effect.Effect<number, SqlError>
   readonly drainReactors: Effect.Effect<void>
-  readonly streamEvents: Stream.Stream<PersistedEvent<Event>>
+  readonly subscribeEvents: Effect.Effect<
+    PubSub.Subscription<PersistedEvent<Event>>,
+    never,
+    Scope.Scope
+  >
 }
 
 export interface CommandWorkerOptions<
@@ -447,8 +451,6 @@ export const makeCommandWorker = <
       readEvents,
       latestSequence,
       drainReactors: options.reactor.drain,
-      get streamEvents() {
-        return Stream.fromPubSub(eventPubSub)
-      },
+      subscribeEvents: PubSub.subscribe(eventPubSub),
     }
   })

@@ -2,8 +2,15 @@ import { Option, Schema } from "effect"
 import { isValidElement, type ComponentProps, type ReactNode } from "react"
 import { CodeBlock, type ExtraProps, useIsCodeFenceIncomplete } from "streamdown"
 
+import { useThreadMarkdownFileLinks } from "@/components/thread/thread-markdown-context"
 import { ThreadMarkdownCodeBlock } from "@/components/thread/ThreadMarkdownCodeBlock"
-import { parseCodeFence, resolveCodeBlockTitle } from "@/lib/code-fence"
+import { ThreadMarkdownFileChip } from "@/components/thread/ThreadMarkdownFileChip"
+import {
+  parseCodeFence,
+  resolveCodeBlockFenceTitle,
+  resolveCodeBlockLanguage,
+} from "@/lib/code-fence"
+import { fileLinkSuffixKey, resolveInlineCodeFileLinkMeta } from "@/lib/markdown-file-links"
 import { cn } from "@/lib/utils"
 
 const languageClassPattern = /language-(\S+)/
@@ -39,8 +46,21 @@ export function ThreadMarkdownCode({
 }: ComponentProps<"code"> & ExtraProps) {
   const isIncomplete = useIsCodeFenceIncomplete()
   const isInline = !("data-block" in props)
+  const fileLinks = useThreadMarkdownFileLinks()
 
   if (isInline) {
+    const span = codeText(children).trim()
+    const meta =
+      fileLinks.byInlineCode.get(span) ??
+      resolveInlineCodeFileLinkMeta(span, fileLinks.workspaceRoot)
+    if (meta !== null && meta !== undefined) {
+      return (
+        <ThreadMarkdownFileChip
+          meta={meta}
+          parentSuffix={fileLinks.parentSuffixByPath.get(fileLinkSuffixKey(meta))}
+        />
+      )
+    }
     return (
       <code
         className={cn("rounded bg-muted px-1.5 py-0.5 font-mono text-sm", className)}
@@ -65,7 +85,11 @@ export function ThreadMarkdownCode({
   const code = codeText(children)
 
   return (
-    <ThreadMarkdownCodeBlock code={code} title={resolveCodeBlockTitle(fence)}>
+    <ThreadMarkdownCodeBlock
+      code={code}
+      language={resolveCodeBlockLanguage(fence)}
+      fenceTitle={resolveCodeBlockFenceTitle(fence, metastring)}
+    >
       <CodeBlock
         className={className}
         code={code}

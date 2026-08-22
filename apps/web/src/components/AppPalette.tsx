@@ -1,5 +1,10 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router"
-import { LayoutGridIcon, SettingsIcon } from "lucide-react"
+import {
+  LayoutGridIcon,
+  MessageCircleIcon,
+  MessageCirclePlusIcon,
+  SettingsIcon,
+} from "lucide-react"
 import { useCallback, useEffect, useMemo, useState, type ReactElement, type ReactNode } from "react"
 
 import {
@@ -25,10 +30,12 @@ import {
 } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { useControlPlane } from "@/hooks/use-control-plane"
+import { useKeybinding } from "@/hooks/use-keybindings"
 import {
   buildPaletteGroups,
   filterPaletteGroups,
   paletteShortcutIndex,
+  paletteThreadItems,
   parseRecentActionIds,
   type PaletteGroup,
   serializeRecentActionIds,
@@ -62,7 +69,8 @@ const readRecentActionIds = (): ReadonlyArray<string> => {
 export function AppPaletteProvider({ children }: { readonly children: ReactNode }): ReactElement {
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const { lastProjectId } = useControlPlane()
+  const { lastProjectId, threads } = useControlPlane()
+  const threadCreateHotkey = useKeybinding("thread.create")
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [pageActions, setPageActions] = useState<ReadonlyArray<AppPaletteAction>>([])
@@ -138,13 +146,51 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [openSettings])
 
+  const newThreadPath =
+    lastProjectId === undefined ? undefined : `/projects/${lastProjectId}/thread/new`
+
+  const openNewThread = useCallback(() => {
+    if (lastProjectId === undefined) {
+      return
+    }
+    setOpen(false)
+    setQuery("")
+    if (pathname === `/projects/${lastProjectId}/thread/new`) {
+      return
+    }
+    void navigate({
+      to: "/projects/$projectId/thread/$threadId",
+      params: { projectId: lastProjectId, threadId: "new" },
+    })
+  }, [lastProjectId, navigate, pathname])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        isKeybindingRecorderActive() ||
+        !matchesKeybinding(event, "thread.create") ||
+        lastProjectId === undefined ||
+        (!open && document.querySelector('[role="dialog"]') !== null)
+      ) {
+        return
+      }
+      event.preventDefault()
+      openNewThread()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [lastProjectId, open, openNewThread])
+
   const navigationActions = useMemo<ReadonlyArray<AppPaletteAction>>(() => {
     const actions: Array<AppPaletteAction & { readonly path: string }> = [
       {
         id: "navigate.settings",
         label: "Paramètres",
-        searchValue: "Aller aux Paramètres settings apparence providers raccourcis keybindings",
-        path: "/settings/appearance",
+        searchValue:
+          "Aller aux Paramètres settings général apparence providers raccourcis keybindings",
+        path: `/settings/${DEFAULT_SETTINGS_TAB}`,
         icon: <SettingsIcon />,
         execute: openSettings,
       },
@@ -171,22 +217,58 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     })
   }, [lastProjectId, navigate, openSettings, pathname])
 
-  const contextualActions = useMemo(
-    () => pageActions.filter((action) => action.category !== "ticket"),
-    [pageActions],
-  )
+  const contextualActions = useMemo(() => {
+    const pageVerbs = pageActions.filter(
+      (action) => action.category !== "ticket" && action.category !== "thread",
+    )
+    if (lastProjectId === undefined || pathname === newThreadPath) {
+      return pageVerbs
+    }
+    const createThread: AppPaletteAction = {
+      id: "thread.create",
+      label: "Nouveau Thread",
+      searchValue: "Nouveau Thread créer conversation",
+      shortcut: threadCreateHotkey,
+      icon: <MessageCirclePlusIcon />,
+      execute: openNewThread,
+    }
+    return [createThread, ...pageVerbs]
+  }, [lastProjectId, newThreadPath, openNewThread, pageActions, pathname, threadCreateHotkey])
   const ticketActions = useMemo(
     () => pageActions.filter((action) => action.category === "ticket"),
     [pageActions],
   )
+  const threadActions = useMemo<ReadonlyArray<AppPaletteAction>>(
+    () =>
+      paletteThreadItems(threads, lastProjectId).map((thread) => ({
+        id: thread.id,
+        label: thread.label,
+        searchValue: thread.searchValue,
+        category: "thread" as const,
+        icon: <MessageCircleIcon />,
+        execute: () => {
+          if (lastProjectId === undefined) {
+            return
+          }
+          void navigate({
+            to: "/projects/$projectId/thread/$threadId",
+            params: { projectId: lastProjectId, threadId: thread.threadId },
+          })
+        },
+      })),
+    [lastProjectId, navigate, threads],
+  )
   const groups = useMemo(() => {
     const baseGroups = buildPaletteGroups(contextualActions, navigationActions, recentActionIds)
-    const searchableGroups: ReadonlyArray<PaletteGroup<AppPaletteAction>> =
-      query.trim() === "" || ticketActions.length === 0
-        ? baseGroups
-        : [...baseGroups, { id: "tickets", label: "Tickets", items: ticketActions }]
+    const searchableGroups: Array<PaletteGroup<AppPaletteAction>> = [...baseGroups]
+    if (query.trim() !== "" && ticketActions.length > 0) {
+      searchableGroups.push({ id: "tickets", label: "Tickets", items: ticketActions })
+    }
+    if (query.trim() !== "" && threadActions.length > 0) {
+      searchableGroups.push({ id: "threads", label: "Threads", items: threadActions })
+    }
     return filterPaletteGroups(searchableGroups, query)
-  }, [contextualActions, navigationActions, query, recentActionIds, ticketActions])
+  }, [contextualActions, navigationActions, query, recentActionIds, threadActions, ticketActions])
   const numberedActions = useMemo(
     () => groups.flatMap((group) => group.items).slice(0, 9),
     [groups],
@@ -206,7 +288,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   const executeAction = useCallback((action: AppPaletteAction): void => {
     setOpen(false)
     setQuery("")
-    if (action.category !== "ticket") {
+    if (action.category !== "ticket" && action.category !== "thread") {
       setRecentActionIds((current) => updateRecentActionIds(current, action.id))
     }
     void action.execute()
@@ -254,7 +336,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
           <CommandDialogPrimitive.Title className="sr-only">Palette</CommandDialogPrimitive.Title>
           <CommandPanel>
             <Command filter={null} items={groups} value={query} onValueChange={setQuery}>
-              <CommandInput placeholder="Rechercher une action, une page ou un ticket…" />
+              <CommandInput placeholder="Rechercher une action, une page, un ticket ou un Thread…" />
               <CommandEmpty>Aucun résultat.</CommandEmpty>
               <CommandList>
                 {(group) => (
@@ -272,8 +354,10 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
                             {action.icon}
                           </span>
                           <span className="truncate">{action.label}</span>
-                          {shortcutByActionId.has(action.id) ? (
-                            <CommandShortcut hotkey={shortcutByActionId.get(action.id)!} />
+                          {action.shortcut !== undefined || shortcutByActionId.has(action.id) ? (
+                            <CommandShortcut
+                              hotkey={action.shortcut ?? shortcutByActionId.get(action.id)!}
+                            />
                           ) : null}
                         </CommandItem>
                       )}

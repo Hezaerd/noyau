@@ -10,6 +10,7 @@ import {
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
+import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import { useControlPlane } from "@/hooks/use-control-plane"
@@ -22,6 +23,7 @@ import {
   interruptTurn as interruptTurnAction,
   respondToApproval as respondToApprovalAction,
   respondToUserInput as respondToUserInputAction,
+  setThreadModelSelection as setThreadModelSelectionAction,
   submitTurn as submitTurnAction,
 } from "@/lib/thread-page-actions"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
@@ -30,9 +32,10 @@ interface ThreadPageProps {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
   readonly onCreated: (threadId: ThreadId) => void
+  readonly onSelectProject: (projectId: ProjectId) => void
 }
 
-export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) {
+export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
   const { cursor, projects } = useControlPlane()
   const project = projects.find((candidate) => candidate.id === projectId)
   const [snapshot, setSnapshot] = useState<ThreadSnapshot>()
@@ -54,8 +57,11 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
       setSubscriptionStatus(undefined)
       return
     }
+    setSnapshot(undefined)
     setLoading(true)
     setSubscriptionStatus(undefined)
+    setRuntimeMode("full-access")
+    setModelSelection(null)
     return subscribeThread(threadId, undefined, {
       onSnapshot: (next) => {
         setSnapshot(next)
@@ -80,6 +86,9 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
         }
         if (event._tag === "thread.runtime-mode-set") {
           setRuntimeMode(event.runtimeMode)
+        }
+        if (event._tag === "thread.model-selection-set") {
+          setModelSelection(event.modelSelection)
         }
       },
       onStatus: (status) => {
@@ -181,6 +190,29 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
     )
   }
 
+  const changeModelSelection = (nextSelection: ModelSelection | null) => {
+    setModelSelection(nextSelection)
+    setComposerFailure(undefined)
+    if (threadId === undefined) {
+      return
+    }
+    void setThreadModelSelectionAction({ threadId, modelSelection: nextSelection }).then(
+      (result) => {
+        if (!result.ok) {
+          setComposerFailure(
+            presentFailure(result.failure, {
+              operation: "thread.model-selection.set",
+              scope: "field",
+              initiatedByUser: true,
+              hasUsableData: snapshot !== undefined,
+            }),
+          )
+        }
+        return undefined
+      },
+    )
+  }
+
   const respondToApproval = (requestId: string, decision: "accept" | "decline") => {
     if (threadId === undefined) {
       return
@@ -252,68 +284,88 @@ export function ThreadPage({ projectId, threadId, onCreated }: ThreadPageProps) 
   }
 
   const transcriptFailure = streamPresentation ?? actionFailure
+  const isNewThread = threadId === undefined
+  const composerError = composerFailure ?? (isNewThread ? actionFailure : undefined)
+  const transcriptError =
+    transcriptFailure === undefined ? undefined : transcriptFailure.surface === "banner" ? (
+      <ScopeBanner presentation={transcriptFailure} />
+    ) : (
+      <InlineFailure presentation={transcriptFailure} />
+    )
+  const composer = (
+    <ThreadComposer
+      isRunning={isRunning}
+      disabled={loading || project?.available !== true || !cursorReady}
+      text={text}
+      runtimeMode={runtimeMode}
+      models={cursor?.models ?? []}
+      modelSelection={modelSelection}
+      placement={isNewThread ? "hero" : "docked"}
+      error={
+        composerError === undefined ? undefined : (
+          <InlineFailure className="text-xs" presentation={composerError} />
+        )
+      }
+      onSubmit={submitTurn}
+      onTextChange={(value) => {
+        setText(value)
+        setComposerFailure(undefined)
+      }}
+      onRuntimeModeChange={setRuntimeMode}
+      onModelSelectionChange={changeModelSelection}
+      onPaste={rejectImages}
+      onDrop={rejectImages}
+      onInterrupt={() => interruptTurn()}
+    />
+  )
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <ThreadTranscript
-          transcript={snapshot?.transcript ?? []}
-          isRunning={isRunning}
-          loading={loading}
-          error={
-            transcriptFailure === undefined ? undefined : transcriptFailure.surface === "banner" ? (
-              <ScopeBanner presentation={transcriptFailure} />
-            ) : (
-              <InlineFailure presentation={transcriptFailure} />
-            )
-          }
-          notices={
-            threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (
-              <ThreadStatusNotices
-                session={snapshot?.session}
-                latestTurn={snapshot?.thread.latestTurn}
-              />
-            ) : null
-          }
-          answerByRequest={answerByRequest}
-          onAnswerChange={(requestId, value) => {
-            setAnswerByRequest((current) => ({
-              ...current,
-              [requestId]: value,
-            }))
-          }}
-          onRespondApproval={(requestId, decision) => {
-            respondToApproval(requestId, decision)
-          }}
-          onRespondUserInput={(requestId) => {
-            respondToUserInput(requestId)
-          }}
-        />
-      </div>
-
-      <ThreadComposer
-        isRunning={isRunning}
-        disabled={project?.available !== true || !cursorReady}
-        text={text}
-        runtimeMode={runtimeMode}
-        models={cursor?.models ?? []}
-        modelSelection={modelSelection}
-        error={
-          composerFailure === undefined ? undefined : (
-            <InlineFailure className="text-xs" presentation={composerFailure} />
-          )
-        }
-        onSubmit={submitTurn}
-        onTextChange={(value) => {
-          setText(value)
-          setComposerFailure(undefined)
-        }}
-        onRuntimeModeChange={setRuntimeMode}
-        onModelSelectionChange={setModelSelection}
-        onPaste={rejectImages}
-        onDrop={rejectImages}
-        onInterrupt={() => interruptTurn()}
-      />
+      {isNewThread ? (
+        <ThreadDraftHero
+          projectName={project?.name}
+          projects={projects}
+          selectedProjectId={projectId}
+          onSelectProject={onSelectProject}
+        >
+          {composer}
+        </ThreadDraftHero>
+      ) : (
+        <>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ThreadTranscript
+              transcript={snapshot?.transcript ?? []}
+              isRunning={isRunning}
+              loading={loading}
+              workspaceRoot={project?.workspaceRoot}
+              projectId={projectId}
+              error={transcriptError}
+              notices={
+                threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (
+                  <ThreadStatusNotices
+                    session={snapshot?.session}
+                    latestTurn={snapshot?.thread.latestTurn}
+                  />
+                ) : null
+              }
+              answerByRequest={answerByRequest}
+              onAnswerChange={(requestId, value) => {
+                setAnswerByRequest((current) => ({
+                  ...current,
+                  [requestId]: value,
+                }))
+              }}
+              onRespondApproval={(requestId, decision) => {
+                respondToApproval(requestId, decision)
+              }}
+              onRespondUserInput={(requestId) => {
+                respondToUserInput(requestId)
+              }}
+            />
+          </div>
+          {composer}
+        </>
+      )}
     </main>
   )
 }

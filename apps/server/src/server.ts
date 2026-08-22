@@ -10,6 +10,7 @@ import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 
 import { ServerConfig, serverConfigLayer } from "./config.ts"
 import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
+import { discordPresenceLayer } from "./discord/ipc.ts"
 import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
 import { mcpHttpServerLayer } from "./mcp/mcp-http-server.ts"
 import { mcpSessionRegistryLayer } from "./mcp/mcp-session-registry.ts"
@@ -167,6 +168,7 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),
+  Layer.provide(discordPresenceLayer),
   Layer.provideMerge(
     mcpSessionRegistryLayer.pipe(
       Layer.provide(

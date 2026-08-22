@@ -7,9 +7,16 @@ import { fileURLToPath } from "node:url"
 import { Config, Effect, FileSystem, Option, Schema, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
+import {
+  MAC_BUNDLE_ICON_FILE,
+  resolveAppIconPath,
+  resolveMacBundleIconPath,
+  resolveMacBundleStockIconPath,
+} from "./app-icon.ts"
+
 const APP_BASE_NAME = "Noyau"
 const PRODUCTION_BUNDLE_ID = "dev.noyau.desktop"
-const LAUNCHER_VERSION = 1
+const LAUNCHER_VERSION = 3
 const hostPlatform = NodeOS.platform()
 
 class LauncherError extends Schema.TaggedError<LauncherError>()("LauncherError", {
@@ -22,6 +29,8 @@ const LauncherMetadata = Schema.Struct({
   sourceAppMtimeMs: Schema.Finite,
   appBundleId: Schema.String,
   displayName: Schema.String,
+  appIconPath: Schema.String,
+  appIconMtimeMs: Schema.Finite,
 })
 const decodeLauncherMetadata = Schema.decodeUnknownEffect(Schema.fromJsonString(LauncherMetadata))
 const encodeLauncherMetadata = Schema.encodeEffect(Schema.fromJsonString(LauncherMetadata))
@@ -110,6 +119,10 @@ const setPlistString = Effect.fn("setPlistString")(function* (
   })
 })
 
+const deletePlistKey = Effect.fn("deletePlistKey")(function* (plistPath: string, key: string) {
+  yield* collectProcessOutput("plutil", ["-remove", key, plistPath])
+})
+
 const patchMainBundleInfoPlist = Effect.fn("patchMainBundleInfoPlist")(function* (
   appBundlePath: string,
   displayName: string,
@@ -119,6 +132,8 @@ const patchMainBundleInfoPlist = Effect.fn("patchMainBundleInfoPlist")(function*
   yield* setPlistString(infoPlistPath, "CFBundleDisplayName", displayName)
   yield* setPlistString(infoPlistPath, "CFBundleName", displayName)
   yield* setPlistString(infoPlistPath, "CFBundleIdentifier", bundleId)
+  yield* setPlistString(infoPlistPath, "CFBundleIconFile", MAC_BUNDLE_ICON_FILE)
+  yield* deletePlistKey(infoPlistPath, "CFBundleIconName")
 })
 
 const patchHelperBundleInfoPlists = Effect.fn("patchHelperBundleInfoPlists")(function* (
@@ -191,6 +206,37 @@ const copyAppBundle = Effect.fn("copyAppBundle")(function* (
   }
 })
 
+const fileMtimeMs = Effect.fn("fileMtimeMs")(function* (filePath: string) {
+  const fs = yield* FileSystem.FileSystem
+  const stat = yield* fs.stat(filePath)
+  return Option.match(stat.mtime, {
+    onNone: () => 0,
+    onSome: (mtime) => mtime.getTime(),
+  })
+})
+
+const installAppIcon = Effect.fn("installAppIcon")(function* (
+  appBundlePath: string,
+  iconPath: string,
+) {
+  const fs = yield* FileSystem.FileSystem
+  if (!(yield* fs.exists(iconPath))) {
+    return yield* new LauncherError({
+      message: `Missing app icon at ${iconPath}. Run bun run export-app-icon from apps/desktop.`,
+    })
+  }
+
+  for (const targetIconPath of [
+    resolveMacBundleIconPath(appBundlePath),
+    resolveMacBundleStockIconPath(appBundlePath),
+  ]) {
+    if (yield* fs.exists(targetIconPath)) {
+      yield* fs.remove(targetIconPath)
+    }
+    yield* fs.copyFile(iconPath, targetIconPath)
+  }
+})
+
 const buildMacLauncher = Effect.fn("buildMacLauncher")(function* (
   electronBinaryPath: string,
   isDevelopment: boolean,
@@ -206,17 +252,22 @@ const buildMacLauncher = Effect.fn("buildMacLauncher")(function* (
 
   yield* fs.makeDirectory(runtimeDir, { recursive: true })
 
-  const sourceStat = yield* fs.stat(sourceAppBundlePath)
-  const sourceAppMtimeMs = Option.match(sourceStat.mtime, {
-    onNone: () => 0,
-    onSome: (mtime) => mtime.getTime(),
-  })
+  const appIconPath = resolveAppIconPath(desktopDir, isDevelopment)
+  if (!(yield* fs.exists(appIconPath))) {
+    return yield* new LauncherError({
+      message: `Missing app icon at ${appIconPath}. Run bun run export-app-icon from apps/desktop.`,
+    })
+  }
+  const sourceAppMtimeMs = yield* fileMtimeMs(sourceAppBundlePath)
+  const appIconMtimeMs = yield* fileMtimeMs(appIconPath)
   const expectedMetadata = {
     launcherVersion: LAUNCHER_VERSION,
     sourceAppBundlePath,
     sourceAppMtimeMs,
     appBundleId: bundleId,
     displayName,
+    appIconPath,
+    appIconMtimeMs,
   }
   const currentMetadata = yield* readJson(metadataPath)
   const currentEncoded = Option.isSome(currentMetadata)
@@ -236,6 +287,7 @@ const buildMacLauncher = Effect.fn("buildMacLauncher")(function* (
   yield* copyAppBundle(sourceAppBundlePath, targetAppBundlePath)
   yield* patchMainBundleInfoPlist(targetAppBundlePath, displayName, bundleId)
   yield* patchHelperBundleInfoPlists(targetAppBundlePath, displayName, bundleId)
+  yield* installAppIcon(targetAppBundlePath, appIconPath)
   yield* fs.writeFileString(metadataPath, `${yield* encodeLauncherMetadata(expectedMetadata)}\n`)
   yield* registerMacLauncherBundle(targetAppBundlePath)
 

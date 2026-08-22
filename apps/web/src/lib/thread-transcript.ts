@@ -478,6 +478,20 @@ export const applyThreadEnvelope = (
         transcript: snapshot.transcript,
       })
     }
+    case "thread.model-selection-set": {
+      if (event.threadId !== snapshot.thread.id) {
+        return withEnvelope(snapshot, envelope, snapshot)
+      }
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, {
+          modelSelection: event.modelSelection,
+          updatedAt: envelope.occurredAt,
+        }),
+        session: snapshot.session,
+        turns: snapshot.turns,
+        transcript: snapshot.transcript,
+      })
+    }
     case "approval.responded":
       return withEnvelope(snapshot, envelope, {
         session: snapshot.session,

@@ -4,17 +4,20 @@ import { LayoutGridIcon, MessageCirclePlusIcon } from "lucide-react"
 
 import { ThreadSidebarItem } from "@/components/sidebar/ThreadSidebarItem"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
+import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 
 export function ProjectSidebarItem({
   project,
   threads,
   pathname,
+  createThreadHotkey,
   onSelect,
 }: {
   readonly project: ProjectShell
   readonly threads: ReadonlyArray<ThreadShell>
   readonly pathname: string
+  readonly createThreadHotkey: string
   readonly onSelect: () => void
 }) {
   return (
@@ -43,11 +46,22 @@ export function ProjectSidebarItem({
           />
         }
         isActive={pathname === `/projects/${project.id}/thread/new`}
-        tooltip="Nouveau Thread"
+        tooltip={{
+          children: (
+            <span className="inline-flex items-center gap-1.5">
+              Nouveau Thread
+              <KeyboardShortcut hotkey={createThreadHotkey} />
+            </span>
+          ),
+        }}
         className="mt-1 h-8 pl-8 text-sidebar-foreground/58"
       >
         <MessageCirclePlusIcon />
         <span>Nouveau Thread</span>
+        <KeyboardShortcut
+          hotkey={createThreadHotkey}
+          className="ml-auto group-data-[collapsible=icon]:hidden"
+        />
       </SidebarMenuButton>
       <ThreadSidebarSection
         threads={threads.filter((thread) => thread.status === "active")}

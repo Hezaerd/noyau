@@ -7,9 +7,44 @@ export interface PaletteItem {
 }
 
 export interface PaletteGroup<TItem extends PaletteItem> {
-  readonly id: "recents" | "actions" | "navigation" | "tickets"
-  readonly label: "Récents" | "Actions" | "Navigation" | "Tickets"
+  readonly id: "recents" | "actions" | "navigation" | "tickets" | "threads"
+  readonly label: "Récents" | "Actions" | "Navigation" | "Tickets" | "Threads"
   readonly items: ReadonlyArray<TItem>
+}
+
+export interface PaletteThreadSource {
+  readonly id: string
+  readonly title: string
+  readonly projectId: string
+  readonly status: string
+}
+
+export interface PaletteThreadItem {
+  readonly id: string
+  readonly threadId: string
+  readonly label: string
+  readonly searchValue: string
+}
+
+export const paletteThreadItems = (
+  threads: ReadonlyArray<PaletteThreadSource>,
+  projectId: string | undefined,
+): ReadonlyArray<PaletteThreadItem> => {
+  if (projectId === undefined) {
+    return []
+  }
+  return threads.flatMap((thread) =>
+    thread.projectId === projectId && thread.status === "active"
+      ? [
+          {
+            id: `thread.open.${thread.id}`,
+            threadId: thread.id,
+            label: thread.title,
+            searchValue: thread.title,
+          },
+        ]
+      : [],
+  )
 }
 
 export interface SearchablePaletteItem extends PaletteItem {

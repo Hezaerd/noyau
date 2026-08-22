@@ -1,5 +1,13 @@
 import { defineConfig } from "vite-plus"
 
+import { desktopPackNeverBundle, isDesktopAlwaysBundled } from "./scripts/desktop-pack-deps.ts"
+
+const desktopPackDeps = {
+  // Effect / @noyau dans l'artefact : le .app packagé n'embarque pas node_modules.
+  alwaysBundle: isDesktopAlwaysBundled,
+  neverBundle: [...desktopPackNeverBundle],
+}
+
 export default defineConfig({
   run: {
     tasks: {
@@ -15,6 +23,21 @@ export default defineConfig({
         command: "vp pack --watch",
         cache: false,
       },
+      "package:mac": {
+        command: "node scripts/package-desktop.ts --mac --dir --skip-build",
+        dependsOn: ["build"],
+        cache: false,
+      },
+      "package:mac:dmg": {
+        command: "node scripts/package-desktop.ts --mac --dmg --skip-build",
+        dependsOn: ["build"],
+        cache: false,
+      },
+      "package:win": {
+        command: "node scripts/package-desktop.ts --win --dir --skip-build",
+        dependsOn: ["build"],
+        cache: false,
+      },
     },
   },
   pack: [
@@ -25,9 +48,7 @@ export default defineConfig({
       outExtensions: () => ({ js: ".cjs" }),
       sourcemap: true,
       clean: true,
-      deps: {
-        alwaysBundle: (id: string) => id === "@noyau/protocol" || id.startsWith("@noyau/protocol/"),
-      },
+      deps: desktopPackDeps,
     },
     {
       entry: ["src/preload.ts"],
@@ -35,6 +56,7 @@ export default defineConfig({
       outDir: "dist-electron",
       outExtensions: () => ({ js: ".cjs" }),
       sourcemap: true,
+      deps: desktopPackDeps,
     },
   ],
   test: {

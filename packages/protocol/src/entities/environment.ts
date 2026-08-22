@@ -23,13 +23,32 @@ export type Provider = (typeof Provider)["Type"]
 export const CursorReasoningEffort = Schema.Struct({
   value: Schema.NonEmptyString,
   label: Schema.NonEmptyString,
+  description: Schema.optionalKey(Schema.NonEmptyString),
+  isDefault: Schema.optionalKey(Schema.Boolean),
 })
 export type CursorReasoningEffort = (typeof CursorReasoningEffort)["Type"]
+
+export const CursorServiceTier = Schema.Struct({
+  value: Schema.NonEmptyString,
+  label: Schema.NonEmptyString,
+  description: Schema.optionalKey(Schema.NonEmptyString),
+  isDefault: Schema.optionalKey(Schema.Boolean),
+})
+export type CursorServiceTier = (typeof CursorServiceTier)["Type"]
+
+export const CursorThinkingOption = Schema.Struct({
+  label: Schema.NonEmptyString,
+  description: Schema.optionalKey(Schema.NonEmptyString),
+  defaultValue: Schema.optionalKey(Schema.Boolean),
+})
+export type CursorThinkingOption = (typeof CursorThinkingOption)["Type"]
 
 export const CursorModel = Schema.Struct({
   modelId: Schema.NonEmptyString,
   label: Schema.NonEmptyString,
   reasoningEfforts: Schema.Array(CursorReasoningEffort),
+  serviceTiers: Schema.Array(CursorServiceTier),
+  thinking: Schema.optionalKey(CursorThinkingOption),
 })
 export type CursorModel = (typeof CursorModel)["Type"]
 

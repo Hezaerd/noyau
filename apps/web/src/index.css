@@ -18,20 +18,20 @@
 }
 
 .thread-markdown-codeblock {
-  border-color: color-mix(in srgb, #ffffff 10%, transparent);
-  background-color: #1a1a22;
-  color: #d4d4dc;
+  border-color: var(--border);
+  background-color: var(--code);
+  color: var(--code-foreground);
 }
 
 .thread-markdown-codeblock-header,
 .thread-markdown-codeblock-action {
-  color: color-mix(in srgb, #d4d4dc 72%, transparent);
+  color: var(--muted-foreground);
 }
 
 .thread-markdown-codeblock-action:hover,
 .thread-markdown-codeblock-action[aria-pressed="true"] {
-  background-color: color-mix(in srgb, #ffffff 8%, transparent);
-  color: #d4d4dc;
+  background-color: var(--code-highlight);
+  color: var(--code-foreground);
 }
 
 .thread-markdown-codeblock [data-streamdown="code-block"] {
@@ -160,8 +160,8 @@
 }
 
 .electron-macos {
-  /* Electron's hiddenInset traffic-light group occupies the left 160px. */
-  --desktop-controls-left: 168px;
+  /* hiddenInset traffic lights at x=16 plus the 12×3 / 8×2 group. */
+  --desktop-controls-left: 90px;
 }
 
 .wco {
@@ -173,20 +173,6 @@
 
 .electron-windows {
   --desktop-window-right-resize-inset: 6px;
-}
-
-[data-desktop-sidebar-titlebar] {
-  padding-left: var(--desktop-titlebar-content-left);
-}
-
-[data-sidebar-state="collapsed"] [data-desktop-page-titlebar] {
-  padding-left: var(--desktop-titlebar-content-left);
-}
-
-@media (width < 48rem) {
-  [data-desktop-page-titlebar] {
-    padding-left: var(--desktop-titlebar-content-left);
-  }
 }
 
 .wco [data-desktop-page-titlebar] {

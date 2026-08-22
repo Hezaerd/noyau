@@ -6,6 +6,8 @@ import { useBrandGaze } from "@/hooks/use-brand-gaze"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { resolveAppearance } from "@/lib/appearance"
 import { BRAND_BLOBATAR_NAME, brandBlobatarPalette } from "@/lib/brand-blobatar"
+import { SIDEBAR_TITLEBAR_INSET_CLASS } from "@/lib/desktop-titlebar"
+import { cn } from "@/lib/utils"
 
 function BrandBlobatar(): ReactElement {
   const hostRef = useRef<HTMLSpanElement>(null)
@@ -30,7 +32,10 @@ function BrandBlobatar(): ReactElement {
 export function SidebarBrandTitlebar(): ReactElement {
   return (
     <div
-      className="drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center gap-2 border-b border-sidebar-border/70 px-3"
+      className={cn(
+        "drag-region flex h-(--desktop-titlebar-height) shrink-0 items-center gap-2 border-b border-sidebar-border/70 pr-3",
+        SIDEBAR_TITLEBAR_INSET_CLASS,
+      )}
       data-desktop-sidebar-titlebar=""
     >
       <BrandBlobatar />

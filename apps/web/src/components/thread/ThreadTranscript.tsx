@@ -1,4 +1,5 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import type { ProjectId } from "@noyau/protocol/ids"
 import { ArrowDownIcon } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 
@@ -24,6 +25,8 @@ export function ThreadTranscript({
   loading,
   error,
   notices,
+  workspaceRoot,
+  projectId,
   answerByRequest,
   onAnswerChange,
   onRespondApproval,
@@ -34,6 +37,8 @@ export function ThreadTranscript({
   readonly loading: boolean
   readonly error: ReactNode
   readonly notices: ReactNode
+  readonly workspaceRoot?: string | undefined
+  readonly projectId?: ProjectId | undefined
   readonly answerByRequest: Record<string, string>
   readonly onAnswerChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
@@ -81,6 +86,8 @@ export function ThreadTranscript({
                   <ThreadTranscriptItem
                     item={row.item}
                     streaming={isRunning && row.item === lastAssistant}
+                    workspaceRoot={workspaceRoot}
+                    projectId={projectId}
                     answer={
                       row.item._tag === "transcript.user-input"
                         ? (answerByRequest[row.item.requestId] ?? "")

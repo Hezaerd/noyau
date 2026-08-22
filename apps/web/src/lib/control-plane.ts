@@ -3,6 +3,7 @@ import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/protocol/errors"
 import type { EventEnvelope } from "@noyau/protocol/events"
+import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
 import type { ProjectId, Sequence } from "@noyau/protocol/ids"
 import type { DispatchResult } from "@noyau/protocol/receipts"
 import {
@@ -12,7 +13,7 @@ import {
   type ShellStreamItem,
   type ThreadStreamItem,
 } from "@noyau/protocol/rpc"
-import type { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
+import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import type { Cause } from "effect"
 import { Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Option, Stream } from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
@@ -189,6 +190,28 @@ export const loadThreadSnapshot = (
 export const dispatchCommand = (
   request: ClientCommandRequest,
 ): Promise<ControlPlaneResult<DispatchResult>> => runOperation(dispatch(request), "command")
+
+const reportShellFocus = Effect.fn("ControlPlaneClient.setShellFocus")(function* (
+  input: SetShellFocusInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.setShellFocus](input)
+})
+
+export const setShellFocus = (
+  input: SetShellFocusInput,
+): Promise<ControlPlaneResult<Record<never, never>>> =>
+  runOperation(reportShellFocus(input), "command")
+
+const requestPreviewFile = Effect.fn("ControlPlaneClient.previewFile")(function* (
+  input: PreviewFileInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.previewFile](input)
+})
+
+export const previewFile = (input: PreviewFileInput): Promise<ControlPlaneResult<FilePreview>> =>
+  runOperation(requestPreviewFile(input), "command")
 
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,

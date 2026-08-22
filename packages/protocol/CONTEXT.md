@@ -30,8 +30,9 @@ _À éviter_ : EventCursor, offset SQL, position WebSocket
 _À éviter_ : cwdLastBound, ProviderBinding
 
 **modelSelection**:
-Préférence durable d'un Thread pour un modèle Provider et son `reasoningEffort`. `null` demande le
-choix automatique du Provider.
+Préférence durable d'un Thread pour un modèle Provider, son `reasoningEffort` et, si disponibles,
+son `serviceTier` et son option `thinking`. Sa modification est durable indépendamment du
+démarrage d'un Turn ; `null` demande le choix automatique du Provider.
 _À éviter_ : modèle actif garanti, catalogue de modèles
 
 **TicketThread**:
@@ -53,3 +54,13 @@ _À éviter_ : Channel, historique de Message
 **TicketActivity**:
 Suite bornée des faits autoritatifs liés à un Ticket, distincte du transcript d'un Thread.
 _À éviter_ : Thread, commentaire
+
+**ShellFocus**:
+Vue UI volatile du renderer (Tableau ou Thread d'un Project). Elle traverse le RPC et n'entre
+pas dans le journal.
+_À éviter_ : Command, présence, current route
+
+**FilePreview**:
+Aperçu borné d'un fichier sous le WorkspaceRoot d'un Project (`text` | `image` | `unsupported`).
+Lecture RPC, pas une Command, pas un fait du journal.
+_À éviter_ : pièce jointe, FilePreviewPanel, lecture hors sandbox

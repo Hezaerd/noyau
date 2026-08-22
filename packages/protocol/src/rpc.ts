@@ -8,9 +8,11 @@ import {
   ServiceUnavailable,
 } from "@noyau/protocol/errors"
 import { EventEnvelope } from "@noyau/protocol/events"
+import { FilePreview, FilePreviewFailed, PreviewFileInput } from "@noyau/protocol/file-preview"
 import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/protocol/ids"
+import { ProjectNotFound } from "@noyau/protocol/project/errors"
 import { DispatchResult, Rejection } from "@noyau/protocol/receipts"
-import { ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
+import { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import { Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/unstable/rpc"
 
@@ -28,6 +30,8 @@ export const RPC_METHODS = {
   subscribeShell: "orchestration.subscribeShell",
   subscribeProject: "orchestration.subscribeProject",
   subscribeThread: "orchestration.subscribeThread",
+  setShellFocus: "orchestration.setShellFocus",
+  previewFile: "workspace.previewFile",
   getConfig: "server.getConfig",
   probe: "server.probe",
 } as const
@@ -138,6 +142,18 @@ export const SubscribeThread = Rpc.make(RPC_METHODS.subscribeThread, {
   stream: true,
 })
 
+export const SetShellFocus = Rpc.make(RPC_METHODS.setShellFocus, {
+  payload: SetShellFocusInput,
+  success: Schema.Struct({}),
+  error: ServiceUnavailable,
+})
+
+export const PreviewFile = Rpc.make(RPC_METHODS.previewFile, {
+  payload: PreviewFileInput,
+  success: FilePreview,
+  error: Schema.Union([ProjectNotFound, FilePreviewFailed, ServiceUnavailable]),
+})
+
 /** Contrat unique client/serveur du control plane sur WebSocket. */
 export const ControlPlaneRpcs = RpcGroup.make(
   DispatchCommand,
@@ -146,6 +162,8 @@ export const ControlPlaneRpcs = RpcGroup.make(
   SubscribeShell,
   SubscribeProject,
   SubscribeThread,
+  SetShellFocus,
+  PreviewFile,
 ).middleware(NoyauRpcIdentity)
 
 export type ControlPlaneRpcs = typeof ControlPlaneRpcs

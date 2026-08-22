@@ -8,7 +8,7 @@ import { type DrainableWorker, makeDrainableWorker } from "@noyau/database/drain
 import { memoryLayer } from "@noyau/database/sqlite"
 import { CommandIdConflict } from "@noyau/protocol/errors"
 import { ActorId, CommandId, CorrelationId, ProjectId, SchemaVersion } from "@noyau/protocol/ids"
-import { Crypto, Effect, Fiber, Layer, Option, Result, Schema, Stream } from "effect"
+import { Crypto, Effect, Fiber, Layer, PubSub, Result, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 const CounterCommand = Schema.TaggedStruct("counter.change", {
@@ -201,8 +201,8 @@ describe("durable command worker", () => {
           )
           const decisions = { count: 0 }
           const worker = yield* makeCommandWorker(makeOptions(reactor, decisions))
-          const published = yield* Stream.runHead(worker.streamEvents).pipe(Effect.forkScoped)
-          yield* Effect.yieldNow
+          const eventSubscription = yield* worker.subscribeEvents
+          const published = yield* PubSub.take(eventSubscription).pipe(Effect.forkScoped)
 
           const receipts = yield* Effect.all(
             [
@@ -222,7 +222,7 @@ describe("durable command worker", () => {
           assert.strictEqual(yield* projectionValue("shared"), 3)
           assert.strictEqual(yield* worker.readModel({ kind: "counter", id: "shared" }), 3)
           assert.deepStrictEqual(reactedValues, [1, 3])
-          assert.strictEqual(Option.getOrUndefined(yield* Fiber.join(published))?.sequence, 1)
+          assert.strictEqual((yield* Fiber.join(published)).sequence, 1)
         }),
       ),
     )

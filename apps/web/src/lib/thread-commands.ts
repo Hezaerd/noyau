@@ -12,6 +12,7 @@ import {
   ThreadArchiveRequest,
   ThreadCreateRequest,
   ThreadMetaUpdateRequest,
+  ThreadModelSelectionSetRequest,
   ThreadRuntimeModeSetRequest,
   ThreadTurnInterruptRequest,
   ThreadTurnStartRequest,
@@ -159,6 +160,16 @@ export const makeThreadRuntimeModeSetRequest = Effect.fnUntraced(function* (inpu
   })
 })
 
+export const makeThreadModelSelectionSetRequest = Effect.fnUntraced(function* (input: {
+  readonly threadId: ThreadId
+  readonly modelSelection: ModelSelection | null
+}) {
+  return ThreadModelSelectionSetRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
+  })
+})
+
 export const makeApprovalRespondRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
   readonly requestId: ApprovalRequestId
@@ -199,12 +210,12 @@ export const runtimeModes = [
   {
     value: "auto",
     label: "Automatique",
-    description: "Laisse Cursor choisir automatiquement.",
+    description: "Approuve les actions courantes quand le provider le permet.",
   },
   {
     value: "full-access",
     label: "Accès complet",
-    description: "Autorise automatiquement les actions Cursor.",
+    description: "Autorise les commandes et les éditions sans confirmation.",
   },
 ] as const satisfies ReadonlyArray<{
   readonly value: RuntimeModeType

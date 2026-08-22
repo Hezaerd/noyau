@@ -219,6 +219,11 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
         session:
           thread.session === null ? null : { ...thread.session, runtimeMode: event.runtimeMode },
       }))
+    case "thread.model-selection-set":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        modelSelection: event.modelSelection,
+      }))
     case "thread.turn.started":
       return updateThread(state, event.threadId, (thread) => {
         if (thread.turns.some((turn) => turn.turnId === event.turnId)) {
