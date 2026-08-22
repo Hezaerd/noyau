@@ -1,3 +1,7 @@
+import type {
+  ProjectAgentIntegration,
+  ProjectAgentIntegrationInput,
+} from "@noyau/protocol/agent-integration"
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -212,6 +216,38 @@ const requestPreviewFile = Effect.fn("ControlPlaneClient.previewFile")(function*
 
 export const previewFile = (input: PreviewFileInput): Promise<ControlPlaneResult<FilePreview>> =>
   runOperation(requestPreviewFile(input), "command")
+
+const requestAgentIntegration = Effect.fn("ControlPlaneClient.projectAgentIntegration")(function* (
+  method:
+    | typeof RPC_METHODS.inspectProjectAgentIntegration
+    | typeof RPC_METHODS.installProjectAgentIntegration
+    | typeof RPC_METHODS.removeProjectAgentIntegration,
+  input: ProjectAgentIntegrationInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[method](input)
+})
+
+export const inspectProjectAgentIntegration = (
+  input: ProjectAgentIntegrationInput,
+): Promise<ControlPlaneResult<ProjectAgentIntegration>> =>
+  runOperation(
+    requestAgentIntegration(RPC_METHODS.inspectProjectAgentIntegration, input),
+    "command",
+  )
+
+export const installProjectAgentIntegration = (
+  input: ProjectAgentIntegrationInput,
+): Promise<ControlPlaneResult<ProjectAgentIntegration>> =>
+  runOperation(
+    requestAgentIntegration(RPC_METHODS.installProjectAgentIntegration, input),
+    "command",
+  )
+
+export const removeProjectAgentIntegration = (
+  input: ProjectAgentIntegrationInput,
+): Promise<ControlPlaneResult<ProjectAgentIntegration>> =>
+  runOperation(requestAgentIntegration(RPC_METHODS.removeProjectAgentIntegration, input), "command")
 
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,

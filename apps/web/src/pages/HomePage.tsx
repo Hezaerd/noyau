@@ -15,7 +15,7 @@ export function HomePage() {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
 
   useEffect(() => {
-    if (shell === undefined || lastProjectId === undefined) {
+    if (shell === undefined || lastProjectId === undefined || linkDialogOpen) {
       return
     }
     if (!projects.some((project) => project.id === lastProjectId)) {
@@ -26,7 +26,7 @@ export function HomePage() {
       to: "/projects/$projectId/board",
       params: { projectId: lastProjectId },
     })
-  }, [lastProjectId, navigate, projects, shell])
+  }, [lastProjectId, linkDialogOpen, navigate, projects, shell])
 
   if (shell === undefined) {
     if (failure !== undefined) {

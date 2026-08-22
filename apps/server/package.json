@@ -7,6 +7,8 @@
     "./config": "./src/config.ts",
     "./control-plane": "./src/control-plane.ts",
     "./file-preview": "./src/file-preview.ts",
+    "./agent-skill/installer": "./src/agent-skill/installer.ts",
+    "./agent-skill/catalog": "./src/agent-skill/catalog.ts",
     "./discord/activity": "./src/discord/activity.ts",
     "./discord/presence": "./src/discord/presence.ts",
     "./discord/ipc": "./src/discord/ipc.ts",
@@ -31,7 +33,8 @@
   "scripts": {
     "dev": "node --watch src/main.ts",
     "start": "node dist/main.mjs",
-    "build": "vp pack",
+    "build": "bun run generate:agent-skill && vp pack",
+    "generate:agent-skill": "bun scripts/generate-agent-skill.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vp test run"
   },

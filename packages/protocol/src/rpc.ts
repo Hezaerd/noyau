@@ -1,3 +1,8 @@
+import {
+  AgentIntegrationFailed,
+  ProjectAgentIntegration,
+  ProjectAgentIntegrationInput,
+} from "@noyau/protocol/agent-integration"
 import { BoardSnapshot } from "@noyau/protocol/board"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -32,6 +37,9 @@ export const RPC_METHODS = {
   subscribeThread: "orchestration.subscribeThread",
   setShellFocus: "orchestration.setShellFocus",
   previewFile: "workspace.previewFile",
+  inspectProjectAgentIntegration: "workspace.inspectProjectAgentIntegration",
+  installProjectAgentIntegration: "workspace.installProjectAgentIntegration",
+  removeProjectAgentIntegration: "workspace.removeProjectAgentIntegration",
   getConfig: "server.getConfig",
   probe: "server.probe",
 } as const
@@ -154,6 +162,30 @@ export const PreviewFile = Rpc.make(RPC_METHODS.previewFile, {
   error: Schema.Union([ProjectNotFound, FilePreviewFailed, ServiceUnavailable]),
 })
 
+const agentIntegrationErrors = Schema.Union([
+  ProjectNotFound,
+  AgentIntegrationFailed,
+  ServiceUnavailable,
+])
+
+export const InspectProjectAgentIntegration = Rpc.make(RPC_METHODS.inspectProjectAgentIntegration, {
+  payload: ProjectAgentIntegrationInput,
+  success: ProjectAgentIntegration,
+  error: Schema.Union([ProjectNotFound, ServiceUnavailable]),
+})
+
+export const InstallProjectAgentIntegration = Rpc.make(RPC_METHODS.installProjectAgentIntegration, {
+  payload: ProjectAgentIntegrationInput,
+  success: ProjectAgentIntegration,
+  error: agentIntegrationErrors,
+})
+
+export const RemoveProjectAgentIntegration = Rpc.make(RPC_METHODS.removeProjectAgentIntegration, {
+  payload: ProjectAgentIntegrationInput,
+  success: ProjectAgentIntegration,
+  error: agentIntegrationErrors,
+})
+
 /** Contrat unique client/serveur du control plane sur WebSocket. */
 export const ControlPlaneRpcs = RpcGroup.make(
   DispatchCommand,
@@ -164,6 +196,9 @@ export const ControlPlaneRpcs = RpcGroup.make(
   SubscribeThread,
   SetShellFocus,
   PreviewFile,
+  InspectProjectAgentIntegration,
+  InstallProjectAgentIntegration,
+  RemoveProjectAgentIntegration,
 ).middleware(NoyauRpcIdentity)
 
 export type ControlPlaneRpcs = typeof ControlPlaneRpcs

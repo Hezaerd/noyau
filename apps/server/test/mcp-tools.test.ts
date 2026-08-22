@@ -114,6 +114,9 @@ const controlPlane = ControlPlane.of({
   hasRunningTurn: Effect.die("unused"),
   setShellFocus: () => Effect.die("unused"),
   previewFile: () => Effect.die("unused"),
+  inspectProjectAgentIntegration: () => Effect.die("unused"),
+  installProjectAgentIntegration: () => Effect.die("unused"),
+  removeProjectAgentIntegration: () => Effect.die("unused"),
   probe: Effect.die("unused"),
   drainReactors: Effect.die("unused"),
 })

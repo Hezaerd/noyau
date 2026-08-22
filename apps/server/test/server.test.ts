@@ -2,6 +2,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { ActorId, EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import { controlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
@@ -49,6 +50,7 @@ const testMcpSessionRegistryLayer = Layer.succeed(McpSessionRegistry)({
 })
 
 const infrastructure = controlPlaneLayer.pipe(
+  Layer.provideMerge(unavailableAgentSkillInstallerLayer),
   Layer.provideMerge(memoryLayer),
   Layer.provideMerge(testServerConfigLayer()),
   Layer.provideMerge(testMcpSessionRegistryLayer),

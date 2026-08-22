@@ -64,3 +64,8 @@ _À éviter_ : Command, présence, current route
 Aperçu borné d'un fichier sous le WorkspaceRoot d'un Project (`text` | `image` | `unsupported`).
 Lecture RPC, pas une Command, pas un fait du journal.
 _À éviter_ : pièce jointe, FilePreviewPanel, lecture hors sandbox
+
+**ProjectAgentIntegration**:
+Constat RPC de l’Intégration agent présente dans le WorkspaceRoot d’un Project. Il décrit un état
+opérationnel recalculé et non une projection durable.
+_À éviter_ : Event, préférence, propriété du Project

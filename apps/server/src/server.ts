@@ -8,6 +8,7 @@ import { Effect, FileSystem, Layer, Path } from "effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 
+import { agentSkillInstallerLayer } from "./agent-skill/installer.ts"
 import { ServerConfig, serverConfigLayer } from "./config.ts"
 import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
 import { discordPresenceLayer } from "./discord/ipc.ts"
@@ -165,6 +166,7 @@ export const nodeServerLayer = Layer.unwrap(
 )
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
+  Layer.provideMerge(agentSkillInstallerLayer.pipe(Layer.provide(Path.layer))),
   Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),

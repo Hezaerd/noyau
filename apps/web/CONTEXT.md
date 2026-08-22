@@ -114,6 +114,11 @@ Runtime agent branché à Noyau. Cursor est le seul Provider réel de la v0.1 ; 
 sont listés dans les Paramètres comme hors v0.1.
 _À éviter_ : modèle, LLM, backend, harnais
 
+**Intégration agent**:
+Configuration facultative d’un Project qui installe le skill Noyau pour aider les agents à
+utiliser son Tableau. Elle reste distincte du Provider et du MCP qui fournit les tools.
+_À éviter_ : Provider, extension, plugin, état du Project
+
 **Préférence**:
 Valeur persistée d'un item du catalogue Paramètres, distincte d'une Command du control plane.
 _À éviter_ : option, config, setting

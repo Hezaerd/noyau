@@ -13,6 +13,7 @@ import {
   WorkspaceRootNotDirectory,
   WorkspaceRootNotFound,
 } from "@noyau/protocol/project/errors"
+import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import {
   ControlPlane,
   makeControlPlaneLayer,
@@ -94,6 +95,7 @@ const controlPlaneTestLayer = (
   workspaceRoots: WorkspaceRootAccessService = availableWorkspaceRoots,
 ) =>
   makeControlPlaneLayer(hooks).pipe(
+    Layer.provideMerge(unavailableAgentSkillInstallerLayer),
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
@@ -106,6 +108,7 @@ const controlPlaneTestLayer = (
 
 const cursorControlPlaneTestLayer = (scenario: string) =>
   makeControlPlaneLayer().pipe(
+    Layer.provideMerge(unavailableAgentSkillInstallerLayer),
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableTextGenerationLayer),

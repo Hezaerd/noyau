@@ -64,6 +64,11 @@ Lecture sandboxée d'un fichier sous le WorkspaceRoot du Project, pour un FilePr
 Pas une Command, pas un fait du journal.
 _À éviter_ : openPath, IPC Desktop, lecture hors WorkspaceRoot
 
+**Intégration agent**:
+Skill portable qui apprend aux agents à employer le MCP Noyau. Son état appartient au
+WorkspaceRoot et se constate sur le filesystem ; ce n’est ni une Command ni une projection.
+_À éviter_ : préférence, événement d’installation, instructions ACP
+
 **DiscordPresence**:
 Activity Discord locale dérivée du ShellFocus. Application Discord distincte selon `NOYAU_ENV`
 (prod / dev). Effet chrome : Discord fermé ne casse jamais une commande.

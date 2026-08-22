@@ -39,6 +39,8 @@ Cible de sortie : macOS et Windows natif. Linux, WSL, client web distribué et m
 - Effect RPC sur WebSocket loopback ([ADR-0003](adr/0003-frontiere-client-effect-rpc-websocket.md)) ;
 - MCP HTTP loopback embarqué pour exposer le Tableau aux agents
   ([ADR-0015](adr/0015-tableau-accessible-aux-agents-par-mcp.md)) ;
+- skill `noyau` installable explicitement dans chaque WorkspaceRoot pour enseigner aux agents les
+  pratiques du Tableau ([ADR-0016](adr/0016-skill-noyau-installe-par-project.md)) ;
 - Cursor ACP local comme unique provider réel ([ADR-0013](adr/0013-session-projetee-et-cursor.md)).
   Le fil de fer ACP est `@noyau/acp` ([ADR-0014](adr/0014-fil-de-fer-acp.md)), pas un port
   multi-harnais.
@@ -112,6 +114,8 @@ Noyau Server possède :
 - l'adaptateur Cursor et les handles des processus spawnés ;
 - le serveur MCP HTTP, ses capacités volatiles bornées et ses toolkits Tableau ;
 - les reactors `TxQueue` pour les effets provider.
+- l’inspection et l’installation explicite de l’Intégration agent dans le WorkspaceRoot, sans en
+  faire un état SQLite.
 
 Il sérialise les décisions sous un worker unique. Il ne fait confiance à aucune métadonnée
 d'acteur fournie par le renderer.
