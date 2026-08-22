@@ -27,6 +27,7 @@ import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { invalidInputFailure } from "@/lib/app-failure"
+import { envModeLockedAfterFirstTurn } from "@/lib/checkout"
 import { writeComposerDraft } from "@/lib/composer-drafts"
 import {
   appendComposerImages,
@@ -404,19 +405,22 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }}
       onInterrupt={() => interruptTurn()}
       searchPaths={searchPaths}
-    />
-  )
-
-  const checkoutBar = (
-    <ThreadCheckoutBar
-      projectId={projectId}
-      threadId={threadId}
-      branch={snapshot === undefined ? null : threadBranchOf(snapshot.thread)}
-      worktreePath={snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)}
-      disabled={loading || project?.available !== true}
-      envMode={envMode}
-      onEnvModeChange={setEnvMode}
-      onBaseBranchChange={setBaseBranch}
+      context={
+        <ThreadCheckoutBar
+          projectId={projectId}
+          threadId={threadId}
+          branch={snapshot === undefined ? null : threadBranchOf(snapshot.thread)}
+          worktreePath={snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)}
+          disabled={loading || project?.available !== true}
+          envMode={envMode}
+          envModeLocked={envModeLockedAfterFirstTurn({
+            latestTurn: snapshot?.thread.latestTurn,
+            isRunning,
+          })}
+          onEnvModeChange={setEnvMode}
+          onBaseBranchChange={setBaseBranch}
+        />
+      }
     />
   )
 
@@ -429,10 +433,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           selectedProjectId={projectId}
           onSelectProject={onSelectProject}
         >
-          <div className="flex flex-col gap-2">
-            {checkoutBar}
-            {composer}
-          </div>
+          {composer}
         </ThreadDraftHero>
       ) : (
         <>
@@ -467,7 +468,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               }}
             />
           </div>
-          {checkoutBar}
           {composer}
         </>
       )}

@@ -16,6 +16,12 @@ export const checkoutOf = (thread: CheckoutThread) => ({
 export const envModeOf = (thread: CheckoutThread): ThreadEnvMode =>
   threadWorktreePathOf(thread) === null ? "local" : "worktree"
 
+/** Après le premier Turn, le checkout est matériel : plus de bascule local/worktree. */
+export const envModeLockedAfterFirstTurn = (input: {
+  readonly latestTurn?: { readonly turnId: string } | null | undefined
+  readonly isRunning?: boolean
+}): boolean => input.latestTurn != null || input.isRunning === true
+
 export const resolveBranchSelectionTarget = (
   ref: Pick<VcsRef, "name" | "isRemote" | "worktreePath">,
   cwd: string,
@@ -42,6 +48,25 @@ export const resolveLocalCheckoutBranchMismatch = (input: {
     return null
   }
   return { previous: input.threadBranch, current: input.liveBranch }
+}
+
+export const branchPickerBadge = (
+  ref: Pick<VcsRef, "current" | "isDefault" | "isRemote" | "worktreePath">,
+  cwd: string,
+): "current" | "default" | "worktree" | "remote" | null => {
+  if (ref.current) {
+    return "current"
+  }
+  if (ref.worktreePath !== null && ref.worktreePath !== cwd) {
+    return "worktree"
+  }
+  if (ref.isRemote) {
+    return "remote"
+  }
+  if (ref.isDefault) {
+    return "default"
+  }
+  return null
 }
 
 export const statusLabel = (status: VcsStatusResult | undefined): string => {

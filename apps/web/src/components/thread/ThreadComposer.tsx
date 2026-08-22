@@ -87,6 +87,7 @@ export function ThreadComposer({
   onImageRemove,
   onInterrupt,
   searchPaths,
+  context,
 }: {
   readonly isRunning: boolean
   readonly disabled: boolean
@@ -107,6 +108,7 @@ export function ThreadComposer({
   readonly onImageRemove: (localId: string) => void
   readonly onInterrupt: () => void
   readonly searchPaths?: (query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>
+  readonly context?: ReactNode
 }) {
   const listboxId = useId()
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
@@ -250,8 +252,9 @@ export function ThreadComposer({
     >
       <div
         className={cn(
-          "relative flex flex-col gap-2",
+          "relative flex flex-col",
           placement === "hero" ? "w-full" : "mx-auto max-w-3xl",
+          context === undefined ? "gap-2" : "gap-0",
         )}
       >
         {pathMenuOpen ? (
@@ -264,7 +267,7 @@ export function ThreadComposer({
             onSelect={insertPathMention}
           />
         ) : null}
-        <InputGroup className="rounded-xl bg-background dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+        <InputGroup className="rounded-xl bg-background shadow-xs/5 dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
           {images.length === 0 ? null : (
             <div className="flex flex-wrap gap-2 px-3 pt-3">
               {images.map((image) => (
@@ -567,7 +570,12 @@ export function ThreadComposer({
             </div>
           </InputGroupAddon>
         </InputGroup>
-        {error === undefined ? null : <div id="thread-composer-error">{error}</div>}
+        {context}
+        {error === undefined ? null : (
+          <div id="thread-composer-error" className={context === undefined ? undefined : "pt-2"}>
+            {error}
+          </div>
+        )}
       </div>
     </form>
   )
