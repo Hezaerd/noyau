@@ -62,14 +62,25 @@ export function ProjectFolderDialog({
   const chooseFolder = () => {
     void pickProjectFolder(
       projectId === undefined ? getProjectFolderStartDirectory() : undefined,
-    ).then((path) => {
-      if (path === undefined) {
+    ).then((result) => {
+      if (!result.ok) {
+        setFailure(
+          presentFailure(result.failure, {
+            operation: "project.folder.pick",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
         return undefined
       }
-      setWorkspaceRoot(path)
+      if (result.value === undefined) {
+        return undefined
+      }
+      setWorkspaceRoot(result.value)
       setFailure(undefined)
       if (name.trim() === "") {
-        setName(folderName(path))
+        setName(folderName(result.value))
       }
       return undefined
     })

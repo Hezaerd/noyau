@@ -1,6 +1,7 @@
 import type { ProjectId } from "@noyau/protocol/ids"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 
+import { invalidInputFailure } from "./app-failure"
 import {
   buildAndDispatchCommand,
   buildCommand,
@@ -9,18 +10,60 @@ import {
 } from "./control-plane"
 import { makeProjectCreateRequest, makeProjectRebindRequest } from "./project-commands"
 
+class DesktopFolderPickerUnavailable extends Schema.TaggedError<DesktopFolderPickerUnavailable>()(
+  "DesktopFolderPickerUnavailable",
+  {
+    message: Schema.String,
+  },
+) {}
+
+class DesktopFolderPickerFailed extends Schema.TaggedError<DesktopFolderPickerFailed>()(
+  "DesktopFolderPickerFailed",
+  {
+    message: Schema.String,
+    cause: Schema.optionalKey(Schema.Defect()),
+  },
+) {}
+
+const folderPickerOptions = (initialPath: string | undefined) => {
+  const trimmed = initialPath?.trim()
+  return trimmed === undefined || trimmed === "" ? undefined : { initialPath: trimmed }
+}
+
 export const pickProjectFolderEffect = Effect.fn("pickProjectFolder")(function* (
   initialPath: string | undefined,
 ) {
-  return yield* Effect.promise(
-    () =>
-      window.noyauDesktop?.pickFolder(initialPath === undefined ? undefined : { initialPath }) ??
-      Promise.resolve(undefined),
-  )
+  const pickFolder = globalThis.window?.noyauDesktop?.pickFolder
+  if (pickFolder === undefined) {
+    return yield* new DesktopFolderPickerUnavailable({
+      message: "Le sélecteur de dossier n’est disponible que dans Noyau Desktop.",
+    })
+  }
+
+  return yield* Effect.tryPromise({
+    try: () => pickFolder(folderPickerOptions(initialPath)),
+    catch: (cause) =>
+      new DesktopFolderPickerFailed({
+        message: "Impossible d’ouvrir le sélecteur de dossier.",
+        cause,
+      }),
+  })
 })
 
-export const pickProjectFolder = (initialPath: string | undefined) =>
-  Effect.runPromise(pickProjectFolderEffect(initialPath))
+export const pickProjectFolder = (
+  initialPath: string | undefined,
+): Promise<ControlPlaneResult<string | undefined>> =>
+  Effect.runPromise(
+    pickProjectFolderEffect(initialPath).pipe(
+      Effect.match({
+        onFailure: (error) => ({
+          ok: false as const,
+          failure: invalidInputFailure(error.message),
+        }),
+        onSuccess: (value) => ({ ok: true as const, value }),
+      }),
+    ),
+  )
 
 export const submitProjectFolderEffect = Effect.fn("submitProjectFolder")(function* (input: {
   readonly projectId: ProjectId | undefined
