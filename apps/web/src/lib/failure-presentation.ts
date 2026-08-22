@@ -6,6 +6,7 @@ export type FailureOperation =
   | "clipboard.write"
   | "project.delete"
   | "project.folder.submit"
+  | "project.agent-integration"
   | "project.subscribe"
   | "shell.subscribe"
   | "thread.archive"
@@ -149,6 +150,26 @@ export const presentFailure = (
   context: FailureContext,
 ): FailurePresentation => {
   switch (failure._tag) {
+    case "AgentIntegrationFailure":
+      const integrationPresentation: FailurePresentation = {
+        surface: surfaceFor(context),
+        tone: "warning",
+        title:
+          failure.reason === "conflict"
+            ? "Le skill Noyau contient des modifications locales."
+            : failure.reason === "unsafe-path"
+              ? "Le dossier des skills sort du Project."
+              : "Le dossier des skills n’est pas accessible.",
+        persistence: "until-dismissed",
+        dedupeKey: dedupeKey(context),
+      }
+      return failure.reason === "conflict"
+        ? {
+            ...integrationPresentation,
+            description:
+              "Noyau ne l’écrasera pas. Déplace ou réconcilie le dossier existant avant de réessayer.",
+          }
+        : integrationPresentation
     case "Interrupted":
       return {
         surface: "silent",

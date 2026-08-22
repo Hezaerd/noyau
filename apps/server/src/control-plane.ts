@@ -23,6 +23,11 @@ import {
   withAvailableProjects,
 } from "@noyau/domain/thread/projector"
 import { recoverAfterBoot } from "@noyau/domain/thread/recovery"
+import type {
+  AgentIntegrationFailed,
+  ProjectAgentIntegration,
+  ProjectAgentIntegrationInput,
+} from "@noyau/protocol/agent-integration"
 import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/attachment-preview"
 import type { AttachmentPreviewFailed } from "@noyau/protocol/attachment-preview"
 import type { ClientCommandRequest, Command as CommandType } from "@noyau/protocol/commands"
@@ -96,6 +101,7 @@ import {
 } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
+import { AgentSkillInstaller } from "./agent-skill/installer.ts"
 import { loadTurnAttachments, persistTurnUploads, readAttachmentPreview } from "./attachments.ts"
 import { ServerConfig } from "./config.ts"
 import { makePresenceController } from "./discord/presence.ts"
@@ -570,6 +576,21 @@ export interface ControlPlaneService {
   readonly previewFile: (
     input: PreviewFileInput,
   ) => Effect.Effect<FilePreview, ProjectNotFound | FilePreviewFailed | ServiceUnavailable>
+  readonly inspectProjectAgentIntegration: (
+    input: ProjectAgentIntegrationInput,
+  ) => Effect.Effect<ProjectAgentIntegration, ProjectNotFound | ServiceUnavailable>
+  readonly installProjectAgentIntegration: (
+    input: ProjectAgentIntegrationInput,
+  ) => Effect.Effect<
+    ProjectAgentIntegration,
+    ProjectNotFound | AgentIntegrationFailed | ServiceUnavailable
+  >
+  readonly removeProjectAgentIntegration: (
+    input: ProjectAgentIntegrationInput,
+  ) => Effect.Effect<
+    ProjectAgentIntegration,
+    ProjectNotFound | AgentIntegrationFailed | ServiceUnavailable
+  >
   readonly previewAttachment: (
     input: PreviewAttachmentInput,
   ) => Effect.Effect<AttachmentPreview, AttachmentPreviewFailed | ServiceUnavailable>
@@ -625,6 +646,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const sql = yield* SqlClient
       const provider = yield* ProviderPort
       const workspaceRoots = yield* WorkspaceRootAccess
+      const agentSkills = yield* AgentSkillInstaller
       const recoveredAt = yield* DateTime.now
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -1027,6 +1049,37 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         )
       })
 
+      const projectWorkspaceRoot = Effect.fn("ControlPlane.projectWorkspaceRoot")(function* (
+        projectId: ProjectIdType,
+      ) {
+        const workspaceRoot = yield* workspaceRootForProject(projectId).pipe(
+          Effect.provideService(SqlClient, sql),
+          Effect.mapError(unavailable("sqlite")),
+        )
+        if (Option.isNone(workspaceRoot)) {
+          return yield* new ProjectNotFound({ projectId })
+        }
+        return workspaceRoot.value
+      })
+
+      const inspectProjectAgentIntegration: ControlPlaneService["inspectProjectAgentIntegration"] =
+        Effect.fn("ControlPlane.inspectProjectAgentIntegration")(function* (input) {
+          const workspaceRoot = yield* projectWorkspaceRoot(input.projectId)
+          return yield* agentSkills.inspect(input.projectId, workspaceRoot)
+        })
+
+      const installProjectAgentIntegration: ControlPlaneService["installProjectAgentIntegration"] =
+        Effect.fn("ControlPlane.installProjectAgentIntegration")(function* (input) {
+          const workspaceRoot = yield* projectWorkspaceRoot(input.projectId)
+          return yield* agentSkills.install(input.projectId, workspaceRoot)
+        })
+
+      const removeProjectAgentIntegration: ControlPlaneService["removeProjectAgentIntegration"] =
+        Effect.fn("ControlPlane.removeProjectAgentIntegration")(function* (input) {
+          const workspaceRoot = yield* projectWorkspaceRoot(input.projectId)
+          return yield* agentSkills.remove(input.projectId, workspaceRoot)
+        })
+
       const previewAttachment = Effect.fn("ControlPlane.previewAttachment")(function* (
         input: PreviewAttachmentInput,
       ): Effect.fn.Return<AttachmentPreview, AttachmentPreviewFailed | ServiceUnavailable> {
@@ -1068,6 +1121,9 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         hasRunningTurn,
         setShellFocus,
         previewFile,
+        inspectProjectAgentIntegration,
+        installProjectAgentIntegration,
+        removeProjectAgentIntegration,
         previewAttachment,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {

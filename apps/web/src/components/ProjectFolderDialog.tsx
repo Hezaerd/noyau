@@ -2,6 +2,7 @@ import type { ProjectId } from "@noyau/protocol/ids"
 import { useState } from "react"
 
 import { InlineFailure } from "@/components/failure/FailureSurfaces"
+import { ProjectAgentIntegrationSetup } from "@/components/ProjectAgentIntegrationSetup"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -44,6 +45,19 @@ export function ProjectFolderDialog({
   const [name, setName] = useState("")
   const [failure, setFailure] = useState<FailurePresentation>()
   const [submitting, setSubmitting] = useState(false)
+  const [createdProjectId, setCreatedProjectId] = useState<ProjectId>()
+
+  const finishCreation = () => {
+    const created = createdProjectId
+    setCreatedProjectId(undefined)
+    setWorkspaceRoot("")
+    setName("")
+    setFailure(undefined)
+    onOpenChange(false)
+    if (created !== undefined) {
+      onProjectCreated?.(created)
+    }
+  }
 
   const chooseFolder = () => {
     void pickProjectFolder(
@@ -89,12 +103,13 @@ export function ProjectFolderDialog({
         )
         return undefined
       }
-      setWorkspaceRoot("")
-      setName("")
-      setFailure(undefined)
-      onOpenChange(false)
       if (result.value !== undefined) {
-        onProjectCreated?.(result.value)
+        setCreatedProjectId(result.value)
+      } else {
+        setWorkspaceRoot("")
+        setName("")
+        setFailure(undefined)
+        onOpenChange(false)
       }
       return undefined
     })
@@ -105,6 +120,10 @@ export function ProjectFolderDialog({
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
+          if (createdProjectId !== undefined) {
+            finishCreation()
+            return
+          }
           setFailure(undefined)
         }
         onOpenChange(nextOpen)
@@ -113,59 +132,71 @@ export function ProjectFolderDialog({
       <DialogPopup className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {project === undefined ? "Relier un dossier" : "Relier le dossier"}
+            {createdProjectId !== undefined
+              ? "Configurer les agents"
+              : project === undefined
+                ? "Relier un dossier"
+                : "Relier le dossier"}
           </DialogTitle>
           <DialogDescription>
-            Noyau travaille directement dans un dossier déjà présent sur cette machine.
+            {createdProjectId === undefined
+              ? "Noyau travaille directement dans un dossier déjà présent sur cette machine."
+              : "Le Project est relié. Tu peux maintenant installer son intégration agent recommandée."}
           </DialogDescription>
         </DialogHeader>
         <DialogPanel className="flex flex-col gap-4">
-          {project === undefined ? (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="project-name">Nom du Project</Label>
-              <Input
-                id="project-name"
-                aria-describedby={failure === undefined ? undefined : "project-folder-error"}
-                aria-invalid={failure === undefined ? undefined : true}
-                value={name}
-                onChange={(event) => {
-                  setName(event.target.value)
-                  setFailure(undefined)
-                }}
-                placeholder="Mon Project"
-              />
-            </div>
-          ) : null}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="workspace-root">Dossier existant</Label>
-            <div className="flex gap-2">
-              <Input
-                id="workspace-root"
-                aria-describedby={failure === undefined ? undefined : "project-folder-error"}
-                aria-invalid={failure === undefined ? undefined : true}
-                value={workspaceRoot}
-                onChange={(event) => {
-                  setWorkspaceRoot(event.target.value)
-                  setFailure(undefined)
-                }}
-                placeholder="/Users/moi/Projet"
-              />
-              <Button type="button" variant="outline" onClick={() => chooseFolder()}>
-                Parcourir
-              </Button>
-            </div>
-          </div>
-          {failure === undefined ? null : (
-            <InlineFailure id="project-folder-error" presentation={failure} />
+          {createdProjectId !== undefined ? (
+            <ProjectAgentIntegrationSetup projectId={createdProjectId} onDone={finishCreation} />
+          ) : (
+            <>
+              {project === undefined ? (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="project-name">Nom du Project</Label>
+                  <Input
+                    id="project-name"
+                    aria-describedby={failure === undefined ? undefined : "project-folder-error"}
+                    aria-invalid={failure === undefined ? undefined : true}
+                    value={name}
+                    onChange={(event) => {
+                      setName(event.target.value)
+                      setFailure(undefined)
+                    }}
+                    placeholder="Mon Project"
+                  />
+                </div>
+              ) : null}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="workspace-root">Dossier existant</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="workspace-root"
+                    aria-describedby={failure === undefined ? undefined : "project-folder-error"}
+                    aria-invalid={failure === undefined ? undefined : true}
+                    value={workspaceRoot}
+                    onChange={(event) => {
+                      setWorkspaceRoot(event.target.value)
+                      setFailure(undefined)
+                    }}
+                    placeholder="/Users/moi/Projet"
+                  />
+                  <Button type="button" variant="outline" onClick={() => chooseFolder()}>
+                    Parcourir
+                  </Button>
+                </div>
+              </div>
+              {failure === undefined ? null : (
+                <InlineFailure id="project-folder-error" presentation={failure} />
+              )}
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                  Annuler
+                </Button>
+                <Button type="button" disabled={submitting} onClick={() => submit()}>
+                  {project === undefined ? "Relier le dossier" : "Rebind le dossier"}
+                </Button>
+              </div>
+            </>
           )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="button" disabled={submitting} onClick={() => submit()}>
-              {project === undefined ? "Relier le dossier" : "Rebind le dossier"}
-            </Button>
-          </div>
         </DialogPanel>
       </DialogPopup>
     </Dialog>

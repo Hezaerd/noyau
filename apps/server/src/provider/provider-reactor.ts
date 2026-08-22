@@ -216,6 +216,7 @@ export const makeProviderReactor = (
               return
             }
             let turnInput = {
+              projectId: ProjectId.make(persisted.projectId),
               threadId: threadEvent.threadId,
               turnId: threadEvent.turnId,
               text: threadEvent.text ?? "",

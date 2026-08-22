@@ -10,6 +10,7 @@ import { emptyCursorProviderStatus, type CursorModel } from "@noyau/protocol/ent
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
+import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Schema, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
@@ -551,9 +552,12 @@ const initialize = Effect.fn("CursorAdapter.initialize")(function* (
   const response = yield* acp.agent.initialize(clientInfo(clientVersion))
   if (
     response.protocolVersion !== ACP_VERSION ||
-    response.agentCapabilities?.loadSession !== true
+    response.agentCapabilities?.loadSession !== true ||
+    response.agentCapabilities.mcpCapabilities?.http !== true
   ) {
-    return yield* adapterError("Cursor ACP is missing protocol v1 or session/load capability")
+    return yield* adapterError(
+      "Cursor ACP is missing protocol v1, session/load, or MCP HTTP capability",
+    )
   }
   yield* acp.agent.authenticate({ methodId: CURSOR_AUTH_METHOD })
   return response
@@ -563,6 +567,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   options: CursorAdapterOptions = {},
 ) {
   const providerScope = yield* Effect.scope
+  const mcpSessions = yield* McpSessionRegistry
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const environment = options.environment ?? process.env
   const platform = options.platform ?? process.platform
@@ -824,6 +829,27 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           handleUpdate(control, () => loading, notification),
         )
         yield* initialize(acp, clientVersion)
+        const mcpCredential = yield* Effect.acquireRelease(
+          mcpSessions.issue({
+            projectId: control.input.projectId,
+            threadId: control.input.threadId,
+            turnId: control.input.turnId,
+          }),
+          () => mcpSessions.revokeTurn(control.input.turnId),
+        )
+        const mcpServers: ReadonlyArray<AcpSchema.McpServer> = [
+          {
+            type: "http",
+            name: "noyau",
+            url: mcpCredential.config.endpoint,
+            headers: [
+              {
+                name: "Authorization",
+                value: mcpCredential.config.authorizationHeader,
+              },
+            ],
+          },
+        ]
 
         let setup: AcpSchema.NewSessionResponse | AcpSchema.LoadSessionResponse
         let sessionId: string
@@ -834,7 +860,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
             .loadSession({
               sessionId: resumeSessionId,
               cwd: control.input.workspaceRoot,
-              mcpServers: [],
+              mcpServers,
             })
             .pipe(
               Effect.option,
@@ -850,7 +876,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           } else {
             const created = yield* acp.agent.createSession({
               cwd: control.input.workspaceRoot,
-              mcpServers: [],
+              mcpServers,
             })
             setup = created
             sessionId = created.sessionId
@@ -858,7 +884,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         } else {
           const created = yield* acp.agent.createSession({
             cwd: control.input.workspaceRoot,
-            mcpServers: [],
+            mcpServers,
           })
           setup = created
           sessionId = created.sessionId

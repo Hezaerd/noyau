@@ -4,11 +4,14 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
 import {
   ApprovalRequestId,
+  ProjectId,
   AttachmentId,
   ProviderSessionId,
   ThreadId,
   TurnId,
 } from "@noyau/protocol/ids"
+import type { McpInvocationScope } from "@noyau/server/mcp/mcp-invocation-context"
+import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { cursorProviderLayer, resolveCursorExecutable } from "@noyau/server/provider/cursor-acp"
 import {
   ProviderPort,
@@ -20,14 +23,29 @@ import { TestClock } from "effect/testing"
 
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
 const fakeAgent = fileURLToPath(new URL("./fixtures/fake-cursor-acp.mjs", import.meta.url))
+const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const turnId = TurnId.make("30000000-0000-4000-8000-000000000001")
+const missingMcpScope: McpInvocationScope | undefined = undefined
+const testMcpSessionsLayer = Layer.succeed(McpSessionRegistry)({
+  issue: () =>
+    Effect.succeed({
+      config: {
+        endpoint: "http://127.0.0.1:43123/mcp",
+        authorizationHeader: "Bearer test-mcp-token",
+      },
+    }),
+  resolve: () => Effect.succeed(missingMcpScope),
+  revokeTurn: () => Effect.void,
+  revokeAll: Effect.void,
+})
 
 const input = (
   runtimeMode: ProviderTurnInput["runtimeMode"] = "full-access",
   resumeCursor: ProviderTurnInput["resumeCursor"] = null,
   modelSelection: ProviderTurnInput["modelSelection"] = null,
 ): ProviderTurnInput => ({
+  projectId,
   threadId,
   turnId,
   text: "Implement the adapter",
@@ -70,7 +88,9 @@ const withProvider = <A, E, R>(
   Effect.scoped(
     Effect.gen(function* () {
       const evidence = yield* makeOptions(scenario)
-      const services = yield* Layer.build(cursorProviderLayer(evidence.options))
+      const services = yield* Layer.build(
+        cursorProviderLayer(evidence.options).pipe(Layer.provide(testMcpSessionsLayer)),
+      )
       return yield* Effect.gen(function* () {
         const provider = yield* ProviderPort
         return yield* use(provider, evidence)
@@ -190,6 +210,22 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
           ),
         ),
       )
+      yield* withProvider("missing-mcp-http", (provider) =>
+        provider.status.pipe(
+          Effect.tap((status) =>
+            Effect.sync(() => {
+              assert.deepStrictEqual(status, {
+                installed: true,
+                handshakeOk: false,
+                version: "2026.03.20-test",
+                plan: "Pro",
+                binaryPath: process.execPath,
+                models: [],
+              })
+            }),
+          ),
+        ),
+      )
       yield* withProvider("wrong-version", (provider) =>
         provider.status.pipe(
           Effect.tap((status) =>
@@ -226,7 +262,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
   )
 
   it.effect("maps new, live updates, and end_turn to Noyau signals", () =>
-    withProvider("success", (provider) =>
+    withProvider("success", (provider, evidence) =>
       Effect.gen(function* () {
         const signals = yield* capture(provider, input())
         assert.isTrue(
@@ -263,6 +299,21 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         assert.isTrue(
           signals.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )
+        const requests = (yield* readLog(evidence.requestLog))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+        const created = requests.find((message) => message.method === "session/new")
+        assert.deepInclude(created?.params, {
+          mcpServers: [
+            {
+              type: "http",
+              name: "noyau",
+              url: "http://127.0.0.1:43123/mcp",
+              headers: [{ name: "Authorization", value: "Bearer test-mcp-token" }],
+            },
+          ],
+        })
       }),
     ),
   )
@@ -455,6 +506,18 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         const loadIndex = log.indexOf('"method":"session/load"')
         const newIndex = log.indexOf('"method":"session/new"')
         assert.isTrue(loadIndex >= 0 && newIndex > loadIndex)
+        const setupRequests = log
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+          .filter(
+            (message) => message.method === "session/load" || message.method === "session/new",
+          )
+        assert.lengthOf(setupRequests, 2)
+        for (const request of setupRequests) {
+          assert.strictEqual(request.params.mcpServers[0]?.type, "http")
+          assert.strictEqual(request.params.mcpServers[0]?.name, "noyau")
+        }
       }),
     ),
   )
@@ -487,6 +550,13 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         const log = yield* readLog(evidence.requestLog)
         assert.include(log, '"method":"session/load"')
         assert.notInclude(log, '"method":"session/new"')
+        const loaded = log
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+          .find((message) => message.method === "session/load")
+        assert.strictEqual(loaded?.params.mcpServers[0]?.type, "http")
+        assert.strictEqual(loaded?.params.mcpServers[0]?.name, "noyau")
       }),
     ),
   )

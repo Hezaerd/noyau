@@ -12,7 +12,7 @@ import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ResumeCursor, SessionStatus } from "@noyau/protocol/entities/session"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import type { TurnSettlementState } from "@noyau/protocol/entities/turn"
-import type { ApprovalRequestId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import type { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { Context, Effect, Layer } from "effect"
 
 export interface ProviderTurnAttachment extends TurnImageAttachment {
@@ -20,6 +20,7 @@ export interface ProviderTurnAttachment extends TurnImageAttachment {
 }
 
 export interface ProviderTurnInput {
+  readonly projectId: ProjectId
   readonly threadId: ThreadId
   readonly turnId: TurnId
   readonly text: string
