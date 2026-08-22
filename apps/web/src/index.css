@@ -424,3 +424,20 @@ html.dark [data-streamdown="code-block-body"] pre {
 .thread-markdown-codeblock [data-streamdown="code-block-body"] pre {
   background-color: transparent;
 }
+
+.thread-markdown {
+  overflow-wrap: anywhere;
+}
+
+.thread-markdown a:not(.thread-markdown-file-chip) {
+  color: var(--info-foreground);
+  text-decoration: none;
+}
+
+.thread-markdown a:not(.thread-markdown-file-chip):hover,
+.thread-markdown a:not(.thread-markdown-file-chip):focus-visible {
+  background-image: radial-gradient(circle, currentcolor 0.75px, transparent 1px);
+  background-position: left bottom;
+  background-repeat: repeat-x;
+  background-size: 4px 2px;
+}

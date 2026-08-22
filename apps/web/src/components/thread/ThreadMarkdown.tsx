@@ -15,7 +15,7 @@ import {
 import { threadMarkdownPlugins } from "@/lib/thread-markdown-plugins"
 
 const markdownClassName =
-  "max-w-none text-sm leading-6 [&_a:not(.thread-markdown-file-chip)]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc"
+  "thread-markdown max-w-none text-sm leading-6 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc"
 
 const streamdownComponents = {
   a: ThreadMarkdownLink,
