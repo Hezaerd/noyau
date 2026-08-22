@@ -16,6 +16,7 @@ prompt n'est rejoué. Au boot, une Session encore `starting` / `running` devient
 `lastError` sans I/O Cursor.
 
 Le contrat vivant est un adaptateur Cursor, pas une marque de protocole ni un port multi-harnais.
-Détection : `PATH` + handshake ACP. Appartenance d'un `cursor-agent` = handle capturé au spawn,
+Détection : `PATH` hydraté depuis le login shell + handshake ACP. Appartenance d'un
+`cursor-agent` = handle capturé au spawn,
 lié au `Scope` du serveur. Pas de sweep d'orphelins. Claude, Codex, usage promis et worktrees
 sont hors v0.1.

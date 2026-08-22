@@ -85,6 +85,11 @@ ne casse jamais une commande.
 _À éviter_ : événement Discord, agrégat, Join, résoudre sur `NOYAU_ENV`, une seule Application
 pour les trois canaux
 
+**PATH hôte**:
+PATH du process Server, hydraté au boot depuis le login shell (macOS/Linux) ou le PATH
+User+Machine (Windows). Sert Cursor, `git` et `gh`. Pas un fait du journal.
+_À éviter_ : PATH figé dans le journal, sweep PATH, champ settings pour le PATH système
+
 **GitRuntime**:
 Port live `git` / `gh` du Server. Les lectures et mutations Git ne passent pas par le journal.
 _À éviter_ : agrégat VCS, outbox SQL

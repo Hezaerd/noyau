@@ -13,6 +13,7 @@ import { ServerConfig, serverConfigLayer } from "./config.ts"
 import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
 import { discordPresenceLayer } from "./discord/ipc.ts"
 import { GitPlane, gitPlaneLayer } from "./git/git-plane.ts"
+import { hydrateHostPath } from "./host-path.ts"
 import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
 import { mcpHttpServerLayer } from "./mcp/mcp-http-server.ts"
 import { mcpSessionRegistryLayer } from "./mcp/mcp-session-registry.ts"
@@ -194,9 +195,14 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provide(NodeCrypto.layer),
 )
 
-export const serverLayer = HttpRouter.serve(serverRoutesLayer).pipe(
-  Layer.provide(nodeServerLayer),
-  Layer.provide(loggerLayer),
-  Layer.provide(infrastructureLayer),
-  Layer.provide(NodeFileSystem.layer),
+export const serverLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    yield* hydrateHostPath()
+    return HttpRouter.serve(serverRoutesLayer).pipe(
+      Layer.provide(nodeServerLayer),
+      Layer.provide(loggerLayer),
+      Layer.provide(infrastructureLayer),
+      Layer.provide(NodeFileSystem.layer),
+    )
+  }),
 )

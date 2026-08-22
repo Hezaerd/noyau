@@ -137,7 +137,8 @@ Le responsable reste dans le modèle Ticket. Il n'est ni affiché ni éditable d
 ### Cursor
 
 Détection : `cursor-agent` dans le `PATH` (`cursor-agent.exe` sous Windows), sinon chemin
-configuré. Le handshake ACP est la source de vérité. Capacités obligatoires absentes → provider
+configuré. Au boot, le Server hydrate ce PATH depuis le login shell (GUI Electron). Le
+handshake ACP est la source de vérité. Capacités obligatoires absentes → provider
 inactif, y compris MCP HTTP. Noyau injecte son endpoint et une capacité dédiée dans
 `session/new` et `session/load` ; aucun fallback stdio. Credentials Cursor restent locaux. Usage
 promis absent du contrat v0.1.

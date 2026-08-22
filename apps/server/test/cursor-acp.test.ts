@@ -118,7 +118,7 @@ const readLog = Effect.fn("CursorAdapterTest.readLog")(function* (filePath: stri
 })
 
 layer(platformLayer)("Cursor ACP adapter", (it) => {
-  it.effect("detects cursor-agent on PATH and falls back to a configured executable", () =>
+  it.effect("prefers an explicit configured path, then PATH, then a bare fallback", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -132,6 +132,10 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
 
       assert.strictEqual(
         yield* resolveCursorExecutable(configured, { PATH: directory }, "linux"),
+        configured,
+      )
+      assert.strictEqual(
+        yield* resolveCursorExecutable("cursor-agent", { PATH: directory }, "linux"),
         pathExecutable,
       )
       assert.strictEqual(

@@ -70,6 +70,9 @@ Pas de cross-compile : packager mac depuis un Mac, Windows depuis Windows. Le ch
 
 ## Reprise manuelle avec Cursor
 
+Le Server hydrate le `PATH` depuis le login shell au boot : un nightly lancé depuis le
+Dock voit le même `cursor-agent` qu'un `bun run dev:desktop` lancé du terminal.
+
 Si `cursor-agent` est dans le `PATH`, vérifier le parcours réel ainsi :
 
 1. Confirmer l'installation avec `command -v cursor-agent`.
