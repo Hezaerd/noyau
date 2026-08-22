@@ -10,6 +10,33 @@ export type FolderPickerOptions = Schema.Schema.Type<typeof FolderPickerOptionsS
 
 export const decodeFolderPickerOptions = Schema.decodeUnknownEffect(FolderPickerOptionsSchema)
 
+export interface FolderPickerOpenDialogOptions {
+  readonly defaultPath: string
+  readonly properties: Array<"openDirectory">
+}
+
+export const folderPickerOpenDialogOptions = (
+  defaultPath: string,
+): FolderPickerOpenDialogOptions => ({
+  defaultPath,
+  properties: ["openDirectory"],
+})
+
+/** Drops a destroyed or missing BrowserWindow so the dialog is never attached to a dead owner. */
+export const folderPickerOwner = <Window extends { readonly isDestroyed: () => boolean }>(
+  window: Window | null,
+): Window | undefined => {
+  if (window === null || window.isDestroyed()) {
+    return undefined
+  }
+  return window
+}
+
+export const selectedFolderPath = (result: {
+  readonly canceled: boolean
+  readonly filePaths: readonly string[]
+}): string | undefined => (result.canceled ? undefined : result.filePaths[0])
+
 /** Resolves the renderer's optional path without ever exposing the home directory there. */
 export const resolveFolderPickerDefaultPath = (
   initialPath: string | undefined,

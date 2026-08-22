@@ -10,6 +10,7 @@ import {
   ipcMain,
   nativeTheme,
   net,
+  type OpenDialogOptions,
   protocol,
   screen,
   session,
@@ -18,9 +19,12 @@ import {
 
 import { cursorPointInContent, GET_CURSOR_POINT_CHANNEL } from "./cursor-point"
 import {
-  type FolderPickerOptions,
+  decodeFolderPickerOptions,
+  folderPickerOpenDialogOptions,
+  folderPickerOwner,
   PICK_FOLDER_CHANNEL,
   resolveFolderPickerDefaultPath,
+  selectedFolderPath,
 } from "./folder-picker"
 import { decodeOpenPathInput, OPEN_PATH_CHANNEL, openFilesystemPathOnHost } from "./open-path"
 import { isRendererPermissionAllowed } from "./permissions"
@@ -149,14 +153,24 @@ const registerThemeBridge = (): void => {
 }
 
 const registerFolderPickerBridge = (): void => {
-  ipcMain.handle(PICK_FOLDER_CHANNEL, (_event, options: FolderPickerOptions | undefined) =>
+  ipcMain.handle(PICK_FOLDER_CHANNEL, (event, input) =>
     desktopRuntime.runPromise(
-      Effect.promise(() =>
-        dialog.showOpenDialog({
-          defaultPath: resolveFolderPickerDefaultPath(options?.initialPath, app.getPath("home")),
-          properties: ["openDirectory"],
+      decodeFolderPickerOptions(input ?? {}).pipe(
+        Effect.flatMap((options) => {
+          const owner = folderPickerOwner(BrowserWindow.fromWebContents(event.sender))
+          const openDialogOptions: OpenDialogOptions = folderPickerOpenDialogOptions(
+            resolveFolderPickerDefaultPath(options.initialPath, app.getPath("home")),
+          )
+          return Effect.tryPromise({
+            try: () =>
+              owner === undefined
+                ? dialog.showOpenDialog(openDialogOptions)
+                : dialog.showOpenDialog(owner, openDialogOptions),
+            catch: (cause) => desktopError("Failed to open the folder picker", cause),
+          })
         }),
-      ).pipe(Effect.map((result) => (result.canceled ? undefined : result.filePaths[0]))),
+        Effect.map(selectedFolderPath),
+      ),
     ),
   )
 }

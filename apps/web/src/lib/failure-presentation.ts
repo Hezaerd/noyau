@@ -5,6 +5,7 @@ import type { AppFailure } from "./app-failure"
 export type FailureOperation =
   | "clipboard.write"
   | "project.delete"
+  | "project.folder.pick"
   | "project.folder.submit"
   | "project.agent-integration"
   | "project.subscribe"
