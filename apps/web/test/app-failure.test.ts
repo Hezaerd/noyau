@@ -1,4 +1,5 @@
 import { ServiceUnavailable } from "@noyau/protocol/errors"
+import { FilePreviewFailed } from "@noyau/protocol/file-preview"
 import { TicketId } from "@noyau/protocol/ids"
 import { TicketDependencyCycle } from "@noyau/protocol/ticket/errors"
 import { Cause } from "effect"
@@ -30,6 +31,9 @@ describe("AppFailure normalization", () => {
     expect(normalizeCause(Cause.fail(new Error("unsafe details")), "input")).toEqual({
       _tag: "InvalidInput",
     })
+    expect(
+      normalizeCause(Cause.fail(new FilePreviewFailed({ reason: "outside-workspace" })), "command"),
+    ).toEqual({ _tag: "InvalidInput" })
   })
 
   it("turns protocol defects into incidents without exposing their cause", () => {

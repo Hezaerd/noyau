@@ -34,6 +34,7 @@
     "./events": "./src/events.ts",
     "./receipts": "./src/receipts.ts",
     "./errors": "./src/errors.ts",
+    "./file-preview": "./src/file-preview.ts",
     "./rpc": "./src/rpc.ts"
   },
   "scripts": {

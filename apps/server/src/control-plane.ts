@@ -34,6 +34,8 @@ import {
   DomainEvent,
   type DomainEvent as DomainEventType,
 } from "@noyau/protocol/events"
+import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
+import type { FilePreviewFailed } from "@noyau/protocol/file-preview"
 import {
   type ActorId,
   CorrelationId,
@@ -46,6 +48,7 @@ import {
 } from "@noyau/protocol/ids"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
 import {
+  ProjectNotFound,
   ProjectUnavailable,
   WorkspaceRootConflict,
   WorkspaceRootNotDirectory,
@@ -81,6 +84,7 @@ import {
   FileSystem,
   Layer,
   Option,
+  Path,
   PubSub,
   Queue,
   Result,
@@ -92,6 +96,7 @@ import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { ServerConfig } from "./config.ts"
 import { makePresenceController } from "./discord/presence.ts"
+import { readFilePreview } from "./file-preview.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { TextGeneration } from "./text-generation/text-generation.ts"
@@ -555,6 +560,9 @@ export interface ControlPlaneService {
   readonly setShellFocus: (
     input: SetShellFocusInput,
   ) => Effect.Effect<Record<never, never>, ServiceUnavailable>
+  readonly previewFile: (
+    input: PreviewFileInput,
+  ) => Effect.Effect<FilePreview, ProjectNotFound | FilePreviewFailed | ServiceUnavailable>
   readonly probe: Effect.Effect<Record<never, never>>
   readonly drainReactors: Effect.Effect<void>
 }
@@ -609,6 +617,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const workspaceRoots = yield* WorkspaceRootAccess
       const recoveredAt = yield* DateTime.now
       const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
       const crypto = yield* Crypto.Crypto
       let dispatchInternal = workerNotReady
       const textGeneration = yield* TextGeneration
@@ -980,6 +989,25 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         return {}
       })
 
+      const previewFile = Effect.fn("ControlPlane.previewFile")(function* (
+        input: PreviewFileInput,
+      ): Effect.fn.Return<FilePreview, ProjectNotFound | FilePreviewFailed | ServiceUnavailable> {
+        const workspaceRoot = yield* workspaceRootForProject(input.projectId).pipe(
+          Effect.provideService(SqlClient, sql),
+          Effect.mapError(unavailable("sqlite")),
+        )
+        if (Option.isNone(workspaceRoot)) {
+          return yield* new ProjectNotFound({ projectId: input.projectId })
+        }
+        return yield* readFilePreview({
+          requestedPath: input.path,
+          workspaceRoot: workspaceRoot.value,
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+        )
+      })
+
       const getConfig = readSchemaVersion().pipe(
         Effect.provideService(SqlClient, sql),
         Effect.map((databaseSchemaVersion) => ({
@@ -1009,6 +1037,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         getConfig,
         hasRunningTurn,
         setShellFocus,
+        previewFile,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {
           yield* worker.drainReactors
@@ -1017,6 +1046,6 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         }),
       })
     }),
-  )
+  ).pipe(Layer.provide(Path.layer))
 
 export const controlPlaneLayer = makeControlPlaneLayer()

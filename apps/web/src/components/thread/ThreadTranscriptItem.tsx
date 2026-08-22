@@ -1,4 +1,5 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import type { ProjectId } from "@noyau/protocol/ids"
 
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
 import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
@@ -11,6 +12,8 @@ import { transcriptLabel } from "@/lib/thread-transcript"
 export function ThreadTranscriptItem({
   item,
   streaming,
+  workspaceRoot,
+  projectId,
   answer,
   onAnswerChange,
   onRespondApproval,
@@ -18,6 +21,8 @@ export function ThreadTranscriptItem({
 }: {
   readonly item: TranscriptItem
   readonly streaming: boolean
+  readonly workspaceRoot?: string | undefined
+  readonly projectId?: ProjectId | undefined
   readonly answer: string
   readonly onAnswerChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
@@ -33,7 +38,11 @@ export function ThreadTranscriptItem({
         <MessageContent>
           <Bubble variant="default" align="end">
             <BubbleContent>
-              <ThreadMarkdown text={item.text} />
+              <ThreadMarkdown
+                text={item.text}
+                workspaceRoot={workspaceRoot}
+                projectId={projectId}
+              />
             </BubbleContent>
           </Bubble>
         </MessageContent>
@@ -47,7 +56,12 @@ export function ThreadTranscriptItem({
         <MessageContent>
           <Bubble variant="ghost" align="start">
             <BubbleContent>
-              <ThreadMarkdown text={item.text} streaming={streaming} />
+              <ThreadMarkdown
+                text={item.text}
+                streaming={streaming}
+                workspaceRoot={workspaceRoot}
+                projectId={projectId}
+              />
             </BubbleContent>
           </Bubble>
         </MessageContent>
@@ -62,7 +76,12 @@ export function ThreadTranscriptItem({
           <MessageHeader>{transcriptLabel(item)}</MessageHeader>
           <Bubble variant="muted" align="start">
             <BubbleContent>
-              <ThreadMarkdown text={item.markdown} streaming={streaming} />
+              <ThreadMarkdown
+                text={item.markdown}
+                streaming={streaming}
+                workspaceRoot={workspaceRoot}
+                projectId={projectId}
+              />
             </BubbleContent>
           </Bubble>
         </MessageContent>

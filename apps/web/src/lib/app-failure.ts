@@ -4,6 +4,8 @@ import {
   MissingIdentity,
   ServiceUnavailable,
 } from "@noyau/protocol/errors"
+import { FilePreviewFailed } from "@noyau/protocol/file-preview"
+import { ProjectNotFound } from "@noyau/protocol/project/errors"
 import { Rejection, type Rejection as RejectionType } from "@noyau/protocol/receipts"
 import { Cause, Option, Schema } from "effect"
 import { RpcClientError } from "effect/unstable/rpc/RpcClientError"
@@ -19,6 +21,8 @@ const KnownControlPlaneError = Schema.Union([
   ServiceUnavailable,
   MissingIdentity,
   Forbidden,
+  FilePreviewFailed,
+  ProjectNotFound,
   RpcClientError,
   ResourceSnapshotUnavailable,
 ])
@@ -72,6 +76,9 @@ const fromTypedError = (error: KnownControlPlaneError, phase: FailurePhase): App
   }
   if (Schema.is(ResourceSnapshotUnavailable)(error)) {
     return { _tag: "TransportFailure", phase: "snapshot", reason: "ended" }
+  }
+  if (Schema.is(FilePreviewFailed)(error) || Schema.is(ProjectNotFound)(error)) {
+    return { _tag: "InvalidInput" }
   }
   if (phase === "input") {
     return { _tag: "InvalidInput" }
