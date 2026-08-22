@@ -77,6 +77,11 @@ Choix durable du Composer attaché au Thread : modèle, Effort, Vitesse et Réfl
 retrouve son dernier choix indépendamment des autres Threads.
 _À éviter_ : choix global, modèle de Session
 
+**Brouillon**:
+Texte du Composer gardé en mémoire renderer pendant la session, isolé par Thread — ou par Project
+tant que le Thread n'est pas créé. Perdu au restart. Ce n'est pas une Préférence.
+_À éviter_ : draft persisté, localStorage, état de page
+
 **Palette**:
 Overlay clavier searchable de l'app qui propose navigation, Actions et résultats contextuels.
 _À éviter_ : Command, Command palette, Spotlight, Menu
