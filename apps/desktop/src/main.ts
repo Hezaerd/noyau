@@ -32,6 +32,7 @@ import {
   decodePackagedReleaseChannelFile,
   desktopBrandName,
   desktopIconDirectory,
+  isDesktopDevelopmentChannel,
   RELEASE_CHANNEL_ENV,
   resolveDesktopReleaseChannel,
   type DesktopReleaseChannel,
@@ -47,7 +48,7 @@ import {
 import {
   decodeExternalBootstrap,
   resolveServerEntryPath,
-  serverEnvironmentFromDesktopDev,
+  serverEnvironmentFromReleaseChannel,
   ServerSupervisor,
   type ServerBootstrap,
   type ServerSupervisorOptions,
@@ -80,7 +81,6 @@ const SmokeControlPayload = Schema.Struct({
 const encodeSmokeControl = Schema.encodeEffect(Schema.fromJsonString(SmokeControlPayload))
 
 interface DesktopFlags {
-  readonly isDevelopment: boolean
   readonly isSmokeTest: boolean
   readonly releaseChannel: DesktopReleaseChannel
   readonly smokeCompleteFile: Option.Option<string>
@@ -88,7 +88,6 @@ interface DesktopFlags {
 }
 
 let flags: DesktopFlags = {
-  isDevelopment: false,
   isSmokeTest: false,
   releaseChannel: "latest",
   smokeCompleteFile: Option.none(),
@@ -104,7 +103,6 @@ let quitInProgress = false
 const loadDesktopFlags = Effect.fn("loadDesktopFlags")(function* () {
   const path = yield* Path.Path
   const fs = yield* FileSystem.FileSystem
-  const isDevelopment = yield* Config.boolean("NOYAU_DESKTOP_DEV").pipe(Config.withDefault(false))
   const envChannel = yield* Config.option(Config.string(RELEASE_CHANNEL_ENV))
   const packagedChannel = yield* fs
     .readFileString(path.join(__dirname, "release-channel.json"))
@@ -114,14 +112,12 @@ const loadDesktopFlags = Effect.fn("loadDesktopFlags")(function* () {
       Effect.orElseSucceed(() => undefined),
     )
   const releaseChannel = resolveDesktopReleaseChannel(
-    isDevelopment,
     Option.getOrUndefined(envChannel),
     packagedChannel,
     app.getVersion(),
   )
   process.env[RELEASE_CHANNEL_ENV] = releaseChannel
   return {
-    isDevelopment,
     isSmokeTest: yield* Config.boolean("NOYAU_DESKTOP_SMOKE_TEST").pipe(Config.withDefault(false)),
     releaseChannel,
     smokeCompleteFile: yield* Config.option(Config.string("NOYAU_DESKTOP_SMOKE_COMPLETE_FILE")),
@@ -232,7 +228,9 @@ const withSecurityHeaders = (response: Response): Response => {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${flags.isDevelopment ? " 'unsafe-eval'" : ""}`,
+      `script-src 'self' 'unsafe-inline'${
+        isDesktopDevelopmentChannel(flags.releaseChannel) ? " 'unsafe-eval'" : ""
+      }`,
       "connect-src 'self' http: https: ws: wss:",
       "img-src 'self' data: blob: http: https:",
       "style-src 'self' 'unsafe-inline'",
@@ -242,7 +240,7 @@ const withSecurityHeaders = (response: Response): Response => {
       "frame-ancestors 'none'",
     ].join("; "),
   )
-  if (flags.isDevelopment) {
+  if (isDesktopDevelopmentChannel(flags.releaseChannel)) {
     headers.set("Cache-Control", "no-store")
   }
 
@@ -304,7 +302,7 @@ const registerRendererProtocol = (): void => {
     }
 
     return desktopRuntime.runPromise(
-      flags.isDevelopment
+      isDesktopDevelopmentChannel(flags.releaseChannel)
         ? fetchDevelopmentRenderer(requestUrl)
         : fetchProductionRenderer(requestUrl),
     )
@@ -438,7 +436,7 @@ const launch = Effect.fn("launch")(function* () {
   const baseSupervisorOptions = {
     serverEntryPath: yield* resolveServerEntryPath(__dirname, app.isPackaged),
     dataDirectory: path.join(app.getPath("userData"), "environment"),
-    environment: serverEnvironmentFromDesktopDev(flags.isDevelopment),
+    environment: serverEnvironmentFromReleaseChannel(flags.releaseChannel),
     releaseChannel: flags.releaseChannel,
     onStateChange: (state: SupervisorState) => {
       void desktopRuntime.runPromise(publishSmokeSupervisorState(state))

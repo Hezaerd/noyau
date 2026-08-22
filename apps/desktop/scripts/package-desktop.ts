@@ -89,7 +89,7 @@ const packageDesktop = Effect.fn("packageDesktop")(function* () {
   const args = parsePackageDesktopArgs(process.argv.slice(2), process.platform)
   assertHostCanPackage(args.platform, process.platform)
 
-  const identity = resolveAppIdentity(false)
+  const identity = resolveAppIdentity("latest")
   if (identity.bundleId !== "dev.noyau.desktop") {
     return yield* packageError(`Unexpected packaged bundle id: ${identity.bundleId}`)
   }

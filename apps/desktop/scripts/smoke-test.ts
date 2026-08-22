@@ -184,7 +184,7 @@ const run = Effect.fn("runDesktopSmoke")(function* () {
   assert.equal(yield* sentinelHandle.isRunning, true, "foreign cursor-agent sentinel must be alive")
 
   const electronArguments = [`--user-data-dir=${profileDirectory}`, "dist-electron/main.cjs"]
-  const launch = yield* resolveElectronLaunchCommand(electronArguments, false)
+  const launch = yield* resolveElectronLaunchCommand(electronArguments, "latest")
   const executable = process.platform === "linux" ? "xvfb-run" : launch.electronPath
   const executableArguments =
     process.platform === "linux"
@@ -196,6 +196,7 @@ const run = Effect.fn("runDesktopSmoke")(function* () {
     env: {
       ...fakeEnvironment,
       ELECTRON_RUN_AS_NODE: undefined,
+      NOYAU_RELEASE_CHANNEL: "latest",
       NOYAU_DESKTOP_SMOKE_TEST: "1",
       NOYAU_DESKTOP_SMOKE_CONTROL_FILE: controlFile,
       NOYAU_DESKTOP_SMOKE_COMPLETE_FILE: completeFile,

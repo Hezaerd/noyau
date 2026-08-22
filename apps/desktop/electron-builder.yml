@@ -2,7 +2,7 @@
 # notarization ni electron-updater (la signature Developer ID manque encore).
 # afterPack pose une signature ad-hoc macOS avant le DMG : identity null laisse
 # la signature linker d'Electron, et Gatekeeper traite le .app comme corrompu.
-# appId aligné sur resolveAppIdentity(false) dans scripts/electron-launcher.ts.
+# appId aligné sur resolveAppIdentity("latest") dans scripts/electron-launcher.ts.
 appId: dev.noyau.desktop
 productName: Noyau
 artifactName: Noyau-${version}-${os}-${arch}.${ext}

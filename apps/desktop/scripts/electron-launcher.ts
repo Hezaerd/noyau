@@ -13,8 +13,12 @@ import {
   resolveMacBundleIconPath,
   resolveMacBundleStockIconPath,
 } from "./app-icon.ts"
+import {
+  RELEASE_CHANNEL_ENV,
+  resolveReleaseBrand,
+  type DesktopReleaseChannel,
+} from "./release-version.ts"
 
-const APP_BASE_NAME = "Noyau"
 const PRODUCTION_BUNDLE_ID = "dev.noyau.desktop"
 const LAUNCHER_VERSION = 3
 const hostPlatform = NodeOS.platform()
@@ -41,12 +45,15 @@ const devBundleIdSuffix = (repoRoot.split("/").pop() ?? "")
   .toLowerCase()
   .replaceAll(/[^a-z0-9]+/g, "")
 
-export const resolveAppIdentity = (isDevelopment: boolean) => {
-  const displayName = isDevelopment ? `${APP_BASE_NAME} (Dev)` : APP_BASE_NAME
-  const bundleId = isDevelopment
-    ? `${PRODUCTION_BUNDLE_ID}.dev.${devBundleIdSuffix || "local"}`
-    : PRODUCTION_BUNDLE_ID
-  return { displayName, bundleId }
+export const resolveAppIdentity = (channel: DesktopReleaseChannel) => {
+  if (channel === "development") {
+    return {
+      displayName: "Noyau (Dev)",
+      bundleId: `${PRODUCTION_BUNDLE_ID}.dev.${devBundleIdSuffix || "local"}`,
+    }
+  }
+  const brand = resolveReleaseBrand(channel)
+  return { displayName: brand.displayName, bundleId: brand.bundleId }
 }
 
 export const resolveMacBundlePaths = (appBundlePath: string) => ({
@@ -239,10 +246,10 @@ const installAppIcon = Effect.fn("installAppIcon")(function* (
 
 const buildMacLauncher = Effect.fn("buildMacLauncher")(function* (
   electronBinaryPath: string,
-  isDevelopment: boolean,
+  channel: DesktopReleaseChannel,
 ) {
   const fs = yield* FileSystem.FileSystem
-  const { displayName, bundleId } = resolveAppIdentity(isDevelopment)
+  const { displayName, bundleId } = resolveAppIdentity(channel)
   const sourceAppBundlePath = electronBinaryPath.split("/").slice(0, -3).join("/")
   const runtimeDir = `${desktopDir}/.electron-runtime`
   const targetAppBundlePath = `${runtimeDir}/${displayName}.app`
@@ -252,7 +259,7 @@ const buildMacLauncher = Effect.fn("buildMacLauncher")(function* (
 
   yield* fs.makeDirectory(runtimeDir, { recursive: true })
 
-  const appIconPath = resolveAppIconPath(desktopDir, isDevelopment)
+  const appIconPath = resolveAppIconPath(desktopDir, channel)
   if (!(yield* fs.exists(appIconPath))) {
     return yield* new LauncherError({
       message: `Missing app icon at ${appIconPath}. Run bun run export-app-icon from apps/desktop.`,
@@ -294,33 +301,42 @@ const buildMacLauncher = Effect.fn("buildMacLauncher")(function* (
   return brandedElectronBinaryPath
 })
 
-const developmentFlag = Effect.fn("developmentFlag")(function* (
-  isDevelopment: boolean | undefined,
+const launchChannel = Effect.fn("launchChannel")(function* (
+  channel: DesktopReleaseChannel | undefined,
 ) {
-  if (isDevelopment !== undefined) {
-    return isDevelopment
+  if (channel !== undefined) {
+    return channel
   }
-  return yield* Config.boolean("NOYAU_DESKTOP_DEV").pipe(Config.withDefault(false))
+  const raw = yield* Config.option(Config.string(RELEASE_CHANNEL_ENV))
+  const channelFromEnv = Option.getOrUndefined(raw)
+  if (
+    channelFromEnv === "development" ||
+    channelFromEnv === "latest" ||
+    channelFromEnv === "nightly"
+  ) {
+    return channelFromEnv
+  }
+  return "latest"
 })
 
 export const resolveElectronPath = Effect.fn("resolveElectronPath")(function* (
-  isDevelopment?: boolean,
+  channel?: DesktopReleaseChannel,
 ) {
-  const development = yield* developmentFlag(isDevelopment)
+  const resolvedChannel = yield* launchChannel(channel)
   const electronBinaryPath = resolveElectronBinaryPath()
   if (hostPlatform !== "darwin") {
     return electronBinaryPath
   }
 
-  return yield* buildMacLauncher(electronBinaryPath, development)
+  return yield* buildMacLauncher(electronBinaryPath, resolvedChannel)
 })
 
 export const resolveElectronLaunchCommand = Effect.fn("resolveElectronLaunchCommand")(function* (
   args: ReadonlyArray<string> = [],
-  isDevelopment?: boolean,
+  channel?: DesktopReleaseChannel,
 ) {
   return {
-    electronPath: yield* resolveElectronPath(isDevelopment),
+    electronPath: yield* resolveElectronPath(channel),
     args,
   }
 })

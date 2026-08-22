@@ -1,3 +1,5 @@
+import type { DesktopReleaseChannel } from "./release-version.ts"
+
 export const APP_ICON_NAME = "noyau"
 export const APP_ICON_SIZE = 1024
 export const MAC_BUNDLE_ICON_FILE = "icon.icns"
@@ -35,19 +37,32 @@ export const APP_ICON_VARIANTS = {
 
 export type AppIconVariant = keyof typeof APP_ICON_VARIANTS
 
-export const resolveAppIconVariant = (isDevelopment: boolean): AppIconVariant =>
-  isDevelopment ? "development" : "production"
+export const resolveAppIconVariant = (channel: DesktopReleaseChannel): AppIconVariant => {
+  if (channel === "development") {
+    return "development"
+  }
+  if (channel === "nightly") {
+    return "nightly"
+  }
+  return "production"
+}
 
 export const resolveAppIconDirectory = (
   desktopDirectory: string,
   variant: AppIconVariant,
 ): string => `${desktopDirectory}/assets/${APP_ICON_VARIANTS[variant].directory}`
 
-export const resolveAppIconPath = (desktopDirectory: string, isDevelopment: boolean): string =>
-  `${resolveAppIconDirectory(desktopDirectory, resolveAppIconVariant(isDevelopment))}/app-icon.icns`
+export const resolveAppIconPath = (
+  desktopDirectory: string,
+  channel: DesktopReleaseChannel,
+): string =>
+  `${resolveAppIconDirectory(desktopDirectory, resolveAppIconVariant(channel))}/app-icon.icns`
 
-export const resolveAppIconPngPath = (desktopDirectory: string, isDevelopment: boolean): string =>
-  `${resolveAppIconDirectory(desktopDirectory, resolveAppIconVariant(isDevelopment))}/app-icon.png`
+export const resolveAppIconPngPath = (
+  desktopDirectory: string,
+  channel: DesktopReleaseChannel,
+): string =>
+  `${resolveAppIconDirectory(desktopDirectory, resolveAppIconVariant(channel))}/app-icon.png`
 
 export const resolveMacBundleIconPath = (appBundlePath: string): string =>
   `${appBundlePath}/Contents/Resources/${MAC_BUNDLE_ICON_FILE}`

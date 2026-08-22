@@ -114,9 +114,9 @@ const supervisorError = (message: string, cause?: unknown) =>
 
 const flagEnabled = (name: string) => Config.boolean(name).pipe(Config.withDefault(false))
 
-export const serverEnvironmentFromDesktopDev = (
-  isDevelopment: boolean,
-): "development" | "production" => (isDevelopment ? "development" : "production")
+export const serverEnvironmentFromReleaseChannel = (
+  channel: DesktopReleaseChannel,
+): "development" | "production" => (channel === "development" ? "development" : "production")
 
 const readinessProbe = (
   options: Pick<ServerSupervisorOptions, "probeRpc">,

@@ -14,8 +14,9 @@ import {
 
 describe("app icon", () => {
   it("uses ember for development, light for latest, dark for nightly", () => {
-    expect(resolveAppIconVariant(true)).toBe("development")
-    expect(resolveAppIconVariant(false)).toBe("production")
+    expect(resolveAppIconVariant("development")).toBe("development")
+    expect(resolveAppIconVariant("latest")).toBe("production")
+    expect(resolveAppIconVariant("nightly")).toBe("nightly")
     expect(APP_ICON_VARIANTS.development.appearance).toBe("dark")
     expect(APP_ICON_VARIANTS.production.appearance).toBe("light")
     expect(APP_ICON_VARIANTS.development.palette).toEqual({
@@ -37,17 +38,20 @@ describe("app icon", () => {
   })
 
   it("points each variant at its committed icns and png", () => {
-    expect(resolveAppIconPath("/repo/apps/desktop", true)).toBe(
+    expect(resolveAppIconPath("/repo/apps/desktop", "development")).toBe(
       "/repo/apps/desktop/assets/dev/app-icon.icns",
     )
-    expect(resolveAppIconPath("/repo/apps/desktop", false)).toBe(
+    expect(resolveAppIconPath("/repo/apps/desktop", "latest")).toBe(
       "/repo/apps/desktop/assets/prod/app-icon.icns",
     )
-    expect(resolveAppIconPngPath("/repo/apps/desktop", true)).toBe(
+    expect(resolveAppIconPngPath("/repo/apps/desktop", "development")).toBe(
       "/repo/apps/desktop/assets/dev/app-icon.png",
     )
-    expect(resolveAppIconPngPath("/repo/apps/desktop", false)).toBe(
+    expect(resolveAppIconPngPath("/repo/apps/desktop", "latest")).toBe(
       "/repo/apps/desktop/assets/prod/app-icon.png",
+    )
+    expect(resolveAppIconPath("/repo/apps/desktop", "nightly")).toBe(
+      "/repo/apps/desktop/assets/nightly/app-icon.icns",
     )
     expect(`${resolveAppIconDirectory("/repo/apps/desktop", "nightly")}/app-icon.icns`).toBe(
       "/repo/apps/desktop/assets/nightly/app-icon.icns",

@@ -134,7 +134,7 @@ it.layer(NodeServices.layer)("electron-builder config", (spec) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem
       const config = yield* fs.readFileString(builderConfigPath)
-      const identity = resolveAppIdentity(false)
+      const identity = resolveAppIdentity("latest")
 
       expect(identity).toEqual({ displayName: "Noyau", bundleId: "dev.noyau.desktop" })
       expect(config).toContain("appId: dev.noyau.desktop")
