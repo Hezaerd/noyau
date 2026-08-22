@@ -1,3 +1,4 @@
+import { ThreadId } from "@noyau/protocol/ids"
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 
 import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"
@@ -9,6 +10,7 @@ export type PageTitlebar =
   | {
       readonly kind: "thread"
       readonly projectName: string | undefined
+      readonly threadId: ThreadId | undefined
       readonly threadTitle: string
     }
   | { readonly kind: "settings"; readonly tabLabel: string }
@@ -26,15 +28,20 @@ export const resolvePageTitlebar = (input: {
   const threadMatch = /^\/projects\/([^/]+)\/thread\/([^/]+)$/.exec(input.pathname)
   if (threadMatch !== null) {
     const projectId = threadMatch[1]
-    const threadId = threadMatch[2]
+    const rawThreadId = threadMatch[2]
+    const threadId =
+      rawThreadId === undefined || rawThreadId === "new" ? undefined : ThreadId.make(rawThreadId)
     const project = input.projects.find((candidate) => candidate.id === projectId)
     const thread =
-      threadId === "new" ? undefined : input.threads.find((candidate) => candidate.id === threadId)
+      threadId === undefined
+        ? undefined
+        : input.threads.find((candidate) => candidate.id === threadId)
 
     return {
       kind: "thread",
       projectName: project?.name,
-      threadTitle: threadId === "new" ? NEW_THREAD_TITLE : (thread?.title ?? "Thread"),
+      threadId,
+      threadTitle: threadId === undefined ? NEW_THREAD_TITLE : (thread?.title ?? "Thread"),
     }
   }
 

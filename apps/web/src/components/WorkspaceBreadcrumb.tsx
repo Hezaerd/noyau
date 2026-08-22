@@ -1,5 +1,12 @@
-import type { ReactNode } from "react"
+import type { ThreadId } from "@noyau/protocol/ids"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 
+import { Input } from "@/components/ui/input"
+import { buildAndDispatchCommand } from "@/lib/control-plane"
+import { presentFailure } from "@/lib/failure-presentation"
+import { showFailureToast } from "@/lib/failure-toast"
+import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
+import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 import { cn } from "@/lib/utils"
 
 export function WorkspaceBreadcrumb({
@@ -61,15 +68,145 @@ export function SettingsPageTitle({ tabLabel }: { readonly tabLabel: string }) {
   )
 }
 
+function EditableThreadTitle({
+  headingClassName,
+  threadId,
+  threadTitle,
+}: {
+  readonly headingClassName: string
+  readonly threadId: ThreadId | undefined
+  readonly threadTitle: string
+}) {
+  const titleInputRef = useRef<HTMLInputElement>(null)
+  const [renaming, setRenaming] = useState(false)
+  const [title, setTitle] = useState(threadTitle)
+
+  useEffect(() => {
+    setTitle(threadTitle)
+  }, [threadTitle])
+
+  useEffect(() => {
+    setRenaming(false)
+  }, [threadId])
+
+  useEffect(() => {
+    if (!renaming) {
+      return
+    }
+    const frame = requestAnimationFrame(() => {
+      titleInputRef.current?.focus()
+      titleInputRef.current?.select()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [renaming])
+
+  useEffect(() => {
+    if (threadId === undefined) {
+      return
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        isKeybindingRecorderActive() ||
+        renaming ||
+        document.querySelector('[role="dialog"]') !== null ||
+        !matchesKeybinding(event, "thread.rename")
+      ) {
+        return
+      }
+      event.preventDefault()
+      setRenaming(true)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [renaming, threadId])
+
+  const commitRename = () => {
+    const nextTitle = title.trim()
+    setRenaming(false)
+    if (threadId === undefined || nextTitle === "" || nextTitle === threadTitle) {
+      setTitle(threadTitle)
+      return
+    }
+    void buildAndDispatchCommand(makeThreadMetaUpdateRequest({ threadId, title: nextTitle })).then(
+      (result) => {
+        if (!result.ok) {
+          setTitle(threadTitle)
+          showFailureToast(
+            presentFailure(result.failure, {
+              operation: "thread.rename",
+              scope: "project",
+              initiatedByUser: true,
+              hasUsableData: true,
+            }),
+          )
+        }
+        return undefined
+      },
+    )
+  }
+
+  if (renaming && threadId !== undefined) {
+    return (
+      <Input
+        ref={titleInputRef}
+        size="sm"
+        value={title}
+        aria-label="Titre du Thread"
+        onChange={(event) => setTitle(event.target.value)}
+        onBlur={commitRename}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.currentTarget.blur()
+          }
+          if (event.key === "Escape") {
+            setTitle(threadTitle)
+            setRenaming(false)
+          }
+        }}
+        className="no-drag h-7 min-w-0 border-transparent bg-transparent px-1 text-sm font-medium shadow-none tracking-[-0.015em]"
+      />
+    )
+  }
+
+  return (
+    <h1
+      className={cn(headingClassName, threadId !== undefined && "no-drag cursor-text select-none")}
+      onDoubleClick={(event) => {
+        if (threadId === undefined) {
+          return
+        }
+        event.preventDefault()
+        event.stopPropagation()
+        setRenaming(true)
+      }}
+    >
+      {threadTitle}
+    </h1>
+  )
+}
+
 export function ThreadPageTitle({
   projectName,
+  threadId,
   threadTitle,
 }: {
   readonly projectName: string | undefined
+  readonly threadId?: ThreadId | undefined
   readonly threadTitle: string
 }) {
+  const title = (
+    <EditableThreadTitle
+      headingClassName={
+        projectName === undefined ? "truncate font-medium tracking-[-0.015em]" : "min-w-0 truncate"
+      }
+      threadId={threadId}
+      threadTitle={threadTitle}
+    />
+  )
+
   if (projectName === undefined) {
-    return <h1 className="truncate font-medium tracking-[-0.015em]">{threadTitle}</h1>
+    return title
   }
 
   return (
@@ -79,7 +216,7 @@ export function ThreadPageTitle({
       </WorkspaceBreadcrumbItem>
       <WorkspaceBreadcrumbSeparator />
       <WorkspaceBreadcrumbItem current className="min-w-0">
-        <h1 className="min-w-0 truncate">{threadTitle}</h1>
+        {title}
       </WorkspaceBreadcrumbItem>
     </WorkspaceBreadcrumb>
   )
