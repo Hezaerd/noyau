@@ -36,8 +36,9 @@ GitHub → Actions → **Release** → **Run workflow** → channel `nightly` �
 
 Pas de cron. Le tag `v*-nightly.*` est créé par le job `release`.
 
-Nightly a un branding séparé : nom `Noyau (Nightly)`, icône ember, bundle id
-`dev.noyau.desktop.nightly`. L’app expose `NOYAU_RELEASE_CHANNEL=nightly` (main, serveur enfant,
+Nightly a un branding séparé : nom `Noyau (Nightly)`, icône dark, bundle id
+`dev.noyau.desktop.nightly`. Marques : ember en Dev, dark en nightly, light en latest.
+L’app expose `NOYAU_RELEASE_CHANNEL=nightly` (main, serveur enfant,
 `window.noyauDesktop.releaseChannel`).
 
 La version devient `<next-patch>-nightly.YYYYMMDD.<run_number>`. Le tag `v*-nightly.*` est créé

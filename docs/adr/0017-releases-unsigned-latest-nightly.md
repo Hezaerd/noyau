@@ -12,9 +12,10 @@ Noyau publie des installateurs unsigned sur GitHub Releases, en deux canaux :
   `apps/desktop/package.json`. Toujours une prerelease, jamais latest.
 
 Nightly a une marque distincte : nom `Noyau (Nightly)`, bundle id `dev.noyau.desktop.nightly`,
-icône ember. `NOYAU_RELEASE_CHANNEL` (`development` | `latest` | `nightly`) est posé au lancement
-et exposé au renderer via `window.noyauDesktop.releaseChannel`. `NOYAU_ENV` reste le runtime
-serveur `development` | `production`.
+icône dark. Dev = ember, nightly = dark, latest = light. `NOYAU_RELEASE_CHANNEL`
+(`development` | `latest` | `nightly`) est posé au lancement et exposé au renderer via
+`window.noyauDesktop.releaseChannel`. `NOYAU_ENV` reste le runtime serveur
+`development` | `production`.
 
 Les artefacts v0.1 sont le DMG macOS Apple Silicon et l’installateur NSIS Windows x64. Linux, Intel
 Mac et signature (Developer ID, Azure Trusted Signing) sont différés.

@@ -32,8 +32,9 @@ ne dépende d'aucune distribution web.
 ## Package et releases (unsigned)
 
 CI publie latest/nightly sur GitHub Releases : DMG Apple Silicon et NSIS Windows x64. Pas de
-signature, pas d’auto-update. Nightly s’appelle **Noyau (Nightly)** (icône ember, bundle id
-séparé). L’UI lit `window.noyauDesktop.releaseChannel` / `NOYAU_RELEASE_CHANNEL`.
+signature, pas d’auto-update. Nightly s’appelle **Noyau (Nightly)** (icône dark, bundle id
+séparé). Marques : ember en Dev, dark en nightly, light en latest. L’UI lit
+`window.noyauDesktop.releaseChannel` / `NOYAU_RELEASE_CHANNEL`.
 Voir [`docs/operations/release.md`](../../docs/operations/release.md).
 
 ```bash
