@@ -14,6 +14,7 @@ import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
 import { useShellFocusReporter } from "@/hooks/use-shell-focus-reporter"
+import { useTurnSettlementCue } from "@/hooks/use-turn-settlement-cue"
 import {
   COLLAPSED_PAGE_TITLEBAR_INSET_CLASS,
   macosDesktopControlsStyle,
@@ -106,6 +107,11 @@ function ShellFocusReporter() {
   return null
 }
 
+function TurnSettlementCue() {
+  useTurnSettlementCue()
+  return null
+}
+
 export function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isSettings = isSettingsPath(pathname)
@@ -113,6 +119,7 @@ export function RootLayout() {
   return (
     <ControlPlaneProvider>
       <ShellFocusReporter />
+      <TurnSettlementCue />
       <AppPaletteProvider>
         <SidebarProvider className="h-svh overflow-hidden" style={macosDesktopControlsStyle()}>
           {/* Keep the Sidebar shell mounted: remounting it retriggers
