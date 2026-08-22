@@ -28,4 +28,6 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     ControlPlane.pipe(Effect.flatMap((service) => service.setShellFocus(input))),
   [RPC_METHODS.previewFile]: (input) =>
     ControlPlane.pipe(Effect.flatMap((service) => service.previewFile(input))),
+  [RPC_METHODS.previewAttachment]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.previewAttachment(input))),
 })

@@ -36,7 +36,9 @@ export const deriveTurnMinimapItems = (
       current = {
         turnId: item.turnId,
         messageId: transcriptRowId(item, 0),
-        userText: compactTurnMinimapPreview(item.text),
+        userText:
+          compactTurnMinimapPreview(item.text) ??
+          compactTurnMinimapPreview(item.attachments?.[0]?.name),
         assistantText: null,
       }
       items.push(current)

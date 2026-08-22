@@ -1,3 +1,4 @@
+import { TurnImageAttachments, turnHasPrompt } from "@noyau/protocol/entities/attachment"
 import { ApprovalRequestId, ThreadId, ToolCallId, TurnId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
@@ -21,8 +22,13 @@ export type TranscriptRequestStatus = (typeof TranscriptRequestStatus)["Type"]
 export const TranscriptUser = Schema.TaggedStruct("transcript.user", {
   threadId: ThreadId,
   turnId: TurnId,
-  text: Schema.NonEmptyString,
-})
+  text: Schema.optionalKey(Schema.NonEmptyString),
+  attachments: Schema.optionalKey(TurnImageAttachments),
+}).check(
+  Schema.makeFilter(turnHasPrompt, {
+    expected: "non-empty text or at least one image attachment",
+  }),
+)
 export type TranscriptUser = (typeof TranscriptUser)["Type"]
 
 export const TranscriptAssistant = Schema.TaggedStruct("transcript.assistant", {

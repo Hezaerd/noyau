@@ -231,10 +231,23 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
         }
         const firstTurn = thread.turns.length === 0
         const titleSeed = event.titleSeed ?? event.text
+        let userItem: (typeof thread.transcript)[number] = {
+          _tag: "transcript.user",
+          threadId: event.threadId,
+          turnId: event.turnId,
+        }
+        if (event.text !== undefined) {
+          userItem = Object.assign(userItem, { text: event.text })
+        }
+        if (event.attachments !== undefined) {
+          userItem = Object.assign(userItem, { attachments: event.attachments })
+        }
         return {
           ...thread,
           title:
-            firstTurn && canReplaceThreadTitle(thread.title, titleSeed) ? titleSeed : thread.title,
+            firstTurn && titleSeed !== undefined && canReplaceThreadTitle(thread.title, titleSeed)
+              ? titleSeed
+              : thread.title,
           runtimeMode: event.runtimeMode ?? thread.runtimeMode,
           modelSelection:
             event.modelSelection === undefined ? thread.modelSelection : event.modelSelection,
@@ -246,15 +259,7 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
               state: "running",
             },
           ],
-          transcript: [
-            ...thread.transcript,
-            {
-              _tag: "transcript.user",
-              threadId: event.threadId,
-              turnId: event.turnId,
-              text: event.text,
-            },
-          ],
+          transcript: [...thread.transcript, userItem],
         }
       })
     case "thread.turn.interrupted":

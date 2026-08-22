@@ -110,7 +110,26 @@ describe("Thread and TicketThread UI acceptance contract", () => {
     expect(regenerated.payload).toEqual({ threadId: ids.threadId, regenerateTitle: true })
   })
 
-  it("rejects image attachments at the same boundary used by the composer", () => {
+  it("accepte une image au même contrat que le composer et refuse images hors attachments", () => {
+    expect(
+      Schema.decodeSync(ThreadTurnStartRequest)({
+        _tag: "thread.turn.start",
+        commandId: CommandId.make("40000000-0000-4000-8000-000000000001"),
+        payload: {
+          threadId: ids.threadId,
+          text: "Prompt",
+          attachments: [
+            {
+              type: "image",
+              name: "screen.png",
+              mimeType: "image/png",
+              sizeBytes: 3,
+              dataUrl: "data:image/png;base64,AAAA",
+            },
+          ],
+        },
+      }).payload.attachments,
+    ).toHaveLength(1)
     expect(() =>
       Schema.decodeSync(ThreadTurnStartRequest)({
         _tag: "thread.turn.start",

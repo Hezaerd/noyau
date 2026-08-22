@@ -4,8 +4,13 @@ import { transcriptToolCaption } from "@/lib/thread-transcript"
 
 const transcriptLine = (item: TranscriptItem): string | undefined => {
   switch (item._tag) {
-    case "transcript.user":
-      return `You:\n${item.text}`
+    case "transcript.user": {
+      const parts = [
+        item.text,
+        item.attachments?.map((attachment) => `[image: ${attachment.name}]`).join(" "),
+      ].filter((part): part is string => part !== undefined && part.trim().length > 0)
+      return parts.length === 0 ? undefined : `You:\n${parts.join("\n")}`
+    }
     case "transcript.assistant":
       return `Cursor:\n${item.text}`
     case "transcript.plan":

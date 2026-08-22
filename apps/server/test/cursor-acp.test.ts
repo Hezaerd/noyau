@@ -2,7 +2,13 @@ import { fileURLToPath } from "node:url"
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { ApprovalRequestId, ProviderSessionId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import {
+  ApprovalRequestId,
+  AttachmentId,
+  ProviderSessionId,
+  ThreadId,
+  TurnId,
+} from "@noyau/protocol/ids"
 import { cursorProviderLayer, resolveCursorExecutable } from "@noyau/server/provider/cursor-acp"
 import {
   ProviderPort,
@@ -333,6 +339,36 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         assert.strictEqual(requests[modelIndex]?.params.value, "composer-2.5-fast")
         assert.strictEqual(requests[effortIndex]?.params.value, "high")
         assert.strictEqual(requests[tierIndex]?.params.value, "fast")
+      }),
+    ),
+  )
+
+  it.effect("envoie les images comme ContentBlock ACP", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        const bytes = Uint8Array.of(1, 2, 3, 4)
+        yield* capture(provider, {
+          ...input(),
+          attachments: [
+            {
+              type: "image",
+              id: AttachmentId.make("70000000-0000-4000-8000-000000000001-0"),
+              name: "shot.png",
+              mimeType: "image/png",
+              sizeBytes: bytes.byteLength,
+              data: bytes,
+            },
+          ],
+        })
+        const log = (yield* readLog(evidence.requestLog))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+        const prompt = log.find((message) => message.method === "session/prompt")
+        assert.deepStrictEqual(prompt?.params?.prompt, [
+          { type: "text", text: "Implement the adapter" },
+          { type: "image", data: Buffer.from(bytes).toString("base64"), mimeType: "image/png" },
+        ])
       }),
     ),
   )

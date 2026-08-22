@@ -64,3 +64,16 @@ _À éviter_ : Command, présence, current route
 Aperçu borné d'un fichier sous le WorkspaceRoot d'un Project (`text` | `image` | `unsupported`).
 Lecture RPC, pas une Command, pas un fait du journal.
 _À éviter_ : pièce jointe, FilePreviewPanel, lecture hors sandbox
+
+**TurnImageUpload**:
+Octets d'une image qui traversent `thread.turn.start` une seule fois (`dataUrl`).
+_À éviter_ : pièce jointe persistée, événement, blob du journal
+
+**TurnImageAttachment**:
+Meta durable d'une image jointe à un Turn (`id`, `name`, `mimeType`, `sizeBytes`). Les octets
+restent hors journal.
+_À éviter_ : dataUrl, FilePreview, BLOB SQLite
+
+**AttachmentPreview**:
+Aperçu borné d'une TurnImageAttachment persistée. Lecture RPC, pas une Command.
+_À éviter_ : FilePreview, snapshot, pièce jointe inline

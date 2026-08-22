@@ -10,6 +10,23 @@ import type { LatestTurn, Turn, TurnSettlementState } from "@noyau/protocol/enti
 import type { EventEnvelope } from "@noyau/protocol/events"
 import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
 
+const userTranscriptFromTurnStarted = (
+  event: Extract<EventEnvelope["event"], { readonly _tag: "thread.turn.started" }>,
+): TranscriptItem => {
+  let userItem: TranscriptItem = {
+    _tag: "transcript.user",
+    threadId: event.threadId,
+    turnId: event.turnId,
+  }
+  if (event.text !== undefined) {
+    userItem = Object.assign(userItem, { text: event.text })
+  }
+  if (event.attachments !== undefined) {
+    userItem = Object.assign(userItem, { attachments: event.attachments })
+  }
+  return userItem
+}
+
 const replaceTranscriptItem = (
   transcript: ReadonlyArray<TranscriptItem>,
   item: TranscriptItem,
@@ -402,7 +419,7 @@ export const applyThreadEnvelope = (
         return withEnvelope(snapshot, envelope, snapshot)
       }
       const firstTurn = snapshot.turns.length === 0
-      const titleSeed = event.titleSeed ?? event.text
+      const titleSeed = event.titleSeed ?? event.text ?? event.attachments?.[0]?.name
       const turns: ReadonlyArray<Turn> = [
         ...snapshot.turns,
         {
@@ -418,7 +435,9 @@ export const applyThreadEnvelope = (
       return withEnvelope(snapshot, envelope, {
         thread: replaceThread(snapshot, {
           title:
-            firstTurn && canReplaceThreadTitle(snapshot.thread.title, titleSeed)
+            firstTurn &&
+            titleSeed !== undefined &&
+            canReplaceThreadTitle(snapshot.thread.title, titleSeed)
               ? titleSeed
               : snapshot.thread.title,
           runtimeMode: event.runtimeMode ?? snapshot.thread.runtimeMode,
@@ -431,15 +450,7 @@ export const applyThreadEnvelope = (
         }),
         session: snapshot.session,
         turns,
-        transcript: [
-          ...snapshot.transcript,
-          {
-            _tag: "transcript.user",
-            threadId: event.threadId,
-            turnId: event.turnId,
-            text: event.text,
-          },
-        ],
+        transcript: [...snapshot.transcript, userTranscriptFromTurnStarted(event)],
       })
     }
     case "thread.session-set": {
