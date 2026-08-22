@@ -2,7 +2,7 @@ import * as NodeModule from "node:module"
 
 import { Schema } from "effect"
 
-import { releaseChannelFromVersion, resolveReleaseBrand } from "./release-version.ts"
+import { resolveReleaseBrand, type ReleaseChannel } from "./release-version.ts"
 
 export const PACKAGED_ARTIFACTS = [
   "dist-electron/main.cjs",
@@ -125,9 +125,9 @@ export const electronBuilderArgs = (
   platform: PackageDesktopArgs["platform"],
   target: PackageDesktopArgs["target"],
   arch: PackageDesktopArgs["arch"],
+  channel: ReleaseChannel,
   buildVersion: PackageDesktopArgs["buildVersion"],
 ): ReadonlyArray<string> => {
-  const channel = releaseChannelFromVersion(buildVersion)
   const brand = resolveReleaseBrand(channel)
   const args = [platform === "mac" ? "--mac" : "--win", target]
   if (arch !== undefined) {

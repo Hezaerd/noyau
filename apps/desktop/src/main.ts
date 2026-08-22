@@ -22,11 +22,12 @@ import {
   decodeFolderPickerOptions,
   folderPickerOpenDialogOptions,
   folderPickerOwner,
-  PICK_FOLDER_CHANNEL,
   resolveFolderPickerDefaultPath,
   selectedFolderPath,
 } from "./folder-picker"
-import { decodeOpenPathInput, OPEN_PATH_CHANNEL, openFilesystemPathOnHost } from "./open-path"
+import { PICK_FOLDER_CHANNEL } from "./folder-picker-contract"
+import { decodeOpenPathInput, openFilesystemPathOnHost } from "./open-path"
+import { OPEN_PATH_CHANNEL } from "./open-path-contract"
 import { isRendererPermissionAllowed } from "./permissions"
 import {
   decodePackagedReleaseChannelFile,
@@ -37,6 +38,7 @@ import {
   resolveDesktopReleaseChannel,
   type DesktopReleaseChannel,
 } from "./release-channel"
+import { GET_RELEASE_CHANNEL_CHANNEL } from "./release-channel-bridge"
 import {
   DESKTOP_HOST,
   DESKTOP_SCHEME,
@@ -114,9 +116,7 @@ const loadDesktopFlags = Effect.fn("loadDesktopFlags")(function* () {
   const releaseChannel = resolveDesktopReleaseChannel(
     Option.getOrUndefined(envChannel),
     packagedChannel,
-    app.getVersion(),
   )
-  process.env[RELEASE_CHANNEL_ENV] = releaseChannel
   return {
     isSmokeTest: yield* Config.boolean("NOYAU_DESKTOP_SMOKE_TEST").pipe(Config.withDefault(false)),
     releaseChannel,
@@ -454,6 +454,9 @@ const launch = Effect.fn("launch")(function* () {
   serverSupervisor = new ServerSupervisor(supervisorOptions)
   yield* serverSupervisor.start()
   registerRendererProtocol()
+  ipcMain.on(GET_RELEASE_CHANNEL_CHANNEL, (event) => {
+    event.returnValue = flags.releaseChannel
+  })
   registerThemeBridge()
   registerFolderPickerBridge()
   registerOpenPathBridge()

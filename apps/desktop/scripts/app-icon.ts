@@ -1,3 +1,5 @@
+import { RELEASE_BRANDS, type ReleaseChannel } from "@noyau/shared/release-brand"
+
 import type { DesktopReleaseChannel } from "./release-version.ts"
 
 export const APP_ICON_NAME = "noyau"
@@ -7,37 +9,37 @@ export const MAC_BUNDLE_STOCK_ICON_FILE = "electron.icns"
 
 export const APP_ICON_VARIANTS = {
   development: {
-    appearance: "dark",
-    directory: "dev",
+    appearance: RELEASE_BRANDS.development.appearance,
+    directory: RELEASE_BRANDS.development.iconDirectory,
     palette: {
-      bg: "#1a1208",
-      head: "#c45c26",
-      eye: "#ffe7c2",
+      bg: RELEASE_BRANDS.development.palette.background,
+      head: RELEASE_BRANDS.development.palette.head,
+      eye: RELEASE_BRANDS.development.palette.eye,
     },
   },
   production: {
-    appearance: "light",
-    directory: "prod",
+    appearance: RELEASE_BRANDS.latest.appearance,
+    directory: RELEASE_BRANDS.latest.iconDirectory,
     palette: {
-      bg: "#ebe9f4",
-      head: "#6154e0",
-      eye: "#f7f5ff",
+      bg: RELEASE_BRANDS.latest.palette.background,
+      head: RELEASE_BRANDS.latest.palette.head,
+      eye: RELEASE_BRANDS.latest.palette.eye,
     },
   },
   nightly: {
-    appearance: "dark",
-    directory: "nightly",
+    appearance: RELEASE_BRANDS.nightly.appearance,
+    directory: RELEASE_BRANDS.nightly.iconDirectory,
     palette: {
-      bg: "#0a0a0e",
-      head: "#302b4b",
-      eye: "#e2ddff",
+      bg: RELEASE_BRANDS.nightly.palette.background,
+      head: RELEASE_BRANDS.nightly.palette.head,
+      eye: RELEASE_BRANDS.nightly.palette.eye,
     },
   },
 } as const
 
 export type AppIconVariant = keyof typeof APP_ICON_VARIANTS
 
-export const resolveAppIconVariant = (channel: DesktopReleaseChannel): AppIconVariant => {
+export const resolveAppIconVariant = (channel: ReleaseChannel): AppIconVariant => {
   if (channel === "development") {
     return "development"
   }

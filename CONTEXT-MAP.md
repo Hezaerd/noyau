@@ -13,7 +13,7 @@ les formes précédentes : ne pas les étendre.
 | Domain   | `packages/domain/`   | Décision : deciders et projectors purs sur le journal.                  |
 | Database | `packages/database/` | Durabilité : journal SQLite, receipts, projections.                     |
 | ACP      | `packages/acp/`      | Fil de fer ACP : codegen spec, JSON-RPC stdio, `AcpClient`.             |
-| Shared   | `packages/shared/`   | Helpers purs : ComposerTrigger et Mention, sans IO ni Schema.           |
+| Shared   | `packages/shared/`   | Helpers purs : marque de release, ComposerTrigger et Mention.           |
 | Server   | `apps/server/`       | Frontières RPC/MCP, composition, adaptateur Cursor, reactors `TxQueue`. |
 | Web      | `apps/web/`          | UI React (TanStack Router, Vite) : Tableau, Threads, Dialog Ticket.     |
 | Desktop  | `apps/desktop/`      | Electron : superviseur du serveur enfant et chrome hôte.                |

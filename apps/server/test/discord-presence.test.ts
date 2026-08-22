@@ -7,7 +7,9 @@ import {
   DISCORD_APPLICATION_ID_NIGHTLY,
   discordIpcPath,
   encodeDiscordFrame,
+  makeDiscordSetActivity,
   resolveDiscordApplicationId,
+  resolveDiscordLargeImage,
 } from "@noyau/server/discord/ipc"
 import { DiscordPresence, makePresenceController } from "@noyau/server/discord/presence"
 import { Effect, Ref, Schema } from "effect"
@@ -56,22 +58,17 @@ describe("Discord presence mapping", () => {
   })
 
   it("encode un frame IPC little-endian", () => {
-    const frame = encodeDiscordFrame(1, {
-      cmd: "SET_ACTIVITY",
-      nonce: "1",
-      args: {
-        pid: 1,
-        activity: {
-          details: "noyau",
-          state: "Tableau",
-          instance: false,
-          timestamps: { start: 1_700_000_000_000 },
-        },
-      },
-    })
+    const payload = makeDiscordSetActivity(
+      "nightly",
+      { details: "noyau", state: "Tableau" },
+      "1",
+      1_700_000_000_000,
+      1,
+    )
+    const frame = encodeDiscordFrame(1, payload)
     assert.strictEqual(frame.readUInt32LE(0), 1)
     assert.strictEqual(frame.readUInt32LE(4), frame.length - 8)
-    assert.strictEqual(JSON.parse(frame.subarray(8).toString("utf8")).cmd, "SET_ACTIVITY")
+    assert.deepStrictEqual(JSON.parse(frame.subarray(8).toString("utf8")), payload)
     assert.strictEqual(DISCORD_APPLICATION_ID_LATEST, "1540464789850169484")
     assert.strictEqual(DISCORD_APPLICATION_ID_NIGHTLY, "1540445560736321627")
     assert.strictEqual(DISCORD_APPLICATION_ID_DEVELOPMENT, "1540812507592265738")
@@ -84,6 +81,22 @@ describe("Discord presence mapping", () => {
       resolveDiscordApplicationId("development"),
       DISCORD_APPLICATION_ID_DEVELOPMENT,
     )
+    assert.match(
+      resolveDiscordLargeImage("development"),
+      /cdn\.discordapp\.com\/app-icons\/1540812507592265738\//,
+    )
+    assert.match(
+      resolveDiscordLargeImage("nightly"),
+      /cdn\.discordapp\.com\/app-icons\/1540445560736321627\//,
+    )
+    assert.match(
+      resolveDiscordLargeImage("latest"),
+      /cdn\.discordapp\.com\/app-icons\/1540464789850169484\//,
+    )
+    assert.deepStrictEqual(payload.args.activity?.assets, {
+      large_image: resolveDiscordLargeImage("nightly"),
+      large_text: "Noyau (Nightly)",
+    })
     assert.strictEqual(discordIpcPath(0, "darwin", "/tmp"), "/tmp/discord-ipc-0")
     assert.strictEqual(discordIpcPath(3, "win32", "/tmp"), "\\\\.\\pipe\\discord-ipc-3")
   })

@@ -4,6 +4,7 @@ import * as NodeModule from "node:module"
 import * as NodeOS from "node:os"
 import { fileURLToPath } from "node:url"
 
+import { releaseBrand } from "@noyau/shared/release-brand"
 import { Config, Effect, FileSystem, Option, Schema, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
@@ -13,15 +14,12 @@ import {
   resolveMacBundleIconPath,
   resolveMacBundleStockIconPath,
 } from "./app-icon.ts"
-import {
-  RELEASE_CHANNEL_ENV,
-  resolveReleaseBrand,
-  type DesktopReleaseChannel,
-} from "./release-version.ts"
+import { RELEASE_CHANNEL_ENV, type DesktopReleaseChannel } from "./release-version.ts"
 
-const PRODUCTION_BUNDLE_ID = "dev.noyau.desktop"
-const LAUNCHER_VERSION = 3
+const LAUNCHER_VERSION = 5
 const hostPlatform = NodeOS.platform()
+const LAUNCH_SERVICES_REGISTER =
+  "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 class LauncherError extends Schema.TaggedError<LauncherError>()("LauncherError", {
   message: Schema.String,
@@ -40,19 +38,9 @@ const decodeLauncherMetadata = Schema.decodeUnknownEffect(Schema.fromJsonString(
 const encodeLauncherMetadata = Schema.encodeEffect(Schema.fromJsonString(LauncherMetadata))
 
 export const desktopDir = fileURLToPath(new URL("..", import.meta.url))
-const repoRoot = fileURLToPath(new URL("../../..", import.meta.url))
-const devBundleIdSuffix = (repoRoot.split("/").pop() ?? "")
-  .toLowerCase()
-  .replaceAll(/[^a-z0-9]+/g, "")
 
 export const resolveAppIdentity = (channel: DesktopReleaseChannel) => {
-  if (channel === "development") {
-    return {
-      displayName: "Noyau (Dev)",
-      bundleId: `${PRODUCTION_BUNDLE_ID}.dev.${devBundleIdSuffix || "local"}`,
-    }
-  }
-  const brand = resolveReleaseBrand(channel)
+  const brand = releaseBrand(channel)
   return { displayName: brand.displayName, bundleId: brand.bundleId }
 }
 
@@ -182,10 +170,9 @@ const readJson = Effect.fn("readJson")(function* (filePath: string) {
 const registerMacLauncherBundle = Effect.fn("registerMacLauncherBundle")(function* (
   appBundlePath: string,
 ) {
-  const result = yield* collectProcessOutput(
-    "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
-    ["-f", appBundlePath],
-  )
+  // Refresh only this development bundle. A global Dock/Launch Services cache reset is disruptive.
+  yield* collectProcessOutput(LAUNCH_SERVICES_REGISTER, ["-u", appBundlePath])
+  const result = yield* collectProcessOutput(LAUNCH_SERVICES_REGISTER, ["-f", appBundlePath])
   if (result.status === 0) {
     return
   }

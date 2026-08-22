@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./composer-trigger": "./src/composer-trigger.ts",
-    "./composer-inline-tokens": "./src/composer-inline-tokens.ts"
+    "./composer-inline-tokens": "./src/composer-inline-tokens.ts",
+    "./release-brand": "./src/release-brand.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

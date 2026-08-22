@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Path } from "effect"
+import { Config, Effect, FileSystem, Path } from "effect"
 import { ChildProcess } from "effect/unstable/process"
 
 import { desktopDir, resolveAppIdentity } from "./electron-launcher.ts"
@@ -12,7 +12,7 @@ import {
 } from "./package-desktop-plan.ts"
 import {
   formatPackagedReleaseChannel,
-  releaseChannelFromVersion,
+  RELEASE_CHANNEL_ENV,
   resolveReleaseBrand,
 } from "./release-version.ts"
 import { restoreTty } from "./restore-tty.ts"
@@ -99,7 +99,9 @@ const packageDesktop = Effect.fn("packageDesktop")(function* () {
     yield* runCommand("vp", ["run", "--filter", "@noyau/desktop", "build"], repositoryRoot)
   }
   yield* ensurePackagedArtifacts()
-  const channel = releaseChannelFromVersion(args.buildVersion)
+  const channel = yield* Config.literals(["latest", "nightly"], RELEASE_CHANNEL_ENV).pipe(
+    Config.withDefault("latest"),
+  )
   const brand = resolveReleaseBrand(channel)
   const fs = yield* FileSystem.FileSystem
   yield* fs.writeFileString(
@@ -110,7 +112,7 @@ const packageDesktop = Effect.fn("packageDesktop")(function* () {
     process.execPath,
     [
       resolveElectronBuilderCli(),
-      ...electronBuilderArgs(args.platform, args.target, args.arch, args.buildVersion),
+      ...electronBuilderArgs(args.platform, args.target, args.arch, channel, args.buildVersion),
     ],
     desktopDir,
   )

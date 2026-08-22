@@ -8,8 +8,13 @@ Noyau Server par Effect RPC ; Electron ne possède aucun état métier.
 Depuis la racine :
 
 ```bash
+bun run dev
+# ou, explicitement :
 bun run dev:desktop
 ```
+
+Les deux commandes lancent la même stack complète (Vite, bundles Server/Desktop et Electron)
+sur le canal `development`.
 
 Le shell sert le renderer sous l'origine privée `noyau://app/`. En développement, ce protocole
 redirige vers Vite, fixé sur `http://127.0.0.1:5173/`. Le métier passe uniquement par Effect RPC
@@ -35,6 +40,12 @@ CI publie latest/nightly sur GitHub Releases : DMG Apple Silicon et NSIS Windows
 signature, pas d’auto-update. Nightly s’appelle **Noyau (Nightly)** (icône dark, bundle id
 séparé). Marques : ember en Dev, dark en nightly, light en latest. L’UI lit
 `window.noyauDesktop.releaseChannel` / `NOYAU_RELEASE_CHANNEL`.
+La matrice exhaustive (nom, bundle id, dossier d'icône, palette et identité Discord) vit dans
+`packages/shared/src/release-brand.ts` ; aucune surface ne redéfinit ce mapping localement.
+`NOYAU_RELEASE_CHANNEL` est l’unique entrée : le launcher injecte `development` en local et la CI
+injecte `latest` ou `nightly` au packaging. Le packager embarque ensuite la valeur dans
+`dist-electron/release-channel.json`, car l’environnement du runner CI n’existe plus au lancement
+de l’application installée. Electron transmet cette valeur au serveur enfant et au preload.
 Voir [`docs/operations/release.md`](../../docs/operations/release.md).
 
 ```bash
@@ -42,6 +53,9 @@ bun run dist:desktop:mac
 bun run dist:desktop:mac:dmg
 bun run dist:desktop:win
 bun run dist:desktop:win:nsis
+
+# Pour reproduire une nightly locale :
+NOYAU_RELEASE_CHANNEL=nightly node apps/desktop/scripts/package-desktop.ts --mac --dmg
 ```
 
 Sortie `dir` : `apps/desktop/release/mac-arm64/Noyau.app` (ou `mac/` selon l’arch) et

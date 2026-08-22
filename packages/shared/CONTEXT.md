@@ -1,6 +1,6 @@
 # @noyau/shared
 
-Helpers purs partagés par le renderer et Noyau Server. Pas d'IO, pas de Schema
+Helpers purs partagés par le renderer, Noyau Server et Noyau Desktop. Pas d'IO, pas de Schema
 de frontière, pas de dépendance Effect.
 
 ## Langage
@@ -13,3 +13,9 @@ _À éviter_ : Action, Command, Palette
 Référence `@path` (ou lien markdown fichier) déjà délimitée dans le texte du
 Composer. Le serveur l'encode en `resource_link` ACP.
 _À éviter_ : attachment, Resource, ContentBlock
+
+**ReleaseBrand**:
+Identité pure et exhaustive d'un canal desktop : nom, bundle, icône, palette et application
+Discord. Chaque surface consomme cette même définition après avoir décodé le canal à sa
+frontière.
+_À éviter_ : mapping local par app, fallback différent par surface, dériver depuis le thème

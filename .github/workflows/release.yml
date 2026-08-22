@@ -124,6 +124,7 @@ jobs:
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          NOYAU_RELEASE_CHANNEL: ${{ needs.preflight.outputs.release_channel }}
         run: |
           node apps/desktop/scripts/package-desktop.ts \
             --"${{ matrix.platform }}" \

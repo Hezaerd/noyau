@@ -1,3 +1,7 @@
+import {
+  releaseBrand,
+  type ReleaseChannel as NoyauReleaseChannel,
+} from "@noyau/shared/release-brand"
 import { Schema } from "effect"
 
 export const STABLE_VERSION_PATTERN = /^[0-9]+\.[0-9]+\.[0-9]+$/
@@ -7,28 +11,17 @@ export const STABLE_TAG_PATTERN = /^v[0-9]+\.[0-9]+\.[0-9]+$/
 
 export const RELEASE_CHANNEL_ENV = "NOYAU_RELEASE_CHANNEL"
 
-export type ReleaseChannel = "latest" | "nightly"
-export type DesktopReleaseChannel = "development" | ReleaseChannel
-
-export const releaseChannelFromVersion = (version: string | undefined): ReleaseChannel =>
-  version !== undefined && NIGHTLY_VERSION_PATTERN.test(version) ? "nightly" : "latest"
+export type ReleaseChannel = Exclude<NoyauReleaseChannel, "development">
+export type DesktopReleaseChannel = NoyauReleaseChannel
 
 export const resolveReleaseBrand = (channel: ReleaseChannel) => {
-  if (channel === "nightly") {
-    return {
-      displayName: "Noyau (Nightly)",
-      bundleId: "dev.noyau.desktop.nightly",
-      iconDirectory: "nightly",
-      macIcon: "assets/nightly/app-icon.icns",
-      winIcon: "assets/nightly/app-icon.png",
-    }
-  }
+  const brand = releaseBrand(channel)
   return {
-    displayName: "Noyau",
-    bundleId: "dev.noyau.desktop",
-    iconDirectory: "prod",
-    macIcon: "assets/prod/app-icon.icns",
-    winIcon: "assets/prod/app-icon.png",
+    displayName: brand.displayName,
+    bundleId: brand.bundleId,
+    iconDirectory: brand.iconDirectory,
+    macIcon: `assets/${brand.iconDirectory}/app-icon.icns`,
+    winIcon: `assets/${brand.iconDirectory}/app-icon.png`,
   }
 }
 

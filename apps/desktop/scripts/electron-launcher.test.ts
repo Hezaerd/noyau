@@ -7,11 +7,11 @@ import {
 } from "./electron-launcher.ts"
 
 describe("electron launcher", () => {
-  it("brands development as Noyau (Dev) with a checkout-scoped bundle id", () => {
-    const identity = resolveAppIdentity("development")
-
-    expect(identity.displayName).toBe("Noyau (Dev)")
-    expect(identity.bundleId.startsWith("dev.noyau.desktop.dev.")).toBe(true)
+  it("brands development with one stable bundle id", () => {
+    expect(resolveAppIdentity("development")).toEqual({
+      displayName: "Noyau (Dev)",
+      bundleId: "dev.noyau.desktop.dev",
+    })
   })
 
   it("brands latest and nightly from the release channel", () => {
