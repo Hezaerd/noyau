@@ -54,7 +54,13 @@ function DesktopPageTitle() {
   }
 
   if (titlebar.kind === "thread") {
-    return <ThreadPageTitle projectName={titlebar.projectName} threadTitle={titlebar.threadTitle} />
+    return (
+      <ThreadPageTitle
+        projectName={titlebar.projectName}
+        threadId={titlebar.threadId}
+        threadTitle={titlebar.threadTitle}
+      />
+    )
   }
 
   return <h1 className="truncate font-medium tracking-[-0.015em]">{titlebar.title}</h1>
