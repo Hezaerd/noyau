@@ -390,6 +390,37 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
     ),
   )
 
+  it.effect("encodes @mentions as ACP resource_link blocks", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const workspace = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-mention-" })
+        yield* fileSystem.makeDirectory(path.join(workspace, "src"), { recursive: true })
+        yield* fileSystem.writeFileString(path.join(workspace, "src/adapter.ts"), "export {}\n")
+
+        yield* capture(provider, {
+          ...input(),
+          text: "Look at @src/adapter.ts please",
+          workspaceRoot: workspace,
+        })
+
+        const requests = (yield* readLog(evidence.requestLog))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+        const prompt = requests.find((message) => message.method === "session/prompt")?.params
+          ?.prompt
+        const fileUrl = yield* path.toFileUrl(path.join(workspace, "src/adapter.ts"))
+        assert.deepStrictEqual(prompt, [
+          { type: "text", text: "Look at " },
+          { type: "resource_link", name: "adapter.ts", uri: fileUrl.href },
+          { type: "text", text: " please" },
+        ])
+      }),
+    ),
+  )
+
   it.effect("falls back from load to new, replaces resumeCursor, and drops replay", () =>
     withProvider("load-fail", (provider, evidence) =>
       Effect.gen(function* () {

@@ -27,6 +27,7 @@ import type { ClientCommandRequest, Command as CommandType } from "@noyau/protoc
 import { Command } from "@noyau/protocol/commands"
 import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { Project } from "@noyau/protocol/entities/project"
+import type { WorkspacePathSearchResult } from "@noyau/protocol/entities/workspace-path"
 import type { CommandIdConflict } from "@noyau/protocol/errors"
 import { ServiceUnavailable } from "@noyau/protocol/errors"
 import {
@@ -101,6 +102,7 @@ import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { TextGeneration } from "./text-generation/text-generation.ts"
 import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
+import { searchWorkspacePathsInRoot } from "./workspace-path-search.ts"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root.ts"
 
 interface ControlState {
@@ -563,6 +565,13 @@ export interface ControlPlaneService {
   readonly previewFile: (
     input: PreviewFileInput,
   ) => Effect.Effect<FilePreview, ProjectNotFound | FilePreviewFailed | ServiceUnavailable>
+  readonly searchWorkspacePaths: (
+    projectId: ProjectIdType,
+    query: string,
+  ) => Effect.Effect<
+    WorkspacePathSearchResult,
+    ServiceUnavailable | ProjectNotFound | ProjectUnavailable
+  >
   readonly probe: Effect.Effect<Record<never, never>>
   readonly drainReactors: Effect.Effect<void>
 }
@@ -1008,6 +1017,26 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         )
       })
 
+      const searchWorkspacePaths: ControlPlaneService["searchWorkspacePaths"] = Effect.fn(
+        "ControlPlane.searchWorkspacePaths",
+      )(function* (projectId, query) {
+        const workspaceRoot = yield* workspaceRootForProject(projectId).pipe(
+          Effect.provideService(SqlClient, sql),
+          Effect.mapError(unavailable("sqlite")),
+        )
+        if (Option.isNone(workspaceRoot)) {
+          return yield* new ProjectNotFound({ projectId })
+        }
+        if (!(yield* workspaceRoots.isAvailable(workspaceRoot.value))) {
+          return yield* new ProjectUnavailable({ projectId })
+        }
+        return yield* searchWorkspacePathsInRoot(workspaceRoot.value, query).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+          Effect.mapError(unavailable("workspace-search")),
+        )
+      })
+
       const getConfig = readSchemaVersion().pipe(
         Effect.provideService(SqlClient, sql),
         Effect.map((databaseSchemaVersion) => ({
@@ -1038,6 +1067,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         hasRunningTurn,
         setShellFocus,
         previewFile,
+        searchWorkspacePaths,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {
           yield* worker.drainReactors

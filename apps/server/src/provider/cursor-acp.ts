@@ -22,6 +22,7 @@ import {
   CursorAskQuestionRequest,
   CursorListAvailableModelsResponse,
 } from "./cursor-acp-extension.ts"
+import { promptContentBlocks } from "./prompt-blocks.ts"
 import {
   ProviderPort,
   type ProviderEmit,
@@ -563,6 +564,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   options: CursorAdapterOptions = {},
 ) {
   const providerScope = yield* Effect.scope
+  const path = yield* Path.Path
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const environment = options.environment ?? process.env
   const platform = options.platform ?? process.platform
@@ -1006,7 +1008,10 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         const response = yield* acp.agent
           .prompt({
             sessionId,
-            prompt: [{ type: "text", text: control.input.text }],
+            prompt: yield* promptContentBlocks(
+              control.input.text,
+              control.input.workspaceRoot,
+            ).pipe(Effect.provideService(Path.Path, path)),
           })
           .pipe(Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)))
         control.terminalEmitted = true

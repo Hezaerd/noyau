@@ -59,6 +59,7 @@ packages/
   protocol/             # Schemas commandes/événements, contrat RPC, exports subpath
   database/             # journal SQLite, receipts, projections
   acp/                  # fil de fer ACP (codegen spec + AcpClient)
+  shared/               # helpers purs composer (trigger, mentions)
   …                     # voir docs/ARCHITECTURE.md — un package seulement si frontière réelle
 
 docs/

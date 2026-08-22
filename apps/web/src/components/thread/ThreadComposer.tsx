@@ -1,6 +1,12 @@
 import type { CursorModel } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
+import type { WorkspacePathEntry } from "@noyau/protocol/entities/workspace-path"
+import {
+  detectComposerTrigger,
+  replaceTextRange,
+  serializeComposerMentionPath,
+} from "@noyau/shared/composer-trigger"
 import {
   ChevronDownIcon,
   GaugeIcon,
@@ -9,19 +15,28 @@ import {
   PenLineIcon,
   SparklesIcon,
 } from "lucide-react"
-import type {
-  ClipboardEvent,
-  ComponentType,
-  DragEvent,
-  FormEvent,
-  KeyboardEvent,
-  ReactNode,
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type ComponentType,
+  type DragEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
 } from "react"
 
+import { ComposerPathMenu } from "@/components/thread/ComposerPathMenu"
+import {
+  ComposerPromptField,
+  type ComposerPromptFieldHandle,
+} from "@/components/thread/ComposerPromptField"
 import { ThreadModelPicker } from "@/components/thread/ThreadModelPicker"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group"
+import { InputGroup, InputGroupAddon } from "@/components/ui/input-group"
 import {
   Menu,
   MenuGroup,
@@ -65,6 +80,7 @@ export function ThreadComposer({
   onPaste,
   onDrop,
   onInterrupt,
+  searchPaths,
 }: {
   readonly isRunning: boolean
   readonly disabled: boolean
@@ -78,10 +94,22 @@ export function ThreadComposer({
   readonly onTextChange: (value: string) => void
   readonly onRuntimeModeChange: (runtimeMode: RuntimeMode) => void
   readonly onModelSelectionChange: (modelSelection: ModelSelection | null) => void
-  readonly onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void
-  readonly onDrop: (event: DragEvent<HTMLTextAreaElement>) => void
+  readonly onPaste: (event: ClipboardEvent<HTMLElement>) => void
+  readonly onDrop: (event: DragEvent<HTMLElement>) => void
   readonly onInterrupt: () => void
+  readonly searchPaths?: (query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>
 }) {
+  const listboxId = useId()
+  const fieldRef = useRef<ComposerPromptFieldHandle>(null)
+  const pendingCursor = useRef<number | null>(null)
+  const [cursor, setCursor] = useState(text.length)
+  const [pathEntries, setPathEntries] = useState<ReadonlyArray<WorkspacePathEntry>>([])
+  const [pathSearchLoading, setPathSearchLoading] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
+  const [dismissedQuery, setDismissedQuery] = useState<string | null>(null)
+  const trigger = detectComposerTrigger(text, cursor)
+  const pathQuery = searchPaths !== undefined && trigger?.kind === "path" ? trigger.query : null
+  const pathMenuOpen = pathQuery !== null && dismissedQuery !== pathQuery
   const controlsDisabled = isRunning || disabled
   const sendDisabled = text.trim() === "" || controlsDisabled
   const selectedModel = models.find((model) => model.modelId === modelSelection?.modelId)
@@ -114,7 +142,84 @@ export function ThreadComposer({
     runtimeModes.find((mode) => mode.value === runtimeMode) ?? runtimeModes[0]
   const SelectedRuntimeModeIcon = runtimeModeIcons[runtimeMode]
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  useEffect(() => {
+    const nextCursor = pendingCursor.current
+    if (nextCursor === null) {
+      return
+    }
+    pendingCursor.current = null
+    fieldRef.current?.setCursor(nextCursor)
+    setCursor(nextCursor)
+  }, [text])
+
+  useEffect(() => {
+    if (searchPaths === undefined || pathQuery === null || dismissedQuery === pathQuery) {
+      setPathEntries([])
+      setPathSearchLoading(false)
+      return
+    }
+    let cancelled = false
+    setPathSearchLoading(true)
+    const handle = globalThis.setTimeout(() => {
+      void searchPaths(pathQuery).then((entries) => {
+        if (!cancelled) {
+          setPathEntries(entries)
+          setHighlightedIndex(0)
+          setPathSearchLoading(false)
+        }
+        return undefined
+      })
+    }, 150)
+    return () => {
+      cancelled = true
+      globalThis.clearTimeout(handle)
+    }
+  }, [dismissedQuery, pathQuery, searchPaths])
+
+  const insertPathMention = (entry: WorkspacePathEntry) => {
+    if (trigger === null || trigger.kind !== "path") {
+      return
+    }
+    const mention = `@${serializeComposerMentionPath(entry.path)} `
+    const next = replaceTextRange(text, trigger.rangeStart, trigger.rangeEnd, mention)
+    pendingCursor.current = next.cursor
+    setDismissedQuery(null)
+    onTextChange(next.text)
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" && event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault()
+      const next = replaceTextRange(text, cursor, cursor, "\n")
+      pendingCursor.current = next.cursor
+      onTextChange(next.text)
+      return
+    }
+    if (pathMenuOpen && pathEntries.length > 0) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault()
+        setHighlightedIndex((index) => Math.min(pathEntries.length - 1, index + 1))
+        return
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault()
+        setHighlightedIndex((index) => Math.max(0, index - 1))
+        return
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        const entry = pathEntries[highlightedIndex]
+        if (entry !== undefined) {
+          event.preventDefault()
+          insertPathMention(entry)
+        }
+        return
+      }
+      if (event.key === "Escape") {
+        event.preventDefault()
+        setDismissedQuery(pathQuery)
+        return
+      }
+    }
     if (
       !shouldSubmitComposerOnEnter({
         key: event.key,
@@ -125,7 +230,7 @@ export function ThreadComposer({
       return
     }
     event.preventDefault()
-    event.currentTarget.form?.requestSubmit()
+    event.currentTarget.closest("form")?.requestSubmit()
   }
 
   return (
@@ -134,29 +239,45 @@ export function ThreadComposer({
       className={cn(placement === "hero" ? "w-full" : "sticky bottom-0 shrink-0 px-4 pb-4 sm:px-6")}
     >
       <div
-        className={cn("flex flex-col gap-2", placement === "hero" ? "w-full" : "mx-auto max-w-3xl")}
+        className={cn(
+          "relative flex flex-col gap-2",
+          placement === "hero" ? "w-full" : "mx-auto max-w-3xl",
+        )}
       >
-        <InputGroup className="rounded-xl bg-background has-[[data-slot=input-group-control]:focus-visible]:ring-0">
-          <InputGroupTextarea
-            value={text}
-            onChange={(event) => {
-              onTextChange(event.target.value)
-            }}
-            onKeyDown={handleKeyDown}
-            onPaste={onPaste}
-            onDrop={onDrop}
-            onDragOver={(event) => {
-              if (Array.from(event.dataTransfer.types).includes("Files")) {
-                event.preventDefault()
-              }
-            }}
-            className="max-h-52 min-h-24 overflow-hidden [&>textarea]:max-h-52 [&>textarea]:resize-none [&>textarea]:overflow-y-auto"
-            placeholder="Écrire un message…"
-            aria-label="Composer un message"
-            autoFocus={placement === "hero"}
-            disabled={controlsDisabled}
-            rows={3}
+        {pathMenuOpen ? (
+          <ComposerPathMenu
+            entries={pathEntries}
+            highlightedIndex={highlightedIndex}
+            id={listboxId}
+            loading={pathSearchLoading}
+            onHighlight={setHighlightedIndex}
+            onSelect={insertPathMention}
           />
+        ) : null}
+        <InputGroup className="rounded-xl bg-background dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+          <span className="relative inline-flex w-full flex-1 before:hidden">
+            <ComposerPromptField
+              ref={fieldRef}
+              text={text}
+              disabled={controlsDisabled}
+              autoFocus={placement === "hero"}
+              pathMenuOpen={pathMenuOpen}
+              listboxId={listboxId}
+              activeOptionId={
+                pathMenuOpen && pathEntries[highlightedIndex] !== undefined
+                  ? `composer-path-option-${highlightedIndex}`
+                  : undefined
+              }
+              onTextChange={(value) => {
+                setDismissedQuery(null)
+                onTextChange(value)
+              }}
+              onCursorChange={setCursor}
+              onKeyDown={handleKeyDown}
+              onPaste={onPaste}
+              onDrop={onDrop}
+            />
+          </span>
           <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
             <ThreadModelPicker
               models={models}

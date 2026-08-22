@@ -18,6 +18,10 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     }),
   [RPC_METHODS.getConfig]: () => ControlPlane.pipe(Effect.flatMap((service) => service.getConfig)),
   [RPC_METHODS.probe]: () => ControlPlane.pipe(Effect.flatMap((service) => service.probe)),
+  [RPC_METHODS.searchWorkspacePaths]: (input) =>
+    ControlPlane.pipe(
+      Effect.flatMap((service) => service.searchWorkspacePaths(input.projectId, input.query)),
+    ),
   [RPC_METHODS.subscribeShell]: (input) =>
     Stream.unwrap(ControlPlane.pipe(Effect.map((service) => service.subscribeShell(input)))),
   [RPC_METHODS.subscribeProject]: (input) =>

@@ -51,7 +51,11 @@ describe("Pierre file icons", () => {
     expect(inferEntryKindFromPath("src/main.ts")).toBe("file")
     expect(inferEntryKindFromPath("packages/client-runtime")).toBe("directory")
     expect(inferEntryKindFromPath(".github")).toBe("directory")
+    expect(inferEntryKindFromPath(".git")).toBe("directory")
     expect(inferEntryKindFromPath(".env.local")).toBe("file")
+    expect(inferEntryKindFromPath(".gitignore")).toBe("file")
+    expect(inferEntryKindFromPath(".env")).toBe("file")
+    expect(inferEntryKindFromPath(".npmrc")).toBe("file")
   })
 
   it("normalizes common markdown fence language aliases", () => {

@@ -77,6 +77,11 @@ Choix durable du Composer attaché au Thread : modèle, Effort, Vitesse et Réfl
 retrouve son dernier choix indépendamment des autres Threads.
 _À éviter_ : choix global, modèle de Session
 
+**Mention**:
+Référence `@path` insérée depuis le Composer, affichée comme chip fichier (icône Pierre +
+basename). Le texte soumis reste plat ; Noyau Server l'encode en `resource_link` ACP.
+_À éviter_ : attachment, Resource, Command
+
 **Palette**:
 Overlay clavier searchable de l'app qui propose navigation, Actions et résultats contextuels.
 _À éviter_ : Command, Command palette, Spotlight, Menu

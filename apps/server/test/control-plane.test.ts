@@ -7,7 +7,7 @@ import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { CommandIdConflict } from "@noyau/protocol/errors"
 import { ActorId, ProjectId, ThreadId } from "@noyau/protocol/ids"
-import { ProjectUnavailable } from "@noyau/protocol/project/errors"
+import { ProjectNotFound, ProjectUnavailable } from "@noyau/protocol/project/errors"
 import {
   WorkspaceRootConflict,
   WorkspaceRootNotDirectory,
@@ -23,7 +23,18 @@ import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "@noyau/server/workspace-root"
-import { Crypto, Deferred, Effect, Fiber, Layer, Option, Schema, Stream } from "effect"
+import {
+  Crypto,
+  Deferred,
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Schema,
+  Stream,
+} from "effect"
 import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -100,6 +111,7 @@ const controlPlaneTestLayer = (
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(workspaceRoots)),
     Layer.provideMerge(NodeFileSystem.layer),
+    Layer.provideMerge(Path.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 
@@ -122,6 +134,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
       }),
     ),
     Layer.provideMerge(NodeFileSystem.layer),
+    Layer.provideMerge(Path.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 
@@ -696,6 +709,34 @@ describe("ControlPlane", () => {
           assert.strictEqual(snapshot.snapshot.session?.status, "error")
           assert.include(snapshot.snapshot.session?.lastError ?? "", "session/prompt")
         }
+      }),
+    ),
+  )
+
+  it.effect("searches workspace paths for composer mentions", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const services = yield* Layer.build(controlPlaneTestLayer())
+        yield* Effect.gen(function* () {
+          const fileSystem = yield* FileSystem.FileSystem
+          const path = yield* Path.Path
+          const workspace = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-search-" })
+          yield* fileSystem.makeDirectory(path.join(workspace, "src"), { recursive: true })
+          yield* fileSystem.writeFileString(path.join(workspace, "src/adapter.ts"), "export {}\n")
+          yield* fileSystem.writeFileString(path.join(workspace, "README.md"), "# n\n")
+          yield* fileSystem.makeDirectory(path.join(workspace, "node_modules"))
+          yield* fileSystem.writeFileString(path.join(workspace, "node_modules/skip.ts"), "")
+
+          const controlPlane = yield* ControlPlane
+          yield* controlPlane.dispatch(projectCreate(uuid(40), projectId, workspace), actorId)
+          const result = yield* controlPlane.searchWorkspacePaths(projectId, "adapter")
+          assert.deepStrictEqual(result.entries, [{ path: "src/adapter.ts", kind: "file" }])
+
+          const missing = yield* controlPlane
+            .searchWorkspacePaths(otherProjectId, "adapter")
+            .pipe(Effect.flip)
+          assert.instanceOf(missing, ProjectNotFound)
+        }).pipe(Effect.provide(services))
       }),
     ),
   )

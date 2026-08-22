@@ -40,6 +40,10 @@ Capacité volatile découverte par `cursor/list_available_models`, qui expose le
 niveaux de raisonnement sans devenir un fait du journal.
 _À éviter_ : projection durable, liste codée en dur
 
+**workspace.searchPaths**:
+Query RPC du `WorkspaceRoot` pour le picker `@` du Composer. Pas une Command, pas un fait du journal.
+_À éviter_ : Command, listing Git, index durable
+
 **TextGeneration**:
 Session ACP éphémère hors Turn, pour un Titre généré. Pas le `session/prompt` du Thread.
 _À éviter_ : Turn, ProviderPort.startTurn

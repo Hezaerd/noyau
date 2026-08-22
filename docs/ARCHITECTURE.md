@@ -331,6 +331,7 @@ packages/
   protocol/  # contrats Schema, RPC, commandes et événements
   database/  # journal SQLite, receipts, projections
   acp/       # fil de fer ACP (codegen spec + AcpClient)
+  shared/    # helpers purs composer (trigger, mentions)
   config/    # configuration TypeScript partagée
 ```
 

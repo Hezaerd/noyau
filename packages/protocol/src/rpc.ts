@@ -1,6 +1,7 @@
 import { BoardSnapshot } from "@noyau/protocol/board"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
+import { WorkspacePathSearchResult } from "@noyau/protocol/entities/workspace-path"
 import {
   CommandIdConflict,
   Forbidden,
@@ -10,7 +11,7 @@ import {
 import { EventEnvelope } from "@noyau/protocol/events"
 import { FilePreview, FilePreviewFailed, PreviewFileInput } from "@noyau/protocol/file-preview"
 import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/protocol/ids"
-import { ProjectNotFound } from "@noyau/protocol/project/errors"
+import { ProjectNotFound, ProjectUnavailable } from "@noyau/protocol/project/errors"
 import { DispatchResult, Rejection } from "@noyau/protocol/receipts"
 import { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import { Schema } from "effect"
@@ -34,6 +35,7 @@ export const RPC_METHODS = {
   previewFile: "workspace.previewFile",
   getConfig: "server.getConfig",
   probe: "server.probe",
+  searchWorkspacePaths: "workspace.searchPaths",
 } as const
 
 /**
@@ -121,6 +123,18 @@ export const Probe = Rpc.make(RPC_METHODS.probe, {
   error: ServiceUnavailable,
 })
 
+export const SearchWorkspacePathsInput = Schema.Struct({
+  projectId: ProjectId,
+  query: Schema.String,
+})
+export type SearchWorkspacePathsInput = (typeof SearchWorkspacePathsInput)["Type"]
+
+export const SearchWorkspacePaths = Rpc.make(RPC_METHODS.searchWorkspacePaths, {
+  payload: SearchWorkspacePathsInput,
+  success: WorkspacePathSearchResult,
+  error: Schema.Union([ServiceUnavailable, ProjectNotFound, ProjectUnavailable]),
+})
+
 export const SubscribeShell = Rpc.make(RPC_METHODS.subscribeShell, {
   payload: SubscribeShellInput,
   success: ShellStreamItem,
@@ -159,6 +173,7 @@ export const ControlPlaneRpcs = RpcGroup.make(
   DispatchCommand,
   GetConfig,
   Probe,
+  SearchWorkspacePaths,
   SubscribeShell,
   SubscribeProject,
   SubscribeThread,

@@ -9,6 +9,7 @@ import {
   ProjectStreamItem,
   RPC_METHODS,
   requiresFreshSnapshot,
+  SearchWorkspacePaths,
   ShellStreamItem,
   SetShellFocus,
   SubscribeProject,
@@ -29,6 +30,7 @@ describe("ControlPlaneRpcs", () => {
         RPC_METHODS.previewFile,
         RPC_METHODS.getConfig,
         RPC_METHODS.probe,
+        RPC_METHODS.searchWorkspacePaths,
       ].toSorted(),
     )
   })
@@ -69,6 +71,25 @@ describe("ControlPlaneRpcs", () => {
     ).toBe(1)
     expect(Schema.decodeSync(Probe.payloadSchema)({})).toEqual({})
     expect(Schema.decodeSync(Probe.successSchema)({})).toEqual({})
+  })
+
+  it("décode workspace.searchPaths", () => {
+    expect(
+      Schema.decodeSync(SearchWorkspacePaths.payloadSchema)({
+        projectId: "10000000-0000-4000-8000-000000000001",
+        query: "adapter",
+      }),
+    ).toEqual({
+      projectId: "10000000-0000-4000-8000-000000000001",
+      query: "adapter",
+    })
+    expect(
+      Schema.decodeSync(SearchWorkspacePaths.successSchema)({
+        entries: [{ path: "src/adapter.ts", kind: "file" }],
+      }),
+    ).toEqual({
+      entries: [{ path: "src/adapter.ts", kind: "file" }],
+    })
   })
 
   it("décode afterSequence sur les trois subscribes", () => {

@@ -2,7 +2,14 @@ import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import { useEffect, useState, type DragEvent, type ClipboardEvent, type FormEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type DragEvent,
+  type ClipboardEvent,
+  type FormEvent,
+} from "react"
 
 import {
   InlineFailure,
@@ -16,7 +23,7 @@ import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { invalidInputFailure } from "@/lib/app-failure"
-import { subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
+import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import {
@@ -49,6 +56,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
   const cursorReady = isCursorReady(cursor)
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
+  const searchPaths = useCallback(
+    (query: string) =>
+      searchWorkspacePaths(projectId, query).then((result) =>
+        result.ok ? result.value.entries : [],
+      ),
+    [projectId],
+  )
 
   useEffect(() => {
     if (threadId === undefined) {
@@ -166,9 +180,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     })
   }
 
-  const rejectImages = (
-    event: ClipboardEvent<HTMLTextAreaElement> | DragEvent<HTMLTextAreaElement>,
-  ) => {
+  const rejectImages = (event: ClipboardEvent<HTMLElement> | DragEvent<HTMLElement>) => {
     const hasImage =
       "clipboardData" in event
         ? Array.from(event.clipboardData.items).some((item) => item.type.startsWith("image/"))
@@ -316,6 +328,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       onPaste={rejectImages}
       onDrop={rejectImages}
       onInterrupt={() => interruptTurn()}
+      searchPaths={searchPaths}
     />
   )
 
