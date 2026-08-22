@@ -4,6 +4,7 @@ import {
   ControlPlaneRpcs,
   DispatchCommand,
   GetConfig,
+  PreviewAttachment,
   PreviewFile,
   Probe,
   ProjectStreamItem,
@@ -18,7 +19,7 @@ import {
 import { Schema } from "effect"
 
 describe("ControlPlaneRpcs", () => {
-  it("expose dispatchCommand, getConfig, probe, setShellFocus, previewFile et les trois streams", () => {
+  it("expose dispatchCommand, getConfig, probe, setShellFocus, previewFile, previewAttachment et les trois streams", () => {
     expect([...ControlPlaneRpcs.requests.keys()].toSorted()).toEqual(
       [
         RPC_METHODS.dispatchCommand,
@@ -27,6 +28,7 @@ describe("ControlPlaneRpcs", () => {
         RPC_METHODS.subscribeThread,
         RPC_METHODS.setShellFocus,
         RPC_METHODS.previewFile,
+        RPC_METHODS.previewAttachment,
         RPC_METHODS.getConfig,
         RPC_METHODS.probe,
       ].toSorted(),
@@ -151,6 +153,23 @@ describe("ControlPlaneRpcs", () => {
     if (image.kind === "image") {
       expect(image.bytes).toBeInstanceOf(Uint8Array)
     }
+  })
+
+  it("décode previewAttachment", () => {
+    expect(
+      Schema.decodeSync(PreviewAttachment.payloadSchema)({
+        attachmentId: "70000000-0000-4000-8000-000000000001-0",
+      }),
+    ).toEqual({
+      attachmentId: "70000000-0000-4000-8000-000000000001-0",
+    })
+    const preview = Schema.decodeSync(PreviewAttachment.successSchema)({
+      kind: "image",
+      mime: "image/png",
+      bytes: "iVBORw0KGgo=",
+    })
+    expect(preview.kind).toBe("image")
+    expect(preview.bytes).toBeInstanceOf(Uint8Array)
   })
 
   it("demande un snapshot frais hors [0, 1000]", () => {

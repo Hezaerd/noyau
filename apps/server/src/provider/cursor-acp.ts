@@ -1003,10 +1003,21 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         }
 
         control.promptStarted = true
+        const prompt: Array<AcpSchema.ContentBlock> = []
+        if (control.input.text.trim().length > 0) {
+          prompt.push({ type: "text", text: control.input.text })
+        }
+        for (const attachment of control.input.attachments ?? []) {
+          prompt.push({
+            type: "image",
+            data: Buffer.from(attachment.data).toString("base64"),
+            mimeType: attachment.mimeType,
+          })
+        }
         const response = yield* acp.agent
           .prompt({
             sessionId,
-            prompt: [{ type: "text", text: control.input.text }],
+            prompt,
           })
           .pipe(Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)))
         control.terminalEmitted = true

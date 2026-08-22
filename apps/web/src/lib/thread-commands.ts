@@ -1,3 +1,4 @@
+import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode as RuntimeModeType } from "@noyau/protocol/entities/runtime-mode"
 import {
@@ -18,7 +19,11 @@ import {
   ThreadTurnStartRequest,
   UserInputRespondRequest,
 } from "@noyau/protocol/thread/commands"
-import { DEFAULT_THREAD_TITLE, seedTitleFromPrompt } from "@noyau/protocol/thread/title"
+import {
+  DEFAULT_THREAD_TITLE,
+  seedTitleFromPrompt,
+  seedTitleFromTurn,
+} from "@noyau/protocol/thread/title"
 import { Crypto, Effect } from "effect"
 
 const uuid = Effect.fnUntraced(function* () {
@@ -36,10 +41,11 @@ type ThreadCreatePayload = {
 
 type ThreadTurnStartPayload = {
   readonly threadId: ThreadId
-  readonly text: string
+  readonly text?: string
   readonly titleSeed?: string
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection | null
+  readonly attachments?: ReadonlyArray<TurnImageUpload>
 }
 
 type ThreadTurnInterruptPayload = {
@@ -81,10 +87,14 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   readonly titleSeed?: string
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection | null
+  readonly attachments?: ReadonlyArray<TurnImageUpload>
 }) {
+  const text = input.text.trim()
   let payload: ThreadTurnStartPayload = {
     threadId: input.threadId,
-    text: input.text.trim(),
+  }
+  if (text.length > 0) {
+    payload = Object.assign(payload, { text })
   }
   if (input.titleSeed !== undefined) {
     payload = Object.assign(payload, { titleSeed: input.titleSeed })
@@ -94,6 +104,9 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   }
   if (input.modelSelection !== undefined) {
     payload = Object.assign(payload, { modelSelection: input.modelSelection })
+  }
+  if (input.attachments !== undefined && input.attachments.length > 0) {
+    payload = Object.assign(payload, { attachments: input.attachments })
   }
   return ThreadTurnStartRequest.make({
     commandId: CommandId.make(yield* uuid()),
@@ -148,7 +161,7 @@ export const makeThreadArchiveRequest = Effect.fnUntraced(function* (input: {
   })
 })
 
-export { DEFAULT_THREAD_TITLE, seedTitleFromPrompt }
+export { DEFAULT_THREAD_TITLE, seedTitleFromPrompt, seedTitleFromTurn }
 
 export const makeThreadRuntimeModeSetRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId

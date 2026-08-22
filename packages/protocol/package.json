@@ -35,6 +35,8 @@
     "./receipts": "./src/receipts.ts",
     "./errors": "./src/errors.ts",
     "./file-preview": "./src/file-preview.ts",
+    "./attachment-preview": "./src/attachment-preview.ts",
+    "./entities/attachment": "./src/entities/attachment.ts",
     "./rpc": "./src/rpc.ts"
   },
   "scripts": {

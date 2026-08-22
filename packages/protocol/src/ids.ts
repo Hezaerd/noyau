@@ -45,6 +45,16 @@ export const ToolCallId = Schema.NonEmptyString.pipe(Schema.brand("ToolCallId"))
 export type ToolCallId = (typeof ToolCallId)["Type"]
 
 /**
+ * Identité d'une pièce jointe d'un Turn : `{commandId}-{index}`.
+ * Dérivée du `commandId` pour qu'un retry réécrive le même fichier.
+ */
+export const AttachmentId = Schema.NonEmptyString.check(
+  Schema.isMaxLength(80),
+  Schema.isPattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9]+$/i),
+).pipe(Schema.brand("AttachmentId"))
+export type AttachmentId = (typeof AttachmentId)["Type"]
+
+/**
  * Identifiant opaque de session provider, porté seulement par `resumeCursor`.
  * Ce n'est pas un id métier de Session : la Session est une projection 0..1 du Thread.
  */

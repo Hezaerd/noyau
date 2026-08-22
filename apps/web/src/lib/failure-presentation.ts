@@ -122,7 +122,7 @@ const rejectionMessage = (rejection: Rejection): string => {
     case "TurnNotFound":
       return "Ce Turn n’existe plus."
     case "ImageAttachmentRejected":
-      return "Les images ne sont pas encore prises en charge dans les Threads."
+      return "Cette image n’a pas pu être jointe."
     case "ApprovalRequestNotFound":
       return "Cette demande d’approbation n’est plus active."
     case "SessionNotRunning":

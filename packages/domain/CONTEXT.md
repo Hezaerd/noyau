@@ -81,3 +81,8 @@ _À éviter_ : titre du prompt, résumé du Turn
 **Régénération de titre**:
 Intention `thread.meta.update` avec `regenerateTitle` qui redemande un Titre généré depuis le transcript.
 _À éviter_ : rename, `thread.title.seeded` client
+
+**TurnImageAttachment**:
+Meta d'une image jointe à un Turn, portée par `thread.turn.started` et `transcript.user`. Les
+octets ne font pas partie du fait.
+_À éviter_ : dataUrl, FilePreview, blob du journal

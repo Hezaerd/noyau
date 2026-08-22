@@ -7,6 +7,7 @@
     "./config": "./src/config.ts",
     "./control-plane": "./src/control-plane.ts",
     "./file-preview": "./src/file-preview.ts",
+    "./attachments": "./src/attachments.ts",
     "./discord/activity": "./src/discord/activity.ts",
     "./discord/presence": "./src/discord/presence.ts",
     "./discord/ipc": "./src/discord/ipc.ts",

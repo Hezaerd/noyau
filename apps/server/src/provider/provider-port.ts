@@ -2,6 +2,7 @@ import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
+import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
 import {
   emptyCursorProviderStatus,
   type CursorProviderStatus,
@@ -14,6 +15,10 @@ import type { TurnSettlementState } from "@noyau/protocol/entities/turn"
 import type { ApprovalRequestId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { Context, Effect, Layer } from "effect"
 
+export interface ProviderTurnAttachment extends TurnImageAttachment {
+  readonly data: Uint8Array
+}
+
 export interface ProviderTurnInput {
   readonly threadId: ThreadId
   readonly turnId: TurnId
@@ -22,6 +27,7 @@ export interface ProviderTurnInput {
   readonly runtimeMode: RuntimeMode
   readonly modelSelection: ModelSelection | null
   readonly resumeCursor: ResumeCursor | null
+  readonly attachments?: ReadonlyArray<ProviderTurnAttachment>
 }
 
 export type ProviderSignal =

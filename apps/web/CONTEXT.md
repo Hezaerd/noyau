@@ -133,6 +133,11 @@ Aperçu hover d'un fichier mentionné dans le transcript (`text` | `image` | `un
 Chargé via `previewFile` au moment où la carte s'ouvre. Le clic ouvre le fichier sur l'hôte.
 _À éviter_ : FilePreviewPanel, Tooltip de chemin, lecture Desktop
 
+**Pièce jointe**:
+Image jointe à un Turn depuis le Composer (paste, drop ou fichier). Le snapshot ne porte que la
+meta ; l'aperçu passe par `previewAttachment`.
+_À éviter_ : FilePreview, dataUrl dans le transcript, brouillon persisté
+
 **Keybinding**:
 Association persistée entre une Action et un Raccourci, surchargeable depuis les Paramètres.
 _À éviter_ : shortcut, hotkey, binding

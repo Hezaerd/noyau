@@ -1,3 +1,4 @@
+import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/attachment-preview"
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -212,6 +213,18 @@ const requestPreviewFile = Effect.fn("ControlPlaneClient.previewFile")(function*
 
 export const previewFile = (input: PreviewFileInput): Promise<ControlPlaneResult<FilePreview>> =>
   runOperation(requestPreviewFile(input), "command")
+
+const requestPreviewAttachment = Effect.fn("ControlPlaneClient.previewAttachment")(function* (
+  input: PreviewAttachmentInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.previewAttachment](input)
+})
+
+export const previewAttachment = (
+  input: PreviewAttachmentInput,
+): Promise<ControlPlaneResult<AttachmentPreview>> =>
+  runOperation(requestPreviewAttachment(input), "command")
 
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,

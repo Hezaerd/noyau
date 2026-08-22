@@ -1,3 +1,8 @@
+import {
+  AttachmentPreview,
+  AttachmentPreviewFailed,
+  PreviewAttachmentInput,
+} from "@noyau/protocol/attachment-preview"
 import { BoardSnapshot } from "@noyau/protocol/board"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -32,6 +37,7 @@ export const RPC_METHODS = {
   subscribeThread: "orchestration.subscribeThread",
   setShellFocus: "orchestration.setShellFocus",
   previewFile: "workspace.previewFile",
+  previewAttachment: "thread.previewAttachment",
   getConfig: "server.getConfig",
   probe: "server.probe",
 } as const
@@ -154,6 +160,12 @@ export const PreviewFile = Rpc.make(RPC_METHODS.previewFile, {
   error: Schema.Union([ProjectNotFound, FilePreviewFailed, ServiceUnavailable]),
 })
 
+export const PreviewAttachment = Rpc.make(RPC_METHODS.previewAttachment, {
+  payload: PreviewAttachmentInput,
+  success: AttachmentPreview,
+  error: Schema.Union([AttachmentPreviewFailed, ServiceUnavailable]),
+})
+
 /** Contrat unique client/serveur du control plane sur WebSocket. */
 export const ControlPlaneRpcs = RpcGroup.make(
   DispatchCommand,
@@ -164,6 +176,7 @@ export const ControlPlaneRpcs = RpcGroup.make(
   SubscribeThread,
   SetShellFocus,
   PreviewFile,
+  PreviewAttachment,
 ).middleware(NoyauRpcIdentity)
 
 export type ControlPlaneRpcs = typeof ControlPlaneRpcs
