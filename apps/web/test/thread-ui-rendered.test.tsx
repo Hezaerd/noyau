@@ -4,7 +4,7 @@ import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { ProjectId, ThreadId, TicketId, TurnId } from "@noyau/protocol/ids"
 import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect, Schema } from "effect"
 import { useState } from "react"
@@ -817,6 +817,86 @@ describe("rendered Thread UI evidence", () => {
     const preview = rail.querySelector("[data-turn-minimap-preview]")
     expect(preview?.textContent).toContain("Deuxième prompt")
     expect(preview?.textContent).toContain("Deuxième réponse")
+  })
+
+  it("renders Turn rail preview markdown and Shiki instead of raw markers", () => {
+    const firstTurn = TurnId.make("40000000-0000-4000-8000-000000000001")
+    const secondTurn = TurnId.make("40000000-0000-4000-8000-000000000002")
+    const transcript = [
+      Schema.decodeSync(TranscriptItem)({
+        _tag: "transcript.user",
+        threadId,
+        turnId: firstTurn,
+        text: "Premier prompt",
+      }),
+      Schema.decodeSync(TranscriptItem)({
+        _tag: "transcript.assistant",
+        threadId,
+        turnId: firstTurn,
+        text: "Première réponse",
+      }),
+      Schema.decodeSync(TranscriptItem)({
+        _tag: "transcript.user",
+        threadId,
+        turnId: secondTurn,
+        text: "ensuite pour l'ui",
+      }),
+      Schema.decodeSync(TranscriptItem)({
+        _tag: "transcript.assistant",
+        threadId,
+        turnId: secondTurn,
+        text: "Le picker vit **dans** le composer.\n\n```ts\nconst ready = true\n```",
+      }),
+    ]
+
+    return Effect.runPromise(
+      Effect.gen(function* () {
+        render(
+          <ThreadTranscript
+            transcript={transcript}
+            isRunning={false}
+            loading={false}
+            error={undefined}
+            notices={null}
+            answerByRequest={{}}
+            onAnswerChange={vi.fn()}
+            onRespondApproval={vi.fn()}
+            onRespondUserInput={vi.fn()}
+          />,
+        )
+
+        const rail = screen.getByTestId("thread-turn-minimap")
+        const button = rail.querySelector("button")
+        expect(button).toBeTruthy()
+        if (button === null) {
+          return
+        }
+
+        button.getBoundingClientRect = () => new DOMRect(12, 100, 40, 8)
+        fireEvent.mouseMove(button, { clientY: 108 })
+
+        const preview = rail.querySelector("[data-turn-minimap-preview]")
+        expect(preview?.querySelector("[data-streamdown='strong']")?.textContent).toBe("dans")
+        expect(preview?.textContent).not.toContain("**dans**")
+
+        yield* Effect.promise(() =>
+          waitFor(() => {
+            const tokens = [
+              ...(preview?.querySelectorAll(
+                "[data-streamdown='code-block-body'] span[style*='--sdm-c']",
+              ) ?? []),
+            ].filter((node): node is HTMLElement => node instanceof HTMLElement)
+            expect(
+              tokens.some((node) => {
+                const light = node.style.getPropertyValue("--sdm-c")
+                const dark = node.style.getPropertyValue("--shiki-dark")
+                return light.length > 0 && light !== "inherit" && dark.length > 0 && light !== dark
+              }),
+            ).toBe(true)
+          }),
+        )
+      }),
+    )
   })
 
   it("shows Cursor écrit only while waiting for the first assistant row", () => {

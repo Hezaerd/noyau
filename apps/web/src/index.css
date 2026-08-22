@@ -88,6 +88,35 @@
   background-color: transparent;
 }
 
+.thread-minimap-preview [class~="space-y-4"] > :not([hidden]) ~ :not([hidden]) {
+  margin-block-start: 0;
+}
+
+.thread-minimap-preview [data-streamdown="code-block"] {
+  margin: 0.25rem 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  content-visibility: visible !important;
+  contain-intrinsic-size: none !important;
+}
+
+.thread-minimap-preview [data-streamdown="code-block-body"] {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.thread-minimap-preview [data-streamdown="code-block-body"] pre {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background-color: transparent;
+}
+
 /* streamdown + plugin classes live in the package dist, not in src/. */
 /* Bun résout souvent hors de node_modules/ local : @source peut rater le dist. */
 

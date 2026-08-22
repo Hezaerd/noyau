@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState, type KeyboardEvent, type MouseEvent } from "react"
 
+import { ThreadPreviewMarkdown } from "@/components/thread/ThreadPreviewMarkdown"
 import { useMessageScroller, useMessageScrollerVisibility } from "@/components/ui/message-scroller"
 import {
+  clipTurnMinimapMarkdown,
+  compactTurnMinimapPreview,
   resolveTurnMinimapHasPersistentGutter,
   resolveTurnMinimapHeightStyle,
   resolveTurnMinimapHitStripWidth,
@@ -113,7 +116,7 @@ export function ThreadTurnMinimap({ items }: { readonly items: ReadonlyArray<Tur
     >
       <div className="relative h-full w-18 select-none">
         <button
-          aria-label={`Aller au tour : ${activeItem?.userText ?? "Tour"}`}
+          aria-label={`Aller au tour : ${compactTurnMinimapPreview(activeItem?.userText) ?? "Tour"}`}
           className={cn(
             "absolute top-1/2 left-3 -translate-y-1/2 cursor-pointer bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
             hitStripWidth > 0 ? "pointer-events-auto" : "pointer-events-none",
@@ -202,23 +205,36 @@ export function ThreadTurnMinimap({ items }: { readonly items: ReadonlyArray<Tur
                 transform: `translateY(${activeTooltipTranslate})`,
               }}
             >
-              <span className="block rounded-xl border bg-popover p-3 text-left text-popover-foreground shadow-lg/5">
-                <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium leading-5">
-                  {activeItem.userText ?? "Tour"}
-                </span>
+              <div className="thread-minimap-preview rounded-xl border bg-popover p-3 text-left text-popover-foreground shadow-lg/5">
+                <div
+                  className="max-w-full overflow-hidden text-sm font-medium leading-5 [&_*]:my-0"
+                  style={{
+                    display: "-webkit-box",
+                    WebkitBoxOrient: "vertical",
+                    WebkitLineClamp: 1,
+                  }}
+                >
+                  <ThreadPreviewMarkdown
+                    className="text-sm font-medium leading-5"
+                    text={clipTurnMinimapMarkdown(activeItem.userText ?? "Tour")}
+                  />
+                </div>
                 {activeItem.assistantText === null ? null : (
-                  <span
-                    className="mt-1 max-h-[3.75rem] overflow-hidden text-muted-foreground text-sm leading-5"
+                  <div
+                    className="mt-1 overflow-hidden text-muted-foreground text-sm leading-5"
                     style={{
                       display: "-webkit-box",
                       WebkitBoxOrient: "vertical",
                       WebkitLineClamp: 3,
                     }}
                   >
-                    {activeItem.assistantText}
-                  </span>
+                    <ThreadPreviewMarkdown
+                      className="text-sm leading-5 [&_p]:my-0"
+                      text={clipTurnMinimapMarkdown(activeItem.assistantText)}
+                    />
+                  </div>
                 )}
-              </span>
+              </div>
             </span>
           )}
         </button>

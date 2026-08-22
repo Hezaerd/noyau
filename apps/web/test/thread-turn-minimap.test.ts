@@ -5,8 +5,10 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { transcriptRowId } from "../src/lib/thread-transcript"
 import {
+  clipTurnMinimapMarkdown,
   compactTurnMinimapPreview,
   deriveTurnMinimapItems,
+  trimTurnMinimapPreview,
   resolveTurnMinimapHasPersistentGutter,
   resolveTurnMinimapHeightStyle,
   resolveTurnMinimapHitStripWidth,
@@ -45,6 +47,20 @@ describe("thread turn minimap", () => {
     expect(compactTurnMinimapPreview(undefined)).toBeNull()
   })
 
+  it("trims markdown without collapsing fences or emphasis", () => {
+    expect(trimTurnMinimapPreview("  **dans** le composer  ")).toBe("**dans** le composer")
+    expect(trimTurnMinimapPreview("```ts\nconst ready = true\n```")).toBe(
+      "```ts\nconst ready = true\n```",
+    )
+    expect(trimTurnMinimapPreview("   ")).toBeNull()
+  })
+
+  it("clips long markdown so the rail preview stays cheap to highlight", () => {
+    const lines = Array.from({ length: 20 }, (_, index) => `ligne ${String(index + 1)}`)
+    expect(clipTurnMinimapMarkdown(lines.join("\n")).split("\n")).toHaveLength(12)
+    expect(clipTurnMinimapMarkdown("a".repeat(900))).toHaveLength(800)
+  })
+
   it("builds one rail item per user Turn and keeps the last assistant text", () => {
     const items = deriveTurnMinimapItems([
       user(firstTurn, "Premier\nprompt"),
@@ -65,7 +81,7 @@ describe("thread turn minimap", () => {
       {
         turnId: firstTurn,
         messageId: transcriptRowId(user(firstTurn, "Premier\nprompt"), 0),
-        userText: "Premier prompt",
+        userText: "Premier\nprompt",
         assistantText: "Réponse B finale",
       },
       {

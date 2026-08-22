@@ -20,9 +20,28 @@ export interface TurnMinimapItem {
   readonly assistantText: string | null
 }
 
+export const TURN_MINIMAP_PREVIEW_MAX_LINES = 12
+export const TURN_MINIMAP_PREVIEW_MAX_CHARS = 800
+
 export const compactTurnMinimapPreview = (text: string | null | undefined): string | null => {
   const compact = text?.replace(/\s+/g, " ").trim() ?? ""
   return compact.length > 0 ? compact : null
+}
+
+export const trimTurnMinimapPreview = (text: string | null | undefined): string | null => {
+  const trimmed = text?.trim() ?? ""
+  return trimmed.length > 0 ? trimmed : null
+}
+
+export const clipTurnMinimapMarkdown = (text: string): string => {
+  const lines = text.split("\n")
+  const clipped =
+    lines.length > TURN_MINIMAP_PREVIEW_MAX_LINES
+      ? lines.slice(0, TURN_MINIMAP_PREVIEW_MAX_LINES).join("\n")
+      : text
+  return clipped.length > TURN_MINIMAP_PREVIEW_MAX_CHARS
+    ? clipped.slice(0, TURN_MINIMAP_PREVIEW_MAX_CHARS)
+    : clipped
 }
 
 export const deriveTurnMinimapItems = (
@@ -37,7 +56,7 @@ export const deriveTurnMinimapItems = (
         turnId: item.turnId,
         messageId: transcriptRowId(item, 0),
         userText:
-          compactTurnMinimapPreview(item.text) ??
+          trimTurnMinimapPreview(item.text) ??
           compactTurnMinimapPreview(item.attachments?.[0]?.name),
         assistantText: null,
       }
@@ -52,7 +71,7 @@ export const deriveTurnMinimapItems = (
       continue
     }
 
-    const assistantText = compactTurnMinimapPreview(item.text)
+    const assistantText = trimTurnMinimapPreview(item.text)
     if (assistantText === null) {
       continue
     }
