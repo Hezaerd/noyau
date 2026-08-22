@@ -62,6 +62,32 @@
   overflow-wrap: anywhere;
 }
 
+.thread-file-preview[data-file-preview-kind="code"] [data-streamdown="code-block"] {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.thread-file-preview[data-file-preview-kind="code"] [data-streamdown="code-block-body"] {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.thread-file-preview [data-streamdown="code-block-body"] pre {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.thread-file-preview[data-file-preview-kind="code"] [data-streamdown="code-block-body"] pre {
+  background-color: transparent;
+}
+
 /* streamdown + plugin classes live in the package dist, not in src/. */
 /* Bun résout souvent hors de node_modules/ local : @source peut rater le dist. */
 
