@@ -8,16 +8,20 @@ import {
 
 describe("electron launcher", () => {
   it("brands development as Noyau (Dev) with a checkout-scoped bundle id", () => {
-    const identity = resolveAppIdentity(true)
+    const identity = resolveAppIdentity("development")
 
     expect(identity.displayName).toBe("Noyau (Dev)")
     expect(identity.bundleId.startsWith("dev.noyau.desktop.dev.")).toBe(true)
   })
 
-  it("brands packaged-like launches as Noyau", () => {
-    expect(resolveAppIdentity(false)).toEqual({
+  it("brands latest and nightly from the release channel", () => {
+    expect(resolveAppIdentity("latest")).toEqual({
       displayName: "Noyau",
       bundleId: "dev.noyau.desktop",
+    })
+    expect(resolveAppIdentity("nightly")).toEqual({
+      displayName: "Noyau (Nightly)",
+      bundleId: "dev.noyau.desktop.nightly",
     })
   })
 

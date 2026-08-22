@@ -43,10 +43,11 @@ Rangée contextuelle qui porte la navigation et l'identité de la page courante.
 _À éviter_ : chrome de fenêtre, barre de titre
 
 **Canal de release**:
-Piste de publication desktop `latest` ou `nightly`, plus `development` en local. latest = tag
-`vX.Y.Z` ; nightly = dispatch Actions. Exposé par `NOYAU_RELEASE_CHANNEL` et
-`window.noyauDesktop.releaseChannel`.
-_À éviter_ : canal beta séparé, dist-tag npm, updater Electron, réutiliser `NOYAU_ENV`
+Piste unique de marque et de lancement desktop : `development` en local, `latest` ou
+`nightly` packagé. latest = tag `vX.Y.Z` ; nightly = dispatch Actions. Exposé par
+`NOYAU_RELEASE_CHANNEL` et `window.noyauDesktop.releaseChannel`.
+_À éviter_ : `NOYAU_DESKTOP_DEV`, second flag « desktop env », canal beta, dist-tag npm,
+updater Electron, réutiliser `NOYAU_ENV`
 
 **Marque nightly**:
 Nom `Noyau (Nightly)`, bundle id `dev.noyau.desktop.nightly`, icône dark.

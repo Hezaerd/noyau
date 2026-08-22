@@ -10,11 +10,14 @@ const startElectron = Effect.fn("startElectron")(function* () {
     process.platform === "linux"
       ? ["--no-sandbox", "dist-electron/main.cjs"]
       : ["dist-electron/main.cjs"]
-  const launch = yield* resolveElectronLaunchCommand(electronArguments, false)
+  const launch = yield* resolveElectronLaunchCommand(electronArguments, "development")
   const handle = yield* ChildProcess.make(launch.electronPath, launch.args, {
     cwd: desktopDir,
     extendEnv: true,
-    env: { ELECTRON_RUN_AS_NODE: undefined },
+    env: {
+      ELECTRON_RUN_AS_NODE: undefined,
+      NOYAU_RELEASE_CHANNEL: "development",
+    },
     detached: false,
     stdin: "ignore",
     stdout: "inherit",

@@ -10,7 +10,7 @@ import {
   probeRpc,
   resolveServerEntryPath,
   restartDelayMs,
-  serverEnvironmentFromDesktopDev,
+  serverEnvironmentFromReleaseChannel,
   ServerSupervisor,
   SupervisorError,
   waitForServerReady,
@@ -130,9 +130,10 @@ describe("server supervisor", () => {
     expect(encodeBootstrap(bootstrap)).toBe(`${JSON.stringify(bootstrap)}\n`)
   })
 
-  it("maps the desktop flag to the server environment", () => {
-    expect(serverEnvironmentFromDesktopDev(true)).toBe("development")
-    expect(serverEnvironmentFromDesktopDev(false)).toBe("production")
+  it("maps the release channel to the server environment", () => {
+    expect(serverEnvironmentFromReleaseChannel("development")).toBe("development")
+    expect(serverEnvironmentFromReleaseChannel("latest")).toBe("production")
+    expect(serverEnvironmentFromReleaseChannel("nightly")).toBe("production")
   })
 })
 

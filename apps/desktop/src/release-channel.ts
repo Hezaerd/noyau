@@ -42,17 +42,16 @@ export const desktopIconDirectory = (channel: DesktopReleaseChannel): string => 
   return "prod"
 }
 
+export const isDesktopDevelopmentChannel = (channel: DesktopReleaseChannel): boolean =>
+  channel === "development"
+
 export const resolveDesktopReleaseChannel = (
-  isDevelopment: boolean,
   envChannel: string | undefined,
   packagedChannel: string | undefined,
   appVersion: string,
 ): DesktopReleaseChannel => {
-  if (isDevelopment) {
-    return "development"
-  }
   const fromEnv = parseDesktopReleaseChannel(envChannel)
-  if (fromEnv !== undefined && fromEnv !== "development") {
+  if (fromEnv !== undefined) {
     return fromEnv
   }
   const fromPackage = parseDesktopReleaseChannel(packagedChannel)
