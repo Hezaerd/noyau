@@ -32,6 +32,7 @@ import {
   ThreadTurnStarted,
   UserInputResponded,
 } from "@noyau/protocol/thread/events"
+import { seedTitleFromTurn } from "@noyau/protocol/thread/title"
 import { Result } from "effect"
 
 import type { ThreadProjection, ThreadState, TurnProjection } from "./projector.ts"
@@ -90,10 +91,9 @@ const requireRunningTurn = (
     : Result.succeed(turn)
 }
 
-const hasImage = (
+const hasLeakedImageUpload = (
   payload: Extract<ThreadCommand, { _tag: "thread.turn.start" }>["payload"],
-): boolean =>
-  payload.attachments !== undefined || payload.image !== undefined || payload.images !== undefined
+): boolean => payload.image !== undefined || payload.images !== undefined
 
 const terminalSession = (
   session: Session,
@@ -199,7 +199,7 @@ export const decide = (
                   )
             }),
             Result.flatMap(() =>
-              hasImage(command.payload)
+              hasLeakedImageUpload(command.payload)
                 ? Result.fail(new ImageAttachmentRejected({ threadId: thread.threadId }))
                 : Result.succeed(undefined),
             ),
@@ -209,8 +209,15 @@ export const decide = (
           let started: Omit<ThreadTurnStarted, "_tag"> = {
             threadId: command.payload.threadId,
             turnId: TurnId.make(command.commandId),
-            text: command.payload.text,
-            titleSeed: command.payload.titleSeed ?? command.payload.text,
+            titleSeed:
+              command.payload.titleSeed ??
+              seedTitleFromTurn(command.payload.text, command.payload.attachments),
+          }
+          if (command.payload.text !== undefined) {
+            started = Object.assign(started, { text: command.payload.text })
+          }
+          if (command.payload.attachments !== undefined) {
+            started = Object.assign(started, { attachments: command.payload.attachments })
           }
           if (command.payload.runtimeMode !== undefined) {
             started = Object.assign(started, { runtimeMode: command.payload.runtimeMode })

@@ -1,3 +1,8 @@
+import type {
+  ProjectAgentIntegration,
+  ProjectAgentIntegrationInput,
+} from "@noyau/protocol/agent-integration"
+import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/attachment-preview"
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -227,6 +232,50 @@ const requestPreviewFile = Effect.fn("ControlPlaneClient.previewFile")(function*
 
 export const previewFile = (input: PreviewFileInput): Promise<ControlPlaneResult<FilePreview>> =>
   runOperation(requestPreviewFile(input), "command")
+
+const requestAgentIntegration = Effect.fn("ControlPlaneClient.projectAgentIntegration")(function* (
+  method:
+    | typeof RPC_METHODS.inspectProjectAgentIntegration
+    | typeof RPC_METHODS.installProjectAgentIntegration
+    | typeof RPC_METHODS.removeProjectAgentIntegration,
+  input: ProjectAgentIntegrationInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[method](input)
+})
+
+export const inspectProjectAgentIntegration = (
+  input: ProjectAgentIntegrationInput,
+): Promise<ControlPlaneResult<ProjectAgentIntegration>> =>
+  runOperation(
+    requestAgentIntegration(RPC_METHODS.inspectProjectAgentIntegration, input),
+    "command",
+  )
+
+export const installProjectAgentIntegration = (
+  input: ProjectAgentIntegrationInput,
+): Promise<ControlPlaneResult<ProjectAgentIntegration>> =>
+  runOperation(
+    requestAgentIntegration(RPC_METHODS.installProjectAgentIntegration, input),
+    "command",
+  )
+
+export const removeProjectAgentIntegration = (
+  input: ProjectAgentIntegrationInput,
+): Promise<ControlPlaneResult<ProjectAgentIntegration>> =>
+  runOperation(requestAgentIntegration(RPC_METHODS.removeProjectAgentIntegration, input), "command")
+
+const requestPreviewAttachment = Effect.fn("ControlPlaneClient.previewAttachment")(function* (
+  input: PreviewAttachmentInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.previewAttachment](input)
+})
+
+export const previewAttachment = (
+  input: PreviewAttachmentInput,
+): Promise<ControlPlaneResult<AttachmentPreview>> =>
+  runOperation(requestPreviewAttachment(input), "command")
 
 const gitCall = <A, E>(
   operation: Effect.Effect<A, E, ControlPlaneClient>,

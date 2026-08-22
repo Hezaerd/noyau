@@ -13,12 +13,14 @@ import {
   WorkspaceRootNotDirectory,
   WorkspaceRootNotFound,
 } from "@noyau/protocol/project/errors"
+import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import {
   ControlPlane,
   makeControlPlaneLayer,
   type ControlPlaneHooks,
 } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
+import { mcpSessionRegistryLayer } from "@noyau/server/mcp/mcp-session-registry"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
@@ -94,6 +96,7 @@ const controlPlaneTestLayer = (
   workspaceRoots: WorkspaceRootAccessService = availableWorkspaceRoots,
 ) =>
   makeControlPlaneLayer(hooks).pipe(
+    Layer.provideMerge(unavailableAgentSkillInstallerLayer),
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
@@ -107,6 +110,7 @@ const controlPlaneTestLayer = (
 
 const cursorControlPlaneTestLayer = (scenario: string) =>
   makeControlPlaneLayer().pipe(
+    Layer.provideMerge(unavailableAgentSkillInstallerLayer),
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableTextGenerationLayer),
@@ -124,6 +128,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
         clientVersion: "test",
       }),
     ),
+    Layer.provideMerge(mcpSessionRegistryLayer.pipe(Layer.provide(testServerConfigLayer()))),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )

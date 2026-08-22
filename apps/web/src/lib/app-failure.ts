@@ -1,3 +1,4 @@
+import { AgentIntegrationFailed } from "@noyau/protocol/agent-integration"
 import {
   CommandIdConflict,
   Forbidden,
@@ -25,6 +26,7 @@ const KnownControlPlaneError = Schema.Union([
   FilePreviewFailed,
   ProjectNotFound,
   GitCommandError,
+  AgentIntegrationFailed,
   RpcClientError,
   ResourceSnapshotUnavailable,
 ])
@@ -38,6 +40,10 @@ export type AppFailure =
   | { readonly _tag: "Unavailable"; readonly service: string }
   | { readonly _tag: "Unauthorized" }
   | { readonly _tag: "InvalidInput"; readonly message?: string }
+  | {
+      readonly _tag: "AgentIntegrationFailure"
+      readonly reason: AgentIntegrationFailed["reason"]
+    }
   | {
       readonly _tag: "TransportFailure"
       readonly phase: FailurePhase
@@ -81,6 +87,9 @@ const fromTypedError = (error: KnownControlPlaneError, phase: FailurePhase): App
   }
   if (Schema.is(ResourceSnapshotUnavailable)(error)) {
     return { _tag: "TransportFailure", phase: "snapshot", reason: "ended" }
+  }
+  if (Schema.is(AgentIntegrationFailed)(error)) {
+    return { _tag: "AgentIntegrationFailure", reason: error.reason }
   }
   if (Schema.is(FilePreviewFailed)(error) || Schema.is(ProjectNotFound)(error)) {
     return { _tag: "InvalidInput" }

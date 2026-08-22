@@ -6,6 +6,7 @@ import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { ActorId, ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { DEFAULT_THREAD_TITLE } from "@noyau/protocol/thread/title"
+import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import { ControlPlane, makeControlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
@@ -55,6 +56,7 @@ const stubTextGenerationLayer = (
 
 const layer = (generate: (input: ThreadTitleGenerationInput) => { readonly title: string }) =>
   makeControlPlaneLayer().pipe(
+    Layer.provideMerge(unavailableAgentSkillInstallerLayer),
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),

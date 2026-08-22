@@ -29,6 +29,14 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     ControlPlane.pipe(Effect.flatMap((service) => service.setShellFocus(input))),
   [RPC_METHODS.previewFile]: (input) =>
     ControlPlane.pipe(Effect.flatMap((service) => service.previewFile(input))),
+  [RPC_METHODS.inspectProjectAgentIntegration]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.inspectProjectAgentIntegration(input))),
+  [RPC_METHODS.installProjectAgentIntegration]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.installProjectAgentIntegration(input))),
+  [RPC_METHODS.removeProjectAgentIntegration]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.removeProjectAgentIntegration(input))),
+  [RPC_METHODS.previewAttachment]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.previewAttachment(input))),
   [RPC_METHODS.vcsStatus]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.status(input))),
   [RPC_METHODS.vcsListRefs]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.listRefs(input))),
   [RPC_METHODS.vcsSwitchRef]: (input) =>

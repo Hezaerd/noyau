@@ -1,3 +1,13 @@
+import {
+  AgentIntegrationFailed,
+  ProjectAgentIntegration,
+  ProjectAgentIntegrationInput,
+} from "@noyau/protocol/agent-integration"
+import {
+  AttachmentPreview,
+  AttachmentPreviewFailed,
+  PreviewAttachmentInput,
+} from "@noyau/protocol/attachment-preview"
 import { BoardSnapshot } from "@noyau/protocol/board"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -48,6 +58,10 @@ export const RPC_METHODS = {
   subscribeThread: "orchestration.subscribeThread",
   setShellFocus: "orchestration.setShellFocus",
   previewFile: "workspace.previewFile",
+  inspectProjectAgentIntegration: "workspace.inspectProjectAgentIntegration",
+  installProjectAgentIntegration: "workspace.installProjectAgentIntegration",
+  removeProjectAgentIntegration: "workspace.removeProjectAgentIntegration",
+  previewAttachment: "thread.previewAttachment",
   getConfig: "server.getConfig",
   probe: "server.probe",
   vcsStatus: "vcs.status",
@@ -177,6 +191,36 @@ export const PreviewFile = Rpc.make(RPC_METHODS.previewFile, {
   error: Schema.Union([ProjectNotFound, FilePreviewFailed, ServiceUnavailable]),
 })
 
+const agentIntegrationErrors = Schema.Union([
+  ProjectNotFound,
+  AgentIntegrationFailed,
+  ServiceUnavailable,
+])
+
+export const InspectProjectAgentIntegration = Rpc.make(RPC_METHODS.inspectProjectAgentIntegration, {
+  payload: ProjectAgentIntegrationInput,
+  success: ProjectAgentIntegration,
+  error: Schema.Union([ProjectNotFound, ServiceUnavailable]),
+})
+
+export const InstallProjectAgentIntegration = Rpc.make(RPC_METHODS.installProjectAgentIntegration, {
+  payload: ProjectAgentIntegrationInput,
+  success: ProjectAgentIntegration,
+  error: agentIntegrationErrors,
+})
+
+export const RemoveProjectAgentIntegration = Rpc.make(RPC_METHODS.removeProjectAgentIntegration, {
+  payload: ProjectAgentIntegrationInput,
+  success: ProjectAgentIntegration,
+  error: agentIntegrationErrors,
+})
+
+export const PreviewAttachment = Rpc.make(RPC_METHODS.previewAttachment, {
+  payload: PreviewAttachmentInput,
+  success: AttachmentPreview,
+  error: Schema.Union([AttachmentPreviewFailed, ServiceUnavailable]),
+})
+
 export const VcsStatus = Rpc.make(RPC_METHODS.vcsStatus, {
   payload: VcsScope,
   success: VcsStatusResult,
@@ -229,6 +273,10 @@ export const ControlPlaneRpcs = RpcGroup.make(
   SubscribeThread,
   SetShellFocus,
   PreviewFile,
+  InspectProjectAgentIntegration,
+  InstallProjectAgentIntegration,
+  RemoveProjectAgentIntegration,
+  PreviewAttachment,
   VcsStatus,
   VcsListRefs,
   VcsSwitchRef,

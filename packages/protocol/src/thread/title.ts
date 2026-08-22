@@ -26,6 +26,12 @@ export const sanitizeThreadTitle = (raw: string): string => {
 /** Titre provisoire semé depuis le premier prompt. */
 export const seedTitleFromPrompt = (prompt: string): string => sanitizeThreadTitle(prompt)
 
+/** Titre provisoire d'un Turn : texte, sinon le nom de la première image. */
+export const seedTitleFromTurn = (
+  text: string | undefined,
+  attachments?: ReadonlyArray<{ readonly name: string }>,
+): string => sanitizeThreadTitle(text ?? attachments?.[0]?.name ?? "Image")
+
 /** Vrai tant que le titre est encore le placeholder ou le seed du premier Turn. */
 export const canReplaceThreadTitle = (currentTitle: string, titleSeed?: string): boolean => {
   const trimmedCurrentTitle = currentTitle.trim()

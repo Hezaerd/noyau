@@ -8,11 +8,14 @@ import { Effect, FileSystem, Layer, Path } from "effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 
+import { agentSkillInstallerLayer } from "./agent-skill/installer.ts"
 import { ServerConfig, serverConfigLayer } from "./config.ts"
 import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
 import { discordPresenceLayer } from "./discord/ipc.ts"
 import { GitPlane, gitPlaneLayer } from "./git/git-plane.ts"
 import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
+import { mcpHttpServerLayer } from "./mcp/mcp-http-server.ts"
+import { mcpSessionRegistryLayer } from "./mcp/mcp-session-registry.ts"
 import { loggerLayer } from "./observability.ts"
 import { cursorProviderLayer } from "./provider/cursor-acp.ts"
 import { rpcHandlersLayer } from "./rpc-handlers.ts"
@@ -142,6 +145,7 @@ export const serverRoutesLayer = Layer.mergeAll(
   internalStatusRoute,
   internalShutdownRoute,
   websocketRpcLayer,
+  mcpHttpServerLayer,
 )
 
 export const nodeServerLayer = Layer.unwrap(
@@ -165,11 +169,19 @@ export const nodeServerLayer = Layer.unwrap(
 )
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
+  Layer.provideMerge(agentSkillInstallerLayer.pipe(Layer.provide(Path.layer))),
   Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(gitPlaneLayer),
   Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),
   Layer.provide(discordPresenceLayer),
+  Layer.provideMerge(
+    mcpSessionRegistryLayer.pipe(
+      Layer.provide(
+        serverConfigLayer.pipe(Layer.provide(Layer.mergeAll(Path.layer, NodeFileSystem.layer))),
+      ),
+    ),
+  ),
   Layer.provideMerge(
     sqlitePersistenceLayer.pipe(
       Layer.provideMerge(

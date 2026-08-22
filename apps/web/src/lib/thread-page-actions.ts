@@ -1,4 +1,5 @@
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
+import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
@@ -17,7 +18,7 @@ import {
   makeThreadTurnInterruptRequest,
   makeThreadTurnStartRequest,
   makeUserInputRespondRequest,
-  seedTitleFromPrompt,
+  seedTitleFromTurn,
 } from "./thread-commands"
 
 export type SubmitTurnResult =
@@ -44,6 +45,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
   readonly runtimeMode: RuntimeMode
   readonly modelSelection: ModelSelection | null
   readonly prepareWorktree?: PrepareWorktree
+  readonly attachments?: ReadonlyArray<TurnImageUpload>
 }): Effect.fn.Return<SubmitTurnResult> {
   const threadId = input.threadId
   if (threadId === undefined) {
@@ -76,11 +78,12 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
             {
               threadId: nextThreadId.value,
               text: input.prompt,
-              titleSeed: seedTitleFromPrompt(input.prompt),
+              titleSeed: seedTitleFromTurn(input.prompt, input.attachments),
               runtimeMode: input.runtimeMode,
               modelSelection: input.modelSelection,
             },
             input.prepareWorktree === undefined ? {} : { prepareWorktree: input.prepareWorktree },
+            input.attachments === undefined ? {} : { attachments: input.attachments },
           ),
         ),
       ),
@@ -106,6 +109,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
             modelSelection: input.modelSelection,
           },
           input.prepareWorktree === undefined ? {} : { prepareWorktree: input.prepareWorktree },
+          input.attachments === undefined ? {} : { attachments: input.attachments },
         ),
       ),
     ),
@@ -129,6 +133,7 @@ export const submitTurn = (input: {
   readonly envMode?: ThreadEnvMode
   readonly baseBranch?: string
   readonly worktreePath?: string | null
+  readonly attachments?: ReadonlyArray<TurnImageUpload>
 }) => {
   const prepareWorktree =
     input.envMode === "worktree" &&
@@ -147,6 +152,7 @@ export const submitTurn = (input: {
           modelSelection: input.modelSelection,
         },
         prepareWorktree === undefined ? {} : { prepareWorktree },
+        input.attachments === undefined ? {} : { attachments: input.attachments },
       ),
     ),
   )

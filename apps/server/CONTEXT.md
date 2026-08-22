@@ -6,8 +6,8 @@ commandes durables, possède SQLite et Cursor, et expose les streams RPC.
 ## Langage
 
 **CommandGateway**:
-Frontière qui authentifie via le bearer de lancement, enrichit et remet une `CommandRequest` au
-modèle de décision.
+Frontière qui reçoit une identité vérifiée par le transport, enrichit et remet une
+`CommandRequest` au modèle de décision.
 _À éviter_ : contrôleur CRUD, mutation endpoint
 
 **dispatchCommand**:
@@ -35,6 +35,16 @@ Fil de fer `@noyau/acp` utilisé par l'adaptateur Cursor. Les extensions (`curso
 restent ici.
 _À éviter_ : schémas ACP maison, JSON-RPC maison
 
+**MCP Noyau**:
+Façade agent du control plane qui expose le Tableau et ses Tickets sans devenir une source de
+vérité distincte.
+_À éviter_ : TodoList agent, bridge SQLite, outil `dispatchCommand` brut
+
+**Capacité MCP**:
+Autorisation volatile et bornée d'un Turn Cursor sur un Project, un Thread et un ensemble
+d'opérations Tableau.
+_À éviter_ : bearer Electron, identité dans les arguments d'outil, permission `runtimeMode`
+
 **catalogue Cursor**:
 Capacité volatile découverte par `cursor/list_available_models`, qui expose les modèles et leurs
 niveaux de raisonnement sans devenir un fait du journal.
@@ -53,6 +63,16 @@ _À éviter_ : dispatchCommand, présence durable
 Lecture sandboxée d'un fichier sous le WorkspaceRoot du Project, pour un FilePreview borné.
 Pas une Command, pas un fait du journal.
 _À éviter_ : openPath, IPC Desktop, lecture hors WorkspaceRoot
+
+**Intégration agent**:
+Skill portable qui apprend aux agents à employer le MCP Noyau. Son état appartient au
+WorkspaceRoot et se constate sur le filesystem ; ce n’est ni une Command ni une projection.
+_À éviter_ : préférence, événement d’installation, instructions ACP
+
+**previewAttachment**:
+Lecture sandboxée d'une TurnImageAttachment depuis le dossier Environment `attachments/`.
+Pas une Command, pas un fait du journal.
+_À éviter_ : previewFile, WorkspaceRoot, dataUrl dans le snapshot
 
 **DiscordPresence**:
 Activity Discord locale dérivée du ShellFocus. Application Discord distincte selon `NOYAU_ENV`

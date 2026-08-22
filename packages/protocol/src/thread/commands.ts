@@ -2,6 +2,11 @@ import {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
+import {
+  TurnImageAttachments,
+  TurnImageUploads,
+  turnHasPrompt,
+} from "@noyau/protocol/entities/attachment"
 import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
@@ -45,14 +50,15 @@ const command = <Tag extends string, Payload extends Schema.Top>(tag: Tag, paylo
 
 export { ProviderApprovalDecision, ProviderUserInputAnswers }
 
-const noImageAttachments = Schema.makeFilter(
+const turnPromptContent = Schema.makeFilter(
   (value: {
-    readonly attachments?: unknown
+    readonly text?: string
+    readonly attachments?: ReadonlyArray<unknown>
     readonly image?: unknown
     readonly images?: unknown
-  }) => value.attachments === undefined && value.image === undefined && value.images === undefined,
+  }) => turnHasPrompt(value) && value.image === undefined && value.images === undefined,
   {
-    expected: "a text-only prompt; image attachments are rejected in v0.1",
+    expected: "non-empty text or attachments[]; image/images keys are rejected",
   },
 )
 
@@ -108,17 +114,26 @@ const threadModelSelectionPayload = {
   modelSelection: Schema.NullOr(ModelSelection),
 } as const
 
-const turnStartPayload = Schema.Struct({
+const turnStartShared = {
   threadId: ThreadId,
-  text: Schema.NonEmptyString,
+  text: Schema.optionalKey(Schema.NonEmptyString),
   titleSeed: Schema.optionalKey(Schema.NonEmptyString),
   runtimeMode: Schema.optionalKey(RuntimeMode),
   modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   prepareWorktree: Schema.optionalKey(PrepareWorktree),
-  attachments: Schema.optionalKey(Schema.Unknown),
   image: Schema.optionalKey(Schema.Unknown),
   images: Schema.optionalKey(Schema.Unknown),
-}).check(noImageAttachments)
+} as const
+
+const turnStartRequestPayload = Schema.Struct({
+  ...turnStartShared,
+  attachments: Schema.optionalKey(TurnImageUploads),
+}).check(turnPromptContent)
+
+const turnStartCommandPayload = Schema.Struct({
+  ...turnStartShared,
+  attachments: Schema.optionalKey(TurnImageAttachments),
+}).check(turnPromptContent)
 
 const turnInterruptPayload = {
   threadId: ThreadId,
@@ -149,7 +164,7 @@ export const ThreadModelSelectionSetRequest = request(
   "thread.model-selection.set",
   Schema.Struct(threadModelSelectionPayload),
 )
-export const ThreadTurnStartRequest = request("thread.turn.start", turnStartPayload)
+export const ThreadTurnStartRequest = request("thread.turn.start", turnStartRequestPayload)
 export const ThreadTurnInterruptRequest = request(
   "thread.turn.interrupt",
   Schema.Struct(turnInterruptPayload),
@@ -192,7 +207,7 @@ export const ThreadModelSelectionSet = command(
   "thread.model-selection.set",
   Schema.Struct(threadModelSelectionPayload),
 )
-export const ThreadTurnStart = command("thread.turn.start", turnStartPayload)
+export const ThreadTurnStart = command("thread.turn.start", turnStartCommandPayload)
 export const ThreadTurnInterrupt = command(
   "thread.turn.interrupt",
   Schema.Struct(turnInterruptPayload),

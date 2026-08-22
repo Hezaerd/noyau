@@ -270,11 +270,49 @@ describe("ThreadMarkdown", () => {
         yield* Effect.promise(() =>
           user.hover(screen.getByRole("button", { name: /Ouvrir .*greet\.py/ })),
         )
-        expect(yield* Effect.promise(() => screen.findByText("print('salut')"))).toBeTruthy()
+        yield* Effect.promise(() =>
+          waitFor(() => {
+            const preview = document.querySelector(".thread-file-preview")
+            expect(preview?.getAttribute("data-file-preview-kind")).toBe("code")
+            expect(preview?.textContent).toContain("print('salut')")
+            const tokens = preview?.querySelectorAll(
+              "[data-streamdown='code-block-body'] span[style*='--sdm-c']",
+            )
+            expect(tokens?.length ?? 0).toBeGreaterThan(0)
+          }),
+        )
         expect(previewFile).toHaveBeenCalledWith({
           projectId,
           path: "/Users/hezaerd/project/src/greet.py",
         })
+      }),
+    ))
+
+  it("renders a markdown file preview as markdown", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        previewFile.mockResolvedValueOnce({
+          ok: true,
+          value: {
+            kind: "text",
+            text: "# Guide\n\nLis `src/greet.py` ensuite.",
+            truncated: false,
+            mtimeMs: 1,
+          },
+        })
+        renderMarkdown("Regarde [guide](docs/guide.md)")
+        const user = userEvent.setup()
+        yield* Effect.promise(() =>
+          user.hover(screen.getByRole("button", { name: /Ouvrir .*guide\.md/ })),
+        )
+        yield* Effect.promise(() =>
+          waitFor(() => {
+            const preview = document.querySelector(".thread-file-preview")
+            expect(preview?.getAttribute("data-file-preview-kind")).toBe("markdown")
+            expect(preview?.querySelector("h1")?.textContent).toBe("Guide")
+            expect(preview?.querySelector("[data-thread-markdown-file-chip]")).toBeNull()
+          }),
+        )
       }),
     ))
 
