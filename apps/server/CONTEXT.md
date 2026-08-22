@@ -79,9 +79,11 @@ Pas une Command, pas un fait du journal.
 _À éviter_ : previewFile, WorkspaceRoot, dataUrl dans le snapshot
 
 **DiscordPresence**:
-Activity Discord locale dérivée du ShellFocus. Application Discord distincte selon `NOYAU_ENV`
-(prod / dev). Effet chrome : Discord fermé ne casse jamais une commande.
-_À éviter_ : événement Discord, agrégat, Join, une seule Application pour les deux envs
+Activity Discord locale dérivée du ShellFocus. Application Discord distincte selon
+`NOYAU_RELEASE_CHANNEL` (development / latest / nightly). Effet chrome : Discord fermé
+ne casse jamais une commande.
+_À éviter_ : événement Discord, agrégat, Join, résoudre sur `NOYAU_ENV`, une seule Application
+pour les trois canaux
 
 **GitRuntime**:
 Port live `git` / `gh` du Server. Les lectures et mutations Git ne passent pas par le journal.

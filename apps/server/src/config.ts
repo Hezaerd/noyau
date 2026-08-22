@@ -2,6 +2,7 @@ import { EnvironmentId } from "@noyau/protocol/ids"
 import { Config, Context, Effect, FileSystem, Layer, Path, Redacted, Schema } from "effect"
 
 export type NoyauEnvironment = "development" | "test" | "production"
+export type NoyauReleaseChannel = "development" | "latest" | "nightly"
 
 export const BootstrapConfig = Schema.Struct({
   dataDirectory: Schema.NonEmptyString,
@@ -114,6 +115,11 @@ const decodeStandaloneBootstrap = Effect.fn("ServerConfig.decodeStandaloneBootst
 export const serverEnvironment = Config.literals(
   ["development", "test", "production"] as const,
   "NOYAU_ENV",
+).pipe(Config.withDefault("development"))
+
+export const serverReleaseChannel = Config.literals(
+  ["development", "latest", "nightly"] as const,
+  "NOYAU_RELEASE_CHANNEL",
 ).pipe(Config.withDefault("development"))
 
 export const loadServerConfig = Effect.gen(function* () {
