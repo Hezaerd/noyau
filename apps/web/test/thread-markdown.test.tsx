@@ -10,6 +10,7 @@ import { ThreadMarkdown } from "../src/components/thread/ThreadMarkdown"
 import { ToastProvider } from "../src/components/ui/toast"
 import { TooltipProvider } from "../src/components/ui/tooltip"
 import { clearFilePreviewCache } from "../src/lib/file-preview"
+import { resetMarkdownExternalLinkFavicons } from "../src/lib/markdown-external-links"
 
 const previewFile = vi.hoisted(() =>
   vi.fn(() =>
@@ -39,6 +40,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   previewFile.mockClear()
   clearFilePreviewCache()
+  resetMarkdownExternalLinkFavicons()
   Object.defineProperty(window, "noyauDesktop", {
     configurable: true,
     value: undefined,
@@ -236,13 +238,52 @@ describe("ThreadMarkdown", () => {
     expect(document.querySelector("[data-streamdown='inline-code']")?.textContent).toBe("AGENTS.md")
   })
 
-  it("keeps an external markdown link as a normal anchor", () => {
+  it("dresses an external markdown link with the site favicon", () => {
     renderMarkdown("Voir [docs](https://example.com/docs)")
 
     expect(document.querySelector("[data-thread-markdown-file-chip]")).toBeNull()
-    expect(screen.getByRole("link", { name: "docs" }).getAttribute("href")).toBe(
-      "https://example.com/docs",
+    const link = screen.getByRole("link", { name: "docs" })
+    expect(link.getAttribute("href")).toBe("https://example.com/docs")
+    expect(link.getAttribute("target")).toBe("_blank")
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer")
+    expect(link.hasAttribute("data-thread-markdown-external-link")).toBe(true)
+    expect(link.querySelector("[data-thread-markdown-link-favicon]")?.getAttribute("src")).toBe(
+      "https://www.google.com/s2/favicons?domain=example.com&sz=32",
     )
+  })
+
+  it("dresses a bare URL with the site favicon", () => {
+    renderMarkdown("PR ouverte : https://github.com/Hezaerd/noyau/pull/200")
+
+    const link = screen.getByRole("link", {
+      name: "https://github.com/Hezaerd/noyau/pull/200",
+    })
+    expect(link.getAttribute("href")).toBe("https://github.com/Hezaerd/noyau/pull/200")
+    expect(link.querySelector("[data-thread-markdown-link-favicon]")?.getAttribute("src")).toBe(
+      "https://www.google.com/s2/favicons?domain=github.com&sz=32",
+    )
+  })
+
+  it("falls back to a globe when the favicon fails to load", () => {
+    renderMarkdown("Voir [docs](https://example.com/docs)")
+
+    const favicon = document.querySelector("[data-thread-markdown-link-favicon]")
+    expect(favicon).toBeInstanceOf(HTMLImageElement)
+    if (favicon instanceof HTMLImageElement) {
+      fireEvent.error(favicon)
+    }
+    expect(document.querySelector("[data-thread-markdown-link-globe]")).not.toBeNull()
+    expect(document.querySelector("[data-thread-markdown-link-favicon]")).toBeNull()
+  })
+
+  it("leaves a same-document fragment without a favicon or new tab", () => {
+    renderMarkdown("Voir [ici](#heading)")
+
+    const link = screen.getByRole("link", { name: "ici" })
+    expect(link.getAttribute("href")).toBe("#heading")
+    expect(link.getAttribute("target")).toBeNull()
+    expect(link.querySelector("[data-thread-markdown-link-favicon]")).toBeNull()
+    expect(link.hasAttribute("data-thread-markdown-external-link")).toBe(false)
   })
 
   it("opens the resolved file path when the chip is clicked", () =>
