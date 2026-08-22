@@ -32,7 +32,7 @@ export const isTurnCueSound = (value: string): value is TurnCueSound =>
   TURN_CUE_SOUNDS.some((sound) => sound === value)
 
 export const playTurnCue = (sound: TurnCueSound): void => {
-  play(sound)
+  play(sound, { volume: 1 })
 }
 
 export interface TurnCueThread {
