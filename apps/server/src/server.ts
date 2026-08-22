@@ -11,7 +11,7 @@ import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 import { ServerConfig, serverConfigLayer } from "./config.ts"
 import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
 import { discordPresenceLayer } from "./discord/ipc.ts"
-import { gitPlaneLayer } from "./git/git-plane.ts"
+import { GitPlane, gitPlaneLayer } from "./git/git-plane.ts"
 import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
 import { loggerLayer } from "./observability.ts"
 import { cursorProviderLayer } from "./provider/cursor-acp.ts"
@@ -103,6 +103,7 @@ export const websocketRpcLayer = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* ServerConfig
     const controlPlane = yield* ControlPlane
+    const gitPlane = yield* GitPlane
     return HttpRouter.add(
       "GET",
       "/rpc",
@@ -122,6 +123,7 @@ export const websocketRpcLayer = Layer.unwrap(
         const connectionLayer = rpcHandlersLayer.pipe(
           Layer.provideMerge(rpcIdentityLayer(actorId)),
           Layer.provide(Layer.succeed(ControlPlane)(controlPlane)),
+          Layer.provide(Layer.succeed(GitPlane)(gitPlane)),
           Layer.provideMerge(RpcSerialization.layerJson),
         )
         const connection = yield* Layer.build(connectionLayer)
@@ -164,8 +166,8 @@ export const nodeServerLayer = Layer.unwrap(
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(cursorProviderLayer()),
-  Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(gitPlaneLayer),
+  Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),
   Layer.provide(discordPresenceLayer),
   Layer.provideMerge(
