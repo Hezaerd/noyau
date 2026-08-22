@@ -1,6 +1,8 @@
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
+import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
+import type { PrepareWorktree } from "@noyau/protocol/git"
 import { ApprovalRequestId, type ProjectId, type ThreadId, type TurnId } from "@noyau/protocol/ids"
 import { type Crypto, Effect } from "effect"
 
@@ -41,6 +43,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
   readonly prompt: string
   readonly runtimeMode: RuntimeMode
   readonly modelSelection: ModelSelection | null
+  readonly prepareWorktree?: PrepareWorktree
 }): Effect.fn.Return<SubmitTurnResult> {
   const threadId = input.threadId
   if (threadId === undefined) {
@@ -68,13 +71,18 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
     }
     const startRequest = yield* Effect.promise(() =>
       buildCommand(
-        makeThreadTurnStartRequest({
-          threadId: nextThreadId.value,
-          text: input.prompt,
-          titleSeed: seedTitleFromPrompt(input.prompt),
-          runtimeMode: input.runtimeMode,
-          modelSelection: input.modelSelection,
-        }),
+        makeThreadTurnStartRequest(
+          Object.assign(
+            {
+              threadId: nextThreadId.value,
+              text: input.prompt,
+              titleSeed: seedTitleFromPrompt(input.prompt),
+              runtimeMode: input.runtimeMode,
+              modelSelection: input.modelSelection,
+            },
+            input.prepareWorktree === undefined ? {} : { prepareWorktree: input.prepareWorktree },
+          ),
+        ),
       ),
     )
     if (!startRequest.ok) {
@@ -89,12 +97,17 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
 
   const startRequest = yield* Effect.promise(() =>
     buildCommand(
-      makeThreadTurnStartRequest({
-        threadId,
-        text: input.prompt,
-        runtimeMode: input.runtimeMode,
-        modelSelection: input.modelSelection,
-      }),
+      makeThreadTurnStartRequest(
+        Object.assign(
+          {
+            threadId,
+            text: input.prompt,
+            runtimeMode: input.runtimeMode,
+            modelSelection: input.modelSelection,
+          },
+          input.prepareWorktree === undefined ? {} : { prepareWorktree: input.prepareWorktree },
+        ),
+      ),
     ),
   )
   if (!startRequest.ok) {
@@ -113,7 +126,31 @@ export const submitTurn = (input: {
   readonly prompt: string
   readonly runtimeMode: RuntimeMode
   readonly modelSelection: ModelSelection | null
-}) => Effect.runPromise(submitTurnEffect(input))
+  readonly envMode?: ThreadEnvMode
+  readonly baseBranch?: string
+  readonly worktreePath?: string | null
+}) => {
+  const prepareWorktree =
+    input.envMode === "worktree" &&
+    (input.worktreePath === undefined || input.worktreePath === null) &&
+    input.baseBranch !== undefined
+      ? { baseBranch: input.baseBranch }
+      : undefined
+  return Effect.runPromise(
+    submitTurnEffect(
+      Object.assign(
+        {
+          projectId: input.projectId,
+          threadId: input.threadId,
+          prompt: input.prompt,
+          runtimeMode: input.runtimeMode,
+          modelSelection: input.modelSelection,
+        },
+        prepareWorktree === undefined ? {} : { prepareWorktree },
+      ),
+    ),
+  )
+}
 
 export const interruptTurnEffect = Effect.fn("interruptTurn")(function* (input: {
   readonly threadId: ThreadId

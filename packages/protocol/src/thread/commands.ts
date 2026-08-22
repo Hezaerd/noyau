@@ -2,11 +2,13 @@ import {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
+import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { Session } from "@noyau/protocol/entities/session"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { TurnSettlementState } from "@noyau/protocol/entities/turn"
+import { PrepareWorktree } from "@noyau/protocol/git"
 import {
   ActorId,
   ApprovalRequestId,
@@ -60,6 +62,8 @@ const threadCreatePayload = {
   title: Schema.NonEmptyString,
   runtimeMode: Schema.optionalKey(RuntimeMode),
   modelSelection: Schema.optionalKey(ModelSelection),
+  branch: Schema.optionalKey(ThreadBranch),
+  worktreePath: Schema.optionalKey(ThreadWorktreePath),
 } as const
 
 const threadIdPayload = {
@@ -67,10 +71,22 @@ const threadIdPayload = {
 } as const
 
 const exclusiveTitleIntent = Schema.makeFilter(
-  (value: { readonly title?: string; readonly regenerateTitle?: true }) =>
-    (value.title !== undefined) !== (value.regenerateTitle === true),
+  (value: {
+    readonly title?: string
+    readonly regenerateTitle?: true
+    readonly branch?: string | null
+    readonly worktreePath?: string | null
+  }) => {
+    const hasTitle = value.title !== undefined
+    const hasRegenerate = value.regenerateTitle === true
+    const hasCheckout = value.branch !== undefined || value.worktreePath !== undefined
+    if (hasTitle && hasRegenerate) {
+      return false
+    }
+    return hasTitle || hasRegenerate || hasCheckout
+  },
   {
-    expected: "exactly one of title or regenerateTitle",
+    expected: "title, regenerateTitle, or a checkout field",
   },
 )
 
@@ -78,6 +94,8 @@ const threadMetaPayload = Schema.Struct({
   threadId: ThreadId,
   title: Schema.optionalKey(Schema.NonEmptyString),
   regenerateTitle: Schema.optionalKey(Schema.Literal(true)),
+  branch: Schema.optionalKey(ThreadBranch),
+  worktreePath: Schema.optionalKey(ThreadWorktreePath),
 }).check(exclusiveTitleIntent)
 
 const threadRuntimeModePayload = {
@@ -96,6 +114,7 @@ const turnStartPayload = Schema.Struct({
   titleSeed: Schema.optionalKey(Schema.NonEmptyString),
   runtimeMode: Schema.optionalKey(RuntimeMode),
   modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+  prepareWorktree: Schema.optionalKey(PrepareWorktree),
   attachments: Schema.optionalKey(Schema.Unknown),
   image: Schema.optionalKey(Schema.Unknown),
   images: Schema.optionalKey(Schema.Unknown),

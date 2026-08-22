@@ -1,12 +1,72 @@
 import { EnvironmentId } from "@noyau/protocol/ids"
 import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
-import { Layer, Redacted, Schema } from "effect"
+import { GitPlane } from "@noyau/server/git/git-plane"
+import { GitRuntime } from "@noyau/server/git/git-runtime"
+import { Effect, Layer, Redacted, Schema } from "effect"
+
+const emptyStatus = (cwd: string) => ({
+  isRepo: false,
+  cwd,
+  refName: null,
+  isDefaultRef: false,
+  hasPrimaryRemote: false,
+  hasWorkingTreeChanges: false,
+  hasUpstream: false,
+  aheadCount: 0,
+  behindCount: 0,
+  worktreePath: null,
+})
+
+export const stubGitRuntimeLayer = Layer.succeed(GitRuntime)({
+  status: (cwd) => Effect.succeed(emptyStatus(cwd)),
+  listRefs: () => Effect.succeed([]),
+  listWorktrees: () => Effect.succeed([]),
+  switchRef: (_cwd, refName) =>
+    Effect.succeed({ refName, worktreePath: null, reusedWorktree: false }),
+  createRef: (_cwd, refName) => Effect.succeed({ refName }),
+  createWorktree: (input) =>
+    Effect.succeed({ worktree: { path: `${input.worktreesDir}/stub`, refName: input.branch } }),
+  diffContext: () => Effect.succeed(""),
+  runStackedAction: (input) =>
+    Effect.succeed({
+      action: input.action,
+      branch: null,
+      commit: { status: "skipped_not_requested" },
+      push: { status: "skipped_not_requested" },
+      pullRequest: { status: "skipped_not_requested" },
+    }),
+})
+
+export const stubGitPlaneLayer = Layer.succeed(GitPlane)({
+  status: (scope) => Effect.succeed(emptyStatus(scope.projectId)),
+  listRefs: () => Effect.succeed({ isRepo: false, refs: [] }),
+  switchRef: (input) =>
+    Effect.succeed({ refName: input.refName, worktreePath: null, reusedWorktree: false }),
+  createRef: (input) => Effect.succeed({ refName: input.refName }),
+  createWorktree: (input) =>
+    Effect.succeed({
+      worktree: {
+        path: `/tmp/stub/${input.baseBranch}`,
+        refName: input.branch ?? input.baseBranch,
+      },
+    }),
+  draft: () => Effect.succeed({ title: "stub draft" }),
+  runStackedAction: (input) =>
+    Effect.succeed({
+      action: input.action,
+      branch: null,
+      commit: { status: "skipped_not_requested" },
+      push: { status: "skipped_not_requested" },
+      pullRequest: { status: "skipped_not_requested" },
+    }),
+})
 
 export const testServerConfig = (
   overrides: Partial<ServerConfigValue> = {},
 ): ServerConfigValue => ({
   environment: "test",
   dataDirectory: "/tmp/noyau-test",
+  worktreesDir: "/tmp/noyau-test/worktrees",
   databaseFile: ":memory:",
   host: "127.0.0.1",
   port: 0,

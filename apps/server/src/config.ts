@@ -24,6 +24,7 @@ export type BootstrapConfig = (typeof BootstrapConfig)["Type"]
 export interface ServerConfigValue {
   readonly environment: NoyauEnvironment
   readonly dataDirectory: string
+  readonly worktreesDir: string
   readonly databaseFile: string
   readonly host: string
   readonly port: number
@@ -128,6 +129,7 @@ export const loadServerConfig = Effect.gen(function* () {
   return {
     environment,
     dataDirectory: bootstrap.dataDirectory,
+    worktreesDir: path.join(bootstrap.dataDirectory, "worktrees"),
     databaseFile: path.join(bootstrap.dataDirectory, "noyau.sqlite"),
     host: bootstrap.host,
     port: bootstrap.port,

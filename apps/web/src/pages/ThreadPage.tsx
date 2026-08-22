@@ -1,3 +1,5 @@
+import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
+import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -9,6 +11,7 @@ import {
   ResourceErrorState,
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
+import { ThreadCheckoutBar } from "@/components/thread/ThreadCheckoutBar"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
@@ -44,6 +47,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const [text, setText] = useState("")
+  const [envMode, setEnvMode] = useState<ThreadEnvMode>("local")
+  const [baseBranch, setBaseBranch] = useState("main")
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
@@ -67,6 +72,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         setSnapshot(next)
         setRuntimeMode(next.thread.runtimeMode)
         setModelSelection(next.thread.modelSelection)
+        setEnvMode(threadWorktreePathOf(next.thread) === null ? "local" : "worktree")
+        const boundBranch = threadBranchOf(next.thread)
+        if (boundBranch !== null) {
+          setBaseBranch(boundBranch)
+        }
         setLoading(false)
         setActionFailure(undefined)
       },
@@ -110,37 +120,44 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
     setText("")
     setComposerFailure(undefined)
-    void submitTurnAction({ projectId, threadId, prompt, runtimeMode, modelSelection }).then(
-      (result) => {
-        if (result.kind === "composer-error") {
-          setComposerFailure(
-            presentFailure(result.failure, {
-              operation: "thread.turn.start",
-              scope: "action",
-              initiatedByUser: true,
-              hasUsableData: snapshot !== undefined,
-            }),
-          )
-          return undefined
-        }
-        if (result.kind === "error") {
-          setActionFailure(
-            presentFailure(result.failure, {
-              operation: "thread.turn.start",
-              scope: "action",
-              initiatedByUser: true,
-              hasUsableData: snapshot !== undefined,
-            }),
-          )
-          return undefined
-        }
-        if (result.kind === "created") {
-          onCreated(result.threadId)
-        }
-        setActionFailure(undefined)
+    void submitTurnAction({
+      projectId,
+      threadId,
+      prompt,
+      runtimeMode,
+      modelSelection,
+      envMode,
+      baseBranch,
+      worktreePath: snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread),
+    }).then((result) => {
+      if (result.kind === "composer-error") {
+        setComposerFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
         return undefined
-      },
-    )
+      }
+      if (result.kind === "error") {
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
+        return undefined
+      }
+      if (result.kind === "created") {
+        onCreated(result.threadId)
+      }
+      setActionFailure(undefined)
+      return undefined
+    })
   }
 
   const interruptTurn = () => {
@@ -319,6 +336,19 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     />
   )
 
+  const checkoutBar = (
+    <ThreadCheckoutBar
+      projectId={projectId}
+      threadId={threadId}
+      branch={snapshot === undefined ? null : threadBranchOf(snapshot.thread)}
+      worktreePath={snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)}
+      disabled={loading || project?.available !== true}
+      envMode={envMode}
+      onEnvModeChange={setEnvMode}
+      onBaseBranchChange={setBaseBranch}
+    />
+  )
+
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {isNewThread ? (
@@ -328,7 +358,10 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           selectedProjectId={projectId}
           onSelectProject={onSelectProject}
         >
-          {composer}
+          <div className="flex flex-col gap-2">
+            {checkoutBar}
+            {composer}
+          </div>
         </ThreadDraftHero>
       ) : (
         <>
@@ -363,6 +396,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               }}
             />
           </div>
+          {checkoutBar}
           {composer}
         </>
       )}

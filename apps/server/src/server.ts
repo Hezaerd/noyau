@@ -11,6 +11,7 @@ import { RpcSerialization, RpcServer } from "effect/unstable/rpc"
 import { ServerConfig, serverConfigLayer } from "./config.ts"
 import { ControlPlane, controlPlaneLayer } from "./control-plane.ts"
 import { discordPresenceLayer } from "./discord/ipc.ts"
+import { gitPlaneLayer } from "./git/git-plane.ts"
 import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
 import { loggerLayer } from "./observability.ts"
 import { cursorProviderLayer } from "./provider/cursor-acp.ts"
@@ -164,6 +165,7 @@ export const nodeServerLayer = Layer.unwrap(
 export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(cursorProviderLayer()),
   Layer.provideMerge(cursorTextGenerationLayer()),
+  Layer.provideMerge(gitPlaneLayer),
   Layer.provideMerge(workspaceRootAccessLayer),
   Layer.provide(discordPresenceLayer),
   Layer.provideMerge(

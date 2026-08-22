@@ -64,3 +64,16 @@ _À éviter_ : Command, présence, current route
 Aperçu borné d'un fichier sous le WorkspaceRoot d'un Project (`text` | `image` | `unsupported`).
 Lecture RPC, pas une Command, pas un fait du journal.
 _À éviter_ : pièce jointe, FilePreviewPanel, lecture hors sandbox
+
+**Checkout**:
+Liaison durable d'un Thread à un cwd Git : `branch` (dernière ref Noyau) et `worktreePath`
+(`null` = `WorkspaceRoot`).
+_À éviter_ : threadEnvMode persisté, cwd de Session
+
+**threadEnvMode**:
+Intention de draft `local | worktree` pour le prochain Turn. Pas un champ du Thread.
+_À éviter_ : mode durable, politique de lock Git
+
+**GitRuntime**:
+Capacité live du Server (`vcs.*`, `git.*`) hors journal. L'idempotence client passe par `actionId`.
+_À éviter_ : agrégat Commit, événement Push, outbox Git

@@ -5,6 +5,7 @@ import {
   ServiceUnavailable,
 } from "@noyau/protocol/errors"
 import { FilePreviewFailed } from "@noyau/protocol/file-preview"
+import { GitCommandError } from "@noyau/protocol/git"
 import { ProjectNotFound } from "@noyau/protocol/project/errors"
 import { Rejection, type Rejection as RejectionType } from "@noyau/protocol/receipts"
 import { Cause, Option, Schema } from "effect"
@@ -23,6 +24,7 @@ const KnownControlPlaneError = Schema.Union([
   Forbidden,
   FilePreviewFailed,
   ProjectNotFound,
+  GitCommandError,
   RpcClientError,
   ResourceSnapshotUnavailable,
 ])
@@ -65,6 +67,9 @@ const fromTypedError = (error: KnownControlPlaneError, phase: FailurePhase): App
   }
   if (Schema.is(ServiceUnavailable)(error)) {
     return { _tag: "Unavailable", service: error.service }
+  }
+  if (Schema.is(GitCommandError)(error)) {
+    return { _tag: "InvalidInput", message: error.detail }
   }
   if (Schema.is(MissingIdentity)(error) || Schema.is(Forbidden)(error)) {
     return { _tag: "Unauthorized" }

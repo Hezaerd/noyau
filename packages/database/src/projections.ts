@@ -505,13 +505,14 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       yield* sql`
         INSERT INTO projection_threads (
           thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
-          service_tier, thinking, status, created_at, updated_at
+          service_tier, thinking, branch, worktree_path, status, created_at, updated_at
         ) VALUES (
           ${event.threadId}, ${event.projectId}, ${event.title}, ${event.provider},
           ${event.runtimeMode}, ${event.modelSelection?.modelId ?? null},
           ${event.modelSelection?.reasoningEffort ?? null},
           ${event.modelSelection?.serviceTier ?? null},
           ${event.modelSelection?.thinking === undefined ? null : Number(event.modelSelection.thinking)},
+          ${event.branch ?? null}, ${event.worktreePath ?? null},
           'active', ${occurredAt}, ${occurredAt}
         )
       `
@@ -535,6 +536,20 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         yield* sql`
           UPDATE projection_threads
           SET title = ${event.title}, updated_at = ${occurredAt}
+          WHERE thread_id = ${event.threadId}
+        `
+      }
+      if (event.branch !== undefined) {
+        yield* sql`
+          UPDATE projection_threads
+          SET branch = ${event.branch}, updated_at = ${occurredAt}
+          WHERE thread_id = ${event.threadId}
+        `
+      }
+      if (event.worktreePath !== undefined) {
+        yield* sql`
+          UPDATE projection_threads
+          SET worktree_path = ${event.worktreePath}, updated_at = ${occurredAt}
           WHERE thread_id = ${event.threadId}
         `
       }

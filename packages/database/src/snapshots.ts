@@ -74,6 +74,8 @@ const ThreadRow = Schema.Struct({
   reasoning_effort: Schema.NullOr(Schema.String),
   service_tier: Schema.NullOr(Schema.String),
   thinking: Schema.NullOr(Schema.Int),
+  branch: Schema.NullOr(Schema.String),
+  worktree_path: Schema.NullOr(Schema.String),
   status: Schema.String,
   created_at: Schema.String,
   updated_at: Schema.String,
@@ -106,6 +108,8 @@ const ThreadShellRow = Schema.Struct({
   title: Schema.String,
   provider: Schema.String,
   runtime_mode: Schema.String,
+  branch: Schema.NullOr(Schema.String),
+  worktree_path: Schema.NullOr(Schema.String),
   status: Schema.String,
   created_at: Schema.String,
   updated_at: Schema.String,
@@ -394,7 +398,8 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
       const threadRows = yield* sql<(typeof ThreadRow)["Encoded"]>`
         SELECT
           thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
-          service_tier, thinking, status, created_at, updated_at, archived_at
+          service_tier, thinking, branch, worktree_path, status, created_at, updated_at,
+          archived_at
         FROM projection_threads
         WHERE thread_id = ${threadId}
       `
@@ -473,6 +478,8 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         provider: thread.provider,
         runtimeMode: thread.runtime_mode,
         modelSelection,
+        branch: thread.branch,
+        worktreePath: thread.worktree_path,
         status: thread.status,
         session,
         latestTurn,
@@ -515,6 +522,8 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
             thread.title,
             thread.provider,
             thread.runtime_mode,
+            thread.branch,
+            thread.worktree_path,
             thread.status,
             thread.created_at,
             thread.updated_at,
@@ -550,6 +559,8 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
             title: row.title,
             provider: row.provider,
             runtimeMode: row.runtime_mode,
+            branch: row.branch,
+            worktreePath: row.worktree_path,
             status: row.status,
             latestTurn:
               row.turn_id === null || row.turn_state === null || row.requested_at === null

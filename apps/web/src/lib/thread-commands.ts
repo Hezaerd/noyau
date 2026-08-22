@@ -1,5 +1,7 @@
+import type { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode as RuntimeModeType } from "@noyau/protocol/entities/runtime-mode"
+import type { PrepareWorktree } from "@noyau/protocol/git"
 import {
   CommandId,
   type ApprovalRequestId,
@@ -32,6 +34,8 @@ type ThreadCreatePayload = {
   readonly title: string
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection
+  readonly branch?: ThreadBranch
+  readonly worktreePath?: ThreadWorktreePath
 }
 
 type ThreadTurnStartPayload = {
@@ -40,6 +44,7 @@ type ThreadTurnStartPayload = {
   readonly titleSeed?: string
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection | null
+  readonly prepareWorktree?: PrepareWorktree
 }
 
 type ThreadTurnInterruptPayload = {
@@ -51,12 +56,18 @@ export const makeThreadId = Effect.fnUntraced(function* () {
   return ThreadId.make(yield* uuid())
 })
 
+export const makeGitActionId = Effect.fnUntraced(function* () {
+  return yield* uuid()
+})
+
 export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
   readonly projectId: ProjectId
   readonly title: string
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection | null
+  readonly branch?: ThreadBranch
+  readonly worktreePath?: ThreadWorktreePath
 }) {
   let payload: ThreadCreatePayload = {
     threadId: input.threadId,
@@ -68,6 +79,12 @@ export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
   }
   if (input.modelSelection !== undefined && input.modelSelection !== null) {
     payload = Object.assign(payload, { modelSelection: input.modelSelection })
+  }
+  if (input.branch !== undefined) {
+    payload = Object.assign(payload, { branch: input.branch })
+  }
+  if (input.worktreePath !== undefined) {
+    payload = Object.assign(payload, { worktreePath: input.worktreePath })
   }
   return ThreadCreateRequest.make({
     commandId: CommandId.make(yield* uuid()),
@@ -81,6 +98,7 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   readonly titleSeed?: string
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection | null
+  readonly prepareWorktree?: PrepareWorktree
 }) {
   let payload: ThreadTurnStartPayload = {
     threadId: input.threadId,
@@ -94,6 +112,9 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   }
   if (input.modelSelection !== undefined) {
     payload = Object.assign(payload, { modelSelection: input.modelSelection })
+  }
+  if (input.prepareWorktree !== undefined) {
+    payload = Object.assign(payload, { prepareWorktree: input.prepareWorktree })
   }
   return ThreadTurnStartRequest.make({
     commandId: CommandId.make(yield* uuid()),
@@ -117,16 +138,32 @@ export const makeThreadTurnInterruptRequest = Effect.fnUntraced(function* (input
   })
 })
 
+type ThreadMetaUpdatePayload = {
+  readonly threadId: ThreadId
+  readonly title?: string
+  readonly branch?: ThreadBranch
+  readonly worktreePath?: ThreadWorktreePath
+}
+
 export const makeThreadMetaUpdateRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
-  readonly title: string
+  readonly title?: string
+  readonly branch?: ThreadBranch
+  readonly worktreePath?: ThreadWorktreePath
 }) {
+  let payload: ThreadMetaUpdatePayload = { threadId: input.threadId }
+  if (input.title !== undefined) {
+    payload = Object.assign(payload, { title: input.title.trim() })
+  }
+  if (input.branch !== undefined) {
+    payload = Object.assign(payload, { branch: input.branch })
+  }
+  if (input.worktreePath !== undefined) {
+    payload = Object.assign(payload, { worktreePath: input.worktreePath })
+  }
   return ThreadMetaUpdateRequest.make({
     commandId: CommandId.make(yield* uuid()),
-    payload: {
-      threadId: input.threadId,
-      title: input.title.trim(),
-    },
+    payload,
   })
 })
 

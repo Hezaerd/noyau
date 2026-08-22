@@ -16,7 +16,10 @@ import {
   type ThreadId,
   type TurnId,
 } from "@noyau/protocol/ids"
+import { ThreadMetaUpdate } from "@noyau/protocol/thread/commands"
 import { ThreadEvent } from "@noyau/protocol/thread/events"
+import { ServerConfig } from "@noyau/server/config"
+import { buildTemporaryWorktreeBranchName, GitRuntime } from "@noyau/server/git/git-runtime"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -25,10 +28,13 @@ import { ProviderPort, type ProviderSignal } from "./provider-port.ts"
 const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)
 const decodeInternalCommand = Schema.decodeUnknownEffect(InternalCommand)
+const decodeThreadMetaUpdate = Schema.decodeUnknownEffect(ThreadMetaUpdate)
 const systemActor = ActorId.make("system:cursor")
 const isThreadEvent = Schema.is(ThreadEvent)
 
-export type DispatchInternal = (command: InternalCommandType) => Effect.Effect<void>
+export type DispatchInternal = (
+  command: InternalCommandType | (typeof ThreadMetaUpdate)["Type"],
+) => Effect.Effect<void>
 type InternalCommandEncoded = (typeof InternalCommand)["Encoded"]
 type InternalCommandBody =
   | Pick<
@@ -164,12 +170,14 @@ export const makeProviderReactor = (
 ): Effect.Effect<
   (persisted: PersistedEvent<DomainEvent>) => Effect.Effect<void>,
   never,
-  ProviderPort | SqlClient | Crypto.Crypto
+  ProviderPort | SqlClient | Crypto.Crypto | GitRuntime | ServerConfig
 > =>
   Effect.gen(function* () {
     const provider = yield* ProviderPort
     const sql = yield* SqlClient
     const crypto = yield* Crypto.Crypto
+    const git = yield* GitRuntime
+    const config = yield* ServerConfig
 
     return (persisted) => {
       const event = persisted.event
@@ -191,12 +199,66 @@ export const makeProviderReactor = (
             const workspaceRoot = yield* projectRoot(persisted.projectId).pipe(
               Effect.provideService(SqlClient, sql),
             )
+            let cwd = snapshot.value.thread.worktreePath ?? workspaceRoot
+            const prepare = threadEvent.prepareWorktree
+            if (prepare !== undefined && snapshot.value.thread.worktreePath == null) {
+              const branch =
+                prepare.branch ??
+                buildTemporaryWorktreeBranchName(yield* crypto.randomUUIDv4.pipe(Effect.orDie))
+              const created = yield* git
+                .createWorktree(
+                  Object.assign(
+                    {
+                      cwd: workspaceRoot,
+                      worktreesDir: config.worktreesDir,
+                      baseBranch: prepare.baseBranch,
+                      branch,
+                    },
+                    prepare.startFromOrigin === undefined
+                      ? {}
+                      : { startFromOrigin: prepare.startFromOrigin },
+                  ),
+                )
+                .pipe(Effect.result)
+              if (created._tag === "Failure") {
+                yield* ingestSignal(dispatchInternal, persisted, runtimeMode, {
+                  _tag: "turn-ended",
+                  threadId: threadEvent.threadId,
+                  turnId: threadEvent.turnId,
+                  state: "error",
+                  lastError: created.failure.detail,
+                }).pipe(
+                  Effect.provideService(SqlClient, sql),
+                  Effect.provideService(Crypto.Crypto, crypto),
+                )
+                return
+              }
+              cwd = created.success.worktree.path
+              const issuedAt = yield* DateTime.now
+              const commandId = yield* crypto.randomUUIDv4.pipe(Effect.orDie)
+              const bind = yield* decodeThreadMetaUpdate({
+                _tag: "thread.meta.update",
+                commandId: CommandId.make(commandId),
+                projectId: ProjectId.make(persisted.projectId),
+                actorId: systemActor,
+                correlationId: CorrelationId.make(persisted.correlationId),
+                causationId: EventId.make(persisted.eventId),
+                issuedAt: DateTime.formatIso(issuedAt),
+                schemaVersion: 1,
+                payload: {
+                  threadId: threadEvent.threadId,
+                  branch: created.success.worktree.refName,
+                  worktreePath: created.success.worktree.path,
+                },
+              }).pipe(Effect.orDie)
+              yield* dispatchInternal(bind)
+            }
             yield* provider.startTurn(
               {
                 threadId: threadEvent.threadId,
                 turnId: threadEvent.turnId,
                 text: threadEvent.text,
-                workspaceRoot,
+                workspaceRoot: cwd,
                 runtimeMode,
                 modelSelection: snapshot.value.thread.modelSelection,
                 resumeCursor: snapshot.value.session?.resumeCursor ?? null,

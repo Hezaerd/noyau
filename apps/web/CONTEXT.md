@@ -58,6 +58,16 @@ Politique d'outils t3code du Thread (quatre valeurs). Portée par le Thread et e
 création / au tour ; plus exposée dans l'en-tête Thread.
 _À éviter_ : permissionMode
 
+**Checkout**:
+Barre du Composer : `local` travaille dans le `WorkspaceRoot` (un `git checkout` y est permis) ;
+`worktree` isole au premier envoi. `branch` affiché = snapshot Thread, HEAD live = `vcs.status`.
+_À éviter_ : rebind du Project, héritage de checkout
+
+**Draft Git**:
+Message de commit ou texte de PR généré, éditable avant une action empilée
+(`commit | push | create_pr | commit_push | commit_push_pr`).
+_À éviter_ : revue, diff viewer
+
 **Effort**:
 Libellé UI du `reasoningEffort` porté par la `modelSelection` du Thread. Les valeurs proposées
 proviennent des capacités du modèle Cursor sélectionné.

@@ -41,7 +41,7 @@ niveaux de raisonnement sans devenir un fait du journal.
 _À éviter_ : projection durable, liste codée en dur
 
 **TextGeneration**:
-Session ACP éphémère hors Turn, pour un Titre généré. Pas le `session/prompt` du Thread.
+Session ACP éphémère hors Turn, pour un Titre généré ou un Draft Git. Pas le `session/prompt` du Thread.
 _À éviter_ : Turn, ProviderPort.startTurn
 
 **setShellFocus**:
@@ -58,3 +58,15 @@ _À éviter_ : openPath, IPC Desktop, lecture hors WorkspaceRoot
 Activity Discord locale dérivée du ShellFocus. Application Discord distincte selon `NOYAU_ENV`
 (prod / dev). Effet chrome : Discord fermé ne casse jamais une commande.
 _À éviter_ : événement Discord, agrégat, Join, une seule Application pour les deux envs
+
+**GitRuntime**:
+Port live `git` / `gh` du Server. Les lectures et mutations Git ne passent pas par le journal.
+_À éviter_ : agrégat VCS, outbox SQL
+
+**GitPlane**:
+Frontière RPC qui résout le cwd (`thread.worktreePath ?? WorkspaceRoot`) puis délègue à `GitRuntime`.
+_À éviter_ : cwd choisi par le client
+
+**Draft Git**:
+Texte de commit ou de PR produit par `TextGeneration` à partir de `git status` / `diff` / `log`.
+_À éviter_ : Turn, revue de PR

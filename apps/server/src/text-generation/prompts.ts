@@ -80,6 +80,28 @@ export const buildThreadTitlePrompt = (input: ThreadTitlePromptInput): string =>
   return `${regenerateThreadTitlePrompt(input.previousTitle)}\n\nThread contents:\n${preserveMessageEnd(input.message)}`
 }
 
+const COMMIT_DRAFT_PROMPT = `Generate a git commit message from the working tree context.
+Return JSON with keys: title, and optional body.
+
+Rules:
+- title is a single conventional-commit line, under 72 characters.
+- body is optional, 1-4 short sentences, only when the change needs explanation.
+- Do not wrap the title in quotes.
+- Do not mention that you are an AI.`
+
+const PULL_REQUEST_DRAFT_PROMPT = `Generate a GitHub pull request title and body from the branch context.
+Return JSON with keys: title, body.
+
+Rules:
+- title is one line, under 72 characters.
+- body is a short markdown summary: problem then change. No checklist.
+- Do not mention that you are an AI.`
+
+export const buildGitDraftPrompt = (kind: "commit" | "pr", context: string): string => {
+  const prompt = kind === "commit" ? COMMIT_DRAFT_PROMPT : PULL_REQUEST_DRAFT_PROMPT
+  return `${prompt}\n\nGit context:\n${limitSection(context, 8_000)}`
+}
+
 export const extractJsonObject = (raw: string): string => {
   const start = raw.indexOf("{")
   const end = raw.lastIndexOf("}")

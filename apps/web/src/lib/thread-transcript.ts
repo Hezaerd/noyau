@@ -318,6 +318,8 @@ const replaceThread = (
     readonly status?: Thread["status"]
     readonly session?: Session | null
     readonly latestTurn?: LatestTurn | null
+    readonly branch?: Thread["branch"]
+    readonly worktreePath?: Thread["worktreePath"]
     readonly updatedAt?: Thread["updatedAt"]
     readonly archivedAt?: Thread["archivedAt"] | null
   },
@@ -331,6 +333,9 @@ const replaceThread = (
     title: patch.title ?? current.title,
     provider: current.provider,
     runtimeMode: patch.runtimeMode ?? current.runtimeMode,
+    branch: patch.branch !== undefined ? patch.branch : (current.branch ?? null),
+    worktreePath:
+      patch.worktreePath !== undefined ? patch.worktreePath : (current.worktreePath ?? null),
     modelSelection:
       patch.modelSelection === undefined ? current.modelSelection : patch.modelSelection,
     status: patch.status ?? current.status,
@@ -514,12 +519,23 @@ export const applyThreadEnvelope = (
       })
     case "thread.title-seeded":
     case "thread.meta-updated": {
-      const title = event.title
-      if (title === undefined || event.threadId !== snapshot.thread.id) {
+      if (event.threadId !== snapshot.thread.id) {
         return withEnvelope(snapshot, envelope, snapshot)
       }
       return withEnvelope(snapshot, envelope, {
-        thread: replaceThread(snapshot, { title, updatedAt: envelope.occurredAt }),
+        thread: replaceThread(
+          snapshot,
+          Object.assign(
+            { updatedAt: envelope.occurredAt },
+            event.title === undefined ? {} : { title: event.title },
+            event._tag === "thread.meta-updated" && event.branch !== undefined
+              ? { branch: event.branch }
+              : {},
+            event._tag === "thread.meta-updated" && event.worktreePath !== undefined
+              ? { worktreePath: event.worktreePath }
+              : {},
+          ),
+        ),
         session: snapshot.session,
         turns: snapshot.turns,
         transcript: snapshot.transcript,

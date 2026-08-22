@@ -1,3 +1,4 @@
+import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import { Provider } from "@noyau/protocol/entities/environment"
 import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
@@ -17,6 +18,8 @@ export class Thread extends Schema.Class<Thread>("@noyau/protocol/entities/Threa
   provider: Provider,
   modelSelection: Schema.NullOr(ModelSelection),
   runtimeMode: RuntimeMode,
+  branch: Schema.optionalKey(ThreadBranch),
+  worktreePath: Schema.optionalKey(ThreadWorktreePath),
   status: ThreadStatus,
   session: Schema.NullOr(Session),
   latestTurn: Schema.NullOr(LatestTurn),

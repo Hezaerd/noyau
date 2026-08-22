@@ -27,6 +27,7 @@ import { Crypto, Deferred, Effect, Fiber, Layer, Option, Schema, Stream } from "
 import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
+import { stubGitRuntimeLayer } from "./fixtures.ts"
 import { testServerConfigLayer } from "./fixtures.ts"
 
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
@@ -98,6 +99,7 @@ const controlPlaneTestLayer = (
     Layer.provideMerge(unavailableProviderLayer),
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
+    Layer.provideMerge(stubGitRuntimeLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(workspaceRoots)),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
@@ -109,6 +111,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
+    Layer.provideMerge(stubGitRuntimeLayer),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(availableWorkspaceRoots)),
     Layer.provideMerge(
       cursorProviderLayer({
@@ -159,7 +162,7 @@ describe("ControlPlane", () => {
         assert.strictEqual(frames[1]?.kind, "synchronized")
 
         const config = yield* controlPlane.getConfig
-        assert.strictEqual(config.databaseSchemaVersion, 5)
+        assert.strictEqual(config.databaseSchemaVersion, 6)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
         assert.deepStrictEqual(
           yield* controlPlane.setShellFocus({

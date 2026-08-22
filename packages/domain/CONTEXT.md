@@ -13,8 +13,17 @@ Dossier de travail relié à Noyau, possédant un Tableau et des Threads.
 _À éviter_ : repository, workspace Git, Mission
 
 **WorkspaceRoot**:
-Chemin du dossier existant sur la machine où Noyau et Cursor travaillent.
-_À éviter_ : worktree, sandbox, Attempt
+Chemin du dossier existant sur la machine où Noyau et Cursor travaillent. Un Thread `local` peut
+y faire un `git checkout`.
+_À éviter_ : worktree comme Project, sandbox, Attempt
+
+**Checkout**:
+Résultat durable lié au Thread : `worktreePath` (cwd) et `branch` (snapshot Noyau, pas le HEAD live).
+_À éviter_ : rebind de Project, cwd du Ticket
+
+**threadEnvMode**:
+Choix de draft `local | worktree`. Matérialisé au premier `thread.turn.start`, pas à `thread.create`.
+_À éviter_ : héritage depuis le Thread vu, mode persisté
 
 **Tableau**:
 Projection Kanban unique d'un Project, composée de colonnes ordonnées.

@@ -144,6 +144,12 @@ export const decide = (
           if (command.payload.modelSelection !== undefined) {
             created = Object.assign(created, { modelSelection: command.payload.modelSelection })
           }
+          if (command.payload.branch !== undefined) {
+            created = Object.assign(created, { branch: command.payload.branch })
+          }
+          if (command.payload.worktreePath !== undefined) {
+            created = Object.assign(created, { worktreePath: command.payload.worktreePath })
+          }
           return [ThreadCreated.make(created)]
         }),
       )
@@ -211,6 +217,9 @@ export const decide = (
           }
           if (command.payload.modelSelection !== undefined) {
             started = Object.assign(started, { modelSelection: command.payload.modelSelection })
+          }
+          if (command.payload.prepareWorktree !== undefined) {
+            started = Object.assign(started, { prepareWorktree: command.payload.prepareWorktree })
           }
           return [ThreadTurnStarted.make(started)]
         }),

@@ -309,6 +309,31 @@ describe("Thread lifecycle", () => {
     })
   })
 
+  it("persiste le Checkout sans muter le titre", () => {
+    const state = withThread()
+    const events = success(
+      decide(
+        state,
+        command({
+          _tag: "thread.meta.update",
+          ...meta,
+          payload: {
+            threadId: ids.thread,
+            branch: "noyau/abcd1234",
+            worktreePath: "/tmp/worktrees/repo/noyau-abcd1234",
+          },
+        }),
+      ),
+    )
+    const next = apply(state, events)
+
+    expect(next.threads[0]).toMatchObject({
+      title: DEFAULT_THREAD_TITLE,
+      branch: "noyau/abcd1234",
+      worktreePath: "/tmp/worktrees/repo/noyau-abcd1234",
+    })
+  })
+
   it("demande une régénération de titre sans muter le titre courant", () => {
     const state = withThread()
     const events = success(

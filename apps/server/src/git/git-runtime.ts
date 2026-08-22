@@ -1,0 +1,486 @@
+import * as NodeServices from "@effect/platform-node/NodeServices"
+import {
+  GitCommandError,
+  type GitRunStackedActionResult,
+  type GitStackedAction,
+  type VcsCreateRefResult,
+  type VcsCreateWorktreeResult,
+  type VcsRef,
+  type VcsStatusResult,
+  type VcsSwitchRefResult,
+  type VcsWorktree,
+} from "@noyau/protocol/git"
+import { Context, Effect, Layer, Path, Schema, type Scope } from "effect"
+import { ChildProcessSpawner } from "effect/unstable/process"
+
+import { runGh, runGit } from "./run-command.ts"
+
+const ExistingPullRequest = Schema.Struct({
+  url: Schema.optionalKey(Schema.String),
+  number: Schema.optionalKey(Schema.Int),
+})
+const decodeExistingPullRequest = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(ExistingPullRequest),
+)
+
+const WORKTREE_BRANCH_PREFIX = "noyau"
+
+export const buildTemporaryWorktreeBranchName = (hex: string): string => {
+  const token = hex
+    .toLowerCase()
+    .replace(/[^0-9a-f]/g, "")
+    .slice(0, 8)
+    .padEnd(8, "0")
+  return `${WORKTREE_BRANCH_PREFIX}/${token}`
+}
+
+const firstLine = (value: string): string => value.split(/\r?\n/g)[0]?.trim() ?? ""
+
+const parseWorktrees = (porcelain: string): ReadonlyArray<VcsWorktree> => {
+  const worktrees: Array<VcsWorktree> = []
+  let path = ""
+  let refName = ""
+  const flush = () => {
+    if (path.length > 0 && refName.length > 0) {
+      worktrees.push({ path, refName })
+    }
+    path = ""
+    refName = ""
+  }
+  for (const raw of porcelain.split(/\r?\n/g)) {
+    if (raw.length === 0) {
+      flush()
+      continue
+    }
+    if (raw.startsWith("worktree ")) {
+      path = raw.slice("worktree ".length).trim()
+      continue
+    }
+    if (raw.startsWith("branch ")) {
+      refName = raw
+        .slice("branch ".length)
+        .replace(/^refs\/heads\//, "")
+        .trim()
+    }
+  }
+  flush()
+  return worktrees
+}
+
+const deriveLocalBranchName = (refName: string): string => {
+  const separator = refName.indexOf("/")
+  if (separator <= 0 || separator === refName.length - 1) {
+    return refName
+  }
+  return refName.slice(separator + 1)
+}
+
+const sanitizeBranchFragment = (raw: string): string =>
+  raw
+    .trim()
+    .toLowerCase()
+    .replace(/['"`]/g, "")
+    .replace(/[^a-z0-9._/-]+/g, "-")
+    .replace(/\/+/g, "/")
+    .replace(/^[-./]+|[-./]+$/g, "")
+    .slice(0, 64) || "worktree"
+
+export interface GitRuntimeService {
+  readonly status: (cwd: string) => Effect.Effect<VcsStatusResult, GitCommandError>
+  readonly listRefs: (cwd: string) => Effect.Effect<ReadonlyArray<VcsRef>, GitCommandError>
+  readonly listWorktrees: (
+    cwd: string,
+  ) => Effect.Effect<ReadonlyArray<VcsWorktree>, GitCommandError>
+  readonly switchRef: (
+    cwd: string,
+    refName: string,
+  ) => Effect.Effect<VcsSwitchRefResult, GitCommandError>
+  readonly createRef: (
+    cwd: string,
+    refName: string,
+    switchRef: boolean,
+  ) => Effect.Effect<VcsCreateRefResult, GitCommandError>
+  readonly createWorktree: (input: {
+    readonly cwd: string
+    readonly worktreesDir: string
+    readonly baseBranch: string
+    readonly branch: string
+    readonly startFromOrigin?: boolean
+  }) => Effect.Effect<VcsCreateWorktreeResult, GitCommandError>
+  readonly diffContext: (cwd: string) => Effect.Effect<string, GitCommandError>
+  readonly runStackedAction: (input: {
+    readonly cwd: string
+    readonly action: GitStackedAction
+    readonly commitMessage?: string
+    readonly pullRequestTitle?: string
+    readonly pullRequestBody?: string
+  }) => Effect.Effect<GitRunStackedActionResult, GitCommandError>
+}
+
+export class GitRuntime extends Context.Service<GitRuntime, GitRuntimeService>()(
+  "@noyau/server/git/GitRuntime",
+) {}
+
+const isRepo = Effect.fn("GitRuntime.isRepo")(function* (cwd: string) {
+  const result = yield* runGit("git.rev-parse", cwd, ["rev-parse", "--is-inside-work-tree"], {
+    allowNonZero: true,
+  })
+  return result.code === 0 && firstLine(result.stdout) === "true"
+})
+
+const currentBranch = Effect.fn("GitRuntime.currentBranch")(function* (cwd: string) {
+  const result = yield* runGit("git.branch", cwd, ["branch", "--show-current"], {
+    allowNonZero: true,
+  })
+  const name = firstLine(result.stdout)
+  return name.length === 0 ? null : name
+})
+
+const listWorktrees = Effect.fn("GitRuntime.listWorktrees")(function* (cwd: string) {
+  const result = yield* runGit("git.worktree.list", cwd, ["worktree", "list", "--porcelain"], {
+    allowNonZero: true,
+  })
+  if (result.code !== 0) {
+    return []
+  }
+  return parseWorktrees(result.stdout)
+})
+
+const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+  const path = yield* Path.Path
+  const enclose = <A>(
+    effect: Effect.Effect<
+      A,
+      GitCommandError,
+      ChildProcessSpawner.ChildProcessSpawner | Scope.Scope
+    >,
+  ) =>
+    effect.pipe(
+      Effect.scoped,
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+    )
+  const status = Effect.fn("GitRuntime.status")(function* (cwd: string) {
+    const repo = yield* isRepo(cwd)
+    if (!repo) {
+      return {
+        isRepo: false,
+        cwd,
+        refName: null,
+        isDefaultRef: false,
+        hasPrimaryRemote: false,
+        hasWorkingTreeChanges: false,
+        hasUpstream: false,
+        aheadCount: 0,
+        behindCount: 0,
+        worktreePath: null,
+      } satisfies VcsStatusResult
+    }
+    const [refName, remotes, porcelain, defaultHead, worktrees] = yield* Effect.all(
+      [
+        currentBranch(cwd),
+        runGit("git.remote", cwd, ["remote"], { allowNonZero: true }),
+        runGit("git.status", cwd, ["status", "--porcelain"], { allowNonZero: true }),
+        runGit("git.default-head", cwd, ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"], {
+          allowNonZero: true,
+        }),
+        listWorktrees(cwd),
+      ],
+      { concurrency: "unbounded" },
+    )
+    const defaultRef = firstLine(defaultHead.stdout).replace(/^refs\/remotes\/origin\//, "")
+    const hasPrimaryRemote = remotes.stdout.split(/\r?\n/g).some((line) => line.trim() === "origin")
+    const upstream = yield* runGit(
+      "git.upstream",
+      cwd,
+      ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
+      { allowNonZero: true },
+    )
+    const hasUpstream = upstream.code === 0 && firstLine(upstream.stdout).length > 0
+    let aheadCount = 0
+    let behindCount = 0
+    if (hasUpstream) {
+      const counts = yield* runGit(
+        "git.ahead-behind",
+        cwd,
+        ["rev-list", "--left-right", "--count", "@{upstream}...HEAD"],
+        { allowNonZero: true },
+      )
+      const [behind, ahead] = firstLine(counts.stdout).split(/\s+/g)
+      behindCount = Number.parseInt(behind ?? "0", 10) || 0
+      aheadCount = Number.parseInt(ahead ?? "0", 10) || 0
+    }
+    return {
+      isRepo: true,
+      cwd,
+      refName,
+      isDefaultRef: refName !== null && defaultRef.length > 0 && refName === defaultRef,
+      hasPrimaryRemote,
+      hasWorkingTreeChanges: porcelain.stdout.trim().length > 0,
+      hasUpstream,
+      aheadCount,
+      behindCount,
+      worktreePath: worktrees[0] !== undefined && worktrees[0].path !== cwd ? cwd : null,
+    } satisfies VcsStatusResult
+  })
+
+  const listRefs = Effect.fn("GitRuntime.listRefs")(function* (cwd: string) {
+    if (!(yield* isRepo(cwd))) {
+      return []
+    }
+    const [refs, worktrees, defaultHead, current] = yield* Effect.all(
+      [
+        runGit(
+          "git.for-each-ref",
+          cwd,
+          ["for-each-ref", "--format=%(refname)\t%(HEAD)", "refs/heads", "refs/remotes"],
+          { allowNonZero: true },
+        ),
+        listWorktrees(cwd),
+        runGit("git.default-head", cwd, ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"], {
+          allowNonZero: true,
+        }),
+        currentBranch(cwd),
+      ],
+      { concurrency: "unbounded" },
+    )
+    const defaultRef = firstLine(defaultHead.stdout).replace(/^refs\/remotes\//, "")
+    const worktreeByRef = new Map(worktrees.map((worktree) => [worktree.refName, worktree.path]))
+    return refs.stdout.split(/\r?\n/g).flatMap((line): ReadonlyArray<VcsRef> => {
+      const [refname, head] = line.split("\t")
+      if (refname === undefined || refname.length === 0) {
+        return []
+      }
+      const isRemote = refname.startsWith("refs/remotes/")
+      const name = refname.replace(/^refs\/heads\//, "").replace(/^refs\/remotes\//, "")
+      return [
+        {
+          name,
+          isRemote,
+          current: head === "*" || (!isRemote && name === current),
+          isDefault: isRemote
+            ? refname === `refs/remotes/${defaultRef}`
+            : name === defaultRef.replace(/^origin\//, ""),
+          worktreePath: isRemote ? null : (worktreeByRef.get(name) ?? null),
+        },
+      ]
+    })
+  })
+
+  const switchRef = Effect.fn("GitRuntime.switchRef")(function* (cwd: string, refName: string) {
+    const worktrees = yield* listWorktrees(cwd)
+    const localName = refName.startsWith("origin/") ? deriveLocalBranchName(refName) : refName
+    const existing = worktrees.find((worktree) => worktree.refName === localName)
+    if (existing !== undefined && existing.path !== cwd) {
+      return {
+        refName: existing.refName,
+        worktreePath: existing.path,
+        reusedWorktree: true,
+      } satisfies VcsSwitchRefResult
+    }
+    const localExists = yield* runGit(
+      "git.show-ref.local",
+      cwd,
+      ["show-ref", "--verify", "--quiet", `refs/heads/${refName}`],
+      { allowNonZero: true },
+    )
+    const remoteExists = yield* runGit(
+      "git.show-ref.remote",
+      cwd,
+      ["show-ref", "--verify", "--quiet", `refs/remotes/${refName}`],
+      { allowNonZero: true },
+    )
+    const args =
+      localExists.code === 0
+        ? ["checkout", refName]
+        : remoteExists.code === 0
+          ? ["checkout", "--track", refName]
+          : ["checkout", refName]
+    yield* runGit("git.checkout", cwd, args)
+    const next = yield* currentBranch(cwd)
+    return {
+      refName: next,
+      worktreePath: null,
+      reusedWorktree: false,
+    } satisfies VcsSwitchRefResult
+  })
+
+  const createRef = Effect.fn("GitRuntime.createRef")(function* (
+    cwd: string,
+    refName: string,
+    shouldSwitch: boolean,
+  ) {
+    if (shouldSwitch) {
+      yield* runGit("git.checkout-b", cwd, ["checkout", "-b", refName])
+    } else {
+      yield* runGit("git.branch", cwd, ["branch", refName])
+    }
+    return { refName } satisfies VcsCreateRefResult
+  })
+
+  const createWorktree = Effect.fn("GitRuntime.createWorktree")(function* (input: {
+    readonly cwd: string
+    readonly worktreesDir: string
+    readonly baseBranch: string
+    readonly branch: string
+    readonly startFromOrigin?: boolean
+  }) {
+    const newRefName = input.branch
+    const worktreePath = path.join(
+      input.worktreesDir,
+      path.basename(input.cwd),
+      sanitizeBranchFragment(newRefName),
+    )
+    let startRef = input.baseBranch
+    if (input.startFromOrigin === true) {
+      const fetched = yield* runGit(
+        "git.fetch",
+        input.cwd,
+        ["fetch", "--quiet", "origin", input.baseBranch],
+        { allowNonZero: true },
+      )
+      if (fetched.code === 0) {
+        startRef = `origin/${input.baseBranch}`
+      }
+    }
+    yield* runGit("git.worktree.add", input.cwd, [
+      "worktree",
+      "add",
+      "-b",
+      newRefName,
+      worktreePath,
+      startRef,
+    ])
+    return {
+      worktree: { path: worktreePath, refName: newRefName },
+    } satisfies VcsCreateWorktreeResult
+  })
+
+  const diffContext = Effect.fn("GitRuntime.diffContext")(function* (cwd: string) {
+    const [stat, diff, log] = yield* Effect.all(
+      [
+        runGit("git.status", cwd, ["status", "--short"], { allowNonZero: true }),
+        runGit("git.diff", cwd, ["diff", "--stat"], { allowNonZero: true }),
+        runGit("git.log", cwd, ["log", "-8", "--oneline"], { allowNonZero: true }),
+      ],
+      { concurrency: "unbounded" },
+    )
+    return [`STATUS:\n${stat.stdout}`, `DIFF:\n${diff.stdout}`, `LOG:\n${log.stdout}`].join("\n\n")
+  })
+
+  const runStackedAction = Effect.fn("GitRuntime.runStackedAction")(function* (input: {
+    readonly cwd: string
+    readonly action: GitStackedAction
+    readonly commitMessage?: string
+    readonly pullRequestTitle?: string
+    readonly pullRequestBody?: string
+  }) {
+    const wantsCommit =
+      input.action === "commit" ||
+      input.action === "commit_push" ||
+      input.action === "commit_push_pr"
+    const wantsPush =
+      input.action === "push" || input.action === "commit_push" || input.action === "commit_push_pr"
+    const wantsPr = input.action === "create_pr" || input.action === "commit_push_pr"
+    const branch = yield* currentBranch(input.cwd)
+    let commit: GitRunStackedActionResult["commit"] = { status: "skipped_not_requested" }
+    let push: GitRunStackedActionResult["push"] = { status: "skipped_not_requested" }
+    let pullRequest: GitRunStackedActionResult["pullRequest"] = { status: "skipped_not_requested" }
+    if (wantsCommit) {
+      const message = input.commitMessage?.trim()
+      if (message === undefined || message.length === 0) {
+        return yield* new GitCommandError({
+          operation: "git.commit",
+          detail: "A commit message is required.",
+        })
+      }
+      yield* runGit("git.add", input.cwd, ["add", "-A"])
+      const staged = yield* runGit("git.diff-cached", input.cwd, ["diff", "--cached", "--quiet"], {
+        allowNonZero: true,
+      })
+      if (staged.code === 0) {
+        commit = { status: "skipped_no_changes" }
+      } else {
+        yield* runGit("git.commit", input.cwd, ["commit", "-m", message])
+        const sha = firstLine(
+          (yield* runGit("git.rev-parse", input.cwd, ["rev-parse", "HEAD"])).stdout,
+        )
+        commit = { status: "created", commitSha: sha, subject: firstLine(message) }
+      }
+    }
+    if (wantsPush) {
+      const pushed = yield* runGit("git.push", input.cwd, ["push", "-u", "origin", "HEAD"], {
+        allowNonZero: true,
+      })
+      if (pushed.code !== 0) {
+        return yield* new GitCommandError({
+          operation: "git.push",
+          detail: pushed.stderr.trim() || pushed.stdout.trim() || "git push failed",
+        })
+      }
+      push = { status: "pushed" }
+    }
+    if (wantsPr) {
+      const title = input.pullRequestTitle?.trim() ?? input.commitMessage?.trim()
+      if (title === undefined || title.length === 0) {
+        return yield* new GitCommandError({
+          operation: "gh.pr.create",
+          detail: "A pull request title is required.",
+        })
+      }
+      const created = yield* runGh(
+        "gh.pr.create",
+        input.cwd,
+        ["pr", "create", "--title", title, "--body", input.pullRequestBody ?? ""],
+        { allowNonZero: true },
+      )
+      if (created.code === 0) {
+        const url = firstLine(created.stdout)
+        pullRequest = { status: "created", url }
+      } else {
+        const existing = yield* runGh(
+          "gh.pr.view",
+          input.cwd,
+          ["pr", "view", "--json", "url,number"],
+          { allowNonZero: true },
+        )
+        if (existing.code !== 0) {
+          return yield* new GitCommandError({
+            operation: "gh.pr.create",
+            detail: created.stderr.trim() || created.stdout.trim() || "gh pr create failed",
+          })
+        }
+        const parsed = yield* decodeExistingPullRequest(existing.stdout).pipe(
+          Effect.mapError(
+            () =>
+              new GitCommandError({
+                operation: "gh.pr.view",
+                detail: "gh returned an invalid pull request payload.",
+              }),
+          ),
+        )
+        pullRequest = Object.assign(
+          { status: "opened_existing" as const },
+          parsed.url === undefined ? {} : { url: parsed.url },
+          parsed.number === undefined ? {} : { number: parsed.number },
+        )
+      }
+    }
+    return { action: input.action, branch, commit, push, pullRequest }
+  })
+
+  return GitRuntime.of({
+    status: (cwd) => enclose(status(cwd)),
+    listRefs: (cwd) => enclose(listRefs(cwd)),
+    listWorktrees: (cwd) => enclose(listWorktrees(cwd)),
+    switchRef: (cwd, refName) => enclose(switchRef(cwd, refName)),
+    createRef: (cwd, refName, shouldSwitch) => enclose(createRef(cwd, refName, shouldSwitch)),
+    createWorktree: (input) => enclose(createWorktree(input)),
+    diffContext: (cwd) => enclose(diffContext(cwd)),
+    runStackedAction: (input) => enclose(runStackedAction(input)),
+  })
+})
+
+export const gitRuntimeLayer = Layer.effect(GitRuntime, makeGitRuntime()).pipe(
+  Layer.provide(NodeServices.layer),
+)

@@ -9,6 +9,22 @@ import {
 } from "@noyau/protocol/errors"
 import { EventEnvelope } from "@noyau/protocol/events"
 import { FilePreview, FilePreviewFailed, PreviewFileInput } from "@noyau/protocol/file-preview"
+import {
+  GitCommandError,
+  GitDraftInput,
+  GitDraftResult,
+  GitRunStackedActionInput,
+  GitRunStackedActionResult,
+  VcsCreateRefInput,
+  VcsCreateRefResult,
+  VcsCreateWorktreeInput,
+  VcsCreateWorktreeResult,
+  VcsListRefsResult,
+  VcsScope,
+  VcsStatusResult,
+  VcsSwitchRefInput,
+  VcsSwitchRefResult,
+} from "@noyau/protocol/git"
 import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/protocol/ids"
 import { ProjectNotFound } from "@noyau/protocol/project/errors"
 import { DispatchResult, Rejection } from "@noyau/protocol/receipts"
@@ -34,6 +50,13 @@ export const RPC_METHODS = {
   previewFile: "workspace.previewFile",
   getConfig: "server.getConfig",
   probe: "server.probe",
+  vcsStatus: "vcs.status",
+  vcsListRefs: "vcs.listRefs",
+  vcsSwitchRef: "vcs.switchRef",
+  vcsCreateRef: "vcs.createRef",
+  vcsCreateWorktree: "vcs.createWorktree",
+  gitDraft: "git.draft",
+  gitRunStackedAction: "git.runStackedAction",
 } as const
 
 /**
@@ -154,6 +177,48 @@ export const PreviewFile = Rpc.make(RPC_METHODS.previewFile, {
   error: Schema.Union([ProjectNotFound, FilePreviewFailed, ServiceUnavailable]),
 })
 
+export const VcsStatus = Rpc.make(RPC_METHODS.vcsStatus, {
+  payload: VcsScope,
+  success: VcsStatusResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
+export const VcsListRefs = Rpc.make(RPC_METHODS.vcsListRefs, {
+  payload: VcsScope,
+  success: VcsListRefsResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
+export const VcsSwitchRef = Rpc.make(RPC_METHODS.vcsSwitchRef, {
+  payload: VcsSwitchRefInput,
+  success: VcsSwitchRefResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
+export const VcsCreateRef = Rpc.make(RPC_METHODS.vcsCreateRef, {
+  payload: VcsCreateRefInput,
+  success: VcsCreateRefResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
+export const VcsCreateWorktree = Rpc.make(RPC_METHODS.vcsCreateWorktree, {
+  payload: VcsCreateWorktreeInput,
+  success: VcsCreateWorktreeResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
+export const GitDraft = Rpc.make(RPC_METHODS.gitDraft, {
+  payload: GitDraftInput,
+  success: GitDraftResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
+export const GitRunStackedAction = Rpc.make(RPC_METHODS.gitRunStackedAction, {
+  payload: GitRunStackedActionInput,
+  success: GitRunStackedActionResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
 /** Contrat unique client/serveur du control plane sur WebSocket. */
 export const ControlPlaneRpcs = RpcGroup.make(
   DispatchCommand,
@@ -164,6 +229,13 @@ export const ControlPlaneRpcs = RpcGroup.make(
   SubscribeThread,
   SetShellFocus,
   PreviewFile,
+  VcsStatus,
+  VcsListRefs,
+  VcsSwitchRef,
+  VcsCreateRef,
+  VcsCreateWorktree,
+  GitDraft,
+  GitRunStackedAction,
 ).middleware(NoyauRpcIdentity)
 
 export type ControlPlaneRpcs = typeof ControlPlaneRpcs

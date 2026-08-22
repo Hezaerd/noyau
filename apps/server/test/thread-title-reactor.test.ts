@@ -16,6 +16,7 @@ import {
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
 import { Crypto, Effect, Layer, Schema, Stream } from "effect"
 
+import { stubGitRuntimeLayer } from "./fixtures.ts"
 import { testServerConfigLayer } from "./fixtures.ts"
 
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
@@ -49,6 +50,7 @@ const stubTextGenerationLayer = (
 ) =>
   Layer.succeed(TextGeneration)({
     generateThreadTitle: (input) => Effect.succeed(generate(input)),
+    generateGitDraft: () => Effect.succeed({ title: "draft: test", body: "Generated in tests." }),
   })
 
 const layer = (generate: (input: ThreadTitleGenerationInput) => { readonly title: string }) =>
@@ -57,6 +59,7 @@ const layer = (generate: (input: ThreadTitleGenerationInput) => { readonly title
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
+    Layer.provideMerge(stubGitRuntimeLayer),
     Layer.provideMerge(stubTextGenerationLayer(generate)),
     Layer.provideMerge(
       Layer.succeed(WorkspaceRootAccess)({
