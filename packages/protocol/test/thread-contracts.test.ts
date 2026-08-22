@@ -367,6 +367,23 @@ describe("Thread commands", () => {
     expect(Schema.decodeUnknownSync(ThreadCommandRequest)(request)._tag).toBe(tag)
   })
 
+  it("accepte thread.meta.update avec un Checkout seul", () => {
+    const request = {
+      _tag: "thread.meta.update" as const,
+      commandId: ids.command,
+      payload: {
+        threadId: ids.thread,
+        branch: "main",
+        worktreePath: null,
+      },
+    }
+    expect(Schema.decodeSync(ThreadCommandRequest)(request).payload).toEqual({
+      threadId: ids.thread,
+      branch: "main",
+      worktreePath: null,
+    })
+  })
+
   it("accepte thread.meta.update avec regenerateTitle seul", () => {
     const request = {
       _tag: "thread.meta.update" as const,

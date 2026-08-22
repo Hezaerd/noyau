@@ -9,6 +9,21 @@ import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/protocol/errors"
 import type { EventEnvelope } from "@noyau/protocol/events"
 import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
+import type {
+  GitDraftInput,
+  GitDraftResult,
+  GitRunStackedActionInput,
+  GitRunStackedActionResult,
+  VcsCreateRefInput,
+  VcsCreateRefResult,
+  VcsCreateWorktreeInput,
+  VcsCreateWorktreeResult,
+  VcsListRefsResult,
+  VcsScope,
+  VcsStatusResult,
+  VcsSwitchRefInput,
+  VcsSwitchRefResult,
+} from "@noyau/protocol/git"
 import type { ProjectId, Sequence } from "@noyau/protocol/ids"
 import type { DispatchResult } from "@noyau/protocol/receipts"
 import {
@@ -261,6 +276,74 @@ export const previewAttachment = (
   input: PreviewAttachmentInput,
 ): Promise<ControlPlaneResult<AttachmentPreview>> =>
   runOperation(requestPreviewAttachment(input), "command")
+
+const gitCall = <A, E>(
+  operation: Effect.Effect<A, E, ControlPlaneClient>,
+): Promise<ControlPlaneResult<A>> => runOperation(operation, "command")
+
+export const vcsStatus = (input: VcsScope): Promise<ControlPlaneResult<VcsStatusResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.vcsStatus](input)
+    }),
+  )
+
+export const vcsListRefs = (input: VcsScope): Promise<ControlPlaneResult<VcsListRefsResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.vcsListRefs](input)
+    }),
+  )
+
+export const vcsSwitchRef = (
+  input: VcsSwitchRefInput,
+): Promise<ControlPlaneResult<VcsSwitchRefResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.vcsSwitchRef](input)
+    }),
+  )
+
+export const vcsCreateRef = (
+  input: VcsCreateRefInput,
+): Promise<ControlPlaneResult<VcsCreateRefResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.vcsCreateRef](input)
+    }),
+  )
+
+export const vcsCreateWorktree = (
+  input: VcsCreateWorktreeInput,
+): Promise<ControlPlaneResult<VcsCreateWorktreeResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.vcsCreateWorktree](input)
+    }),
+  )
+
+export const gitDraft = (input: GitDraftInput): Promise<ControlPlaneResult<GitDraftResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.gitDraft](input)
+    }),
+  )
+
+export const gitRunStackedAction = (
+  input: GitRunStackedActionInput,
+): Promise<ControlPlaneResult<GitRunStackedActionResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.gitRunStackedAction](input)
+    }),
+  )
 
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,

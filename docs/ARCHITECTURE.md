@@ -329,7 +329,8 @@ fournit pas de fallback stdio.
 - Dialog Ticket : Détails, Dépendances, Threads liés, Activité système.
 - Session `error` : `lastError` visible. Interrupt humain : `interrupted` (« You stopped »).
   Plus de badge `lost`.
-- Relier un dossier existant. Pas de création de worktree.
+- Relier un dossier existant. Un Thread `local` peut `git checkout` dans ce `WorkspaceRoot` ;
+  un `worktree` se matérialise au premier Turn ([ADR-0015](adr/0015-checkout-thread-et-git-live.md)).
 
 Les interactions optimistes restent une projection locale temporaire. Après acceptation, rejet
 ou événement distant, le snapshot autoritatif gagne.
@@ -339,8 +340,8 @@ ou événement distant, le snapshot autoritatif gagne.
 - Studio Server, Runtime Nodes, VPS, connexion distante, fédération d'Environments ;
 - comptes, pairing, permissions projet, présence ;
 - Claude, Codex, harnais générique, usage promis ;
-- worktrees, checkpoints, provenance Git par Turn ;
-- n8n, terminal intégré, automatisation de PR ;
+- checkpoints, provenance Git par Turn, inbox PR / reviews / checks t3code ;
+- n8n, terminal intégré ;
 - Linux, WSL, client web distribué, mobile ;
 - packaging / MAJ / réparation desktop (effort suivant) ;
 - migration des bases PostgreSQL / PGlite actuelles.

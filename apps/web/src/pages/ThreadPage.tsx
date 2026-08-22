@@ -1,3 +1,5 @@
+import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
+import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -9,6 +11,7 @@ import {
   ResourceErrorState,
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
+import { ThreadCheckoutBar } from "@/components/thread/ThreadCheckoutBar"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
@@ -54,6 +57,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const { text, setText, clear: clearDraft } = useComposerDraft(projectId, threadId)
+  const [envMode, setEnvMode] = useState<ThreadEnvMode>("local")
+  const [baseBranch, setBaseBranch] = useState("main")
   const [images, setImages] = useState<ReadonlyArray<ComposerImage>>([])
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
@@ -78,6 +83,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         setSnapshot(next)
         setRuntimeMode(next.thread.runtimeMode)
         setModelSelection(next.thread.modelSelection)
+        setEnvMode(threadWorktreePathOf(next.thread) === null ? "local" : "worktree")
+        const boundBranch = threadBranchOf(next.thread)
+        if (boundBranch !== null) {
+          setBaseBranch(boundBranch)
+        }
         setLoading(false)
         setActionFailure(undefined)
       },
@@ -144,6 +154,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       prompt,
       runtimeMode,
       modelSelection,
+      envMode,
+      baseBranch,
+      worktreePath: snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread),
       attachments: submittedImages.map((image) => image.upload),
     }).then((result) => {
       if (result.kind === "composer-error") {
@@ -381,6 +394,19 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     />
   )
 
+  const checkoutBar = (
+    <ThreadCheckoutBar
+      projectId={projectId}
+      threadId={threadId}
+      branch={snapshot === undefined ? null : threadBranchOf(snapshot.thread)}
+      worktreePath={snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)}
+      disabled={loading || project?.available !== true}
+      envMode={envMode}
+      onEnvModeChange={setEnvMode}
+      onBaseBranchChange={setBaseBranch}
+    />
+  )
+
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {isNewThread ? (
@@ -390,7 +416,10 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           selectedProjectId={projectId}
           onSelectProject={onSelectProject}
         >
-          {composer}
+          <div className="flex flex-col gap-2">
+            {checkoutBar}
+            {composer}
+          </div>
         </ThreadDraftHero>
       ) : (
         <>
@@ -425,6 +454,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               }}
             />
           </div>
+          {checkoutBar}
           {composer}
         </>
       )}

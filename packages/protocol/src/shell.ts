@@ -1,3 +1,4 @@
+import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import { Environment, Provider, WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { SessionStatus } from "@noyau/protocol/entities/session"
@@ -22,6 +23,8 @@ export const ThreadShell = Schema.Struct({
   title: Schema.NonEmptyString,
   provider: Provider,
   runtimeMode: RuntimeMode,
+  branch: Schema.optionalKey(ThreadBranch),
+  worktreePath: Schema.optionalKey(ThreadWorktreePath),
   status: ThreadStatus,
   latestTurn: Schema.NullOr(LatestTurn),
   sessionStatus: Schema.NullOr(SessionStatus),

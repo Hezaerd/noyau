@@ -82,3 +82,16 @@ _À éviter_ : dataUrl, FilePreview, BLOB SQLite
 **AttachmentPreview**:
 Aperçu borné d'une TurnImageAttachment persistée. Lecture RPC, pas une Command.
 _À éviter_ : FilePreview, snapshot, pièce jointe inline
+
+**Checkout**:
+Liaison durable d'un Thread à un cwd Git : `branch` (dernière ref Noyau) et `worktreePath`
+(`null` = `WorkspaceRoot`).
+_À éviter_ : threadEnvMode persisté, cwd de Session
+
+**threadEnvMode**:
+Intention de draft `local | worktree` pour le prochain Turn. Pas un champ du Thread.
+_À éviter_ : mode durable, politique de lock Git
+
+**GitRuntime**:
+Capacité live du Server (`vcs.*`, `git.*`) hors journal. L'idempotence client passe par `actionId`.
+_À éviter_ : agrégat Commit, événement Push, outbox Git

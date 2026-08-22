@@ -10,6 +10,7 @@ import { Effect, Layer, Option, Ref, Schema } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import {
+  buildGitDraftPrompt,
   buildThreadTitlePrompt,
   extractJsonObject,
   type ThreadTitlePromptInput,
@@ -17,6 +18,7 @@ import {
 import {
   TextGeneration,
   TextGenerationError,
+  type GitDraftGenerationInput,
   type ThreadTitleGenerationInput,
 } from "./text-generation.ts"
 
@@ -25,12 +27,17 @@ const CURSOR_AUTH_METHOD = "cursor_login"
 const CURSOR_TIMEOUT_MS = 60_000
 const ASK_MODE_ALIASES = ["ask"]
 const TitleOutput = Schema.Struct({ title: Schema.String })
+const DraftOutput = Schema.Struct({
+  title: Schema.String,
+  body: Schema.optionalKey(Schema.String),
+})
 const decodeTitleOutput = Schema.decodeUnknownEffect(Schema.fromJsonString(TitleOutput))
+const decodeDraftOutput = Schema.decodeUnknownEffect(Schema.fromJsonString(DraftOutput))
 const isTextGenerationError = Schema.is(TextGenerationError)
 
-const generationError = (detail: string) =>
+const generationError = (operation: TextGenerationError["operation"], detail: string) =>
   new TextGenerationError({
-    operation: "generateThreadTitle",
+    operation,
     detail,
   })
 
@@ -72,24 +79,27 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
   const clientVersion = options.clientVersion ?? "0.0.0"
   const executable = yield* resolveCursorExecutable(configuredPath, environment, platform)
 
-  const generateThreadTitle = Effect.fn("CursorTextGeneration.generateThreadTitle")(function* (
-    input: ThreadTitleGenerationInput,
+  const promptRaw = Effect.fn("CursorTextGeneration.promptRaw")(function* (
+    operation: TextGenerationError["operation"],
+    cwd: string,
+    prompt: string,
   ) {
+    const fail = (detail: string) => generationError(operation, detail)
     if (executable === null) {
-      return yield* generationError("Cursor executable is not available for text generation")
+      return yield* fail("Cursor executable is not available for text generation")
     }
 
     const outputRef = yield* Ref.make("")
     const handle = yield* spawner
       .spawn(
         ChildProcess.make(executable, [...binaryArgs, "acp"], {
-          cwd: input.cwd,
+          cwd,
           env: environment,
           detached: false,
           windowsHide: true,
         }),
       )
-      .pipe(Effect.mapError(() => generationError(`Failed to spawn Cursor ACP at ${executable}`)))
+      .pipe(Effect.mapError(() => fail(`Failed to spawn Cursor ACP at ${executable}`)))
     const context = yield* Layer.build(AcpClient.layerChildProcess(handle))
     const acp = yield* Effect.service(AcpClient.AcpClient).pipe(Effect.provideContext(context))
 
@@ -115,23 +125,23 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
         },
         clientInfo: { name: "noyau-text", version: clientVersion },
       })
-      .pipe(Effect.mapError(() => generationError("Cursor ACP initialize failed")))
+      .pipe(Effect.mapError(() => fail("Cursor ACP initialize failed")))
     if (
       initialized.protocolVersion !== ACP_VERSION ||
       initialized.agentCapabilities?.loadSession !== true
     ) {
-      return yield* generationError("Cursor ACP is missing protocol v1 or session/load capability")
+      return yield* fail("Cursor ACP is missing protocol v1 or session/load capability")
     }
     yield* acp.agent
       .authenticate({ methodId: CURSOR_AUTH_METHOD })
-      .pipe(Effect.mapError(() => generationError("Cursor ACP authenticate failed")))
+      .pipe(Effect.mapError(() => fail("Cursor ACP authenticate failed")))
 
     const created = yield* acp.agent
       .createSession({
-        cwd: input.cwd,
+        cwd,
         mcpServers: [],
       })
-      .pipe(Effect.mapError(() => generationError("Cursor ACP session/new failed")))
+      .pipe(Effect.mapError(() => fail("Cursor ACP session/new failed")))
     const askMode = findAskMode(created.modes ?? undefined)
     if (askMode !== undefined && askMode !== created.modes?.currentModeId) {
       yield* acp.agent
@@ -143,11 +153,6 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
         .pipe(Effect.ignore)
     }
 
-    let promptInput: ThreadTitlePromptInput = { message: input.message }
-    if (input.previousTitle !== undefined) {
-      promptInput = Object.assign(promptInput, { previousTitle: input.previousTitle })
-    }
-    const prompt = buildThreadTitlePrompt(promptInput)
     const promptResult = yield* acp.agent
       .prompt({
         sessionId: created.sessionId,
@@ -157,28 +162,65 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
         Effect.timeoutOption(CURSOR_TIMEOUT_MS),
         Effect.flatMap(
           Option.match({
-            onNone: () => Effect.fail(generationError("Cursor Agent request timed out.")),
+            onNone: () => Effect.fail(fail("Cursor Agent request timed out.")),
             onSome: (value) => Effect.succeed(value),
           }),
         ),
         Effect.mapError((cause) =>
-          isTextGenerationError(cause) ? cause : generationError("Cursor ACP request failed."),
+          isTextGenerationError(cause) ? cause : fail("Cursor ACP request failed."),
         ),
       )
 
     const rawResult = (yield* Ref.get(outputRef)).trim()
     if (rawResult.length === 0) {
-      return yield* generationError(
+      return yield* fail(
         promptResult.stopReason === "cancelled"
           ? "Cursor ACP request was cancelled."
           : "Cursor Agent returned empty output.",
       )
     }
+    return rawResult
+  })
 
-    const generated = yield* decodeTitleOutput(extractJsonObject(rawResult)).pipe(
-      Effect.mapError(() => generationError("Cursor Agent returned invalid structured output.")),
+  const generateThreadTitle = Effect.fn("CursorTextGeneration.generateThreadTitle")(function* (
+    input: ThreadTitleGenerationInput,
+  ) {
+    let promptInput: ThreadTitlePromptInput = { message: input.message }
+    if (input.previousTitle !== undefined) {
+      promptInput = Object.assign(promptInput, { previousTitle: input.previousTitle })
+    }
+    const raw = yield* promptRaw(
+      "generateThreadTitle",
+      input.cwd,
+      buildThreadTitlePrompt(promptInput),
+    )
+    const generated = yield* decodeTitleOutput(extractJsonObject(raw)).pipe(
+      Effect.mapError(() =>
+        generationError("generateThreadTitle", "Cursor Agent returned invalid structured output."),
+      ),
     )
     return { title: sanitizeThreadTitle(generated.title) }
+  })
+
+  const generateGitDraft = Effect.fn("CursorTextGeneration.generateGitDraft")(function* (
+    input: GitDraftGenerationInput,
+  ) {
+    const raw = yield* promptRaw(
+      "generateGitDraft",
+      input.cwd,
+      buildGitDraftPrompt(input.kind, input.context),
+    )
+    const generated = yield* decodeDraftOutput(extractJsonObject(raw)).pipe(
+      Effect.mapError(() =>
+        generationError("generateGitDraft", "Cursor Agent returned invalid structured output."),
+      ),
+    )
+    const title = generated.title.trim()
+    if (title.length === 0) {
+      return yield* generationError("generateGitDraft", "Cursor Agent returned an empty title.")
+    }
+    const body = generated.body?.trim()
+    return body === undefined || body.length === 0 ? { title } : { title, body }
   })
 
   return TextGeneration.of({
@@ -187,7 +229,16 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
         Effect.mapError((cause) =>
           isTextGenerationError(cause)
             ? cause
-            : generationError("Cursor ACP text generation failed."),
+            : generationError("generateThreadTitle", "Cursor ACP text generation failed."),
+        ),
+        Effect.scoped,
+      ),
+    generateGitDraft: (input) =>
+      generateGitDraft(input).pipe(
+        Effect.mapError((cause) =>
+          isTextGenerationError(cause)
+            ? cause
+            : generationError("generateGitDraft", "Cursor ACP text generation failed."),
         ),
         Effect.scoped,
       ),

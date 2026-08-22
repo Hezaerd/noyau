@@ -29,7 +29,9 @@
     "./text-generation/cursor-text-generation": "./src/text-generation/cursor-text-generation.ts",
     "./rpc-handlers": "./src/rpc-handlers.ts",
     "./server": "./src/server.ts",
-    "./workspace-root": "./src/workspace-root.ts"
+    "./workspace-root": "./src/workspace-root.ts",
+    "./git/git-runtime": "./src/git/git-runtime.ts",
+    "./git/git-plane": "./src/git/git-plane.ts"
   },
   "scripts": {
     "dev": "node --watch src/main.ts",

@@ -37,6 +37,13 @@ describe("ControlPlaneRpcs", () => {
         RPC_METHODS.previewAttachment,
         RPC_METHODS.getConfig,
         RPC_METHODS.probe,
+        RPC_METHODS.vcsStatus,
+        RPC_METHODS.vcsListRefs,
+        RPC_METHODS.vcsSwitchRef,
+        RPC_METHODS.vcsCreateRef,
+        RPC_METHODS.vcsCreateWorktree,
+        RPC_METHODS.gitDraft,
+        RPC_METHODS.gitRunStackedAction,
       ].toSorted(),
     )
   })
