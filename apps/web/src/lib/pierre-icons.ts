@@ -87,6 +87,19 @@ export const syntheticFileNameForLanguageId = (languageId: string): string => {
   return `file.${normalized}`
 }
 
+export const basenameOfPath = (pathValue: string): string => {
+  const slashIndex = pathValue.lastIndexOf("/")
+  return slashIndex === -1 ? pathValue : pathValue.slice(slashIndex + 1)
+}
+
+export const inferEntryKindFromPath = (pathValue: string): "file" | "directory" => {
+  const base = basenameOfPath(pathValue)
+  if (base.startsWith(".") && !base.slice(1).includes(".")) {
+    return "directory"
+  }
+  return base.includes(".") ? "file" : "directory"
+}
+
 export const resolvePierreIconForEntry = (
   pathValue: string,
   kind: "file" | "directory",

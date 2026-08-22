@@ -59,3 +59,8 @@ _À éviter_ : Thread, commentaire
 Vue UI volatile du renderer (Tableau ou Thread d'un Project). Elle traverse le RPC et n'entre
 pas dans le journal.
 _À éviter_ : Command, présence, current route
+
+**FilePreview**:
+Aperçu borné d'un fichier sous le WorkspaceRoot d'un Project (`text` | `image` | `unsupported`).
+Lecture RPC, pas une Command, pas un fait du journal.
+_À éviter_ : pièce jointe, FilePreviewPanel, lecture hors sandbox

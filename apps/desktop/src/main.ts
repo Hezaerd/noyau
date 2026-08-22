@@ -22,6 +22,7 @@ import {
   PICK_FOLDER_CHANNEL,
   resolveFolderPickerDefaultPath,
 } from "./folder-picker"
+import { decodeOpenPathInput, OPEN_PATH_CHANNEL, openFilesystemPathOnHost } from "./open-path"
 import { isRendererPermissionAllowed } from "./permissions"
 import {
   DESKTOP_HOST,
@@ -156,6 +157,18 @@ const registerFolderPickerBridge = (): void => {
           properties: ["openDirectory"],
         }),
       ).pipe(Effect.map((result) => (result.canceled ? undefined : result.filePaths[0]))),
+    ),
+  )
+}
+
+const registerOpenPathBridge = (): void => {
+  ipcMain.handle(OPEN_PATH_CHANNEL, (_event, input) =>
+    desktopRuntime.runPromise(
+      decodeOpenPathInput(input).pipe(
+        Effect.flatMap((path) =>
+          openFilesystemPathOnHost(path, (resolved) => shell.openPath(resolved)),
+        ),
+      ),
     ),
   )
 }
@@ -401,6 +414,7 @@ const launch = Effect.fn("launch")(function* () {
   registerRendererProtocol()
   registerThemeBridge()
   registerFolderPickerBridge()
+  registerOpenPathBridge()
   registerCursorPointBridge()
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
     isRendererPermissionAllowed(permission),

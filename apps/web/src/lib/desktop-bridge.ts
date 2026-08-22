@@ -15,6 +15,7 @@ export interface NoyauDesktopBridge {
   readonly platform: string
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
   readonly pickFolder: (options?: { readonly initialPath?: string }) => Promise<string | undefined>
+  readonly openPath: (path: string) => Promise<void>
   readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
 }
 

@@ -337,6 +337,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               transcript={snapshot?.transcript ?? []}
               isRunning={isRunning}
               loading={loading}
+              workspaceRoot={project?.workspaceRoot}
+              projectId={projectId}
               error={transcriptError}
               notices={
                 threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (

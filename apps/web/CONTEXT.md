@@ -123,6 +123,11 @@ Vue UI volatile poussée au serveur (Tableau ou Thread). Les Paramètres restent
 dernier Project ouvert.
 _À éviter_ : présence, route, Command
 
+**FilePreview**:
+Aperçu hover d'un fichier mentionné dans le transcript (`text` | `image` | `unsupported`).
+Chargé via `previewFile` au moment où la carte s'ouvre. Le clic ouvre le fichier sur l'hôte.
+_À éviter_ : FilePreviewPanel, Tooltip de chemin, lecture Desktop
+
 **Keybinding**:
 Association persistée entre une Action et un Raccourci, surchargeable depuis les Paramètres.
 _À éviter_ : shortcut, hotkey, binding

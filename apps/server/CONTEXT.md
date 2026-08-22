@@ -49,6 +49,11 @@ RPC volatile qui pousse la vue UI courante (Tableau ou Thread) pour les effets c
 Command, pas un fait du journal.
 _À éviter_ : dispatchCommand, présence durable
 
+**previewFile**:
+Lecture sandboxée d'un fichier sous le WorkspaceRoot du Project, pour un FilePreview borné.
+Pas une Command, pas un fait du journal.
+_À éviter_ : openPath, IPC Desktop, lecture hors WorkspaceRoot
+
 **DiscordPresence**:
 Activity Discord locale dérivée du ShellFocus. Application Discord distincte selon `NOYAU_ENV`
 (prod / dev). Effet chrome : Discord fermé ne casse jamais une commande.

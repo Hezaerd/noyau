@@ -3,6 +3,7 @@ import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/protocol/errors"
 import type { EventEnvelope } from "@noyau/protocol/events"
+import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
 import type { ProjectId, Sequence } from "@noyau/protocol/ids"
 import type { DispatchResult } from "@noyau/protocol/receipts"
 import {
@@ -201,6 +202,16 @@ export const setShellFocus = (
   input: SetShellFocusInput,
 ): Promise<ControlPlaneResult<Record<never, never>>> =>
   runOperation(reportShellFocus(input), "command")
+
+const requestPreviewFile = Effect.fn("ControlPlaneClient.previewFile")(function* (
+  input: PreviewFileInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.previewFile](input)
+})
+
+export const previewFile = (input: PreviewFileInput): Promise<ControlPlaneResult<FilePreview>> =>
+  runOperation(requestPreviewFile(input), "command")
 
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,

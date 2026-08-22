@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   hasSpecificPierreIconForFileName,
+  inferEntryKindFromPath,
   NOYAU_PIERRE_ICONS,
   resolvePierreIconForEntry,
   syntheticFileNameForLanguageId,
@@ -44,6 +45,13 @@ describe("Pierre file icons", () => {
 
   it("leaves directory rendering to the shared folder fallback", () => {
     expect(resolvePierreIconForEntry("packages/client-runtime", "directory")).toBeNull()
+  })
+
+  it("infers file vs directory from the path shape", () => {
+    expect(inferEntryKindFromPath("src/main.ts")).toBe("file")
+    expect(inferEntryKindFromPath("packages/client-runtime")).toBe("directory")
+    expect(inferEntryKindFromPath(".github")).toBe("directory")
+    expect(inferEntryKindFromPath(".env.local")).toBe("file")
   })
 
   it("normalizes common markdown fence language aliases", () => {
