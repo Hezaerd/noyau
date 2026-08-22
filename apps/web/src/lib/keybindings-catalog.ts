@@ -1,6 +1,6 @@
 import type { Hotkey } from "@tanstack/react-hotkeys"
 
-export const KEYBINDING_GROUP_IDS = ["global", "board", "settings"] as const
+export const KEYBINDING_GROUP_IDS = ["global", "board", "thread", "settings"] as const
 
 export type KeybindingGroupId = (typeof KEYBINDING_GROUP_IDS)[number]
 
@@ -8,6 +8,7 @@ export const KEYBINDING_IDS = [
   "palette.open",
   "settings.open",
   "thread.create",
+  "thread.rename",
   "board.search",
   "board.ticket.create",
   "board.ticket.open",
@@ -37,6 +38,7 @@ export interface KeybindingDefinition {
 export const KEYBINDING_GROUP_LABELS = {
   global: "Général",
   board: "Tableau",
+  thread: "Thread",
   settings: "Paramètres",
 } as const satisfies Record<KeybindingGroupId, string>
 
@@ -61,6 +63,13 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Nouveau Thread",
     description: "Ouvre un nouveau Thread dans le Project courant.",
     defaultHotkey: "Mod+N",
+  },
+  {
+    id: "thread.rename",
+    group: "thread",
+    title: "Renommer le Thread",
+    description: "Renomme le Thread ouvert dans le chrome.",
+    defaultHotkey: "F2",
   },
   {
     id: "board.search",

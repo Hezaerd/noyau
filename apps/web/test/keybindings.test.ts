@@ -75,12 +75,17 @@ describe("keybinding overrides", () => {
     expect(
       keybindingConflicts("board.ticket.rename", "F2", resolveKeybindings(new Map()), "mac"),
     ).toEqual(["board.column.rename"])
+    expect(
+      keybindingConflicts("thread.rename", "F2", resolveKeybindings(new Map()), "mac"),
+    ).toEqual([])
     expect(keybindingConflicts("palette.open", "Mod+K", resolved, "mac")).toEqual([])
     expect(isKeybindingId("palette.open")).toBe(true)
     expect(isKeybindingId("settings.open")).toBe(true)
     expect(isKeybindingId("thread.create")).toBe(true)
+    expect(isKeybindingId("thread.rename")).toBe(true)
     expect(defaultKeybinding("settings.open")).toBe("Mod+,")
     expect(defaultKeybinding("thread.create")).toBe("Mod+N")
+    expect(defaultKeybinding("thread.rename")).toBe("F2")
     expect(isKeybindingId("unknown")).toBe(false)
   })
 })

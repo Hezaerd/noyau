@@ -16,9 +16,11 @@ import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
+import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { invalidInputFailure } from "@/lib/app-failure"
+import { writeComposerDraft } from "@/lib/composer-drafts"
 import { subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
@@ -46,7 +48,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [actionFailure, setActionFailure] = useState<FailurePresentation>()
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
-  const [text, setText] = useState("")
+  const { text, setText, clear: clearDraft } = useComposerDraft(projectId, threadId)
   const [envMode, setEnvMode] = useState<ThreadEnvMode>("local")
   const [baseBranch, setBaseBranch] = useState("main")
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
@@ -118,7 +120,10 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     if (prompt === "" || isRunning || project?.available !== true || !cursorReady) {
       return
     }
-    setText("")
+    const submittedText = text
+    const submittedProjectId = projectId
+    const submittedThreadId = threadId
+    clearDraft()
     setComposerFailure(undefined)
     void submitTurnAction({
       projectId,
@@ -131,6 +136,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       worktreePath: snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread),
     }).then((result) => {
       if (result.kind === "composer-error") {
+        writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
         setComposerFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -142,6 +148,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return undefined
       }
       if (result.kind === "error") {
+        writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
         setActionFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
