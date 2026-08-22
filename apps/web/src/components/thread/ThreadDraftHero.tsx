@@ -12,8 +12,10 @@ import {
 } from "@/components/ui/menu"
 import { cn } from "@/lib/utils"
 
+// Inline + underline, pas truncate : overflow:hidden sur inline-block
+// remplace la baseline par le bas de la boîte et soulève le nom.
 const projectNameClassName =
-  "inline-block max-w-64 truncate border-foreground/60 border-b border-dotted align-baseline text-foreground"
+  "inline max-w-64 bg-transparent p-0 align-baseline font-[inherit] text-[length:inherit] leading-[inherit] text-foreground underline decoration-dotted decoration-foreground/60 underline-offset-[0.15em]"
 
 export function ThreadDraftHero({
   projectName,
@@ -80,7 +82,7 @@ function ThreadDraftHeroProjectName({
       <MenuTrigger
         className={cn(
           projectNameClassName,
-          "transition-colors hover:border-foreground/80 focus-visible:rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+          "cursor-pointer appearance-none transition-colors hover:decoration-foreground focus-visible:rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
         )}
         title={projectName}
       >
