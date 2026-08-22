@@ -1,7 +1,7 @@
 import { createConnection, type Socket } from "node:net"
 import { tmpdir } from "node:os"
 
-import { serverEnvironment, type NoyauEnvironment } from "@noyau/server/config"
+import { serverReleaseChannel, type NoyauReleaseChannel } from "@noyau/server/config"
 import { Clock, Duration, Effect, Layer, Option, Queue, Schema } from "effect"
 
 import type { PresenceActivity } from "./activity.ts"
@@ -13,13 +13,19 @@ const IPC_SLOT_COUNT = 10
 const RECONNECT_DELAY = Duration.seconds(5)
 
 /** Application IDs Discord publics — pas des secrets. */
-export const DISCORD_APPLICATION_ID_PRODUCTION = "1540445560736321627"
-export const DISCORD_APPLICATION_ID_DEVELOPMENT = "1540464789850169484"
+export const DISCORD_APPLICATION_ID_LATEST = "1540464789850169484"
+export const DISCORD_APPLICATION_ID_NIGHTLY = "1540445560736321627"
+export const DISCORD_APPLICATION_ID_DEVELOPMENT = "1540812507592265738"
 
-export const resolveDiscordApplicationId = (environment: NoyauEnvironment): string =>
-  environment === "production"
-    ? DISCORD_APPLICATION_ID_PRODUCTION
-    : DISCORD_APPLICATION_ID_DEVELOPMENT
+export const resolveDiscordApplicationId = (channel: NoyauReleaseChannel): string => {
+  if (channel === "nightly") {
+    return DISCORD_APPLICATION_ID_NIGHTLY
+  }
+  if (channel === "development") {
+    return DISCORD_APPLICATION_ID_DEVELOPMENT
+  }
+  return DISCORD_APPLICATION_ID_LATEST
+}
 
 export class DiscordIpcError extends Schema.TaggedError<DiscordIpcError>()("DiscordIpcError", {
   operation: Schema.Literals(["connect", "write"]),
@@ -186,9 +192,9 @@ export const discordPresenceLayer = Layer.effect(
   DiscordPresence,
   Effect.gen(function* () {
     const startedAt = yield* Clock.currentTimeMillis
-    const environment = yield* serverEnvironment
+    const channel = yield* serverReleaseChannel
     const queue = yield* Queue.sliding<PresenceActivity | null>(1)
-    yield* runIpcLoop(resolveDiscordApplicationId(environment), tmpdir(), startedAt, queue).pipe(
+    yield* runIpcLoop(resolveDiscordApplicationId(channel), tmpdir(), startedAt, queue).pipe(
       Effect.catchCause((cause) => Effect.logWarning("Discord IPC stopped", { cause })),
       Effect.forkScoped,
     )
