@@ -1,3 +1,5 @@
+import { collectComposerInlineTokens } from "@noyau/shared/composer-inline-tokens"
+
 const WINDOWS_DRIVE_PATH_PATTERN = /^[A-Za-z]:[\\/]/
 const WINDOWS_UNC_PATH_PATTERN = /^\\\\/
 const EXTERNAL_SCHEME_PATTERN = /^([A-Za-z][A-Za-z0-9+.-]*):(.*)$/
@@ -14,6 +16,7 @@ const BARE_EXTENSIONLESS_POSITION_PATTERN = /^[A-Za-z0-9_-]+(?::\d+){1,2}$/
 const MARKDOWN_LINK_HREF_PATTERN = /\[[^\]]*]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g
 const FENCED_CODE_SEGMENT_PATTERN = /(```[\s\S]*?(?:```|$))/
 const INLINE_CODE_SPAN_PATTERN = /`([^`\n]+)`/g
+const INLINE_CODE_SEGMENT_PATTERN = /(`[^`\n]+`)/
 
 const POSIX_FILE_ROOT_PREFIXES = [
   "/Users/",
@@ -492,6 +495,47 @@ export const transformThreadMarkdownFileHref = (
     return null
   }
   return encodeThreadMarkdownFileHref(target)
+}
+
+const markdownFileLinkFromMentionPath = (path: string): string => {
+  const label = basenameOfPath(path).replaceAll("\\", "\\\\").replaceAll("]", "\\]")
+  const href = /[\s()]/.test(path) ? `<${path}>` : path
+  return `[${label}](${href})`
+}
+
+const rewriteComposerMentionsInProse = (text: string): string => {
+  const mentions = collectComposerInlineTokens(text).filter((token) => token.type === "mention")
+  if (mentions.length === 0) {
+    return text
+  }
+  let output = ""
+  let cursor = 0
+  for (const mention of mentions) {
+    if (mention.start < cursor) {
+      continue
+    }
+    output += text.slice(cursor, mention.start)
+    output += mention.source.startsWith("[")
+      ? mention.source
+      : markdownFileLinkFromMentionPath(mention.value)
+    cursor = mention.end
+  }
+  return output + text.slice(cursor)
+}
+
+const rewriteComposerMentionsOutsideInlineCode = (text: string): string =>
+  text
+    .split(INLINE_CODE_SEGMENT_PATTERN)
+    .map((segment, index) => (index % 2 === 1 ? segment : rewriteComposerMentionsInProse(segment)))
+    .join("")
+
+export const rewriteComposerMentionsToMarkdownFileLinks = (text: string): string => {
+  const segments = text.split(FENCED_CODE_SEGMENT_PATTERN)
+  return segments
+    .map((segment, index) =>
+      index % 2 === 1 ? segment : rewriteComposerMentionsOutsideInlineCode(segment),
+    )
+    .join("")
 }
 
 export const rewriteMarkdownFileLinkDestinations = (

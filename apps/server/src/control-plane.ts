@@ -34,6 +34,7 @@ import type { ClientCommandRequest, Command as CommandType } from "@noyau/protoc
 import { Command } from "@noyau/protocol/commands"
 import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { Project } from "@noyau/protocol/entities/project"
+import type { WorkspacePathSearchResult } from "@noyau/protocol/entities/workspace-path"
 import type { CommandIdConflict } from "@noyau/protocol/errors"
 import { ServiceUnavailable } from "@noyau/protocol/errors"
 import {
@@ -110,6 +111,7 @@ import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { TextGeneration } from "./text-generation/text-generation.ts"
 import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
+import { searchWorkspacePathsInRoot } from "./workspace-path-search.ts"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root.ts"
 
 interface ControlState {
@@ -576,6 +578,13 @@ export interface ControlPlaneService {
   readonly previewFile: (
     input: PreviewFileInput,
   ) => Effect.Effect<FilePreview, ProjectNotFound | FilePreviewFailed | ServiceUnavailable>
+  readonly searchWorkspacePaths: (
+    projectId: ProjectIdType,
+    query: string,
+  ) => Effect.Effect<
+    WorkspacePathSearchResult,
+    ServiceUnavailable | ProjectNotFound | ProjectUnavailable
+  >
   readonly inspectProjectAgentIntegration: (
     input: ProjectAgentIntegrationInput,
   ) => Effect.Effect<ProjectAgentIntegration, ProjectNotFound | ServiceUnavailable>
@@ -1062,6 +1071,20 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         return workspaceRoot.value
       })
 
+      const searchWorkspacePaths: ControlPlaneService["searchWorkspacePaths"] = Effect.fn(
+        "ControlPlane.searchWorkspacePaths",
+      )(function* (projectId, query) {
+        const workspaceRoot = yield* projectWorkspaceRoot(projectId)
+        if (!(yield* workspaceRoots.isAvailable(workspaceRoot))) {
+          return yield* new ProjectUnavailable({ projectId })
+        }
+        return yield* searchWorkspacePathsInRoot(workspaceRoot, query).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+          Effect.mapError(unavailable("workspace-search")),
+        )
+      })
+
       const inspectProjectAgentIntegration: ControlPlaneService["inspectProjectAgentIntegration"] =
         Effect.fn("ControlPlane.inspectProjectAgentIntegration")(function* (input) {
           const workspaceRoot = yield* projectWorkspaceRoot(input.projectId)
@@ -1121,6 +1144,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         hasRunningTurn,
         setShellFocus,
         previewFile,
+        searchWorkspacePaths,
         inspectProjectAgentIntegration,
         installProjectAgentIntegration,
         removeProjectAgentIntegration,

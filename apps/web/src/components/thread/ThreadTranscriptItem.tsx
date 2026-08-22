@@ -43,7 +43,7 @@ export function ThreadTranscriptItem({
             )}
             {item.text === undefined ? null : (
               <Bubble variant="default" align="end">
-                <BubbleContent>
+                <BubbleContent className="leading-6">
                   <ThreadMarkdown
                     text={item.text}
                     workspaceRoot={workspaceRoot}

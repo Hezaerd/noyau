@@ -200,6 +200,25 @@ describe("ThreadMarkdown", () => {
     expect(screen.queryByRole("link", { name: "greet.py" })).toBeNull()
   })
 
+  it("inlines a composer @path mention as a Pierre chip", () => {
+    renderMarkdown("Que peux tu me dire que le fichier @astro.config.mjs")
+
+    const chip = document.querySelector("[data-thread-markdown-file-chip]")
+    expect(chip?.textContent).toContain("astro.config.mjs")
+    expect(chip?.querySelector("[data-pierre-icon]")).not.toBeNull()
+    expect(chip?.className).toMatch(/inline-flex/)
+    expect(chip?.className).toMatch(/no-underline/)
+    expect(chip?.className).toMatch(/align-middle/)
+    expect(screen.queryByText(/@astro\.config\.mjs/)).toBeNull()
+  })
+
+  it("inlines an @path mention wrapped in markdown emphasis", () => {
+    renderMarkdown("Le fichier **@astro.config.mjs** est à la racine.")
+
+    const chip = document.querySelector("[data-thread-markdown-file-chip]")
+    expect(chip?.textContent).toContain("astro.config.mjs")
+  })
+
   it("inlines a path-shaped code span as a Pierre chip", () => {
     renderMarkdown("Lis `src/processRunner.ts:71` ensuite")
 
@@ -236,7 +255,7 @@ describe("ThreadMarkdown", () => {
         })
         renderMarkdown("Regarde [greet.py](src/greet.py)")
 
-        fireEvent.click(screen.getByRole("button", { name: /Ouvrir .*greet\.py/ }))
+        fireEvent.click(screen.getByRole("link", { name: /Ouvrir .*greet\.py/ }))
         yield* Effect.promise(() =>
           waitFor(() => {
             expect(openPath).toHaveBeenCalledWith("/Users/hezaerd/project/src/greet.py")
@@ -250,7 +269,7 @@ describe("ThreadMarkdown", () => {
       Effect.gen(function* () {
         renderMarkdown("Regarde [greet.py](src/greet.py)")
 
-        fireEvent.click(screen.getByRole("button", { name: /Ouvrir .*greet\.py/ }))
+        fireEvent.click(screen.getByRole("link", { name: /Ouvrir .*greet\.py/ }))
         expect(yield* Effect.promise(() => screen.findByText("Ouverture impossible"))).toBeTruthy()
       }),
     ))
@@ -268,7 +287,7 @@ describe("ThreadMarkdown", () => {
         renderMarkdown("Regarde [greet.py](src/greet.py)")
         const user = userEvent.setup()
         yield* Effect.promise(() =>
-          user.hover(screen.getByRole("button", { name: /Ouvrir .*greet\.py/ })),
+          user.hover(screen.getByRole("link", { name: /Ouvrir .*greet\.py/ })),
         )
         yield* Effect.promise(() =>
           waitFor(() => {
@@ -331,7 +350,7 @@ describe("ThreadMarkdown", () => {
         )
         const user = userEvent.setup()
         yield* Effect.promise(() =>
-          user.hover(screen.getByRole("button", { name: /Ouvrir .*greet\.py/ })),
+          user.hover(screen.getByRole("link", { name: /Ouvrir .*greet\.py/ })),
         )
         expect(yield* Effect.promise(() => screen.findByText("Aperçu indisponible"))).toBeTruthy()
         expect(previewFile).not.toHaveBeenCalled()

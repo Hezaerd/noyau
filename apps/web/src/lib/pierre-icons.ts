@@ -92,8 +92,64 @@ export const basenameOfPath = (pathValue: string): string => {
   return slashIndex === -1 ? pathValue : pathValue.slice(slashIndex + 1)
 }
 
+const DOT_DIRECTORIES = new Set([
+  ".agents",
+  ".cache",
+  ".config",
+  ".cursor",
+  ".direnv",
+  ".git",
+  ".github",
+  ".gitlab",
+  ".hg",
+  ".husky",
+  ".idea",
+  ".next",
+  ".nuxt",
+  ".svn",
+  ".turbo",
+  ".venv",
+  ".vscode",
+  ".yarn",
+])
+
+const DOT_FILES = new Set([
+  ".babelrc",
+  ".clang-format",
+  ".clang-tidy",
+  ".dockerignore",
+  ".editorconfig",
+  ".env",
+  ".envrc",
+  ".eslintignore",
+  ".eslintrc",
+  ".gitattributes",
+  ".gitignore",
+  ".gitkeep",
+  ".gitmodules",
+  ".htaccess",
+  ".mailmap",
+  ".node-version",
+  ".npmignore",
+  ".npmrc",
+  ".nvmrc",
+  ".prettierignore",
+  ".prettierrc",
+  ".python-version",
+  ".ruby-version",
+  ".tool-versions",
+  ".watchmanconfig",
+])
+
 export const inferEntryKindFromPath = (pathValue: string): "file" | "directory" => {
   const base = basenameOfPath(pathValue)
+  const normalized = base.toLowerCase()
+  if (DOT_DIRECTORIES.has(normalized)) {
+    return "directory"
+  }
+  if (DOT_FILES.has(normalized) || hasSpecificPierreIconForFileName(base)) {
+    return "file"
+  }
   if (base.startsWith(".") && !base.slice(1).includes(".")) {
     return "directory"
   }

@@ -8,13 +8,14 @@ import { ThreadMarkdownLink } from "@/components/thread/ThreadMarkdownLink"
 import { ThreadMarkdownTable } from "@/components/thread/ThreadMarkdownTable"
 import {
   collectThreadMarkdownFileLinks,
+  rewriteComposerMentionsToMarkdownFileLinks,
   rewriteMarkdownFileLinkDestinations,
   transformThreadMarkdownFileHref,
 } from "@/lib/markdown-file-links"
 import { threadMarkdownPlugins } from "@/lib/thread-markdown-plugins"
 
 const markdownClassName =
-  "max-w-none text-sm leading-6 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc"
+  "max-w-none text-sm leading-6 [&_a:not(.thread-markdown-file-chip)]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc"
 
 const streamdownComponents = {
   a: ThreadMarkdownLink,
@@ -33,13 +34,14 @@ export function ThreadMarkdown({
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
 }) {
+  const mentionExpanded = useMemo(() => rewriteComposerMentionsToMarkdownFileLinks(text), [text])
   const fileLinks = useMemo(
-    () => ({ ...collectThreadMarkdownFileLinks(text, workspaceRoot), projectId }),
-    [projectId, text, workspaceRoot],
+    () => ({ ...collectThreadMarkdownFileLinks(mentionExpanded, workspaceRoot), projectId }),
+    [mentionExpanded, projectId, workspaceRoot],
   )
   const renderedText = useMemo(
-    () => rewriteMarkdownFileLinkDestinations(text, workspaceRoot),
-    [text, workspaceRoot],
+    () => rewriteMarkdownFileLinkDestinations(mentionExpanded, workspaceRoot),
+    [mentionExpanded, workspaceRoot],
   )
   const urlTransform = useCallback(
     (href: string, key: string, node: NonNullable<ExtraProps["node"]>) =>

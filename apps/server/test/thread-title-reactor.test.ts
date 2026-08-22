@@ -15,7 +15,7 @@ import {
   type ThreadTitleGenerationInput,
 } from "@noyau/server/text-generation/text-generation"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
-import { Crypto, Effect, Layer, Schema, Stream } from "effect"
+import { Crypto, Effect, Layer, Path, Schema, Stream } from "effect"
 
 import { stubGitRuntimeLayer } from "./fixtures.ts"
 import { testServerConfigLayer } from "./fixtures.ts"
@@ -69,6 +69,7 @@ const layer = (generate: (input: ThreadTitleGenerationInput) => { readonly title
       }),
     ),
     Layer.provideMerge(NodeFileSystem.layer),
+    Layer.provideMerge(Path.layer),
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 

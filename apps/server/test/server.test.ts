@@ -10,7 +10,7 @@ import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { serverRoutesLayer } from "@noyau/server/server"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
-import { Context, Crypto, Effect, Layer, ManagedRuntime } from "effect"
+import { Context, Crypto, Effect, Layer, ManagedRuntime, Path } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 
 import { stubGitPlaneLayer, stubGitRuntimeLayer } from "./fixtures.ts"
@@ -66,6 +66,7 @@ const infrastructure = controlPlaneLayer.pipe(
     }),
   ),
   Layer.provideMerge(NodeFileSystem.layer),
+  Layer.provideMerge(Path.layer),
   Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto)),
 )
 

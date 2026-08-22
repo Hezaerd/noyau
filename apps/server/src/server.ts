@@ -190,6 +190,7 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
     ),
   ),
   Layer.provideMerge(NodeFileSystem.layer),
+  Layer.provideMerge(Path.layer),
   Layer.provide(NodeCrypto.layer),
 )
 

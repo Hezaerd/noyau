@@ -22,6 +22,7 @@
     "./provider/cursor-acp": "./src/provider/cursor-acp.ts",
     "./provider/cursor-about": "./src/provider/cursor-about.ts",
     "./provider/tool-call-presentation": "./src/provider/tool-call-presentation.ts",
+    "./provider/prompt-blocks": "./src/provider/prompt-blocks.ts",
     "./provider/provider-port": "./src/provider/provider-port.ts",
     "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
     "./text-generation/text-generation": "./src/text-generation/text-generation.ts",
@@ -30,6 +31,7 @@
     "./rpc-handlers": "./src/rpc-handlers.ts",
     "./server": "./src/server.ts",
     "./workspace-root": "./src/workspace-root.ts",
+    "./workspace-path-search": "./src/workspace-path-search.ts",
     "./git/git-runtime": "./src/git/git-runtime.ts",
     "./git/git-plane": "./src/git/git-plane.ts"
   },
@@ -47,6 +49,7 @@
     "@noyau/database": "workspace:*",
     "@noyau/domain": "workspace:*",
     "@noyau/protocol": "workspace:*",
+    "@noyau/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

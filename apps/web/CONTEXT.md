@@ -87,6 +87,11 @@ Choix durable du Composer attaché au Thread : modèle, Effort, Vitesse et Réfl
 retrouve son dernier choix indépendamment des autres Threads.
 _À éviter_ : choix global, modèle de Session
 
+**Mention**:
+Référence `@path` insérée depuis le Composer, affichée comme chip fichier (icône Pierre +
+basename). Le texte soumis reste plat ; Noyau Server l'encode en `resource_link` ACP.
+_À éviter_ : attachment, Resource, Command
+
 **Brouillon**:
 Texte du Composer gardé en mémoire renderer pendant la session, isolé par Thread — ou par Project
 tant que le Thread n'est pas créé. Perdu au restart. Ce n'est pas une Préférence.

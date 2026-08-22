@@ -7,6 +7,7 @@ import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protoco
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect, Schema } from "effect"
+import { useState } from "react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { TicketDialog } from "../src/components/board/TicketDialog"
@@ -145,8 +146,8 @@ describe("rendered Thread UI evidence", () => {
     )
 
     expect(
-      screen.getByRole("textbox", { name: "Composer un message" }).hasAttribute("disabled"),
-    ).toBe(true)
+      screen.getByRole("textbox", { name: "Composer un message" }).getAttribute("aria-disabled"),
+    ).toBe("true")
     expect(screen.getByRole("button", { name: "Envoyer" }).hasAttribute("disabled")).toBe(true)
     const composer = screen.getByRole("textbox", { name: "Composer un message" }).closest("form")
     expect(composer?.className).toMatch(/sticky/)
@@ -155,6 +156,9 @@ describe("rendered Thread UI evidence", () => {
     expect(composerControl.parentElement?.className).toMatch(/before:hidden/)
     const composerGroup = composerControl.closest('[data-slot="input-group"]')
     expect(composerGroup?.className).toMatch(/ring-0/)
+    expect(composerGroup?.className).toMatch(
+      /has-\[\[data-slot=input-group-control\]:focus-visible\]:border-input/,
+    )
     expect(composerGroup?.className).toMatch(/rounded-xl/)
     expect(composerGroup?.className).toMatch(
       /has-\[\[data-slot=input-group-control\]:disabled\]:opacity-50/,
@@ -304,6 +308,63 @@ describe("rendered Thread UI evidence", () => {
 
     fireEvent.keyDown(composer, { key: "Enter" })
     expect(onSubmit).toHaveBeenCalledOnce()
+  })
+
+  it("inserts an @ mention from the workspace path menu", async () => {
+    const user = userEvent.setup()
+    const searchPaths = vi.fn(() =>
+      Promise.resolve([{ path: "src/adapter.ts", kind: "file" as const }]),
+    )
+
+    function Harness() {
+      const [value, setValue] = useState("@ada")
+      return (
+        <ThreadComposer
+          isRunning={false}
+          disabled={false}
+          text={value}
+          runtimeMode="full-access"
+          models={cursorModels}
+          modelSelection={null}
+          error={undefined}
+          onSubmit={vi.fn()}
+          onTextChange={setValue}
+          onRuntimeModeChange={vi.fn()}
+          onModelSelectionChange={vi.fn()}
+          images={[]}
+          onPaste={vi.fn()}
+          onDrop={vi.fn()}
+          onImagesAdd={vi.fn()}
+          onImageRemove={vi.fn()}
+          onInterrupt={vi.fn()}
+          searchPaths={searchPaths}
+        />
+      )
+    }
+
+    render(<Harness />)
+    const option = await screen.findByRole("option", { name: /adapter\.ts/ })
+    const listbox = screen.getByRole("listbox", { name: "Fichiers du Project" })
+    const composerGroup = screen
+      .getByRole("textbox", { name: "Composer un message" })
+      .closest('[data-slot="input-group"]')
+    expect(composerGroup?.contains(listbox)).toBe(false)
+    expect(listbox.parentElement?.className).toMatch(/bottom-full/)
+    expect(listbox.parentElement?.className).toMatch(/inset-x-6/)
+    expect(listbox.parentElement?.className).toMatch(/rounded-t-xl/)
+    expect(listbox.parentElement?.className).toMatch(/border-b-0/)
+    expect(listbox.parentElement?.className).toMatch(/bg-background/)
+    expect(listbox.parentElement?.className).not.toMatch(/bg-input/)
+    expect(listbox.parentElement?.querySelector("[data-composer-path-fade]")).toBeNull()
+    await user.click(option)
+    expect(
+      screen
+        .getByRole("textbox", { name: "Composer un message" })
+        .getAttribute("data-composer-value"),
+    ).toBe("@src/adapter.ts ")
+    const chip = document.querySelector("[data-composer-file-chip]")
+    expect(chip?.textContent).toContain("adapter.ts")
+    expect(chip?.querySelector("[data-pierre-icon]")).not.toBeNull()
   })
 
   it("changes the Thread access level from the composer", () =>

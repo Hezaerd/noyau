@@ -6,6 +6,7 @@ import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
+import type { WorkspacePathSearchResult } from "@noyau/protocol/entities/workspace-path"
 import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/protocol/errors"
 import type { EventEnvelope } from "@noyau/protocol/events"
 import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
@@ -232,6 +233,20 @@ const requestPreviewFile = Effect.fn("ControlPlaneClient.previewFile")(function*
 
 export const previewFile = (input: PreviewFileInput): Promise<ControlPlaneResult<FilePreview>> =>
   runOperation(requestPreviewFile(input), "command")
+
+const searchPaths = Effect.fn("ControlPlaneClient.searchWorkspacePaths")(function* (
+  projectId: ProjectId,
+  query: string,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.searchWorkspacePaths]({ projectId, query })
+})
+
+export const searchWorkspacePaths = (
+  projectId: ProjectId,
+  query: string,
+): Promise<ControlPlaneResult<WorkspacePathSearchResult>> =>
+  runOperation(searchPaths(projectId, query), "snapshot")
 
 const requestAgentIntegration = Effect.fn("ControlPlaneClient.projectAgentIntegration")(function* (
   method:

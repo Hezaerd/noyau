@@ -19,6 +19,7 @@
     "./entities/turn": "./src/entities/turn.ts",
     "./entities/transcript": "./src/entities/transcript.ts",
     "./entities/thread-snapshot": "./src/entities/thread-snapshot.ts",
+    "./entities/workspace-path": "./src/entities/workspace-path.ts",
     "./board": "./src/board.ts",
     "./shell": "./src/shell.ts",
     "./project/commands": "./src/project/commands.ts",
