@@ -4,6 +4,7 @@ import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import { DateTime } from "effect"
 import {
   useCallback,
   useEffect,
@@ -40,6 +41,7 @@ import {
 import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
+import { deriveActiveWorkStartedAtMs } from "@/lib/thread-activity"
 import {
   interruptTurn as interruptTurnAction,
   respondToApproval as respondToApprovalAction,
@@ -48,6 +50,7 @@ import {
   submitTurn as submitTurnAction,
 } from "@/lib/thread-page-actions"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
+import { markThreadVisited } from "@/lib/thread-visits"
 
 interface ThreadPageProps {
   readonly projectId: ProjectId
@@ -71,6 +74,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
+  const [sendStartedAtMs, setSendStartedAtMs] = useState<number | null>(null)
   const cursorReady = isCursorReady(cursor)
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
@@ -144,6 +148,32 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const activeTurn = snapshot?.session?.activeTurnId ?? snapshot?.thread.latestTurn?.turnId
   const isRunning =
     snapshot?.session?.status === "running" || snapshot?.thread.latestTurn?.state === "running"
+  const isWorking = isRunning || sendStartedAtMs !== null
+  const workingStartedAtMs = deriveActiveWorkStartedAtMs({
+    latestTurn: snapshot?.thread.latestTurn ?? null,
+    sendStartedAtMs,
+  })
+  const latestTurnCompletedAt = snapshot?.thread.latestTurn?.completedAt
+
+  useEffect(() => {
+    if (threadId === undefined) {
+      return
+    }
+    markThreadVisited(threadId, Date.now())
+  }, [threadId])
+
+  useEffect(() => {
+    if (threadId === undefined || latestTurnCompletedAt == null) {
+      return
+    }
+    markThreadVisited(threadId, DateTime.toEpochMillis(latestTurnCompletedAt))
+  }, [latestTurnCompletedAt, threadId])
+
+  useEffect(() => {
+    if (isRunning) {
+      setSendStartedAtMs(null)
+    }
+  }, [isRunning])
 
   const submitTurn = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -163,6 +193,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     clearDraft()
     setImages([])
     setComposerFailure(undefined)
+    setSendStartedAtMs(Date.now())
     void submitTurnAction({
       projectId,
       threadId,
@@ -177,6 +208,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       if (result.kind === "composer-error") {
         writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
         setImages(submittedImages)
+        setSendStartedAtMs(null)
         setComposerFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -190,6 +222,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       if (result.kind === "error") {
         writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
         setImages(submittedImages)
+        setSendStartedAtMs(null)
         setActionFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -439,7 +472,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <ThreadTranscript
               transcript={snapshot?.transcript ?? []}
-              isRunning={isRunning}
+              isRunning={isWorking}
+              workingStartedAtMs={workingStartedAtMs}
+              latestTurn={snapshot?.thread.latestTurn ?? null}
               loading={loading}
               workspaceRoot={project?.workspaceRoot}
               cwd={

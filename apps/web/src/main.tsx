@@ -9,6 +9,7 @@ import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
 import { initializeDiscordPresencePreference } from "@/lib/discord-presence-preference"
 import { initializeKeybindings } from "@/lib/keybindings"
 import { initializeProjectFolderStartDirectory } from "@/lib/project-folder-preference"
+import { initializeThreadVisits } from "@/lib/thread-visits"
 import { initializeTurnCuePreference } from "@/lib/turn-cue-preference"
 
 import { routeTree } from "./routeTree.gen"
@@ -21,6 +22,7 @@ initializeKeybindings()
 initializeProjectFolderStartDirectory()
 initializeDiscordPresencePreference()
 initializeTurnCuePreference()
+initializeThreadVisits()
 
 const router = createRouter({ routeTree })
 
