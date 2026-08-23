@@ -362,6 +362,17 @@ for await (const line of lines) {
       })
       continue
     }
+    if (scenario === "branch-name") {
+      notify("session/update", {
+        sessionId: activeSessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: '{"branch":"safer-reconnect-backoff"}' },
+        },
+      })
+      completePrompt("end_turn")
+      continue
+    }
     if (scenario === "thread-title") {
       notify("session/update", {
         sessionId: activeSessionId,

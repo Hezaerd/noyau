@@ -52,6 +52,7 @@ const stubTextGenerationLayer = (
   Layer.succeed(TextGeneration)({
     generateThreadTitle: (input) => Effect.succeed(generate(input)),
     generateGitDraft: () => Effect.succeed({ title: "draft: test", body: "Generated in tests." }),
+    generateBranchName: () => Effect.succeed({ branch: "generated-branch" }),
   })
 
 const layer = (generate: (input: ThreadTitleGenerationInput) => { readonly title: string }) =>

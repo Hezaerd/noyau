@@ -10,6 +10,7 @@ import { Effect, Layer, Option, Ref, Schema } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import {
+  buildBranchNamePrompt,
   buildGitDraftPrompt,
   buildThreadTitlePrompt,
   extractJsonObject,
@@ -18,6 +19,7 @@ import {
 import {
   TextGeneration,
   TextGenerationError,
+  type BranchNameGenerationInput,
   type GitDraftGenerationInput,
   type ThreadTitleGenerationInput,
 } from "./text-generation.ts"
@@ -27,11 +29,13 @@ const CURSOR_AUTH_METHOD = "cursor_login"
 const CURSOR_TIMEOUT_MS = 60_000
 const ASK_MODE_ALIASES = ["ask"]
 const TitleOutput = Schema.Struct({ title: Schema.String })
+const BranchOutput = Schema.Struct({ branch: Schema.String })
 const DraftOutput = Schema.Struct({
   title: Schema.String,
   body: Schema.optionalKey(Schema.String),
 })
 const decodeTitleOutput = Schema.decodeUnknownEffect(Schema.fromJsonString(TitleOutput))
+const decodeBranchOutput = Schema.decodeUnknownEffect(Schema.fromJsonString(BranchOutput))
 const decodeDraftOutput = Schema.decodeUnknownEffect(Schema.fromJsonString(DraftOutput))
 const isTextGenerationError = Schema.is(TextGenerationError)
 
@@ -202,6 +206,26 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
     return { title: sanitizeThreadTitle(generated.title) }
   })
 
+  const generateBranchName = Effect.fn("CursorTextGeneration.generateBranchName")(function* (
+    input: BranchNameGenerationInput,
+  ) {
+    const raw = yield* promptRaw(
+      "generateBranchName",
+      input.cwd,
+      buildBranchNamePrompt({ message: input.message }),
+    )
+    const generated = yield* decodeBranchOutput(extractJsonObject(raw)).pipe(
+      Effect.mapError(() =>
+        generationError("generateBranchName", "Cursor Agent returned invalid structured output."),
+      ),
+    )
+    const branch = generated.branch.trim()
+    if (branch.length === 0) {
+      return yield* generationError("generateBranchName", "Cursor Agent returned an empty branch.")
+    }
+    return { branch }
+  })
+
   const generateGitDraft = Effect.fn("CursorTextGeneration.generateGitDraft")(function* (
     input: GitDraftGenerationInput,
   ) {
@@ -239,6 +263,15 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
           isTextGenerationError(cause)
             ? cause
             : generationError("generateGitDraft", "Cursor ACP text generation failed."),
+        ),
+        Effect.scoped,
+      ),
+    generateBranchName: (input) =>
+      generateBranchName(input).pipe(
+        Effect.mapError((cause) =>
+          isTextGenerationError(cause)
+            ? cause
+            : generationError("generateBranchName", "Cursor ACP text generation failed."),
         ),
         Effect.scoped,
       ),

@@ -2,7 +2,11 @@ import { fileURLToPath } from "node:url"
 
 import { assert, describe, it } from "@effect/vitest"
 import { cursorTextGenerationLayer } from "@noyau/server/text-generation/cursor-text-generation"
-import { buildThreadTitlePrompt, extractJsonObject } from "@noyau/server/text-generation/prompts"
+import {
+  buildBranchNamePrompt,
+  buildThreadTitlePrompt,
+  extractJsonObject,
+} from "@noyau/server/text-generation/prompts"
 import { TextGeneration } from "@noyau/server/text-generation/text-generation"
 import { Effect, Layer } from "effect"
 
@@ -25,6 +29,14 @@ describe("thread title prompts", () => {
     })
     assert.include(prompt, "Inspecte le projet")
     assert.include(prompt, "Thread contents:")
+  })
+
+  it("asks for a short JSON branch name", () => {
+    const prompt = buildBranchNamePrompt({
+      message: "Add a safer reconnect backoff.",
+    })
+    assert.include(prompt, "Return a JSON object with key: branch.")
+    assert.include(prompt, "Add a safer reconnect backoff.")
   })
 
   it("extracts a JSON object from surrounding prose", () => {
@@ -56,6 +68,30 @@ describe("Cursor text generation", () => {
           message: "Inspecte le flux de reprise",
         })
         assert.strictEqual(generated.title, "Fix session resume")
+      }),
+    ),
+  )
+
+  it.effect("decodes a generated worktree branch name from a Cursor ACP session", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const services = yield* Layer.build(
+          cursorTextGenerationLayer({
+            binaryPath: process.execPath,
+            binaryArgs: [fakeAgent],
+            environment: {
+              PATH: "",
+              NOYAU_FAKE_ACP_SCENARIO: "branch-name",
+            },
+            clientVersion: "test",
+          }),
+        )
+        const textGeneration = yield* TextGeneration.pipe(Effect.provide(services))
+        const generated = yield* textGeneration.generateBranchName({
+          cwd: process.cwd(),
+          message: "Add a safer reconnect backoff.",
+        })
+        assert.strictEqual(generated.branch, "safer-reconnect-backoff")
       }),
     ),
   )

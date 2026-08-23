@@ -97,6 +97,23 @@ Rules:
 - body is a short markdown summary: problem then change. No checklist.
 - Do not mention that you are an AI.`
 
+export interface BranchNamePromptInput {
+  readonly message: string
+}
+
+export const buildBranchNamePrompt = (input: BranchNamePromptInput): string =>
+  `You generate concise git branch names.
+Return a JSON object with key: branch.
+
+Rules:
+- Branch should describe the requested work from the user message.
+- Keep it short and specific (2-6 words).
+- Use plain words only, no issue prefixes and no punctuation-heavy text.
+- If images are attached, use them as primary context for visual/UI issues.
+
+User message:
+${limitSection(input.message, 8_000)}`
+
 export const buildGitDraftPrompt = (kind: "commit" | "pr", context: string): string => {
   const prompt = kind === "commit" ? COMMIT_DRAFT_PROMPT : PULL_REQUEST_DRAFT_PROMPT
   return `${prompt}\n\nGit context:\n${limitSection(context, 8_000)}`

@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 export class TextGenerationError extends Schema.TaggedError<TextGenerationError>()(
   "TextGenerationError",
   {
-    operation: Schema.Literals(["generateThreadTitle", "generateGitDraft"]),
+    operation: Schema.Literals(["generateThreadTitle", "generateGitDraft", "generateBranchName"]),
     detail: Schema.NonEmptyString,
   },
 ) {}
@@ -30,6 +30,15 @@ export interface GitDraftGenerationResult {
   readonly body?: string
 }
 
+export interface BranchNameGenerationInput {
+  readonly cwd: string
+  readonly message: string
+}
+
+export interface BranchNameGenerationResult {
+  readonly branch: string
+}
+
 export interface TextGenerationService {
   readonly generateThreadTitle: (
     input: ThreadTitleGenerationInput,
@@ -37,6 +46,9 @@ export interface TextGenerationService {
   readonly generateGitDraft: (
     input: GitDraftGenerationInput,
   ) => Effect.Effect<GitDraftGenerationResult, TextGenerationError>
+  readonly generateBranchName: (
+    input: BranchNameGenerationInput,
+  ) => Effect.Effect<BranchNameGenerationResult, TextGenerationError>
 }
 
 export class TextGeneration extends Context.Service<TextGeneration, TextGenerationService>()(
@@ -55,6 +67,13 @@ export const unavailableTextGenerationLayer = Layer.succeed(TextGeneration)({
     Effect.fail(
       new TextGenerationError({
         operation: "generateGitDraft",
+        detail: "Text generation is unavailable",
+      }),
+    ),
+  generateBranchName: () =>
+    Effect.fail(
+      new TextGenerationError({
+        operation: "generateBranchName",
         detail: "Text generation is unavailable",
       }),
     ),

@@ -55,8 +55,12 @@ Query RPC du `WorkspaceRoot` pour le picker `@` du Composer. Pas une Command, pa
 _À éviter_ : Command, listing Git, index durable
 
 **TextGeneration**:
-Session ACP éphémère hors Turn, pour un Titre généré ou un Draft Git. Pas le `session/prompt` du Thread.
+Session ACP éphémère hors Turn, pour un Titre généré, un nom de branche worktree ou un Draft Git. Pas le `session/prompt` du Thread.
 _À éviter_ : Turn, ProviderPort.startTurn
+
+**Branche temporaire**:
+Ref `noyau/<8 hex>` créée au bind worktree. Remplacée au premier Turn par `noyau/<slug>` via `generateBranchName`. Le cwd du worktree ne change pas.
+_À éviter_ : dériver du titre Thread, nanoid, rename du dossier
 
 **setShellFocus**:
 RPC volatile qui pousse la vue UI courante (Tableau ou Thread) pour les effets chrome. Pas une
