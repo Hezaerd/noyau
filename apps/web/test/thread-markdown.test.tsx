@@ -424,12 +424,12 @@ describe("ThreadMarkdown", () => {
         renderMarkdown("Voici ![capture](docs/shot.png)")
 
         expect(document.querySelector(".thread-markdown")).not.toBeNull()
-        const open = yield* Effect.promise(() =>
-          screen.findByRole("button", { name: /Ouvrir .*shot\.png/ }),
+        const expand = yield* Effect.promise(() =>
+          screen.findByRole("button", { name: "Agrandir capture" }),
         )
-        expect(open.closest("span")?.className).toMatch(/inline-flex/)
-        expect(open.querySelector("[data-image-thumbnail]")).not.toBeNull()
-        expect(open.querySelector("[data-image-thumbnail]")?.className).toMatch(/size-14/)
+        expect(expand.closest("span")?.className).toMatch(/inline-flex/)
+        expect(expand.closest("[data-image-thumbnail]")).not.toBeNull()
+        expect(expand.closest("[data-image-thumbnail]")?.className).toMatch(/size-14/)
         expect(document.querySelector('img[src^="https://file.invalid"]')).toBeNull()
         yield* Effect.promise(() =>
           waitFor(() => {
@@ -437,11 +437,30 @@ describe("ThreadMarkdown", () => {
               projectId,
               path: "/Users/hezaerd/project/docs/shot.png",
             })
-            const image = open.querySelector("img")
-            expect(image?.getAttribute("alt")).toBe("capture")
+            const image = expand.querySelector("img")
             expect(image?.getAttribute("src")?.startsWith("blob:")).toBe(true)
           }),
         )
+        fireEvent.click(expand)
+        expect(screen.getByRole("dialog", { name: "Aperçu agrandi" })).toBeTruthy()
+        expect(screen.getByRole("img", { name: "capture" })).toBeTruthy()
+        fireEvent.keyDown(window, { key: "Escape" })
+        expect(screen.queryByRole("dialog", { name: "Aperçu agrandi" })).toBeNull()
+      }),
+    ))
+
+  it("expands a remote markdown image", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        renderMarkdown("Voici ![logo](https://example.com/logo.png)")
+        const expand = yield* Effect.promise(() =>
+          screen.findByRole("button", { name: "Agrandir logo" }),
+        )
+        fireEvent.click(expand)
+        expect(screen.getByRole("dialog", { name: "Aperçu agrandi" })).toBeTruthy()
+        expect(screen.getByRole("img", { name: "logo" })).toBeTruthy()
+        fireEvent.click(screen.getAllByRole("button", { name: "Fermer l’aperçu" })[0])
+        expect(screen.queryByRole("dialog", { name: "Aperçu agrandi" })).toBeNull()
       }),
     ))
 

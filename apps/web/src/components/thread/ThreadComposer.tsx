@@ -36,6 +36,7 @@ import {
   ComposerPromptField,
   type ComposerPromptFieldHandle,
 } from "@/components/thread/ComposerPromptField"
+import { ExpandedImageDialog } from "@/components/thread/ExpandedImageDialog"
 import { ImageThumbnail } from "@/components/thread/ImageThumbnail"
 import { ThreadModelPicker } from "@/components/thread/ThreadModelPicker"
 import { Badge } from "@/components/ui/badge"
@@ -53,6 +54,7 @@ import {
 } from "@/components/ui/menu"
 import { Separator } from "@/components/ui/separator"
 import type { ComposerImage } from "@/lib/composer-images"
+import { buildExpandedImagePreview, type ExpandedImagePreview } from "@/lib/expanded-image-preview"
 import { isRuntimeMode, runtimeModes } from "@/lib/thread-commands"
 import { cn } from "@/lib/utils"
 
@@ -114,6 +116,7 @@ export function ThreadComposer({
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
   const pendingCursor = useRef<number | null>(null)
   const [cursor, setCursor] = useState(text.length)
+  const [expandedImage, setExpandedImage] = useState<ExpandedImagePreview | null>(null)
   const [pathEntries, setPathEntries] = useState<ReadonlyArray<WorkspacePathEntry>>([])
   const [pathSearchLoading, setPathSearchLoading] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -275,6 +278,19 @@ export function ThreadComposer({
                   alt={image.upload.name}
                   src={image.previewUrl}
                   className="size-16"
+                  onExpand={() => {
+                    const preview = buildExpandedImagePreview(
+                      images.map((candidate) => ({
+                        id: candidate.localId,
+                        name: candidate.upload.name,
+                        previewUrl: candidate.previewUrl,
+                      })),
+                      image.localId,
+                    )
+                    if (preview !== null) {
+                      setExpandedImage(preview)
+                    }
+                  }}
                 >
                   <Button
                     type="button"
@@ -556,6 +572,14 @@ export function ThreadComposer({
           </div>
         )}
       </div>
+      {expandedImage === null ? null : (
+        <ExpandedImageDialog
+          preview={expandedImage}
+          onClose={() => {
+            setExpandedImage(null)
+          }}
+        />
+      )}
     </form>
   )
 }

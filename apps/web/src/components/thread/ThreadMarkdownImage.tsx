@@ -2,30 +2,13 @@ import type { FilePreview } from "@noyau/protocol/file-preview"
 import { useEffect, useState, type ComponentProps } from "react"
 import type { ExtraProps } from "streamdown"
 
+import { ExpandedImageDialog } from "@/components/thread/ExpandedImageDialog"
 import { ImageThumbnail } from "@/components/thread/ImageThumbnail"
 import { useThreadMarkdownFileLinks } from "@/components/thread/thread-markdown-context"
 import { ThreadMarkdownFileChip } from "@/components/thread/ThreadMarkdownFileChip"
-import { toastManager } from "@/components/ui/toast"
 import { loadFilePreview, peekFilePreview } from "@/lib/file-preview"
 import { createImagePreviewUrl } from "@/lib/image-preview-url"
 import { fileLinkSuffixKey, lookupThreadMarkdownFileLinkMeta } from "@/lib/markdown-file-links"
-import { openFilesystemPath } from "@/lib/open-path"
-
-const openLinkedImage = (path: string): void => {
-  void openFilesystemPath(path).then(
-    () => undefined,
-    () => {
-      toastManager.add({
-        description:
-          window.noyauDesktop === undefined
-            ? "Disponible dans Noyau Desktop."
-            : "Le système n'a pas pu ouvrir ce fichier.",
-        title: "Ouverture impossible",
-        type: "error",
-      })
-    },
-  )
-}
 
 export function ThreadMarkdownImage({ src, alt, node: _node }: ComponentProps<"img"> & ExtraProps) {
   const fileLinks = useThreadMarkdownFileLinks()
@@ -33,6 +16,7 @@ export function ThreadMarkdownImage({ src, alt, node: _node }: ComponentProps<"i
   const filePath = meta?.filePath
   const [preview, setPreview] = useState<FilePreview | undefined>()
   const [imageUrl, setImageUrl] = useState<string>()
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     if (filePath === undefined) {
@@ -73,13 +57,36 @@ export function ThreadMarkdownImage({ src, alt, node: _node }: ComponentProps<"i
     }
   }, [preview])
 
+  const remoteSrc = meta === undefined ? src : undefined
+  const expandSrc = imageUrl ?? remoteSrc
+  const expandName =
+    alt === undefined || alt === "" ? (meta === undefined ? "Image" : meta.basename) : alt
+
+  const expand =
+    expandSrc === undefined || expandSrc === ""
+      ? undefined
+      : () => {
+          setExpanded(true)
+        }
+
+  const dialog =
+    expanded && expandSrc !== undefined && expandSrc !== "" ? (
+      <ExpandedImageDialog
+        preview={{ images: [{ src: expandSrc, name: expandName }], index: 0 }}
+        onClose={() => {
+          setExpanded(false)
+        }}
+      />
+    ) : null
+
   if (meta === undefined) {
     if (src === undefined || src === "") {
       return null
     }
     return (
       <span className="inline-flex align-middle">
-        <ImageThumbnail alt={alt === undefined || alt === "" ? "Image" : alt} src={src} />
+        <ImageThumbnail alt={expandName} src={src} onExpand={expand} />
+        {dialog}
       </span>
     )
   }
@@ -93,20 +100,10 @@ export function ThreadMarkdownImage({ src, alt, node: _node }: ComponentProps<"i
     )
   }
 
-  const label = alt === undefined || alt === "" ? meta.basename : alt
-
   return (
     <span className="inline-flex align-middle">
-      <button
-        type="button"
-        className="inline-flex cursor-pointer rounded-lg align-middle"
-        aria-label={`Ouvrir ${meta.displayPath}`}
-        onClick={() => {
-          openLinkedImage(meta.filePath)
-        }}
-      >
-        <ImageThumbnail alt={label} src={imageUrl} />
-      </button>
+      <ImageThumbnail alt={expandName} src={imageUrl} onExpand={expand} />
+      {dialog}
     </span>
   )
 }
