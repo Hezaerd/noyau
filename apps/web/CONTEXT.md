@@ -72,7 +72,8 @@ Contrôle qui ouvre le cwd du Checkout dans un Éditeur hôte.
 _À éviter_ : Open IDE, openPath, FilePreview
 
 **Éditeur hôte**:
-Application locale découverte sur le PATH (`cursor | vscode | zed`) pour Open in.
+Application locale découverte sur le PATH (`cursor | vscode | zed | file-manager`) pour Open in.
+`file-manager` ouvre le cwd dans Finder, Explorer ou Files selon l'hôte.
 _À éviter_ : Provider, IDE générique
 
 **Git actions**:

@@ -1,12 +1,32 @@
 import type { EditorId } from "@noyau/protocol/editor"
 
+import { getHotkeysPlatform, type HotkeysPlatform } from "@/lib/keyboard-shortcut"
+
 const PREFERRED_EDITOR_STORAGE_KEY = "noyau:preferred-editor"
 
 export const EDITOR_LABELS = {
   cursor: "Cursor",
   vscode: "VS Code",
   zed: "Zed",
+  "file-manager": "File Manager",
 } as const satisfies Record<EditorId, string>
+
+export const fileManagerLabelForPlatform = (platform: HotkeysPlatform): string => {
+  switch (platform) {
+    case "mac":
+      return "Finder"
+    case "windows":
+      return "Explorer"
+    default:
+      return "Files"
+  }
+}
+
+export const editorLabel = (
+  editor: EditorId,
+  platform: HotkeysPlatform = getHotkeysPlatform(),
+): string =>
+  editor === "file-manager" ? fileManagerLabelForPlatform(platform) : EDITOR_LABELS[editor]
 
 export const resolvePreferredEditor = (
   available: ReadonlyArray<EditorId>,
@@ -21,7 +41,7 @@ export const resolvePreferredEditor = (
 export const readStoredPreferredEditor = (): EditorId | null => {
   try {
     const value = window.localStorage.getItem(PREFERRED_EDITOR_STORAGE_KEY)
-    if (value === "cursor" || value === "vscode" || value === "zed") {
+    if (value === "cursor" || value === "vscode" || value === "zed" || value === "file-manager") {
       return value
     }
     return null
