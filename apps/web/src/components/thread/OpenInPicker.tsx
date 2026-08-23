@@ -1,6 +1,6 @@
 import type { EditorId } from "@noyau/protocol/editor"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import { ChevronDownIcon, CodeIcon, SquareIcon } from "lucide-react"
+import { ChevronDownIcon, CodeIcon, FolderClosedIcon, SquareIcon } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 
 import { CursorIcon } from "@/components/provider-icons"
@@ -9,7 +9,7 @@ import { Group, GroupSeparator } from "@/components/ui/group"
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu"
 import { listEditors, openInEditor } from "@/lib/control-plane"
 import {
-  EDITOR_LABELS,
+  editorLabel,
   persistPreferredEditor,
   readStoredPreferredEditor,
   resolvePreferredEditor,
@@ -23,6 +23,9 @@ const EditorGlyph = ({ editor }: { readonly editor: EditorId }) => {
   }
   if (editor === "vscode") {
     return <CodeIcon />
+  }
+  if (editor === "file-manager") {
+    return <FolderClosedIcon className="text-muted-foreground" />
   }
   return <SquareIcon />
 }
@@ -122,7 +125,7 @@ export function OpenInPicker({
           {editors.map((editor) => (
             <MenuItem key={editor} onClick={() => open(editor)}>
               <EditorGlyph editor={editor} />
-              {EDITOR_LABELS[editor]}
+              {editorLabel(editor)}
             </MenuItem>
           ))}
         </MenuPopup>

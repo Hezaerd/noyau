@@ -51,9 +51,15 @@ const inferEditorId = (command: string): EditorId => {
   if (command === "zed" || command === "zeditor") {
     return "zed"
   }
+  if (command === "open" || command === "explorer" || command === "xdg-open") {
+    return "file-manager"
+  }
   return "cursor"
 }
 
 export const nodeEditorProbe: EditorProbe = { commandExists, launch }
 
-export const editorOpenLayer = Layer.effect(EditorOpen, makeEditorOpen(nodeEditorProbe))
+export const editorOpenLayer = Layer.effect(
+  EditorOpen,
+  makeEditorOpen(nodeEditorProbe, process.platform),
+)

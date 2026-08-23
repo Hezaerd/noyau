@@ -2,7 +2,7 @@ import { Schema } from "effect"
 
 import { VcsScope } from "./git.ts"
 
-export const EditorId = Schema.Literals(["cursor", "vscode", "zed"])
+export const EditorId = Schema.Literals(["cursor", "vscode", "zed", "file-manager"])
 export type EditorId = (typeof EditorId)["Type"]
 
 export class OpenInEditorFailed extends Schema.TaggedError<OpenInEditorFailed>()(

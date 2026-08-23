@@ -7,6 +7,7 @@ describe("editor contracts", () => {
     expect(Schema.decodeSync(EditorId)("cursor")).toBe("cursor")
     expect(Schema.decodeSync(EditorId)("vscode")).toBe("vscode")
     expect(Schema.decodeSync(EditorId)("zed")).toBe("zed")
+    expect(Schema.decodeSync(EditorId)("file-manager")).toBe("file-manager")
   })
 
   it("décode une ouverture scoped Project / Thread", () => {

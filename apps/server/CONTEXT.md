@@ -103,7 +103,8 @@ Frontière RPC qui résout le cwd (`thread.worktreePath ?? WorkspaceRoot`) puis 
 _À éviter_ : cwd choisi par le client
 
 **EditorOpen**:
-Port live qui sonde le PATH et lance un Éditeur hôte sur le cwd du Checkout.
+Port live qui sonde le PATH et lance un Éditeur hôte sur le cwd du Checkout. `file-manager`
+utilise `open` (macOS), `explorer` (Windows) ou `xdg-open` (Linux).
 _À éviter_ : openPath Desktop, GitRuntime
 
 **Draft Git**:

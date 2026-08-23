@@ -105,5 +105,6 @@ RPC `workspace.openInEditor` / `workspace.listEditors`. Pas une Command, pas un 
 _À éviter_ : openPath, FilePreview, Command
 
 **Éditeur hôte**:
-Identifiant `cursor | vscode | zed` pour Open in.
+Identifiant `cursor | vscode | zed | file-manager` pour Open in. `file-manager` est le
+gestionnaire de fichiers de l'hôte (Finder, Explorer ou Files).
 _À éviter_ : Provider, EditorId libre
