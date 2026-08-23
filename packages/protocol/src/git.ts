@@ -30,6 +30,20 @@ export const VcsWorktree = Schema.Struct({
 })
 export type VcsWorktree = (typeof VcsWorktree)["Type"]
 
+export const VcsStatusPullRequestState = Schema.Literals(["open", "closed", "merged"])
+export type VcsStatusPullRequestState = (typeof VcsStatusPullRequestState)["Type"]
+
+/** PR GitHub live du HEAD courant. Hors journal : join cwd/branche via `gh`. */
+export const VcsStatusPullRequest = Schema.Struct({
+  number: Schema.Int.check(Schema.isGreaterThan(0)),
+  title: TrimmedNonEmpty,
+  url: Schema.NonEmptyString,
+  baseRef: TrimmedNonEmpty,
+  headRef: TrimmedNonEmpty,
+  state: VcsStatusPullRequestState,
+})
+export type VcsStatusPullRequest = (typeof VcsStatusPullRequest)["Type"]
+
 export const VcsStatusResult = Schema.Struct({
   isRepo: Schema.Boolean,
   cwd: TrimmedNonEmpty,
@@ -41,8 +55,19 @@ export const VcsStatusResult = Schema.Struct({
   aheadCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   behindCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   worktreePath: Schema.NullOr(TrimmedNonEmpty),
+  pr: Schema.NullOr(VcsStatusPullRequest),
 })
 export type VcsStatusResult = (typeof VcsStatusResult)["Type"]
+
+export const VcsStatusStreamEvent = Schema.Union([
+  Schema.TaggedStruct("snapshot", {
+    status: VcsStatusResult,
+  }),
+  Schema.TaggedStruct("updated", {
+    status: VcsStatusResult,
+  }),
+])
+export type VcsStatusStreamEvent = (typeof VcsStatusStreamEvent)["Type"]
 
 export const VcsListRefsResult = Schema.Struct({
   isRepo: Schema.Boolean,

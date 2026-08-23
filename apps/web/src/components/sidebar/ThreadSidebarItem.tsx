@@ -1,3 +1,4 @@
+import type { VcsStatusPullRequest } from "@noyau/protocol/git"
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { MessageCircleIcon, PencilIcon, Trash2Icon } from "lucide-react"
@@ -6,6 +7,7 @@ import { useEffect, useRef, useState } from "react"
 import { ThreadArchiveConfirmDialog } from "@/components/sidebar/ThreadArchiveConfirmDialog"
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarStatus } from "@/components/sidebar/ThreadSidebarStatus"
+import { ThreadPullRequestBadge } from "@/components/thread/ThreadPullRequestBadge"
 import {
   ContextMenu,
   ContextMenuItem,
@@ -25,11 +27,13 @@ import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thr
 export function ThreadSidebarItem({
   thread,
   project,
+  pullRequest,
   isActive,
   onSelect,
 }: {
   readonly thread: ThreadShell
   readonly project: Pick<ProjectShell, "id" | "name" | "workspaceRoot">
+  readonly pullRequest: VcsStatusPullRequest | null
   readonly isActive: boolean
   readonly onSelect: () => void
 }) {
@@ -164,7 +168,9 @@ export function ThreadSidebarItem({
               sideOffset: 8,
               className:
                 "max-w-80 text-left whitespace-normal [&_[data-slot=tooltip-viewport]]:p-0",
-              children: <ThreadSidebarPopover project={project} thread={thread} />,
+              children: (
+                <ThreadSidebarPopover project={project} thread={thread} pullRequest={pullRequest} />
+              ),
             }}
             className="h-8 pl-8 text-sidebar-foreground/58"
           >
@@ -174,6 +180,7 @@ export function ThreadSidebarItem({
               {activity === null ? null : (
                 <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
               )}
+              {pullRequest === null ? null : <ThreadPullRequestBadge pr={pullRequest} compact />}
             </span>
           </SidebarMenuButton>
         </ContextMenuTrigger>

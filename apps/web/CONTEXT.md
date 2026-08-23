@@ -82,6 +82,11 @@ _À éviter_ : Provider, IDE générique
 Contrôle qui lance une action empilée live (`commit | push | create_pr | …`) ou un Publish.
 _À éviter_ : git commands, bouton commit, VCS toolbar
 
+**Pull request live**:
+Badge `#n` du HEAD du Checkout, alimenté par `vcs.subscribeStatus`. Pas un settle, pas un
+identifiant du journal.
+_À éviter_ : inbox PR, archive auto, lien Ticket
+
 **Créer le repo**:
 Libellé UI du Publish GitHub quand le cwd n'a pas de remote `origin`.
 _À éviter_ : Publish wizard, sourceControl

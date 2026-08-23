@@ -3,7 +3,7 @@ import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
 import { EditorOpen } from "@noyau/server/editor/editor-open"
 import { GitPlane } from "@noyau/server/git/git-plane"
 import { GitRuntime } from "@noyau/server/git/git-runtime"
-import { Effect, Layer, Redacted, Schema } from "effect"
+import { Effect, Layer, Redacted, Schema, Stream } from "effect"
 
 const emptyStatus = (cwd: string) => ({
   isRepo: false,
@@ -16,6 +16,7 @@ const emptyStatus = (cwd: string) => ({
   aheadCount: 0,
   behindCount: 0,
   worktreePath: null,
+  pr: null,
 })
 
 export const stubGitRuntimeLayer = Layer.succeed(GitRuntime)({
@@ -54,6 +55,8 @@ export const stubEditorOpenLayer = Layer.succeed(EditorOpen)({
 
 export const stubGitPlaneLayer = Layer.succeed(GitPlane)({
   status: (scope) => Effect.succeed(emptyStatus(scope.projectId)),
+  subscribeStatus: (scope) =>
+    Stream.make({ _tag: "snapshot" as const, status: emptyStatus(scope.projectId) }),
   listRefs: () => Effect.succeed({ isRepo: false, refs: [] }),
   switchRef: (input) =>
     Effect.succeed({ refName: input.refName, worktreePath: null, reusedWorktree: false }),

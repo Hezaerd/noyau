@@ -163,6 +163,7 @@ describe("rendered Thread UI evidence", () => {
           name: "noyau",
           workspaceRoot: "/Users/hezaerd/code/noyau",
         }}
+        pullRequest={null}
       />,
     )
 

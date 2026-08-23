@@ -1,14 +1,17 @@
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { SessionStatus } from "@noyau/protocol/entities/session"
 import type { LatestTurn } from "@noyau/protocol/entities/turn"
+import type { VcsStatusPullRequest } from "@noyau/protocol/git"
 
 import { runtimeModes } from "./thread-commands"
+import { pullRequestStateLabel } from "./vcs-status"
 
 export type ThreadSidebarPopoverRowKind =
   | "project"
   | "workspace"
   | "provider"
   | "runtimeMode"
+  | "pullRequest"
   | "status"
   | "error"
 
@@ -66,6 +69,7 @@ export const threadSidebarPopoverRows = (input: {
   readonly sessionStatus: SessionStatus | null
   readonly latestTurn: Pick<LatestTurn, "state"> | null
   readonly lastError: string | null
+  readonly pullRequest: VcsStatusPullRequest | null
 }): ReadonlyArray<ThreadSidebarPopoverRow> => {
   const folderName = workspaceFolderName(input.workspaceRoot)
   const status = threadStatusLabel(input.sessionStatus, input.latestTurn)
@@ -77,6 +81,12 @@ export const threadSidebarPopoverRows = (input: {
     { kind: "provider", label: providerLabels[input.provider] },
     { kind: "runtimeMode", label: runtimeModeLabel(input.runtimeMode) },
   )
+  if (input.pullRequest != null) {
+    rows.push({
+      kind: "pullRequest",
+      label: `#${input.pullRequest.number} · ${pullRequestStateLabel(input.pullRequest.state)}`,
+    })
+  }
   if (status !== undefined) {
     rows.push({ kind: "status", label: status })
   }

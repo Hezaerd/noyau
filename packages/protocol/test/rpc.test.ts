@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
+import { VcsStatusStreamEvent } from "@noyau/protocol/git"
 import {
   ControlPlaneRpcs,
   DispatchCommand,
@@ -19,6 +20,7 @@ import {
   SubscribeProject,
   SubscribeShell,
   SubscribeThread,
+  SubscribeVcsStatus,
 } from "@noyau/protocol/rpc"
 import { Schema } from "effect"
 
@@ -40,6 +42,7 @@ describe("ControlPlaneRpcs", () => {
         RPC_METHODS.probe,
         RPC_METHODS.searchWorkspacePaths,
         RPC_METHODS.vcsStatus,
+        RPC_METHODS.subscribeVcsStatus,
         RPC_METHODS.vcsListRefs,
         RPC_METHODS.vcsSwitchRef,
         RPC_METHODS.vcsCreateRef,
@@ -109,6 +112,33 @@ describe("ControlPlaneRpcs", () => {
     ).toEqual({
       entries: [{ path: "src/adapter.ts", kind: "file" }],
     })
+  })
+
+  it("décode vcs.subscribeStatus hors du journal", () => {
+    expect(
+      Schema.decodeSync(SubscribeVcsStatus.payloadSchema)({
+        projectId: "10000000-0000-4000-8000-000000000001",
+        threadId: "20000000-0000-4000-8000-000000000001",
+      }).threadId,
+    ).toBe("20000000-0000-4000-8000-000000000001")
+    expect(
+      Schema.decodeSync(VcsStatusStreamEvent)({
+        _tag: "updated",
+        status: {
+          isRepo: true,
+          cwd: "/tmp/repo",
+          refName: "feat",
+          isDefaultRef: false,
+          hasPrimaryRemote: true,
+          hasWorkingTreeChanges: false,
+          hasUpstream: true,
+          aheadCount: 0,
+          behindCount: 0,
+          worktreePath: null,
+          pr: null,
+        },
+      })._tag,
+    ).toBe("updated")
   })
 
   it("décode afterSequence sur les trois subscribes", () => {

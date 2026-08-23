@@ -96,6 +96,11 @@ _À éviter_ : mode durable, politique de lock Git
 Capacité live du Server (`vcs.*`, `git.*`) hors journal. L'idempotence client passe par `actionId`.
 _À éviter_ : agrégat Commit, événement Push, outbox Git
 
+**Pull request live**:
+PR GitHub du HEAD courant, portée par `vcs.status` / `vcs.subscribeStatus`. Join cwd + branche via
+`gh`, jamais un identifiant du journal.
+_À éviter_ : pullRequestId persisté, webhook, settle
+
 **Publish**:
 Opération live GitHub : `gh repo create`, remote `origin`, push HEAD s'il existe. Pas une Command.
 _À éviter_ : sourceControl, wizard multi-forge, `gh repo create --source`

@@ -1,9 +1,11 @@
+import type { VcsStatusPullRequest } from "@noyau/protocol/git"
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import {
   BoxIcon,
   CircleAlertIcon,
   FolderIcon,
   LayersIcon,
+  GitPullRequestIcon,
   LoaderCircleIcon,
   ShieldIcon,
 } from "lucide-react"
@@ -20,6 +22,7 @@ const rowIcons = {
   workspace: <FolderIcon className="size-3 shrink-0 text-muted-foreground" />,
   provider: <BoxIcon className="size-3 shrink-0 text-muted-foreground" />,
   runtimeMode: <ShieldIcon className="size-3 shrink-0 text-muted-foreground" />,
+  pullRequest: <GitPullRequestIcon className="size-3 shrink-0 text-muted-foreground" />,
   status: <LoaderCircleIcon className="size-3 shrink-0 text-muted-foreground" />,
   error: <CircleAlertIcon className="size-3 shrink-0 text-destructive" />,
 } satisfies Record<ThreadSidebarPopoverRowKind, ReactNode>
@@ -27,12 +30,14 @@ const rowIcons = {
 export function ThreadSidebarPopover({
   thread,
   project,
+  pullRequest,
 }: {
   readonly thread: Pick<
     ThreadShell,
     "title" | "provider" | "runtimeMode" | "sessionStatus" | "latestTurn" | "lastError"
   >
   readonly project: Pick<ProjectShell, "name"> & { readonly workspaceRoot: string }
+  readonly pullRequest: VcsStatusPullRequest | null
 }) {
   const rows = threadSidebarPopoverRows({
     projectName: project.name,
@@ -42,6 +47,7 @@ export function ThreadSidebarPopover({
     sessionStatus: thread.sessionStatus,
     latestTurn: thread.latestTurn,
     lastError: thread.lastError,
+    pullRequest,
   })
 
   return (

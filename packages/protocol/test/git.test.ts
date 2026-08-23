@@ -5,6 +5,7 @@ import {
   PrepareWorktree,
   VcsScope,
   VcsStatusResult,
+  VcsStatusStreamEvent,
 } from "@noyau/protocol/git"
 import { Schema } from "effect"
 
@@ -35,9 +36,24 @@ describe("git contracts", () => {
       aheadCount: 0,
       behindCount: 0,
       worktreePath: null,
+      pr: {
+        number: 42,
+        title: "Checkout live",
+        url: "https://github.com/hezaerd/noyau/pull/42",
+        baseRef: "main",
+        headRef: "feat/checkout",
+        state: "open",
+      },
     })
     expect(status.refName).toBe("main")
+    expect(status.pr?.number).toBe(42)
     expect(Schema.decodeSync(GitStackedAction)("commit_push_pr")).toBe("commit_push_pr")
+    expect(
+      Schema.decodeSync(VcsStatusStreamEvent)({
+        _tag: "snapshot",
+        status,
+      })._tag,
+    ).toBe("snapshot")
   })
 
   it("décode un Publish GitHub", () => {

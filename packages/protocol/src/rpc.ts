@@ -42,6 +42,7 @@ import {
   VcsListRefsResult,
   VcsScope,
   VcsStatusResult,
+  VcsStatusStreamEvent,
   VcsSwitchRefInput,
   VcsSwitchRefResult,
 } from "@noyau/protocol/git"
@@ -76,6 +77,7 @@ export const RPC_METHODS = {
   probe: "server.probe",
   searchWorkspacePaths: "workspace.searchPaths",
   vcsStatus: "vcs.status",
+  subscribeVcsStatus: "vcs.subscribeStatus",
   vcsListRefs: "vcs.listRefs",
   vcsSwitchRef: "vcs.switchRef",
   vcsCreateRef: "vcs.createRef",
@@ -254,6 +256,13 @@ export const VcsStatus = Rpc.make(RPC_METHODS.vcsStatus, {
   error: Schema.Union([GitCommandError, ServiceUnavailable]),
 })
 
+export const SubscribeVcsStatus = Rpc.make(RPC_METHODS.subscribeVcsStatus, {
+  payload: VcsScope,
+  success: VcsStatusStreamEvent,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+  stream: true,
+})
+
 export const VcsListRefs = Rpc.make(RPC_METHODS.vcsListRefs, {
   payload: VcsScope,
   success: VcsListRefsResult,
@@ -330,6 +339,7 @@ export const ControlPlaneRpcs = RpcGroup.make(
   RemoveProjectAgentIntegration,
   PreviewAttachment,
   VcsStatus,
+  SubscribeVcsStatus,
   VcsListRefs,
   VcsSwitchRef,
   VcsCreateRef,

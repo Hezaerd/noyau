@@ -94,6 +94,11 @@ _À éviter_ : PATH figé dans le journal, sweep PATH, champ settings pour le PA
 Port live `git` / `gh` du Server. Les lectures et mutations Git ne passent pas par le journal.
 _À éviter_ : agrégat VCS, outbox SQL
 
+**Pull request live**:
+PR GitHub du HEAD, jointe par `gh pr list --head` sur le cwd du Checkout. Stream
+`vcs.subscribeStatus` : snapshot local puis poll. Pas un fait du journal.
+_À éviter_ : pullRequestId, webhook, settle
+
 **Publish**:
 Création live d'un dépôt GitHub (`gh repo create`) puis câblage de `origin`. Hors journal.
 _À éviter_ : sourceControl, wizard multi-forge

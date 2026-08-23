@@ -93,6 +93,7 @@ describe("thread archive confirmation", () => {
                 name: "noyau",
                 workspaceRoot,
               }}
+              pullRequest={null}
               isActive={false}
               onSelect={vi.fn()}
             />
