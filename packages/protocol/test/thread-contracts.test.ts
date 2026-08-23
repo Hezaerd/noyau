@@ -278,7 +278,7 @@ describe("Thread commands", () => {
     expect(imageOnly.payload.text).toBeUndefined()
 
     expect(() =>
-      Schema.decodeUnknownSync(ThreadCommandRequest)({
+      Schema.decodeSync(ThreadCommandRequest)({
         _tag: "thread.turn.start",
         commandId: ids.command,
         payload: {

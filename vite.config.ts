@@ -134,6 +134,18 @@ export default defineConfig({
           // Entrée d'application : imports d'effet de bord et remontées vers src/.
           "import/no-unassigned-import": "off",
           "import/no-relative-parent-imports": "off",
+          // Renderer : pas d'Effect dans l'état local, le DOM ou les tests RTL.
+          "effecttsgo/async-function": "off",
+          "effecttsgo/global-date": "off",
+          "effecttsgo/global-timers": "off",
+        },
+      },
+      {
+        // Hooks Electron / pack : stdlib Node, pas de runtime Effect.
+        files: ["apps/desktop/scripts/**"],
+        rules: {
+          "effecttsgo/node-builtin-import": "off",
+          "effecttsgo/async-function": "off",
         },
       },
       {
