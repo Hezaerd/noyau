@@ -90,6 +90,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
   const [sendStartedAtMs, setSendStartedAtMs] = useState<number | null>(null)
+  const [followLatestKey, setFollowLatestKey] = useState(0)
   const cursorReady = isCursorReady(cursor)
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
@@ -261,6 +262,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     setImages([])
     setComposerFailure(undefined)
     setSendStartedAtMs(Date.now())
+    setFollowLatestKey((current) => current + 1)
     void submitTurnAction(
       Object.assign(
         {
@@ -598,6 +600,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               onRespondUserInput={(requestId) => {
                 respondToUserInput(requestId)
               }}
+              followLatestKey={followLatestKey}
             />
           </div>
           {composer}

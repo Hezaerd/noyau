@@ -4,6 +4,7 @@ import type { ProjectId } from "@noyau/protocol/ids"
 import { ArrowDownIcon } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 
+import { ThreadTranscriptFollowLatest } from "@/components/thread/ThreadTranscriptFollowLatest"
 import { ThreadTranscriptItem } from "@/components/thread/ThreadTranscriptItem"
 import { ThreadTranscriptToolGroup } from "@/components/thread/ThreadTranscriptTool"
 import { ThreadTurnMinimap } from "@/components/thread/ThreadTurnMinimap"
@@ -35,6 +36,7 @@ export function ThreadTranscript({
   onAnswerChange,
   onRespondApproval,
   onRespondUserInput,
+  followLatestKey = 0,
 }: {
   readonly transcript: ReadonlyArray<TranscriptItem>
   readonly isRunning: boolean
@@ -50,6 +52,7 @@ export function ThreadTranscript({
   readonly onAnswerChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
   readonly onRespondUserInput: (requestId: string) => void
+  readonly followLatestKey?: number
 }) {
   const lastItem = transcript.at(-1)
   const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
@@ -58,6 +61,7 @@ export function ThreadTranscript({
 
   return (
     <MessageScrollerProvider autoScroll>
+      <ThreadTranscriptFollowLatest followLatestKey={followLatestKey} />
       <MessageScroller className="min-h-0 flex-1">
         <MessageScrollerViewport aria-label="Transcript du Thread">
           <MessageScrollerContent
@@ -91,7 +95,6 @@ export function ThreadTranscript({
                 <MessageScrollerItem
                   key={transcriptRowId(row.item, row.index)}
                   messageId={transcriptRowId(row.item, row.index)}
-                  scrollAnchor={row.item._tag === "transcript.user"}
                 >
                   <ThreadTranscriptItem
                     item={row.item}
