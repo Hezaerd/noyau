@@ -65,6 +65,14 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["project", "agent", "skill", "skills.sh", "mcp", "tableau", "ticket"],
   },
   {
+    id: "default-thread-env-mode",
+    tab: "general",
+    title: "Checkout d'un nouveau Thread",
+    description:
+      "Intention de draft : nouveau worktree isolé, ou checkout courant du WorkspaceRoot.",
+    keywords: ["thread", "worktree", "checkout", "local", "nouveau thread", "git", "environnement"],
+  },
+  {
     id: "turn-cue",
     tab: "general",
     title: "Son de fin de Turn",

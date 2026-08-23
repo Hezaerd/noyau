@@ -64,6 +64,20 @@ export const envModeLockedOf = (input: {
 export const resolveEnvModeLabel = (mode: ThreadEnvMode): string =>
   mode === "worktree" ? "Nouveau worktree" : "Checkout courant"
 
+export const THREAD_ENV_MODE_ITEMS: ReadonlyArray<{
+  readonly value: ThreadEnvMode
+  readonly label: string
+}> = [
+  { value: "local", label: resolveEnvModeLabel("local") },
+  { value: "worktree", label: resolveEnvModeLabel("worktree") },
+]
+
+/** Intention et `startFromOrigin` d'un draft, avant bind. */
+export const draftCheckoutOf = (envMode: ThreadEnvMode) => ({
+  envMode,
+  startFromOrigin: envMode === "worktree",
+})
+
 export const resolveEnvModeTriggerLabel = (input: {
   readonly envMode: ThreadEnvMode
   readonly worktreePath: string | null

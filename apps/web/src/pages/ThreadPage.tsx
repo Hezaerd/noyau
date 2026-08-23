@@ -31,6 +31,7 @@ import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-
 import { invalidInputFailure } from "@/lib/app-failure"
 import {
   clearCreatedCheckout,
+  draftCheckoutOf,
   envModeLockedOf,
   peekCreatedCheckout,
   rememberCreatedCheckout,
@@ -49,6 +50,7 @@ import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { deriveActiveWorkStartedAtMs } from "@/lib/thread-activity"
+import { getThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
 import {
   interruptTurn as interruptTurnAction,
   respondToApproval as respondToApprovalAction,
@@ -76,9 +78,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const { text, setText, clear: clearDraft } = useComposerDraft(projectId, threadId)
   const createdThreadIdRef = useRef<ThreadId>(undefined)
-  const [envMode, setEnvMode] = useState<ThreadEnvMode>("local")
+  const [envMode, setEnvMode] = useState<ThreadEnvMode>(() =>
+    threadId === undefined ? getThreadEnvModePreference() : "local",
+  )
   const [baseBranch, setBaseBranch] = useState<string | null>(null)
-  const [startFromOrigin, setStartFromOrigin] = useState(false)
+  const [startFromOrigin, setStartFromOrigin] = useState(
+    () => threadId === undefined && getThreadEnvModePreference() === "worktree",
+  )
   const [images, setImages] = useState<ReadonlyArray<ComposerImage>>([])
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
@@ -101,9 +107,10 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setSnapshot(undefined)
       setLoading(false)
       setSubscriptionStatus(undefined)
-      setEnvMode("local")
+      const draftCheckout = draftCheckoutOf(getThreadEnvModePreference())
+      setEnvMode(draftCheckout.envMode)
       setBaseBranch(null)
-      setStartFromOrigin(false)
+      setStartFromOrigin(draftCheckout.startFromOrigin)
       return
     }
     const pendingCheckout = peekCreatedCheckout(threadId)

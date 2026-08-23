@@ -65,6 +65,11 @@ est `null`, le trigger affiche `Depuis {base}` et ne checkout pas. `startFromOri
 `origin/{base}` par défaut. Après bind, `Worktree` ou `Checkout local`.
 _À éviter_ : dériver le mode de `worktreePath === null`, héritage de checkout
 
+**Défaut threadEnvMode**:
+Préférence renderer du `threadEnvMode` initial d'un nouveau Thread (`local` | `worktree`).
+Le Composer peut encore la changer avant le premier Turn.
+_À éviter_ : champ du Thread, héritage du Thread vu
+
 **Header actions**:
 Cluster droite du Header de page d'un Thread : Open in et Git actions. Chrome, pas une entité.
 _À éviter_ : Thread actions, toolbar, command bar

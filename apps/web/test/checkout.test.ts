@@ -8,6 +8,7 @@ import {
   isSelectingWorktreeBase,
   clearCreatedCheckout,
   peekCreatedCheckout,
+  draftCheckoutOf,
   rememberCreatedCheckout,
   resolveBranchSelectionTarget,
   resolveBranchTriggerLabel,
@@ -155,6 +156,8 @@ describe("checkout helpers", () => {
   it("libellé du trigger : pending, bindé, ou local", () => {
     expect(resolveEnvModeLabel("worktree")).toBe("Nouveau worktree")
     expect(resolveEnvModeLabel("local")).toBe("Checkout courant")
+    expect(draftCheckoutOf("local")).toEqual({ envMode: "local", startFromOrigin: false })
+    expect(draftCheckoutOf("worktree")).toEqual({ envMode: "worktree", startFromOrigin: true })
     expect(
       resolveEnvModeTriggerLabel({
         envMode: "worktree",
