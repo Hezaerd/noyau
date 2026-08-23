@@ -8,6 +8,7 @@ import { ApprovalRequestId, type ProjectId, type ThreadId, type TurnId } from "@
 import { type Crypto, Effect } from "effect"
 
 import type { AppFailure } from "./app-failure"
+import { resolvePrepareWorktree } from "./checkout"
 import { buildCommand, dispatchCommand } from "./control-plane"
 import {
   DEFAULT_THREAD_TITLE,
@@ -44,6 +45,8 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
   readonly prompt: string
   readonly runtimeMode: RuntimeMode
   readonly modelSelection: ModelSelection | null
+  readonly branch?: string
+  readonly worktreePath?: string | null
   readonly prepareWorktree?: PrepareWorktree
   readonly attachments?: ReadonlyArray<TurnImageUpload>
 }): Effect.fn.Return<SubmitTurnResult> {
@@ -55,13 +58,21 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
     }
     const createRequest = yield* Effect.promise(() =>
       buildCommand(
-        makeThreadCreateRequest({
-          threadId: nextThreadId.value,
-          projectId: input.projectId,
-          title: DEFAULT_THREAD_TITLE,
-          runtimeMode: input.runtimeMode,
-          modelSelection: input.modelSelection,
-        }),
+        makeThreadCreateRequest(
+          Object.assign(
+            {
+              threadId: nextThreadId.value,
+              projectId: input.projectId,
+              title: DEFAULT_THREAD_TITLE,
+              runtimeMode: input.runtimeMode,
+              modelSelection: input.modelSelection,
+            },
+            input.branch === undefined ? {} : { branch: input.branch },
+            input.worktreePath === undefined || input.worktreePath === null
+              ? {}
+              : { worktreePath: input.worktreePath },
+          ),
+        ),
       ),
     )
     if (!createRequest.ok) {
@@ -132,15 +143,19 @@ export const submitTurn = (input: {
   readonly modelSelection: ModelSelection | null
   readonly envMode?: ThreadEnvMode
   readonly baseBranch?: string
+  readonly startFromOrigin?: boolean
   readonly worktreePath?: string | null
   readonly attachments?: ReadonlyArray<TurnImageUpload>
 }) => {
-  const prepareWorktree =
-    input.envMode === "worktree" &&
-    (input.worktreePath === undefined || input.worktreePath === null) &&
-    input.baseBranch !== undefined
-      ? { baseBranch: input.baseBranch }
-      : undefined
+  const prepareWorktree = resolvePrepareWorktree(
+    Object.assign(
+      {},
+      input.envMode === undefined ? {} : { envMode: input.envMode },
+      input.worktreePath === undefined ? {} : { worktreePath: input.worktreePath },
+      input.baseBranch === undefined ? {} : { baseBranch: input.baseBranch },
+      input.startFromOrigin === undefined ? {} : { startFromOrigin: input.startFromOrigin },
+    ),
+  )
   return Effect.runPromise(
     submitTurnEffect(
       Object.assign(
@@ -151,6 +166,8 @@ export const submitTurn = (input: {
           runtimeMode: input.runtimeMode,
           modelSelection: input.modelSelection,
         },
+        input.baseBranch === undefined ? {} : { branch: input.baseBranch },
+        input.worktreePath === undefined ? {} : { worktreePath: input.worktreePath },
         prepareWorktree === undefined ? {} : { prepareWorktree },
         input.attachments === undefined ? {} : { attachments: input.attachments },
       ),

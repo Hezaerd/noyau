@@ -1,19 +1,32 @@
+import { ThreadId } from "@noyau/protocol/ids"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
   branchPickerBadge,
-  envModeLockedAfterFirstTurn,
+  envModeLockedOf,
   envModeOf,
+  isSelectingWorktreeBase,
+  clearCreatedCheckout,
+  peekCreatedCheckout,
+  rememberCreatedCheckout,
   resolveBranchSelectionTarget,
+  resolveBranchTriggerLabel,
+  resolveEffectiveEnvMode,
+  resolveEnvModeLabel,
+  resolveEnvModeTriggerLabel,
   resolveLocalCheckoutBranchMismatch,
+  resolvePrepareWorktree,
+  resolveWorktreeBaseBranch,
 } from "../src/lib/checkout"
 
 describe("checkout helpers", () => {
-  it("verrouille le checkout dès le premier Turn", () => {
-    expect(envModeLockedAfterFirstTurn({ latestTurn: null })).toBe(false)
-    expect(envModeLockedAfterFirstTurn({})).toBe(false)
-    expect(envModeLockedAfterFirstTurn({ latestTurn: null, isRunning: true })).toBe(true)
-    expect(envModeLockedAfterFirstTurn({ latestTurn: { turnId: "turn_1" } })).toBe(true)
+  it("verrouille le checkout une fois le path bindé ou le premier Turn lancé", () => {
+    expect(envModeLockedOf({ latestTurn: null })).toBe(false)
+    expect(envModeLockedOf({})).toBe(false)
+    expect(envModeLockedOf({ latestTurn: null, isRunning: true })).toBe(true)
+    expect(envModeLockedOf({ latestTurn: { turnId: "turn_1" } })).toBe(true)
+    expect(envModeLockedOf({ worktreePath: "/tmp/wt" })).toBe(true)
+    expect(envModeLockedOf({ worktreePath: null, latestTurn: null })).toBe(false)
   })
 
   it("priorise current, worktree, puis default sur le badge", () => {
@@ -43,9 +56,126 @@ describe("checkout helpers", () => {
     ).toBeNull()
   })
 
-  it("traite worktreePath null comme local", () => {
+  it("traite worktreePath null comme local seulement après bind", () => {
     expect(envModeOf({ branch: "main", worktreePath: null })).toBe("local")
     expect(envModeOf({ branch: "feat", worktreePath: "/tmp/wt" })).toBe("worktree")
+  })
+
+  it("garde l'intention worktree tant que le path n'est pas bindé", () => {
+    expect(resolveEffectiveEnvMode({ worktreePath: null, draftEnvMode: "worktree" })).toBe(
+      "worktree",
+    )
+    expect(resolveEffectiveEnvMode({ worktreePath: null, draftEnvMode: "local" })).toBe("local")
+    expect(resolveEffectiveEnvMode({ worktreePath: "/tmp/wt", draftEnvMode: "local" })).toBe(
+      "worktree",
+    )
+  })
+
+  it("affiche Depuis {base} tant que le worktree n'est pas créé", () => {
+    expect(
+      resolveBranchTriggerLabel({
+        envMode: "worktree",
+        worktreePath: null,
+        baseBranch: "main",
+        liveBranch: "feat",
+        startFromOrigin: false,
+        status: undefined,
+      }),
+    ).toBe("Depuis main")
+    expect(
+      resolveBranchTriggerLabel({
+        envMode: "worktree",
+        worktreePath: null,
+        baseBranch: "main",
+        liveBranch: "feat",
+        startFromOrigin: true,
+        status: undefined,
+      }),
+    ).toBe("Depuis origin/main")
+    expect(
+      resolveBranchTriggerLabel({
+        envMode: "worktree",
+        worktreePath: null,
+        baseBranch: null,
+        liveBranch: null,
+        startFromOrigin: true,
+        status: undefined,
+      }),
+    ).toBe("Choisir une base")
+    expect(isSelectingWorktreeBase({ envMode: "worktree", worktreePath: null })).toBe(true)
+    expect(isSelectingWorktreeBase({ envMode: "worktree", worktreePath: "/tmp/wt" })).toBe(false)
+  })
+
+  it("prend la branche default du repo comme base, pas un main hardcodé", () => {
+    expect(
+      resolveWorktreeBaseBranch({
+        refs: [
+          { name: "feat", isDefault: false, isRemote: false },
+          { name: "develop", isDefault: true, isRemote: false },
+        ],
+        currentBranch: "feat",
+      }),
+    ).toBe("develop")
+    expect(
+      resolveWorktreeBaseBranch({
+        refs: [{ name: "origin/trunk", isDefault: true, isRemote: true }],
+        currentBranch: "feat",
+      }),
+    ).toBe("trunk")
+    expect(resolveWorktreeBaseBranch({ refs: [], currentBranch: "feat" })).toBe("feat")
+  })
+
+  it("prépare le worktree depuis origin par défaut", () => {
+    expect(
+      resolvePrepareWorktree({
+        envMode: "worktree",
+        worktreePath: null,
+        baseBranch: "main",
+      }),
+    ).toEqual({ baseBranch: "main", startFromOrigin: true })
+    expect(
+      resolvePrepareWorktree({
+        envMode: "worktree",
+        worktreePath: null,
+        baseBranch: "main",
+        startFromOrigin: false,
+      }),
+    ).toEqual({ baseBranch: "main" })
+    expect(
+      resolvePrepareWorktree({
+        envMode: "worktree",
+        worktreePath: "/tmp/wt",
+        baseBranch: "main",
+      }),
+    ).toBeUndefined()
+    expect(resolvePrepareWorktree({ envMode: "local", baseBranch: "main" })).toBeUndefined()
+    expect(resolvePrepareWorktree({ envMode: "worktree", baseBranch: "  " })).toBeUndefined()
+  })
+
+  it("libellé du trigger : pending, bindé, ou local", () => {
+    expect(resolveEnvModeLabel("worktree")).toBe("Nouveau worktree")
+    expect(resolveEnvModeLabel("local")).toBe("Checkout courant")
+    expect(
+      resolveEnvModeTriggerLabel({
+        envMode: "worktree",
+        worktreePath: null,
+        locked: true,
+      }),
+    ).toBe("Nouveau worktree")
+    expect(
+      resolveEnvModeTriggerLabel({
+        envMode: "local",
+        worktreePath: "/tmp/wt",
+        locked: true,
+      }),
+    ).toBe("Worktree")
+    expect(
+      resolveEnvModeTriggerLabel({
+        envMode: "local",
+        worktreePath: null,
+        locked: true,
+      }),
+    ).toBe("Checkout local")
   })
 
   it("réutilise un worktree déjà extrait ailleurs", () => {
@@ -61,6 +191,33 @@ describe("checkout helpers", () => {
         "/tmp/repo",
       ),
     ).toEqual({ kind: "switch" })
+  })
+
+  it("restaure l'intention worktree après create → navigation", () => {
+    const threadId = ThreadId.make("20000000-0000-4000-8000-000000000099")
+    rememberCreatedCheckout({
+      threadId,
+      envMode: "worktree",
+      baseBranch: "develop",
+      startFromOrigin: true,
+    })
+    expect(
+      peekCreatedCheckout(ThreadId.make("20000000-0000-4000-8000-000000000098")),
+    ).toBeUndefined()
+    expect(peekCreatedCheckout(threadId)).toEqual({
+      threadId,
+      envMode: "worktree",
+      baseBranch: "develop",
+      startFromOrigin: true,
+    })
+    expect(peekCreatedCheckout(threadId)).toEqual({
+      threadId,
+      envMode: "worktree",
+      baseBranch: "develop",
+      startFromOrigin: true,
+    })
+    clearCreatedCheckout(threadId)
+    expect(peekCreatedCheckout(threadId)).toBeUndefined()
   })
 
   it("signale un mismatch seulement en local sans worktree", () => {

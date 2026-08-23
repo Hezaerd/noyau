@@ -6,9 +6,10 @@ import {
   FolderGit2Icon,
   FolderIcon,
   GitBranchIcon,
+  RefreshCwIcon,
   SearchIcon,
 } from "lucide-react"
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useId, useState, type ReactNode } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -22,12 +23,17 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from "@/components/ui/menu"
+import { Switch } from "@/components/ui/switch"
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   branchPickerBadge,
-  envModeOf,
+  isSelectingWorktreeBase,
   resolveBranchSelectionTarget,
+  resolveBranchTriggerLabel,
+  resolveEnvModeLabel,
+  resolveEnvModeTriggerLabel,
   resolveLocalCheckoutBranchMismatch,
-  statusLabel,
+  resolveWorktreeBaseBranch,
 } from "@/lib/checkout"
 import {
   buildCommand,
@@ -73,8 +79,10 @@ export function ThreadCheckoutBar({
   disabled,
   envMode,
   envModeLocked,
+  startFromOrigin,
   onEnvModeChange,
   onBaseBranchChange,
+  onStartFromOriginChange,
 }: {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
@@ -83,14 +91,18 @@ export function ThreadCheckoutBar({
   readonly disabled: boolean
   readonly envMode: ThreadEnvMode
   readonly envModeLocked: boolean
+  readonly startFromOrigin: boolean
   readonly onEnvModeChange: (mode: ThreadEnvMode) => void
   readonly onBaseBranchChange: (branch: string) => void
+  readonly onStartFromOriginChange: (startFromOrigin: boolean) => void
 }) {
+  const startFromOriginSwitchId = useId()
   const [status, setStatus] = useState<VcsStatusResult>()
   const [refs, setRefs] = useState<ReadonlyArray<VcsRef>>([])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string>()
   const [branchQuery, setBranchQuery] = useState("")
+  const selectingWorktreeBase = isSelectingWorktreeBase({ envMode, worktreePath })
   const mismatch = resolveLocalCheckoutBranchMismatch({
     envMode,
     threadBranch: branch,
@@ -131,6 +143,19 @@ export function ThreadCheckoutBar({
     })
   }, [projectId, threadId, worktreePath])
 
+  useEffect(() => {
+    if (!selectingWorktreeBase || (branch !== null && branch !== "")) {
+      return
+    }
+    const candidate = resolveWorktreeBaseBranch({
+      refs,
+      currentBranch: status?.refName ?? null,
+    })
+    if (candidate !== null) {
+      onBaseBranchChange(candidate)
+    }
+  }, [branch, onBaseBranchChange, refs, selectingWorktreeBase, status?.refName])
+
   const bindCheckout = (next: {
     readonly branch?: string | null
     readonly worktreePath?: string | null
@@ -164,14 +189,19 @@ export function ThreadCheckoutBar({
   }
 
   const selectRef = (ref: VcsRef) => {
-    const cwd = status?.cwd ?? ""
-    const target = resolveBranchSelectionTarget(ref, cwd)
-    onBaseBranchChange(ref.isRemote ? ref.name.replace(/^origin\//, "") : ref.name)
-    if (target.kind === "reuse") {
-      bindCheckout({ branch: ref.name, worktreePath: target.worktreePath })
+    const localName = ref.isRemote ? ref.name.replace(/^origin\//, "") : ref.name
+    onBaseBranchChange(localName)
+    if (selectingWorktreeBase) {
+      if (threadId !== undefined) {
+        bindCheckout({ branch: ref.name })
+      }
       return
     }
-    if (envMode === "worktree" && worktreePath === null) {
+    const cwd = status?.cwd ?? ""
+    const target = resolveBranchSelectionTarget(ref, cwd)
+    if (target.kind === "reuse") {
+      onEnvModeChange("worktree")
+      bindCheckout({ branch: ref.name, worktreePath: target.worktreePath })
       return
     }
     setBusy(true)
@@ -182,6 +212,7 @@ export function ThreadCheckoutBar({
         return undefined
       }
       if (result.value.reusedWorktree && result.value.worktreePath !== null) {
+        onEnvModeChange("worktree")
         bindCheckout({ branch: result.value.refName, worktreePath: result.value.worktreePath })
       } else {
         bindCheckout({ branch: result.value.refName, worktreePath: worktreePath })
@@ -193,7 +224,7 @@ export function ThreadCheckoutBar({
 
   const createBranch = (requestedName?: string) => {
     const name = (requestedName ?? window.prompt("Nom de la branche") ?? "").trim()
-    if (name === "") {
+    if (name === "" || selectingWorktreeBase) {
       return
     }
     setBusy(true)
@@ -220,11 +251,18 @@ export function ThreadCheckoutBar({
     trimmedBranchQuery === ""
       ? localRefs
       : localRefs.filter((ref) => ref.name.toLowerCase().includes(trimmedBranchQuery.toLowerCase()))
-  const showCreateBranch = trimmedBranchQuery !== "" && filteredRefs.length === 0
-  const boundMode = envModeOf({ branch, worktreePath })
+  const showCreateBranch =
+    !selectingWorktreeBase && trimmedBranchQuery !== "" && filteredRefs.length === 0
   const EnvModeIcon = envMode === "worktree" ? FolderGit2Icon : FolderIcon
   const controlsDisabled = disabled || busy
-  const branchLabel = status === undefined ? (branch ?? "…") : statusLabel(status)
+  const branchLabel = resolveBranchTriggerLabel({
+    envMode,
+    worktreePath,
+    baseBranch: branch,
+    liveBranch: status?.refName ?? null,
+    startFromOrigin,
+    status,
+  })
 
   return (
     <div className="flex flex-col gap-1">
@@ -236,7 +274,7 @@ export function ThreadCheckoutBar({
           <Menu>
             <CheckoutMenuTrigger disabled={controlsDisabled || envModeLocked}>
               <EnvModeIcon data-icon="inline-start" />
-              {envMode === "worktree" ? "Worktree" : "Local"}
+              {resolveEnvModeTriggerLabel({ envMode, worktreePath, locked: envModeLocked })}
             </CheckoutMenuTrigger>
             <MenuPopup align="start" side="top">
               <MenuGroup>
@@ -244,17 +282,17 @@ export function ThreadCheckoutBar({
                 <MenuItem
                   onClick={() => {
                     onEnvModeChange("local")
-                    if (boundMode === "worktree") {
+                    if (worktreePath !== null) {
                       bindCheckout({ branch: status?.refName ?? branch, worktreePath: null })
                     }
                   }}
                 >
                   <FolderIcon data-icon="inline-start" />
-                  Local
+                  {resolveEnvModeLabel("local")}
                 </MenuItem>
                 <MenuItem onClick={() => onEnvModeChange("worktree")}>
                   <FolderGit2Icon data-icon="inline-start" />
-                  Worktree
+                  {resolveEnvModeLabel("worktree")}
                 </MenuItem>
               </MenuGroup>
             </MenuPopup>
@@ -325,6 +363,37 @@ export function ThreadCheckoutBar({
                 </>
               ) : null}
             </MenuGroup>
+            {selectingWorktreeBase ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <label
+                      htmlFor={startFromOriginSwitchId}
+                      className="flex cursor-pointer items-center justify-between gap-3 border-t border-border/60 px-3 py-2 text-xs"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                      }}
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5 font-medium text-muted-foreground">
+                        <RefreshCwIcon aria-hidden="true" className="size-3 shrink-0 opacity-70" />
+                        <span className="truncate">Partir de origin</span>
+                      </span>
+                      <Switch
+                        id={startFromOriginSwitchId}
+                        checked={startFromOrigin}
+                        className="[--thumb-size:--spacing(3.5)]"
+                        aria-label="Créer le worktree depuis origin"
+                        onCheckedChange={(checked) => onStartFromOriginChange(checked)}
+                      />
+                    </label>
+                  }
+                />
+                <TooltipPopup side="top" className="max-w-72 whitespace-normal leading-tight">
+                  Crée le worktree depuis la branche correspondante sur origin, pas depuis le
+                  checkout local.
+                </TooltipPopup>
+              </Tooltip>
+            ) : null}
           </MenuPopup>
         </Menu>
       </div>
