@@ -34,25 +34,24 @@ export function ThreadTranscriptItem({
   }
 
   if (item._tag === "transcript.user") {
+    const attachments = item.attachments
     return (
       <Message align="end">
         <MessageContent>
-          <div className="flex flex-col items-end gap-2">
-            {item.attachments === undefined ? null : (
-              <ThreadTurnImages attachments={item.attachments} />
-            )}
-            {item.text === undefined ? null : (
-              <Bubble variant="default" align="end">
-                <BubbleContent className="leading-6">
+          {attachments !== undefined || item.text !== undefined ? (
+            <Bubble variant="default" align="end">
+              <BubbleContent className="flex flex-col items-start gap-2 leading-6">
+                {attachments === undefined ? null : <ThreadTurnImages attachments={attachments} />}
+                {item.text === undefined ? null : (
                   <ThreadMarkdown
                     text={item.text}
                     workspaceRoot={workspaceRoot}
                     projectId={projectId}
                   />
-                </BubbleContent>
-              </Bubble>
-            )}
-          </div>
+                )}
+              </BubbleContent>
+            </Bubble>
+          ) : null}
         </MessageContent>
       </Message>
     )

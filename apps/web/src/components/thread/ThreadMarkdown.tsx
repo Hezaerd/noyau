@@ -4,6 +4,7 @@ import { defaultUrlTransform, Streamdown, type ExtraProps } from "streamdown"
 
 import { ThreadMarkdownContext } from "@/components/thread/thread-markdown-context"
 import { ThreadMarkdownCode } from "@/components/thread/ThreadMarkdownCode"
+import { ThreadMarkdownImage } from "@/components/thread/ThreadMarkdownImage"
 import { ThreadMarkdownLink } from "@/components/thread/ThreadMarkdownLink"
 import { ThreadMarkdownTable } from "@/components/thread/ThreadMarkdownTable"
 import {
@@ -20,6 +21,7 @@ const markdownClassName =
 const streamdownComponents = {
   a: ThreadMarkdownLink,
   code: ThreadMarkdownCode,
+  img: ThreadMarkdownImage,
   table: ThreadMarkdownTable,
 }
 

@@ -10,7 +10,6 @@ import {
 import {
   ChevronDownIcon,
   GaugeIcon,
-  ImagePlusIcon,
   LockIcon,
   LockOpenIcon,
   PenLineIcon,
@@ -35,6 +34,7 @@ import {
   ComposerPromptField,
   type ComposerPromptFieldHandle,
 } from "@/components/thread/ComposerPromptField"
+import { ImageThumbnail } from "@/components/thread/ImageThumbnail"
 import { ThreadModelPicker } from "@/components/thread/ThreadModelPicker"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -83,7 +83,6 @@ export function ThreadComposer({
   onModelSelectionChange,
   onPaste,
   onDrop,
-  onImagesAdd,
   onImageRemove,
   onInterrupt,
   searchPaths,
@@ -104,7 +103,6 @@ export function ThreadComposer({
   readonly onModelSelectionChange: (modelSelection: ModelSelection | null) => void
   readonly onPaste: (event: ClipboardEvent<HTMLElement>) => void
   readonly onDrop: (event: DragEvent<HTMLElement>) => void
-  readonly onImagesAdd: (files: ReadonlyArray<File>) => void
   readonly onImageRemove: (localId: string) => void
   readonly onInterrupt: () => void
   readonly searchPaths?: (query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>
@@ -112,7 +110,6 @@ export function ThreadComposer({
 }) {
   const listboxId = useId()
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const pendingCursor = useRef<number | null>(null)
   const [cursor, setCursor] = useState(text.length)
   const [pathEntries, setPathEntries] = useState<ReadonlyArray<WorkspacePathEntry>>([])
@@ -269,17 +266,14 @@ export function ThreadComposer({
         ) : null}
         <InputGroup className="rounded-xl bg-background shadow-xs/5 dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
           {images.length === 0 ? null : (
-            <div className="flex flex-wrap gap-2 px-3 pt-3">
+            <div className="flex w-full flex-wrap justify-start gap-2 px-3 pt-3">
               {images.map((image) => (
-                <span
+                <ImageThumbnail
                   key={image.localId}
-                  className="relative size-16 overflow-hidden rounded-md border"
+                  alt={image.upload.name}
+                  src={image.previewUrl}
+                  className="size-16"
                 >
-                  <img
-                    alt={image.upload.name}
-                    src={image.previewUrl}
-                    className="size-full object-cover"
-                  />
                   <Button
                     type="button"
                     size="icon-xs"
@@ -293,7 +287,7 @@ export function ThreadComposer({
                   >
                     <XIcon className="size-3" />
                   </Button>
-                </span>
+                </ImageThumbnail>
               ))}
             </div>
           )}
@@ -536,29 +530,6 @@ export function ThreadComposer({
             </Menu>
 
             <div className="ml-auto flex gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/gif,image/webp"
-                multiple
-                hidden
-                onChange={(event) => {
-                  onImagesAdd(Array.from(event.target.files ?? []))
-                  event.target.value = ""
-                }}
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={controlsDisabled}
-                aria-label="Joindre une image"
-                onClick={() => {
-                  fileInputRef.current?.click()
-                }}
-              >
-                <ImagePlusIcon />
-              </Button>
               {isRunning ? (
                 <Button type="button" size="sm" variant="outline" onClick={onInterrupt}>
                   Interrompre

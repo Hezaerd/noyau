@@ -1,10 +1,9 @@
 import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
 import { useEffect, useState } from "react"
 
+import { ImageThumbnail } from "@/components/thread/ImageThumbnail"
 import { previewAttachment } from "@/lib/control-plane"
-
-const imageUrlFromBytes = (bytes: Uint8Array, mime: string): string =>
-  URL.createObjectURL(new Blob([Uint8Array.from(bytes)], { type: mime }))
+import { createImagePreviewUrl } from "@/lib/image-preview-url"
 
 function ThreadTurnImage({ attachment }: { readonly attachment: TurnImageAttachment }) {
   const [url, setUrl] = useState<string>()
@@ -16,7 +15,7 @@ function ThreadTurnImage({ attachment }: { readonly attachment: TurnImageAttachm
       if (cancelled || !result.ok) {
         return undefined
       }
-      createdUrl = imageUrlFromBytes(result.value.bytes, result.value.mime)
+      createdUrl = createImagePreviewUrl(result.value.bytes, result.value.mime)
       setUrl(createdUrl)
       return undefined
     })
@@ -28,21 +27,7 @@ function ThreadTurnImage({ attachment }: { readonly attachment: TurnImageAttachm
     }
   }, [attachment.id])
 
-  if (url === undefined) {
-    return (
-      <span className="flex size-24 items-center justify-center rounded-md border bg-muted text-muted-foreground text-xs">
-        {attachment.name}
-      </span>
-    )
-  }
-
-  return (
-    <img
-      alt={attachment.name}
-      src={url}
-      className="max-h-52 max-w-full rounded-md border object-contain"
-    />
-  )
+  return <ImageThumbnail alt={attachment.name} src={url} />
 }
 
 export function ThreadTurnImages({
@@ -54,7 +39,7 @@ export function ThreadTurnImages({
     return null
   }
   return (
-    <div className="flex flex-wrap justify-end gap-2">
+    <div className="flex flex-wrap justify-start gap-1.5">
       {attachments.map((attachment) => (
         <ThreadTurnImage key={attachment.id} attachment={attachment} />
       ))}

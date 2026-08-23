@@ -139,7 +139,6 @@ describe("rendered Thread UI evidence", () => {
         images={[]}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
-        onImagesAdd={vi.fn()}
         onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
       />,
@@ -183,7 +182,6 @@ describe("rendered Thread UI evidence", () => {
         images={[]}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
-        onImagesAdd={vi.fn()}
         onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
       />,
@@ -197,6 +195,74 @@ describe("rendered Thread UI evidence", () => {
       /has-\[\[data-slot=input-group-control\]:disabled\]:opacity-50/,
     )
     expect(composerGroup?.className).not.toMatch(/(?:^|\s)has-disabled:/)
+  })
+
+  it("does not offer a file-picker button for images", () => {
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text=""
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        error={undefined}
+        onSubmit={vi.fn()}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        images={[]}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onImageRemove={vi.fn()}
+        onInterrupt={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole("button", { name: "Joindre une image" })).toBeNull()
+    expect(document.querySelector('input[type="file"]')).toBeNull()
+  })
+
+  it("aligns staged image thumbnails to the left", () => {
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text=""
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        error={undefined}
+        onSubmit={vi.fn()}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        images={[
+          {
+            localId: "img-1",
+            previewUrl: "blob:http://localhost/shot",
+            upload: {
+              type: "image",
+              name: "shot.png",
+              mimeType: "image/png",
+              sizeBytes: 12,
+              dataUrl: "data:image/png;base64,AAAA",
+            },
+          },
+        ]}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onImageRemove={vi.fn()}
+        onInterrupt={vi.fn()}
+      />,
+    )
+
+    const thumb = document.querySelector("[data-image-thumbnail]")
+    expect(thumb).not.toBeNull()
+    expect(thumb?.className).toMatch(/size-16/)
+    expect(thumb?.parentElement?.className).toMatch(/w-full/)
+    expect(thumb?.parentElement?.className).toMatch(/justify-start/)
+    expect(screen.getByRole("button", { name: "Retirer shot.png" })).toBeTruthy()
   })
 
   it("centers the new-thread composer instead of docking it", () => {
@@ -217,7 +283,6 @@ describe("rendered Thread UI evidence", () => {
         images={[]}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
-        onImagesAdd={vi.fn()}
         onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
       />,
@@ -304,7 +369,6 @@ describe("rendered Thread UI evidence", () => {
         images={[]}
         onPaste={vi.fn()}
         onDrop={vi.fn()}
-        onImagesAdd={vi.fn()}
         onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
       />,
@@ -342,7 +406,6 @@ describe("rendered Thread UI evidence", () => {
           images={[]}
           onPaste={vi.fn()}
           onDrop={vi.fn()}
-          onImagesAdd={vi.fn()}
           onImageRemove={vi.fn()}
           onInterrupt={vi.fn()}
           searchPaths={searchPaths}
@@ -396,7 +459,6 @@ describe("rendered Thread UI evidence", () => {
             images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
-            onImagesAdd={vi.fn()}
             onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
@@ -458,7 +520,6 @@ describe("rendered Thread UI evidence", () => {
             images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
-            onImagesAdd={vi.fn()}
             onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
@@ -490,7 +551,6 @@ describe("rendered Thread UI evidence", () => {
             images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
-            onImagesAdd={vi.fn()}
             onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
@@ -536,7 +596,6 @@ describe("rendered Thread UI evidence", () => {
             images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
-            onImagesAdd={vi.fn()}
             onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
@@ -581,7 +640,6 @@ describe("rendered Thread UI evidence", () => {
             images={[]}
             onPaste={vi.fn()}
             onDrop={vi.fn()}
-            onImagesAdd={vi.fn()}
             onImageRemove={vi.fn()}
             onInterrupt={vi.fn()}
           />,
