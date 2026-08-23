@@ -740,7 +740,7 @@ describe("rendered Thread UI evidence", () => {
       }),
     ))
 
-  it("renders a tool call as a verb and object, not a JSON dump", () => {
+  it("renders a tool call as a compact label, not a JSON dump", () => {
     const item = Schema.decodeSync(TranscriptItem)({
       _tag: "transcript.tool",
       threadId,
@@ -762,9 +762,36 @@ describe("rendered Thread UI evidence", () => {
       />,
     )
 
-    expect(screen.getByText("Wrote")).toBeTruthy()
-    expect(screen.getByText("Wrote").parentElement?.classList.contains("shimmer")).toBe(false)
+    expect(screen.getByText("Wrote file")).toBeTruthy()
+    expect(screen.getByText("Wrote file").classList.contains("shimmer")).toBe(false)
     expect(screen.queryByText(/"content"/)).toBeNull()
+    expect(screen.queryByText("Cursor tool")).toBeNull()
+  })
+
+  it("shows a workspace-relative path instead of Cursor tool", () => {
+    const item = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.tool",
+      threadId,
+      turnId: TurnId.make("40000000-0000-4000-8000-000000000001"),
+      toolCallId: "tool-1",
+      name: "Cursor tool",
+      status: "completed",
+      outputSummary: "/Users/hezaerd/code/noyau/apps/web/src/index.ts",
+    })
+
+    render(
+      <ThreadTranscriptItem
+        item={item}
+        streaming={false}
+        workspaceRoot="/Users/hezaerd/code/noyau"
+        answer=""
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("noyau/apps/web/src/index.ts")).toBeTruthy()
     expect(screen.queryByText("Cursor tool")).toBeNull()
   })
 
@@ -791,7 +818,8 @@ describe("rendered Thread UI evidence", () => {
       />,
     )
 
-    expect(screen.getByText("Read").parentElement?.classList.contains("shimmer")).toBe(true)
+    const label = screen.getByText("src/index.ts")
+    expect(label.closest("p")?.classList.contains("shimmer")).toBe(true)
   })
 
   it("collapses a burst of file changes behind one toggle", () =>

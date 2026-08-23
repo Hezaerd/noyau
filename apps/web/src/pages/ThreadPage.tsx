@@ -442,6 +442,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               isRunning={isRunning}
               loading={loading}
               workspaceRoot={project?.workspaceRoot}
+              cwd={
+                snapshot === undefined
+                  ? project?.workspaceRoot
+                  : (threadWorktreePathOf(snapshot.thread) ?? project?.workspaceRoot)
+              }
               projectId={projectId}
               error={transcriptError}
               notices={

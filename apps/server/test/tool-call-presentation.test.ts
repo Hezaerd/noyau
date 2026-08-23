@@ -122,6 +122,24 @@ describe("deriveToolCallPresentation", () => {
     })
   })
 
+  it("infers a read from a location when Cursor omits kind and title", () => {
+    expect(
+      deriveToolCallPresentation({
+        title: "Cursor tool",
+        locations: [
+          {
+            path: "/Users/hezaerd/Library/Application Support/Electron/environment/worktrees/noyau/src/index.ts",
+          },
+        ],
+      }),
+    ).toEqual({
+      action: "read",
+      name: "Read file",
+      outputSummary:
+        "/Users/hezaerd/Library/Application Support/Electron/environment/worktrees/noyau/src/index.ts",
+    })
+  })
+
   it("falls back to the title when kind and structured input are missing", () => {
     expect(
       deriveToolCallPresentation({
