@@ -94,16 +94,10 @@ function ThreadHeaderActionsSlot() {
   if (titlebar.kind !== "thread") {
     return null
   }
-  const thread =
-    titlebar.threadId === undefined
-      ? undefined
-      : threads.find((candidate) => candidate.id === titlebar.threadId)
   return (
     <ThreadHeaderActions
       projectId={titlebar.projectId}
       threadId={titlebar.threadId}
-      branch={thread?.branch ?? null}
-      worktreePath={thread?.worktreePath ?? null}
       disabled={!titlebar.projectAvailable}
     />
   )

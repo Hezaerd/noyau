@@ -15,7 +15,6 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
-import { ThreadPullRequestBadge } from "@/components/thread/ThreadPullRequestBadge"
 import {
   AlertDialog,
   AlertDialogClose,
@@ -64,7 +63,6 @@ import {
   type GitActionIconName,
   type GitQuickAction,
 } from "@/lib/git-actions"
-import { displayedThreadPr } from "@/lib/vcs-status"
 
 interface GitStackedDrafts {
   commitMessage?: string
@@ -152,14 +150,10 @@ const toastPublishResult = (result: GitPublishRepositoryResult) => {
 export function GitActionsControl({
   projectId,
   threadId,
-  branch,
-  worktreePath,
   disabled,
 }: {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
-  readonly branch: string | null
-  readonly worktreePath: string | null
   readonly disabled: boolean
 }) {
   const scope = threadId === undefined ? { projectId } : { projectId, threadId }
@@ -180,11 +174,6 @@ export function GitActionsControl({
 
   const quickAction = resolveQuickAction(status, busy || disabled)
   const menuItems = buildMenuItems(status, busy || disabled)
-  const displayedPr = displayedThreadPr({
-    thread: { branch, worktreePath },
-    gitStatus: status,
-    snapshot: undefined,
-  })
 
   const closeDialog = () => {
     setDialogAction(undefined)
@@ -378,7 +367,6 @@ export function GitActionsControl({
 
   return (
     <>
-      {displayedPr === null ? null : <ThreadPullRequestBadge pr={displayedPr} />}
       <Group aria-label="Git actions" className="shrink-0">
         {quickAction.kind === "show_hint" ? (
           <Tooltip>
