@@ -10,9 +10,12 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { Switch } from "@/components/ui/switch"
 import { useDiscordPresenceEnabled } from "@/hooks/use-discord-presence-enabled"
 import { useProjectFolderStartDirectory } from "@/hooks/use-project-folder-start-directory"
+import { useThreadEnvModePreference } from "@/hooks/use-thread-env-mode-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
+import { THREAD_ENV_MODE_ITEMS } from "@/lib/checkout"
 import { setDiscordPresenceEnabled } from "@/lib/discord-presence-preference"
 import { setProjectFolderStartDirectory } from "@/lib/project-folder-preference"
+import { isThreadEnvMode, setThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
 import {
   isTurnCueSound,
   playTurnCue,
@@ -28,9 +31,11 @@ const selectTurnCueSound = (sound: TurnCueSound): void => {
 
 export function GeneralSettingsPanel(): ReactElement {
   const startDirectory = useProjectFolderStartDirectory()
+  const defaultThreadEnvMode = useThreadEnvModePreference()
   const discordPresenceEnabled = useDiscordPresenceEnabled()
   const turnCue = useTurnCuePreference()
   const discordPresenceSwitchId = useId()
+  const threadEnvModeSelectId = useId()
   const turnCueSwitchId = useId()
   const turnCueSoundSelectId = useId()
   const [draft, setDraft] = useState<string | undefined>()
@@ -85,6 +90,40 @@ export function GeneralSettingsPanel(): ReactElement {
           }
         />
         <ProjectAgentIntegrationSettings />
+      </SettingsSection>
+      <SettingsSection id="threads" title="Threads">
+        <SettingsRow
+          id="default-thread-env-mode"
+          title="Checkout d'un nouveau Thread"
+          description="Intention de draft au premier Turn. Le Composer peut encore la changer."
+          control={
+            <Select
+              items={THREAD_ENV_MODE_ITEMS}
+              value={defaultThreadEnvMode}
+              onValueChange={(next) => {
+                if (next !== null && isThreadEnvMode(next)) {
+                  setThreadEnvModePreference(next)
+                }
+              }}
+            >
+              <SelectTrigger
+                id={threadEnvModeSelectId}
+                size="sm"
+                className="w-full sm:w-52"
+                aria-label="Checkout d'un nouveau Thread"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup>
+                {THREAD_ENV_MODE_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
+          }
+        />
       </SettingsSection>
       <SettingsSection id="autre" title="Autre">
         <SettingsRow

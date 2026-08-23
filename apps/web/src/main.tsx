@@ -9,6 +9,7 @@ import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
 import { initializeDiscordPresencePreference } from "@/lib/discord-presence-preference"
 import { initializeKeybindings } from "@/lib/keybindings"
 import { initializeProjectFolderStartDirectory } from "@/lib/project-folder-preference"
+import { initializeThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
 import { initializeThreadVisits } from "@/lib/thread-visits"
 import { initializeTurnCuePreference } from "@/lib/turn-cue-preference"
 
@@ -21,6 +22,7 @@ initializeAppearance()
 initializeKeybindings()
 initializeProjectFolderStartDirectory()
 initializeDiscordPresencePreference()
+initializeThreadEnvModePreference()
 initializeTurnCuePreference()
 initializeThreadVisits()
 
