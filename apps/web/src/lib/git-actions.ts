@@ -106,6 +106,7 @@ export const buildMenuItems = (
   const hasBranch = gitStatus.refName !== null
   const hasChanges = gitStatus.hasWorkingTreeChanges
   const isBehind = gitStatus.behindCount > 0
+  const hasOpenPr = gitStatus.pr?.state === "open"
   const canPushWithoutUpstream = gitStatus.hasPrimaryRemote && !gitStatus.hasUpstream
   const canCommit = !isBusy && hasChanges
   const canPush =
@@ -119,6 +120,7 @@ export const buildMenuItems = (
     hasBranch &&
     !hasChanges &&
     !isBehind &&
+    !hasOpenPr &&
     gitStatus.hasPrimaryRemote &&
     (gitStatus.aheadCount > 0 || (!gitStatus.isDefaultRef && gitStatus.hasUpstream))
 
@@ -201,9 +203,10 @@ export const resolveQuickAction = (
   const isAhead = gitStatus.aheadCount > 0
   const isBehind = gitStatus.behindCount > 0
   const isDefaultRef = gitStatus.isDefaultRef
+  const hasOpenPr = gitStatus.pr?.state === "open"
 
   if (hasChanges) {
-    if (isDefaultRef) {
+    if (isDefaultRef || hasOpenPr) {
       return { label: "Commit & push", disabled: false, kind: "open_dialog", action: "commit_push" }
     }
     return {
@@ -242,7 +245,7 @@ export const resolveQuickAction = (
   }
 
   if (isAhead) {
-    if (isDefaultRef) {
+    if (isDefaultRef || hasOpenPr) {
       return { label: "Push", disabled: false, kind: "run_action", action: "push" }
     }
     return {
@@ -253,7 +256,7 @@ export const resolveQuickAction = (
     }
   }
 
-  if (!isDefaultRef && gitStatus.hasUpstream) {
+  if (!isDefaultRef && gitStatus.hasUpstream && !hasOpenPr) {
     return {
       label: "Créer une PR",
       disabled: false,

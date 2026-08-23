@@ -5,6 +5,7 @@ import { LayoutGridIcon } from "lucide-react"
 import { ThreadSidebarItem } from "@/components/sidebar/ThreadSidebarItem"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { useThreadChangeRequests } from "@/hooks/use-thread-change-requests"
 
 export function ProjectSidebarItem({
   project,
@@ -17,6 +18,7 @@ export function ProjectSidebarItem({
   readonly pathname: string
   readonly onSelect: () => void
 }) {
+  const pullRequests = useThreadChangeRequests(project.id, threads)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -40,6 +42,7 @@ export function ProjectSidebarItem({
           <ThreadSidebarItem
             thread={thread}
             project={project}
+            pullRequest={pullRequests.get(thread.id) ?? null}
             isActive={pathname === `/projects/${project.id}/thread/${thread.id}`}
             onSelect={onSelect}
           />

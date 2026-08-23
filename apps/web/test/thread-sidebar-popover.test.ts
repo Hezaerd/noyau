@@ -24,6 +24,7 @@ describe("thread sidebar popover", () => {
         sessionStatus: null,
         latestTurn: null,
         lastError: null,
+        pullRequest: null,
       }).map((row) => row.kind),
     ).toEqual(["project", "provider", "runtimeMode"])
   })
@@ -37,6 +38,7 @@ describe("thread sidebar popover", () => {
       sessionStatus: "error",
       latestTurn: runningTurn,
       lastError: "ACP indisponible",
+      pullRequest: null,
     })
 
     expect(rows).toEqual([
@@ -53,5 +55,27 @@ describe("thread sidebar popover", () => {
     expect(threadStatusLabel(null, { ...runningTurn, state: "interrupted" })).toBe("Interrompu")
     expect(threadStatusLabel("error", null)).toBe("Erreur")
     expect(threadStatusLabel("ready", null)).toBeUndefined()
+  })
+
+  it("ajoute la PR live quand elle est connue", () => {
+    expect(
+      threadSidebarPopoverRows({
+        projectName: "noyau",
+        workspaceRoot: "/Users/hezaerd/code/noyau",
+        provider: "cursor",
+        runtimeMode: "full-access",
+        sessionStatus: null,
+        latestTurn: null,
+        lastError: null,
+        pullRequest: {
+          number: 12,
+          title: "Live",
+          url: "https://github.com/hezaerd/noyau/pull/12",
+          baseRef: "main",
+          headRef: "feat",
+          state: "open",
+        },
+      }).map((row) => row.kind),
+    ).toEqual(["project", "provider", "runtimeMode", "pullRequest"])
   })
 })

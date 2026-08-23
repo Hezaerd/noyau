@@ -2,7 +2,6 @@ import type {
   GitPublishRepositoryResult,
   GitRepositoryVisibility,
   GitStackedAction,
-  VcsStatusResult,
 } from "@noyau/protocol/git"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { Crypto, Effect } from "effect"
@@ -14,8 +13,9 @@ import {
   GlobeIcon,
   LockIcon,
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
+import { ThreadPullRequestBadge } from "@/components/thread/ThreadPullRequestBadge"
 import {
   AlertDialog,
   AlertDialogClose,
@@ -42,13 +42,13 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu"
 import { Textarea } from "@/components/ui/textarea"
 import { toastManager } from "@/components/ui/toast"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { useVcsStatus } from "@/hooks/use-vcs-status"
 import {
   buildCommand,
   gitDraft,
   gitGithubAccount,
   gitPublishRepository,
   gitRunStackedAction,
-  vcsStatus,
 } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
@@ -64,6 +64,7 @@ import {
   type GitActionIconName,
   type GitQuickAction,
 } from "@/lib/git-actions"
+import { displayedThreadPr } from "@/lib/vcs-status"
 
 interface GitStackedDrafts {
   commitMessage?: string
@@ -151,13 +152,18 @@ const toastPublishResult = (result: GitPublishRepositoryResult) => {
 export function GitActionsControl({
   projectId,
   threadId,
+  branch,
+  worktreePath,
   disabled,
 }: {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
+  readonly branch: string | null
+  readonly worktreePath: string | null
   readonly disabled: boolean
 }) {
-  const [status, setStatus] = useState<VcsStatusResult | null>(null)
+  const scope = threadId === undefined ? { projectId } : { projectId, threadId }
+  const status = useVcsStatus(scope)
   const [busy, setBusy] = useState(false)
   const [dialogAction, setDialogAction] = useState<GitStackedAction>()
   const [commitMessage, setCommitMessage] = useState("")
@@ -172,28 +178,13 @@ export function GitActionsControl({
   const [publishRepository, setPublishRepository] = useState("")
   const [publishVisibility, setPublishVisibility] = useState<GitRepositoryVisibility>("private")
 
-  const scope = threadId === undefined ? { projectId } : { projectId, threadId }
   const quickAction = resolveQuickAction(status, busy || disabled)
   const menuItems = buildMenuItems(status, busy || disabled)
-
-  const refresh = () => {
-    void vcsStatus(scope).then((result) => {
-      if (result.ok) {
-        setStatus(result.value)
-      }
-      return undefined
-    })
-  }
-
-  useEffect(() => {
-    const nextScope = threadId === undefined ? { projectId } : { projectId, threadId }
-    void vcsStatus(nextScope).then((result) => {
-      if (result.ok) {
-        setStatus(result.value)
-      }
-      return undefined
-    })
-  }, [projectId, threadId])
+  const displayedPr = displayedThreadPr({
+    thread: { branch, worktreePath },
+    gitStatus: status,
+    snapshot: undefined,
+  })
 
   const closeDialog = () => {
     setDialogAction(undefined)
@@ -228,7 +219,6 @@ export function GitActionsControl({
           return undefined
         }
         toastStackedResult(action, result.value.pullRequest.url)
-        refresh()
         return undefined
       })
     })
@@ -353,7 +343,6 @@ export function GitActionsControl({
           return undefined
         }
         toastPublishResult(result.value)
-        refresh()
         return undefined
       },
     )
@@ -389,6 +378,7 @@ export function GitActionsControl({
 
   return (
     <>
+      {displayedPr === null ? null : <ThreadPullRequestBadge pr={displayedPr} />}
       <Group aria-label="Git actions" className="shrink-0">
         {quickAction.kind === "show_hint" ? (
           <Tooltip>
@@ -413,13 +403,7 @@ export function GitActionsControl({
           primaryButton
         )}
         <GroupSeparator className="hidden @3xl/header-actions:block" />
-        <Menu
-          onOpenChange={(open) => {
-            if (open) {
-              refresh()
-            }
-          }}
-        >
+        <Menu>
           <MenuTrigger
             render={
               <Button

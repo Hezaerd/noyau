@@ -16,7 +16,14 @@ import {
 import { Context, Effect, Layer, Path, Schema, type Scope } from "effect"
 import { ChildProcessSpawner } from "effect/unstable/process"
 
+import {
+  decodeListedPullRequests,
+  selectStatusPullRequest,
+  type ListedPullRequest,
+} from "./pull-request.ts"
 import { runGh, runGit } from "./run-command.ts"
+
+const PR_LIST_JSON_FIELDS = "number,title,url,baseRefName,headRefName,state,updatedAt"
 
 const ExistingPullRequest = Schema.Struct({
   url: Schema.optionalKey(Schema.String),
@@ -105,6 +112,8 @@ const deriveLocalBranchName = (refName: string): string => {
   return refName.slice(separator + 1)
 }
 
+const lastKnownPrKey = (cwd: string, branch: string): string => `${cwd}\u0000${branch}`
+
 const sanitizeBranchFragment = (raw: string): string =>
   raw
     .trim()
@@ -115,8 +124,15 @@ const sanitizeBranchFragment = (raw: string): string =>
     .replace(/^[-./]+|[-./]+$/g, "")
     .slice(0, 64) || "worktree"
 
+export interface GitStatusOptions {
+  readonly includePr?: boolean
+}
+
 export interface GitRuntimeService {
-  readonly status: (cwd: string) => Effect.Effect<VcsStatusResult, GitCommandError>
+  readonly status: (
+    cwd: string,
+    options?: GitStatusOptions,
+  ) => Effect.Effect<VcsStatusResult, GitCommandError>
   readonly listRefs: (cwd: string) => Effect.Effect<ReadonlyArray<VcsRef>, GitCommandError>
   readonly listWorktrees: (
     cwd: string,
@@ -196,7 +212,69 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
       Effect.scoped,
       Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
     )
-  const status = Effect.fn("GitRuntime.status")(function* (cwd: string) {
+  const lastKnownPr = new Map<string, VcsStatusResult["pr"]>()
+
+  const listPullRequests = Effect.fn("GitRuntime.listPullRequests")(function* (
+    cwd: string,
+    head: string,
+    state: "open" | "all",
+    limit: number,
+  ) {
+    const listed = yield* runGh(
+      state === "open" ? "gh.pr.list.open" : "gh.pr.list.all",
+      cwd,
+      [
+        "pr",
+        "list",
+        "--head",
+        head,
+        "--state",
+        state,
+        "--limit",
+        String(limit),
+        "--json",
+        PR_LIST_JSON_FIELDS,
+      ],
+      { allowNonZero: true },
+    )
+    if (listed.code !== 0) {
+      return yield* new GitCommandError({
+        operation: state === "open" ? "gh.pr.list.open" : "gh.pr.list.all",
+        detail: listed.stderr.trim() || listed.stdout.trim() || "gh pr list failed",
+      })
+    }
+    return yield* decodeListedPullRequests(listed.stdout).pipe(
+      Effect.mapError(
+        () =>
+          new GitCommandError({
+            operation: "gh.pr.list",
+            detail: "gh returned an invalid pull request list.",
+          }),
+      ),
+    )
+  })
+
+  const lookupStatusPr = Effect.fn("GitRuntime.lookupStatusPr")(function* (
+    cwd: string,
+    details: { readonly branch: string; readonly isDefaultRef: boolean },
+  ) {
+    const collected: Array<ListedPullRequest> = []
+    const open = yield* listPullRequests(cwd, details.branch, "open", 1)
+    collected.push(...open)
+    if (open.length === 0) {
+      const latest = yield* listPullRequests(cwd, details.branch, "all", 20)
+      collected.push(...latest)
+    }
+    const selected = selectStatusPullRequest(collected, { isDefaultRef: details.isDefaultRef })
+    lastKnownPr.set(lastKnownPrKey(cwd, details.branch), selected)
+    return selected
+  })
+
+  const status = Effect.fn("GitRuntime.status")(function* (
+    cwd: string,
+    options: GitStatusOptions = {},
+  ) {
+    const includePr = options.includePr !== false
     const repo = yield* isRepo(cwd)
     if (!repo) {
       return {
@@ -210,6 +288,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
         aheadCount: 0,
         behindCount: 0,
         worktreePath: null,
+        pr: null,
       } satisfies VcsStatusResult
     }
     const [refName, remotes, porcelain, defaultHead, worktrees] = yield* Effect.all(
@@ -246,18 +325,35 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
       behindCount = Number.parseInt(behind ?? "0", 10) || 0
       aheadCount = Number.parseInt(ahead ?? "0", 10) || 0
     }
-    return {
+    const isDefaultRef = refName !== null && defaultRef.length > 0 && refName === defaultRef
+    const local = {
       isRepo: true,
       cwd,
       refName,
-      isDefaultRef: refName !== null && defaultRef.length > 0 && refName === defaultRef,
+      isDefaultRef,
       hasPrimaryRemote,
       hasWorkingTreeChanges: porcelain.stdout.trim().length > 0,
       hasUpstream,
       aheadCount,
       behindCount,
       worktreePath: worktrees[0] !== undefined && worktrees[0].path !== cwd ? cwd : null,
+      pr: refName === null ? null : (lastKnownPr.get(lastKnownPrKey(cwd, refName)) ?? null),
     } satisfies VcsStatusResult
+    if (!includePr || refName === null) {
+      return local
+    }
+    const pr = yield* lookupStatusPr(cwd, { branch: refName, isDefaultRef }).pipe(
+      Effect.catchTag("GitCommandError", (error) =>
+        Effect.logWarning("PR lookup failed; keeping last known PR state.").pipe(
+          Effect.annotateLogs({
+            operation: error.operation,
+            branch: refName,
+          }),
+          Effect.as(local.pr),
+        ),
+      ),
+    )
+    return { ...local, pr } satisfies VcsStatusResult
   })
 
   const listRefs = Effect.fn("GitRuntime.listRefs")(function* (cwd: string) {
@@ -561,7 +657,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
   })
 
   return GitRuntime.of({
-    status: (cwd) => enclose(status(cwd)),
+    status: (cwd, options) => enclose(status(cwd, options)),
     listRefs: (cwd) => enclose(listRefs(cwd)),
     listWorktrees: (cwd) => enclose(listWorktrees(cwd)),
     switchRef: (cwd, refName) => enclose(switchRef(cwd, refName)),

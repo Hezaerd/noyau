@@ -1,5 +1,5 @@
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
-import type { VcsRef, VcsStatusResult } from "@noyau/protocol/git"
+import type { VcsRef } from "@noyau/protocol/git"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import {
   ChevronDownIcon,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/menu"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { useVcsStatus } from "@/hooks/use-vcs-status"
 import {
   branchPickerBadge,
   isSelectingWorktreeBase,
@@ -40,7 +41,6 @@ import {
   dispatchCommand,
   vcsCreateRef,
   vcsListRefs,
-  vcsStatus,
   vcsSwitchRef,
 } from "@/lib/control-plane"
 import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
@@ -97,7 +97,8 @@ export function ThreadCheckoutBar({
   readonly onStartFromOriginChange: (startFromOrigin: boolean) => void
 }) {
   const startFromOriginSwitchId = useId()
-  const [status, setStatus] = useState<VcsStatusResult>()
+  const scope = threadId === undefined ? { projectId } : { projectId, threadId }
+  const status = useVcsStatus(scope) ?? undefined
   const [refs, setRefs] = useState<ReadonlyArray<VcsRef>>([])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string>()
@@ -110,15 +111,7 @@ export function ThreadCheckoutBar({
     worktreePath,
   })
 
-  const scope = threadId === undefined ? { projectId } : { projectId, threadId }
-
-  const refresh = () => {
-    void vcsStatus(scope).then((result) => {
-      if (result.ok) {
-        setStatus(result.value)
-      }
-      return undefined
-    })
+  const refreshRefs = () => {
     void vcsListRefs(scope).then((result) => {
       if (result.ok) {
         setRefs(result.value.refs)
@@ -129,12 +122,6 @@ export function ThreadCheckoutBar({
 
   useEffect(() => {
     const nextScope = threadId === undefined ? { projectId } : { projectId, threadId }
-    void vcsStatus(nextScope).then((result) => {
-      if (result.ok) {
-        setStatus(result.value)
-      }
-      return undefined
-    })
     void vcsListRefs(nextScope).then((result) => {
       if (result.ok) {
         setRefs(result.value.refs)
@@ -217,7 +204,7 @@ export function ThreadCheckoutBar({
       } else {
         bindCheckout({ branch: result.value.refName, worktreePath: worktreePath })
       }
-      refresh()
+      refreshRefs()
       return undefined
     })
   }
@@ -239,7 +226,7 @@ export function ThreadCheckoutBar({
         if (envMode === "local") {
           bindCheckout({ branch: result.value.refName, worktreePath: null })
         }
-        refresh()
+        refreshRefs()
         return undefined
       },
     )

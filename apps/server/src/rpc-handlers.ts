@@ -43,6 +43,8 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
   [RPC_METHODS.previewAttachment]: (input) =>
     ControlPlane.pipe(Effect.flatMap((service) => service.previewAttachment(input))),
   [RPC_METHODS.vcsStatus]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.status(input))),
+  [RPC_METHODS.subscribeVcsStatus]: (input) =>
+    Stream.unwrap(GitPlane.pipe(Effect.map((git) => git.subscribeStatus(input)))),
   [RPC_METHODS.vcsListRefs]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.listRefs(input))),
   [RPC_METHODS.vcsSwitchRef]: (input) =>
     GitPlane.pipe(Effect.flatMap((git) => git.switchRef(input))),

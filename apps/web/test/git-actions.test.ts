@@ -7,7 +7,7 @@ import {
   requiresDefaultBranchConfirmation,
   resolveQuickAction,
   suggestPublishRepository,
-} from "./git-actions"
+} from "../src/lib/git-actions"
 
 const status = (overrides: Partial<VcsStatusResult> = {}): VcsStatusResult => ({
   isRepo: true,
@@ -20,6 +20,7 @@ const status = (overrides: Partial<VcsStatusResult> = {}): VcsStatusResult => ({
   aheadCount: 0,
   behindCount: 0,
   worktreePath: null,
+  pr: null,
   ...overrides,
 })
 
@@ -59,6 +60,37 @@ describe("git-actions", () => {
       disabled: false,
       kind: "open_dialog",
       action: "create_pr",
+    })
+  })
+
+  it("n’offre pas de création de PR quand une PR est déjà ouverte", () => {
+    const openPr = {
+      number: 12,
+      title: "Live",
+      url: "https://github.com/hezaerd/noyau/pull/12",
+      baseRef: "main",
+      headRef: "feat/checkout",
+      state: "open" as const,
+    }
+    const open = status({ pr: openPr, aheadCount: 1 })
+    expect(resolveQuickAction(open, false)).toEqual({
+      label: "Push",
+      disabled: false,
+      kind: "run_action",
+      action: "push",
+    })
+    expect(buildMenuItems(open, false).find((item) => item.id === "pr")?.disabled).toBe(true)
+    expect(resolveQuickAction(status({ pr: openPr }), false)).toEqual({
+      label: "Commit",
+      disabled: true,
+      kind: "show_hint",
+      hint: "Branche à jour. Rien à faire.",
+    })
+    expect(resolveQuickAction(status({ hasWorkingTreeChanges: true, pr: openPr }), false)).toEqual({
+      label: "Commit & push",
+      disabled: false,
+      kind: "open_dialog",
+      action: "commit_push",
     })
   })
 

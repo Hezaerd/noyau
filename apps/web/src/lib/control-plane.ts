@@ -28,8 +28,10 @@ import type {
   VcsCreateWorktreeInput,
   VcsCreateWorktreeResult,
   VcsListRefsResult,
+  GitCommandError,
   VcsScope,
   VcsStatusResult,
+  VcsStatusStreamEvent,
   VcsSwitchRefInput,
   VcsSwitchRefResult,
 } from "@noyau/protocol/git"
@@ -124,7 +126,12 @@ const replaceTransportSession = (failedSession: TransportSession): Promise<void>
   return disposal
 }
 
-type ControlPlaneStreamError = RpcClientError | Forbidden | MissingIdentity | ServiceUnavailable
+type ControlPlaneStreamError =
+  | RpcClientError
+  | Forbidden
+  | MissingIdentity
+  | ServiceUnavailable
+  | GitCommandError
 
 const reportTechnicalFailure = <E>(cause: Cause.Cause<E>, failure: AppFailure) => {
   if (failure._tag === "UnexpectedFailure") {
@@ -638,6 +645,27 @@ const consumeThreadStream = (
   stream: Stream.Stream<ThreadStreamItem, ControlPlaneStreamError>,
   consumer: ReturnType<typeof makeSequencedFrameConsumer<ThreadSnapshot, EventEnvelope>>,
 ) => stream.pipe(Stream.runForEach((item) => Effect.sync(() => consumer.consume(item))))
+
+export const subscribeVcsStatus = (
+  scope: VcsScope,
+  onEvent: (event: VcsStatusStreamEvent) => void,
+  onStatus: (status: SubscriptionStatus) => void = () => undefined,
+) =>
+  superviseSubscription({
+    afterSequence: () => undefined,
+    currentSession: () => activeTransportSession,
+    replaceSession: replaceTransportSession,
+    onStatus,
+    startAttempt: (session, _resumeAfterSequence, onFailure) => {
+      const stream = Effect.gen(function* () {
+        const client = yield* ControlPlaneClient
+        return yield* client[RPC_METHODS.subscribeVcsStatus](scope).pipe(
+          Stream.runForEach((event) => Effect.sync(() => onEvent(event))),
+        )
+      })
+      return startSubscriptionAttempt(session, stream, onFailure)
+    },
+  })
 
 export const subscribeThread = (
   threadId: ThreadSnapshot["thread"]["id"],

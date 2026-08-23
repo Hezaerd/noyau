@@ -15,21 +15,26 @@ import {
   type VcsListRefsResult,
   type VcsScope,
   type VcsStatusResult,
+  type VcsStatusStreamEvent,
   type VcsSwitchRefInput,
   type VcsSwitchRefResult,
 } from "@noyau/protocol/git"
 import { ServerConfig } from "@noyau/server/config"
 import { TextGeneration } from "@noyau/server/text-generation/text-generation"
 import { resolveWorkspaceCwd } from "@noyau/server/workspace-cwd"
-import { Context, Crypto, Effect, Layer } from "effect"
+import { Context, Crypto, Effect, Layer, Stream } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { buildTemporaryWorktreeBranchName, GitRuntime, gitRuntimeLayer } from "./git-runtime.ts"
+import { VcsStatusBroadcaster, vcsStatusBroadcasterLayer } from "./vcs-status-broadcaster.ts"
 
 export interface GitPlaneService {
   readonly status: (
     scope: VcsScope,
   ) => Effect.Effect<VcsStatusResult, GitCommandError | ServiceUnavailable>
+  readonly subscribeStatus: (
+    scope: VcsScope,
+  ) => Stream.Stream<VcsStatusStreamEvent, GitCommandError | ServiceUnavailable>
   readonly listRefs: (
     scope: VcsScope,
   ) => Effect.Effect<VcsListRefsResult, GitCommandError | ServiceUnavailable>
@@ -62,22 +67,31 @@ export class GitPlane extends Context.Service<GitPlane, GitPlaneService>()(
 
 const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
   const git = yield* GitRuntime
+  const broadcaster = yield* VcsStatusBroadcaster
   const textGeneration = yield* TextGeneration
   const config = yield* ServerConfig
   const crypto = yield* Crypto.Crypto
   const sql = yield* SqlClient
   const scoped = <A, E>(effect: Effect.Effect<A, E, SqlClient>) =>
     effect.pipe(Effect.provideService(SqlClient, sql))
+  const refreshAfter = <A, E>(cwd: string, effect: Effect.Effect<A, E>) =>
+    effect.pipe(Effect.tap(() => broadcaster.refresh(cwd).pipe(Effect.ignore)))
 
   return GitPlane.of({
     status: (scope) =>
       scoped(resolveWorkspaceCwd(scope).pipe(Effect.flatMap(({ cwd }) => git.status(cwd)))),
+    subscribeStatus: (scope) =>
+      Stream.unwrap(
+        scoped(resolveWorkspaceCwd(scope)).pipe(
+          Effect.map(({ cwd }) => broadcaster.streamStatus(cwd)),
+        ),
+      ),
     listRefs: (scope) =>
       scoped(
         resolveWorkspaceCwd(scope).pipe(
           Effect.flatMap(({ cwd }) =>
             git
-              .status(cwd)
+              .status(cwd, { includePr: false })
               .pipe(
                 Effect.flatMap((status) =>
                   git
@@ -95,31 +109,38 @@ const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
     switchRef: (input) =>
       scoped(
         resolveWorkspaceCwd(input).pipe(
-          Effect.flatMap(({ cwd }) => git.switchRef(cwd, input.refName)),
+          Effect.flatMap(({ cwd }) => refreshAfter(cwd, git.switchRef(cwd, input.refName))),
         ),
       ),
     createRef: (input) =>
       scoped(
         resolveWorkspaceCwd(input).pipe(
-          Effect.flatMap(({ cwd }) => git.createRef(cwd, input.refName, input.switchRef === true)),
+          Effect.flatMap(({ cwd }) =>
+            refreshAfter(cwd, git.createRef(cwd, input.refName, input.switchRef === true)),
+          ),
         ),
       ),
     createWorktree: (input) =>
       scoped(
         Effect.gen(function* () {
-          const { workspaceRoot } = yield* resolveWorkspaceCwd(input)
+          const { cwd, workspaceRoot } = yield* resolveWorkspaceCwd(input)
           const branch =
             input.branch ??
             buildTemporaryWorktreeBranchName(yield* crypto.randomUUIDv4.pipe(Effect.orDie))
-          return yield* git.createWorktree(
-            Object.assign(
-              {
-                cwd: workspaceRoot,
-                worktreesDir: config.worktreesDir,
-                baseBranch: input.baseBranch,
-                branch,
-              },
-              input.startFromOrigin === undefined ? {} : { startFromOrigin: input.startFromOrigin },
+          return yield* refreshAfter(
+            cwd,
+            git.createWorktree(
+              Object.assign(
+                {
+                  cwd: workspaceRoot,
+                  worktreesDir: config.worktreesDir,
+                  baseBranch: input.baseBranch,
+                  branch,
+                },
+                input.startFromOrigin === undefined
+                  ? {}
+                  : { startFromOrigin: input.startFromOrigin },
+              ),
             ),
           )
         }),
@@ -149,16 +170,19 @@ const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
       scoped(
         resolveWorkspaceCwd(input).pipe(
           Effect.flatMap(({ cwd }) =>
-            git.runStackedAction(
-              Object.assign(
-                { cwd, action: input.action },
-                input.commitMessage === undefined ? {} : { commitMessage: input.commitMessage },
-                input.pullRequestTitle === undefined
-                  ? {}
-                  : { pullRequestTitle: input.pullRequestTitle },
-                input.pullRequestBody === undefined
-                  ? {}
-                  : { pullRequestBody: input.pullRequestBody },
+            refreshAfter(
+              cwd,
+              git.runStackedAction(
+                Object.assign(
+                  { cwd, action: input.action },
+                  input.commitMessage === undefined ? {} : { commitMessage: input.commitMessage },
+                  input.pullRequestTitle === undefined
+                    ? {}
+                    : { pullRequestTitle: input.pullRequestTitle },
+                  input.pullRequestBody === undefined
+                    ? {}
+                    : { pullRequestBody: input.pullRequestBody },
+                ),
               ),
             ),
           ),
@@ -178,11 +202,14 @@ const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
       scoped(
         resolveWorkspaceCwd(input).pipe(
           Effect.flatMap(({ cwd }) =>
-            git.publishRepository({
+            refreshAfter(
               cwd,
-              repository: input.repository,
-              visibility: input.visibility,
-            }),
+              git.publishRepository({
+                cwd,
+                repository: input.repository,
+                visibility: input.visibility,
+              }),
+            ),
           ),
         ),
       ),
@@ -190,5 +217,6 @@ const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
 })
 
 export const gitPlaneLayer = Layer.effect(GitPlane, makeGitPlane()).pipe(
-  Layer.provideMerge(gitRuntimeLayer),
+  Layer.provide(vcsStatusBroadcasterLayer),
+  Layer.provide(gitRuntimeLayer),
 )
