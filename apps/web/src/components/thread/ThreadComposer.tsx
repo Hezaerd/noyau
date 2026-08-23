@@ -8,12 +8,14 @@ import {
   serializeComposerMentionPath,
 } from "@noyau/shared/composer-trigger"
 import {
+  ArrowUpIcon,
   ChevronDownIcon,
   GaugeIcon,
   LockIcon,
   LockOpenIcon,
   PenLineIcon,
   SparklesIcon,
+  SquareIcon,
   XIcon,
 } from "lucide-react"
 import {
@@ -530,13 +532,19 @@ export function ThreadComposer({
             </Menu>
 
             <div className="ml-auto flex gap-2">
-              {isRunning ? (
-                <Button type="button" size="sm" variant="outline" onClick={onInterrupt}>
-                  Interrompre
-                </Button>
-              ) : null}
-              <Button type="submit" size="sm" disabled={sendDisabled}>
-                Envoyer
+              <Button
+                type={isRunning ? "button" : "submit"}
+                size="icon-sm"
+                variant={isRunning ? "destructive" : "default"}
+                disabled={isRunning ? false : sendDisabled}
+                aria-label={isRunning ? "Interrompre" : "Envoyer"}
+                onClick={isRunning ? onInterrupt : undefined}
+              >
+                {isRunning ? (
+                  <SquareIcon aria-hidden="true" className="size-3 fill-current" />
+                ) : (
+                  <ArrowUpIcon aria-hidden="true" />
+                )}
               </Button>
             </div>
           </InputGroupAddon>
