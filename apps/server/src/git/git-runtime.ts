@@ -33,7 +33,13 @@ const decodeExistingPullRequest = Schema.decodeUnknownEffect(
   Schema.fromJsonString(ExistingPullRequest),
 )
 
-const WORKTREE_BRANCH_PREFIX = "noyau"
+export const WORKTREE_BRANCH_PREFIX = "noyau"
+// Canonical form is `noyau/<8 hex>`. The matcher also accepts the older
+// `noyau/<uuid>` shape (RFC 4122 v4) so leftover checkouts stay eligible
+// for regeneration.
+const TEMP_WORKTREE_BRANCH_PATTERN = new RegExp(
+  `^${WORKTREE_BRANCH_PREFIX}\\/(?:[0-9a-f]{8}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$`,
+)
 
 export const buildTemporaryWorktreeBranchName = (hex: string): string => {
   const token = hex
@@ -42,6 +48,29 @@ export const buildTemporaryWorktreeBranchName = (hex: string): string => {
     .slice(0, 8)
     .padEnd(8, "0")
   return `${WORKTREE_BRANCH_PREFIX}/${token}`
+}
+
+export const isTemporaryWorktreeBranch = (refName: string): boolean =>
+  TEMP_WORKTREE_BRANCH_PATTERN.test(refName.trim().toLowerCase())
+
+/** Sanitize a model-produced fragment into `noyau/<slug>`. */
+export const buildGeneratedWorktreeBranchName = (raw: string): string => {
+  const normalized = raw
+    .trim()
+    .toLowerCase()
+    .replace(/^refs\/heads\//, "")
+    .replace(/['"`]/g, "")
+  const withoutPrefix = normalized.startsWith(`${WORKTREE_BRANCH_PREFIX}/`)
+    ? normalized.slice(`${WORKTREE_BRANCH_PREFIX}/`.length)
+    : normalized
+  const branchFragment = withoutPrefix
+    .replace(/[^a-z0-9/_-]+/g, "-")
+    .replace(/\/+/g, "/")
+    .replace(/-+/g, "-")
+    .replace(/^[./_-]+|[./_-]+$/g, "")
+    .slice(0, 64)
+    .replace(/[./_-]+$/g, "")
+  return `${WORKTREE_BRANCH_PREFIX}/${branchFragment.length > 0 ? branchFragment : "update"}`
 }
 
 const firstLine = (value: string): string => value.split(/\r?\n/g)[0]?.trim() ?? ""
@@ -153,6 +182,11 @@ export interface GitRuntimeService {
     readonly branch: string
     readonly startFromOrigin?: boolean
   }) => Effect.Effect<VcsCreateWorktreeResult, GitCommandError>
+  readonly renameBranch: (input: {
+    readonly cwd: string
+    readonly oldBranch: string
+    readonly newBranch: string
+  }) => Effect.Effect<{ readonly branch: string }, GitCommandError>
   readonly diffContext: (cwd: string) => Effect.Effect<string, GitCommandError>
   readonly runStackedAction: (input: {
     readonly cwd: string
@@ -488,6 +522,57 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     } satisfies VcsCreateWorktreeResult
   })
 
+  const branchExists = Effect.fn("GitRuntime.branchExists")(function* (
+    cwd: string,
+    refName: string,
+  ) {
+    const result = yield* runGit(
+      "git.show-ref.branch",
+      cwd,
+      ["show-ref", "--verify", "--quiet", `refs/heads/${refName}`],
+      { allowNonZero: true },
+    )
+    return result.code === 0
+  })
+
+  const resolveAvailableBranchName = Effect.fn("GitRuntime.resolveAvailableBranchName")(function* (
+    cwd: string,
+    desiredBranch: string,
+  ) {
+    if (!(yield* branchExists(cwd, desiredBranch))) {
+      return desiredBranch
+    }
+    for (let suffix = 2; suffix <= 100; suffix += 1) {
+      const candidate = `${desiredBranch}-${suffix}`
+      if (!(yield* branchExists(cwd, candidate))) {
+        return candidate
+      }
+    }
+    return yield* new GitCommandError({
+      operation: "git.branch.rename",
+      detail: `Could not find an available branch name for '${desiredBranch}'.`,
+    })
+  })
+
+  const renameBranch = Effect.fn("GitRuntime.renameBranch")(function* (input: {
+    readonly cwd: string
+    readonly oldBranch: string
+    readonly newBranch: string
+  }) {
+    if (input.oldBranch === input.newBranch) {
+      return { branch: input.newBranch }
+    }
+    const targetBranch = yield* resolveAvailableBranchName(input.cwd, input.newBranch)
+    yield* runGit("git.branch.rename", input.cwd, [
+      "branch",
+      "-m",
+      "--",
+      input.oldBranch,
+      targetBranch,
+    ])
+    return { branch: targetBranch }
+  })
+
   const diffContext = Effect.fn("GitRuntime.diffContext")(function* (cwd: string) {
     const [stat, diff, log] = yield* Effect.all(
       [
@@ -663,6 +748,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     switchRef: (cwd, refName) => enclose(switchRef(cwd, refName)),
     createRef: (cwd, refName, shouldSwitch) => enclose(createRef(cwd, refName, shouldSwitch)),
     createWorktree: (input) => enclose(createWorktree(input)),
+    renameBranch: (input) => enclose(renameBranch(input)),
     diffContext: (cwd) => enclose(diffContext(cwd)),
     runStackedAction: (input) => enclose(runStackedAction(input)),
     githubAccount: (cwd) => enclose(githubAccount(cwd)),

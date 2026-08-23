@@ -111,6 +111,7 @@ import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { TextGeneration } from "./text-generation/text-generation.ts"
 import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
+import { makeWorktreeBranchReactor } from "./text-generation/worktree-branch-reactor.ts"
 import { searchWorkspacePathsInRoot } from "./workspace-path-search.ts"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root.ts"
 
@@ -684,6 +685,12 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         Effect.provideService(TextGeneration, textGeneration),
         Effect.provideService(SqlClient, sql),
       )
+      const processWorktreeBranchEvent = yield* makeWorktreeBranchReactor((command) =>
+        dispatchInternal(command),
+      ).pipe(
+        Effect.provideService(TextGeneration, textGeneration),
+        Effect.provideService(SqlClient, sql),
+      )
       const processPresenceEvent = (_event: PersistedEvent<DomainEventType>) =>
         readShellSnapshot(environment).pipe(
           Effect.provideService(SqlClient, sql),
@@ -694,16 +701,23 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         )
       const providerReactor = yield* makeDrainableWorker(processProviderEvent)
       const titleReactor = yield* makeDrainableWorker(processTitleEvent)
+      const worktreeBranchReactor = yield* makeDrainableWorker(processWorktreeBranchEvent)
       const presenceReactor = yield* makeDrainableWorker(processPresenceEvent)
       const reactor = {
         enqueue: (event: PersistedEvent<DomainEventType>) =>
           Effect.andThen(
             providerReactor.enqueue(event),
-            Effect.andThen(titleReactor.enqueue(event), presenceReactor.enqueue(event)),
+            Effect.andThen(
+              titleReactor.enqueue(event),
+              Effect.andThen(worktreeBranchReactor.enqueue(event), presenceReactor.enqueue(event)),
+            ),
           ),
         drain: Effect.andThen(
           providerReactor.drain,
-          Effect.andThen(titleReactor.drain, presenceReactor.drain),
+          Effect.andThen(
+            titleReactor.drain,
+            Effect.andThen(worktreeBranchReactor.drain, presenceReactor.drain),
+          ),
         ),
       }
       const worker = yield* makeCommandWorker({
@@ -1153,6 +1167,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         drainReactors: Effect.gen(function* () {
           yield* worker.drainReactors
           yield* provider.drain
+          yield* worker.drainReactors
           yield* worker.drainReactors
         }),
       })
