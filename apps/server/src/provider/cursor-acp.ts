@@ -30,7 +30,12 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "./provider-port.ts"
-import { deriveToolCallPresentation, type ToolCallPresentation } from "./tool-call-presentation.ts"
+import {
+  deriveToolCallPresentation,
+  mergeToolCallPresentationInput,
+  type ToolCallPresentation,
+  type ToolCallPresentationInput,
+} from "./tool-call-presentation.ts"
 
 const ACP_VERSION = 1 as const
 const CURSOR_AUTH_METHOD = "cursor_login"
@@ -57,6 +62,7 @@ interface ActiveTurn {
   readonly promptSettled: Deferred.Deferred<void>
   readonly pendingApprovals: Map<string, PendingApproval>
   readonly pendingUserInputs: Map<string, Deferred.Deferred<ProviderUserInputAnswers>>
+  readonly toolCalls: Map<string, ToolCallPresentationInput>
   acp?: AcpClient.AcpClient["Service"]
   handle?: ChildProcessSpawner.ChildProcessHandle
   sessionId?: string
@@ -487,6 +493,16 @@ const toolStatus = (status: AcpSchema.ToolCallStatus | null | undefined) => {
   }
 }
 
+const rememberToolCall = (
+  control: ActiveTurn,
+  toolCallId: string,
+  incoming: ToolCallPresentationInput,
+): ToolCallPresentation => {
+  const merged = mergeToolCallPresentationInput(control.toolCalls.get(toolCallId), incoming)
+  control.toolCalls.set(toolCallId, merged)
+  return deriveToolCallPresentation(merged)
+}
+
 const toTranscriptTool = (
   control: ActiveTurn,
   toolCallId: string,
@@ -679,7 +695,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       )
     }
     const requestId = request.toolCall.toolCallId
-    const presentation = deriveToolCallPresentation(request.toolCall)
+    const presentation = rememberToolCall(control, requestId, request.toolCall)
     yield* control.emit({
       _tag: "transcript",
       item: toTranscriptTool(control, requestId, "in_progress", presentation),
@@ -784,7 +800,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       }
       case "tool_call":
       case "tool_call_update": {
-        const presentation = deriveToolCallPresentation(update)
+        const presentation = rememberToolCall(control, update.toolCallId, update)
         yield* control.emit({
           _tag: "transcript",
           item: toTranscriptTool(
@@ -1114,6 +1130,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       promptSettled,
       pendingApprovals: new Map(),
       pendingUserInputs: new Map(),
+      toolCalls: new Map(),
       promptStarted: false,
       cancelRequested: false,
       stopRequested: false,

@@ -197,11 +197,27 @@ const emitLiveUpdates = () => {
     update: {
       sessionUpdate: "tool_call_update",
       toolCallId: "fake-tool-1",
-      title: "Inspect files",
-      kind: "search",
       status: "completed",
-      rawInput: { query: "mentions légales" },
       rawOutput: { content: '---\\nimport PageHero from \\"../components/PageHero.astro\\"\\n' },
+    },
+  })
+  notify("session/update", {
+    sessionId: activeSessionId,
+    update: {
+      sessionUpdate: "tool_call",
+      toolCallId: "fake-tool-2",
+      title: "Cursor tool",
+      status: "in_progress",
+    },
+  })
+  notify("session/update", {
+    sessionId: activeSessionId,
+    update: {
+      sessionUpdate: "tool_call_update",
+      toolCallId: "fake-tool-2",
+      kind: "read",
+      locations: [{ path: "src/pages/mentions-legales.astro" }],
+      status: "completed",
     },
   })
 }

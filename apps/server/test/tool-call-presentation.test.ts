@@ -1,4 +1,7 @@
-import { deriveToolCallPresentation } from "@noyau/server/provider/tool-call-presentation"
+import {
+  deriveToolCallPresentation,
+  mergeToolCallPresentationInput,
+} from "@noyau/server/provider/tool-call-presentation"
 import { describe, expect, it } from "vite-plus/test"
 
 describe("deriveToolCallPresentation", () => {
@@ -155,6 +158,54 @@ describe("deriveToolCallPresentation", () => {
     expect(deriveToolCallPresentation({ kind: "think" })).toEqual({
       action: "think",
       name: "Thinking",
+    })
+  })
+
+  it("uses a provider-agnostic fallback when nothing classifies the tool", () => {
+    expect(deriveToolCallPresentation({ title: "Cursor tool" })).toEqual({
+      action: "other",
+      name: "Tool",
+    })
+  })
+
+  it("keeps the classified snapshot across a status-only ACP patch", () => {
+    const started = {
+      title: "Read File",
+      kind: "read",
+      locations: [{ path: "src/index.ts" }],
+    }
+    expect(deriveToolCallPresentation(mergeToolCallPresentationInput(started, {}))).toEqual({
+      action: "read",
+      name: "Read file",
+      outputSummary: "src/index.ts",
+    })
+  })
+
+  it("classifies a later kind patch after a generic Cursor title", () => {
+    expect(
+      deriveToolCallPresentation(
+        mergeToolCallPresentationInput(
+          { title: "Cursor tool" },
+          { kind: "read", locations: [{ path: "src/index.ts" }] },
+        ),
+      ),
+    ).toEqual({
+      action: "read",
+      name: "Read file",
+      outputSummary: "src/index.ts",
+    })
+  })
+
+  it("ignores null ACP patch fields instead of wiping the snapshot", () => {
+    expect(
+      mergeToolCallPresentationInput(
+        { title: "Read File", kind: "read", locations: [{ path: "src/index.ts" }] },
+        { title: null, kind: null, locations: null },
+      ),
+    ).toEqual({
+      title: "Read File",
+      kind: "read",
+      locations: [{ path: "src/index.ts" }],
     })
   })
 
