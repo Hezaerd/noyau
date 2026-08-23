@@ -41,6 +41,12 @@ export const checkoutOf = (thread: CheckoutThread) => ({
   worktreePath: threadWorktreePathOf(thread),
 })
 
+/** Snapshot du Thread, sinon HEAD live du cwd (local = WorkspaceRoot). */
+export const resolveSidebarCheckoutBranch = (input: {
+  readonly threadBranch: string | null
+  readonly liveBranch: string | null
+}): string | null => input.threadBranch ?? input.liveBranch
+
 /** Checkout déjà bindé : `worktreePath === null` signifie WorkspaceRoot. */
 export const envModeOf = (thread: CheckoutThread): ThreadEnvMode =>
   threadWorktreePathOf(thread) === null ? "local" : "worktree"

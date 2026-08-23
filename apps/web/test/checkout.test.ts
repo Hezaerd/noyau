@@ -17,6 +17,7 @@ import {
   resolveEnvModeTriggerLabel,
   resolveLocalCheckoutBranchMismatch,
   resolvePrepareWorktree,
+  resolveSidebarCheckoutBranch,
   resolveWorktreeBaseBranch,
 } from "../src/lib/checkout"
 
@@ -240,5 +241,13 @@ describe("checkout helpers", () => {
         worktreePath: null,
       }),
     ).toBeNull()
+  })
+
+  it("affiche le snapshot du Thread, sinon le HEAD live", () => {
+    expect(resolveSidebarCheckoutBranch({ threadBranch: "feat/bound", liveBranch: "main" })).toBe(
+      "feat/bound",
+    )
+    expect(resolveSidebarCheckoutBranch({ threadBranch: null, liveBranch: "main" })).toBe("main")
+    expect(resolveSidebarCheckoutBranch({ threadBranch: null, liveBranch: null })).toBeNull()
   })
 })

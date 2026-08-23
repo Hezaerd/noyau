@@ -71,7 +71,11 @@ const pullRequest = {
   state: "open" as const,
 }
 
-const renderItem = (thread: ThreadShellType, pr: typeof pullRequest | null = null) =>
+const renderItem = (
+  thread: ThreadShellType,
+  pr: typeof pullRequest | null = null,
+  liveBranch: string | null = null,
+) =>
   render(
     <TooltipProvider>
       <SidebarProvider>
@@ -83,6 +87,7 @@ const renderItem = (thread: ThreadShellType, pr: typeof pullRequest | null = nul
             workspaceRoot,
           }}
           pullRequest={pr}
+          liveBranch={liveBranch}
           isActive={false}
           onSelect={vi.fn()}
         />
@@ -123,12 +128,14 @@ describe("thread sidebar item layout", () => {
     expect(screen.getByRole("link", { name: "Align worktree checkout" })).toBeTruthy()
   })
 
-  it("stays on one line when the Checkout and PR are absent", () => {
+  it("reserves the checkout row when the Checkout and PR are absent", () => {
     renderItem(makeThread({ title: "Statut visuel des turns" }))
 
     expect(screen.getByText("Statut visuel des turns")).toBeTruthy()
+    expect(document.querySelector("[data-slot=thread-sidebar-checkout]")).not.toBeNull()
     expect(screen.queryByRole("status")).toBeNull()
     expect(screen.queryByLabelText("Worktree")).toBeNull()
+    expect(screen.queryByLabelText("Branche")).toBeNull()
     expect(screen.queryByRole("link", { name: /PR #/ })).toBeNull()
   })
 
@@ -136,6 +143,15 @@ describe("thread sidebar item layout", () => {
     renderItem(makeThread({ branch: "feat/local-checkout", worktreePath: null }))
 
     expect(screen.getByText("feat/local-checkout")).toBeTruthy()
+    expect(screen.getByLabelText("Branche")).toBeTruthy()
+    expect(screen.queryByLabelText("Worktree")).toBeNull()
+  })
+
+  it("falls back to the live WorkspaceRoot branch when the Checkout is unbound", () => {
+    renderItem(makeThread({ title: "Statut visuel des turns" }), null, "main")
+
+    expect(screen.getByText("main")).toBeTruthy()
+    expect(screen.getByLabelText("Branche")).toBeTruthy()
     expect(screen.queryByLabelText("Worktree")).toBeNull()
   })
 

@@ -34,6 +34,7 @@ export function ThreadSidebarPopover({
   thread,
   project,
   pullRequest,
+  branch,
 }: {
   readonly thread: Pick<
     ThreadShell,
@@ -41,11 +42,12 @@ export function ThreadSidebarPopover({
   >
   readonly project: Pick<ProjectShell, "name"> & { readonly workspaceRoot: string }
   readonly pullRequest: VcsStatusPullRequest | null
+  readonly branch?: string | null
 }) {
   const rows = threadSidebarPopoverRows({
     projectName: project.name,
     workspaceRoot: project.workspaceRoot,
-    branch: threadBranchOf(thread),
+    branch: branch !== undefined ? branch : threadBranchOf(thread),
     provider: thread.provider,
     runtimeMode: thread.runtimeMode,
     sessionStatus: thread.sessionStatus,
