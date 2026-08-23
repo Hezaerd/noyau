@@ -148,6 +148,7 @@ describe("rendered Thread UI evidence", () => {
       screen.getByRole("textbox", { name: "Composer un message" }).getAttribute("aria-disabled"),
     ).toBe("true")
     expect(screen.getByRole("button", { name: "Envoyer" }).hasAttribute("disabled")).toBe(true)
+    expect(screen.queryByRole("button", { name: "Interrompre" })).toBeNull()
     const composer = screen.getByRole("textbox", { name: "Composer un message" }).closest("form")
     expect(composer?.className).toMatch(/sticky/)
     expect(composer?.className).toMatch(/bottom-0/)
@@ -190,11 +191,46 @@ describe("rendered Thread UI evidence", () => {
     const composerControl = screen.getByRole("textbox", { name: "Composer un message" })
     expect(composerControl.hasAttribute("disabled")).toBe(false)
     expect(screen.getByRole("button", { name: "Envoyer" }).hasAttribute("disabled")).toBe(true)
+    expect(screen.queryByRole("button", { name: "Interrompre" })).toBeNull()
     const composerGroup = composerControl.closest('[data-slot="input-group"]')
     expect(composerGroup?.className).toMatch(
       /has-\[\[data-slot=input-group-control\]:disabled\]:opacity-50/,
     )
     expect(composerGroup?.className).not.toMatch(/(?:^|\s)has-disabled:/)
+  })
+
+  it("replaces send with interrupt while a Turn is running", () => {
+    const onInterrupt = vi.fn()
+    const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+    })
+    render(
+      <ThreadComposer
+        isRunning
+        disabled={false}
+        text="Lancer les tests"
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        error={undefined}
+        onSubmit={onSubmit}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        images={[]}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onImageRemove={vi.fn()}
+        onInterrupt={onInterrupt}
+      />,
+    )
+
+    expect(screen.queryByRole("button", { name: "Envoyer" })).toBeNull()
+    const interrupt = screen.getByRole("button", { name: "Interrompre" })
+    expect(interrupt.hasAttribute("disabled")).toBe(false)
+    fireEvent.click(interrupt)
+    expect(onInterrupt).toHaveBeenCalledOnce()
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it("does not offer a file-picker button for images", () => {
