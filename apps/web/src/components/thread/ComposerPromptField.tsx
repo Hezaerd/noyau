@@ -61,6 +61,7 @@ export function ComposerPromptField({
   const pendingCaret = useRef<number | null>(null)
   const painted = useRef(false)
   const composing = useRef(false)
+  const didAutoFocus = useRef(false)
 
   const onCursorChangeRef = useRef(onCursorChange)
   onCursorChangeRef.current = onCursorChange
@@ -152,10 +153,12 @@ export function ComposerPromptField({
   }, [text])
 
   useEffect(() => {
-    if (autoFocus) {
-      editorRef.current?.focus()
+    if (!autoFocus || disabled || didAutoFocus.current) {
+      return
     }
-  }, [autoFocus])
+    didAutoFocus.current = true
+    editorRef.current?.focus()
+  }, [autoFocus, disabled])
 
   return (
     <span className="relative inline-flex w-full flex-1 before:hidden">

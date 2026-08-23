@@ -489,10 +489,12 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     setEnvMode(mode)
     setStartFromOrigin(mode === "worktree")
   }
+  const awaitingThread = threadId !== undefined && snapshot?.thread.id !== threadId
   const composer = (
     <ThreadComposer
+      key={threadId ?? "new"}
       isRunning={isRunning}
-      disabled={loading || project?.available !== true || !cursorReady}
+      disabled={awaitingThread || project?.available !== true || !cursorReady}
       text={text}
       images={images}
       runtimeMode={runtimeMode}

@@ -264,6 +264,79 @@ describe("rendered Thread UI evidence", () => {
     expect(composerGroup?.className).not.toMatch(/(?:^|\s)has-disabled:/)
   })
 
+  it("auto-focuses the docked composer once it is enabled", () => {
+    const composerProps = {
+      isRunning: false,
+      text: "",
+      runtimeMode: "full-access",
+      models: cursorModels,
+      modelSelection: null,
+      error: undefined,
+      onSubmit: vi.fn(),
+      onTextChange: vi.fn(),
+      onRuntimeModeChange: vi.fn(),
+      onModelSelectionChange: vi.fn(),
+      images: [],
+      onPaste: vi.fn(),
+      onDrop: vi.fn(),
+      onImageRemove: vi.fn(),
+      onInterrupt: vi.fn(),
+    } as const
+    const { rerender } = render(<ThreadComposer {...composerProps} disabled />)
+
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("textbox", { name: "Composer un message" }),
+    )
+
+    rerender(<ThreadComposer {...composerProps} disabled={false} />)
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("textbox", { name: "Composer un message" }),
+    )
+  })
+
+  it("refocuses the composer after a remount and does not steal focus on later re-enable", () => {
+    const composerProps = {
+      isRunning: false,
+      disabled: false,
+      text: "",
+      runtimeMode: "full-access",
+      models: cursorModels,
+      modelSelection: null,
+      error: undefined,
+      onSubmit: vi.fn(),
+      onTextChange: vi.fn(),
+      onRuntimeModeChange: vi.fn(),
+      onModelSelectionChange: vi.fn(),
+      images: [],
+      onPaste: vi.fn(),
+      onDrop: vi.fn(),
+      onImageRemove: vi.fn(),
+      onInterrupt: vi.fn(),
+    } as const
+    const { rerender } = render(<ThreadComposer key="thread-a" {...composerProps} />)
+    expect(document.activeElement).toBe(
+      screen.getByRole("textbox", { name: "Composer un message" }),
+    )
+
+    rerender(<ThreadComposer key="thread-b" {...composerProps} />)
+    expect(document.activeElement).toBe(
+      screen.getByRole("textbox", { name: "Composer un message" }),
+    )
+
+    document.body.tabIndex = -1
+    document.body.focus()
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("textbox", { name: "Composer un message" }),
+    )
+
+    rerender(<ThreadComposer key="thread-b" {...composerProps} disabled />)
+    rerender(<ThreadComposer key="thread-b" {...composerProps} disabled={false} />)
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("textbox", { name: "Composer un message" }),
+    )
+  })
+
   it("replaces send with interrupt while a Turn is running", () => {
     const onInterrupt = vi.fn()
     const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => {

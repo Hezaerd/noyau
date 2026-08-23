@@ -314,7 +314,7 @@ export function ThreadComposer({
               ref={fieldRef}
               text={text}
               disabled={controlsDisabled}
-              autoFocus={placement === "hero"}
+              autoFocus
               pathMenuOpen={pathMenuOpen}
               listboxId={listboxId}
               activeOptionId={
