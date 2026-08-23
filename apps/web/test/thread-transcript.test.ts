@@ -14,9 +14,11 @@ import {
   groupTranscriptRows,
   presentTranscriptTool,
   projectTranscriptItem,
+  summarizeTranscriptToolGroup,
   threadStatusNoticesVisible,
   transcriptRowId,
   transcriptToolCaption,
+  transcriptToolDisplay,
   transcriptToolGroupLabel,
   transcriptToolObject,
   transcriptToolVerb,
@@ -411,7 +413,33 @@ describe("thread transcript projection", () => {
     }
   })
 
-  it("collapses consecutive same-action tools of one Turn", () => {
+  it("infers a read from a Cursor tool fallback that only carries a path", () => {
+    const fallback = decodeTranscript({
+      _tag: "transcript.tool",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      toolCallId: "tool-path",
+      name: "Cursor tool",
+      status: "completed",
+      outputSummary:
+        "/Users/hezaerd/Library/Application Support/Electron/environment/worktrees/noyau/src/index.ts",
+    })
+    expect(fallback._tag).toBe("transcript.tool")
+    if (fallback._tag === "transcript.tool") {
+      expect(presentTranscriptTool(fallback)).toEqual({
+        action: "read",
+        name: "Read file",
+        outputSummary:
+          "/Users/hezaerd/Library/Application Support/Electron/environment/worktrees/noyau/src/index.ts",
+      })
+      expect(transcriptToolDisplay(fallback)).toBe(
+        "/Users/hezaerd/Library/Application Support/Electron/environment/worktrees/noyau/src/index.ts",
+      )
+      expect(transcriptToolVerb(fallback)).toBe("Read")
+    }
+  })
+
+  it("collapses consecutive tools of one Turn, including mixed actions", () => {
     const readOne = decodeTranscript({
       _tag: "transcript.tool",
       threadId: ids.thread,
@@ -462,15 +490,24 @@ describe("thread transcript projection", () => {
     expect(rows).toMatchObject([
       { kind: "item", item: { toolCallId: "tool-1" } },
       { kind: "item", item: { _tag: "transcript.assistant" } },
-      { kind: "tool-group", action: "file_change" },
+      { kind: "tool-group" },
       { kind: "item", item: { toolCallId: "write-next" } },
     ])
     const group = rows[2]
     expect(group?.kind).toBe("tool-group")
     if (group?.kind === "tool-group") {
       expect(group.items).toHaveLength(3)
-      expect(transcriptToolGroupLabel(group.action, group.items.length)).toBe("Changed 3 files")
+      expect(summarizeTranscriptToolGroup(group.items)).toBe("Changed 3 files")
     }
+
+    const mixed = groupTranscriptRows([readOne, ...writeItems])
+    expect(mixed).toMatchObject([{ kind: "tool-group" }])
+    const mixedGroup = mixed[0]
+    expect(mixedGroup?.kind).toBe("tool-group")
+    if (mixedGroup?.kind === "tool-group") {
+      expect(summarizeTranscriptToolGroup(mixedGroup.items)).toBe("Read 1 file and changed 3 files")
+    }
+    expect(transcriptToolGroupLabel("other", 18)).toBe("Used 18 tools")
   })
 
   it("shows Session lastError and hides the interrupted notice otherwise", () => {

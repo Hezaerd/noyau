@@ -234,6 +234,7 @@ const inferActionFromPayload = (
   command: string | undefined,
   query: string | undefined,
   rawContent: string | undefined,
+  primaryPath: string | undefined,
 ): TranscriptToolAction | undefined => {
   if (command !== undefined) {
     return "command"
@@ -243,6 +244,9 @@ const inferActionFromPayload = (
   }
   if (rawContent !== undefined) {
     return "file_change"
+  }
+  if (primaryPath !== undefined) {
+    return "read"
   }
   return undefined
 }
@@ -335,7 +339,9 @@ export const deriveToolCallPresentation = (
   const query = extractQuery(rawInput)
   const classified = classifyAction(kind, title)
   const inferred =
-    classified === "other" ? inferActionFromPayload(command, query, rawContent) : undefined
+    classified === "other"
+      ? inferActionFromPayload(command, query, rawContent, primaryPath)
+      : undefined
   const action = inferred ?? classified
   const wrote = isWriteLabel(kind, title) || (classified === "other" && rawContent !== undefined)
   const nameFallback = usableTitle(title) ?? kind ?? FALLBACK_NAME

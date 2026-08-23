@@ -30,7 +30,7 @@ export function ThreadTranscriptItem({
   readonly onRespondUserInput: (requestId: string) => void
 }) {
   if (item._tag === "transcript.tool") {
-    return <ThreadTranscriptTool item={item} />
+    return <ThreadTranscriptTool item={item} workspaceRoot={workspaceRoot} />
   }
 
   if (item._tag === "transcript.user") {

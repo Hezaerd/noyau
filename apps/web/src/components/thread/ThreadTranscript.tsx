@@ -26,6 +26,7 @@ export function ThreadTranscript({
   error,
   notices,
   workspaceRoot,
+  cwd,
   projectId,
   answerByRequest,
   onAnswerChange,
@@ -38,6 +39,7 @@ export function ThreadTranscript({
   readonly error: ReactNode
   readonly notices: ReactNode
   readonly workspaceRoot?: string | undefined
+  readonly cwd?: string | undefined
   readonly projectId?: ProjectId | undefined
   readonly answerByRequest: Record<string, string>
   readonly onAnswerChange: (requestId: string, value: string) => void
@@ -46,7 +48,8 @@ export function ThreadTranscript({
 }) {
   const lastItem = transcript.at(-1)
   const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
-  const showWaitingMarker = isRunning && lastAssistant === undefined
+  const lastToolLive = lastItem?._tag === "transcript.tool" && lastItem.status === "in_progress"
+  const showWaitingMarker = isRunning && lastAssistant === undefined && !lastToolLive
   const minimapItems = useMemo(() => deriveTurnMinimapItems(transcript), [transcript])
 
   return (
@@ -75,7 +78,10 @@ export function ThreadTranscript({
                   key={transcriptGroupRowId(row.items)}
                   messageId={transcriptGroupRowId(row.items)}
                 >
-                  <ThreadTranscriptToolGroup action={row.action} items={row.items} />
+                  <ThreadTranscriptToolGroup
+                    items={row.items}
+                    workspaceRoot={cwd ?? workspaceRoot}
+                  />
                 </MessageScrollerItem>
               ) : (
                 <MessageScrollerItem
@@ -86,7 +92,9 @@ export function ThreadTranscript({
                   <ThreadTranscriptItem
                     item={row.item}
                     streaming={isRunning && row.item === lastAssistant}
-                    workspaceRoot={workspaceRoot}
+                    workspaceRoot={
+                      row.item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
+                    }
                     projectId={projectId}
                     answer={
                       row.item._tag === "transcript.user-input"

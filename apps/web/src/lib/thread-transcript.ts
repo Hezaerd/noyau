@@ -113,6 +113,8 @@ export const transcriptLabel = (item: TranscriptItem): string => {
   }
 }
 
+const GENERIC_TOOL_NAMES = new Set(["cursor tool", "tool call", "tool"])
+
 const actionFromName = (name: string): TranscriptToolAction | undefined => {
   switch (name) {
     case "ran command":
@@ -149,11 +151,30 @@ const looksLikeJsonDump = (value: string): boolean => {
   )
 }
 
+export const looksLikeToolPath = (value: string): boolean => {
+  const trimmed = value.trim()
+  if (trimmed.length === 0 || looksLikeJsonDump(trimmed)) {
+    return false
+  }
+  return (
+    trimmed.includes("/") ||
+    trimmed.includes("\\") ||
+    trimmed.startsWith(".") ||
+    /\.(?:[a-z0-9]{1,12})$/iu.test(trimmed)
+  )
+}
+
+const isGenericToolName = (name: string): boolean => GENERIC_TOOL_NAMES.has(name.toLowerCase())
+
 export const presentTranscriptTool = (item: TranscriptTool): PresentedTranscriptTool => {
   const dump = item.outputSummary !== undefined && looksLikeJsonDump(item.outputSummary)
-  const name = item.name.toLowerCase() === "cursor tool" && dump ? "Wrote file" : item.name
+  const pathLike = item.outputSummary !== undefined && looksLikeToolPath(item.outputSummary)
+  const generic = isGenericToolName(item.name)
+  const name = generic && dump ? "Wrote file" : generic && pathLike ? "Read file" : item.name
   const action =
-    item.action ?? actionFromName(name.toLowerCase()) ?? (dump ? "file_change" : "other")
+    item.action ??
+    actionFromName(name.toLowerCase()) ??
+    (dump ? "file_change" : pathLike && generic ? "read" : "other")
   if (dump || item.outputSummary === undefined) {
     return { action, name }
   }
@@ -176,7 +197,7 @@ export const transcriptToolVerb = (item: TranscriptTool): string => {
     case "think":
       return "Thinking"
     case "other":
-      return presented.name
+      return isGenericToolName(presented.name) ? "Used tool" : presented.name
   }
 }
 
@@ -188,6 +209,36 @@ export const transcriptToolCaption = (item: TranscriptTool): string => {
   return presented.outputSummary === undefined
     ? presented.name
     : `${presented.name} · ${presented.outputSummary}`
+}
+
+export const transcriptToolHeading = (item: TranscriptTool): string =>
+  presentTranscriptTool(item).name
+
+export const transcriptToolPreview = (item: TranscriptTool): string | undefined =>
+  presentTranscriptTool(item).outputSummary
+
+export const commandProgramName = (command: string): string | undefined => {
+  const tokens = command.trim().split(/\s+/u)
+  const first = tokens.find((token) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(token))
+  const program = first?.split(/[\\/]/u).at(-1)?.trim()
+  return program === undefined || program.length === 0 ? undefined : program
+}
+
+export const transcriptToolLiveLabel = (item: TranscriptTool): string => {
+  const presented = presentTranscriptTool(item)
+  if (presented.action === "command") {
+    const program =
+      presented.outputSummary === undefined
+        ? undefined
+        : commandProgramName(presented.outputSummary)
+    return program === undefined ? "Running command" : `Running ${program}`
+  }
+  return presented.outputSummary ?? presented.name
+}
+
+export const transcriptToolDisplay = (item: TranscriptTool): string => {
+  const presented = presentTranscriptTool(item)
+  return presented.outputSummary ?? presented.name
 }
 
 export const transcriptToolGroupLabel = (action: TranscriptToolAction, count: number): string => {
@@ -205,15 +256,72 @@ export const transcriptToolGroupLabel = (action: TranscriptToolAction, count: nu
     case "think":
       return count === 1 ? "1 thought" : `${count} thoughts`
     case "other":
-      return count === 1 ? "1 tool call" : `${count} tool calls`
+      return count === 1 ? "Used 1 tool" : `Used ${count} tools`
   }
+}
+
+const toolGroupActionCount = (
+  action: TranscriptToolAction,
+  items: ReadonlyArray<TranscriptTool>,
+): number => {
+  if (action !== "file_change") {
+    return items.length
+  }
+  const paths = new Set<string>()
+  let withoutPath = 0
+  for (const item of items) {
+    const path = presentTranscriptTool(item).outputSummary
+    if (path === undefined) {
+      withoutPath += 1
+      continue
+    }
+    paths.add(path)
+  }
+  return paths.size + withoutPath
+}
+
+export const summarizeTranscriptToolGroup = (items: ReadonlyArray<TranscriptTool>): string => {
+  const grouped = new Map<TranscriptToolAction, Array<TranscriptTool>>()
+  for (const item of items) {
+    const action = presentTranscriptTool(item).action
+    const group = grouped.get(action)
+    if (group === undefined) {
+      grouped.set(action, [item])
+    } else {
+      group.push(item)
+    }
+  }
+  const labels = [...grouped].map(([action, actionItems]) =>
+    transcriptToolGroupLabel(action, toolGroupActionCount(action, actionItems)),
+  )
+  const sentenceLabels = labels.map((label, index) =>
+    index === 0 ? label : `${label.charAt(0).toLowerCase()}${label.slice(1)}`,
+  )
+  if (sentenceLabels.length < 2) {
+    return sentenceLabels[0] ?? "Used 1 tool"
+  }
+  if (sentenceLabels.length === 2) {
+    return sentenceLabels.join(" and ")
+  }
+  return `${sentenceLabels.slice(0, -1).join(", ")}, and ${sentenceLabels.at(-1)}`
+}
+
+export type TranscriptToolGroupKind = TranscriptToolAction | "mixed"
+
+export const transcriptToolGroupKind = (
+  items: ReadonlyArray<TranscriptTool>,
+): TranscriptToolGroupKind => {
+  const actions = new Set(items.map((item) => presentTranscriptTool(item).action))
+  if (actions.size !== 1) {
+    return "mixed"
+  }
+  return actions.values().next().value ?? "other"
 }
 
 export type TranscriptRow =
   | { readonly kind: "item"; readonly item: TranscriptItem; readonly index: number }
   | {
       readonly kind: "tool-group"
-      readonly action: TranscriptToolAction
       readonly items: ReadonlyArray<TranscriptTool>
       readonly startIndex: number
     }
@@ -232,25 +340,19 @@ export const groupTranscriptRows = (
       index += 1
       continue
     }
-    const action = presentTranscriptTool(item).action
     const items: Array<TranscriptTool> = [item]
     const startIndex = index
     index += 1
     while (index < transcript.length) {
       const next = transcript[index]
-      if (
-        next === undefined ||
-        next._tag !== "transcript.tool" ||
-        next.turnId !== item.turnId ||
-        presentTranscriptTool(next).action !== action
-      ) {
+      if (next === undefined || next._tag !== "transcript.tool" || next.turnId !== item.turnId) {
         break
       }
       items.push(next)
       index += 1
     }
     if (items.length >= 2) {
-      rows.push({ kind: "tool-group", action, items, startIndex })
+      rows.push({ kind: "tool-group", items, startIndex })
     } else {
       rows.push({ kind: "item", item, index: startIndex })
     }
@@ -263,7 +365,7 @@ export const transcriptGroupRowId = (items: ReadonlyArray<TranscriptTool>): stri
   if (first === undefined) {
     return "transcript.tool-group"
   }
-  return `transcript.tool-group:${first.turnId}:${presentTranscriptTool(first).action}:${first.toolCallId}`
+  return `transcript.tool-group:${first.turnId}:${first.toolCallId}`
 }
 
 /**
