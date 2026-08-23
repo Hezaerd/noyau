@@ -1,7 +1,8 @@
+import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
 import type { VcsStatusPullRequest } from "@noyau/protocol/git"
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { MessageCircleIcon, PencilIcon, Trash2Icon } from "lucide-react"
+import { FolderGit2Icon, MessageCircleIcon, PencilIcon, Trash2Icon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { ThreadArchiveConfirmDialog } from "@/components/sidebar/ThreadArchiveConfirmDialog"
@@ -21,7 +22,11 @@ import { useThreadVisits } from "@/hooks/use-thread-visits"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
-import { resolveThreadActivity, resolveWorkingStartedAtMs } from "@/lib/thread-activity"
+import {
+  resolveThreadActivity,
+  resolveWorkingStartedAtMs,
+  type ThreadActivity,
+} from "@/lib/thread-activity"
 import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 
 export function ThreadSidebarItem({
@@ -161,6 +166,7 @@ export function ThreadSidebarItem({
               />
             }
             isActive={isActive}
+            aria-label={thread.title}
             tooltip={{
               hidden: menuOpen,
               side: "right",
@@ -172,16 +178,17 @@ export function ThreadSidebarItem({
                 <ThreadSidebarPopover project={project} thread={thread} pullRequest={pullRequest} />
               ),
             }}
-            className="h-8 pl-8 text-sidebar-foreground/58"
+            className="h-auto min-h-8 items-start py-1.5 pl-8 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
           >
-            <MessageCircleIcon />
-            <span className="flex min-w-0 flex-1 items-center gap-1.5">
-              <span className="min-w-0 flex-1 truncate">{thread.title}</span>
-              {activity === null ? null : (
-                <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
-              )}
-              {pullRequest === null ? null : <ThreadPullRequestBadge pr={pullRequest} compact />}
-            </span>
+            <MessageCircleIcon className="mt-0.5" />
+            <ThreadSidebarItemContent
+              title={thread.title}
+              branch={threadBranchOf(thread)}
+              worktreePath={threadWorktreePathOf(thread)}
+              activity={activity}
+              workingStartedAtMs={workingStartedAtMs}
+              pullRequest={pullRequest}
+            />
           </SidebarMenuButton>
         </ContextMenuTrigger>
         <ContextMenuPopup align="start" className="w-44">
@@ -212,5 +219,48 @@ export function ThreadSidebarItem({
         onConfirm={archiveThread}
       />
     </>
+  )
+}
+
+function ThreadSidebarItemContent({
+  title,
+  branch,
+  worktreePath,
+  activity,
+  workingStartedAtMs,
+  pullRequest,
+}: {
+  readonly title: string
+  readonly branch: string | null
+  readonly worktreePath: string | null
+  readonly activity: ThreadActivity | null
+  readonly workingStartedAtMs: number | null
+  readonly pullRequest: VcsStatusPullRequest | null
+}) {
+  const hasCheckoutMeta = branch !== null || pullRequest !== null
+  return (
+    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        {activity === null ? null : (
+          <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
+        )}
+      </span>
+      {hasCheckoutMeta ? (
+        <span className="flex min-w-0 items-center gap-1.5 text-xs text-sidebar-foreground/45">
+          {branch === null ? (
+            <span className="flex-1" />
+          ) : (
+            <>
+              {worktreePath === null ? null : (
+                <FolderGit2Icon aria-label="Worktree" className="size-3 shrink-0 opacity-70" />
+              )}
+              <span className="min-w-0 flex-1 truncate whitespace-nowrap">{branch}</span>
+            </>
+          )}
+          {pullRequest === null ? null : <ThreadPullRequestBadge pr={pullRequest} compact />}
+        </span>
+      ) : null}
+    </span>
   )
 }

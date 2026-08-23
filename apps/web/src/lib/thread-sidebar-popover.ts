@@ -9,6 +9,7 @@ import { pullRequestStateLabel } from "./vcs-status"
 export type ThreadSidebarPopoverRowKind =
   | "project"
   | "workspace"
+  | "branch"
   | "provider"
   | "runtimeMode"
   | "pullRequest"
@@ -64,6 +65,7 @@ export const threadStatusLabel = (
 export const threadSidebarPopoverRows = (input: {
   readonly projectName: string
   readonly workspaceRoot: string
+  readonly branch?: string | null
   readonly provider: keyof typeof providerLabels
   readonly runtimeMode: RuntimeMode
   readonly sessionStatus: SessionStatus | null
@@ -76,6 +78,9 @@ export const threadSidebarPopoverRows = (input: {
   const rows: Array<ThreadSidebarPopoverRow> = [{ kind: "project", label: input.projectName }]
   if (folderName !== input.projectName) {
     rows.push({ kind: "workspace", label: folderName })
+  }
+  if (input.branch != null && input.branch !== "") {
+    rows.push({ kind: "branch", label: input.branch })
   }
   rows.push(
     { kind: "provider", label: providerLabels[input.provider] },
