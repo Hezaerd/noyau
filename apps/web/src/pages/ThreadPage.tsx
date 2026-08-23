@@ -8,6 +8,7 @@ import { DateTime } from "effect"
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type DragEvent,
   type ClipboardEvent,
@@ -28,7 +29,13 @@ import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { invalidInputFailure } from "@/lib/app-failure"
-import { envModeLockedAfterFirstTurn } from "@/lib/checkout"
+import {
+  clearCreatedCheckout,
+  envModeLockedOf,
+  peekCreatedCheckout,
+  rememberCreatedCheckout,
+  resolveEffectiveEnvMode,
+} from "@/lib/checkout"
 import { writeComposerDraft } from "@/lib/composer-drafts"
 import {
   appendComposerImages,
@@ -68,8 +75,10 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const { text, setText, clear: clearDraft } = useComposerDraft(projectId, threadId)
+  const createdThreadIdRef = useRef<ThreadId>(undefined)
   const [envMode, setEnvMode] = useState<ThreadEnvMode>("local")
-  const [baseBranch, setBaseBranch] = useState("main")
+  const [baseBranch, setBaseBranch] = useState<string | null>(null)
+  const [startFromOrigin, setStartFromOrigin] = useState(false)
   const [images, setImages] = useState<ReadonlyArray<ComposerImage>>([])
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
@@ -87,10 +96,28 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
 
   useEffect(() => {
     if (threadId === undefined) {
+      createdThreadIdRef.current = undefined
+      clearCreatedCheckout()
       setSnapshot(undefined)
       setLoading(false)
       setSubscriptionStatus(undefined)
+      setEnvMode("local")
+      setBaseBranch(null)
+      setStartFromOrigin(false)
       return
+    }
+    const pendingCheckout = peekCreatedCheckout(threadId)
+    if (pendingCheckout !== undefined) {
+      createdThreadIdRef.current = threadId
+      setEnvMode(pendingCheckout.envMode)
+      setBaseBranch(pendingCheckout.baseBranch)
+      setStartFromOrigin(pendingCheckout.startFromOrigin)
+    } else if (threadId !== createdThreadIdRef.current) {
+      createdThreadIdRef.current = undefined
+      clearCreatedCheckout()
+      setEnvMode("local")
+      setBaseBranch(null)
+      setStartFromOrigin(false)
     }
     setSnapshot(undefined)
     setLoading(true)
@@ -102,9 +129,16 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         setSnapshot(next)
         setRuntimeMode(next.thread.runtimeMode)
         setModelSelection(next.thread.modelSelection)
-        setEnvMode(threadWorktreePathOf(next.thread) === null ? "local" : "worktree")
+        const boundPath = threadWorktreePathOf(next.thread)
+        if (boundPath !== null) {
+          setEnvMode("worktree")
+          clearCreatedCheckout(next.thread.id)
+        }
         const boundBranch = threadBranchOf(next.thread)
-        if (boundBranch !== null) {
+        if (
+          boundBranch !== null &&
+          (boundPath !== null || createdThreadIdRef.current !== next.thread.id)
+        ) {
           setBaseBranch(boundBranch)
         }
         setLoading(false)
@@ -129,6 +163,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         }
         if (event._tag === "thread.model-selection-set") {
           setModelSelection(event.modelSelection)
+        }
+        if (event._tag === "thread.meta-updated") {
+          if (event.worktreePath !== undefined && event.worktreePath !== null) {
+            setEnvMode("worktree")
+            clearCreatedCheckout(event.threadId)
+          }
+          if (event.branch !== undefined && event.branch !== null) {
+            setBaseBranch(event.branch)
+          }
         }
       },
       onStatus: (status) => {
@@ -190,21 +233,43 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     const submittedImages = images
     const submittedProjectId = projectId
     const submittedThreadId = threadId
+    const snapshotWorktreePath =
+      snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)
+    if (
+      envMode === "worktree" &&
+      snapshotWorktreePath === null &&
+      (baseBranch === null || baseBranch.trim() === "")
+    ) {
+      setComposerFailure(
+        presentFailure(invalidInputFailure("Choisis une branche de base avant d'envoyer."), {
+          operation: "thread.turn.start",
+          scope: "field",
+          initiatedByUser: true,
+          hasUsableData: snapshot !== undefined,
+        }),
+      )
+      return
+    }
     clearDraft()
     setImages([])
     setComposerFailure(undefined)
     setSendStartedAtMs(Date.now())
-    void submitTurnAction({
-      projectId,
-      threadId,
-      prompt,
-      runtimeMode,
-      modelSelection,
-      envMode,
-      baseBranch,
-      worktreePath: snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread),
-      attachments: submittedImages.map((image) => image.upload),
-    }).then((result) => {
+    void submitTurnAction(
+      Object.assign(
+        {
+          projectId,
+          threadId,
+          prompt,
+          runtimeMode,
+          modelSelection,
+          envMode,
+          startFromOrigin,
+          worktreePath: snapshotWorktreePath,
+          attachments: submittedImages.map((image) => image.upload),
+        },
+        baseBranch === null ? {} : { baseBranch },
+      ),
+    ).then((result) => {
       if (result.kind === "composer-error") {
         writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
         setImages(submittedImages)
@@ -234,6 +299,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return undefined
       }
       if (result.kind === "created") {
+        createdThreadIdRef.current = result.threadId
+        rememberCreatedCheckout({
+          threadId: result.threadId,
+          envMode,
+          baseBranch,
+          startFromOrigin,
+        })
         onCreated(result.threadId)
       }
       revokeComposerImages(submittedImages)
@@ -401,6 +473,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     ) : (
       <InlineFailure presentation={transcriptFailure} />
     )
+  const worktreePath = snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)
+  const effectiveEnvMode = resolveEffectiveEnvMode({
+    worktreePath,
+    draftEnvMode: envMode,
+  })
+  const changeEnvMode = (mode: ThreadEnvMode) => {
+    setEnvMode(mode)
+    setStartFromOrigin(mode === "worktree")
+  }
   const composer = (
     <ThreadComposer
       isRunning={isRunning}
@@ -441,16 +522,19 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         <ThreadCheckoutBar
           projectId={projectId}
           threadId={threadId}
-          branch={snapshot === undefined ? null : threadBranchOf(snapshot.thread)}
-          worktreePath={snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)}
+          branch={baseBranch}
+          worktreePath={worktreePath}
           disabled={loading || project?.available !== true}
-          envMode={envMode}
-          envModeLocked={envModeLockedAfterFirstTurn({
+          envMode={effectiveEnvMode}
+          envModeLocked={envModeLockedOf({
+            worktreePath,
             latestTurn: snapshot?.thread.latestTurn,
             isRunning,
           })}
-          onEnvModeChange={setEnvMode}
+          startFromOrigin={startFromOrigin}
+          onEnvModeChange={changeEnvMode}
           onBaseBranchChange={setBaseBranch}
+          onStartFromOriginChange={setStartFromOrigin}
         />
       }
     />

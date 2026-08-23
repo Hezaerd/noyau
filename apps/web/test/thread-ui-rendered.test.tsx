@@ -51,7 +51,11 @@ const cursorModels = [
   },
 ]
 
-const makeThread = (id: ThreadId, title: string): ThreadShellType =>
+const makeThread = (
+  id: ThreadId,
+  title: string,
+  times: { readonly createdAt?: string; readonly updatedAt?: string } = {},
+): ThreadShellType =>
   Schema.decodeSync(ThreadShell)({
     id,
     projectId,
@@ -62,8 +66,8 @@ const makeThread = (id: ThreadId, title: string): ThreadShellType =>
     latestTurn: null,
     sessionStatus: null,
     lastError: null,
-    createdAt: "2026-08-20T00:00:00.000Z",
-    updatedAt: "2026-08-20T00:00:00.000Z",
+    createdAt: times.createdAt ?? "2026-08-20T00:00:00.000Z",
+    updatedAt: times.updatedAt ?? "2026-08-20T00:00:00.000Z",
   })
 
 const ticket: BoardTicket = {
@@ -108,6 +112,47 @@ describe("rendered Thread UI evidence", () => {
       <ThreadSidebarStatus activity={{ kind: "completed", label: "Terminé" }} startedAtMs={null} />,
     )
     expect(screen.getByRole("status").textContent).toBe("Terminé")
+  })
+
+  it("lists newer Threads above older ones", () => {
+    render(
+      <ThreadSidebarSection
+        threads={[
+          makeThread(threadId, "Ancien Thread"),
+          makeThread(secondThreadId, "Nouveau Thread", {
+            createdAt: "2026-08-23T12:00:00.000Z",
+            updatedAt: "2026-08-23T12:00:00.000Z",
+          }),
+        ]}
+        renderThread={(thread) => <a href={`/thread/${thread.id}`}>{thread.title}</a>}
+      />,
+    )
+
+    const links = screen.getAllByRole("link")
+    expect(links.map((link) => link.textContent)).toEqual(["Nouveau Thread", "Ancien Thread"])
+  })
+
+  it("keeps creation order when an older Thread is updated later", () => {
+    render(
+      <ThreadSidebarSection
+        threads={[
+          makeThread(threadId, "Ancien Thread", {
+            createdAt: "2026-08-20T00:00:00.000Z",
+            updatedAt: "2026-08-23T18:00:00.000Z",
+          }),
+          makeThread(secondThreadId, "Nouveau Thread", {
+            createdAt: "2026-08-23T12:00:00.000Z",
+            updatedAt: "2026-08-23T12:00:00.000Z",
+          }),
+        ]}
+        renderThread={(thread) => <a href={`/thread/${thread.id}`}>{thread.title}</a>}
+      />,
+    )
+
+    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Nouveau Thread",
+      "Ancien Thread",
+    ])
   })
 
   it("renders a compact Thread popover with the available shell facts", () => {
@@ -318,6 +363,72 @@ describe("rendered Thread UI evidence", () => {
     expect(thumb?.parentElement?.className).toMatch(/w-full/)
     expect(thumb?.parentElement?.className).toMatch(/justify-start/)
     expect(screen.getByRole("button", { name: "Retirer shot.png" })).toBeTruthy()
+  })
+
+  it("expands a staged composer image and navigates the gallery", () => {
+    const onImageRemove = vi.fn()
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text=""
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        error={undefined}
+        onSubmit={vi.fn()}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        images={[
+          {
+            localId: "img-1",
+            previewUrl: "blob:http://localhost/shot",
+            upload: {
+              type: "image",
+              name: "shot.png",
+              mimeType: "image/png",
+              sizeBytes: 12,
+              dataUrl: "data:image/png;base64,AAAA",
+            },
+          },
+          {
+            localId: "img-2",
+            previewUrl: "blob:http://localhost/diagram",
+            upload: {
+              type: "image",
+              name: "diagram.png",
+              mimeType: "image/png",
+              sizeBytes: 8,
+              dataUrl: "data:image/png;base64,BBBB",
+            },
+          },
+        ]}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onImageRemove={onImageRemove}
+        onInterrupt={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Agrandir shot.png" }))
+    expect(screen.getByRole("dialog", { name: "Aperçu agrandi" })).toBeTruthy()
+    expect(screen.getByRole("img", { name: "shot.png" })).toBeTruthy()
+    expect(screen.getByText("shot.png (1/2)")).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Image suivante" }))
+    expect(screen.getByRole("img", { name: "diagram.png" })).toBeTruthy()
+    expect(screen.getByText("diagram.png (2/2)")).toBeTruthy()
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" })
+    expect(screen.getByRole("img", { name: "shot.png" })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Retirer shot.png" }))
+    expect(onImageRemove).toHaveBeenCalledWith("img-1")
+    expect(screen.getByRole("dialog", { name: "Aperçu agrandi" })).toBeTruthy()
+
+    fireEvent.keyDown(window, { key: "Escape" })
+    expect(screen.queryByRole("dialog", { name: "Aperçu agrandi" })).toBeNull()
   })
 
   it("centers the new-thread composer instead of docking it", () => {

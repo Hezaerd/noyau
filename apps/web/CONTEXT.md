@@ -59,9 +59,11 @@ création / au tour ; plus exposée dans l'en-tête Thread.
 _À éviter_ : permissionMode
 
 **Checkout**:
-Barre du Composer : `local` travaille dans le `WorkspaceRoot` (un `git checkout` y est permis) ;
-`worktree` isole au premier envoi. `branch` affiché = snapshot Thread, HEAD live = `vcs.status`.
-_À éviter_ : rebind du Project, héritage de checkout
+Barre du Composer. `threadEnvMode` est une intention de draft : `Nouveau worktree` isole au
+premier envoi, `Checkout courant` travaille dans le `WorkspaceRoot`. Tant que `worktreePath`
+est `null`, le trigger affiche `Depuis {base}` et ne checkout pas. `startFromOrigin` part de
+`origin/{base}` par défaut. Après bind, `Worktree` ou `Checkout local`.
+_À éviter_ : dériver le mode de `worktreePath === null`, héritage de checkout
 
 **Header actions**:
 Cluster droite du Header de page d'un Thread : Open in et Git actions. Chrome, pas une entité.

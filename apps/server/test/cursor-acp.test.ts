@@ -291,12 +291,24 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
               signal.item.outputSummary === "mentions légales",
           ),
         )
+        assert.isTrue(
+          signals.some(
+            (signal) =>
+              signal._tag === "transcript" &&
+              signal.item._tag === "transcript.tool" &&
+              signal.item.status === "completed" &&
+              signal.item.name === "Read file" &&
+              signal.item.action === "read" &&
+              signal.item.outputSummary === "src/pages/mentions-legales.astro",
+          ),
+        )
         assert.isFalse(
           signals.some(
             (signal) =>
               signal._tag === "transcript" &&
               signal.item._tag === "transcript.tool" &&
-              (signal.item.outputSummary?.includes("PageHero") === true ||
+              (signal.item.name === "Cursor tool" ||
+                signal.item.outputSummary?.includes("PageHero") === true ||
                 signal.item.outputSummary?.includes("{") === true),
           ),
         )
