@@ -1,11 +1,15 @@
 import { Blobatar } from "@blobatar/react"
 import { useRef, type ReactElement } from "react"
 
+import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover"
 import { useBrandGaze } from "@/hooks/use-brand-gaze"
 import { BRAND_BLOBATAR_NAME, brandBlobatarPalette } from "@/lib/brand-blobatar"
-import { desktopBrandName, desktopReleaseChannel } from "@/lib/desktop-bridge"
+import { desktopChannelHint, desktopReleaseChannel } from "@/lib/desktop-bridge"
 import { SIDEBAR_TITLEBAR_INSET_CLASS } from "@/lib/desktop-titlebar"
 import { cn } from "@/lib/utils"
+
+const BRAND_TITLE = "Noyau"
+const brandTitleClassName = "truncate text-sm font-semibold tracking-[-0.02em]"
 
 function BrandBlobatar(): ReactElement {
   const hostRef = useRef<HTMLSpanElement>(null)
@@ -25,6 +29,32 @@ function BrandBlobatar(): ReactElement {
   )
 }
 
+function BrandTitle(): ReactElement {
+  const channelHint = desktopChannelHint()
+
+  if (channelHint === undefined) {
+    return <p className={brandTitleClassName}>{BRAND_TITLE}</p>
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        openOnHover
+        delay={200}
+        className={cn(
+          brandTitleClassName,
+          "block w-full appearance-none border-0 bg-transparent p-0 text-left text-inherit cursor-default",
+        )}
+      >
+        {BRAND_TITLE}
+      </PopoverTrigger>
+      <PopoverPopup side="top" tooltipStyle>
+        {channelHint}
+      </PopoverPopup>
+    </Popover>
+  )
+}
+
 export function SidebarBrandTitlebar(): ReactElement {
   return (
     <div
@@ -36,7 +66,7 @@ export function SidebarBrandTitlebar(): ReactElement {
     >
       <BrandBlobatar />
       <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-        <p className="truncate text-sm font-semibold tracking-[-0.02em]">{desktopBrandName()}</p>
+        <BrandTitle />
       </div>
     </div>
   )

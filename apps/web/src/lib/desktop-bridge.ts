@@ -35,6 +35,19 @@ export const desktopBrandName = (
   channel: DesktopReleaseChannel = desktopReleaseChannel(),
 ): string => releaseBrand(channel).displayName
 
+export const desktopChannelHint = (
+  channel: DesktopReleaseChannel = desktopReleaseChannel(),
+): "dev" | "nightly" | undefined => {
+  switch (channel) {
+    case "development":
+      return "dev"
+    case "nightly":
+      return "nightly"
+    case "latest":
+      return undefined
+  }
+}
+
 interface WindowControlsOverlayLike {
   readonly visible: boolean
   addEventListener(type: "geometrychange", listener: EventListener): void

@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import {
+  desktopChannelHint,
   getDesktopPlatformClassNames,
   isDesktopRuntime,
   syncDocumentDesktopChrome,
@@ -58,6 +59,12 @@ describe("desktop bridge", () => {
     expect(document.documentElement.classList.contains("electron-macos")).toBe(true)
     restore()
     expect(document.documentElement.classList.contains("electron-macos")).toBe(false)
+  })
+
+  it("exposes a short channel hint only outside latest", () => {
+    expect(desktopChannelHint("latest")).toBeUndefined()
+    expect(desktopChannelHint("development")).toBe("dev")
+    expect(desktopChannelHint("nightly")).toBe("nightly")
   })
 
   it("does not tag a regular browser session as Electron", () => {
