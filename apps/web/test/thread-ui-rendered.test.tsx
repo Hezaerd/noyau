@@ -49,7 +49,11 @@ const cursorModels = [
   },
 ]
 
-const makeThread = (id: ThreadId, title: string): ThreadShellType =>
+const makeThread = (
+  id: ThreadId,
+  title: string,
+  times: { readonly createdAt?: string; readonly updatedAt?: string } = {},
+): ThreadShellType =>
   Schema.decodeSync(ThreadShell)({
     id,
     projectId,
@@ -60,8 +64,8 @@ const makeThread = (id: ThreadId, title: string): ThreadShellType =>
     latestTurn: null,
     sessionStatus: null,
     lastError: null,
-    createdAt: "2026-08-20T00:00:00.000Z",
-    updatedAt: "2026-08-20T00:00:00.000Z",
+    createdAt: times.createdAt ?? "2026-08-20T00:00:00.000Z",
+    updatedAt: times.updatedAt ?? "2026-08-20T00:00:00.000Z",
   })
 
 const ticket: BoardTicket = {
@@ -89,6 +93,47 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByText("Threads")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Corriger la reprise" })).toBeTruthy()
     expect(screen.getByRole("link", { name: "Documenter Cursor" })).toBeTruthy()
+  })
+
+  it("lists newer Threads above older ones", () => {
+    render(
+      <ThreadSidebarSection
+        threads={[
+          makeThread(threadId, "Ancien Thread"),
+          makeThread(secondThreadId, "Nouveau Thread", {
+            createdAt: "2026-08-23T12:00:00.000Z",
+            updatedAt: "2026-08-23T12:00:00.000Z",
+          }),
+        ]}
+        renderThread={(thread) => <a href={`/thread/${thread.id}`}>{thread.title}</a>}
+      />,
+    )
+
+    const links = screen.getAllByRole("link")
+    expect(links.map((link) => link.textContent)).toEqual(["Nouveau Thread", "Ancien Thread"])
+  })
+
+  it("keeps creation order when an older Thread is updated later", () => {
+    render(
+      <ThreadSidebarSection
+        threads={[
+          makeThread(threadId, "Ancien Thread", {
+            createdAt: "2026-08-20T00:00:00.000Z",
+            updatedAt: "2026-08-23T18:00:00.000Z",
+          }),
+          makeThread(secondThreadId, "Nouveau Thread", {
+            createdAt: "2026-08-23T12:00:00.000Z",
+            updatedAt: "2026-08-23T12:00:00.000Z",
+          }),
+        ]}
+        renderThread={(thread) => <a href={`/thread/${thread.id}`}>{thread.title}</a>}
+      />,
+    )
+
+    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Nouveau Thread",
+      "Ancien Thread",
+    ])
   })
 
   it("renders a compact Thread popover with the available shell facts", () => {
