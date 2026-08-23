@@ -57,6 +57,22 @@ describe("thread sidebar popover", () => {
     expect(threadStatusLabel("ready", null)).toBeUndefined()
   })
 
+  it("ajoute la branche du Checkout quand elle est connue", () => {
+    expect(
+      threadSidebarPopoverRows({
+        projectName: "noyau",
+        workspaceRoot: "/Users/hezaerd/code/noyau",
+        branch: "feat/thread-sidebar",
+        provider: "cursor",
+        runtimeMode: "full-access",
+        sessionStatus: null,
+        latestTurn: null,
+        lastError: null,
+        pullRequest: null,
+      }).map((row) => row.kind),
+    ).toEqual(["project", "branch", "provider", "runtimeMode"])
+  })
+
   it("ajoute la PR live quand elle est connue", () => {
     expect(
       threadSidebarPopoverRows({

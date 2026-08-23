@@ -1,9 +1,11 @@
+import { threadBranchOf } from "@noyau/protocol/entities/checkout"
 import type { VcsStatusPullRequest } from "@noyau/protocol/git"
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import {
   BoxIcon,
   CircleAlertIcon,
   FolderIcon,
+  GitBranchIcon,
   LayersIcon,
   GitPullRequestIcon,
   LoaderCircleIcon,
@@ -20,6 +22,7 @@ import { cn } from "@/lib/utils"
 const rowIcons = {
   project: <LayersIcon className="size-3 shrink-0 text-sidebar-primary" />,
   workspace: <FolderIcon className="size-3 shrink-0 text-muted-foreground" />,
+  branch: <GitBranchIcon className="size-3 shrink-0 text-muted-foreground" />,
   provider: <BoxIcon className="size-3 shrink-0 text-muted-foreground" />,
   runtimeMode: <ShieldIcon className="size-3 shrink-0 text-muted-foreground" />,
   pullRequest: <GitPullRequestIcon className="size-3 shrink-0 text-muted-foreground" />,
@@ -34,7 +37,7 @@ export function ThreadSidebarPopover({
 }: {
   readonly thread: Pick<
     ThreadShell,
-    "title" | "provider" | "runtimeMode" | "sessionStatus" | "latestTurn" | "lastError"
+    "title" | "branch" | "provider" | "runtimeMode" | "sessionStatus" | "latestTurn" | "lastError"
   >
   readonly project: Pick<ProjectShell, "name"> & { readonly workspaceRoot: string }
   readonly pullRequest: VcsStatusPullRequest | null
@@ -42,6 +45,7 @@ export function ThreadSidebarPopover({
   const rows = threadSidebarPopoverRows({
     projectName: project.name,
     workspaceRoot: project.workspaceRoot,
+    branch: threadBranchOf(thread),
     provider: thread.provider,
     runtimeMode: thread.runtimeMode,
     sessionStatus: thread.sessionStatus,
