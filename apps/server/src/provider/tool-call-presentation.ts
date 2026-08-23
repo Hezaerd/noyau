@@ -1,9 +1,9 @@
 import type { TranscriptToolAction } from "@noyau/protocol/entities/transcript"
 import { Schema } from "effect"
 
-const FALLBACK_NAME = "Cursor tool"
+const FALLBACK_NAME = "Tool"
 const MAX_SUMMARY_LENGTH = 160
-const GENERIC_TITLES = new Set(["terminal", "tool call", "cursor tool"])
+const GENERIC_TITLES = new Set(["terminal", "tool call", "cursor tool", "tool"])
 const WRITE_TITLES = new Set(["write", "write file", "wrote file"])
 
 const CommandParts = Schema.Union([Schema.String, Schema.Array(Schema.String)])
@@ -313,6 +313,40 @@ const usableTitle = (title: string | undefined): string | undefined => {
   return GENERIC_TITLES.has(title.toLowerCase()) ? undefined : title
 }
 
+const definedPresentationField = <T>(value: T | null | undefined): T | undefined =>
+  value === undefined || value === null ? undefined : value
+
+/**
+ * ACP `tool_call_update` is a patch: omitted or null fields keep the previous
+ * snapshot. Present the merged input, never a status-only packet alone.
+ */
+export const mergeToolCallPresentationInput = (
+  previous: ToolCallPresentationInput | undefined,
+  next: ToolCallPresentationInput,
+): ToolCallPresentationInput => {
+  let merged: ToolCallPresentationInput = previous ?? {}
+  const title = definedPresentationField(next.title)
+  if (title !== undefined) {
+    merged = { ...merged, title }
+  }
+  const kind = definedPresentationField(next.kind)
+  if (kind !== undefined) {
+    merged = { ...merged, kind }
+  }
+  const locations = definedPresentationField(next.locations)
+  if (locations !== undefined) {
+    merged = { ...merged, locations }
+  }
+  const content = definedPresentationField(next.content)
+  if (content !== undefined) {
+    merged = { ...merged, content }
+  }
+  if (next.rawInput !== undefined) {
+    merged = { ...merged, rawInput: next.rawInput }
+  }
+  return merged
+}
+
 const isWriteLabel = (kind: string | undefined, title: string | undefined): boolean => {
   const normalizedKind = kind?.toLowerCase()
   const normalizedTitle = title?.toLowerCase()
@@ -344,7 +378,7 @@ export const deriveToolCallPresentation = (
       : undefined
   const action = inferred ?? classified
   const wrote = isWriteLabel(kind, title) || (classified === "other" && rawContent !== undefined)
-  const nameFallback = usableTitle(title) ?? kind ?? FALLBACK_NAME
+  const nameFallback = usableTitle(title) ?? FALLBACK_NAME
 
   switch (action) {
     case "command":
