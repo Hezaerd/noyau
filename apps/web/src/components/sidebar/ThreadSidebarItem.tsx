@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { ThreadArchiveConfirmDialog } from "@/components/sidebar/ThreadArchiveConfirmDialog"
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
+import { ThreadSidebarStatus } from "@/components/sidebar/ThreadSidebarStatus"
 import {
   ContextMenu,
   ContextMenuItem,
@@ -14,9 +15,11 @@ import {
 } from "@/components/ui/context-menu"
 import { Input } from "@/components/ui/input"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
+import { useThreadVisits } from "@/hooks/use-thread-visits"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
+import { resolveThreadActivity, resolveWorkingStartedAtMs } from "@/lib/thread-activity"
 import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 
 export function ThreadSidebarItem({
@@ -31,6 +34,19 @@ export function ThreadSidebarItem({
   readonly onSelect: () => void
 }) {
   const navigate = useNavigate()
+  const visits = useThreadVisits()
+  const activity = resolveThreadActivity({
+    sessionStatus: thread.sessionStatus,
+    latestTurn: thread.latestTurn,
+    lastVisitedAtMs: visits.get(thread.id),
+  })
+  const workingStartedAtMs =
+    activity?.kind === "working"
+      ? resolveWorkingStartedAtMs({
+          latestTurn: thread.latestTurn,
+          updatedAt: thread.updatedAt,
+        })
+      : null
   const titleInputRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
@@ -153,7 +169,12 @@ export function ThreadSidebarItem({
             className="h-8 pl-8 text-sidebar-foreground/58"
           >
             <MessageCircleIcon />
-            <span className="truncate">{thread.title}</span>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+              <span className="min-w-0 flex-1 truncate">{thread.title}</span>
+              {activity === null ? null : (
+                <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
+              )}
+            </span>
           </SidebarMenuButton>
         </ContextMenuTrigger>
         <ContextMenuPopup align="start" className="w-44">

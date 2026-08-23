@@ -2,6 +2,7 @@
 
 import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import { LatestTurn } from "@noyau/protocol/entities/turn"
 import { ProjectId, ThreadId, TicketId, TurnId } from "@noyau/protocol/ids"
 import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
@@ -13,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { TicketDialog } from "../src/components/board/TicketDialog"
 import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
+import { ThreadSidebarStatus } from "../src/components/sidebar/ThreadSidebarStatus"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "../src/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
@@ -93,6 +95,23 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByText("Threads")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Corriger la reprise" })).toBeTruthy()
     expect(screen.getByRole("link", { name: "Documenter Cursor" })).toBeTruthy()
+  })
+
+  it("renders En cours and Terminé on the sidebar status cluster", () => {
+    render(
+      <ThreadSidebarStatus
+        activity={{ kind: "working", label: "En cours" }}
+        startedAtMs={Date.now() - 12_000}
+      />,
+    )
+    expect(screen.getByRole("status").textContent).toBe("En cours")
+    expect(screen.getByText("12s")).toBeTruthy()
+
+    cleanup()
+    render(
+      <ThreadSidebarStatus activity={{ kind: "completed", label: "Terminé" }} startedAtMs={null} />,
+    )
+    expect(screen.getByRole("status").textContent).toBe("Terminé")
   })
 
   it("lists newer Threads above older ones", () => {
@@ -1146,7 +1165,7 @@ describe("rendered Thread UI evidence", () => {
     )
   })
 
-  it("shows Cursor écrit only while waiting for the first assistant row", () => {
+  it("shows a live working marker while the Turn is unsettled", () => {
     const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
     const user = Schema.decodeSync(TranscriptItem)({
       _tag: "transcript.user",
@@ -1174,13 +1193,14 @@ describe("rendered Thread UI evidence", () => {
         onRespondUserInput={vi.fn()}
       />,
     )
-    expect(waiting.getByText("Cursor écrit…")).toBeTruthy()
+    expect(waiting.getByRole("status").textContent).toMatch(/En cours/)
     waiting.unmount()
 
     render(
       <ThreadTranscript
         transcript={[user, assistant]}
         isRunning
+        workingStartedAtMs={Date.parse("2026-08-23T12:00:00.000Z")}
         loading={false}
         error={undefined}
         notices={null}
@@ -1191,7 +1211,39 @@ describe("rendered Thread UI evidence", () => {
       />,
     )
     expect(screen.getByText("un")).toBeTruthy()
-    expect(screen.queryByText("Cursor écrit…")).toBeNull()
+    expect(screen.getByRole("status").textContent).toMatch(/En cours depuis/)
+  })
+
+  it("labels a settled Turn with its elapsed duration", () => {
+    const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
+    render(
+      <ThreadTranscript
+        transcript={[
+          Schema.decodeSync(TranscriptItem)({
+            _tag: "transcript.user",
+            threadId,
+            turnId,
+            text: "Ouvre le dossier",
+          }),
+        ]}
+        isRunning={false}
+        latestTurn={Schema.decodeSync(LatestTurn)({
+          turnId,
+          state: "completed",
+          requestedAt: "2026-08-23T12:00:00.000Z",
+          startedAt: "2026-08-23T12:00:00.000Z",
+          completedAt: "2026-08-23T12:01:23.000Z",
+        })}
+        loading={false}
+        error={undefined}
+        notices={null}
+        answerByRequest={{}}
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole("status").textContent).toBe("A travaillé 1m 23s")
   })
 
   it("renders streamed assistant markdown inside a Message row", () => {

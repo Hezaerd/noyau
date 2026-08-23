@@ -1,4 +1,5 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import type { LatestTurn } from "@noyau/protocol/entities/turn"
 import type { ProjectId } from "@noyau/protocol/ids"
 import { ArrowDownIcon } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
@@ -6,7 +7,7 @@ import { useMemo, type ReactNode } from "react"
 import { ThreadTranscriptItem } from "@/components/thread/ThreadTranscriptItem"
 import { ThreadTranscriptToolGroup } from "@/components/thread/ThreadTranscriptTool"
 import { ThreadTurnMinimap } from "@/components/thread/ThreadTurnMinimap"
-import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
+import { ThreadSettledMarker, ThreadWorkingMarker } from "@/components/thread/ThreadTurnProgress"
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -15,13 +16,15 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
-import { Spinner } from "@/components/ui/spinner"
+import { settledTranscriptLabel } from "@/lib/thread-activity"
 import { groupTranscriptRows, transcriptGroupRowId, transcriptRowId } from "@/lib/thread-transcript"
 import { deriveTurnMinimapItems, TURN_MINIMAP_MIN_ITEMS } from "@/lib/thread-turn-minimap"
 
 export function ThreadTranscript({
   transcript,
   isRunning,
+  workingStartedAtMs = null,
+  latestTurn = null,
   loading,
   error,
   notices,
@@ -35,6 +38,8 @@ export function ThreadTranscript({
 }: {
   readonly transcript: ReadonlyArray<TranscriptItem>
   readonly isRunning: boolean
+  readonly workingStartedAtMs?: number | null
+  readonly latestTurn?: LatestTurn | null
   readonly loading: boolean
   readonly error: ReactNode
   readonly notices: ReactNode
@@ -48,8 +53,7 @@ export function ThreadTranscript({
 }) {
   const lastItem = transcript.at(-1)
   const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
-  const lastToolLive = lastItem?._tag === "transcript.tool" && lastItem.status === "in_progress"
-  const showWaitingMarker = isRunning && lastAssistant === undefined && !lastToolLive
+  const settledLabel = isRunning ? null : settledTranscriptLabel(latestTurn)
   const minimapItems = useMemo(() => deriveTurnMinimapItems(transcript), [transcript])
 
   return (
@@ -109,16 +113,15 @@ export function ThreadTranscript({
               ),
             )}
 
-            {showWaitingMarker ? (
-              <MessageScrollerItem messageId="thread-thinking">
-                <Marker role="status">
-                  <MarkerIcon>
-                    <Spinner />
-                  </MarkerIcon>
-                  <MarkerContent>Cursor écrit…</MarkerContent>
-                </Marker>
+            {isRunning ? (
+              <MessageScrollerItem messageId="thread-working">
+                <ThreadWorkingMarker startedAtMs={workingStartedAtMs} />
               </MessageScrollerItem>
-            ) : null}
+            ) : settledLabel === null ? null : (
+              <MessageScrollerItem messageId="thread-settled">
+                <ThreadSettledMarker label={settledLabel} />
+              </MessageScrollerItem>
+            )}
           </MessageScrollerContent>
         </MessageScrollerViewport>
         {minimapItems.length >= TURN_MINIMAP_MIN_ITEMS ? (

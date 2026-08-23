@@ -171,6 +171,17 @@ Cue Cuelume joué quand un Turn passe de `running` à un état terminal. Préfé
 (toggle + son). Pas une notification OS.
 _À éviter_ : notification système, événement de journal, fichier audio embarqué
 
+**Activité de Turn**:
+Indicateur UI dérivé (`En cours`, `Terminé`, `Interrompu`, `Erreur`) depuis `sessionStatus` et
+`latestTurn`. La durée live part de `startedAt` / `requestedAt`. Pas une Command.
+_À éviter_ : badge lost, notification OS, champ du journal
+
+**lastVisitedAt**:
+Horloge locale renderer de la dernière visite d'un Thread. Un Terminé n'apparaît que si
+`completedAt` est postérieur. Jamais visité = déjà lu, pour ne pas inonder les Threads
+historiques. Pas une Préférence du catalogue.
+_À éviter_ : présence, ShellFocus, événement de journal
+
 **ShellFocus**:
 Vue UI volatile poussée au serveur (Tableau ou Thread). Les Paramètres restent sticky sur le
 dernier Project ouvert.
