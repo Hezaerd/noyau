@@ -301,6 +301,72 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByRole("button", { name: "Retirer shot.png" })).toBeTruthy()
   })
 
+  it("expands a staged composer image and navigates the gallery", () => {
+    const onImageRemove = vi.fn()
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text=""
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        error={undefined}
+        onSubmit={vi.fn()}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        images={[
+          {
+            localId: "img-1",
+            previewUrl: "blob:http://localhost/shot",
+            upload: {
+              type: "image",
+              name: "shot.png",
+              mimeType: "image/png",
+              sizeBytes: 12,
+              dataUrl: "data:image/png;base64,AAAA",
+            },
+          },
+          {
+            localId: "img-2",
+            previewUrl: "blob:http://localhost/diagram",
+            upload: {
+              type: "image",
+              name: "diagram.png",
+              mimeType: "image/png",
+              sizeBytes: 8,
+              dataUrl: "data:image/png;base64,BBBB",
+            },
+          },
+        ]}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onImageRemove={onImageRemove}
+        onInterrupt={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Agrandir shot.png" }))
+    expect(screen.getByRole("dialog", { name: "Aperçu agrandi" })).toBeTruthy()
+    expect(screen.getByRole("img", { name: "shot.png" })).toBeTruthy()
+    expect(screen.getByText("shot.png (1/2)")).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Image suivante" }))
+    expect(screen.getByRole("img", { name: "diagram.png" })).toBeTruthy()
+    expect(screen.getByText("diagram.png (2/2)")).toBeTruthy()
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" })
+    expect(screen.getByRole("img", { name: "shot.png" })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Retirer shot.png" }))
+    expect(onImageRemove).toHaveBeenCalledWith("img-1")
+    expect(screen.getByRole("dialog", { name: "Aperçu agrandi" })).toBeTruthy()
+
+    fireEvent.keyDown(window, { key: "Escape" })
+    expect(screen.queryByRole("dialog", { name: "Aperçu agrandi" })).toBeNull()
+  })
+
   it("centers the new-thread composer instead of docking it", () => {
     render(
       <ThreadComposer
