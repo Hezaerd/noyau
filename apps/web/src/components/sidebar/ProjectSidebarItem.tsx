@@ -5,6 +5,7 @@ import { LayoutGridIcon } from "lucide-react"
 import { ThreadSidebarItem } from "@/components/sidebar/ThreadSidebarItem"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { useMergedWorktreeCleanup } from "@/hooks/use-merged-worktree-cleanup"
 import { useThreadChangeRequests } from "@/hooks/use-thread-change-requests"
 
 export function ProjectSidebarItem({
@@ -19,6 +20,7 @@ export function ProjectSidebarItem({
   readonly onSelect: () => void
 }) {
   const { pullRequests, liveBranches } = useThreadChangeRequests(project.id, threads)
+  useMergedWorktreeCleanup(project.id, threads, pullRequests)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton

@@ -3,6 +3,7 @@ import {
   GitPublishRepositoryInput,
   GitStackedAction,
   PrepareWorktree,
+  VcsRemoveWorktreeInput,
   VcsScope,
   VcsStatusResult,
   VcsStatusStreamEvent,
@@ -65,6 +66,16 @@ describe("git contracts", () => {
         visibility: "private",
       }).visibility,
     ).toBe("private")
+  })
+
+  it("décode removeWorktree avec force optionnel", () => {
+    expect(
+      Schema.decodeSync(VcsRemoveWorktreeInput)({
+        projectId: "10000000-0000-4000-8000-000000000001",
+        path: "/tmp/worktrees/repo/feat",
+        force: true,
+      }).force,
+    ).toBe(true)
   })
 
   it("décode prepareWorktree pour le premier Turn", () => {

@@ -40,6 +40,8 @@ import {
   VcsCreateWorktreeInput,
   VcsCreateWorktreeResult,
   VcsListRefsResult,
+  VcsRemoveWorktreeInput,
+  VcsRemoveWorktreeResult,
   VcsScope,
   VcsStatusResult,
   VcsStatusStreamEvent,
@@ -82,6 +84,7 @@ export const RPC_METHODS = {
   vcsSwitchRef: "vcs.switchRef",
   vcsCreateRef: "vcs.createRef",
   vcsCreateWorktree: "vcs.createWorktree",
+  vcsRemoveWorktree: "vcs.removeWorktree",
   gitDraft: "git.draft",
   gitRunStackedAction: "git.runStackedAction",
   gitGithubAccount: "git.githubAccount",
@@ -287,6 +290,12 @@ export const VcsCreateWorktree = Rpc.make(RPC_METHODS.vcsCreateWorktree, {
   error: Schema.Union([GitCommandError, ServiceUnavailable]),
 })
 
+export const VcsRemoveWorktree = Rpc.make(RPC_METHODS.vcsRemoveWorktree, {
+  payload: VcsRemoveWorktreeInput,
+  success: VcsRemoveWorktreeResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
 export const GitDraft = Rpc.make(RPC_METHODS.gitDraft, {
   payload: GitDraftInput,
   success: GitDraftResult,
@@ -344,6 +353,7 @@ export const ControlPlaneRpcs = RpcGroup.make(
   VcsSwitchRef,
   VcsCreateRef,
   VcsCreateWorktree,
+  VcsRemoveWorktree,
   GitDraft,
   GitRunStackedAction,
   GitGithubAccount,

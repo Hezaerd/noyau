@@ -94,6 +94,7 @@ _À éviter_ : mode durable, politique de lock Git
 
 **GitRuntime**:
 Capacité live du Server (`vcs.*`, `git.*`) hors journal. L'idempotence client passe par `actionId`.
+`vcs.removeWorktree` retire un worktree lié et renvoie les Threads à délier.
 _À éviter_ : agrégat Commit, événement Push, outbox Git
 
 **Pull request live**:

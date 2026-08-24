@@ -47,6 +47,7 @@ describe("ControlPlaneRpcs", () => {
         RPC_METHODS.vcsSwitchRef,
         RPC_METHODS.vcsCreateRef,
         RPC_METHODS.vcsCreateWorktree,
+        RPC_METHODS.vcsRemoveWorktree,
         RPC_METHODS.gitDraft,
         RPC_METHODS.gitRunStackedAction,
         RPC_METHODS.gitGithubAccount,

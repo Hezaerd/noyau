@@ -8,10 +8,12 @@ import { Collapsible, CollapsiblePanel } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { useAutoRemoveMergedWorktreeEnabled } from "@/hooks/use-auto-remove-merged-worktree"
 import { useDiscordPresenceEnabled } from "@/hooks/use-discord-presence-enabled"
 import { useProjectFolderStartDirectory } from "@/hooks/use-project-folder-start-directory"
 import { useThreadEnvModePreference } from "@/hooks/use-thread-env-mode-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
+import { setAutoRemoveMergedWorktreeEnabled } from "@/lib/auto-remove-merged-worktree-preference"
 import { THREAD_ENV_MODE_ITEMS } from "@/lib/checkout"
 import { setDiscordPresenceEnabled } from "@/lib/discord-presence-preference"
 import { setProjectFolderStartDirectory } from "@/lib/project-folder-preference"
@@ -32,9 +34,11 @@ const selectTurnCueSound = (sound: TurnCueSound): void => {
 export function GeneralSettingsPanel(): ReactElement {
   const startDirectory = useProjectFolderStartDirectory()
   const defaultThreadEnvMode = useThreadEnvModePreference()
+  const autoRemoveMergedWorktree = useAutoRemoveMergedWorktreeEnabled()
   const discordPresenceEnabled = useDiscordPresenceEnabled()
   const turnCue = useTurnCuePreference()
   const discordPresenceSwitchId = useId()
+  const autoRemoveMergedWorktreeSwitchId = useId()
   const threadEnvModeSelectId = useId()
   const turnCueSwitchId = useId()
   const turnCueSoundSelectId = useId()
@@ -122,6 +126,19 @@ export function GeneralSettingsPanel(): ReactElement {
                 ))}
               </SelectPopup>
             </Select>
+          }
+        />
+        <SettingsRow
+          id="auto-remove-merged-worktree"
+          title="Supprimer le worktree après merge"
+          description="Retire le worktree lié quand la PR live est fusionnée. Le ⌘⇧ clic du sélecteur reste disponible."
+          control={
+            <Switch
+              id={autoRemoveMergedWorktreeSwitchId}
+              checked={autoRemoveMergedWorktree}
+              aria-label="Supprimer automatiquement le worktree après merge de PR"
+              onCheckedChange={(checked) => setAutoRemoveMergedWorktreeEnabled(checked)}
+            />
           }
         />
       </SettingsSection>

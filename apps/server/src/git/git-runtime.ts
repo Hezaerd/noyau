@@ -9,6 +9,7 @@ import {
   type VcsCreateRefResult,
   type VcsCreateWorktreeResult,
   type VcsRef,
+  type VcsRemoveWorktreeResult,
   type VcsStatusResult,
   type VcsSwitchRefResult,
   type VcsWorktree,
@@ -52,6 +53,24 @@ export const buildTemporaryWorktreeBranchName = (hex: string): string => {
 
 export const isTemporaryWorktreeBranch = (refName: string): boolean =>
   TEMP_WORKTREE_BRANCH_PATTERN.test(refName.trim().toLowerCase())
+
+/** Primary checkout is the first porcelain entry (`git worktree list`). */
+export const resolveWorktreeRemoval = (
+  worktrees: ReadonlyArray<VcsWorktree>,
+  path: string,
+):
+  | { readonly kind: "remove" }
+  | { readonly kind: "already-gone" }
+  | { readonly kind: "reject"; readonly detail: string } => {
+  const primary = worktrees[0]
+  if (primary !== undefined && primary.path === path) {
+    return { kind: "reject", detail: "Cannot remove the primary checkout." }
+  }
+  if (!worktrees.some((worktree) => worktree.path === path)) {
+    return { kind: "already-gone" }
+  }
+  return { kind: "remove" }
+}
 
 /** Sanitize a model-produced fragment into `noyau/<slug>`. */
 export const buildGeneratedWorktreeBranchName = (raw: string): string => {
@@ -187,6 +206,11 @@ export interface GitRuntimeService {
     readonly branch: string
     readonly startFromOrigin?: boolean
   }) => Effect.Effect<VcsCreateWorktreeResult, GitCommandError>
+  readonly removeWorktree: (input: {
+    readonly cwd: string
+    readonly path: string
+    readonly force?: boolean
+  }) => Effect.Effect<Pick<VcsRemoveWorktreeResult, "path">, GitCommandError>
   readonly renameBranch: (input: {
     readonly cwd: string
     readonly oldBranch: string
@@ -527,6 +551,29 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     } satisfies VcsCreateWorktreeResult
   })
 
+  const removeWorktree = Effect.fn("GitRuntime.removeWorktree")(function* (input: {
+    readonly cwd: string
+    readonly path: string
+    readonly force?: boolean
+  }) {
+    const worktrees = yield* listWorktrees(input.cwd)
+    const resolved = resolveWorktreeRemoval(worktrees, input.path)
+    if (resolved.kind === "reject") {
+      return yield* new GitCommandError({
+        operation: "git.worktree.remove",
+        detail: resolved.detail,
+      })
+    }
+    if (resolved.kind === "remove") {
+      const args =
+        input.force === true
+          ? ["worktree", "remove", "--force", "--", input.path]
+          : ["worktree", "remove", "--", input.path]
+      yield* runGit("git.worktree.remove", input.cwd, args)
+    }
+    return { path: input.path }
+  })
+
   const branchExists = Effect.fn("GitRuntime.branchExists")(function* (
     cwd: string,
     refName: string,
@@ -753,6 +800,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     switchRef: (cwd, refName) => enclose(switchRef(cwd, refName)),
     createRef: (cwd, refName, shouldSwitch) => enclose(createRef(cwd, refName, shouldSwitch)),
     createWorktree: (input) => enclose(createWorktree(input)),
+    removeWorktree: (input) => enclose(removeWorktree(input)),
     renameBranch: (input) => enclose(renameBranch(input)),
     diffContext: (cwd) => enclose(diffContext(cwd)),
     runStackedAction: (input) => enclose(runStackedAction(input)),

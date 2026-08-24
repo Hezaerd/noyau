@@ -92,6 +92,12 @@ Badge `#n` du HEAD du Checkout, alimenté par `vcs.subscribeStatus`. Pas un sett
 identifiant du journal.
 _À éviter_ : inbox PR, archive auto, lien Ticket
 
+**Cleanup worktree**:
+Suppression live d'un worktree lié (`vcs.removeWorktree`) puis déliaison du Checkout
+(`worktreePath: null`). Auto opt-in (Préférence, off par défaut) quand la PR live passe à
+`merged` ; manuel via ⌘⇧ clic dans le sélecteur de branche. Jamais le WorkspaceRoot.
+_À éviter_ : archive Thread, settle, suppression de branche
+
 **Présentation de Turn**:
 Comment le prompt utilisateur d'un Turn est montré dans le transcript. Le texte soumis au
 Provider reste plat. v0.1 : `fix-merge-conflicts`.

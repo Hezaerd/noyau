@@ -65,6 +65,9 @@ describe("settings catalog", () => {
     ])
     expect(searchSettings("palette").map((hit) => hit.tab.id)).toEqual(["keybindings"])
     expect(searchSettings("cuelume").map((hit) => hit.id)).toEqual(["turn-cue", "turn-cue-sound"])
-    expect(searchSettings("worktree").map((hit) => hit.id)).toEqual(["default-thread-env-mode"])
+    expect(searchSettings("worktree").map((hit) => hit.id)).toEqual([
+      "default-thread-env-mode",
+      "auto-remove-merged-worktree",
+    ])
   })
 })

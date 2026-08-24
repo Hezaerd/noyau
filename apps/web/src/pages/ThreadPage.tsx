@@ -161,6 +161,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         if (boundPath !== null) {
           setEnvMode("worktree")
           clearCreatedCheckout(next.thread.id)
+        } else if (createdThreadIdRef.current !== next.thread.id) {
+          setEnvMode("local")
         }
         const boundBranch = threadBranchOf(next.thread)
         if (
@@ -193,9 +195,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           setModelSelection(event.modelSelection)
         }
         if (event._tag === "thread.meta-updated") {
-          if (event.worktreePath !== undefined && event.worktreePath !== null) {
-            setEnvMode("worktree")
-            clearCreatedCheckout(event.threadId)
+          if (event.worktreePath !== undefined) {
+            if (event.worktreePath === null) {
+              setEnvMode("local")
+            } else {
+              setEnvMode("worktree")
+              clearCreatedCheckout(event.threadId)
+            }
           }
           if (event.branch !== undefined && event.branch !== null) {
             setBaseBranch(event.branch)

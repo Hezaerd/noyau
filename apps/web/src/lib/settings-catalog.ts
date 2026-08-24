@@ -73,6 +73,13 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["thread", "worktree", "checkout", "local", "nouveau thread", "git", "environnement"],
   },
   {
+    id: "auto-remove-merged-worktree",
+    tab: "general",
+    title: "Supprimer le worktree après merge",
+    description: "Retire le worktree lié quand la PR live est fusionnée. Désactivé par défaut.",
+    keywords: ["worktree", "merge", "pr", "cleanup", "supprimer", "git", "fusion"],
+  },
+  {
     id: "turn-cue",
     tab: "general",
     title: "Son de fin de Turn",

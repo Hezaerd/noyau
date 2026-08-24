@@ -118,6 +118,19 @@ export const VcsCreateWorktreeResult = Schema.Struct({
 })
 export type VcsCreateWorktreeResult = (typeof VcsCreateWorktreeResult)["Type"]
 
+export const VcsRemoveWorktreeInput = Schema.Struct({
+  ...VcsScope.fields,
+  path: TrimmedNonEmpty,
+  force: Schema.optionalKey(Schema.Boolean),
+})
+export type VcsRemoveWorktreeInput = (typeof VcsRemoveWorktreeInput)["Type"]
+
+export const VcsRemoveWorktreeResult = Schema.Struct({
+  path: TrimmedNonEmpty,
+  releasedThreadIds: Schema.Array(ThreadId),
+})
+export type VcsRemoveWorktreeResult = (typeof VcsRemoveWorktreeResult)["Type"]
+
 export const GitStackedAction = Schema.Literals([
   "commit",
   "push",
