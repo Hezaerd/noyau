@@ -188,7 +188,7 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.queryByText(/lost/i)).toBeNull()
   })
 
-  it("shows a Fix merge conflicts toolbar above the composer", () => {
+  it("shows a Fix merge conflicts action to the left of the composer", () => {
     render(
       <ThreadComposer
         isRunning={false}
@@ -211,7 +211,11 @@ describe("rendered Thread UI evidence", () => {
       />,
     )
 
-    expect(screen.getByRole("button", { name: "Fix merge conflicts" })).toBeTruthy()
+    const button = screen.getByRole("button", { name: "Fix merge conflicts" })
+    const toolbar = button.closest("[data-slot=composer-toolbar]")
+    expect(toolbar).toBeTruthy()
+    expect(toolbar?.className).toContain("absolute")
+    expect(toolbar?.className).toContain("justify-start")
   })
 
   it("gates the composer while Cursor is unavailable", () => {
