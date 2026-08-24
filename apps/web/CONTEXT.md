@@ -92,6 +92,12 @@ Badge `#n` du HEAD du Checkout, alimenté par `vcs.subscribeStatus`. Pas un sett
 identifiant du journal.
 _À éviter_ : inbox PR, archive auto, lien Ticket
 
+**Cleanup worktree**:
+Suppression live d'un worktree lié (`vcs.removeWorktree`) puis déliaison du Checkout
+(`worktreePath: null`). Auto quand la PR live passe à `merged` ; manuel via ⌘⇧ clic dans le
+sélecteur de branche. Jamais le WorkspaceRoot.
+_À éviter_ : archive Thread, settle, suppression de branche
+
 **Créer le repo**:
 Libellé UI du Publish GitHub quand le cwd n'a pas de remote `origin`.
 _À éviter_ : Publish wizard, sourceControl

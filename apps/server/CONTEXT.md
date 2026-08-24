@@ -109,6 +109,7 @@ _À éviter_ : sourceControl, wizard multi-forge
 
 **GitPlane**:
 Frontière RPC qui résout le cwd (`thread.worktreePath ?? WorkspaceRoot`) puis délègue à `GitRuntime`.
+`vcs.removeWorktree` s'exécute depuis le WorkspaceRoot et refuse le checkout primaire.
 _À éviter_ : cwd choisi par le client
 
 **EditorOpen**:

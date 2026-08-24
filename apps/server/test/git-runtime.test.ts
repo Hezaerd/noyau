@@ -4,6 +4,7 @@ import {
   buildTemporaryWorktreeBranchName,
   deriveRepositoryUrlFromCreateOutput,
   isTemporaryWorktreeBranch,
+  resolveWorktreeRemoval,
 } from "@noyau/server/git/git-runtime"
 
 describe("GitRuntime helpers", () => {
@@ -28,6 +29,19 @@ describe("GitRuntime helpers", () => {
     expect(buildGeneratedWorktreeBranchName("noyau/safer-reconnect")).toBe("noyau/safer-reconnect")
     expect(buildGeneratedWorktreeBranchName("refs/heads/feature/demo")).toBe("noyau/feature/demo")
     expect(buildGeneratedWorktreeBranchName("   ")).toBe("noyau/update")
+  })
+
+  it("refuse le checkout primaire et ignore un path déjà parti", () => {
+    const listed = [
+      { path: "/tmp/repo", refName: "main" },
+      { path: "/tmp/worktrees/repo/feat", refName: "feat" },
+    ]
+    expect(resolveWorktreeRemoval(listed, "/tmp/repo")).toEqual({
+      kind: "reject",
+      detail: "Cannot remove the primary checkout.",
+    })
+    expect(resolveWorktreeRemoval(listed, "/tmp/elsewhere")).toEqual({ kind: "already-gone" })
+    expect(resolveWorktreeRemoval(listed, "/tmp/worktrees/repo/feat")).toEqual({ kind: "remove" })
   })
 
   it("lit l’URL canonique de gh repo create", () => {

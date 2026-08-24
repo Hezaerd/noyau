@@ -28,7 +28,9 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
 import {
   branchPickerBadge,
+  isRemovableWorktreeRef,
   isSelectingWorktreeBase,
+  isWorktreeDeleteGesture,
   resolveBranchSelectionTarget,
   resolveBranchTriggerLabel,
   resolveEnvModeLabel,
@@ -44,6 +46,7 @@ import {
   vcsSwitchRef,
 } from "@/lib/control-plane"
 import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
+import { releaseWorktree } from "@/lib/worktree-cleanup"
 
 const checkoutTriggerClassName =
   "min-w-0 font-medium text-muted-foreground/70 hover:text-foreground/80"
@@ -215,6 +218,33 @@ export function ThreadCheckoutBar({
     })
   }
 
+  const removeListedWorktree = (ref: VcsRef) => {
+    const path = ref.worktreePath
+    if (path === null) {
+      return
+    }
+    setBusy(true)
+    void releaseWorktree({
+      projectId,
+      path,
+      unbindThreadIds: threadId !== undefined && worktreePath === path ? [threadId] : [],
+    }).then((result) => {
+      setBusy(false)
+      if (!result.ok) {
+        setNotice(result.failure._tag)
+        return undefined
+      }
+      if (worktreePath === path) {
+        onEnvModeChange("local")
+        if (threadId !== undefined) {
+          bindCheckout({ worktreePath: null })
+        }
+      }
+      refreshRefs()
+      return undefined
+    })
+  }
+
   const createBranch = (requestedName?: string) => {
     const name = (requestedName ?? window.prompt("Nom de la branche") ?? "").trim()
     if (name === "" || selectingWorktreeBase) {
@@ -330,9 +360,23 @@ export function ThreadCheckoutBar({
             <MenuGroup>
               <MenuGroupLabel>Branches</MenuGroupLabel>
               {filteredRefs.map((ref) => {
-                const badge = branchPickerBadge(ref, status?.cwd ?? "")
+                const cwd = status?.cwd ?? ""
+                const badge = branchPickerBadge(ref, cwd)
+                const removable = isRemovableWorktreeRef(ref, cwd, status?.worktreePath ?? null)
                 return (
-                  <MenuItem key={ref.name} className="w-full" onClick={() => selectRef(ref)}>
+                  <MenuItem
+                    key={ref.name}
+                    className="w-full"
+                    title={removable ? "⌘⇧ clic pour supprimer le worktree" : undefined}
+                    onClick={(event) => {
+                      if (isWorktreeDeleteGesture(event) && removable) {
+                        event.preventDefault()
+                        removeListedWorktree(ref)
+                        return
+                      }
+                      selectRef(ref)
+                    }}
+                  >
                     <span className="flex w-full min-w-0 items-center justify-between gap-2">
                       <span className="min-w-0 flex-1 truncate">{ref.name}</span>
                       {badge === null ? null : (

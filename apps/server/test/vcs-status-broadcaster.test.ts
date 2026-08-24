@@ -46,6 +46,7 @@ const stubGitRuntime = (status: GitRuntimeService["status"]): GitRuntimeService 
   createRef: (_cwd, refName) => Effect.succeed({ refName }),
   createWorktree: (input) =>
     Effect.succeed({ worktree: { path: input.worktreesDir, refName: input.branch } }),
+  removeWorktree: (input) => Effect.succeed({ path: input.path }),
   renameBranch: (input) => Effect.succeed({ branch: input.newBranch }),
   diffContext: () => Effect.succeed(""),
   runStackedAction: (input) =>

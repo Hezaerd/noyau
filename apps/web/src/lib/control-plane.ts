@@ -28,6 +28,8 @@ import type {
   VcsCreateWorktreeInput,
   VcsCreateWorktreeResult,
   VcsListRefsResult,
+  VcsRemoveWorktreeInput,
+  VcsRemoveWorktreeResult,
   GitCommandError,
   VcsScope,
   VcsStatusResult,
@@ -354,6 +356,16 @@ export const vcsCreateWorktree = (
     Effect.gen(function* () {
       const client = yield* ControlPlaneClient
       return yield* client[RPC_METHODS.vcsCreateWorktree](input)
+    }),
+  )
+
+export const vcsRemoveWorktree = (
+  input: VcsRemoveWorktreeInput,
+): Promise<ControlPlaneResult<VcsRemoveWorktreeResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.vcsRemoveWorktree](input)
     }),
   )
 
