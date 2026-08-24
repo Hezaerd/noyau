@@ -43,4 +43,33 @@ describe("sortThreadsForSidebar", () => {
 
     expect(sorted.map((thread) => thread.id)).toEqual(["a", "b"])
   })
+
+  it("keeps pinned Threads above unpinned ones", () => {
+    const sorted = sortThreadsForSidebar(
+      [
+        { id: "oldest", createdAt: utc("2026-03-09T08:00:00.000Z") },
+        { id: "newest", createdAt: utc("2026-03-09T12:00:00.000Z") },
+        { id: "middle", createdAt: utc("2026-03-09T10:00:00.000Z") },
+      ],
+      new Map([["oldest", Date.parse("2026-03-09T20:00:00.000Z")]]),
+    )
+
+    expect(sorted.map((thread) => thread.id)).toEqual(["oldest", "newest", "middle"])
+  })
+
+  it("orders pinned Threads by most recent pin first", () => {
+    const sorted = sortThreadsForSidebar(
+      [
+        { id: "first-pin", createdAt: utc("2026-03-09T08:00:00.000Z") },
+        { id: "second-pin", createdAt: utc("2026-03-09T12:00:00.000Z") },
+        { id: "unpinned", createdAt: utc("2026-03-09T14:00:00.000Z") },
+      ],
+      new Map([
+        ["first-pin", Date.parse("2026-03-09T15:00:00.000Z")],
+        ["second-pin", Date.parse("2026-03-09T16:00:00.000Z")],
+      ]),
+    )
+
+    expect(sorted.map((thread) => thread.id)).toEqual(["second-pin", "first-pin", "unpinned"])
+  })
 })
