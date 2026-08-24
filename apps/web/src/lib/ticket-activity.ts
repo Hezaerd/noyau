@@ -3,18 +3,40 @@ import type { EventEnvelope } from "@noyau/protocol/events"
 import type { TicketId } from "@noyau/protocol/ids"
 import { DateTime } from "effect"
 
+export type TicketActivityThreadAvailability = "active" | "archived" | "missing"
+
+export interface TicketActivityThreadRef {
+  readonly threadId: string
+  readonly title: string
+  readonly availability: TicketActivityThreadAvailability
+}
+
+export type TicketActivityPart =
+  | { readonly kind: "text"; readonly text: string }
+  | { readonly kind: "thread"; readonly thread: TicketActivityThreadRef }
+
 export interface TicketActivityItem {
   readonly id: string
   readonly actor: string
+  readonly actorThread?: TicketActivityThreadRef
   readonly action: string
+  readonly parts: ReadonlyArray<TicketActivityPart>
   readonly occurredAt: string
+}
+
+export interface TicketActivityThreadMeta {
+  readonly title: string
+  readonly status: "active" | "archived"
 }
 
 export interface TicketActivityContext {
   readonly columnsById?: ReadonlyMap<string, { readonly name: string }>
-  readonly threadsById?: ReadonlyMap<string, { readonly title: string }>
+  readonly threadsById?: ReadonlyMap<string, TicketActivityThreadMeta>
   readonly ticketsById?: ReadonlyMap<string, { readonly title: string }>
 }
+
+export const isTicketActivityThreadJumpable = (thread: TicketActivityThreadRef): boolean =>
+  thread.availability === "active"
 
 export const ticketActivityFromSnapshot = (
   snapshot: BoardSnapshot,
@@ -23,6 +45,42 @@ export const ticketActivityFromSnapshot = (
   snapshot.ticketActivity.find((activity) => activity.ticketId === ticketId)?.events ?? []
 
 const quote = (value: string): string => `« ${value} »`
+
+const MISSING_THREAD_TITLE = "un thread"
+
+export const ticketActivityThreadRef = (
+  threadId: string,
+  context: TicketActivityContext | undefined,
+): TicketActivityThreadRef => {
+  const thread = context?.threadsById?.get(threadId)
+  if (thread === undefined) {
+    return { threadId, title: MISSING_THREAD_TITLE, availability: "missing" }
+  }
+  return {
+    threadId,
+    title: thread.title,
+    availability: thread.status === "archived" ? "archived" : "active",
+  }
+}
+
+const flattenTicketActivityParts = (parts: ReadonlyArray<TicketActivityPart>): string =>
+  parts
+    .map((part) => {
+      if (part.kind === "text") {
+        return part.text
+      }
+      return part.thread.availability === "missing" ? part.thread.title : quote(part.thread.title)
+    })
+    .join("")
+
+const threadActionParts = (
+  prefix: string,
+  threadId: string,
+  context: TicketActivityContext | undefined,
+): ReadonlyArray<TicketActivityPart> => [
+  { kind: "text", text: prefix },
+  { kind: "thread", thread: ticketActivityThreadRef(threadId, context) },
+]
 
 const columnLabel = (columnId: string, context: TicketActivityContext | undefined): string =>
   context?.columnsById?.get(columnId)?.name ?? columnId
@@ -115,9 +173,8 @@ export const ticketActivityAction = (
     case "ticket.dependency.removed":
       return `a retiré une dépendance vers ${quote(ticketLabel(envelope.event.dependsOnTicketId, context))}`
     case "ticket.thread.linked":
-      return "a lié le ticket à un thread"
     case "ticket.thread.unlinked":
-      return "a retiré le lien thread"
+      return flattenTicketActivityParts(ticketActivityParts(envelope, context))
     case "kanbanColumn.created":
       return "a créé une colonne"
     case "kanbanColumn.updated":
@@ -131,16 +188,33 @@ export const ticketActivityAction = (
   }
 }
 
+export const ticketActivityParts = (
+  envelope: EventEnvelope,
+  context?: TicketActivityContext,
+): ReadonlyArray<TicketActivityPart> => {
+  switch (envelope.event._tag) {
+    case "ticket.thread.linked":
+      return threadActionParts("a lié le ticket à ", envelope.event.threadId, context)
+    case "ticket.thread.unlinked":
+      return threadActionParts("a retiré le lien vers ", envelope.event.threadId, context)
+    default:
+      return [{ kind: "text", text: ticketActivityAction(envelope, context) }]
+  }
+}
+
 const AGENT_THREAD_PREFIX = "agent:thread:"
 const LEGACY_AGENT_CURSOR_PREFIX = "agent:cursor:"
+
+const actorThreadId = (actorId: string): string | undefined =>
+  actorId.startsWith(AGENT_THREAD_PREFIX) ? actorId.slice(AGENT_THREAD_PREFIX.length) : undefined
 
 /** Label d'affichage : humain local, thread agent, ou acteur technique. */
 export const ticketActivityActor = (actorId: string, context?: TicketActivityContext): string => {
   if (actorId.startsWith("human:")) {
     return "Vous"
   }
-  if (actorId.startsWith(AGENT_THREAD_PREFIX)) {
-    const threadId = actorId.slice(AGENT_THREAD_PREFIX.length)
+  const threadId = actorThreadId(actorId)
+  if (threadId !== undefined) {
     return context?.threadsById?.get(threadId)?.title ?? "Agent"
   }
   if (actorId.startsWith(LEGACY_AGENT_CURSOR_PREFIX)) {
@@ -152,12 +226,33 @@ export const ticketActivityActor = (actorId: string, context?: TicketActivityCon
   return actorId
 }
 
+export const ticketActivityActorThread = (
+  actorId: string,
+  context?: TicketActivityContext,
+): TicketActivityThreadRef | undefined => {
+  const threadId = actorThreadId(actorId)
+  if (threadId === undefined) {
+    return undefined
+  }
+  const thread = ticketActivityThreadRef(threadId, context)
+  return thread.availability === "missing" ? undefined : thread
+}
+
 export const ticketActivityItem = (
   envelope: EventEnvelope,
   context?: TicketActivityContext,
-): TicketActivityItem => ({
-  id: envelope.eventId,
-  actor: ticketActivityActor(envelope.actorId, context),
-  action: ticketActivityAction(envelope, context),
-  occurredAt: DateTime.formatIso(envelope.occurredAt),
-})
+): TicketActivityItem => {
+  const actorThread = ticketActivityActorThread(envelope.actorId, context)
+  const parts = ticketActivityParts(envelope, context)
+  const item = {
+    id: envelope.eventId,
+    actor: ticketActivityActor(envelope.actorId, context),
+    action: flattenTicketActivityParts(parts),
+    parts,
+    occurredAt: DateTime.formatIso(envelope.occurredAt),
+  }
+  if (actorThread === undefined) {
+    return item
+  }
+  return { ...item, actorThread }
+}

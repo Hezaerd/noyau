@@ -21,7 +21,7 @@ import { CSS } from "@dnd-kit/utilities"
 import type { TicketActivity } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import { KanbanColumnId, type ProjectId, TicketId } from "@noyau/protocol/ids"
+import { KanbanColumnId, type ProjectId, type ThreadId, TicketId } from "@noyau/protocol/ids"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
@@ -149,6 +149,7 @@ interface BoardPageProps {
   readonly onSearchChange: (patch: BoardSearchPatch, replace?: boolean) => void
   readonly onOpenTicket: (ticketId: string) => void
   readonly onCloseTicket: () => void
+  readonly onOpenThread: (threadId: ThreadId) => void
 }
 
 type TicketUpdateInput = {
@@ -649,6 +650,7 @@ export function BoardPage({
   onSearchChange,
   onOpenTicket,
   onCloseTicket,
+  onOpenThread,
 }: BoardPageProps) {
   const { threads } = useControlPlane()
   const { resolved: keybindings } = useKeybindings()
@@ -1508,6 +1510,7 @@ export function BoardPage({
             "Thread détaché du ticket.",
           )
         }}
+        onOpenThread={onOpenThread}
         archiveBlockedByTitles={
           selectedTicket === undefined ? [] : openDependencyTitles(state, selectedTicket.id)
         }
