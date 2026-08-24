@@ -69,5 +69,10 @@ describe("settings catalog", () => {
       "default-thread-env-mode",
       "auto-remove-merged-worktree",
     ])
+    expect(searchSettings("installeur").map((hit) => hit.id)).toEqual(["desktop-update"])
+    expect(searchSettings("canal").map((hit) => hit.id)).toEqual([
+      "desktop-update-channel",
+      "desktop-update",
+    ])
   })
 })

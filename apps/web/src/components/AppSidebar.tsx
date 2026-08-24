@@ -4,6 +4,7 @@ import { SearchIcon, SettingsIcon, SquarePenIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
+import { DesktopUpdateSidebarButton } from "@/components/sidebar/DesktopUpdateSidebarButton"
 import { ProjectDeleteConfirmDialog } from "@/components/sidebar/ProjectDeleteConfirmDialog"
 import { ProjectSidebarItem } from "@/components/sidebar/ProjectSidebarItem"
 import { ProjectSwitcher } from "@/components/sidebar/ProjectSwitcher"
@@ -212,7 +213,8 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
+      <SidebarFooter className="flex flex-row items-center gap-1 p-3">
+        <DesktopUpdateSidebarButton />
         <Tooltip>
           <TooltipTrigger
             render={

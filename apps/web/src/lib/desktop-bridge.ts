@@ -19,17 +19,61 @@ export interface CursorClientPoint {
 
 export type DesktopReleaseChannel = ReleaseChannel
 
+export type DesktopUpdatePackagedChannel = "latest" | "nightly"
+
+export type DesktopUpdateCheckResult =
+  | { readonly _tag: "unsupported"; readonly currentVersion: string }
+  | {
+      readonly _tag: "current"
+      readonly currentVersion: string
+      readonly channel: DesktopUpdatePackagedChannel
+    }
+  | {
+      readonly _tag: "available"
+      readonly currentVersion: string
+      readonly availableVersion: string
+      readonly installerName: string
+      readonly installerUrl: string
+      readonly releaseUrl: string
+      readonly channel: DesktopUpdatePackagedChannel
+    }
+  | {
+      readonly _tag: "missing"
+      readonly currentVersion: string
+      readonly channel: DesktopUpdatePackagedChannel
+      readonly reason: "no-release" | "no-installer"
+    }
+  | { readonly _tag: "failed"; readonly currentVersion: string; readonly message: string }
+
+export type DesktopUpdateOpenResult =
+  | { readonly _tag: "opened" }
+  | {
+      readonly _tag: "unavailable"
+      readonly reason: "unsupported" | "current" | "missing" | "failed"
+      readonly message?: string
+    }
+  | { readonly _tag: "failed"; readonly message: string }
+
 export interface NoyauDesktopBridge {
   readonly platform: string
   readonly releaseChannel?: DesktopReleaseChannel
+  readonly appVersion?: string
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
   readonly pickFolder: (options?: { readonly initialPath?: string }) => Promise<string | undefined>
   readonly openPath: (path: string) => Promise<void>
   readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
+  readonly checkDesktopUpdate?: (
+    channel?: DesktopUpdatePackagedChannel,
+  ) => Promise<DesktopUpdateCheckResult>
+  readonly openDesktopInstaller?: (
+    channel?: DesktopUpdatePackagedChannel,
+  ) => Promise<DesktopUpdateOpenResult>
 }
 
 export const desktopReleaseChannel = (): DesktopReleaseChannel =>
   window.noyauDesktop?.releaseChannel ?? DEFAULT_RELEASE_CHANNEL
+
+export const desktopAppVersion = (): string => window.noyauDesktop?.appVersion ?? ""
 
 export const desktopBrandName = (
   channel: DesktopReleaseChannel = desktopReleaseChannel(),

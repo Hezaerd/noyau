@@ -177,6 +177,16 @@ _À éviter_ : registry, command list
 Surface dédiée des préférences persistées de l'app, adressable par `/settings`.
 _À éviter_ : options, réglages, preferences, page de config
 
+**Mise à jour desktop**:
+Check GitHub du Canal de mise à jour et ouverture de l'installeur unsigned. Chrome
+Desktop, pas une Préférence métier.
+_À éviter_ : auto-update, `electron-updater`, `quitAndInstall`
+
+**Canal de mise à jour**:
+Préférence renderer `latest` | `nightly` pour le check GitHub. Défaut = canal packagé
+(`window.noyauDesktop.releaseChannel`). L'autre canal ouvre une app séparée.
+_À éviter_ : changer la marque de l'install, `NOYAU_RELEASE_CHANNEL` à chaud
+
 **Tab Paramètres**:
 Catégorie adressable du catalogue Paramètres (`/settings/$tab`).
 _À éviter_ : section Settings, page d'options, onglet générique

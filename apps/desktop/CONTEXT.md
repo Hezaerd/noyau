@@ -59,3 +59,13 @@ GitHub Release avec DMG arm64 et NSIS x64, sans Developer ID ni auto-update. Le 
 macOS est signé ad-hoc après pack pour sceller les ressources.
 _À éviter_ : notarization, `electron-updater`, laisser la signature linker d’Electron,
 SmartScreen comme preuve de confiance
+
+**Mise à jour desktop**:
+Check GitHub Release du Canal de mise à jour, puis ouverture de l'installeur unsigned
+correspondant. L'humain installe à la main.
+_À éviter_ : `electron-updater`, `quitAndInstall`, manifests yml, remplacement du .app
+
+**Canal de mise à jour**:
+Piste GitHub `latest` ou `nightly` à vérifier. Défaut = Canal de release packagé. Changer
+de piste n'altère pas la marque ni le bundle id de l'app en cours.
+_À éviter_ : changer `NOYAU_RELEASE_CHANNEL` à chaud, confondre avec le Canal de release
