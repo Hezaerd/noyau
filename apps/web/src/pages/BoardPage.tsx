@@ -1409,6 +1409,7 @@ export function BoardPage({
       <TicketDialog
         ticket={selectedTicket}
         tickets={state.tickets}
+        columns={state.columns}
         ticketDependencies={state.ticketDependencies}
         ticketThreads={state.ticketThreads}
         threads={projectThreads}
