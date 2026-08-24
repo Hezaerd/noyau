@@ -221,6 +221,12 @@ Horloge locale renderer de la dernière visite d'un Thread. Un Terminé n'appara
 historiques. Pas une Préférence du catalogue.
 _À éviter_ : présence, ShellFocus, événement de journal
 
+**Pin**:
+Marque locale renderer qui garde un Thread en tête de la sidebar (`Mod+P` ou menu contextuel).
+Plusieurs Threads peuvent être épinglés ; l'ordre entre Pins suit le plus récent. Pas une
+Préférence du catalogue ni un champ du journal.
+_À éviter_ : Command, événement, ordre durable serveur
+
 **ShellFocus**:
 Vue UI volatile poussée au serveur (Tableau ou Thread). Les Paramètres restent sticky sur le
 dernier Project ouvert.

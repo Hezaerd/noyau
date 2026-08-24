@@ -7,6 +7,7 @@ import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
 import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
 import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
+import { toggleThreadPinned } from "@/lib/thread-pins"
 import { cn } from "@/lib/utils"
 
 export function WorkspaceBreadcrumb({
@@ -109,13 +110,19 @@ function EditableThreadTitle({
         event.defaultPrevented ||
         isKeybindingRecorderActive() ||
         renaming ||
-        document.querySelector('[role="dialog"]') !== null ||
-        !matchesKeybinding(event, "thread.rename")
+        document.querySelector('[role="dialog"]') !== null
       ) {
         return
       }
-      event.preventDefault()
-      setRenaming(true)
+      if (matchesKeybinding(event, "thread.rename")) {
+        event.preventDefault()
+        setRenaming(true)
+        return
+      }
+      if (matchesKeybinding(event, "thread.pin")) {
+        event.preventDefault()
+        toggleThreadPinned(threadId)
+      }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)

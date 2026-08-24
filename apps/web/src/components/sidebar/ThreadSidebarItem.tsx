@@ -7,6 +7,8 @@ import {
   GitBranchIcon,
   MessageCircleIcon,
   PencilIcon,
+  PinIcon,
+  PinOffIcon,
   Trash2Icon,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
@@ -20,10 +22,13 @@ import {
   ContextMenuItem,
   ContextMenuPopup,
   ContextMenuSeparator,
+  ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { Input } from "@/components/ui/input"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
+import { useKeybinding } from "@/hooks/use-keybindings"
+import { useThreadPins } from "@/hooks/use-thread-pins"
 import { useThreadVisits } from "@/hooks/use-thread-visits"
 import { resolveSidebarCheckoutBranch } from "@/lib/checkout"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
@@ -35,6 +40,7 @@ import {
   type ThreadActivity,
 } from "@/lib/thread-activity"
 import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
+import { isThreadPinned, toggleThreadPinned } from "@/lib/thread-pins"
 
 export function ThreadSidebarItem({
   thread,
@@ -53,6 +59,9 @@ export function ThreadSidebarItem({
 }) {
   const navigate = useNavigate()
   const visits = useThreadVisits()
+  const pins = useThreadPins()
+  const pinHotkey = useKeybinding("thread.pin")
+  const pinned = isThreadPinned(thread.id, pins)
   const activity = resolveThreadActivity({
     sessionStatus: thread.sessionStatus,
     latestTurn: thread.latestTurn,
@@ -201,6 +210,7 @@ export function ThreadSidebarItem({
             <MessageCircleIcon className="mt-0.5" />
             <ThreadSidebarItemContent
               title={thread.title}
+              pinned={pinned}
               branch={branch}
               worktreePath={threadWorktreePathOf(thread)}
               activity={activity}
@@ -218,6 +228,11 @@ export function ThreadSidebarItem({
           >
             <PencilIcon />
             Renommer
+          </ContextMenuItem>
+          <ContextMenuItem closeOnClick onClick={() => toggleThreadPinned(thread.id)}>
+            {pinned ? <PinOffIcon /> : <PinIcon />}
+            {pinned ? "Désépingler" : "Épingler"}
+            <ContextMenuShortcut hotkey={pinHotkey} />
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
@@ -242,6 +257,7 @@ export function ThreadSidebarItem({
 
 function ThreadSidebarItemContent({
   title,
+  pinned,
   branch,
   worktreePath,
   activity,
@@ -249,6 +265,7 @@ function ThreadSidebarItemContent({
   pullRequest,
 }: {
   readonly title: string
+  readonly pinned: boolean
   readonly branch: string | null
   readonly worktreePath: string | null
   readonly activity: ThreadActivity | null
@@ -259,6 +276,9 @@ function ThreadSidebarItemContent({
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="flex min-w-0 items-center gap-1.5">
         <span className="min-w-0 flex-1 truncate">{title}</span>
+        {pinned ? (
+          <PinIcon aria-label="Épinglé" className="size-3 shrink-0 text-sidebar-foreground/55" />
+        ) : null}
         {activity === null ? null : (
           <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
         )}
