@@ -11,25 +11,9 @@ import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
-import {
-  Deferred,
-  Duration,
-  Effect,
-  Fiber,
-  FileSystem,
-  Layer,
-  Option,
-  Path,
-  Schema,
-  Stream,
-} from "effect"
+import { Deferred, Duration, Effect, Fiber, FileSystem, Layer, Path, Schema } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
-import {
-  isCursorAboutJsonFormatUnsupported,
-  parseCursorAboutOutput,
-  type CursorAboutResult,
-} from "./cursor-about.ts"
 import {
   CursorAskQuestionRequest,
   CursorListAvailableModelsResponse,
@@ -187,67 +171,6 @@ export const resolveCursorExecutable = Effect.fn("CursorAdapter.resolveExecutabl
     return configured
   }
   return null
-})
-
-const ABOUT_TIMEOUT_MS = 8_000
-
-const collectProcessText = <E>(stream: Stream.Stream<Uint8Array, E>) =>
-  Stream.runCollect(stream).pipe(
-    Effect.map((chunks) => {
-      const total = chunks.reduce((size, part) => size + part.length, 0)
-      const bytes = new Uint8Array(total)
-      let offset = 0
-      for (const part of chunks) {
-        bytes.set(part, offset)
-        offset += part.length
-      }
-      return new TextDecoder().decode(bytes)
-    }),
-  )
-
-const runCursorCli = Effect.fn("CursorAdapter.runCli")(function* (
-  executable: string,
-  binaryArgs: ReadonlyArray<string>,
-  args: ReadonlyArray<string>,
-  environment: NodeJS.ProcessEnv,
-) {
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
-  const handle = yield* spawner.spawn(
-    ChildProcess.make(executable, [...binaryArgs, ...args], {
-      env: environment,
-      detached: false,
-      windowsHide: true,
-    }),
-  )
-  const [stdout, stderr, exitCode] = yield* Effect.all(
-    [
-      collectProcessText(handle.stdout),
-      collectProcessText(handle.stderr),
-      handle.exitCode.pipe(Effect.map(Number)),
-    ],
-    { concurrency: "unbounded" },
-  )
-  return { stdout, stderr, code: exitCode } satisfies CursorAboutResult
-})
-
-const probeCursorAbout = Effect.fn("CursorAdapter.probeAbout")(function* (
-  executable: string,
-  binaryArgs: ReadonlyArray<string>,
-  environment: NodeJS.ProcessEnv,
-) {
-  const jsonResult = yield* runCursorCli(
-    executable,
-    binaryArgs,
-    ["about", "--format", "json"],
-    environment,
-  ).pipe(Effect.scoped)
-  if (!isCursorAboutJsonFormatUnsupported(jsonResult)) {
-    return parseCursorAboutOutput(jsonResult)
-  }
-  const textResult = yield* runCursorCli(executable, binaryArgs, ["about"], environment).pipe(
-    Effect.scoped,
-  )
-  return parseCursorAboutOutput(textResult)
 })
 
 const adapterError = (detail: string, cause?: unknown) =>
@@ -719,21 +642,13 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
               return { handshakeOk: true, models }
             }).pipe(Effect.catchCause(() => Effect.succeed({ handshakeOk: false, models: [] }))),
           )
-          const about = yield* probeCursorAbout(executable, binaryArgs, environment).pipe(
-            Effect.timeoutOption(ABOUT_TIMEOUT_MS),
-            Effect.map(
-              Option.match({
-                onNone: () => ({ version: null, plan: null }),
-                onSome: (value) => value,
-              }),
-            ),
-            Effect.catchCause(() => Effect.succeed({ version: null, plan: null })),
-          )
+          // `cursor-agent about` (JSON puis texte) peut pendre 3–10 s. Version/plan
+          // sont décoratifs ; le handshake ACP suffit pour le ready Electron.
           return {
             installed: true,
             handshakeOk: capabilities.handshakeOk,
-            version: about.version,
-            plan: about.plan,
+            version: null,
+            plan: null,
             binaryPath: executable,
             models: capabilities.models,
           }

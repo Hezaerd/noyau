@@ -281,4 +281,29 @@ it.layer(supervisorLayer)("server supervisor effects", (spec) => {
       expect(requests).toEqual(["http://127.0.0.1:4567/health/ready"])
     }),
   )
+
+  spec.effect("invokes afterSpawn before declaring an external bootstrap ready", () =>
+    Effect.gen(function* () {
+      const order: Array<string> = []
+      const supervisor = new ServerSupervisor({
+        serverEntryPath: "/unused/server.mjs",
+        dataDirectory: bootstrap.dataDirectory,
+        externalBootstrap: bootstrap,
+        fetchImpl: readyFetch,
+        probeRpc: () =>
+          Effect.sync(() => {
+            order.push("ready")
+          }),
+        afterSpawn: () =>
+          Effect.sync(() => {
+            order.push("window")
+          }),
+      })
+
+      yield* supervisor.start()
+
+      expect(order).toEqual(["window", "ready"])
+      expect(supervisor.state.phase).toBe("ready")
+    }),
+  )
 })
