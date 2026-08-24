@@ -27,6 +27,7 @@ import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
+import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
@@ -70,6 +71,7 @@ import {
   FIX_MERGE_CONFLICTS_PRESENTATION,
   turnPresentationLabel,
 } from "@/lib/turn-presentation"
+import { toProviderAnswers } from "@/lib/user-input-answers"
 import { isConflictingOpenPullRequest, vcsScopeForThread } from "@/lib/vcs-status"
 
 interface ThreadPageProps {
@@ -101,7 +103,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [images, setImages] = useState<ReadonlyArray<ComposerImage>>([])
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
-  const [answerByRequest, setAnswerByRequest] = useState<Record<string, string>>({})
+  const [draftByRequest, setDraftByRequest] = useState<Record<string, DraftAnswers>>({})
+  const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
   const [sendStartedAtMs, setSendStartedAtMs] = useState<number | null>(null)
   const [followLatestKey, setFollowLatestKey] = useState(0)
   const cursorReady = isCursorReady(cursor)
@@ -528,11 +531,22 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     if (threadId === undefined) {
       return
     }
-    const answer = answerByRequest[requestId]?.trim()
-    if (answer === undefined || answer === "") {
+    const item = snapshot?.transcript.find(
+      (candidate) =>
+        candidate._tag === "transcript.user-input" && candidate.requestId === requestId,
+    )
+    if (item === undefined || item._tag !== "transcript.user-input") {
       return
     }
-    void respondToUserInputAction({ threadId, requestId, answer }).then((result) => {
+    const answers = toProviderAnswers(
+      item.questions,
+      draftByRequest[requestId] ?? {},
+      legacyFreeformByRequest[requestId] ?? "",
+    )
+    if (Object.keys(answers).length === 0) {
+      return
+    }
+    void respondToUserInputAction({ threadId, requestId, answers }).then((result) => {
       if (!result.ok) {
         setActionFailure(
           presentFailure(result.failure, {
@@ -704,9 +718,16 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
                   />
                 ) : null
               }
-              answerByRequest={answerByRequest}
-              onAnswerChange={(requestId, value) => {
-                setAnswerByRequest((current) => ({
+              draftByRequest={draftByRequest}
+              legacyFreeformByRequest={legacyFreeformByRequest}
+              onDraftAnswersChange={(requestId, draft) => {
+                setDraftByRequest((current) => ({
+                  ...current,
+                  [requestId]: draft,
+                }))
+              }}
+              onLegacyFreeformChange={(requestId, value) => {
+                setLegacyFreeformByRequest((current) => ({
                   ...current,
                   [requestId]: value,
                 }))

@@ -9,6 +9,7 @@ import { ThreadTranscriptItem } from "@/components/thread/ThreadTranscriptItem"
 import { ThreadTranscriptToolGroup } from "@/components/thread/ThreadTranscriptTool"
 import { ThreadTurnMinimap } from "@/components/thread/ThreadTurnMinimap"
 import { ThreadSettledMarker, ThreadWorkingMarker } from "@/components/thread/ThreadTurnProgress"
+import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -35,8 +36,10 @@ export function ThreadTranscript({
   projectId,
   tickets,
   onOpenTicket,
-  answerByRequest,
-  onAnswerChange,
+  draftByRequest,
+  legacyFreeformByRequest,
+  onDraftAnswersChange,
+  onLegacyFreeformChange,
   onRespondApproval,
   onRespondUserInput,
   followLatestKey = 0,
@@ -53,8 +56,10 @@ export function ThreadTranscript({
   readonly projectId?: ProjectId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly onOpenTicket?: ((ticketId: string) => void) | undefined
-  readonly answerByRequest: Record<string, string>
-  readonly onAnswerChange: (requestId: string, value: string) => void
+  readonly draftByRequest: Record<string, DraftAnswers>
+  readonly legacyFreeformByRequest: Record<string, string>
+  readonly onDraftAnswersChange: (requestId: string, draft: DraftAnswers) => void
+  readonly onLegacyFreeformChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
   readonly onRespondUserInput: (requestId: string) => void
   readonly followLatestKey?: number
@@ -108,12 +113,18 @@ export function ThreadTranscript({
                       row.item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
                     }
                     projectId={projectId}
-                    answer={
+                    draftAnswers={
                       row.item._tag === "transcript.user-input"
-                        ? (answerByRequest[row.item.requestId] ?? "")
+                        ? (draftByRequest[row.item.requestId] ?? {})
+                        : {}
+                    }
+                    legacyFreeform={
+                      row.item._tag === "transcript.user-input"
+                        ? (legacyFreeformByRequest[row.item.requestId] ?? "")
                         : ""
                     }
-                    onAnswerChange={onAnswerChange}
+                    onDraftAnswersChange={onDraftAnswersChange}
+                    onLegacyFreeformChange={onLegacyFreeformChange}
                     onRespondApproval={onRespondApproval}
                     onRespondUserInput={onRespondUserInput}
                     {...(tickets === undefined ? {} : { tickets })}

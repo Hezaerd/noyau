@@ -386,7 +386,7 @@ describe("Thread commands", () => {
       "user-input.respond": {
         threadId: ids.thread,
         requestId: "req-2",
-        answers: { q: "yes" },
+        answers: { q: { optionIds: ["yes"] } },
       },
       "session.stop": { threadId: ids.thread },
     } as const

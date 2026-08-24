@@ -4,10 +4,14 @@ import type { ProjectId } from "@noyau/protocol/ids"
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
 import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
 import { ThreadTurnImages } from "@/components/thread/ThreadTurnImages"
+import {
+  StickyUserInputShell,
+  ThreadUserInputQuestionnaire,
+  type DraftAnswers,
+} from "@/components/thread/ThreadUserInputQuestionnaire"
 import { TurnPresentationBubble } from "@/components/thread/TurnPresentationBubble"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
 import type { ComposerTicket } from "@/lib/composer-tickets"
 import { transcriptLabel } from "@/lib/thread-transcript"
@@ -19,8 +23,10 @@ export function ThreadTranscriptItem({
   projectId,
   tickets,
   onOpenTicket,
-  answer,
-  onAnswerChange,
+  draftAnswers,
+  legacyFreeform,
+  onDraftAnswersChange,
+  onLegacyFreeformChange,
   onRespondApproval,
   onRespondUserInput,
 }: {
@@ -30,8 +36,10 @@ export function ThreadTranscriptItem({
   readonly projectId?: ProjectId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly onOpenTicket?: ((ticketId: string) => void) | undefined
-  readonly answer: string
-  readonly onAnswerChange: (requestId: string, value: string) => void
+  readonly draftAnswers: DraftAnswers
+  readonly legacyFreeform: string
+  readonly onDraftAnswersChange: (requestId: string, draft: DraftAnswers) => void
+  readonly onLegacyFreeformChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
   readonly onRespondUserInput: (requestId: string) => void
 }) {
@@ -150,19 +158,16 @@ export function ThreadTranscriptItem({
     <Message align="start">
       <MessageContent>
         <MessageHeader>{transcriptLabel(item)}</MessageHeader>
-        <Bubble variant="muted" align="start">
-          <BubbleContent>{item.prompt ?? "Cursor attend une réponse."}</BubbleContent>
-        </Bubble>
-        {item.status === "pending" ? (
-          <div className="flex gap-2">
-            <Input
-              value={answer}
-              onChange={(event) => onAnswerChange(item.requestId, event.target.value)}
-              aria-label="Réponse à Cursor"
-            />
-            <Button onClick={() => onRespondUserInput(item.requestId)}>Répondre</Button>
-          </div>
-        ) : null}
+        <StickyUserInputShell pending={item.status === "pending"}>
+          <ThreadUserInputQuestionnaire
+            item={item}
+            draft={draftAnswers}
+            legacyFreeform={legacyFreeform}
+            onDraftChange={onDraftAnswersChange}
+            onLegacyFreeformChange={onLegacyFreeformChange}
+            onSubmit={onRespondUserInput}
+          />
+        </StickyUserInputShell>
       </MessageContent>
     </Message>
   )

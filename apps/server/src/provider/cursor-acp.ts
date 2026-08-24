@@ -36,6 +36,7 @@ import {
   type ToolCallPresentation,
   type ToolCallPresentationInput,
 } from "./tool-call-presentation.ts"
+import { TurnUserInputRegistry, turnUserInputRegistryLayer } from "./turn-user-input-registry.ts"
 
 const ACP_VERSION = 1 as const
 const CURSOR_AUTH_METHOD = "cursor_login"
@@ -61,7 +62,6 @@ interface ActiveTurn {
   readonly emit: ProviderEmit
   readonly promptSettled: Deferred.Deferred<void>
   readonly pendingApprovals: Map<string, PendingApproval>
-  readonly pendingUserInputs: Map<string, Deferred.Deferred<ProviderUserInputAnswers>>
   readonly toolCalls: Map<string, ToolCallPresentationInput>
   acp?: AcpClient.AcpClient["Service"]
   handle?: ChildProcessSpawner.ChildProcessHandle
@@ -593,6 +593,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   const providerScope = yield* Effect.scope
   const path = yield* Path.Path
   const mcpSessions = yield* McpSessionRegistry
+  const userInputs = yield* TurnUserInputRegistry
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const environment = options.environment ?? process.env
   const platform = options.platform ?? process.platform
@@ -735,37 +736,43 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         "User-input request targets another Cursor session",
       )
     }
-    const requestId = request.toolCallId ?? "cursor-ask-question"
-    const deferred = yield* Deferred.make<ProviderUserInputAnswers>()
-    control.pendingUserInputs.set(requestId, deferred)
-    const prompt = request.questions?.[0]?.prompt
-    const pendingItem =
-      prompt === undefined
-        ? {
-            _tag: "transcript.user-input" as const,
-            threadId: control.input.threadId,
-            turnId: control.input.turnId,
-            requestId: ApprovalRequestId.make(requestId),
-            status: "pending" as const,
-          }
-        : {
-            _tag: "transcript.user-input" as const,
-            threadId: control.input.threadId,
-            turnId: control.input.turnId,
-            requestId: ApprovalRequestId.make(requestId),
-            prompt,
-            status: "pending" as const,
-          }
-    yield* control.emit({
-      _tag: "transcript",
-      item: pendingItem,
+    const requestId = ApprovalRequestId.make(request.toolCallId ?? "cursor-ask-question")
+    const questions = request.questions?.map((question) => {
+      const mapped = {
+        id: question.id,
+        prompt: question.prompt,
+        options: question.options.map((option) => ({ id: option.id, label: option.label })),
+      }
+      return question.allowMultiple === undefined
+        ? mapped
+        : Object.assign(mapped, { allowMultiple: question.allowMultiple })
     })
-    const answers = yield* Deferred.await(deferred)
-    control.pendingUserInputs.delete(requestId)
-    yield* control.emit({
-      _tag: "transcript",
-      item: { ...pendingItem, status: "resolved" },
-    })
+    const prompt = questions?.[0]?.prompt
+    const requestInput = {
+      threadId: control.input.threadId,
+      turnId: control.input.turnId,
+      requestId,
+    }
+    const withTitle =
+      request.title === undefined
+        ? requestInput
+        : Object.assign(requestInput, { title: request.title })
+    const withPrompt = prompt === undefined ? withTitle : Object.assign(withTitle, { prompt })
+    const withQuestions =
+      questions === undefined || questions.length === 0
+        ? withPrompt
+        : Object.assign(withPrompt, { questions })
+    const answers = yield* userInputs
+      .request(withQuestions)
+      .pipe(
+        Effect.mapError((error) =>
+          AcpError.AcpRequestError.invalidRequest(
+            error._tag === "UserInputTurnInactive"
+              ? "User-input request outside an active Turn"
+              : "User-input request failed",
+          ),
+        ),
+      )
     return { answers }
   })
 
@@ -1113,7 +1120,8 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       ),
     ).pipe(
       Effect.ensuring(
-        Effect.sync(() => {
+        Effect.gen(function* () {
+          yield* userInputs.unbindTurn(control.input.threadId)
           if (active.get(control.input.threadId) === control) {
             active.delete(control.input.threadId)
           }
@@ -1131,13 +1139,13 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       emit,
       promptSettled,
       pendingApprovals: new Map(),
-      pendingUserInputs: new Map(),
       toolCalls: new Map(),
       promptStarted: false,
       cancelRequested: false,
       stopRequested: false,
       terminalEmitted: false,
     }
+    yield* userInputs.bindTurn(input.threadId, emit)
     active.set(input.threadId, control)
     yield* emit(sessionSignal(control, "starting", input.resumeCursor))
     const fiber = yield* Effect.forkIn(runTurn(control), providerScope, { startImmediately: true })
@@ -1158,9 +1166,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     for (const pending of control.pendingApprovals.values()) {
       yield* Deferred.succeed(pending.decision, "cancel")
     }
-    for (const pending of control.pendingUserInputs.values()) {
-      yield* Deferred.succeed(pending, {})
-    }
+    yield* userInputs.cancelTurn(threadId)
     if (!control.promptStarted || control.acp === undefined || control.sessionId === undefined) {
       return
     }
@@ -1194,10 +1200,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     requestId: ApprovalRequestId,
     answers: ProviderUserInputAnswers,
   ) {
-    const pending = active.get(threadId)?.pendingUserInputs.get(requestId)
-    if (pending !== undefined) {
-      yield* Deferred.succeed(pending, answers)
-    }
+    yield* userInputs.resolve(threadId, requestId, answers)
   })
 
   const drain = Effect.gen(function* () {
@@ -1222,4 +1225,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
 })
 
 export const cursorProviderLayer = (options: CursorAdapterOptions = {}) =>
-  Layer.effect(ProviderPort, makeCursorProvider(options)).pipe(Layer.provide(NodeServices.layer))
+  Layer.effect(ProviderPort, makeCursorProvider(options)).pipe(
+    Layer.provide(NodeServices.layer),
+    Layer.provideMerge(turnUserInputRegistryLayer),
+  )

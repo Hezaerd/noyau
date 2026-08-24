@@ -1,4 +1,5 @@
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
+import type { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
 import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
@@ -270,13 +271,13 @@ export const respondToApproval = (input: {
 export const respondToUserInputEffect = Effect.fn("respondToUserInput")(function* (input: {
   readonly threadId: ThreadId
   readonly requestId: string
-  readonly answer: string
+  readonly answers: ProviderUserInputAnswers
 }) {
   return yield* buildAndDispatch(
     makeUserInputRespondRequest({
       threadId: input.threadId,
       requestId: ApprovalRequestId.make(input.requestId),
-      answer: input.answer,
+      answers: input.answers,
     }),
   )
 })
@@ -284,5 +285,5 @@ export const respondToUserInputEffect = Effect.fn("respondToUserInput")(function
 export const respondToUserInput = (input: {
   readonly threadId: ThreadId
   readonly requestId: string
-  readonly answer: string
+  readonly answers: ProviderUserInputAnswers
 }) => Effect.runPromise(respondToUserInputEffect(input))

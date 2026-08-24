@@ -8,8 +8,21 @@ import {
   NoyauMcpToolkitHandlersLive,
   TicketListResult,
 } from "@noyau/server/mcp/tools"
-import { Effect, Layer, Schema, Stream } from "effect"
+import { turnUserInputRegistryLayer } from "@noyau/server/provider/turn-user-input-registry"
+import { Crypto, Effect, Layer, Schema, Stream } from "effect"
 import { McpSchema, McpServer } from "effect/unstable/ai"
+
+const testCrypto = () => {
+  let n = 0
+  return Crypto.make({
+    randomBytes: (size) => new Uint8Array(size),
+    digest: (_algorithm, data) => Effect.succeed(data),
+    randomUUIDv4: Effect.sync(() => {
+      n += 1
+      return `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`
+    }),
+  })
+}
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
@@ -152,6 +165,8 @@ const TestLayer = Layer.mergeAll(
   Layer.succeed(ControlPlane)(controlPlane),
   Layer.succeed(McpInvocationContext)(invocation),
   Layer.succeed(McpSchema.McpServerClient)(client),
+  turnUserInputRegistryLayer,
+  Layer.succeed(Crypto.Crypto)(testCrypto()),
 )
 
 layer(TestLayer)("Noyau MCP tools", (it) => {
