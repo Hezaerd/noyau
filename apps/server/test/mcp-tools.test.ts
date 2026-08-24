@@ -15,14 +15,16 @@ import { Crypto, Effect, Layer, Schema, Stream } from "effect"
 import { McpSchema, McpServer } from "effect/unstable/ai"
 
 const testCrypto = () => {
-  let n = 0
+  let counter = 0
   return Crypto.make({
-    randomBytes: (size) => new Uint8Array(size),
+    randomBytes: (size) => {
+      const bytes = new Uint8Array(size)
+      counter += 1
+      bytes[size - 1] = counter % 256
+      bytes[size - 2] = (counter >> 8) % 256
+      return bytes
+    },
     digest: (_algorithm, data) => Effect.succeed(data),
-    randomUUIDv4: Effect.sync(() => {
-      n += 1
-      return `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`
-    }),
   })
 }
 
