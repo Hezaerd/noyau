@@ -4,7 +4,7 @@ import type { ProjectId } from "@noyau/protocol/ids"
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
 import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
 import { ThreadTurnImages } from "@/components/thread/ThreadTurnImages"
-import { TurnPresentationChip } from "@/components/thread/TurnPresentationChip"
+import { TurnPresentationBubble } from "@/components/thread/TurnPresentationBubble"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,9 +43,9 @@ export function ThreadTranscriptItem({
     const attachments = item.attachments
     if (item.presentation !== undefined) {
       return (
-        <Message align="start">
+        <Message align="end">
           <MessageContent>
-            <TurnPresentationChip presentation={item.presentation} />
+            <TurnPresentationBubble presentation={item.presentation} />
           </MessageContent>
         </Message>
       )

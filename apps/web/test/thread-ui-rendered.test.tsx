@@ -15,6 +15,7 @@ import { TicketDialog } from "../src/components/board/TicketDialog"
 import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { ThreadSidebarStatus } from "../src/components/sidebar/ThreadSidebarStatus"
+import { FixMergeConflictsButton } from "../src/components/thread/FixMergeConflictsButton"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "../src/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "../src/components/thread/ThreadStatusNotices"
@@ -206,7 +207,7 @@ describe("rendered Thread UI evidence", () => {
         onDrop={vi.fn()}
         onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
-        toolbar={<button type="button">Fix merge conflicts</button>}
+        toolbar={<FixMergeConflictsButton disabled={false} onClick={vi.fn()} />}
       />,
     )
 
@@ -1394,7 +1395,7 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByRole("status").textContent).toBe("A travaillé 1m 23s")
   })
 
-  it("renders a presentation chip instead of the raw fix-merge-conflicts prompt", () => {
+  it("renders a presentation message instead of the raw fix-merge-conflicts prompt", () => {
     const item = Schema.decodeSync(TranscriptItem)({
       _tag: "transcript.user",
       threadId,
@@ -1414,7 +1415,9 @@ describe("rendered Thread UI evidence", () => {
       />,
     )
 
-    expect(screen.getByText("Fix merge conflicts")).toBeTruthy()
+    const label = screen.getByText("Fix merge conflicts")
+    expect(label.closest("[data-slot=message]")?.getAttribute("data-align")).toBe("end")
+    expect(label.closest("[data-slot=bubble]")).toBeTruthy()
     expect(screen.queryByText("PR #12 conflicts with its base branch `main`.")).toBeNull()
   })
 

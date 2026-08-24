@@ -1,6 +1,5 @@
-import { GitMergeIcon } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { TurnPresentationBubble } from "@/components/thread/TurnPresentationBubble"
+import { FIX_MERGE_CONFLICTS_PRESENTATION } from "@/lib/turn-presentation"
 
 export function FixMergeConflictsButton({
   disabled,
@@ -10,16 +9,9 @@ export function FixMergeConflictsButton({
   readonly onClick: () => void
 }) {
   return (
-    <Button
-      type="button"
-      size="xs"
-      variant="outline"
-      disabled={disabled}
-      onClick={onClick}
-      className="rounded-full border-amber-500/30 bg-background text-amber-500 shadow-xs hover:bg-amber-500/10 hover:text-amber-500"
-    >
-      <GitMergeIcon />
-      Fix merge conflicts
-    </Button>
+    <TurnPresentationBubble
+      presentation={FIX_MERGE_CONFLICTS_PRESENTATION}
+      action={{ disabled, onClick }}
+    />
   )
 }
