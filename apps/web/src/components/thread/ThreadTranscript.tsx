@@ -39,6 +39,7 @@ export function ThreadTranscript({
   onAnswerChange,
   onRespondApproval,
   onRespondUserInput,
+  scrollerKey,
   followLatestKey = 0,
 }: {
   readonly transcript: ReadonlyArray<TranscriptItem>
@@ -57,6 +58,7 @@ export function ThreadTranscript({
   readonly onAnswerChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
   readonly onRespondUserInput: (requestId: string) => void
+  readonly scrollerKey?: string
   readonly followLatestKey?: number
 }) {
   const lastItem = transcript.at(-1)
@@ -65,7 +67,7 @@ export function ThreadTranscript({
   const minimapItems = useMemo(() => deriveTurnMinimapItems(transcript), [transcript])
 
   return (
-    <MessageScrollerProvider autoScroll>
+    <MessageScrollerProvider key={scrollerKey} autoScroll>
       <ThreadTranscriptFollowLatest followLatestKey={followLatestKey} />
       <MessageScroller className="min-h-0 flex-1">
         <MessageScrollerViewport aria-label="Transcript du Thread">

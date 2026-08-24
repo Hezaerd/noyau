@@ -17,6 +17,19 @@ import {
 } from "electron"
 
 import {
+  openCheckedDesktopInstaller,
+  resolveDesktopUpdateCheckChannel,
+  resolveDesktopUpdateHost,
+  settleDesktopUpdateCheck,
+} from "./desktop-update"
+import {
+  CHECK_DESKTOP_UPDATE_CHANNEL,
+  decodeDesktopUpdateRequest,
+  GET_APP_VERSION_CHANNEL,
+  OPEN_DESKTOP_INSTALLER_CHANNEL,
+  type DesktopUpdatePackagedChannel,
+} from "./desktop-update-contract"
+import {
   decodeFolderPickerOptions,
   folderPickerOpenDialogOptions,
   folderPickerOwner,
@@ -204,6 +217,39 @@ const registerOpenPathBridge = (): void => {
       decodeOpenPathInput(input).pipe(
         Effect.flatMap((path) =>
           openFilesystemPathOnHost(path, (resolved) => shell.openPath(resolved)),
+        ),
+      ),
+    ),
+  )
+}
+
+const desktopUpdateCheckInput = (requested?: DesktopUpdatePackagedChannel) => ({
+  channel: resolveDesktopUpdateCheckChannel(flags.releaseChannel, requested),
+  installedChannel: flags.releaseChannel,
+  currentVersion: app.getVersion(),
+  host: resolveDesktopUpdateHost(process.platform, process.arch),
+})
+
+const registerDesktopUpdateBridge = (): void => {
+  ipcMain.on(GET_APP_VERSION_CHANNEL, (event) => {
+    event.returnValue = app.getVersion()
+  })
+  ipcMain.handle(CHECK_DESKTOP_UPDATE_CHANNEL, (_event, input) =>
+    desktopRuntime.runPromise(
+      decodeDesktopUpdateRequest(input ?? {}).pipe(
+        Effect.flatMap((request) =>
+          settleDesktopUpdateCheck(desktopUpdateCheckInput(request.channel)),
+        ),
+      ),
+    ),
+  )
+  ipcMain.handle(OPEN_DESKTOP_INSTALLER_CHANNEL, (_event, input) =>
+    desktopRuntime.runPromise(
+      decodeDesktopUpdateRequest(input ?? {}).pipe(
+        Effect.flatMap((request) =>
+          openCheckedDesktopInstaller(desktopUpdateCheckInput(request.channel), (url) =>
+            shell.openExternal(url),
+          ),
         ),
       ),
     ),
@@ -449,6 +495,7 @@ const launch = Effect.fn("launch")(function* () {
   registerThemeBridge()
   registerFolderPickerBridge()
   registerOpenPathBridge()
+  registerDesktopUpdateBridge()
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
     isRendererPermissionAllowed(permission),
   )

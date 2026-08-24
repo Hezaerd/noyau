@@ -9,6 +9,7 @@ export const KEYBINDING_IDS = [
   "settings.open",
   "thread.create",
   "thread.rename",
+  "thread.pin",
   "board.search",
   "board.ticket.create",
   "board.ticket.open",
@@ -70,6 +71,13 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Renommer le Thread",
     description: "Renomme le Thread ouvert dans le chrome.",
     defaultHotkey: "F2",
+  },
+  {
+    id: "thread.pin",
+    group: "thread",
+    title: "Épingler le Thread",
+    description: "Épingle ou désépingle le Thread ouvert en haut de la sidebar.",
+    defaultHotkey: "Mod+P",
   },
   {
     id: "board.search",

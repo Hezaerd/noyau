@@ -22,6 +22,7 @@ export interface ResolvedKeybindings {
   readonly "settings.open": Hotkey
   readonly "thread.create": Hotkey
   readonly "thread.rename": Hotkey
+  readonly "thread.pin": Hotkey
   readonly "board.search": Hotkey
   readonly "board.ticket.create": Hotkey
   readonly "board.ticket.open": Hotkey
@@ -99,6 +100,7 @@ export const resolveKeybindings = (
   "settings.open": overrides.get("settings.open") ?? defaultKeybinding("settings.open"),
   "thread.create": overrides.get("thread.create") ?? defaultKeybinding("thread.create"),
   "thread.rename": overrides.get("thread.rename") ?? defaultKeybinding("thread.rename"),
+  "thread.pin": overrides.get("thread.pin") ?? defaultKeybinding("thread.pin"),
   "board.search": overrides.get("board.search") ?? defaultKeybinding("board.search"),
   "board.ticket.create":
     overrides.get("board.ticket.create") ?? defaultKeybinding("board.ticket.create"),

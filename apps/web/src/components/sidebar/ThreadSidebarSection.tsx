@@ -1,6 +1,7 @@
 import type { ThreadShell } from "@noyau/protocol/shell"
 import { Fragment, type ReactNode } from "react"
 
+import { useThreadPins } from "@/hooks/use-thread-pins"
 import { sortThreadsForSidebar } from "@/lib/thread-sidebar-sort"
 
 export function ThreadSidebarSection({
@@ -10,7 +11,8 @@ export function ThreadSidebarSection({
   readonly threads: ReadonlyArray<ThreadShell>
   readonly renderThread: (thread: ThreadShell) => ReactNode
 }) {
-  const renderedThreads = sortThreadsForSidebar(threads).map((thread) => (
+  const pins = useThreadPins()
+  const renderedThreads = sortThreadsForSidebar(threads, pins).map((thread) => (
     <Fragment key={thread.id}>{renderThread(thread)}</Fragment>
   ))
 

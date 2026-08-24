@@ -12,7 +12,9 @@ Fichier : `.github/workflows/release.yml`.
 3. `release` crée une GitHub Release avec le DMG et l’NSIS versionnés
    (`Noyau-<version>-<os>-<arch>`). Le binaire dépaqueté `win-unpacked/` n’est pas publié.
 
-Pas de cron, pas de publication npm, pas de manifests `electron-updater`.
+Pas de cron, pas de publication npm, pas de manifests `electron-updater`. L’app packagée
+peut vérifier le Canal de mise à jour (défaut = canal packagé) et ouvrir l’installeur
+correspondant. L’autre canal ouvre une app séparée.
 
 ## Latest
 
