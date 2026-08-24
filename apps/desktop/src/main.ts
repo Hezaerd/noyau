@@ -17,6 +17,7 @@ import {
   shell,
 } from "electron"
 
+import { applicationMenuTemplate } from "./application-menu"
 import {
   openCheckedDesktopInstaller,
   resolveDesktopUpdateCheckChannel,
@@ -468,8 +469,9 @@ const launch = Effect.fn("launch")(function* () {
   ])
   app.setName(appDisplayName)
   app.setAboutPanelOptions({ applicationName: appDisplayName })
-  // Skip Electron's default menu construction — we use autoHideMenuBar / native chrome.
-  Menu.setApplicationMenu(null)
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(applicationMenuTemplate(process.platform, appDisplayName)),
+  )
 
   yield* Effect.promise(() => app.whenReady())
   yield* applyDockIcon()
