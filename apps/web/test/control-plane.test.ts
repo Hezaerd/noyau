@@ -46,6 +46,25 @@ describe("control plane stream cursor", () => {
     expect(consumer.afterSequence()).toBe(11)
   })
 
+  it("resumes from a warm afterSequence without waiting for a fresh snapshot", () => {
+    const accepted: Array<string> = []
+    const consumer = makeSequencedFrameConsumer<
+      { readonly snapshotSequence: Sequence; readonly label: string },
+      { readonly sequence: Sequence; readonly label: string }
+    >(Sequence.make(10), {
+      onSnapshot: (snapshot) => accepted.push(`snapshot:${snapshot.label}`),
+      onEvent: (event) => accepted.push(`event:${event.label}`),
+      onStatus: () => undefined,
+    })
+
+    consumer.consume({ kind: "event", event: { sequence: Sequence.make(10), label: "duplicate" } })
+    consumer.consume({ kind: "event", event: { sequence: Sequence.make(11), label: "catch-up" } })
+    consumer.consume({ kind: "event", event: { sequence: Sequence.make(12), label: "live" } })
+
+    expect(accepted).toEqual(["event:catch-up", "event:live"])
+    expect(consumer.afterSequence()).toBe(12)
+  })
+
   it("replaces a failed session and resubscribes from the last accepted global sequence", () =>
     Effect.runPromise(
       Effect.gen(function* () {
