@@ -15,7 +15,7 @@ import { discordPresenceLayer } from "./discord/ipc.ts"
 import { EditorOpen } from "./editor/editor-open.ts"
 import { editorOpenLayer } from "./editor/node-editor-probe.ts"
 import { GitPlane, gitPlaneLayer } from "./git/git-plane.ts"
-import { hydrateHostPath } from "./host-path.ts"
+import { hydrateHostPath, hydrateHostPathFast } from "./host-path.ts"
 import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
 import { mcpHttpServerLayer } from "./mcp/mcp-http-server.ts"
 import { mcpSessionRegistryLayer } from "./mcp/mcp-session-registry.ts"
@@ -202,7 +202,8 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
 
 export const serverLayer = Layer.unwrap(
   Effect.gen(function* () {
-    yield* hydrateHostPath()
+    yield* hydrateHostPathFast()
+    yield* Effect.forkDetach(hydrateHostPath())
     return HttpRouter.serve(serverRoutesLayer).pipe(
       Layer.provide(nodeServerLayer),
       Layer.provide(loggerLayer),

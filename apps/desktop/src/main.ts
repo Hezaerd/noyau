@@ -8,6 +8,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   nativeTheme,
   net,
   type OpenDialogOptions,
@@ -62,6 +63,7 @@ import {
   resolveServerEntryPath,
   serverEnvironmentFromReleaseChannel,
   ServerSupervisor,
+  SupervisorError,
   type ServerBootstrap,
   type ServerSupervisorOptions,
   type SupervisorState,
@@ -466,15 +468,36 @@ const launch = Effect.fn("launch")(function* () {
   ])
   app.setName(appDisplayName)
   app.setAboutPanelOptions({ applicationName: appDisplayName })
+  // Skip Electron's default menu construction — we use autoHideMenuBar / native chrome.
+  Menu.setApplicationMenu(null)
 
   yield* Effect.promise(() => app.whenReady())
   yield* applyDockIcon()
+  registerRendererProtocol()
+  registerThemeBridge()
+  registerFolderPickerBridge()
+  registerOpenPathBridge()
+  registerDesktopUpdateBridge()
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
+    isRendererPermissionAllowed(permission),
+  )
   const externalBootstrap = yield* decodeExternalBootstrap()
+  const afterSpawn = (bootstrap: ServerBootstrap) =>
+    createMainWindow(bootstrap).pipe(
+      Effect.mapError(
+        (cause) =>
+          new SupervisorError({
+            message: String(cause),
+            cause,
+          }),
+      ),
+    )
   const baseSupervisorOptions = {
     serverEntryPath: yield* resolveServerEntryPath(__dirname, app.isPackaged),
     dataDirectory: path.join(app.getPath("userData"), "environment"),
     environment: serverEnvironmentFromReleaseChannel(flags.releaseChannel),
     releaseChannel: flags.releaseChannel,
+    afterSpawn,
     onStateChange: (state: SupervisorState) => {
       void desktopRuntime.runPromise(publishSmokeSupervisorState(state))
       if (state.phase === "degraded") {
@@ -490,19 +513,10 @@ const launch = Effect.fn("launch")(function* () {
       : { ...baseSupervisorOptions, externalBootstrap }
   serverSupervisor = new ServerSupervisor(supervisorOptions)
   yield* serverSupervisor.start()
-  registerRendererProtocol()
-  registerThemeBridge()
-  registerFolderPickerBridge()
-  registerOpenPathBridge()
-  registerDesktopUpdateBridge()
-  session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
-    isRendererPermissionAllowed(permission),
-  )
   const bootstrap = serverSupervisor.bootstrap
   if (bootstrap === undefined) {
     return yield* desktopError("The Noyau Server supervisor did not provide a bootstrap")
   }
-  yield* createMainWindow(bootstrap)
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

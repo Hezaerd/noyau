@@ -154,8 +154,8 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
               assert.deepStrictEqual(status, {
                 installed: true,
                 handshakeOk: true,
-                version: "2026.03.20-test",
-                plan: "Pro",
+                version: null,
+                plan: null,
                 binaryPath: process.execPath,
                 models: [
                   {
@@ -205,8 +205,8 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
               assert.deepStrictEqual(status, {
                 installed: true,
                 handshakeOk: false,
-                version: "2026.03.20-test",
-                plan: "Pro",
+                version: null,
+                plan: null,
                 binaryPath: process.execPath,
                 models: [],
               })
@@ -221,8 +221,8 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
               assert.deepStrictEqual(status, {
                 installed: true,
                 handshakeOk: false,
-                version: "2026.03.20-test",
-                plan: "Pro",
+                version: null,
+                plan: null,
                 binaryPath: process.execPath,
                 models: [],
               })
@@ -237,8 +237,8 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
               assert.deepStrictEqual(status, {
                 installed: true,
                 handshakeOk: false,
-                version: "2026.03.20-test",
-                plan: "Pro",
+                version: null,
+                plan: null,
                 binaryPath: process.execPath,
                 models: [],
               })
@@ -253,8 +253,8 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
               assert.deepStrictEqual(status, {
                 installed: true,
                 handshakeOk: false,
-                version: "2026.03.20-test",
-                plan: "Pro",
+                version: null,
+                plan: null,
                 binaryPath: process.execPath,
                 models: [],
               })

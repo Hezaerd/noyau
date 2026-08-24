@@ -214,6 +214,20 @@ export const resolveKnownWindowsCliDirs = (env: NodeJS.ProcessEnv): ReadonlyArra
   ]
 }
 
+/** Dirs CLI usuels sans spawn de login-shell — le `zsh -ilc` GUI peut pendre 5 s. */
+export const resolveKnownPosixCliDirs = (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): ReadonlyArray<string> => {
+  const home = env.HOME?.trim()
+  return [
+    ...(home === undefined || home.length === 0
+      ? []
+      : [`${home}/.local/bin`, `${home}/.bun/bin`, `${home}/.cargo/bin`]),
+    ...(platform === "darwin" ? ["/opt/homebrew/bin", "/usr/local/bin"] : ["/usr/local/bin"]),
+  ]
+}
+
 export const hydratePosixHome = (
   env: NodeJS.ProcessEnv,
   resolveHomeDir = () => NodeOs.userInfo().homedir,
@@ -227,11 +241,23 @@ export const hydratePosixHome = (
   }
 }
 
+export const hydratePosixPathKnownDirs = (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): void => {
+  const knownCliPath = resolveKnownPosixCliDirs(env, platform).join(POSIX_PATH_DELIMITER)
+  const mergedPath = mergePathEntries(knownCliPath, env.PATH, platform)
+  if (mergedPath !== undefined) {
+    env.PATH = mergedPath
+  }
+}
+
 export const hydratePosixPath = (
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
   execFile: ExecFileSyncLike = defaultExecFile,
 ): void => {
+  hydratePosixPathKnownDirs(env, platform)
   let shellPath: string | undefined
   for (const shell of listLoginShellCandidates(platform, env.SHELL)) {
     try {
@@ -272,6 +298,46 @@ export const hydrateWindowsPath = (
     env.PATH = mergedPath
   }
 }
+
+/** PATH instantané (dirs connus) — assez pour trouver `cursor-agent` sans login-shell. */
+export const hydrateHostPathFast = Effect.fn("HostPath.hydrateFast")(function* () {
+  const platform = process.platform
+  const env = process.env
+  if (platform === "win32") {
+    yield* Effect.sync(() => {
+      const inheritedPath = env.PATH ?? env.Path
+      const knownCliPath = resolveKnownWindowsCliDirs(env).join(WINDOWS_PATH_DELIMITER)
+      const mergedPath = mergePathEntries(knownCliPath, inheritedPath, "win32")
+      if (mergedPath !== undefined) {
+        env.PATH = mergedPath
+      }
+    }).pipe(
+      Effect.catchDefect((defect) =>
+        Effect.sync(() => {
+          logPathHydrationWarning("Failed to hydrate PATH from known CLI directories.", defect)
+        }),
+      ),
+    )
+    return
+  }
+  if (platform !== "darwin" && platform !== "linux") {
+    return
+  }
+  yield* Effect.sync(() => hydratePosixHome(env)).pipe(
+    Effect.catchDefect((defect) =>
+      Effect.sync(() => {
+        logPathHydrationWarning("Failed to hydrate HOME from the user account.", defect)
+      }),
+    ),
+  )
+  yield* Effect.sync(() => hydratePosixPathKnownDirs(env, platform)).pipe(
+    Effect.catchDefect((defect) =>
+      Effect.sync(() => {
+        logPathHydrationWarning("Failed to hydrate PATH from known CLI directories.", defect)
+      }),
+    ),
+  )
+})
 
 /** Hydrates `process.env.PATH` from the login shell before Cursor / Git probes. */
 export const hydrateHostPath = Effect.fn("HostPath.hydrate")(function* () {

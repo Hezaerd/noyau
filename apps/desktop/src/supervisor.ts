@@ -96,6 +96,9 @@ export interface ServerSupervisorOptions {
   readonly fetchImpl?: FetchImplementation
   readonly probeRpc?: (bootstrap: ServerBootstrap) => Effect.Effect<void, SupervisorError>
   readonly onStateChange?: (state: SupervisorState) => void
+  readonly afterSpawn?: (
+    bootstrap: ServerBootstrap,
+  ) => Effect.Effect<void, SupervisorError, SupervisorServices>
 }
 
 interface MutableServerBootstrapOptions {
@@ -302,6 +305,7 @@ export class ServerSupervisor {
   private stopping = false
   private restartFiber: Fiber.Fiber<void> | undefined
   private failureTimes: Array<number> = []
+  private afterSpawnConsumed = false
 
   constructor(options: ServerSupervisorOptions) {
     this.options = options
@@ -321,6 +325,7 @@ export class ServerSupervisor {
       if (this.options.externalBootstrap !== undefined) {
         this.bootstrapValue = this.options.externalBootstrap
         this.setState({ phase: "starting", failures: 0 })
+        yield* this.runAfterSpawn(this.options.externalBootstrap)
         yield* withSupervisorHttp(
           this.options,
           waitForServerReady(this.options.externalBootstrap, readinessProbe(this.options)),
@@ -372,6 +377,19 @@ export class ServerSupervisor {
     })
   }
 
+  private runAfterSpawn(
+    bootstrap: ServerBootstrap,
+  ): Effect.Effect<void, SupervisorError, SupervisorServices> {
+    return Effect.gen({ self: this }, function* () {
+      const afterSpawn = this.options.afterSpawn
+      if (afterSpawn === undefined || this.afterSpawnConsumed) {
+        return
+      }
+      yield* afterSpawn(bootstrap)
+      this.afterSpawnConsumed = true
+    })
+  }
+
   private setState(next: SupervisorState): void {
     this.stateValue = next
     this.options.onStateChange?.(next)
@@ -404,6 +422,7 @@ export class ServerSupervisor {
         this.setState({ phase: "starting", failures: this.failureTimes.length })
 
         const started = yield* this.spawn(bootstrap).pipe(
+          Effect.andThen(this.runAfterSpawn(bootstrap)),
           Effect.andThen(
             withSupervisorHttp(
               this.options,
