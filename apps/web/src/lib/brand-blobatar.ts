@@ -4,8 +4,11 @@ import type { DesktopReleaseChannel } from "@/lib/desktop-bridge"
 
 export const BRAND_BLOBATAR_NAME = "noyau"
 
-/** Fixed per channel. Does not follow the UI theme. Desktop icons reuse head/eye. */
+/**
+ * Fixed per channel — same slots as the desktop app icon (`bg` / `head` / `eye`).
+ * Does not follow the UI theme. Without `bg`, nightly’s dark head vanishes on a dark sidebar.
+ */
 export const brandBlobatarPalette = (channel: DesktopReleaseChannel = "latest") => {
-  const { head, eye } = releaseBrand(channel).palette
-  return { head, eye }
+  const { background, head, eye } = releaseBrand(channel).palette
+  return { bg: background, head, eye }
 }
