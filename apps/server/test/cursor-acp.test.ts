@@ -179,121 +179,114 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
   it.effect("uses handshake capabilities as provider truth", () =>
     Effect.gen(function* () {
       yield* withProvider("success", (provider) =>
-        waitForAbout(provider).pipe(
+        provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
-                installed: true,
-                handshakeOk: true,
-                version: "2026.03.20-test",
-                plan: "Pro",
-                binaryPath: process.execPath,
-                models: [
-                  {
-                    modelId: "composer-2.5",
-                    label: "Composer 2.5",
-                    reasoningEfforts: [
-                      { value: "low", label: "Low" },
-                      { value: "medium", label: "Medium", isDefault: true },
-                      { value: "high", label: "High" },
-                    ],
-                    serviceTiers: [
-                      { value: "normal", label: "Normal", isDefault: true },
-                      {
-                        value: "fast",
-                        label: "Fast",
-                        description: "1.5x speed, increased usage",
-                      },
-                    ],
-                  },
-                  {
-                    modelId: "composer-2.5-fast",
-                    label: "Composer 2.5 Fast",
-                    reasoningEfforts: [
-                      { value: "low", label: "Low" },
-                      { value: "medium", label: "Medium", isDefault: true },
-                      { value: "high", label: "High" },
-                    ],
-                    serviceTiers: [
-                      { value: "normal", label: "Normal", isDefault: true },
-                      {
-                        value: "fast",
-                        label: "Fast",
-                        description: "1.5x speed, increased usage",
-                      },
-                    ],
-                  },
-                ],
-              })
+              assert.strictEqual(status.installed, true)
+              assert.strictEqual(status.handshakeOk, true)
+              assert.strictEqual(status.binaryPath, process.execPath)
+              assert.deepStrictEqual(status.models, [
+                {
+                  modelId: "composer-2.5",
+                  label: "Composer 2.5",
+                  reasoningEfforts: [
+                    { value: "low", label: "Low" },
+                    { value: "medium", label: "Medium", isDefault: true },
+                    { value: "high", label: "High" },
+                  ],
+                  serviceTiers: [
+                    { value: "normal", label: "Normal", isDefault: true },
+                    {
+                      value: "fast",
+                      label: "Fast",
+                      description: "1.5x speed, increased usage",
+                    },
+                  ],
+                },
+                {
+                  modelId: "composer-2.5-fast",
+                  label: "Composer 2.5 Fast",
+                  reasoningEfforts: [
+                    { value: "low", label: "Low" },
+                    { value: "medium", label: "Medium", isDefault: true },
+                    { value: "high", label: "High" },
+                  ],
+                  serviceTiers: [
+                    { value: "normal", label: "Normal", isDefault: true },
+                    {
+                      value: "fast",
+                      label: "Fast",
+                      description: "1.5x speed, increased usage",
+                    },
+                  ],
+                },
+              ])
             }),
           ),
         ),
       )
       yield* withProvider("missing-load", (provider) =>
-        waitForAbout(provider).pipe(
+        provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
-                installed: true,
-                handshakeOk: false,
-                version: "2026.03.20-test",
-                plan: "Pro",
-                binaryPath: process.execPath,
-                models: [],
-              })
+              assert.strictEqual(status.installed, true)
+              assert.strictEqual(status.handshakeOk, false)
+              assert.strictEqual(status.binaryPath, process.execPath)
+              assert.deepStrictEqual(status.models, [])
             }),
           ),
         ),
       )
       yield* withProvider("missing-mcp-http", (provider) =>
-        waitForAbout(provider).pipe(
+        provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
-                installed: true,
-                handshakeOk: false,
-                version: "2026.03.20-test",
-                plan: "Pro",
-                binaryPath: process.execPath,
-                models: [],
-              })
+              assert.strictEqual(status.installed, true)
+              assert.strictEqual(status.handshakeOk, false)
+              assert.strictEqual(status.binaryPath, process.execPath)
+              assert.deepStrictEqual(status.models, [])
             }),
           ),
         ),
       )
       yield* withProvider("wrong-version", (provider) =>
-        waitForAbout(provider).pipe(
+        provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
-                installed: true,
-                handshakeOk: false,
-                version: "2026.03.20-test",
-                plan: "Pro",
-                binaryPath: process.execPath,
-                models: [],
-              })
+              assert.strictEqual(status.installed, true)
+              assert.strictEqual(status.handshakeOk, false)
+              assert.strictEqual(status.binaryPath, process.execPath)
+              assert.deepStrictEqual(status.models, [])
             }),
           ),
         ),
       )
       yield* withProvider("auth-fail", (provider) =>
-        waitForAbout(provider).pipe(
+        provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
-                installed: true,
-                handshakeOk: false,
-                version: "2026.03.20-test",
-                plan: "Pro",
-                binaryPath: process.execPath,
-                models: [],
-              })
+              assert.strictEqual(status.installed, true)
+              assert.strictEqual(status.handshakeOk, false)
+              assert.strictEqual(status.binaryPath, process.execPath)
+              assert.deepStrictEqual(status.models, [])
             }),
           ),
         ),
       )
     }),
+  )
+
+  it.effect("fills version and plan after about", () =>
+    withProvider("success", (provider) =>
+      waitForAbout(provider).pipe(
+        Effect.tap((status) =>
+          Effect.sync(() => {
+            assert.strictEqual(status.version, "2026.03.20-test")
+            assert.strictEqual(status.plan, "Pro")
+          }),
+        ),
+      ),
+    ),
   )
 
   it.effect("maps new, live updates, and end_turn to Noyau signals", () =>

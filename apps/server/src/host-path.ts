@@ -229,28 +229,6 @@ export const readPathFromWindowsUserEnvironment = (
   return undefined
 }
 
-export const resolveKnownPosixCliDirs = (
-  env: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform,
-): ReadonlyArray<string> => {
-  const home = env.HOME?.trim()
-  const homeDirs =
-    home === undefined || home.length === 0
-      ? []
-      : [
-          `${home}/.local/bin`,
-          `${home}/.bun/bin`,
-          `${home}/.volta/bin`,
-          `${home}/.cursor/bin`,
-          `${home}/.npm-global/bin`,
-        ]
-  const prefixDirs =
-    platform === "darwin"
-      ? ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin", "/usr/local/sbin"]
-      : ["/usr/local/bin", "/usr/local/sbin"]
-  return [...homeDirs, ...prefixDirs]
-}
-
 export const resolveKnownWindowsCliDirs = (env: NodeJS.ProcessEnv): ReadonlyArray<string> => {
   const appData = env.APPDATA?.trim()
   const localAppData = env.LOCALAPPDATA?.trim()
@@ -274,6 +252,20 @@ export const resolveKnownWindowsCliDirs = (env: NodeJS.ProcessEnv): ReadonlyArra
   ]
 }
 
+/** Dirs CLI usuels sans spawn de login-shell — le `zsh -ilc` GUI peut pendre 5 s. */
+export const resolveKnownPosixCliDirs = (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): ReadonlyArray<string> => {
+  const home = env.HOME?.trim()
+  return [
+    ...(home === undefined || home.length === 0
+      ? []
+      : [`${home}/.local/bin`, `${home}/.bun/bin`, `${home}/.cargo/bin`]),
+    ...(platform === "darwin" ? ["/opt/homebrew/bin", "/usr/local/bin"] : ["/usr/local/bin"]),
+  ]
+}
+
 export const hydratePosixHome = (
   env: NodeJS.ProcessEnv,
   resolveHomeDir = () => NodeOs.userInfo().homedir,
@@ -287,7 +279,7 @@ export const hydratePosixHome = (
   }
 }
 
-export const hydratePosixKnownCliPath = (
+export const hydratePosixPathKnownDirs = (
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
 ): void => {
@@ -314,6 +306,7 @@ export const hydratePosixPath = (
   platform: NodeJS.Platform,
   execFile: ExecFileSyncLike = defaultExecFile,
 ): void => {
+  hydratePosixPathKnownDirs(env, platform)
   let shellPath: string | undefined
   for (const shell of listLoginShellCandidates(platform, env.SHELL)) {
     try {
@@ -387,13 +380,53 @@ export const hydrateWindowsPath = (
   }
 }
 
+/** PATH instantané (dirs connus) — assez pour trouver `cursor-agent` sans login-shell. */
+export const hydrateHostPathFast = Effect.fn("HostPath.hydrateFast")(function* () {
+  const platform = process.platform
+  const env = process.env
+  if (platform === "win32") {
+    yield* Effect.sync(() => {
+      const inheritedPath = env.PATH ?? env.Path
+      const knownCliPath = resolveKnownWindowsCliDirs(env).join(WINDOWS_PATH_DELIMITER)
+      const mergedPath = mergePathEntries(knownCliPath, inheritedPath, "win32")
+      if (mergedPath !== undefined) {
+        env.PATH = mergedPath
+      }
+    }).pipe(
+      Effect.catchDefect((defect) =>
+        Effect.sync(() => {
+          logPathHydrationWarning("Failed to hydrate PATH from known CLI directories.", defect)
+        }),
+      ),
+    )
+    return
+  }
+  if (platform !== "darwin" && platform !== "linux") {
+    return
+  }
+  yield* Effect.sync(() => hydratePosixHome(env)).pipe(
+    Effect.catchDefect((defect) =>
+      Effect.sync(() => {
+        logPathHydrationWarning("Failed to hydrate HOME from the user account.", defect)
+      }),
+    ),
+  )
+  yield* Effect.sync(() => hydratePosixPathKnownDirs(env, platform)).pipe(
+    Effect.catchDefect((defect) =>
+      Effect.sync(() => {
+        logPathHydrationWarning("Failed to hydrate PATH from known CLI directories.", defect)
+      }),
+    ),
+  )
+})
+
 export type HydrateHostPathOptions = {
   readonly env?: NodeJS.ProcessEnv
   readonly platform?: NodeJS.Platform
   readonly execFileAsync?: ExecFileAsyncLike
 }
 
-/** Hydrates `process.env.PATH` from known CLI dirs, then the login shell in the background. */
+/** Login-shell / launchctl en async — `forkDetach` côté server ne doit pas bloquer le thread. */
 export const hydrateHostPath = Effect.fn("HostPath.hydrate")(function* (
   options: HydrateHostPathOptions = {},
 ) {
@@ -419,19 +452,11 @@ export const hydrateHostPath = Effect.fn("HostPath.hydrate")(function* (
       }),
     ),
   )
-  yield* Effect.sync(() => hydratePosixKnownCliPath(env, platform)).pipe(
-    Effect.catchDefect((defect) =>
-      Effect.sync(() => {
-        logPathHydrationWarning("Failed to hydrate PATH from known CLI directories.", defect)
-      }),
-    ),
-  )
   yield* Effect.promise(() => hydratePosixPathAsync(env, platform, options.execFileAsync)).pipe(
     Effect.catchCause((cause) =>
       Effect.sync(() => {
         logPathHydrationWarning("Failed to hydrate PATH from the user environment.", cause)
       }),
     ),
-    Effect.forkDetach,
   )
 })

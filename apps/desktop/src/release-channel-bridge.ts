@@ -1,7 +1,5 @@
 import { parseReleaseChannel, type ReleaseChannel } from "@noyau/shared/release-brand"
 
-export const GET_RELEASE_CHANNEL_CHANNEL = "noyau:desktop:get-release-channel"
-
 export type DesktopReleaseChannel = ReleaseChannel
 
 /** Strict and dependency-free because Electron executes the preload in a restricted sandbox. */

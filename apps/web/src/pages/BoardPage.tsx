@@ -21,7 +21,7 @@ import { CSS } from "@dnd-kit/utilities"
 import type { TicketActivity } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import { KanbanColumnId, type ProjectId, TicketId } from "@noyau/protocol/ids"
+import { KanbanColumnId, type ProjectId, type ThreadId, TicketId } from "@noyau/protocol/ids"
 import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
@@ -107,10 +107,11 @@ import {
 } from "@/lib/board-model"
 import { refreshBoard as fetchBoardSnapshot, runBoardCommand } from "@/lib/board-page-actions"
 import { boardStateFromSnapshot } from "@/lib/board-snapshot"
-import { subscribeProject, type SubscriptionStatus } from "@/lib/control-plane"
+import { type SubscriptionStatus } from "@/lib/control-plane"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
 import { isKeybindingRecorderActive } from "@/lib/keybindings"
+import { subscribeProjectBoard } from "@/lib/project-board-store"
 import {
   makeKanbanColumnCreateRequest,
   makeKanbanColumnDeleteRequest,
@@ -148,6 +149,7 @@ interface BoardPageProps {
   readonly onSearchChange: (patch: BoardSearchPatch, replace?: boolean) => void
   readonly onOpenTicket: (ticketId: string) => void
   readonly onCloseTicket: () => void
+  readonly onOpenThread: (threadId: ThreadId) => void
 }
 
 type TicketUpdateInput = {
@@ -648,6 +650,7 @@ export function BoardPage({
   onSearchChange,
   onOpenTicket,
   onCloseTicket,
+  onOpenThread,
 }: BoardPageProps) {
   const { threads } = useControlPlane()
   const { resolved: keybindings } = useKeybindings()
@@ -746,7 +749,7 @@ export function BoardPage({
     setLoading(true)
     setSubscriptionStatus(undefined)
     setTicketActivityByTicket([])
-    return subscribeProject(projectId, undefined, {
+    return subscribeProjectBoard(projectId, {
       onSnapshot: (snapshot) => {
         hasBoardDataRef.current = snapshot.columns.length > 0
         setState(boardStateFromSnapshot(snapshot))
@@ -754,15 +757,12 @@ export function BoardPage({
         setLoading(false)
         setBoardFailure(undefined)
       },
-      onEvent: (_event) => {
-        refreshBoard()
-      },
       onStatus: (status) => {
         setSubscriptionStatus(status)
         if (status._tag === "Reconnecting") setLoading(false)
       },
     })
-  }, [projectId, refreshBoard])
+  }, [projectId])
 
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
@@ -1409,6 +1409,7 @@ export function BoardPage({
       <TicketDialog
         ticket={selectedTicket}
         tickets={state.tickets}
+        columns={state.columns}
         ticketDependencies={state.ticketDependencies}
         ticketThreads={state.ticketThreads}
         threads={projectThreads}
@@ -1509,6 +1510,7 @@ export function BoardPage({
             "Thread détaché du ticket.",
           )
         }}
+        onOpenThread={onOpenThread}
         archiveBlockedByTitles={
           selectedTicket === undefined ? [] : openDependencyTitles(state, selectedTicket.id)
         }

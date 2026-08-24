@@ -1,8 +1,8 @@
-import { ProjectId } from "@noyau/protocol/ids"
+import { ProjectId, type ThreadId } from "@noyau/protocol/ids"
 import { useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 
-import { useControlPlane } from "@/hooks/use-control-plane"
+import { useControlPlaneSelector } from "@/hooks/use-control-plane"
 import { useRedirectIfProjectGone } from "@/hooks/use-redirect-if-project-gone"
 import { type BoardSearch, type BoardSearchPatch } from "@/lib/board-model"
 import { BoardPage } from "@/pages/BoardPage"
@@ -28,7 +28,7 @@ const applySearchPatch = (current: BoardSearch, patch: BoardSearchPatch): BoardS
 export function BoardRoutePage() {
   const { projectId: routeProjectId } = useParams({ from: routeId })
   const projectId = ProjectId.make(routeProjectId)
-  const { selectProject } = useControlPlane()
+  const selectProject = useControlPlaneSelector((state) => state.selectProject)
   useRedirectIfProjectGone(projectId)
   const search = useSearch({ from: routeId })
   const navigate = useNavigate({ from: routeId })
@@ -65,6 +65,13 @@ export function BoardRoutePage() {
     })
   }
 
+  const openThread = (threadId: ThreadId) => {
+    void navigate({
+      to: "/projects/$projectId/thread/$threadId",
+      params: { projectId, threadId },
+    })
+  }
+
   return (
     <BoardPage
       projectId={projectId}
@@ -72,6 +79,7 @@ export function BoardRoutePage() {
       onSearchChange={updateSearch}
       onOpenTicket={openTicket}
       onCloseTicket={closeTicket}
+      onOpenThread={openThread}
     />
   )
 }

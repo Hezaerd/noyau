@@ -94,10 +94,19 @@ const resolveTranscriptRequest = (
   transcript: ReadonlyArray<TranscriptItem>,
   requestId: string,
   tag: "transcript.permission" | "transcript.user-input",
+  answers?: Extract<TranscriptItem, { readonly _tag: "transcript.user-input" }>["answers"],
 ): ReadonlyArray<TranscriptItem> =>
-  transcript.map((item) =>
-    item._tag === tag && item.requestId === requestId ? { ...item, status: "resolved" } : item,
-  )
+  transcript.map((item) => {
+    if (item._tag !== tag || item.requestId !== requestId) {
+      return item
+    }
+    if (tag === "transcript.user-input" && item._tag === "transcript.user-input") {
+      return answers === undefined
+        ? { ...item, status: "resolved" as const }
+        : { ...item, status: "resolved" as const, answers }
+    }
+    return { ...item, status: "resolved" as const }
+  })
 
 export const transcriptLabel = (item: TranscriptItem): string => {
   switch (item._tag) {
@@ -110,7 +119,10 @@ export const transcriptLabel = (item: TranscriptItem): string => {
     case "transcript.permission":
       return "Permission request"
     case "transcript.user-input":
-      return "Question from Cursor"
+      return (
+        item.title ??
+        (item.questions !== undefined && item.questions.length > 1 ? "Questions" : "Question")
+      )
     case "transcript.plan":
       return "Plan"
   }
@@ -631,6 +643,7 @@ export const applyThreadEnvelope = (
           snapshot.transcript,
           event.requestId,
           "transcript.user-input",
+          event.answers,
         ),
       })
     case "thread.title-seeded":

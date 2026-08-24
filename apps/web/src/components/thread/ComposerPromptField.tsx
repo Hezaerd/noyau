@@ -65,11 +65,15 @@ export function ComposerPromptField({
   const painted = useRef(false)
   const composing = useRef(false)
   const didAutoFocus = useRef(false)
-
   const onCursorChangeRef = useRef(onCursorChange)
-  onCursorChangeRef.current = onCursorChange
   const onTextChangeRef = useRef(onTextChange)
-  onTextChangeRef.current = onTextChange
+
+  useEffect(() => {
+    onCursorChangeRef.current = onCursorChange
+  }, [onCursorChange])
+  useEffect(() => {
+    onTextChangeRef.current = onTextChange
+  }, [onTextChange])
 
   const restoreCaret = (offset: number) => {
     const editor = editorRef.current
@@ -79,8 +83,6 @@ export function ComposerPromptField({
     setComposerPromptFieldCaret(editor, offset)
     onCursorChangeRef.current(offset)
   }
-  const restoreCaretRef = useRef(restoreCaret)
-  restoreCaretRef.current = restoreCaret
 
   const writeSerializedClipboard = (event: ClipboardEvent<HTMLElement>): string => {
     const editor = editorRef.current
@@ -137,7 +139,7 @@ export function ComposerPromptField({
       const caret = pendingCaret.current
       if (caret !== null) {
         pendingCaret.current = null
-        restoreCaretRef.current(caret)
+        restoreCaret(caret)
       }
       return
     }
@@ -150,7 +152,7 @@ export function ComposerPromptField({
       painted.current = true
       const caret = pendingCaret.current ?? text.length
       pendingCaret.current = null
-      restoreCaretRef.current(caret)
+      restoreCaret(caret)
     }
     queueMicrotask(paint)
   }, [text, tickets])

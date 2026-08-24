@@ -1,3 +1,4 @@
+import { ProviderUserInputAnswers, UserInputQuestion } from "@noyau/protocol/entities/approvals"
 import { TurnImageAttachments, turnHasPrompt } from "@noyau/protocol/entities/attachment"
 import { ApprovalRequestId, ThreadId, ToolCallId, TurnId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
@@ -66,7 +67,12 @@ export const TranscriptUserInput = Schema.TaggedStruct("transcript.user-input", 
   threadId: ThreadId,
   turnId: TurnId,
   requestId: ApprovalRequestId,
+  /** Legacy / résumé ; les emitters riches remplissent `questions`. */
   prompt: Schema.optionalKey(Schema.NonEmptyString),
+  title: Schema.optionalKey(Schema.NonEmptyString),
+  questions: Schema.optionalKey(Schema.Array(UserInputQuestion)),
+  /** Présent quand `status` est `resolved`. */
+  answers: Schema.optionalKey(ProviderUserInputAnswers),
   status: TranscriptRequestStatus,
 })
 export type TranscriptUserInput = (typeof TranscriptUserInput)["Type"]

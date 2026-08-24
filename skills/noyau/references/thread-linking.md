@@ -3,7 +3,7 @@
 A Ticket and a Thread have an optional many-to-many relationship. Linking records that the
 conversation contributes to the Ticket; it does not claim, assign, start, or complete the Ticket.
 
-- Use only a tool scoped to the current Thread.
+- Use `noyau_ticket_thread_link` / `noyau_ticket_thread_unlink` (scoped to the current Thread).
 - Prefer linking before substantial work when the target Ticket is known.
 - Keep a link while the transcript remains relevant, even after completion.
 - Unlink only when the relationship is incorrect, not merely because the Turn ended.

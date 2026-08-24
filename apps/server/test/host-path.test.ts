@@ -4,9 +4,9 @@ import {
   extractEnvironmentValue,
   hydrateHostPath,
   hydratePosixHome,
-  hydratePosixKnownCliPath,
   hydratePosixPath,
   hydratePosixPathAsync,
+  hydratePosixPathKnownDirs,
   hydrateWindowsPath,
   listLoginShellCandidates,
   mergePathEntries,
@@ -175,22 +175,44 @@ describe("hydratePosixHome", () => {
   })
 })
 
-describe("hydratePosixKnownCliPath", () => {
-  it("prepends known CLI dirs without probing the login shell", () => {
+describe("resolveKnownPosixCliDirs", () => {
+  it("lists user-local and Homebrew CLI directories", () => {
+    expect(resolveKnownPosixCliDirs({ HOME: "/Users/me" }, "darwin")).toEqual([
+      "/Users/me/.local/bin",
+      "/Users/me/.bun/bin",
+      "/Users/me/.cargo/bin",
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+    ])
+  })
+
+  it("omits Homebrew on Linux", () => {
+    expect(resolveKnownPosixCliDirs({ HOME: "/home/me" }, "linux")).toEqual([
+      "/home/me/.local/bin",
+      "/home/me/.bun/bin",
+      "/home/me/.cargo/bin",
+      "/usr/local/bin",
+    ])
+  })
+})
+
+describe("hydratePosixPathKnownDirs", () => {
+  it("prepends known CLI dirs without spawning a shell", () => {
     const env: NodeJS.ProcessEnv = {
       HOME: "/Users/me",
       PATH: "/usr/bin:/usr/sbin",
     }
-    hydratePosixKnownCliPath(env, "darwin")
-    expect(env.PATH?.startsWith("/Users/me/.local/bin:")).toBe(true)
-    expect(env.PATH).toContain("/opt/homebrew/bin")
-    expect(env.PATH).toContain("/usr/bin")
+    hydratePosixPathKnownDirs(env, "darwin")
+    expect(env.PATH).toBe(
+      "/Users/me/.local/bin:/Users/me/.bun/bin:/Users/me/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/usr/sbin",
+    )
   })
 })
 
 describe("hydratePosixPath", () => {
   it("writes the merged login-shell PATH onto the environment", () => {
     const env: NodeJS.ProcessEnv = {
+      HOME: "/Users/me",
       SHELL: "/bin/zsh",
       PATH: "/usr/bin:/usr/sbin",
     }
@@ -201,13 +223,15 @@ describe("hydratePosixPath", () => {
         "__NOYAU_ENV_PATH_START__\n/opt/homebrew/bin:/usr/bin:/Users/me/.local/bin\n__NOYAU_ENV_PATH_END__\n",
       ),
     )
-    expect(env.PATH).toBe("/opt/homebrew/bin:/usr/bin:/Users/me/.local/bin:/usr/sbin")
+    expect(env.PATH).toBe(
+      "/opt/homebrew/bin:/usr/bin:/Users/me/.local/bin:/Users/me/.bun/bin:/Users/me/.cargo/bin:/usr/local/bin:/usr/sbin",
+    )
   })
 
   it("falls back to launchctl on macOS when the login shell has no PATH", () => {
     const env: NodeJS.ProcessEnv = { SHELL: "/bin/zsh", PATH: "/usr/bin" }
     hydratePosixPath(env, "darwin", loginShellEmptyThenLaunchctl)
-    expect(env.PATH).toBe("/opt/homebrew/bin:/usr/bin")
+    expect(env.PATH).toBe("/opt/homebrew/bin:/usr/bin:/usr/local/bin")
   })
 })
 
@@ -237,6 +261,15 @@ const asyncLoginShellPath: ExecFileAsyncLike = () =>
     "__NOYAU_ENV_PATH_START__\n/opt/homebrew/bin:/usr/bin:/Users/me/.local/bin\n__NOYAU_ENV_PATH_END__\n",
   )
 
+const asyncCustomLoginShellPath: ExecFileAsyncLike = (file) => {
+  if (file === "/bin/zsh") {
+    return Promise.resolve(
+      "__NOYAU_ENV_PATH_START__\n/opt/homebrew/bin:/custom/bin\n__NOYAU_ENV_PATH_END__\n",
+    )
+  }
+  return Promise.reject(new Error(`unexpected exec ${file}`))
+}
+
 describe("hydratePosixPathAsync", () => {
   it("merges the login-shell PATH without blocking the caller on execFileSync", async () => {
     const env: NodeJS.ProcessEnv = {
@@ -249,69 +282,17 @@ describe("hydratePosixPathAsync", () => {
 })
 
 describe("hydrateHostPath", () => {
-  it("applies known CLI dirs immediately and leaves the login shell in the background", async () => {
+  it("merges the login-shell PATH without execFileSync", async () => {
     const env: NodeJS.ProcessEnv = {
       HOME: "/Users/me",
       SHELL: "/bin/zsh",
       PATH: "/usr/bin",
     }
-    let releaseLoginShell: (() => void) | undefined
-    const loginShell = new Promise<void>((resolve) => {
-      releaseLoginShell = resolve
-    })
-    const execFile: ExecFileAsyncLike = async (file) => {
-      if (file === "/bin/zsh") {
-        await loginShell
-        return "__NOYAU_ENV_PATH_START__\n/opt/homebrew/bin:/custom/bin\n__NOYAU_ENV_PATH_END__\n"
-      }
-      throw new Error(`unexpected exec ${file}`)
-    }
-
     await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* hydrateHostPath({ env, platform: "darwin", execFileAsync: execFile })
-        expect(env.PATH?.startsWith("/Users/me/.local/bin:")).toBe(true)
-        expect(env.PATH).not.toContain("/custom/bin")
-
-        releaseLoginShell?.()
-        for (let attempt = 0; attempt < 40; attempt += 1) {
-          if (env.PATH?.includes("/custom/bin") === true) {
-            break
-          }
-          yield* Effect.sleep(10)
-        }
-        expect(env.PATH?.startsWith("/opt/homebrew/bin:")).toBe(true)
-        expect(env.PATH).toContain("/custom/bin")
-      }),
+      hydrateHostPath({ env, platform: "darwin", execFileAsync: asyncCustomLoginShellPath }),
     )
-  })
-})
-
-describe("resolveKnownPosixCliDirs", () => {
-  it("lists user-local and Homebrew CLI directories used by Cursor and package managers", () => {
-    expect(resolveKnownPosixCliDirs({ HOME: "/Users/me" }, "darwin")).toEqual([
-      "/Users/me/.local/bin",
-      "/Users/me/.bun/bin",
-      "/Users/me/.volta/bin",
-      "/Users/me/.cursor/bin",
-      "/Users/me/.npm-global/bin",
-      "/opt/homebrew/bin",
-      "/opt/homebrew/sbin",
-      "/usr/local/bin",
-      "/usr/local/sbin",
-    ])
-  })
-
-  it("omits Homebrew prefixes on Linux", () => {
-    expect(resolveKnownPosixCliDirs({ HOME: "/home/me" }, "linux")).toEqual([
-      "/home/me/.local/bin",
-      "/home/me/.bun/bin",
-      "/home/me/.volta/bin",
-      "/home/me/.cursor/bin",
-      "/home/me/.npm-global/bin",
-      "/usr/local/bin",
-      "/usr/local/sbin",
-    ])
+    expect(env.PATH?.startsWith("/opt/homebrew/bin:")).toBe(true)
+    expect(env.PATH).toContain("/custom/bin")
   })
 })
 

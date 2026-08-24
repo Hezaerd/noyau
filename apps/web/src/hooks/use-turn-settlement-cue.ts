@@ -1,30 +1,25 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useEffectEvent, useRef } from "react"
 
-import { useControlPlane } from "@/hooks/use-control-plane"
+import { useControlPlaneSelector } from "@/hooks/use-control-plane"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
 import { playTurnCue, settledTurns, type TurnCueThread } from "@/lib/turn-cue"
 
 export const useTurnSettlementCue = (): void => {
-  const { shell } = useControlPlane()
+  const threads = useControlPlaneSelector((state) => state.threads)
   const preference = useTurnCuePreference()
   const previousRef = useRef<ReadonlyArray<TurnCueThread> | undefined>(undefined)
-  const preferenceRef = useRef(preference)
-  preferenceRef.current = preference
-
-  const threads = shell?.threads
+  const onPreference = useEffectEvent(() => preference)
 
   useEffect(() => {
-    if (threads === undefined) {
-      return
-    }
     const previous = previousRef.current
     previousRef.current = threads
-    if (previous === undefined || !preferenceRef.current.enabled) {
+    const currentPreference = onPreference()
+    if (previous === undefined || !currentPreference.enabled) {
       return
     }
     if (settledTurns(previous, threads).length === 0) {
       return
     }
-    playTurnCue(preferenceRef.current.sound)
+    playTurnCue(currentPreference.sound)
   }, [threads])
 }

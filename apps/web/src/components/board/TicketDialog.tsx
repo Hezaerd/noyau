@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+import { TicketActivityThreadChip } from "@/components/board/TicketActivityThreadChip"
 import { TicketArchiveConfirmDialog } from "@/components/board/TicketArchiveConfirmDialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,7 @@ import {
   isTicketPriority,
   priorities,
   ticketDependencyIssue,
+  type BoardColumn,
   type BoardTicket,
   type BoardTicketDependency,
   type BoardTicketPatch,
@@ -86,6 +88,7 @@ const dependencyTitle = (tickets: ReadonlyArray<BoardTicket>, ticketId: string):
 interface TicketDialogProps {
   readonly ticket: BoardTicket | undefined
   readonly tickets: ReadonlyArray<BoardTicket>
+  readonly columns: ReadonlyArray<BoardColumn>
   readonly ticketDependencies: ReadonlyArray<BoardTicketDependency>
   readonly ticketThreads: ReadonlyArray<TicketThread>
   readonly threads: ReadonlyArray<ThreadShell>
@@ -100,6 +103,7 @@ interface TicketDialogProps {
   readonly onRemoveDependency: (ticketId: string, dependsOnTicketId: string) => void
   readonly onLinkThread: (ticketId: string, threadId: ThreadShell["id"]) => void
   readonly onUnlinkThread: (ticketId: string, threadId: ThreadShell["id"]) => void
+  readonly onOpenThread?: (threadId: ThreadShell["id"]) => void
   readonly archiveBlockedByTitles: ReadonlyArray<string>
   readonly onArchive: (ticketId: string) => void
 }
@@ -107,6 +111,7 @@ interface TicketDialogProps {
 export function TicketDialog({
   ticket,
   tickets,
+  columns,
   ticketDependencies,
   ticketThreads,
   threads,
@@ -121,6 +126,7 @@ export function TicketDialog({
   onRemoveDependency,
   onLinkThread,
   onUnlinkThread,
+  onOpenThread,
   archiveBlockedByTitles,
   onArchive,
 }: TicketDialogProps) {
@@ -219,7 +225,18 @@ export function TicketDialog({
           label: candidate.title,
           issue: ticketDependencyIssue(dependencyState, candidate.id, ticket.id),
         }))
-  const activityItems = activity.map(ticketActivityItem)
+  const activityContext = useMemo(
+    () => ({
+      columnsById: new Map(columns.map((column) => [column.id, { name: column.name }])),
+      threadsById: new Map(
+        threads.map((thread) => [thread.id, { title: thread.title, status: thread.status }]),
+      ),
+      ticketsById: new Map(tickets.map((item) => [item.id, { title: item.title }])),
+    }),
+    [columns, threads, tickets],
+  )
+
+  const activityItems = activity.map((envelope) => ticketActivityItem(envelope, activityContext))
   const priorityOptions = priorities.map((priority) => ({
     value: priority,
     label: priorityLabels[priority],
@@ -704,7 +721,25 @@ export function TicketDialog({
                           </div>
                           <div>
                             <p className="text-xs">
-                              <span className="font-medium">{item.actor}</span> {item.action}
+                              {item.actorThread === undefined ? (
+                                <span className="font-medium">{item.actor}</span>
+                              ) : (
+                                <TicketActivityThreadChip
+                                  thread={item.actorThread}
+                                  onOpenThread={onOpenThread}
+                                />
+                              )}{" "}
+                              {item.parts.map((part, index) =>
+                                part.kind === "text" ? (
+                                  <span key={`${item.id}-text-${String(index)}`}>{part.text}</span>
+                                ) : (
+                                  <TicketActivityThreadChip
+                                    key={`${item.id}-thread-${part.thread.threadId}`}
+                                    thread={part.thread}
+                                    onOpenThread={onOpenThread}
+                                  />
+                                ),
+                              )}
                             </p>
                             <time
                               dateTime={item.occurredAt}

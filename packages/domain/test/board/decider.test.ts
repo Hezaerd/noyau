@@ -241,6 +241,7 @@ describe("ticket placement", () => {
       throw new Error("Expected ticket.moved")
     }
     expect(event.rank > "a1" && event.rank < "a2").toBe(true)
+    expect(event.previousColumnId).toBe(ids.backlog)
   })
 
   it("déduit le voisin inférieur d'une ancre de colonne unilatérale", () => {
@@ -846,7 +847,7 @@ describe("ticket.update projection", () => {
         ),
       ),
     )
-    const omitted = apply(
+    const renamed = apply(
       described,
       success(
         decide(
@@ -859,6 +860,22 @@ describe("ticket.update projection", () => {
         ),
       ),
     )
+    const renameEvent = success(
+      decide(
+        described,
+        command({
+          _tag: "ticket.update",
+          ...meta,
+          payload: { ticketId: ids.ticket, title: "Renamed" },
+        }),
+      ),
+    )[0]
+    expect(renameEvent).toMatchObject({
+      _tag: "ticket.updated",
+      title: "Renamed",
+      previousTitle: `Ticket ${ids.ticket}`,
+    })
+    const omitted = renamed
     const removed = apply(
       omitted,
       success(

@@ -26,7 +26,7 @@ describe("desktop release channel", () => {
     expect(desktopIconDirectory("development")).toBe("dev")
   })
 
-  it("decodes the channel returned by the main process to the sandboxed preload", () => {
+  it("decodes the channel pushed to the sandboxed preload", () => {
     expect(decodeReleaseChannelFromMain("development")).toBe("development")
     expect(decodeReleaseChannelFromMain("nightly")).toBe("nightly")
     expect(() => decodeReleaseChannelFromMain("beta")).toThrow()

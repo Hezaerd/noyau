@@ -1,5 +1,5 @@
 import type { ProjectId } from "@noyau/protocol/ids"
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
 import { subscribeShell, type SubscriptionStatus } from "@/lib/control-plane"
 import {
@@ -9,6 +9,7 @@ import {
   writeLastProjectId,
   type ControlPlaneContextValue,
 } from "@/lib/control-plane-state"
+import { publishControlPlaneSnapshot } from "@/lib/control-plane-store"
 import { nextLastProjectId } from "@/lib/project-navigation"
 
 export function ControlPlaneProvider({ children }: { readonly children: ReactNode }) {
@@ -56,6 +57,12 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
       selectProject,
     }
   }, [lastProjectId, selectProject, shell, subscriptionStatus])
+
+  const publishedRef = useRef(value)
+  if (!Object.is(publishedRef.current, value)) {
+    publishedRef.current = value
+    publishControlPlaneSnapshot(value)
+  }
 
   return <ControlPlaneContext.Provider value={value}>{children}</ControlPlaneContext.Provider>
 }

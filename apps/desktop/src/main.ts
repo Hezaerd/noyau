@@ -8,16 +8,15 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   nativeTheme,
   net,
   type OpenDialogOptions,
   protocol,
-  screen,
   session,
   shell,
 } from "electron"
 
-import { cursorPointInContent, GET_CURSOR_POINT_CHANNEL } from "./cursor-point"
 import {
   openCheckedDesktopInstaller,
   resolveDesktopUpdateCheckChannel,
@@ -27,7 +26,6 @@ import {
 import {
   CHECK_DESKTOP_UPDATE_CHANNEL,
   decodeDesktopUpdateRequest,
-  GET_APP_VERSION_CHANNEL,
   OPEN_DESKTOP_INSTALLER_CHANNEL,
   type DesktopUpdatePackagedChannel,
 } from "./desktop-update-contract"
@@ -42,6 +40,7 @@ import { PICK_FOLDER_CHANNEL } from "./folder-picker-contract"
 import { decodeOpenPathInput, openFilesystemPathOnHost } from "./open-path"
 import { OPEN_PATH_CHANNEL } from "./open-path-contract"
 import { isRendererPermissionAllowed } from "./permissions"
+import { encodePreloadBootstrapArgs } from "./preload-bootstrap"
 import {
   decodePackagedReleaseChannelFile,
   desktopBrandName,
@@ -51,7 +50,6 @@ import {
   resolveDesktopReleaseChannel,
   type DesktopReleaseChannel,
 } from "./release-channel"
-import { GET_RELEASE_CHANNEL_CHANNEL } from "./release-channel-bridge"
 import {
   DESKTOP_HOST,
   DESKTOP_SCHEME,
@@ -65,6 +63,7 @@ import {
   resolveServerEntryPath,
   serverEnvironmentFromReleaseChannel,
   ServerSupervisor,
+  SupervisorError,
   type ServerBootstrap,
   type ServerSupervisorOptions,
   type SupervisorState,
@@ -233,9 +232,6 @@ const desktopUpdateCheckInput = (requested?: DesktopUpdatePackagedChannel) => ({
 })
 
 const registerDesktopUpdateBridge = (): void => {
-  ipcMain.on(GET_APP_VERSION_CHANNEL, (event) => {
-    event.returnValue = app.getVersion()
-  })
   ipcMain.handle(CHECK_DESKTOP_UPDATE_CHANNEL, (_event, input) =>
     desktopRuntime.runPromise(
       decodeDesktopUpdateRequest(input ?? {}).pipe(
@@ -256,16 +252,6 @@ const registerDesktopUpdateBridge = (): void => {
       ),
     ),
   )
-}
-
-const registerCursorPointBridge = (): void => {
-  ipcMain.handle(GET_CURSOR_POINT_CHANNEL, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender)
-    if (window === null || window.isDestroyed() || !window.isFocused()) {
-      return undefined
-    }
-    return cursorPointInContent(screen.getCursorScreenPoint(), window.getContentBounds())
-  })
 }
 
 const withSecurityHeaders = (response: Response): Response => {
@@ -401,6 +387,13 @@ const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: Ser
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: true,
+      additionalArguments: [
+        ...encodePreloadBootstrapArgs({
+          releaseChannel: flags.releaseChannel,
+          appVersion: app.getVersion(),
+        }),
+      ],
     },
   })
 
@@ -490,15 +483,36 @@ const launch = Effect.fn("launch")(function* () {
   ])
   app.setName(appDisplayName)
   app.setAboutPanelOptions({ applicationName: appDisplayName })
+  // Skip Electron's default menu construction — we use autoHideMenuBar / native chrome.
+  Menu.setApplicationMenu(null)
 
   yield* Effect.promise(() => app.whenReady())
   yield* applyDockIcon()
+  registerRendererProtocol()
+  registerThemeBridge()
+  registerFolderPickerBridge()
+  registerOpenPathBridge()
+  registerDesktopUpdateBridge()
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
+    isRendererPermissionAllowed(permission),
+  )
   const externalBootstrap = yield* decodeExternalBootstrap()
+  const afterSpawn = (bootstrap: ServerBootstrap) =>
+    createMainWindow(bootstrap).pipe(
+      Effect.mapError(
+        (cause) =>
+          new SupervisorError({
+            message: String(cause),
+            cause,
+          }),
+      ),
+    )
   const baseSupervisorOptions = {
     serverEntryPath: yield* resolveServerEntryPath(__dirname, app.isPackaged),
     dataDirectory: path.join(app.getPath("userData"), "environment"),
     environment: serverEnvironmentFromReleaseChannel(flags.releaseChannel),
     releaseChannel: flags.releaseChannel,
+    afterSpawn,
     onStateChange: (state: SupervisorState) => {
       void desktopRuntime.runPromise(publishSmokeSupervisorState(state))
       if (state.phase === "degraded") {
@@ -512,33 +526,17 @@ const launch = Effect.fn("launch")(function* () {
     externalBootstrap === undefined
       ? baseSupervisorOptions
       : { ...baseSupervisorOptions, externalBootstrap }
-  registerRendererProtocol()
-  ipcMain.on(GET_RELEASE_CHANNEL_CHANNEL, (event) => {
-    event.returnValue = flags.releaseChannel
-  })
-  registerThemeBridge()
-  registerFolderPickerBridge()
-  registerOpenPathBridge()
-  registerDesktopUpdateBridge()
-  registerCursorPointBridge()
-  session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
-    isRendererPermissionAllowed(permission),
-  )
-  serverSupervisor = new ServerSupervisor({
-    ...supervisorOptions,
-    onSpawned: (bootstrap) => {
-      void desktopRuntime.runPromise(showMainWindow(bootstrap))
-    },
-  })
+  serverSupervisor = new ServerSupervisor(supervisorOptions)
   yield* serverSupervisor.start()
-  if (serverSupervisor.bootstrap === undefined) {
+  const bootstrap = serverSupervisor.bootstrap
+  if (bootstrap === undefined) {
     return yield* desktopError("The Noyau Server supervisor did not provide a bootstrap")
   }
 
   app.on("activate", () => {
-    const bootstrap = serverSupervisor?.bootstrap
-    if (BrowserWindow.getAllWindows().length === 0 && bootstrap !== undefined) {
-      void desktopRuntime.runPromise(showMainWindow(bootstrap))
+    const activateBootstrap = serverSupervisor?.bootstrap
+    if (BrowserWindow.getAllWindows().length === 0 && activateBootstrap !== undefined) {
+      void desktopRuntime.runPromise(showMainWindow(activateBootstrap))
     }
   })
 })

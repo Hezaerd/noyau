@@ -986,6 +986,14 @@ describe("rendered Thread UI evidence", () => {
         const baseProps = {
           ticket,
           tickets: [ticket],
+          columns: [
+            {
+              id: "column-backlog",
+              name: "Backlog",
+              color: "#64748B",
+              done: false,
+            },
+          ],
           ticketDependencies: [],
           threads: [thread],
           activity: [],
@@ -1034,8 +1042,10 @@ describe("rendered Thread UI evidence", () => {
       <ThreadTranscriptItem
         item={item}
         streaming={false}
-        answer=""
-        onAnswerChange={vi.fn()}
+        draftAnswers={{}}
+        legacyFreeform=""
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1063,8 +1073,10 @@ describe("rendered Thread UI evidence", () => {
         item={item}
         streaming={false}
         workspaceRoot="/Users/hezaerd/code/noyau"
-        answer=""
-        onAnswerChange={vi.fn()}
+        draftAnswers={{}}
+        legacyFreeform=""
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1090,8 +1102,10 @@ describe("rendered Thread UI evidence", () => {
       <ThreadTranscriptItem
         item={item}
         streaming={false}
-        answer=""
-        onAnswerChange={vi.fn()}
+        draftAnswers={{}}
+        legacyFreeform=""
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1126,8 +1140,10 @@ describe("rendered Thread UI evidence", () => {
             loading={false}
             error={undefined}
             notices={null}
-            answerByRequest={{}}
-            onAnswerChange={vi.fn()}
+            draftByRequest={{}}
+            legacyFreeformByRequest={{}}
+            onDraftAnswersChange={vi.fn()}
+            onLegacyFreeformChange={vi.fn()}
             onRespondApproval={vi.fn()}
             onRespondUserInput={vi.fn()}
           />,
@@ -1159,8 +1175,10 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        answerByRequest={{}}
-        onAnswerChange={vi.fn()}
+        draftByRequest={{}}
+        legacyFreeformByRequest={{}}
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1191,8 +1209,10 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        answerByRequest={{}}
-        onAnswerChange={vi.fn()}
+        draftByRequest={{}}
+        legacyFreeformByRequest={{}}
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1236,8 +1256,10 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        answerByRequest={{}}
-        onAnswerChange={vi.fn()}
+        draftByRequest={{}}
+        legacyFreeformByRequest={{}}
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1298,8 +1320,10 @@ describe("rendered Thread UI evidence", () => {
             loading={false}
             error={undefined}
             notices={null}
-            answerByRequest={{}}
-            onAnswerChange={vi.fn()}
+            draftByRequest={{}}
+            legacyFreeformByRequest={{}}
+            onDraftAnswersChange={vi.fn()}
+            onLegacyFreeformChange={vi.fn()}
             onRespondApproval={vi.fn()}
             onRespondUserInput={vi.fn()}
           />,
@@ -1367,8 +1391,10 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        answerByRequest={{}}
-        onAnswerChange={vi.fn()}
+        draftByRequest={{}}
+        legacyFreeformByRequest={{}}
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1384,8 +1410,10 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        answerByRequest={{}}
-        onAnswerChange={vi.fn()}
+        draftByRequest={{}}
+        legacyFreeformByRequest={{}}
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1417,8 +1445,10 @@ describe("rendered Thread UI evidence", () => {
         loading={false}
         error={undefined}
         notices={null}
-        answerByRequest={{}}
-        onAnswerChange={vi.fn()}
+        draftByRequest={{}}
+        legacyFreeformByRequest={{}}
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1439,8 +1469,10 @@ describe("rendered Thread UI evidence", () => {
       <ThreadTranscriptItem
         item={item}
         streaming={false}
-        answer=""
-        onAnswerChange={vi.fn()}
+        draftAnswers={{}}
+        legacyFreeform=""
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,
@@ -1464,8 +1496,10 @@ describe("rendered Thread UI evidence", () => {
       <ThreadTranscriptItem
         item={item}
         streaming
-        answer=""
-        onAnswerChange={vi.fn()}
+        draftAnswers={{}}
+        legacyFreeform=""
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
         onRespondApproval={vi.fn()}
         onRespondUserInput={vi.fn()}
       />,

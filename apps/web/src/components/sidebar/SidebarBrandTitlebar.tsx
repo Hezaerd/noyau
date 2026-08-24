@@ -1,8 +1,7 @@
 import { Blobatar } from "@blobatar/react"
-import { useRef, type ReactElement } from "react"
+import type { ReactElement } from "react"
 
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover"
-import { useBrandGaze } from "@/hooks/use-brand-gaze"
 import { BRAND_BLOBATAR_NAME, brandBlobatarPalette } from "@/lib/brand-blobatar"
 import { desktopChannelHint, desktopReleaseChannel } from "@/lib/desktop-bridge"
 import { SIDEBAR_TITLEBAR_INSET_CLASS } from "@/lib/desktop-titlebar"
@@ -12,15 +11,15 @@ const BRAND_TITLE = "Noyau"
 const brandTitleClassName = "truncate text-sm font-semibold tracking-[-0.02em]"
 
 function BrandBlobatar(): ReactElement {
-  const hostRef = useRef<HTMLSpanElement>(null)
   const palette = brandBlobatarPalette(desktopReleaseChannel())
-  useBrandGaze(hostRef)
 
   return (
-    <span ref={hostRef} className="brand-blobatar no-drag inline-flex size-8 shrink-0">
+    <span className="brand-blobatar no-drag inline-flex size-8 shrink-0 overflow-hidden rounded-md">
       <Blobatar
         name={BRAND_BLOBATAR_NAME}
         size={32}
+        background="square"
+        contrast={false}
         palette={palette}
         animate="hover"
         className="size-8"

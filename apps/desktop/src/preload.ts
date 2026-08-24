@@ -1,9 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron"
 
-import { GET_CURSOR_POINT_CHANNEL, type CursorClientPoint } from "./cursor-point"
 import {
   CHECK_DESKTOP_UPDATE_CHANNEL,
-  GET_APP_VERSION_CHANNEL,
   OPEN_DESKTOP_INSTALLER_CHANNEL,
   type DesktopUpdateCheckResult,
   type DesktopUpdateOpenResult,
@@ -11,11 +9,8 @@ import {
 } from "./desktop-update-contract"
 import { PICK_FOLDER_CHANNEL, type FolderPickerOptions } from "./folder-picker-contract"
 import { OPEN_PATH_CHANNEL } from "./open-path-contract"
-import {
-  decodeReleaseChannelFromMain,
-  GET_RELEASE_CHANNEL_CHANNEL,
-  type DesktopReleaseChannel,
-} from "./release-channel-bridge"
+import { readPreloadBootstrapFromArgv } from "./preload-bootstrap"
+import { type DesktopReleaseChannel } from "./release-channel-bridge"
 import { SET_THEME_CHANNEL, type AppearancePreference } from "./theme"
 
 export interface NoyauDesktopBridge {
@@ -25,7 +20,6 @@ export interface NoyauDesktopBridge {
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
   readonly pickFolder: (options?: FolderPickerOptions) => Promise<string | undefined>
   readonly openPath: (path: string) => Promise<void>
-  readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
   readonly checkDesktopUpdate: (
     channel?: DesktopUpdatePackagedChannel,
   ) => Promise<DesktopUpdateCheckResult>
@@ -34,19 +28,17 @@ export interface NoyauDesktopBridge {
   ) => Promise<DesktopUpdateOpenResult>
 }
 
+const bootstrap = readPreloadBootstrapFromArgv(process.argv)
+
 const desktopBridge: NoyauDesktopBridge = Object.freeze({
   platform: process.platform,
-  releaseChannel: decodeReleaseChannelFromMain(
-    String(ipcRenderer.sendSync(GET_RELEASE_CHANNEL_CHANNEL)),
-  ),
-  appVersion: String(ipcRenderer.sendSync(GET_APP_VERSION_CHANNEL)),
+  releaseChannel: bootstrap.releaseChannel,
+  appVersion: bootstrap.appVersion,
   setTheme: (theme: AppearancePreference): Promise<void> =>
     ipcRenderer.invoke(SET_THEME_CHANNEL, theme).then(() => undefined),
   pickFolder: (options?: FolderPickerOptions): Promise<string | undefined> =>
     ipcRenderer.invoke(PICK_FOLDER_CHANNEL, options),
   openPath: (path: string): Promise<void> => ipcRenderer.invoke(OPEN_PATH_CHANNEL, path),
-  getCursorPoint: (): Promise<CursorClientPoint | undefined> =>
-    ipcRenderer.invoke(GET_CURSOR_POINT_CHANNEL),
   checkDesktopUpdate: (channel?: DesktopUpdatePackagedChannel): Promise<DesktopUpdateCheckResult> =>
     ipcRenderer.invoke(CHECK_DESKTOP_UPDATE_CHANNEL, channel === undefined ? {} : { channel }),
   openDesktopInstaller: (

@@ -1,4 +1,5 @@
 import { settledTurnStateForSessionStatus } from "@noyau/domain/thread/projector"
+import { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
 import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { TranscriptItem as TranscriptItemSchema } from "@noyau/protocol/entities/transcript"
@@ -13,6 +14,8 @@ import type { PersistedEvent } from "./command-worker.ts"
 const JsonTranscriptItem = Schema.fromJsonString(TranscriptItemSchema)
 const encodeTranscriptItem = Schema.encodeEffect(JsonTranscriptItem)
 const decodeTranscriptItem = Schema.decodeEffect(JsonTranscriptItem)
+const JsonUserInputAnswers = Schema.fromJsonString(ProviderUserInputAnswers)
+const encodeUserInputAnswers = Schema.encodeEffect(JsonUserInputAnswers)
 
 const ResumeCursorJson = Schema.fromJsonString(
   Schema.Struct({
@@ -667,15 +670,22 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
           AND json_extract(item, '$.requestId') = ${event.requestId}
       `
       break
-    case "user-input.responded":
+    case "user-input.responded": {
+      const answersJson = yield* encodeUserInputAnswers(event.answers).pipe(Effect.orDie)
       yield* sql`
         UPDATE projection_transcript
-        SET item = json_set(item, '$.status', 'resolved'), event_sequence = ${persisted.sequence}
+        SET item = json_set(
+          item,
+          '$.status', 'resolved',
+          '$.answers', json(${answersJson})
+        ),
+        event_sequence = ${persisted.sequence}
         WHERE thread_id = ${event.threadId}
           AND kind = 'transcript.user-input'
           AND json_extract(item, '$.requestId') = ${event.requestId}
       `
       break
+    }
     case "thread.title-seeded":
       yield* sql`
         UPDATE projection_threads
