@@ -6,7 +6,7 @@ import {
   workspaceFolderName,
 } from "../src/lib/thread-sidebar-popover"
 
-const runningTurn = { state: "running" as const }
+const runningTurn = { state: "running" as const, completedAt: null }
 
 describe("thread sidebar popover", () => {
   it("keeps the last path segment for POSIX and Windows workspace roots", () => {
@@ -55,6 +55,7 @@ describe("thread sidebar popover", () => {
     expect(threadStatusLabel(null, { ...runningTurn, state: "interrupted" })).toBe("Interrompu")
     expect(threadStatusLabel("error", null)).toBe("Erreur")
     expect(threadStatusLabel("ready", null)).toBeUndefined()
+    expect(threadStatusLabel("running", { state: "completed", completedAt: null })).toBeUndefined()
   })
 
   it("ajoute la branche du Checkout quand elle est connue", () => {

@@ -31,12 +31,34 @@ export const firstValidEpochMs = (
   return null
 }
 
+export const isLatestTurnSettled = (latestTurn: Pick<LatestTurn, "completedAt"> | null): boolean =>
+  latestTurn?.completedAt != null
+
 export const isThreadWorking = (
   sessionStatus: SessionStatus | null,
-  latestTurn: Pick<LatestTurn, "state"> | null,
-): boolean =>
-  (sessionStatus !== null && busySessionStatuses.has(sessionStatus)) ||
-  latestTurn?.state === "running"
+  latestTurn: Pick<LatestTurn, "state" | "completedAt"> | null,
+): boolean => {
+  if (isLatestTurnSettled(latestTurn)) {
+    return false
+  }
+  return (
+    (sessionStatus !== null && busySessionStatuses.has(sessionStatus)) ||
+    latestTurn?.state === "running"
+  )
+}
+
+export const isOptimisticSendActive = (input: {
+  readonly sendStartedAtMs: number | null
+  readonly latestTurnCompletedAtMs: number | null
+  readonly isAuthoritativeWorking: boolean
+}): boolean => {
+  if (input.sendStartedAtMs === null || input.isAuthoritativeWorking) {
+    return false
+  }
+  return (
+    input.latestTurnCompletedAtMs === null || input.latestTurnCompletedAtMs < input.sendStartedAtMs
+  )
+}
 
 export const resolveWorkingStartedAtMs = (input: {
   readonly latestTurn: Pick<LatestTurn, "startedAt" | "requestedAt" | "completedAt"> | null
@@ -45,6 +67,9 @@ export const resolveWorkingStartedAtMs = (input: {
   const turn = input.latestTurn
   if (turn !== null && turn.completedAt === null) {
     return firstValidEpochMs(turn.startedAt, turn.requestedAt)
+  }
+  if (isLatestTurnSettled(turn)) {
+    return null
   }
   return firstValidEpochMs(input.updatedAt)
 }
@@ -95,23 +120,26 @@ export const resolveThreadActivity = (input: {
   if (isThreadWorking(sessionStatus, latestTurn)) {
     return { kind: "working", label: "En cours" }
   }
-  if (
-    latestTurn?.state === "interrupted" &&
-    hasUnseenCompletion({
-      completedAt: latestTurn.completedAt,
-      lastVisitedAtMs: input.lastVisitedAtMs,
-    })
-  ) {
-    return { kind: "interrupted", label: "Interrompu" }
+  if (latestTurn === null) {
+    return null
   }
+  const settlementKind =
+    latestTurn.state === "interrupted"
+      ? "interrupted"
+      : latestTurn.state === "completed" ||
+          (latestTurn.state === "running" && latestTurn.completedAt != null)
+        ? "completed"
+        : null
   if (
-    latestTurn?.state === "completed" &&
+    settlementKind !== null &&
     hasUnseenCompletion({
       completedAt: latestTurn.completedAt,
       lastVisitedAtMs: input.lastVisitedAtMs,
     })
   ) {
-    return { kind: "completed", label: "Terminé" }
+    return settlementKind === "interrupted"
+      ? { kind: "interrupted", label: "Interrompu" }
+      : { kind: "completed", label: "Terminé" }
   }
   return null
 }
@@ -143,7 +171,11 @@ export const settledTranscriptLabel = (
     case "error":
       return duration === null ? "Échec" : `Échec après ${duration}`
     case "running":
-      return null
+      return latestTurn.completedAt === null
+        ? null
+        : duration === null
+          ? "A travaillé"
+          : `A travaillé ${duration}`
   }
 }
 

@@ -55,7 +55,12 @@ import {
 import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
-import { deriveActiveWorkStartedAtMs } from "@/lib/thread-activity"
+import {
+  deriveActiveWorkStartedAtMs,
+  epochMsOf,
+  isOptimisticSendActive,
+  isThreadWorking,
+} from "@/lib/thread-activity"
 import { getThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
 import {
   interruptTurn as interruptTurnAction,
@@ -247,9 +252,17 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   }, [threadId])
 
   const activeTurn = snapshot?.session?.activeTurnId ?? snapshot?.thread.latestTurn?.turnId
-  const isRunning =
-    snapshot?.session?.status === "running" || snapshot?.thread.latestTurn?.state === "running"
-  const isWorking = isRunning || sendStartedAtMs !== null
+  const isRunning = isThreadWorking(
+    snapshot?.session?.status ?? null,
+    snapshot?.thread.latestTurn ?? null,
+  )
+  const isWorking =
+    isRunning ||
+    isOptimisticSendActive({
+      sendStartedAtMs,
+      latestTurnCompletedAtMs: epochMsOf(snapshot?.thread.latestTurn?.completedAt),
+      isAuthoritativeWorking: isRunning,
+    })
   const workingStartedAtMs = deriveActiveWorkStartedAtMs({
     latestTurn: snapshot?.thread.latestTurn ?? null,
     sendStartedAtMs,
@@ -286,10 +299,10 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   }, [threadId, loading, snapshot?.thread.id])
 
   useEffect(() => {
-    if (isRunning) {
+    if (!isWorking) {
       setSendStartedAtMs(null)
     }
-  }, [isRunning])
+  }, [isWorking])
 
   const submitTurn = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

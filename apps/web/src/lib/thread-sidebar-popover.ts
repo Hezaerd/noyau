@@ -39,8 +39,14 @@ export const runtimeModeLabel = (runtimeMode: RuntimeMode): string =>
 
 export const threadStatusLabel = (
   sessionStatus: SessionStatus | null,
-  latestTurn: Pick<LatestTurn, "state"> | null,
+  latestTurn: Pick<LatestTurn, "state" | "completedAt"> | null,
 ): string | undefined => {
+  if (latestTurn?.state === "completed") {
+    return undefined
+  }
+  if (latestTurn?.completedAt != null && latestTurn.state !== "error") {
+    return latestTurn.state === "interrupted" ? "Interrompu" : undefined
+  }
   if (latestTurn !== null && visibleTurnStates.has(latestTurn.state)) {
     switch (latestTurn.state) {
       case "running":
@@ -69,7 +75,7 @@ export const threadSidebarPopoverRows = (input: {
   readonly provider: keyof typeof providerLabels
   readonly runtimeMode: RuntimeMode
   readonly sessionStatus: SessionStatus | null
-  readonly latestTurn: Pick<LatestTurn, "state"> | null
+  readonly latestTurn: Pick<LatestTurn, "state" | "completedAt"> | null
   readonly lastError: string | null
   readonly pullRequest: VcsStatusPullRequest | null
 }): ReadonlyArray<ThreadSidebarPopoverRow> => {
