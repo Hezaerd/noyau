@@ -1143,6 +1143,37 @@ describe("rendered Thread UI evidence", () => {
       }),
     ))
 
+  it("keeps transcript chrome unselectable while message text stays copyable", () => {
+    render(
+      <ThreadTranscript
+        transcript={[
+          Schema.decodeSync(TranscriptItem)({
+            _tag: "transcript.user",
+            threadId,
+            turnId: TurnId.make("40000000-0000-4000-8000-000000000001"),
+            text: "Prompt copiable",
+          }),
+        ]}
+        isRunning={false}
+        loading={false}
+        error={undefined}
+        notices={null}
+        answerByRequest={{}}
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    const viewport = screen.getByLabelText("Transcript du Thread")
+    expect(viewport.className).toContain("outline-none")
+    expect(viewport.className).toContain("select-none")
+
+    const item = viewport.querySelector("[data-slot='message-scroller-item']")
+    expect(item?.className).toContain("select-text")
+    expect(screen.getByText("Prompt copiable")).toBeTruthy()
+  })
+
   it("hides the Turn rail until the Thread has two user Turns", () => {
     const firstTurn = TurnId.make("40000000-0000-4000-8000-000000000001")
     render(
