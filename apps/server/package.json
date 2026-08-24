@@ -25,6 +25,7 @@
     "./provider/prompt-blocks": "./src/provider/prompt-blocks.ts",
     "./provider/provider-port": "./src/provider/provider-port.ts",
     "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
+    "./provider/turn-user-input-registry": "./src/provider/turn-user-input-registry.ts",
     "./text-generation/text-generation": "./src/text-generation/text-generation.ts",
     "./text-generation/prompts": "./src/text-generation/prompts.ts",
     "./text-generation/cursor-text-generation": "./src/text-generation/cursor-text-generation.ts",

@@ -158,10 +158,19 @@ const resolveTranscriptRequest = (
   transcript: ReadonlyArray<TranscriptItem>,
   requestId: string,
   tag: "transcript.permission" | "transcript.user-input",
+  answers?: Extract<TranscriptItem, { readonly _tag: "transcript.user-input" }>["answers"],
 ): ReadonlyArray<TranscriptItem> =>
-  transcript.map((item) =>
-    item._tag === tag && item.requestId === requestId ? { ...item, status: "resolved" } : item,
-  )
+  transcript.map((item) => {
+    if (item._tag !== tag || item.requestId !== requestId) {
+      return item
+    }
+    if (tag === "transcript.user-input" && item._tag === "transcript.user-input") {
+      return answers === undefined
+        ? { ...item, status: "resolved" as const }
+        : { ...item, status: "resolved" as const, answers }
+    }
+    return { ...item, status: "resolved" as const }
+  })
 
 const settleRunningTurn = (thread: ThreadProjection, session: Session): ThreadProjection => {
   const settlement = settledTurnStateForSessionStatus(session.status)
@@ -285,6 +294,7 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
           thread.transcript,
           event.requestId,
           "transcript.user-input",
+          event.answers,
         ),
       }))
     case "thread.session-set":

@@ -7,6 +7,7 @@ import { controlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
+import { turnUserInputRegistryLayer } from "@noyau/server/provider/turn-user-input-registry"
 import { serverRoutesLayer } from "@noyau/server/server"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
@@ -41,7 +42,7 @@ const testMcpSessionRegistryLayer = Layer.succeed(McpSessionRegistry)({
             threadId: mcpThreadId,
             turnId: mcpTurnId,
             actorId: ActorId.make(`agent:thread:${mcpThreadId}`),
-            capabilities: new Set(["board:read", "board:write"] as const),
+            capabilities: new Set(["board:read", "board:write", "thread:ask"] as const),
             issuedAt: 1,
           }
         : undefined,
@@ -56,6 +57,7 @@ const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(testServerConfigLayer()),
   Layer.provideMerge(testMcpSessionRegistryLayer),
   Layer.provideMerge(unavailableProviderLayer),
+  Layer.provideMerge(turnUserInputRegistryLayer),
   Layer.provideMerge(unavailableTextGenerationLayer),
   Layer.provideMerge(noopDiscordPresenceLayer),
   Layer.provideMerge(stubGitRuntimeLayer),

@@ -324,6 +324,10 @@ finalizer du subprocess provider du Turn révoque la capacité ; une expiration 
 anormaux. Le registre est vide au boot. Cursor sans capability MCP HTTP est inactif et Noyau ne
 fournit pas de fallback stdio.
 
+`noyau_ask_question` (capacité `thread:ask`) est le canal HITL portable : il bloque jusqu'à
+`user-input.respond` et partage le même `transcript.user-input` que `cursor/ask_question`
+([ADR-0016](adr/0016-canal-hitl-questionnaire.md)).
+
 ## UI
 
 - Tableau-first. Sidebar = Threads titrés. Restart = Tableau du dernier projet.

@@ -32,6 +32,7 @@ layer(Layer.merge(testServerConfigLayer({ port: 43_123 }), NodeServices.layer))(
         assert.strictEqual(firstScope?.actorId, `agent:thread:${threadId}`)
         assert.isTrue(firstScope?.capabilities.has("board:read"))
         assert.isTrue(firstScope?.capabilities.has("board:write"))
+        assert.isTrue(firstScope?.capabilities.has("thread:ask"))
 
         const rotated = yield* registry.issue({ projectId, threadId, turnId })
         const rotatedToken = rotated.config.authorizationHeader.replace(/^Bearer\s+/, "")

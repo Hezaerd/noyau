@@ -1,6 +1,6 @@
 ---
 name: noyau
-description: Use Noyau's MCP tools to inspect and manage the current Project's Tableau, Tickets, dependencies, and links to the current Thread. Use when planning work from Noyau, choosing an actionable Ticket, updating Ticket lifecycle or relationships, or reconciling completed agent work with the Noyau board.
+description: Use Noyau's MCP tools to inspect and manage the current Project's Tableau, Tickets, dependencies, and links to the current Thread; or to ask the human structured questions via noyau_ask_question. Use when planning work from Noyau, choosing an actionable Ticket, updating Ticket lifecycle or relationships, reconciling completed agent work with the Noyau board, or running a grilling / decision round.
 ---
 
 # Noyau
@@ -28,6 +28,8 @@ different `projectId`, `threadId`, bearer token, or MCP endpoint.
   [references/dependencies.md](references/dependencies.md).
 - Associate work with the current conversation: read
   [references/thread-linking.md](references/thread-linking.md).
+- Ask the human structured questions during a Turn: read
+  [references/ask-question.md](references/ask-question.md).
 - Handle unavailable tools, stale state, or rejected mutations: read
   [references/error-recovery.md](references/error-recovery.md).
 

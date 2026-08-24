@@ -90,7 +90,7 @@ export const makeMcpSessionRegistry = Effect.fn("McpSessionRegistry.make")(funct
         threadId: request.threadId,
         turnId: request.turnId,
         actorId: ActorId.make(`agent:thread:${request.threadId}`),
-        capabilities: new Set(["board:read", "board:write"] as const),
+        capabilities: new Set(["board:read", "board:write", "thread:ask"] as const),
         issuedAt,
       }
       yield* SynchronizedRef.update(state, ({ records }) => {

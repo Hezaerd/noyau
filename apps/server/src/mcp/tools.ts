@@ -1,6 +1,14 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
+import { ProviderUserInputAnswers, UserInputQuestion } from "@noyau/protocol/entities/approvals"
 import { TicketPriority } from "@noyau/protocol/entities/ticket"
-import { CommandId, KanbanColumnId, ProjectId, Sequence, TicketId } from "@noyau/protocol/ids"
+import {
+  ApprovalRequestId,
+  CommandId,
+  KanbanColumnId,
+  ProjectId,
+  Sequence,
+  TicketId,
+} from "@noyau/protocol/ids"
 import type { Rejection } from "@noyau/protocol/receipts"
 import {
   TicketArchiveRequest,
@@ -16,6 +24,10 @@ import {
   TicketUpdateRequest,
 } from "@noyau/protocol/ticket/commands"
 import { ControlPlane } from "@noyau/server/control-plane"
+import {
+  TurnUserInputRegistry,
+  UserInputTurnInactive,
+} from "@noyau/server/provider/turn-user-input-registry"
 import { Crypto, Effect, Schema } from "effect"
 import { Tool, Toolkit } from "effect/unstable/ai"
 
@@ -515,6 +527,28 @@ export const NoyauTicketThreadUnlinkTool = Tool.make("noyau_ticket_thread_unlink
   .annotate(Tool.Idempotent, true)
   .annotate(Tool.OpenWorld, false)
 
+export const AskQuestionResult = Schema.Struct({
+  requestId: ApprovalRequestId,
+  answers: ProviderUserInputAnswers,
+})
+
+export const NoyauAskQuestionTool = Tool.make("noyau_ask_question", {
+  description:
+    "Ask the human structured questions in the Noyau Thread UI and wait for answers. Prefer this over freeform chat for decision frontiers (grilling, design choices). Always include at least two options per question; the UI always offers an Other freeform escape. Put the recommended option first and append (Recommended) to its label. Use allowMultiple only when several answers can be true at once.",
+  parameters: Schema.Struct({
+    title: Schema.optionalKey(Schema.NonEmptyString),
+    questions: Schema.Array(UserInputQuestion).check(Schema.isMinLength(1)),
+  }),
+  success: AskQuestionResult,
+  failure: Schema.Union([McpCapabilityMissing, UserInputTurnInactive]),
+  dependencies: [McpInvocationContext, TurnUserInputRegistry, Crypto.Crypto],
+})
+  .annotate(Tool.Title, "Ask Noyau questions")
+  .annotate(Tool.Readonly, false)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, false)
+  .annotate(Tool.OpenWorld, false)
+
 export const NoyauMcpToolkit = Toolkit.make(
   NoyauTicketListTool,
   NoyauTicketGetTool,
@@ -529,6 +563,7 @@ export const NoyauMcpToolkit = Toolkit.make(
   NoyauTicketDependencyRemoveTool,
   NoyauTicketThreadLinkTool,
   NoyauTicketThreadUnlinkTool,
+  NoyauAskQuestionTool,
 )
 
 const listTickets = Effect.fn("NoyauMcpTools.listTickets")(function* (input: {
@@ -836,6 +871,31 @@ const unlinkCurrentThread = Effect.fn("NoyauMcpTools.unlinkCurrentThread")(funct
   )
 })
 
+const askQuestion = Effect.fn("NoyauMcpTools.askQuestion")(function* (input: {
+  readonly title?: string
+  readonly questions: ReadonlyArray<UserInputQuestion>
+}) {
+  const invocation = yield* requireMcpCapability("thread:ask")
+  const userInputs = yield* TurnUserInputRegistry
+  const crypto = yield* Crypto.Crypto
+  const requestId = ApprovalRequestId.make(yield* crypto.randomUUIDv4.pipe(Effect.orDie))
+  const prompt = input.questions[0]?.prompt
+  let requestInput = {
+    threadId: invocation.threadId,
+    turnId: invocation.turnId,
+    requestId,
+    questions: [...input.questions],
+  }
+  if (input.title !== undefined) {
+    requestInput = Object.assign(requestInput, { title: input.title })
+  }
+  if (prompt !== undefined) {
+    requestInput = Object.assign(requestInput, { prompt })
+  }
+  const answers = yield* userInputs.request(requestInput)
+  return { requestId, answers }
+})
+
 export const NoyauMcpToolkitHandlersLive = NoyauMcpToolkit.toLayer({
   noyau_ticket_list: listTickets,
   noyau_ticket_get: getTicket,
@@ -850,4 +910,5 @@ export const NoyauMcpToolkitHandlersLive = NoyauMcpToolkit.toLayer({
   noyau_ticket_dependency_remove: removeDependency,
   noyau_ticket_thread_link: linkCurrentThread,
   noyau_ticket_thread_unlink: unlinkCurrentThread,
+  noyau_ask_question: askQuestion,
 })

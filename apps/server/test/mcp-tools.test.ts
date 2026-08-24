@@ -10,8 +10,23 @@ import {
   TicketListResult,
   TicketMutationResult,
 } from "@noyau/server/mcp/tools"
-import { Effect, Layer, Schema, Stream } from "effect"
+import { turnUserInputRegistryLayer } from "@noyau/server/provider/turn-user-input-registry"
+import { Crypto, Effect, Layer, Schema, Stream } from "effect"
 import { McpSchema, McpServer } from "effect/unstable/ai"
+
+const testCrypto = () => {
+  let counter = 0
+  return Crypto.make({
+    randomBytes: (size) => {
+      const bytes = new Uint8Array(size)
+      counter += 1
+      bytes[size - 1] = counter % 256
+      bytes[size - 2] = (counter >> 8) % 256
+      return bytes
+    },
+    digest: (_algorithm, data) => Effect.succeed(data),
+  })
+}
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
@@ -149,7 +164,7 @@ const invocation = {
   threadId,
   turnId,
   actorId: Schema.decodeSync(ActorId)(`agent:thread:${threadId}`),
-  capabilities: new Set(["board:read", "board:write"] as const),
+  capabilities: new Set(["board:read", "board:write", "thread:ask"] as const),
   issuedAt: 1,
 }
 
@@ -172,6 +187,8 @@ const TestLayer = Layer.mergeAll(
   Layer.succeed(ControlPlane)(controlPlane),
   Layer.succeed(McpInvocationContext)(invocation),
   Layer.succeed(McpSchema.McpServerClient)(client),
+  turnUserInputRegistryLayer,
+  Layer.succeed(Crypto.Crypto)(testCrypto()),
   NodeServices.layer,
 )
 
@@ -187,6 +204,7 @@ layer(TestLayer)("Noyau MCP tools", (it) => {
 
       const toolNames = server.tools.map(({ tool }) => tool.name).toSorted()
       assert.deepEqual(toolNames, [
+        "noyau_ask_question",
         "noyau_ticket_archive",
         "noyau_ticket_complete",
         "noyau_ticket_create",

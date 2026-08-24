@@ -1,3 +1,4 @@
+import type { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
 import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
 import type { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
@@ -240,14 +241,14 @@ export const makeApprovalRespondRequest = Effect.fnUntraced(function* (input: {
 export const makeUserInputRespondRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
   readonly requestId: ApprovalRequestId
-  readonly answer: string
+  readonly answers: ProviderUserInputAnswers
 }) {
   return UserInputRespondRequest.make({
     commandId: CommandId.make(yield* uuid()),
     payload: {
       threadId: input.threadId,
       requestId: input.requestId,
-      answers: { answer: input.answer },
+      answers: input.answers,
     },
   })
 })
