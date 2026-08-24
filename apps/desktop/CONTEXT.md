@@ -42,13 +42,17 @@ _À éviter_ : header desktop, barre de titre
 Rangée contextuelle qui porte la navigation et l'identité de la page courante.
 _À éviter_ : chrome de fenêtre, barre de titre
 
+**Menu natif**:
+Template mince installé avant `ready` : menu App (darwin) + `editMenu` + `windowMenu`.
+Les rôles Edit câblent Cmd/Ctrl+A/C/V/X/Z ; `autoHideMenuBar` masque la barre in-window.
+_À éviter_ : `Menu.setApplicationMenu(null)`, menu défaut Electron (File/View/Help)
+
 **Canal de release**:
 Piste unique de marque et de lancement desktop : `development` en local, `latest` ou
 `nightly` packagé. `NOYAU_RELEASE_CHANNEL` est injecté au lancement dev ou au packaging CI ; le
 packager le fige dans l’artefact. Electron le propage au serveur enfant et l’expose au renderer
 par `window.noyauDesktop.releaseChannel` (argv `additionalArguments` du preload, pas d’IPC sync).
-La fenêtre se crée dès le spawn serveur (avant ready RPC) ; le menu natif défaut Electron est
-supprimé via `Menu.setApplicationMenu(null)` avant `ready`.
+La fenêtre se crée dès le spawn serveur (avant ready RPC).
 latest = tag `vX.Y.Z` ; nightly = dispatch Actions.
 _À éviter_ : `NOYAU_DESKTOP_DEV`, second flag « desktop env », canal beta, dist-tag npm,
 updater Electron, réutiliser `NOYAU_ENV`, déduire le canal depuis la version
