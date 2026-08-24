@@ -1,4 +1,9 @@
-import { collectComposerInlineTokens } from "@noyau/shared/composer-inline-tokens"
+import {
+  collectComposerInlineTokens,
+  parseComposerTicketMentionId,
+} from "@noyau/shared/composer-inline-tokens"
+
+import type { ComposerTicket } from "./composer-tickets"
 
 const WINDOWS_DRIVE_PATH_PATTERN = /^[A-Za-z]:[\\/]/
 const WINDOWS_UNC_PATH_PATTERN = /^\\\\/
@@ -463,6 +468,7 @@ export const resolveMarkdownFileLinkTarget = (
 
 const FILE_HREF_PROBE_CWD = "/"
 const THREAD_FILE_HREF_ORIGIN = "https://file.invalid"
+const THREAD_TICKET_HREF_ORIGIN = "https://ticket.invalid"
 
 export const encodeThreadMarkdownFileHref = (targetPath: string): string =>
   `${THREAD_FILE_HREF_ORIGIN}/?p=${encodeURIComponent(targetPath)}`
@@ -503,8 +509,50 @@ const markdownFileLinkFromMentionPath = (path: string): string => {
   return `[${label}](${href})`
 }
 
-const rewriteComposerMentionsInProse = (text: string): string => {
-  const mentions = collectComposerInlineTokens(text).filter((token) => token.type === "mention")
+const markdownTicketLinkFromMention = (
+  ticketId: string,
+  tickets: ReadonlyArray<ComposerTicket>,
+): string => {
+  const title = tickets.find((ticket) => ticket.ticketId === ticketId)?.title ?? "Ticket"
+  const label = title.replaceAll("\\", "\\\\").replaceAll("]", "\\]")
+  return `[${label}](ticket:${ticketId})`
+}
+
+export const encodeThreadMarkdownTicketHref = (ticketId: string): string =>
+  `${THREAD_TICKET_HREF_ORIGIN}/?id=${encodeURIComponent(ticketId)}`
+
+export const decodeThreadMarkdownTicketHref = (href: string): string | null => {
+  try {
+    const url = new URL(href)
+    if (url.origin !== THREAD_TICKET_HREF_ORIGIN) {
+      return null
+    }
+    const ticketId = url.searchParams.get("id")
+    return ticketId === null ? null : parseComposerTicketMentionId(`ticket:${ticketId}`)
+  } catch {
+    return null
+  }
+}
+
+export const parseTicketMarkdownHref = (href: string | undefined): string | null => {
+  if (href === undefined) {
+    return null
+  }
+  return decodeThreadMarkdownTicketHref(href) ?? parseComposerTicketMentionId(href)
+}
+
+export const transformThreadMarkdownTicketHref = (href: string): string | null => {
+  const ticketId = parseTicketMarkdownHref(href)
+  return ticketId === null ? null : encodeThreadMarkdownTicketHref(ticketId)
+}
+
+const rewriteComposerMentionsInProse = (
+  text: string,
+  tickets: ReadonlyArray<ComposerTicket>,
+): string => {
+  const mentions = collectComposerInlineTokens(text).filter(
+    (token) => token.type === "mention" || token.type === "ticket",
+  )
   if (mentions.length === 0) {
     return text
   }
@@ -515,25 +563,38 @@ const rewriteComposerMentionsInProse = (text: string): string => {
       continue
     }
     output += text.slice(cursor, mention.start)
-    output += mention.source.startsWith("[")
-      ? mention.source
-      : markdownFileLinkFromMentionPath(mention.value)
+    output +=
+      mention.type === "ticket"
+        ? mention.source.startsWith("[")
+          ? mention.source
+          : markdownTicketLinkFromMention(mention.value, tickets)
+        : mention.source.startsWith("[")
+          ? mention.source
+          : markdownFileLinkFromMentionPath(mention.value)
     cursor = mention.end
   }
   return output + text.slice(cursor)
 }
 
-const rewriteComposerMentionsOutsideInlineCode = (text: string): string =>
+const rewriteComposerMentionsOutsideInlineCode = (
+  text: string,
+  tickets: ReadonlyArray<ComposerTicket>,
+): string =>
   text
     .split(INLINE_CODE_SEGMENT_PATTERN)
-    .map((segment, index) => (index % 2 === 1 ? segment : rewriteComposerMentionsInProse(segment)))
+    .map((segment, index) =>
+      index % 2 === 1 ? segment : rewriteComposerMentionsInProse(segment, tickets),
+    )
     .join("")
 
-export const rewriteComposerMentionsToMarkdownFileLinks = (text: string): string => {
+export const rewriteComposerMentionsToMarkdownFileLinks = (
+  text: string,
+  tickets: ReadonlyArray<ComposerTicket> = [],
+): string => {
   const segments = text.split(FENCED_CODE_SEGMENT_PATTERN)
   return segments
     .map((segment, index) =>
-      index % 2 === 1 ? segment : rewriteComposerMentionsOutsideInlineCode(segment),
+      index % 2 === 1 ? segment : rewriteComposerMentionsOutsideInlineCode(segment, tickets),
     )
     .join("")
 }
@@ -549,6 +610,10 @@ export const rewriteMarkdownFileLinkDestinations = (
         return segment
       }
       return segment.replace(MARKDOWN_LINK_HREF_PATTERN, (full, href: string) => {
+        const ticketHref = transformThreadMarkdownTicketHref(href)
+        if (ticketHref !== null) {
+          return full.replace(`(${href}`, `(${ticketHref}`)
+        }
         const transformed = transformThreadMarkdownFileHref(href, workspaceRoot)
         if (transformed === null) {
           return full

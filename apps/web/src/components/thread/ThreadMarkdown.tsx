@@ -7,11 +7,13 @@ import { ThreadMarkdownCode } from "@/components/thread/ThreadMarkdownCode"
 import { ThreadMarkdownImage } from "@/components/thread/ThreadMarkdownImage"
 import { ThreadMarkdownLink } from "@/components/thread/ThreadMarkdownLink"
 import { ThreadMarkdownTable } from "@/components/thread/ThreadMarkdownTable"
+import { EMPTY_COMPOSER_TICKETS, type ComposerTicket } from "@/lib/composer-tickets"
 import {
   collectThreadMarkdownFileLinks,
   rewriteComposerMentionsToMarkdownFileLinks,
   rewriteMarkdownFileLinkDestinations,
   transformThreadMarkdownFileHref,
+  transformThreadMarkdownTicketHref,
 } from "@/lib/markdown-file-links"
 import { threadMarkdownPlugins } from "@/lib/thread-markdown-plugins"
 
@@ -30,24 +32,44 @@ export function ThreadMarkdown({
   streaming = false,
   workspaceRoot,
   projectId,
+  tickets = EMPTY_COMPOSER_TICKETS,
+  onOpenTicket,
 }: {
   readonly text: string
   readonly streaming?: boolean
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
+  readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
+  readonly onOpenTicket?: ((ticketId: string) => void) | undefined
 }) {
-  const mentionExpanded = useMemo(() => rewriteComposerMentionsToMarkdownFileLinks(text), [text])
+  const mentionExpanded = useMemo(
+    () => rewriteComposerMentionsToMarkdownFileLinks(text, tickets),
+    [text, tickets],
+  )
   const fileLinks = useMemo(
-    () => ({ ...collectThreadMarkdownFileLinks(mentionExpanded, workspaceRoot), projectId }),
-    [mentionExpanded, projectId, workspaceRoot],
+    () =>
+      Object.assign(
+        collectThreadMarkdownFileLinks(mentionExpanded, workspaceRoot),
+        { tickets },
+        projectId === undefined ? {} : { projectId },
+        onOpenTicket === undefined ? {} : { onOpenTicket },
+      ),
+    [mentionExpanded, onOpenTicket, projectId, tickets, workspaceRoot],
   )
   const renderedText = useMemo(
     () => rewriteMarkdownFileLinkDestinations(mentionExpanded, workspaceRoot),
     [mentionExpanded, workspaceRoot],
   )
   const urlTransform = useCallback(
-    (href: string, key: string, node: NonNullable<ExtraProps["node"]>) =>
-      transformThreadMarkdownFileHref(href, workspaceRoot) ?? defaultUrlTransform(href, key, node),
+    (href: string, key: string, node: NonNullable<ExtraProps["node"]>) => {
+      const ticketHref = transformThreadMarkdownTicketHref(href)
+      if (ticketHref !== null) {
+        return ticketHref
+      }
+      return (
+        transformThreadMarkdownFileHref(href, workspaceRoot) ?? defaultUrlTransform(href, key, node)
+      )
+    },
     [workspaceRoot],
   )
 

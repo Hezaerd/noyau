@@ -22,4 +22,19 @@ describe("applyComposerMentionKey", () => {
   it("leaves ordinary typing alone", () => {
     expect(applyComposerMentionKey({ key: "a", text, cursor: 2 })).toBeNull()
   })
+
+  it("deletes a ticket mention as a single chip", () => {
+    const ticketId = "40818da4-a4de-46f6-a60f-1aa305093a6e"
+    const ticketText = `Voir @ticket:${ticketId} ensuite`
+    expect(
+      applyComposerMentionKey({
+        key: "Backspace",
+        text: ticketText,
+        cursor: `Voir @ticket:${ticketId}`.length,
+      }),
+    ).toEqual({
+      text: "Voir  ensuite",
+      cursor: 5,
+    })
+  })
 })

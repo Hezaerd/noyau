@@ -2,6 +2,12 @@ import { composerPromptSegments } from "@noyau/shared/composer-inline-tokens"
 import type { ComposerTrigger } from "@noyau/shared/composer-trigger"
 
 import { ComposerFileChip } from "@/components/thread/ComposerFileChip"
+import { ComposerTicketChip } from "@/components/thread/ComposerTicketChip"
+import {
+  composerTicketById,
+  EMPTY_COMPOSER_TICKETS,
+  type ComposerTicket,
+} from "@/lib/composer-tickets"
 import { COMPOSER_FILE_CHIP_DECORATOR_CLASS_NAME } from "@/lib/file-chip"
 
 const rangesOverlap = (
@@ -14,9 +20,11 @@ const rangesOverlap = (
 export function ComposerPromptHighlight({
   text,
   trigger,
+  tickets = EMPTY_COMPOSER_TICKETS,
 }: {
   readonly text: string
   readonly trigger: ComposerTrigger | null
+  readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
 }) {
   const segments = composerPromptSegments(text)
   let offset = 0
@@ -37,6 +45,21 @@ export function ComposerPromptHighlight({
           rangesOverlap(start, end, trigger.rangeStart, trigger.rangeEnd)
         if (drafting) {
           return <span key={`draft-${String(index)}`}>{segment.source}</span>
+        }
+
+        if (segment.type === "ticket") {
+          const ticket = composerTicketById(tickets, segment.ticketId)
+          return (
+            <span
+              key={`ticket-${String(index)}`}
+              contentEditable={false}
+              data-composer-mention="true"
+              data-mention-source={segment.source}
+              className={COMPOSER_FILE_CHIP_DECORATOR_CLASS_NAME}
+            >
+              <ComposerTicketChip title={ticket?.title ?? "Ticket"} />
+            </span>
+          )
         }
 
         return (

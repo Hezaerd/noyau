@@ -681,7 +681,7 @@ describe("rendered Thread UI evidence", () => {
 
     render(<Harness />)
     const option = await screen.findByRole("option", { name: /adapter\.ts/ })
-    const listbox = screen.getByRole("listbox", { name: "Fichiers du Project" })
+    const listbox = screen.getByRole("listbox", { name: "Mentions" })
     const composerGroup = screen
       .getByRole("textbox", { name: "Composer un message" })
       .closest('[data-slot="input-group"]')
@@ -702,6 +702,54 @@ describe("rendered Thread UI evidence", () => {
     const chip = document.querySelector("[data-composer-file-chip]")
     expect(chip?.textContent).toContain("adapter.ts")
     expect(chip?.querySelector("[data-pierre-icon]")).not.toBeNull()
+  })
+
+  it("inserts a ticket mention from the mention menu", async () => {
+    const user = userEvent.setup()
+    const mentionedTicketId = "40818da4-a4de-46f6-a60f-1aa305093a6e"
+
+    function Harness() {
+      const [value, setValue] = useState("@men")
+      return (
+        <ThreadComposer
+          isRunning={false}
+          disabled={false}
+          text={value}
+          runtimeMode="full-access"
+          models={cursorModels}
+          modelSelection={null}
+          error={undefined}
+          onSubmit={vi.fn()}
+          onTextChange={setValue}
+          onRuntimeModeChange={vi.fn()}
+          onModelSelectionChange={vi.fn()}
+          images={[]}
+          onPaste={vi.fn()}
+          onDrop={vi.fn()}
+          onImageRemove={vi.fn()}
+          onInterrupt={vi.fn()}
+          tickets={[
+            {
+              ticketId: mentionedTicketId,
+              title: "Mentioner ticket dans transcript",
+              columnName: "En cours",
+              done: false,
+            },
+          ]}
+        />
+      )
+    }
+
+    render(<Harness />)
+    const option = await screen.findByRole("option", { name: /Mentioner ticket dans transcript/ })
+    await user.click(option)
+    expect(
+      screen
+        .getByRole("textbox", { name: "Composer un message" })
+        .getAttribute("data-composer-value"),
+    ).toBe(`@ticket:${mentionedTicketId} `)
+    const chip = document.querySelector("[data-composer-ticket-chip]")
+    expect(chip?.textContent).toContain("Mentioner ticket dans transcript")
   })
 
   it("changes the Thread access level from the composer", () =>

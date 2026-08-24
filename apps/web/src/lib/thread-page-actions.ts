@@ -5,7 +5,14 @@ import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
 import type { PrepareWorktree } from "@noyau/protocol/git"
-import { ApprovalRequestId, type ProjectId, type ThreadId, type TurnId } from "@noyau/protocol/ids"
+import {
+  ApprovalRequestId,
+  TicketId,
+  type ProjectId,
+  type ThreadId,
+  type TurnId,
+} from "@noyau/protocol/ids"
+import { collectComposerTicketIds } from "@noyau/shared/composer-inline-tokens"
 import { type Crypto, Effect } from "effect"
 
 import type { AppFailure } from "./app-failure"
@@ -22,6 +29,7 @@ import {
   makeUserInputRespondRequest,
   seedTitleFromTurn,
 } from "./thread-commands"
+import { makeTicketThreadLinkRequest } from "./ticket-commands"
 
 export type SubmitTurnResult =
   | { readonly kind: "created"; readonly threadId: ThreadId }
@@ -38,6 +46,28 @@ const buildAndDispatch = Effect.fn("buildAndDispatch")(function* <
     return built
   }
   return yield* Effect.promise(() => dispatchCommand(built.value))
+})
+
+const isAlreadyLinked = (failure: {
+  readonly _tag: string
+  readonly rejection?: { readonly _tag: string }
+}) => failure._tag === "Rejected" && failure.rejection?._tag === "TicketThreadAlreadyLinked"
+
+const linkMentionedTickets = Effect.fn("linkMentionedTickets")(function* (input: {
+  readonly threadId: ThreadId
+  readonly prompt: string
+}) {
+  for (const ticketId of collectComposerTicketIds(input.prompt)) {
+    const linked = yield* buildAndDispatch(
+      makeTicketThreadLinkRequest({
+        ticketId: TicketId.make(ticketId),
+        threadId: input.threadId,
+      }),
+    )
+    if (!linked.ok && !isAlreadyLinked(linked.failure)) {
+      return
+    }
+  }
 })
 
 export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
@@ -85,6 +115,10 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
     if (!created.ok) {
       return { kind: "error", failure: created.failure }
     }
+    yield* linkMentionedTickets({
+      threadId: nextThreadId.value,
+      prompt: input.prompt,
+    })
     const startRequest = yield* Effect.promise(() =>
       buildCommand(
         makeThreadTurnStartRequest(
@@ -113,6 +147,10 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
     return { kind: "created", threadId: nextThreadId.value }
   }
 
+  yield* linkMentionedTickets({
+    threadId,
+    prompt: input.prompt,
+  })
   const startRequest = yield* Effect.promise(() =>
     buildCommand(
       makeThreadTurnStartRequest(

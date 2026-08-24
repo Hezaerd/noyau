@@ -131,8 +131,10 @@ retrouve son dernier choix indépendamment des autres Threads.
 _À éviter_ : choix global, modèle de Session
 
 **Mention**:
-Référence `@path` insérée depuis le Composer, affichée comme chip fichier (icône Pierre +
-basename). Le texte soumis reste plat ; Noyau Server l'encode en `resource_link` ACP.
+Référence `@path` ou `@ticket:<id>` insérée depuis le Composer, affichée comme chip
+fichier (Pierre + basename) ou chip Ticket (titre). Le texte soumis reste plat ; Noyau
+Server encode le fichier en `resource_link` ACP et le Ticket en contexte prompt.
+L'envoi lie aussi le Ticket au Thread.
 _À éviter_ : attachment, Resource, Command
 
 **Brouillon**:

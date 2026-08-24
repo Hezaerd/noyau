@@ -207,6 +207,34 @@ describe("ThreadMarkdown", () => {
     expect(screen.queryByRole("link", { name: "greet.py" })).toBeNull()
   })
 
+  it("inlines a composer ticket mention as a Ticket chip", () => {
+    const ticketId = "40818da4-a4de-46f6-a60f-1aa305093a6e"
+    render(
+      <TooltipProvider>
+        <ToastProvider>
+          <ThreadMarkdown
+            text={`travaille sur @ticket:${ticketId}`}
+            workspaceRoot={workspaceRoot}
+            projectId={projectId}
+            tickets={[
+              {
+                ticketId,
+                title: "Mentioner ticket dans transcript",
+                columnName: "En cours",
+                done: false,
+              },
+            ]}
+          />
+        </ToastProvider>
+      </TooltipProvider>,
+    )
+
+    const chip = document.querySelector("[data-thread-markdown-ticket-chip]")
+    expect(chip?.textContent).toContain("Mentioner ticket dans transcript")
+    expect(chip?.getAttribute("href")).toBe(`/projects/${projectId}/board?ticket=${ticketId}`)
+    expect(screen.queryByText(/@ticket:/)).toBeNull()
+  })
+
   it("inlines a composer @path mention as a Pierre chip", () => {
     renderMarkdown("Que peux tu me dire que le fichier @astro.config.mjs")
 

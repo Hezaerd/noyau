@@ -17,6 +17,7 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
+import type { ComposerTicket } from "@/lib/composer-tickets"
 import { settledTranscriptLabel } from "@/lib/thread-activity"
 import { groupTranscriptRows, transcriptGroupRowId, transcriptRowId } from "@/lib/thread-transcript"
 import { deriveTurnMinimapItems, TURN_MINIMAP_MIN_ITEMS } from "@/lib/thread-turn-minimap"
@@ -32,6 +33,8 @@ export function ThreadTranscript({
   workspaceRoot,
   cwd,
   projectId,
+  tickets,
+  onOpenTicket,
   answerByRequest,
   onAnswerChange,
   onRespondApproval,
@@ -48,6 +51,8 @@ export function ThreadTranscript({
   readonly workspaceRoot?: string | undefined
   readonly cwd?: string | undefined
   readonly projectId?: ProjectId | undefined
+  readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
+  readonly onOpenTicket?: ((ticketId: string) => void) | undefined
   readonly answerByRequest: Record<string, string>
   readonly onAnswerChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
@@ -111,6 +116,8 @@ export function ThreadTranscript({
                     onAnswerChange={onAnswerChange}
                     onRespondApproval={onRespondApproval}
                     onRespondUserInput={onRespondUserInput}
+                    {...(tickets === undefined ? {} : { tickets })}
+                    {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
                   />
                 </MessageScrollerItem>
               ),
