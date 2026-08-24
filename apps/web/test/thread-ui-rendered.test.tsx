@@ -986,6 +986,14 @@ describe("rendered Thread UI evidence", () => {
         const baseProps = {
           ticket,
           tickets: [ticket],
+          columns: [
+            {
+              id: "column-backlog",
+              name: "Backlog",
+              color: "#64748B",
+              done: false,
+            },
+          ],
           ticketDependencies: [],
           threads: [thread],
           activity: [],

@@ -1,5 +1,6 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import type { ProjectId } from "@noyau/protocol/ids"
+import { memo } from "react"
 
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
 import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
@@ -16,7 +17,7 @@ import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
 import type { ComposerTicket } from "@/lib/composer-tickets"
 import { transcriptLabel } from "@/lib/thread-transcript"
 
-export function ThreadTranscriptItem({
+function ThreadTranscriptItemImpl({
   item,
   streaming,
   workspaceRoot,
@@ -172,3 +173,5 @@ export function ThreadTranscriptItem({
     </Message>
   )
 }
+
+export const ThreadTranscriptItem = memo(ThreadTranscriptItemImpl)

@@ -3,7 +3,7 @@ import type { ProjectId } from "@noyau/protocol/ids"
 import { useEffect, useMemo, useState } from "react"
 
 import type { ComposerTicket } from "@/lib/composer-tickets"
-import { loadBoardSnapshot, subscribeProject } from "@/lib/control-plane"
+import { subscribeProjectBoard } from "@/lib/project-board-store"
 
 export const composerTicketsFromBoard = (
   snapshot: BoardSnapshot,
@@ -29,19 +29,10 @@ export const useProjectComposerTickets = (projectId: ProjectId): ReadonlyArray<C
   const [tickets, setTickets] = useState<ReadonlyArray<ComposerTicket>>([])
 
   useEffect(() => {
-    return subscribeProject(projectId, undefined, {
+    return subscribeProjectBoard(projectId, {
       onSnapshot: (snapshot) => {
         setTickets(composerTicketsFromBoard(snapshot))
       },
-      onEvent: () => {
-        void loadBoardSnapshot(projectId).then((result) => {
-          if (result.ok) {
-            setTickets(composerTicketsFromBoard(result.value))
-          }
-          return undefined
-        })
-      },
-      onStatus: () => undefined,
     })
   }, [projectId])
 

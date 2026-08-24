@@ -177,6 +177,16 @@ _À éviter_ : registry, command list
 Surface dédiée des préférences persistées de l'app, adressable par `/settings`.
 _À éviter_ : options, réglages, preferences, page de config
 
+**Mise à jour desktop**:
+Check GitHub du Canal de mise à jour et ouverture de l'installeur unsigned. Chrome
+Desktop, pas une Préférence métier.
+_À éviter_ : auto-update, `electron-updater`, `quitAndInstall`
+
+**Canal de mise à jour**:
+Préférence renderer `latest` | `nightly` pour le check GitHub. Défaut = canal packagé
+(`window.noyauDesktop.releaseChannel`). L'autre canal ouvre une app séparée.
+_À éviter_ : changer la marque de l'install, `NOYAU_RELEASE_CHANNEL` à chaud
+
 **Tab Paramètres**:
 Catégorie adressable du catalogue Paramètres (`/settings/$tab`).
 _À éviter_ : section Settings, page d'options, onglet générique
@@ -210,6 +220,12 @@ Horloge locale renderer de la dernière visite d'un Thread. Un Terminé n'appara
 `completedAt` est postérieur. Jamais visité = déjà lu, pour ne pas inonder les Threads
 historiques. Pas une Préférence du catalogue.
 _À éviter_ : présence, ShellFocus, événement de journal
+
+**Pin**:
+Marque locale renderer qui garde un Thread en tête de la sidebar (`Mod+P` ou menu contextuel).
+Plusieurs Threads peuvent être épinglés ; l'ordre entre Pins suit le plus récent. Pas une
+Préférence du catalogue ni un champ du journal.
+_À éviter_ : Command, événement, ordre durable serveur
 
 **ShellFocus**:
 Vue UI volatile poussée au serveur (Tableau ou Thread). Les Paramètres restent sticky sur le

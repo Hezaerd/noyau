@@ -1,12 +1,14 @@
+import * as NodeServices from "@effect/platform-node/NodeServices"
 import { assert, layer } from "@effect/vitest"
 import { BoardSnapshot } from "@noyau/protocol/board"
-import { ActorId, EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import { ActorId, EnvironmentId, ProjectId, Sequence, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { ControlPlane } from "@noyau/server/control-plane"
 import { McpInvocationContext } from "@noyau/server/mcp/mcp-invocation-context"
 import {
   NoyauMcpToolkit,
   NoyauMcpToolkitHandlersLive,
   TicketListResult,
+  TicketMutationResult,
 } from "@noyau/server/mcp/tools"
 import { turnUserInputRegistryLayer } from "@noyau/server/provider/turn-user-input-registry"
 import { Crypto, Effect, Layer, Schema, Stream } from "effect"
@@ -31,6 +33,9 @@ const blockedTicketId = "70000000-0000-4000-8000-000000000001"
 const prerequisiteTicketId = "70000000-0000-4000-8000-000000000002"
 const actionableTicketId = "70000000-0000-4000-8000-000000000003"
 const doneTicketId = "70000000-0000-4000-8000-000000000004"
+const backlogColumnId = "60000000-0000-4000-8000-000000000001"
+const activeColumnId = "60000000-0000-4000-8000-000000000003"
+const operationId = "80000000-0000-4000-8000-000000000001"
 
 const snapshot = Schema.decodeSync(BoardSnapshot)({
   snapshotSequence: 12,
@@ -45,11 +50,21 @@ const snapshot = Schema.decodeSync(BoardSnapshot)({
   },
   columns: [
     {
-      id: "60000000-0000-4000-8000-000000000001",
+      id: backlogColumnId,
       projectId,
       name: "Backlog",
       color: "#64748B",
       rank: "a0",
+      done: false,
+      createdAt: "2026-08-20T00:00:00.000Z",
+      updatedAt: "2026-08-20T00:00:00.000Z",
+    },
+    {
+      id: activeColumnId,
+      projectId,
+      name: "En cours",
+      color: "#3B82F6",
+      rank: "a0V",
       done: false,
       createdAt: "2026-08-20T00:00:00.000Z",
       updatedAt: "2026-08-20T00:00:00.000Z",
@@ -69,7 +84,7 @@ const snapshot = Schema.decodeSync(BoardSnapshot)({
     {
       id: blockedTicketId,
       projectId,
-      columnId: "60000000-0000-4000-8000-000000000001",
+      columnId: backlogColumnId,
       rank: "a0",
       title: "Blocked work",
       priority: "high",
@@ -80,7 +95,7 @@ const snapshot = Schema.decodeSync(BoardSnapshot)({
     {
       id: prerequisiteTicketId,
       projectId,
-      columnId: "60000000-0000-4000-8000-000000000001",
+      columnId: backlogColumnId,
       rank: "a1",
       title: "Open prerequisite",
       priority: "normal",
@@ -91,7 +106,7 @@ const snapshot = Schema.decodeSync(BoardSnapshot)({
     {
       id: actionableTicketId,
       projectId,
-      columnId: "60000000-0000-4000-8000-000000000001",
+      columnId: backlogColumnId,
       rank: "a2",
       title: "Actionable work",
       description: "Ready for an agent",
@@ -118,8 +133,13 @@ const snapshot = Schema.decodeSync(BoardSnapshot)({
   ticketActivity: [],
 })
 
+const dispatched: Array<{ readonly tag: string; readonly actorId: string }> = []
+
 const controlPlane = ControlPlane.of({
-  dispatch: () => Effect.die("unused"),
+  dispatch: (request, actorId) => {
+    dispatched.push({ tag: request._tag, actorId })
+    return Effect.succeed({ sequence: Sequence.make(42) })
+  },
   subscribeShell: () => Stream.die("unused"),
   subscribeProject: () => Stream.make({ kind: "snapshot" as const, snapshot }),
   subscribeThread: () => Stream.die("unused"),
@@ -141,8 +161,8 @@ const invocation = {
   projectId,
   threadId,
   turnId,
-  actorId: Schema.decodeSync(ActorId)(`agent:cursor:${turnId}`),
-  capabilities: new Set(["board:read"] as const),
+  actorId: Schema.decodeSync(ActorId)(`agent:thread:${threadId}`),
+  capabilities: new Set(["board:read", "board:write", "thread:ask"] as const),
   issuedAt: 1,
 }
 
@@ -167,10 +187,11 @@ const TestLayer = Layer.mergeAll(
   Layer.succeed(McpSchema.McpServerClient)(client),
   turnUserInputRegistryLayer,
   Layer.succeed(Crypto.Crypto)(testCrypto()),
+  NodeServices.layer,
 )
 
 layer(TestLayer)("Noyau MCP tools", (it) => {
-  it.effect("lists actionable and blocked Tickets with MCP annotations", () =>
+  it.effect("lists actionable and blocked Tickets with columns and MCP annotations", () =>
     Effect.gen(function* () {
       const server = yield* McpServer.McpServer
       const registered = server.tools.find(({ tool }) => tool.name === "noyau_ticket_list")
@@ -178,6 +199,24 @@ layer(TestLayer)("Noyau MCP tools", (it) => {
       assert.strictEqual(registered?.tool.annotations?.destructiveHint, false)
       assert.strictEqual(registered?.tool.annotations?.idempotentHint, true)
       assert.strictEqual(registered?.tool.annotations?.openWorldHint, false)
+
+      const toolNames = server.tools.map(({ tool }) => tool.name).toSorted()
+      assert.deepEqual(toolNames, [
+        "noyau_ask_question",
+        "noyau_ticket_archive",
+        "noyau_ticket_complete",
+        "noyau_ticket_create",
+        "noyau_ticket_dependency_add",
+        "noyau_ticket_dependency_remove",
+        "noyau_ticket_get",
+        "noyau_ticket_list",
+        "noyau_ticket_move",
+        "noyau_ticket_reopen",
+        "noyau_ticket_restore",
+        "noyau_ticket_thread_link",
+        "noyau_ticket_thread_unlink",
+        "noyau_ticket_update",
+      ])
 
       const actionable = yield* server.callTool({
         name: "noyau_ticket_list",
@@ -193,6 +232,10 @@ layer(TestLayer)("Noyau MCP tools", (it) => {
       )
       assert.strictEqual(actionableContent.projectId, projectId)
       assert.strictEqual(actionableContent.snapshotSequence, 12)
+      assert.deepEqual(
+        actionableContent.columns.map((column) => column.name),
+        ["Backlog", "En cours", "Done"],
+      )
       assert.isTrue(actionableContent.tickets[0]?.actionable)
       assert.isFalse(actionableContent.tickets[0]?.linkedToCurrentThread)
       assert.isTrue(actionableContent.tickets[1]?.actionable)
@@ -210,6 +253,41 @@ layer(TestLayer)("Noyau MCP tools", (it) => {
       assert.strictEqual(blockedContent.tickets[0]?.blockedBy[0]?.ticketId, prerequisiteTicketId)
       assert.strictEqual(blockedContent.tickets[0]?.blockedBy[0]?.title, "Open prerequisite")
       assert.isFalse(blockedContent.tickets[0]?.blockedBy[0]?.done)
+    }),
+  )
+
+  it.effect("moves and links tickets through the control plane with the thread actor", () =>
+    Effect.gen(function* () {
+      dispatched.length = 0
+      const server = yield* McpServer.McpServer
+
+      const moved = yield* server.callTool({
+        name: "noyau_ticket_move",
+        arguments: {
+          ticketId: actionableTicketId,
+          columnId: activeColumnId,
+          operationId,
+        },
+      })
+      assert.strictEqual(moved.isError, false)
+      const movedContent = yield* Schema.decodeUnknownEffect(TicketMutationResult)(
+        moved.structuredContent,
+      ).pipe(Effect.orDie)
+      assert.strictEqual(movedContent.sequence, 42)
+      assert.strictEqual(movedContent.ticketId, actionableTicketId)
+
+      const linked = yield* server.callTool({
+        name: "noyau_ticket_thread_link",
+        arguments: { ticketId: prerequisiteTicketId },
+      })
+      assert.strictEqual(linked.isError, false)
+
+      assert.deepEqual(
+        dispatched.map((item) => item.tag),
+        ["ticket.move", "ticket.thread.link"],
+      )
+      assert.strictEqual(dispatched[0]?.actorId, `agent:thread:${threadId}`)
+      assert.strictEqual(dispatched[1]?.actorId, `agent:thread:${threadId}`)
     }),
   )
 })

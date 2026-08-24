@@ -39,4 +39,9 @@ describe("ThreadTranscriptFollowLatest", () => {
     rerender(<ThreadTranscriptFollowLatest followLatestKey={2} />)
     expect(scrollToEnd).toHaveBeenCalledTimes(2)
   })
+
+  it("scrolls on the first non-idle followLatestKey after open", () => {
+    render(<ThreadTranscriptFollowLatest followLatestKey={1} />)
+    expect(scrollToEnd).toHaveBeenCalledOnce()
+  })
 })

@@ -143,7 +143,8 @@ describe("VcsStatusBroadcaster", () => {
         const fiber = yield* broadcaster
           .streamStatus("/tmp/repo", { interval: Duration.seconds(30) })
           .pipe(Stream.take(2), Stream.runCollect, Effect.forkChild)
-        yield* TestClock.adjust("31 seconds")
+        // Poll cadence: PR on ticks 1,4,… — after a failed PR poll, wait for the next PR tick.
+        yield* TestClock.adjust("91 seconds")
         return yield* Fiber.join(fiber)
       }),
     ).pipe(
