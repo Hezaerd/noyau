@@ -7,6 +7,7 @@ import {
   deriveActiveWorkStartedAtMs,
   formatElapsedLabel,
   hasUnseenCompletion,
+  isOptimisticSendActive,
   isThreadWorking,
   resolveThreadActivity,
   resolveWorkingStartedAtMs,
@@ -41,6 +42,18 @@ describe("thread activity", () => {
         latestTurn({ state: "completed", completedAt: "2026-08-23T12:01:00.000Z" }),
       ),
     ).toBe(false)
+    expect(
+      isThreadWorking(
+        "running",
+        latestTurn({ state: "completed", completedAt: "2026-08-23T12:01:00.000Z" }),
+      ),
+    ).toBe(false)
+    expect(
+      isThreadWorking(
+        "starting",
+        latestTurn({ state: "completed", completedAt: "2026-08-23T12:01:00.000Z" }),
+      ),
+    ).toBe(false)
   })
 
   it("counts elapsed from startedAt, then requestedAt, while the Turn is open", () => {
@@ -54,6 +67,15 @@ describe("thread activity", () => {
         latestTurn: latestTurn({ state: "running", startedAt: null }),
       }),
     ).toBe(Date.parse("2026-08-23T12:00:00.000Z"))
+    expect(
+      resolveWorkingStartedAtMs({
+        latestTurn: latestTurn({
+          state: "completed",
+          completedAt: "2026-08-23T12:01:00.000Z",
+        }),
+        updatedAt: latestTurn({ state: "running" }).requestedAt,
+      }),
+    ).toBeNull()
   })
 
   it("formats compact elapsed labels", () => {
@@ -136,6 +158,40 @@ describe("thread activity", () => {
         lastVisitedAtMs: undefined,
       }),
     ).toBeNull()
+    expect(
+      resolveThreadActivity({
+        sessionStatus: "running",
+        latestTurn: latestTurn({
+          state: "completed",
+          completedAt: "2026-08-23T12:05:00.000Z",
+        }),
+        lastVisitedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+      }),
+    ).toEqual({ kind: "completed", label: "Terminé" })
+  })
+
+  it("drops the optimistic send once the Turn that started after it has settled", () => {
+    expect(
+      isOptimisticSendActive({
+        sendStartedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+        latestTurnCompletedAtMs: Date.parse("2026-08-23T11:59:00.000Z"),
+        isAuthoritativeWorking: false,
+      }),
+    ).toBe(true)
+    expect(
+      isOptimisticSendActive({
+        sendStartedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+        latestTurnCompletedAtMs: Date.parse("2026-08-23T12:01:00.000Z"),
+        isAuthoritativeWorking: false,
+      }),
+    ).toBe(false)
+    expect(
+      isOptimisticSendActive({
+        sendStartedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+        latestTurnCompletedAtMs: null,
+        isAuthoritativeWorking: true,
+      }),
+    ).toBe(false)
   })
 
   it("labels the live and settled transcript rows", () => {
@@ -165,6 +221,15 @@ describe("thread activity", () => {
       ),
     ).toBe("Interrompu après 8s")
     expect(settledTranscriptLabel(latestTurn({ state: "running" }))).toBeNull()
+    expect(
+      settledTranscriptLabel(
+        latestTurn({
+          state: "running",
+          startedAt: "2026-08-23T12:00:00.000Z",
+          completedAt: "2026-08-23T12:00:08.000Z",
+        }),
+      ),
+    ).toBe("A travaillé 8s")
   })
 
   it("keeps the local send timestamp until the open Turn has its own start", () => {
