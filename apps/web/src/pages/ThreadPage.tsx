@@ -4,6 +4,7 @@ import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import { useNavigate } from "@tanstack/react-router"
 import { DateTime } from "effect"
 import {
   useCallback,
@@ -28,6 +29,7 @@ import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
+import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { invalidInputFailure } from "@/lib/app-failure"
 import {
   clearCreatedCheckout,
@@ -70,6 +72,8 @@ interface ThreadPageProps {
 
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
   const { cursor, projects } = useControlPlane()
+  const navigate = useNavigate()
+  const tickets = useProjectComposerTickets(projectId)
   const project = projects.find((candidate) => candidate.id === projectId)
   const [snapshot, setSnapshot] = useState<ThreadSnapshot>()
   const [loading, setLoading] = useState(threadId !== undefined)
@@ -529,6 +533,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }}
       onInterrupt={() => interruptTurn()}
       searchPaths={searchPaths}
+      tickets={tickets}
       context={
         <ThreadCheckoutBar
           projectId={projectId}
@@ -578,6 +583,14 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
                   : (threadWorktreePathOf(snapshot.thread) ?? project?.workspaceRoot)
               }
               projectId={projectId}
+              tickets={tickets}
+              onOpenTicket={(ticketId) => {
+                void navigate({
+                  to: "/projects/$projectId/board",
+                  params: { projectId },
+                  search: { ticket: ticketId },
+                })
+              }}
               error={transcriptError}
               notices={
                 threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (

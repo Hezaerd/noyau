@@ -8,6 +8,7 @@ import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
+import type { ComposerTicket } from "@/lib/composer-tickets"
 import { transcriptLabel } from "@/lib/thread-transcript"
 
 export function ThreadTranscriptItem({
@@ -15,6 +16,8 @@ export function ThreadTranscriptItem({
   streaming,
   workspaceRoot,
   projectId,
+  tickets,
+  onOpenTicket,
   answer,
   onAnswerChange,
   onRespondApproval,
@@ -24,6 +27,8 @@ export function ThreadTranscriptItem({
   readonly streaming: boolean
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
+  readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
+  readonly onOpenTicket?: ((ticketId: string) => void) | undefined
   readonly answer: string
   readonly onAnswerChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
@@ -47,6 +52,8 @@ export function ThreadTranscriptItem({
                     text={item.text}
                     workspaceRoot={workspaceRoot}
                     projectId={projectId}
+                    {...(tickets === undefined ? {} : { tickets })}
+                    {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
                   />
                 )}
               </BubbleContent>
@@ -68,6 +75,8 @@ export function ThreadTranscriptItem({
                 streaming={streaming}
                 workspaceRoot={workspaceRoot}
                 projectId={projectId}
+                {...(tickets === undefined ? {} : { tickets })}
+                {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
               />
             </BubbleContent>
           </Bubble>

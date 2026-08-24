@@ -1057,9 +1057,11 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         const prompt: Array<AcpSchema.ContentBlock> = []
         if (control.input.text.trim().length > 0) {
           prompt.push(
-            ...(yield* promptContentBlocks(control.input.text, control.input.workspaceRoot).pipe(
-              Effect.provideService(Path.Path, path),
-            )),
+            ...(yield* promptContentBlocks(
+              control.input.text,
+              control.input.workspaceRoot,
+              control.input.tickets ?? [],
+            ).pipe(Effect.provideService(Path.Path, path))),
           )
         }
         for (const attachment of control.input.attachments ?? []) {

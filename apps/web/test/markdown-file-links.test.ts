@@ -5,9 +5,11 @@ import {
   collectThreadMarkdownFileLinks,
   fileLinkChipLabel,
   resolveInlineCodeFileLinkMeta,
+  parseTicketMarkdownHref,
   rewriteComposerMentionsToMarkdownFileLinks,
   rewriteMarkdownFileLinkDestinations,
   transformThreadMarkdownFileHref,
+  transformThreadMarkdownTicketHref,
   resolveMarkdownFileLinkMeta,
   resolveMarkdownFileLinkTarget,
   rewriteMarkdownFileUriHref,
@@ -76,6 +78,34 @@ describe("rewriteMarkdownFileUriHref", () => {
     expect(rewriteComposerMentionsToMarkdownFileLinks("Le fichier **@astro.config.mjs**.")).toBe(
       "Le fichier **[astro.config.mjs](astro.config.mjs)**.",
     )
+  })
+
+  it("turns composer ticket mentions into markdown ticket links", () => {
+    const ticketId = "40818da4-a4de-46f6-a60f-1aa305093a6e"
+    expect(
+      rewriteComposerMentionsToMarkdownFileLinks(`travaille sur @ticket:${ticketId}`, [
+        {
+          ticketId,
+          title: "Mentioner ticket dans transcript",
+          columnName: "En cours",
+          done: false,
+        },
+      ]),
+    ).toBe(`travaille sur [Mentioner ticket dans transcript](ticket:${ticketId})`)
+  })
+
+  it("rewrites ticket markdown hrefs to a harden-safe https href", () => {
+    const ticketId = "40818da4-a4de-46f6-a60f-1aa305093a6e"
+    expect(transformThreadMarkdownTicketHref(`ticket:${ticketId}`)).toBe(
+      `https://ticket.invalid/?id=${ticketId}`,
+    )
+    expect(parseTicketMarkdownHref(`https://ticket.invalid/?id=${ticketId}`)).toBe(ticketId)
+    expect(
+      rewriteMarkdownFileLinkDestinations(
+        `[Mentioner ticket dans transcript](ticket:${ticketId})`,
+        "/Users/hezaerd/project",
+      ),
+    ).toBe(`[Mentioner ticket dans transcript](https://ticket.invalid/?id=${ticketId})`)
   })
 
   it("unwraps angle-bracketed file uri hrefs", () => {

@@ -1,5 +1,5 @@
 import type { PersistedEvent } from "@noyau/database/command-worker"
-import { readThreadSnapshot } from "@noyau/database/snapshots"
+import { readBoardSnapshot, readThreadSnapshot } from "@noyau/database/snapshots"
 import {
   InternalCommand,
   type InternalCommand as InternalCommandType,
@@ -25,7 +25,13 @@ import { buildTemporaryWorktreeBranchName, GitRuntime } from "@noyau/server/git/
 import { Crypto, DateTime, Effect, Option, Result, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { ProviderPort, type ProviderSignal, type ProviderTurnAttachment } from "./provider-port.ts"
+import { promptTicketsFromBoard } from "./prompt-blocks.ts"
+import {
+  ProviderPort,
+  type ProviderSignal,
+  type ProviderTurnAttachment,
+  type ProviderTurnInput,
+} from "./provider-port.ts"
 
 const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)
@@ -277,7 +283,11 @@ export const makeProviderReactor = (
               )
               return
             }
-            let turnInput = {
+            const board = yield* readBoardSnapshot(ProjectId.make(persisted.projectId)).pipe(
+              Effect.provideService(SqlClient, sql),
+              Effect.orDie,
+            )
+            let turnInput: ProviderTurnInput = {
               projectId: ProjectId.make(persisted.projectId),
               threadId: threadEvent.threadId,
               turnId: threadEvent.turnId,
@@ -288,7 +298,12 @@ export const makeProviderReactor = (
               resumeCursor: snapshot.value.session?.resumeCursor ?? null,
             }
             if (attachments !== undefined) {
-              turnInput = Object.assign(turnInput, { attachments: attachments.success })
+              turnInput = Object.assign({}, turnInput, { attachments: attachments.success })
+            }
+            if (Option.isSome(board)) {
+              turnInput = Object.assign({}, turnInput, {
+                tickets: promptTicketsFromBoard(board.value),
+              })
             }
             yield* provider.startTurn(turnInput, (signal) =>
               ingestSignal(dispatchInternal, persisted, runtimeMode, signal).pipe(

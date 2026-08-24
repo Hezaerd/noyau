@@ -1,6 +1,15 @@
 import type * as AcpSchema from "@noyau/acp/schema"
+import type { BoardSnapshot } from "@noyau/protocol/board"
 import { composerPromptSegments } from "@noyau/shared/composer-inline-tokens"
 import { Effect, Option, Path } from "effect"
+
+export interface PromptTicket {
+  readonly ticketId: string
+  readonly title: string
+  readonly description?: string | undefined
+  readonly columnName: string
+  readonly done: boolean
+}
 
 const isInsideWorkspace = (
   path: Path.Path,
@@ -31,11 +40,40 @@ const resolveMentionPath = (
   return isInsideWorkspace(path, workspaceRoot, absolute) ? absolute : null
 }
 
+export const promptTicketsFromBoard = (snapshot: BoardSnapshot): ReadonlyArray<PromptTicket> => {
+  const columnsById = new Map(snapshot.columns.map((column) => [column.id, column]))
+  return snapshot.tickets.map((ticket) => {
+    const column = columnsById.get(ticket.columnId)
+    const base = {
+      ticketId: ticket.id,
+      title: ticket.title,
+      columnName: column?.name ?? ticket.columnId,
+      done: ticket.done,
+    }
+    return ticket.description === undefined ? base : { ...base, description: ticket.description }
+  })
+}
+
+export const formatTicketPromptText = (ticket: PromptTicket): string => {
+  const lines = [
+    `Ticket « ${ticket.title} »`,
+    `ticketId: ${ticket.ticketId}`,
+    `column: ${ticket.columnName}`,
+    `done: ${ticket.done ? "true" : "false"}`,
+  ]
+  if (ticket.description !== undefined && ticket.description.trim() !== "") {
+    lines.push("", ticket.description)
+  }
+  return lines.join("\n")
+}
+
 export const promptContentBlocks = Effect.fn("promptContentBlocks")(function* (
   text: string,
   workspaceRoot: string,
+  tickets: ReadonlyArray<PromptTicket> = [],
 ) {
   const path = yield* Path.Path
+  const ticketsById = new Map(tickets.map((ticket) => [ticket.ticketId, ticket]))
   const blocks: Array<AcpSchema.ContentBlock> = []
   let pendingText = ""
 
@@ -49,6 +87,16 @@ export const promptContentBlocks = Effect.fn("promptContentBlocks")(function* (
   for (const segment of composerPromptSegments(text)) {
     if (segment.type === "text") {
       pendingText += segment.text
+      continue
+    }
+    if (segment.type === "ticket") {
+      const ticket = ticketsById.get(segment.ticketId)
+      if (ticket === undefined) {
+        pendingText += segment.source
+        continue
+      }
+      flushText()
+      blocks.push({ type: "text", text: formatTicketPromptText(ticket) })
       continue
     }
     const absolute = resolveMentionPath(path, workspaceRoot, segment.path)

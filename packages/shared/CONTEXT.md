@@ -10,8 +10,9 @@ Jeton incomplet au curseur du Composer (`@` chemin, `/` commande, `$` skill).
 _À éviter_ : Action, Command, Palette
 
 **Mention**:
-Référence `@path` (ou lien markdown fichier) déjà délimitée dans le texte du
-Composer. Le serveur l'encode en `resource_link` ACP.
+Référence `@path` ou `@ticket:<id>` (ou lien markdown équivalent) déjà délimitée
+dans le texte du Composer. Le serveur encode un fichier en `resource_link` ACP et
+un Ticket en texte structuré (`ticketId`, titre, colonne).
 _À éviter_ : attachment, Resource, ContentBlock
 
 **ReleaseBrand**:

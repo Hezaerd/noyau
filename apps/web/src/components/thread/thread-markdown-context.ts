@@ -1,6 +1,7 @@
 import type { ProjectId } from "@noyau/protocol/ids"
 import { createContext, useContext } from "react"
 
+import type { ComposerTicket } from "@/lib/composer-tickets"
 import {
   emptyThreadMarkdownFileLinks,
   type ThreadMarkdownFileLinks,
@@ -8,6 +9,8 @@ import {
 
 export type ThreadMarkdownContextValue = ThreadMarkdownFileLinks & {
   readonly projectId?: ProjectId | undefined
+  readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
+  readonly onOpenTicket?: ((ticketId: string) => void) | undefined
 }
 
 export const ThreadMarkdownContext = createContext<ThreadMarkdownContextValue>(

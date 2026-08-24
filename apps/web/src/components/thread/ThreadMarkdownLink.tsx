@@ -4,12 +4,15 @@ import type { ExtraProps } from "streamdown"
 
 import { useThreadMarkdownFileLinks } from "@/components/thread/thread-markdown-context"
 import { ThreadMarkdownFileChip } from "@/components/thread/ThreadMarkdownFileChip"
+import { ThreadMarkdownTicketChip } from "@/components/thread/ThreadMarkdownTicketChip"
+import { composerTicketById } from "@/lib/composer-tickets"
 import {
   markdownExternalLinkFaviconFailed,
   markdownExternalLinkFaviconSrc,
   rememberMarkdownExternalLinkFaviconFailure,
   resolveExternalWebLinkHost,
 } from "@/lib/markdown-external-links"
+import { parseTicketMarkdownHref } from "@/lib/markdown-file-links"
 import { fileLinkSuffixKey, lookupThreadMarkdownFileLinkMeta } from "@/lib/markdown-file-links"
 import { cn } from "@/lib/utils"
 
@@ -58,6 +61,25 @@ export function ThreadMarkdownLink({
   ...props
 }: ComponentProps<"a"> & ExtraProps) {
   const fileLinks = useThreadMarkdownFileLinks()
+  const ticketId = parseTicketMarkdownHref(href)
+  if (ticketId !== null) {
+    const ticket = composerTicketById(fileLinks.tickets ?? [], ticketId)
+    return (
+      <ThreadMarkdownTicketChip
+        ticketId={ticketId}
+        title={ticket?.title ?? "Ticket"}
+        href={
+          fileLinks.projectId === undefined
+            ? (href ?? `ticket:${ticketId}`)
+            : `/projects/${fileLinks.projectId}/board?ticket=${ticketId}`
+        }
+        {...(ticket === undefined ? {} : { columnName: ticket.columnName })}
+        {...(className === undefined ? {} : { className })}
+        {...(fileLinks.onOpenTicket === undefined ? {} : { onOpenTicket: fileLinks.onOpenTicket })}
+      />
+    )
+  }
+
   const meta = lookupThreadMarkdownFileLinkMeta(href, fileLinks)
 
   if (meta !== undefined) {
