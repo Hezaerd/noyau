@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { describe, expect, it } from "@effect/vitest"
-import { ConfigProvider, Effect, Fiber, Layer, Schema } from "effect"
+import { ConfigProvider, Deferred, Effect, Fiber, Layer, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import { FetchHttpClient } from "effect/unstable/http"
 import type { Socket } from "effect/unstable/socket"
@@ -279,6 +279,37 @@ it.layer(supervisorLayer)("server supervisor effects", (spec) => {
 
       expect(supervisor.state.phase).toBe("ready")
       expect(requests).toEqual(["http://127.0.0.1:4567/health/ready"])
+    }),
+  )
+
+  spec.effect("notifies onSpawned before readiness for an external bootstrap", () =>
+    Effect.gen(function* () {
+      const spawned: Array<string> = []
+      const gate = yield* Deferred.make<void>()
+      const supervisor = new ServerSupervisor({
+        serverEntryPath: "/unused/server.mjs",
+        dataDirectory: bootstrap.dataDirectory,
+        externalBootstrap: bootstrap,
+        fetchImpl: fetchByUrl((input) => {
+          if (input.endsWith("/health/ready")) {
+            return new Response(JSON.stringify({ status: "ready" }), { status: 200 })
+          }
+          return new Response(null, { status: 500 })
+        }),
+        probeRpc: () => Deferred.await(gate),
+        onSpawned: (next) => {
+          spawned.push(`${next.host}:${String(next.port)}`)
+        },
+      })
+
+      const starting = yield* supervisor.start().pipe(Effect.forkChild)
+      yield* Effect.yieldNow
+      expect(spawned).toEqual(["127.0.0.1:4567"])
+      expect(supervisor.state.phase).toBe("starting")
+
+      yield* Deferred.succeed(gate, undefined)
+      yield* Fiber.join(starting)
+      expect(supervisor.state.phase).toBe("ready")
     }),
   )
 })

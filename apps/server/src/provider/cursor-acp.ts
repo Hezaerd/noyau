@@ -11,7 +11,18 @@ import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
-import { Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Schema, Stream } from "effect"
+import {
+  Deferred,
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Ref,
+  Schema,
+  Stream,
+} from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import {
@@ -633,7 +644,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     return { handle, acp }
   })
 
-  const probe =
+  const handshake =
     executable === null
       ? Effect.succeed(emptyCursorProviderStatus)
       : Effect.gen(function* () {
@@ -647,26 +658,37 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
               return { handshakeOk: true, models }
             }).pipe(Effect.catchCause(() => Effect.succeed({ handshakeOk: false, models: [] }))),
           )
-          const about = yield* probeCursorAbout(executable, binaryArgs, environment).pipe(
-            Effect.timeoutOption(ABOUT_TIMEOUT_MS),
-            Effect.map(
-              Option.match({
-                onNone: () => ({ version: null, plan: null }),
-                onSome: (value) => value,
-              }),
-            ),
-            Effect.catchCause(() => Effect.succeed({ version: null, plan: null })),
-          )
           return {
             installed: true,
             handshakeOk: capabilities.handshakeOk,
-            version: about.version,
-            plan: about.plan,
+            version: null,
+            plan: null,
             binaryPath: executable,
             models: capabilities.models,
           }
         })
-  const providerStatus = yield* probe
+  const initialStatus = yield* handshake
+  const providerStatus = yield* Ref.make(initialStatus)
+  if (executable !== null) {
+    yield* probeCursorAbout(executable, binaryArgs, environment).pipe(
+      Effect.timeoutOption(ABOUT_TIMEOUT_MS),
+      Effect.map(
+        Option.match({
+          onNone: () => ({ version: null, plan: null }),
+          onSome: (value) => value,
+        }),
+      ),
+      Effect.catchCause(() => Effect.succeed({ version: null, plan: null })),
+      Effect.flatMap((about) =>
+        Ref.update(providerStatus, (status) => ({
+          ...status,
+          version: about.version,
+          plan: about.plan,
+        })),
+      ),
+      Effect.forkIn(providerScope, { startImmediately: true }),
+    )
+  }
 
   const emitPermission = Effect.fn("CursorAdapter.emitPermission")(function* (
     control: ActiveTurn,
@@ -837,7 +859,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   const runTurn = (control: ActiveTurn) =>
     Effect.scoped(
       Effect.gen(function* () {
-        if (executable === null || !providerStatus.handshakeOk) {
+        if (executable === null || !initialStatus.handshakeOk) {
           return yield* adapterError(
             "Cursor provider is inactive: executable or required ACP capabilities missing",
           )
@@ -1211,7 +1233,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   })
 
   return ProviderPort.of({
-    status: Effect.succeed(providerStatus),
+    status: Ref.get(providerStatus),
     startTurn,
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

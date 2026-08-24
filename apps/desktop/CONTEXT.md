@@ -13,6 +13,12 @@ _À éviter_ : catalogue d'Environments, instance distante, VPS
 Processus Node (`ELECTRON_RUN_AS_NODE`) qui possède SQLite, Cursor et le métier.
 _À éviter_ : renderer, preload, worker de fenêtre
 
+**Fenêtre au spawn**:
+Le chrome s'ouvre dès le spawn du serveur enfant. Le renderer affiche « Connexion au
+control plane… » tant que le listen n'est pas prêt. Pas d'attente `waitForServerReady`
+avant le premier paint.
+_À éviter_ : bloquer `BrowserWindow` sur health + `getConfig`
+
 **fd3**:
 Canal de bootstrap : répertoire de données OS, port loopback, token de lancement, version.
 _À éviter_ : argv métier, IPC, variables d'environnement libres

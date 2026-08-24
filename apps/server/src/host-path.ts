@@ -1,4 +1,5 @@
-// Probe sync + timeout : le login shell peut pendre ; ChildProcess async ne convient pas au boot.
+// Probe login-shell en fond : `execFileSync` bloquerait le thread (6 s mesurés). Le boot
+// n'attend que les dirs CLI connus ; le merge login-shell / launchctl arrive ensuite.
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import * as NodeChildProcess from "node:child_process"
 import * as NodeOs from "node:os"
@@ -18,7 +19,24 @@ export type ExecFileSyncLike = (
   options: { encoding: "utf8"; timeout: number },
 ) => string
 
+export type ExecFileAsyncLike = (
+  file: string,
+  args: ReadonlyArray<string>,
+  options: { encoding: "utf8"; timeout: number },
+) => Promise<string>
+
 const defaultExecFile: ExecFileSyncLike = NodeChildProcess.execFileSync
+
+const defaultExecFileAsync: ExecFileAsyncLike = (file, args, options) =>
+  new Promise((resolve, reject) => {
+    NodeChildProcess.execFile(file, [...args], options, (error, stdout) => {
+      if (error !== null) {
+        reject(error)
+        return
+      }
+      resolve(stdout)
+    })
+  })
 
 const trimNonEmpty = (value: string | null | undefined): string | undefined => {
   const trimmed = value?.trim()
@@ -152,6 +170,15 @@ export const readPathFromLoginShell = (
   return extractEnvironmentValue(output, "PATH")
 }
 
+export const readPathFromLoginShellAsync = (
+  shell: string,
+  execFile: ExecFileAsyncLike = defaultExecFileAsync,
+): Promise<string | undefined> =>
+  execFile(shell, ["-ilc", buildPosixCaptureCommand(["PATH"])], {
+    encoding: "utf8",
+    timeout: LOGIN_SHELL_TIMEOUT_MS,
+  }).then((output) => extractEnvironmentValue(output, "PATH"))
+
 export const readPathFromLaunchctl = (
   execFile: ExecFileSyncLike = defaultExecFile,
 ): string | undefined => {
@@ -166,6 +193,17 @@ export const readPathFromLaunchctl = (
     return undefined
   }
 }
+
+export const readPathFromLaunchctlAsync = (
+  execFile: ExecFileAsyncLike = defaultExecFileAsync,
+): Promise<string | undefined> =>
+  execFile("/bin/launchctl", ["getenv", "PATH"], {
+    encoding: "utf8",
+    timeout: LAUNCHCTL_TIMEOUT_MS,
+  }).then(
+    (output) => trimNonEmpty(output),
+    () => undefined,
+  )
 
 export const readPathFromWindowsUserEnvironment = (
   execFile: ExecFileSyncLike = defaultExecFile,
@@ -189,6 +227,28 @@ export const readPathFromWindowsUserEnvironment = (
     }
   }
   return undefined
+}
+
+export const resolveKnownPosixCliDirs = (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): ReadonlyArray<string> => {
+  const home = env.HOME?.trim()
+  const homeDirs =
+    home === undefined || home.length === 0
+      ? []
+      : [
+          `${home}/.local/bin`,
+          `${home}/.bun/bin`,
+          `${home}/.volta/bin`,
+          `${home}/.cursor/bin`,
+          `${home}/.npm-global/bin`,
+        ]
+  const prefixDirs =
+    platform === "darwin"
+      ? ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin", "/usr/local/sbin"]
+      : ["/usr/local/bin", "/usr/local/sbin"]
+  return [...homeDirs, ...prefixDirs]
 }
 
 export const resolveKnownWindowsCliDirs = (env: NodeJS.ProcessEnv): ReadonlyArray<string> => {
@@ -227,6 +287,28 @@ export const hydratePosixHome = (
   }
 }
 
+export const hydratePosixKnownCliPath = (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): void => {
+  const knownCliPath = resolveKnownPosixCliDirs(env, platform).join(POSIX_PATH_DELIMITER)
+  const mergedPath = mergePathEntries(knownCliPath, env.PATH, platform)
+  if (mergedPath !== undefined) {
+    env.PATH = mergedPath
+  }
+}
+
+const applyPreferredPath = (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+  preferredPath: string | undefined,
+): void => {
+  const mergedPath = mergePathEntries(preferredPath, env.PATH, platform)
+  if (mergedPath !== undefined) {
+    env.PATH = mergedPath
+  }
+}
+
 export const hydratePosixPath = (
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
@@ -245,11 +327,43 @@ export const hydratePosixPath = (
   }
   const launchctlPath =
     platform === "darwin" && shellPath === undefined ? readPathFromLaunchctl(execFile) : undefined
-  const mergedPath = mergePathEntries(shellPath ?? launchctlPath, env.PATH, platform)
-  if (mergedPath !== undefined) {
-    env.PATH = mergedPath
-  }
+  applyPreferredPath(env, platform, shellPath ?? launchctlPath)
 }
+
+const readFirstLoginShellPath = (
+  shells: ReadonlyArray<string>,
+  execFile: ExecFileAsyncLike,
+): Promise<string | undefined> => {
+  const shell = shells[0]
+  if (shell === undefined) {
+    return Promise.resolve(undefined)
+  }
+  return readPathFromLoginShellAsync(shell, execFile).then(
+    (shellPath) => shellPath ?? readFirstLoginShellPath(shells.slice(1), execFile),
+    (error) => {
+      logPathHydrationWarning(`Failed to read PATH from login shell ${shell}.`, error)
+      return readFirstLoginShellPath(shells.slice(1), execFile)
+    },
+  )
+}
+
+export const hydratePosixPathAsync = (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+  execFile: ExecFileAsyncLike = defaultExecFileAsync,
+): Promise<void> =>
+  readFirstLoginShellPath(listLoginShellCandidates(platform, env.SHELL), execFile).then(
+    (shellPath) => {
+      if (platform !== "darwin" || shellPath !== undefined) {
+        applyPreferredPath(env, platform, shellPath)
+        return
+      }
+      return readPathFromLaunchctlAsync(execFile).then((launchctlPath) => {
+        applyPreferredPath(env, platform, launchctlPath)
+        return undefined
+      })
+    },
+  )
 
 export const hydrateWindowsPath = (
   env: NodeJS.ProcessEnv,
@@ -273,10 +387,18 @@ export const hydrateWindowsPath = (
   }
 }
 
-/** Hydrates `process.env.PATH` from the login shell before Cursor / Git probes. */
-export const hydrateHostPath = Effect.fn("HostPath.hydrate")(function* () {
-  const platform = process.platform
-  const env = process.env
+export type HydrateHostPathOptions = {
+  readonly env?: NodeJS.ProcessEnv
+  readonly platform?: NodeJS.Platform
+  readonly execFileAsync?: ExecFileAsyncLike
+}
+
+/** Hydrates `process.env.PATH` from known CLI dirs, then the login shell in the background. */
+export const hydrateHostPath = Effect.fn("HostPath.hydrate")(function* (
+  options: HydrateHostPathOptions = {},
+) {
+  const platform = options.platform ?? process.platform
+  const env = options.env ?? process.env
   if (platform === "win32") {
     yield* Effect.sync(() => hydrateWindowsPath(env)).pipe(
       Effect.catchDefect((defect) =>
@@ -297,11 +419,19 @@ export const hydrateHostPath = Effect.fn("HostPath.hydrate")(function* () {
       }),
     ),
   )
-  yield* Effect.sync(() => hydratePosixPath(env, platform)).pipe(
+  yield* Effect.sync(() => hydratePosixKnownCliPath(env, platform)).pipe(
     Effect.catchDefect((defect) =>
       Effect.sync(() => {
-        logPathHydrationWarning("Failed to hydrate PATH from the user environment.", defect)
+        logPathHydrationWarning("Failed to hydrate PATH from known CLI directories.", defect)
       }),
     ),
+  )
+  yield* Effect.promise(() => hydratePosixPathAsync(env, platform, options.execFileAsync)).pipe(
+    Effect.catchCause((cause) =>
+      Effect.sync(() => {
+        logPathHydrationWarning("Failed to hydrate PATH from the user environment.", cause)
+      }),
+    ),
+    Effect.forkDetach,
   )
 })

@@ -90,9 +90,11 @@ _À éviter_ : événement Discord, agrégat, Join, résoudre sur `NOYAU_ENV`, u
 pour les trois canaux
 
 **PATH hôte**:
-PATH du process Server, hydraté au boot depuis le login shell (macOS/Linux) ou le PATH
-User+Machine (Windows). Sert Cursor, `git` et `gh`. Pas un fait du journal.
-_À éviter_ : PATH figé dans le journal, sweep PATH, champ settings pour le PATH système
+PATH du process Server. Au boot : dirs CLI connus tout de suite, puis login shell
+(macOS/Linux) ou PATH User+Machine (Windows) en fond. Sert Cursor, `git` et `gh`. Pas un
+fait du journal.
+_À éviter_ : PATH figé dans le journal, sweep PATH, champ settings pour le PATH système, bloquer
+le listen sur `zsh -ilc`
 
 **WorktreeHome**:
 Racine hôte des checkouts `worktree` : `~/.noyau/<canal>/worktree/<projet>/<worktree>`.

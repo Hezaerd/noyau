@@ -78,6 +78,23 @@ const makeOptions = Effect.fn("CursorAdapterTest.makeOptions")(function* (scenar
   } as const
 })
 
+const waitForAbout = (provider: ProviderPort["Service"]) =>
+  Effect.gen(function* () {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const status = yield* provider.status
+      if (status.version !== null || !status.installed) {
+        return status
+      }
+      yield* Effect.promise(
+        () =>
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 20)
+          }),
+      )
+    }
+    return yield* provider.status
+  })
+
 const withProvider = <A, E, R>(
   scenario: string,
   use: (
@@ -145,10 +162,24 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
     }),
   )
 
+  it.effect("exposes handshake before about completes", () =>
+    withProvider("success", (provider) =>
+      provider.status.pipe(
+        Effect.tap((status) =>
+          Effect.sync(() => {
+            assert.strictEqual(status.installed, true)
+            assert.strictEqual(status.handshakeOk, true)
+            assert.strictEqual(status.binaryPath, process.execPath)
+          }),
+        ),
+      ),
+    ),
+  )
+
   it.effect("uses handshake capabilities as provider truth", () =>
     Effect.gen(function* () {
       yield* withProvider("success", (provider) =>
-        provider.status.pipe(
+        waitForAbout(provider).pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
               assert.deepStrictEqual(status, {
@@ -199,7 +230,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         ),
       )
       yield* withProvider("missing-load", (provider) =>
-        provider.status.pipe(
+        waitForAbout(provider).pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
               assert.deepStrictEqual(status, {
@@ -215,7 +246,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         ),
       )
       yield* withProvider("missing-mcp-http", (provider) =>
-        provider.status.pipe(
+        waitForAbout(provider).pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
               assert.deepStrictEqual(status, {
@@ -231,7 +262,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         ),
       )
       yield* withProvider("wrong-version", (provider) =>
-        provider.status.pipe(
+        waitForAbout(provider).pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
               assert.deepStrictEqual(status, {
@@ -247,7 +278,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         ),
       )
       yield* withProvider("auth-fail", (provider) =>
-        provider.status.pipe(
+        waitForAbout(provider).pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
               assert.deepStrictEqual(status, {

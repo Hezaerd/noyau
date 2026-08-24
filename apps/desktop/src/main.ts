@@ -450,9 +450,24 @@ const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: Ser
     }
   })
 
+  yield* loadMainWindow(window, bootstrap)
+})
+
+const loadMainWindow = Effect.fn("loadMainWindow")(function* (
+  window: BrowserWindow,
+  bootstrap: ServerBootstrap,
+) {
   yield* Effect.promise(() =>
     window.loadURL(desktopUrlForServer(bootstrap.host, bootstrap.port, bootstrap.bearerToken)),
   )
+})
+
+const showMainWindow = Effect.fn("showMainWindow")(function* (bootstrap: ServerBootstrap) {
+  if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+    yield* loadMainWindow(mainWindow, bootstrap)
+    return
+  }
+  yield* createMainWindow(bootstrap)
 })
 
 const launch = Effect.fn("launch")(function* () {
@@ -497,8 +512,6 @@ const launch = Effect.fn("launch")(function* () {
     externalBootstrap === undefined
       ? baseSupervisorOptions
       : { ...baseSupervisorOptions, externalBootstrap }
-  serverSupervisor = new ServerSupervisor(supervisorOptions)
-  yield* serverSupervisor.start()
   registerRendererProtocol()
   ipcMain.on(GET_RELEASE_CHANNEL_CHANNEL, (event) => {
     event.returnValue = flags.releaseChannel
@@ -511,15 +524,21 @@ const launch = Effect.fn("launch")(function* () {
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
     isRendererPermissionAllowed(permission),
   )
-  const bootstrap = serverSupervisor.bootstrap
-  if (bootstrap === undefined) {
+  serverSupervisor = new ServerSupervisor({
+    ...supervisorOptions,
+    onSpawned: (bootstrap) => {
+      void desktopRuntime.runPromise(showMainWindow(bootstrap))
+    },
+  })
+  yield* serverSupervisor.start()
+  if (serverSupervisor.bootstrap === undefined) {
     return yield* desktopError("The Noyau Server supervisor did not provide a bootstrap")
   }
-  yield* createMainWindow(bootstrap)
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      void desktopRuntime.runPromise(createMainWindow(bootstrap))
+    const bootstrap = serverSupervisor?.bootstrap
+    if (BrowserWindow.getAllWindows().length === 0 && bootstrap !== undefined) {
+      void desktopRuntime.runPromise(showMainWindow(bootstrap))
     }
   })
 })
