@@ -51,6 +51,21 @@ export const SETTINGS_TABS: ReadonlyArray<SettingsTab> = [
 
 export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
   {
+    id: "desktop-update-channel",
+    tab: "general",
+    title: "Canal de mise à jour",
+    description:
+      "Piste GitHub latest ou nightly à vérifier. Ne change pas la marque de l’app installée.",
+    keywords: ["canal", "channel", "latest", "nightly", "update", "mise à jour"],
+  },
+  {
+    id: "desktop-update",
+    tab: "general",
+    title: "Version",
+    description: "Vérifie le canal de mise à jour et ouvre l’installeur GitHub unsigned.",
+    keywords: ["version", "update", "mise à jour", "installeur", "release", "nightly"],
+  },
+  {
     id: "project-folder-start-directory",
     tab: "general",
     title: "Ajouter un Project commence dans",

@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { initializeAppearance } from "@/lib/appearance"
 import { initializeAutoRemoveMergedWorktreePreference } from "@/lib/auto-remove-merged-worktree-preference"
 import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
+import { initializeDesktopUpdateChannelPreference } from "@/lib/desktop-update-channel-preference"
 import { initializeDiscordPresencePreference } from "@/lib/discord-presence-preference"
 import { initializeKeybindings } from "@/lib/keybindings"
 import { initializeProjectFolderStartDirectory } from "@/lib/project-folder-preference"
@@ -23,6 +24,7 @@ initializeAppearance()
 initializeKeybindings()
 initializeProjectFolderStartDirectory()
 initializeDiscordPresencePreference()
+initializeDesktopUpdateChannelPreference()
 initializeThreadEnvModePreference()
 initializeAutoRemoveMergedWorktreePreference()
 initializeTurnCuePreference()

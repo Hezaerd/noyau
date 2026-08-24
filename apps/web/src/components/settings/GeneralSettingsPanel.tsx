@@ -1,6 +1,7 @@
 import { Undo2Icon } from "lucide-react"
 import { useId, useState, type ReactElement } from "react"
 
+import { DesktopUpdateSettings } from "@/components/settings/DesktopUpdateSettings"
 import { ProjectAgentIntegrationSettings } from "@/components/settings/ProjectAgentIntegrationSettings"
 import { SettingsPage, SettingsRow, SettingsSection } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
@@ -55,6 +56,7 @@ export function GeneralSettingsPanel(): ReactElement {
 
   return (
     <SettingsPage>
+      <DesktopUpdateSettings />
       <SettingsSection id="projects" title="Projects">
         <SettingsRow
           id="project-folder-start-directory"
