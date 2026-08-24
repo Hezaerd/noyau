@@ -11,7 +11,7 @@ import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/check
 import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { Session } from "@noyau/protocol/entities/session"
-import { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import { TranscriptItem, TurnPresentation } from "@noyau/protocol/entities/transcript"
 import { TurnSettlementState } from "@noyau/protocol/entities/turn"
 import { PrepareWorktree } from "@noyau/protocol/git"
 import {
@@ -121,6 +121,7 @@ const turnStartShared = {
   runtimeMode: Schema.optionalKey(RuntimeMode),
   modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   prepareWorktree: Schema.optionalKey(PrepareWorktree),
+  presentation: Schema.optionalKey(TurnPresentation),
   image: Schema.optionalKey(Schema.Unknown),
   images: Schema.optionalKey(Schema.Unknown),
 } as const

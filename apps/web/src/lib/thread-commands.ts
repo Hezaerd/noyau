@@ -2,6 +2,7 @@ import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
 import type { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode as RuntimeModeType } from "@noyau/protocol/entities/runtime-mode"
+import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
 import type { PrepareWorktree } from "@noyau/protocol/git"
 import {
   CommandId,
@@ -51,6 +52,7 @@ type ThreadTurnStartPayload = {
   readonly modelSelection?: ModelSelection | null
   readonly prepareWorktree?: PrepareWorktree
   readonly attachments?: ReadonlyArray<TurnImageUpload>
+  readonly presentation?: TurnPresentation
 }
 
 type ThreadTurnInterruptPayload = {
@@ -106,6 +108,7 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   readonly modelSelection?: ModelSelection | null
   readonly prepareWorktree?: PrepareWorktree
   readonly attachments?: ReadonlyArray<TurnImageUpload>
+  readonly presentation?: TurnPresentation
 }) {
   const text = input.text.trim()
   let payload: ThreadTurnStartPayload = {
@@ -128,6 +131,9 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   }
   if (input.attachments !== undefined && input.attachments.length > 0) {
     payload = Object.assign(payload, { attachments: input.attachments })
+  }
+  if (input.presentation !== undefined) {
+    payload = Object.assign(payload, { presentation: input.presentation })
   }
   return ThreadTurnStartRequest.make({
     commandId: CommandId.make(yield* uuid()),

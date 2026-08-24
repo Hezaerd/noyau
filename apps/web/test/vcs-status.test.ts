@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   applyVcsStatusStreamEvent,
   displayedThreadPr,
+  isConflictingOpenPullRequest,
   nextThreadChangeRequestSnapshot,
   resolveThreadPr,
   uniqueVcsScopes,
@@ -19,6 +20,7 @@ const pr = (overrides: Partial<VcsStatusPullRequest> = {}): VcsStatusPullRequest
   baseRef: "main",
   headRef: "feat/live",
   state: "open",
+  mergeability: "unknown",
   ...overrides,
 })
 
@@ -49,6 +51,16 @@ describe("vcs-status", () => {
         status: status({ pr: pr({ state: "merged" }) }),
       }).pr?.state,
     ).toBe("merged")
+  })
+
+  it("n’offre Fix merge conflicts que pour une PR ouverte conflicting", () => {
+    expect(isConflictingOpenPullRequest(pr({ mergeability: "conflicting" }))).toBe(true)
+    expect(isConflictingOpenPullRequest(pr({ mergeability: "unknown" }))).toBe(false)
+    expect(isConflictingOpenPullRequest(pr({ mergeability: "mergeable" }))).toBe(false)
+    expect(isConflictingOpenPullRequest(pr({ state: "merged", mergeability: "conflicting" }))).toBe(
+      false,
+    )
+    expect(isConflictingOpenPullRequest(null)).toBe(false)
   })
 
   it("n’affiche la PR live que si la branche du Thread matche HEAD", () => {

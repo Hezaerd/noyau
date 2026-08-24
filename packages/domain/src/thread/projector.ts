@@ -243,6 +243,9 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
         if (event.attachments !== undefined) {
           userItem = Object.assign(userItem, { attachments: event.attachments })
         }
+        if (event.presentation !== undefined) {
+          userItem = Object.assign(userItem, { presentation: event.presentation })
+        }
         return {
           ...thread,
           title:

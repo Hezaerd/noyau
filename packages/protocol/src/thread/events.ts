@@ -8,7 +8,7 @@ import { Provider } from "@noyau/protocol/entities/environment"
 import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { Session } from "@noyau/protocol/entities/session"
-import { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import { TranscriptItem, TurnPresentation } from "@noyau/protocol/entities/transcript"
 import { TurnSettlementState } from "@noyau/protocol/entities/turn"
 import { PrepareWorktree } from "@noyau/protocol/git"
 import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
@@ -66,6 +66,7 @@ export const ThreadTurnStarted = Schema.TaggedStruct("thread.turn.started", {
   modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   prepareWorktree: Schema.optionalKey(PrepareWorktree),
   attachments: Schema.optionalKey(TurnImageAttachments),
+  presentation: Schema.optionalKey(TurnPresentation),
 })
 export type ThreadTurnStarted = (typeof ThreadTurnStarted)["Type"]
 
