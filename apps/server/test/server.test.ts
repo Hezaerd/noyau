@@ -40,8 +40,8 @@ const testMcpSessionRegistryLayer = Layer.succeed(McpSessionRegistry)({
             projectId: mcpProjectId,
             threadId: mcpThreadId,
             turnId: mcpTurnId,
-            actorId: ActorId.make(`agent:cursor:${mcpTurnId}`),
-            capabilities: new Set(["board:read"] as const),
+            actorId: ActorId.make(`agent:thread:${mcpThreadId}`),
+            capabilities: new Set(["board:read", "board:write"] as const),
             issuedAt: 1,
           }
         : undefined,

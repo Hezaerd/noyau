@@ -86,6 +86,14 @@ describe("ticket archive confirmation", () => {
           <TicketDialog
             ticket={ticket}
             tickets={[ticket]}
+            columns={[
+              {
+                id: "column-backlog",
+                name: "Backlog",
+                color: "#64748B",
+                done: false,
+              },
+            ]}
             ticketDependencies={[]}
             ticketThreads={[]}
             threads={[]}

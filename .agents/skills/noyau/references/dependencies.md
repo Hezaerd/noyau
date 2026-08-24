@@ -2,7 +2,8 @@
 
 Interpret `A depends on B` as: A is blocked by B. Noyau's dependency graph is a DAG.
 
-- Use returned Ticket IDs, never title matching, when changing a dependency.
+- Use `noyau_ticket_dependency_add` / `noyau_ticket_dependency_remove` with returned Ticket IDs,
+  never title matching.
 - Do not add self-dependencies, duplicates, or cycles.
 - Do not move Tickets merely to reflect a dependency.
 - Consider a Ticket actionable only when every prerequisite is done.

@@ -439,6 +439,7 @@ export const decide = (
           return TicketMoved.make({
             ticketId: ticket.ticketId,
             columnId: destinationId ?? column.columnId,
+            previousColumnId: ticket.columnId,
             rank: newRank,
           })
         }),
@@ -514,6 +515,7 @@ export const decide = (
                 TicketMoved.make({
                   ticketId: ticket.ticketId,
                   columnId: command.payload.placement.columnId,
+                  previousColumnId: ticket.columnId,
                   rank: newRank,
                 }),
               ]
@@ -607,7 +609,16 @@ export const decide = (
       )
     case "ticket.update":
       return requireTicket(state, command.payload.ticketId).pipe(
-        Result.map(() => [TicketUpdated.make(command.payload)]),
+        Result.map((ticket) => {
+          const updated = { ...command.payload }
+          if (command.payload.title !== undefined) {
+            Object.assign(updated, { previousTitle: ticket.title })
+          }
+          if (command.payload.priority !== undefined) {
+            Object.assign(updated, { previousPriority: ticket.priority })
+          }
+          return [TicketUpdated.make(updated)]
+        }),
       )
     case "ticket.dependency.add":
       return requireTicket(state, command.payload.ticketId).pipe(

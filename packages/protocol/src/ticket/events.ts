@@ -14,6 +14,8 @@ export type TicketCreated = (typeof TicketCreated)["Type"]
 export const TicketMoved = Schema.TaggedStruct("ticket.moved", {
   ticketId: TicketId,
   columnId: KanbanColumnId,
+  /** Présent sur les faits récents ; absent des événements historiques. */
+  previousColumnId: Schema.optionalKey(KanbanColumnId),
   rank: KanbanRank,
 })
 export type TicketMoved = (typeof TicketMoved)["Type"]
@@ -54,9 +56,13 @@ export type TicketAssigned = (typeof TicketAssigned)["Type"]
 export const TicketUpdated = Schema.TaggedStruct("ticket.updated", {
   ticketId: TicketId,
   title: Schema.optionalKey(Schema.NonEmptyString),
+  /** Titre avant la mutation, seulement quand `title` est présent. */
+  previousTitle: Schema.optionalKey(Schema.NonEmptyString),
   /** Omission = inchangé, chaîne = remplacement, null = suppression explicite. */
   description: Schema.optionalKey(Schema.NullOr(Schema.String)),
   priority: Schema.optionalKey(TicketPriority),
+  /** Priorité avant la mutation, seulement quand `priority` est présent. */
+  previousPriority: Schema.optionalKey(TicketPriority),
   dueAt: Schema.optionalKey(Schema.NullOr(Schema.DateTimeUtcFromString)),
 })
 export type TicketUpdated = (typeof TicketUpdated)["Type"]

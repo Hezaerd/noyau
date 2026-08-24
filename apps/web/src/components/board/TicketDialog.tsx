@@ -42,6 +42,7 @@ import {
   isTicketPriority,
   priorities,
   ticketDependencyIssue,
+  type BoardColumn,
   type BoardTicket,
   type BoardTicketDependency,
   type BoardTicketPatch,
@@ -86,6 +87,7 @@ const dependencyTitle = (tickets: ReadonlyArray<BoardTicket>, ticketId: string):
 interface TicketDialogProps {
   readonly ticket: BoardTicket | undefined
   readonly tickets: ReadonlyArray<BoardTicket>
+  readonly columns: ReadonlyArray<BoardColumn>
   readonly ticketDependencies: ReadonlyArray<BoardTicketDependency>
   readonly ticketThreads: ReadonlyArray<TicketThread>
   readonly threads: ReadonlyArray<ThreadShell>
@@ -107,6 +109,7 @@ interface TicketDialogProps {
 export function TicketDialog({
   ticket,
   tickets,
+  columns,
   ticketDependencies,
   ticketThreads,
   threads,
@@ -219,7 +222,16 @@ export function TicketDialog({
           label: candidate.title,
           issue: ticketDependencyIssue(dependencyState, candidate.id, ticket.id),
         }))
-  const activityItems = activity.map(ticketActivityItem)
+  const activityContext = useMemo(
+    () => ({
+      columnsById: new Map(columns.map((column) => [column.id, { name: column.name }])),
+      threadsById: new Map(threads.map((thread) => [thread.id, { title: thread.title }])),
+      ticketsById: new Map(tickets.map((item) => [item.id, { title: item.title }])),
+    }),
+    [columns, threads, tickets],
+  )
+
+  const activityItems = activity.map((envelope) => ticketActivityItem(envelope, activityContext))
   const priorityOptions = priorities.map((priority) => ({
     value: priority,
     label: priorityLabels[priority],
