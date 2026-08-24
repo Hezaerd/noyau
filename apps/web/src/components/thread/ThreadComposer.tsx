@@ -100,6 +100,7 @@ export function ThreadComposer({
   searchPaths,
   tickets = EMPTY_COMPOSER_TICKETS,
   context,
+  toolbar,
 }: {
   readonly isRunning: boolean
   readonly disabled: boolean
@@ -121,6 +122,7 @@ export function ThreadComposer({
   readonly searchPaths?: (query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly context?: ReactNode
+  readonly toolbar?: ReactNode
 }) {
   const listboxId = useId()
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
@@ -287,6 +289,7 @@ export function ThreadComposer({
             onSelect={insertMention}
           />
         ) : null}
+        {toolbar === undefined ? null : <div className="mb-2 flex justify-start">{toolbar}</div>}
         <InputGroup className="rounded-xl bg-background shadow-xs/5 dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
           {images.length === 0 ? null : (
             <div className="flex w-full flex-wrap justify-start gap-2 px-3 pt-3">

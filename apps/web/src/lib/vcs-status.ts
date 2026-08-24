@@ -130,3 +130,6 @@ export const pullRequestStateLabel = (state: VcsStatusPullRequest["state"]): str
   }
   return "Fermée"
 }
+
+export const isConflictingOpenPullRequest = (pr: VcsStatusPullRequest | null): boolean =>
+  pr !== null && pr.state === "open" && pr.mergeability === "conflicting"

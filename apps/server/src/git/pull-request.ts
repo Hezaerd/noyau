@@ -1,4 +1,8 @@
-import { type VcsStatusPullRequest, type VcsStatusPullRequestState } from "@noyau/protocol/git"
+import {
+  type VcsStatusMergeability,
+  type VcsStatusPullRequest,
+  type VcsStatusPullRequestState,
+} from "@noyau/protocol/git"
 import { Effect, Schema } from "effect"
 
 const GhPullRequestState = Schema.Literals(["OPEN", "CLOSED", "MERGED", "open", "closed", "merged"])
@@ -10,6 +14,7 @@ const GhPullRequest = Schema.Struct({
   baseRefName: Schema.NonEmptyString,
   headRefName: Schema.NonEmptyString,
   state: GhPullRequestState,
+  mergeable: Schema.optionalKey(Schema.NullOr(Schema.String)),
   updatedAt: Schema.optionalKey(Schema.String),
 })
 
@@ -30,6 +35,17 @@ export const normalizePullRequestState = (state: string): VcsStatusPullRequestSt
   return "closed"
 }
 
+export const normalizeMergeability = (value: string | null | undefined): VcsStatusMergeability => {
+  switch (value?.trim().toUpperCase()) {
+    case "MERGEABLE":
+      return "mergeable"
+    case "CONFLICTING":
+      return "conflicting"
+    default:
+      return "unknown"
+  }
+}
+
 export const toListedPullRequest = (item: {
   readonly number: number
   readonly title: string
@@ -37,6 +53,7 @@ export const toListedPullRequest = (item: {
   readonly baseRefName: string
   readonly headRefName: string
   readonly state: string
+  readonly mergeable?: string | null
   readonly updatedAt?: string
 }): ListedPullRequest => ({
   number: item.number,
@@ -45,6 +62,7 @@ export const toListedPullRequest = (item: {
   baseRef: item.baseRefName,
   headRef: item.headRefName,
   state: normalizePullRequestState(item.state),
+  mergeability: normalizeMergeability(item.mergeable),
   updatedAt: item.updatedAt ?? null,
 })
 
@@ -55,6 +73,7 @@ export const toStatusPullRequest = (item: ListedPullRequest): VcsStatusPullReque
   baseRef: item.baseRef,
   headRef: item.headRef,
   state: item.state,
+  mergeability: item.mergeability,
 })
 
 const updatedAtMs = (value: string | null): number => {

@@ -95,3 +95,8 @@ _À éviter_ : rename, `thread.title.seeded` client
 Meta d'une image jointe à un Turn, portée par `thread.turn.started` et `transcript.user`. Les
 octets ne font pas partie du fait.
 _À éviter_ : dataUrl, FilePreview, blob du journal
+
+**Présentation de Turn**:
+Discriminant optionnel recopié de `thread.turn.start` vers `transcript.user`. Le `text` reste le
+prompt Provider.
+_À éviter_ : inférer depuis le texte, Action palette

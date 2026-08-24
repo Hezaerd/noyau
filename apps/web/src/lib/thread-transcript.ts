@@ -24,6 +24,9 @@ const userTranscriptFromTurnStarted = (
   if (event.attachments !== undefined) {
     userItem = Object.assign(userItem, { attachments: event.attachments })
   }
+  if (event.presentation !== undefined) {
+    userItem = Object.assign(userItem, { presentation: event.presentation })
+  }
   return userItem
 }
 

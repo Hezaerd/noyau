@@ -4,6 +4,7 @@ import {
   buildTemporaryWorktreeBranchName,
   deriveRepositoryUrlFromCreateOutput,
   isTemporaryWorktreeBranch,
+  sanitizeWorktreeFolderName,
 } from "@noyau/server/git/git-runtime"
 
 describe("GitRuntime helpers", () => {
@@ -19,6 +20,13 @@ describe("GitRuntime helpers", () => {
     expect(isTemporaryWorktreeBranch("noyau/safer-reconnect")).toBe(false)
     expect(isTemporaryWorktreeBranch("noyau/deadbeef-extra")).toBe(false)
     expect(isTemporaryWorktreeBranch("main")).toBe(false)
+  })
+
+  it("aplatit la branche en un seul nom de dossier worktree", () => {
+    expect(sanitizeWorktreeFolderName("noyau/f4ae4e0e")).toBe("f4ae4e0e")
+    expect(sanitizeWorktreeFolderName("noyau/safer-reconnect")).toBe("safer-reconnect")
+    expect(sanitizeWorktreeFolderName("noyau/feature/demo")).toBe("feature-demo")
+    expect(sanitizeWorktreeFolderName("   ")).toBe("worktree")
   })
 
   it("sanitize un nom généré en noyau/<slug>", () => {

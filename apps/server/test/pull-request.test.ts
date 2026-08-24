@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
   decodeListedPullRequests,
+  normalizeMergeability,
   normalizePullRequestState,
   selectStatusPullRequest,
   toListedPullRequest,
@@ -31,6 +32,14 @@ describe("pull-request helpers", () => {
     expect(normalizePullRequestState("closed")).toBe("closed")
   })
 
+  it("normalise mergeable et traite UNKNOWN comme unknown", () => {
+    expect(normalizeMergeability("CONFLICTING")).toBe("conflicting")
+    expect(normalizeMergeability("MERGEABLE")).toBe("mergeable")
+    expect(normalizeMergeability("UNKNOWN")).toBe("unknown")
+    expect(normalizeMergeability(null)).toBe("unknown")
+    expect(normalizeMergeability("SOMETHING_NEW")).toBe("unknown")
+  })
+
   it("préfère une PR ouverte et cache les merged/closed sur la default branch", () => {
     const open = item({ number: 2, state: "OPEN", updatedAt: "2026-01-01T00:00:00.000Z" })
     const merged = item({ number: 1, state: "MERGED", updatedAt: "2026-08-01T00:00:00.000Z" })
@@ -44,10 +53,11 @@ describe("pull-request helpers", () => {
       const empty = yield* decodeListedPullRequests("  \n")
       expect(empty).toEqual([])
       const listed = yield* decodeListedPullRequests(
-        '[{"number":7,"title":"Live PR","url":"https://github.com/hezaerd/noyau/pull/7","baseRefName":"main","headRefName":"feat/live","state":"OPEN","updatedAt":"2026-08-23T12:00:00Z"}]',
+        '[{"number":7,"title":"Live PR","url":"https://github.com/hezaerd/noyau/pull/7","baseRefName":"main","headRefName":"feat/live","state":"OPEN","mergeable":"CONFLICTING","updatedAt":"2026-08-23T12:00:00Z"}]',
       )
       expect(listed[0]?.number).toBe(7)
       expect(listed[0]?.state).toBe("open")
+      expect(listed[0]?.mergeability).toBe("conflicting")
       const invalid = yield* Effect.exit(decodeListedPullRequests("{"))
       expect(Exit.isFailure(invalid)).toBe(true)
     }),

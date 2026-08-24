@@ -3,6 +3,7 @@ import { ClientCommandRequest, Command } from "@noyau/protocol/commands"
 import { ResumeCursor, Session } from "@noyau/protocol/entities/session"
 import { Thread } from "@noyau/protocol/entities/thread"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
+import { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { EventEnvelope } from "@noyau/protocol/events"
 import { Receipt } from "@noyau/protocol/receipts"
 import {
@@ -166,6 +167,33 @@ describe("Thread and Session entities", () => {
 })
 
 describe("Thread commands", () => {
+  it("décode une présentation de Turn optionnelle", () => {
+    const request = {
+      _tag: "thread.turn.start" as const,
+      commandId: ids.command,
+      payload: {
+        threadId: ids.thread,
+        text: "PR #12 conflicts with main.",
+        presentation: "fix-merge-conflicts" as const,
+        titleSeed: "Fix merge conflicts",
+      },
+    }
+    expect(Schema.decodeSync(ThreadTurnStartRequest)(request).payload.presentation).toBe(
+      "fix-merge-conflicts",
+    )
+    const user = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.user",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "PR #12 conflicts with main.",
+      presentation: "fix-merge-conflicts",
+    })
+    expect(user._tag).toBe("transcript.user")
+    if (user._tag === "transcript.user") {
+      expect(user.presentation).toBe("fix-merge-conflicts")
+    }
+  })
+
   it("décode thread.turn.start texte seul sans acteur", () => {
     const request = {
       _tag: "thread.turn.start" as const,

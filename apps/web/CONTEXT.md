@@ -92,6 +92,16 @@ Badge `#n` du HEAD du Checkout, alimenté par `vcs.subscribeStatus`. Pas un sett
 identifiant du journal.
 _À éviter_ : inbox PR, archive auto, lien Ticket
 
+**Présentation de Turn**:
+Comment le prompt utilisateur d'un Turn est montré dans le transcript. Le texte soumis au
+Provider reste plat. v0.1 : `fix-merge-conflicts`.
+_À éviter_ : Action, message custom, chip comme entité
+
+**Fix merge conflicts**:
+Bouton live au-dessus du Composer, visible si la Pull request live est ouverte et `conflicting`.
+Envoie un Turn avec Présentation de Turn.
+_À éviter_ : merge automatique, commande Git, inbox PR
+
 **Créer le repo**:
 Libellé UI du Publish GitHub quand le cwd n'a pas de remote `origin`.
 _À éviter_ : Publish wizard, sourceControl

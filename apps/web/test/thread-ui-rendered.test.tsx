@@ -187,6 +187,32 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.queryByText(/lost/i)).toBeNull()
   })
 
+  it("shows a Fix merge conflicts toolbar above the composer", () => {
+    render(
+      <ThreadComposer
+        isRunning={false}
+        disabled={false}
+        text=""
+        runtimeMode="full-access"
+        models={cursorModels}
+        modelSelection={null}
+        error={undefined}
+        onSubmit={vi.fn()}
+        onTextChange={vi.fn()}
+        onRuntimeModeChange={vi.fn()}
+        onModelSelectionChange={vi.fn()}
+        images={[]}
+        onPaste={vi.fn()}
+        onDrop={vi.fn()}
+        onImageRemove={vi.fn()}
+        onInterrupt={vi.fn()}
+        toolbar={<button type="button">Fix merge conflicts</button>}
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: "Fix merge conflicts" })).toBeTruthy()
+  })
+
   it("gates the composer while Cursor is unavailable", () => {
     render(
       <ThreadComposer
@@ -1366,6 +1392,30 @@ describe("rendered Thread UI evidence", () => {
       />,
     )
     expect(screen.getByRole("status").textContent).toBe("A travaillé 1m 23s")
+  })
+
+  it("renders a presentation chip instead of the raw fix-merge-conflicts prompt", () => {
+    const item = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.user",
+      threadId,
+      turnId: TurnId.make("40000000-0000-4000-8000-000000000001"),
+      text: "PR #12 conflicts with its base branch `main`.",
+      presentation: "fix-merge-conflicts",
+    })
+
+    render(
+      <ThreadTranscriptItem
+        item={item}
+        streaming={false}
+        answer=""
+        onAnswerChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("Fix merge conflicts")).toBeTruthy()
+    expect(screen.queryByText("PR #12 conflicts with its base branch `main`.")).toBeNull()
   })
 
   it("renders streamed assistant markdown inside a Message row", () => {

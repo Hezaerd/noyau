@@ -43,6 +43,7 @@ describe("git contracts", () => {
         baseRef: "main",
         headRef: "feat/checkout",
         state: "open",
+        mergeability: "mergeable",
       },
     })
     expect(status.refName).toBe("main")

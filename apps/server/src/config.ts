@@ -2,6 +2,8 @@ import { EnvironmentId } from "@noyau/protocol/ids"
 import { RELEASE_CHANNELS, type ReleaseChannel } from "@noyau/shared/release-brand"
 import { Config, Context, Effect, FileSystem, Layer, Path, Redacted, Schema } from "effect"
 
+import { resolveWorktreesDir } from "./worktree-home.ts"
+
 export type NoyauEnvironment = "development" | "test" | "production"
 export type NoyauReleaseChannel = ReleaseChannel
 
@@ -125,6 +127,10 @@ export const serverReleaseChannel = Config.literals(RELEASE_CHANNELS, "NOYAU_REL
 export const loadServerConfig = Effect.gen(function* () {
   const path = yield* Path.Path
   const environment = yield* serverEnvironment
+  const releaseChannel = yield* serverReleaseChannel
+  const homeDirectory = yield* Config.string("HOME").pipe(
+    Config.orElse(() => Config.string("USERPROFILE")),
+  )
   const bootstrapFd = yield* Config.option(Config.int("NOYAU_BOOTSTRAP_FD"))
   const bootstrap =
     bootstrapFd._tag === "Some"
@@ -135,7 +141,7 @@ export const loadServerConfig = Effect.gen(function* () {
   return {
     environment,
     dataDirectory: bootstrap.dataDirectory,
-    worktreesDir: path.join(bootstrap.dataDirectory, "worktrees"),
+    worktreesDir: resolveWorktreesDir(path.join, homeDirectory, releaseChannel),
     databaseFile: path.join(bootstrap.dataDirectory, "noyau.sqlite"),
     host: bootstrap.host,
     port: bootstrap.port,
