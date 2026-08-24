@@ -289,7 +289,7 @@ export function ThreadComposer({
             onSelect={insertMention}
           />
         ) : null}
-        {toolbar === undefined ? null : <div className="mb-2 flex justify-start">{toolbar}</div>}
+        {toolbar === undefined ? null : <div className="mb-2 flex justify-end">{toolbar}</div>}
         <InputGroup className="rounded-xl bg-background shadow-xs/5 dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
           {images.length === 0 ? null : (
             <div className="flex w-full flex-wrap justify-start gap-2 px-3 pt-3">

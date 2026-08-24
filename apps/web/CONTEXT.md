@@ -99,14 +99,15 @@ Suppression live d'un worktree lié (`vcs.removeWorktree`) puis déliaison du Ch
 _À éviter_ : archive Thread, settle, suppression de branche
 
 **Présentation de Turn**:
-Comment le prompt utilisateur d'un Turn est montré dans le transcript. Le texte soumis au
+Comment le prompt utilisateur d'un Turn est montré dans le transcript : même Message / Bubble
+que les autres messages utilisateur, avec le libellé de présentation. Le texte soumis au
 Provider reste plat. v0.1 : `fix-merge-conflicts`.
-_À éviter_ : Action, message custom, chip comme entité
+_À éviter_ : Action, message custom, chip comme entité, CTA coloré
 
 **Fix merge conflicts**:
-Bouton live au-dessus du Composer, visible si la Pull request live est ouverte et `conflicting`.
-Envoie un Turn avec Présentation de Turn.
-_À éviter_ : merge automatique, commande Git, inbox PR
+Message suggéré au-dessus du Composer, visible si la Pull request live est ouverte et
+`conflicting`. Envoie un Turn avec Présentation de Turn.
+_À éviter_ : merge automatique, commande Git, inbox PR, chip d'alerte
 
 **Créer le repo**:
 Libellé UI du Publish GitHub quand le cwd n'a pas de remote `origin`.
