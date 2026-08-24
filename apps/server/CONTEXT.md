@@ -94,6 +94,11 @@ PATH du process Server, hydraté au boot depuis le login shell (macOS/Linux) ou 
 User+Machine (Windows). Sert Cursor, `git` et `gh`. Pas un fait du journal.
 _À éviter_ : PATH figé dans le journal, sweep PATH, champ settings pour le PATH système
 
+**WorktreeHome**:
+Racine hôte des checkouts `worktree` : `~/.noyau/<canal>/worktree/<projet>/<worktree>`.
+Le canal dossier est `dev` | `latest` | `nightly`. Hors `dataDirectory`.
+_À éviter_ : `userData/environment/worktrees`, segment `development`, slash dans le nom du worktree
+
 **GitRuntime**:
 Port live `git` / `gh` du Server. Les lectures et mutations Git ne passent pas par le journal.
 _À éviter_ : agrégat VCS, outbox SQL

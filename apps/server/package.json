@@ -33,6 +33,7 @@
     "./workspace-cwd": "./src/workspace-cwd.ts",
     "./workspace-root": "./src/workspace-root.ts",
     "./workspace-path-search": "./src/workspace-path-search.ts",
+    "./worktree-home": "./src/worktree-home.ts",
     "./git/git-runtime": "./src/git/git-runtime.ts",
     "./git/git-plane": "./src/git/git-plane.ts",
     "./git/vcs-status-broadcaster": "./src/git/vcs-status-broadcaster.ts",
