@@ -1,6 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron"
 
-import { GET_CURSOR_POINT_CHANNEL, type CursorClientPoint } from "./cursor-point"
 import { PICK_FOLDER_CHANNEL, type FolderPickerOptions } from "./folder-picker-contract"
 import { OPEN_PATH_CHANNEL } from "./open-path-contract"
 import {
@@ -16,7 +15,6 @@ export interface NoyauDesktopBridge {
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
   readonly pickFolder: (options?: FolderPickerOptions) => Promise<string | undefined>
   readonly openPath: (path: string) => Promise<void>
-  readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
 }
 
 const desktopBridge: NoyauDesktopBridge = Object.freeze({
@@ -29,8 +27,6 @@ const desktopBridge: NoyauDesktopBridge = Object.freeze({
   pickFolder: (options?: FolderPickerOptions): Promise<string | undefined> =>
     ipcRenderer.invoke(PICK_FOLDER_CHANNEL, options),
   openPath: (path: string): Promise<void> => ipcRenderer.invoke(OPEN_PATH_CHANNEL, path),
-  getCursorPoint: (): Promise<CursorClientPoint | undefined> =>
-    ipcRenderer.invoke(GET_CURSOR_POINT_CHANNEL),
 })
 
 contextBridge.exposeInMainWorld("noyauDesktop", desktopBridge)

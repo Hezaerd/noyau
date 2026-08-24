@@ -1,25 +1,16 @@
-import { flushSync } from "react-dom"
-import { createRoot, type Root } from "react-dom/client"
+import { renderToStaticMarkup } from "react-dom/server"
 
 import { ComposerPromptHighlight } from "@/components/thread/ComposerPromptHighlight"
 import type { ComposerTicket } from "@/lib/composer-tickets"
 
-let staging: HTMLDivElement | undefined
-let stagingRoot: Root | undefined
+let staging: HTMLTemplateElement | undefined
 
-interface ComposerPromptStaging {
-  readonly staging: HTMLDivElement
-  readonly root: Root
+const getStaging = (): HTMLTemplateElement => {
+  staging ??= document.createElement("template")
+  return staging
 }
 
-const getStagingRoot = (): ComposerPromptStaging => {
-  if (staging === undefined || stagingRoot === undefined) {
-    staging = document.createElement("div")
-    stagingRoot = createRoot(staging)
-  }
-  return { staging, root: stagingRoot }
-}
-
+/** Paint highlighted prompt HTML into a contentEditable host (sync, no flushSync). */
 export const paintComposerPrompt = (
   editor: HTMLElement,
   text: string,
@@ -29,10 +20,9 @@ export const paintComposerPrompt = (
     editor.replaceChildren()
     return
   }
-  const { staging: host, root } = getStagingRoot()
-  flushSync(() => {
-    root.render(<ComposerPromptHighlight text={text} trigger={null} tickets={tickets} />)
-  })
-  const clones = Array.from(host.childNodes, (node) => node.cloneNode(true))
-  editor.replaceChildren(...clones)
+  const host = getStaging()
+  host.innerHTML = renderToStaticMarkup(
+    <ComposerPromptHighlight text={text} trigger={null} tickets={tickets} />,
+  )
+  editor.replaceChildren(...Array.from(host.content.childNodes))
 }

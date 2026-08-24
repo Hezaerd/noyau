@@ -12,12 +12,10 @@ import {
   net,
   type OpenDialogOptions,
   protocol,
-  screen,
   session,
   shell,
 } from "electron"
 
-import { cursorPointInContent, GET_CURSOR_POINT_CHANNEL } from "./cursor-point"
 import {
   decodeFolderPickerOptions,
   folderPickerOpenDialogOptions,
@@ -212,16 +210,6 @@ const registerOpenPathBridge = (): void => {
   )
 }
 
-const registerCursorPointBridge = (): void => {
-  ipcMain.handle(GET_CURSOR_POINT_CHANNEL, (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender)
-    if (window === null || window.isDestroyed() || !window.isFocused()) {
-      return undefined
-    }
-    return cursorPointInContent(screen.getCursorScreenPoint(), window.getContentBounds())
-  })
-}
-
 const withSecurityHeaders = (response: Response): Response => {
   const headers = new Headers(response.headers)
   headers.set(
@@ -355,6 +343,7 @@ const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: Ser
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: true,
     },
   })
 
@@ -460,7 +449,6 @@ const launch = Effect.fn("launch")(function* () {
   registerThemeBridge()
   registerFolderPickerBridge()
   registerOpenPathBridge()
-  registerCursorPointBridge()
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
     isRendererPermissionAllowed(permission),
   )

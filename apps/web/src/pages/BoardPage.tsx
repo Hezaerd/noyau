@@ -107,10 +107,11 @@ import {
 } from "@/lib/board-model"
 import { refreshBoard as fetchBoardSnapshot, runBoardCommand } from "@/lib/board-page-actions"
 import { boardStateFromSnapshot } from "@/lib/board-snapshot"
-import { subscribeProject, type SubscriptionStatus } from "@/lib/control-plane"
+import { type SubscriptionStatus } from "@/lib/control-plane"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
 import { isKeybindingRecorderActive } from "@/lib/keybindings"
+import { subscribeProjectBoard } from "@/lib/project-board-store"
 import {
   makeKanbanColumnCreateRequest,
   makeKanbanColumnDeleteRequest,
@@ -746,7 +747,7 @@ export function BoardPage({
     setLoading(true)
     setSubscriptionStatus(undefined)
     setTicketActivityByTicket([])
-    return subscribeProject(projectId, undefined, {
+    return subscribeProjectBoard(projectId, {
       onSnapshot: (snapshot) => {
         hasBoardDataRef.current = snapshot.columns.length > 0
         setState(boardStateFromSnapshot(snapshot))
@@ -754,15 +755,12 @@ export function BoardPage({
         setLoading(false)
         setBoardFailure(undefined)
       },
-      onEvent: (_event) => {
-        refreshBoard()
-      },
       onStatus: (status) => {
         setSubscriptionStatus(status)
         if (status._tag === "Reconnecting") setLoading(false)
       },
     })
-  }, [projectId, refreshBoard])
+  }, [projectId])
 
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
