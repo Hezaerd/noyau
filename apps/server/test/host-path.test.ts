@@ -4,12 +4,14 @@ import {
   extractEnvironmentValue,
   hydratePosixHome,
   hydratePosixPath,
+  hydratePosixPathKnownDirs,
   hydrateWindowsPath,
   listLoginShellCandidates,
   mergePathEntries,
   readPathFromLaunchctl,
   readPathFromLoginShell,
   readPathFromWindowsUserEnvironment,
+  resolveKnownPosixCliDirs,
   resolveKnownWindowsCliDirs,
   type ExecFileSyncLike,
 } from "@noyau/server/host-path"
@@ -169,9 +171,44 @@ describe("hydratePosixHome", () => {
   })
 })
 
+describe("resolveKnownPosixCliDirs", () => {
+  it("lists user-local and Homebrew CLI directories", () => {
+    expect(resolveKnownPosixCliDirs({ HOME: "/Users/me" }, "darwin")).toEqual([
+      "/Users/me/.local/bin",
+      "/Users/me/.bun/bin",
+      "/Users/me/.cargo/bin",
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+    ])
+  })
+
+  it("omits Homebrew on Linux", () => {
+    expect(resolveKnownPosixCliDirs({ HOME: "/home/me" }, "linux")).toEqual([
+      "/home/me/.local/bin",
+      "/home/me/.bun/bin",
+      "/home/me/.cargo/bin",
+      "/usr/local/bin",
+    ])
+  })
+})
+
+describe("hydratePosixPathKnownDirs", () => {
+  it("prepends known CLI dirs without spawning a shell", () => {
+    const env: NodeJS.ProcessEnv = {
+      HOME: "/Users/me",
+      PATH: "/usr/bin:/usr/sbin",
+    }
+    hydratePosixPathKnownDirs(env, "darwin")
+    expect(env.PATH).toBe(
+      "/Users/me/.local/bin:/Users/me/.bun/bin:/Users/me/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/usr/sbin",
+    )
+  })
+})
+
 describe("hydratePosixPath", () => {
   it("writes the merged login-shell PATH onto the environment", () => {
     const env: NodeJS.ProcessEnv = {
+      HOME: "/Users/me",
       SHELL: "/bin/zsh",
       PATH: "/usr/bin:/usr/sbin",
     }
@@ -182,13 +219,15 @@ describe("hydratePosixPath", () => {
         "__NOYAU_ENV_PATH_START__\n/opt/homebrew/bin:/usr/bin:/Users/me/.local/bin\n__NOYAU_ENV_PATH_END__\n",
       ),
     )
-    expect(env.PATH).toBe("/opt/homebrew/bin:/usr/bin:/Users/me/.local/bin:/usr/sbin")
+    expect(env.PATH).toBe(
+      "/opt/homebrew/bin:/usr/bin:/Users/me/.local/bin:/Users/me/.bun/bin:/Users/me/.cargo/bin:/usr/local/bin:/usr/sbin",
+    )
   })
 
   it("falls back to launchctl on macOS when the login shell has no PATH", () => {
     const env: NodeJS.ProcessEnv = { SHELL: "/bin/zsh", PATH: "/usr/bin" }
     hydratePosixPath(env, "darwin", loginShellEmptyThenLaunchctl)
-    expect(env.PATH).toBe("/opt/homebrew/bin:/usr/bin")
+    expect(env.PATH).toBe("/opt/homebrew/bin:/usr/bin:/usr/local/bin")
   })
 })
 
