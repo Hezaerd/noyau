@@ -6,6 +6,7 @@ describe("worktree-cleanup", () => {
   it("supprime un worktree seulement si la PR est fusionnée et le Turn est idle", () => {
     expect(
       shouldAutoRemoveMergedWorktree({
+        enabled: true,
         prState: "merged",
         worktreePath: "/tmp/wt",
         isRunning: false,
@@ -13,6 +14,15 @@ describe("worktree-cleanup", () => {
     ).toBe(true)
     expect(
       shouldAutoRemoveMergedWorktree({
+        enabled: false,
+        prState: "merged",
+        worktreePath: "/tmp/wt",
+        isRunning: false,
+      }),
+    ).toBe(false)
+    expect(
+      shouldAutoRemoveMergedWorktree({
+        enabled: true,
         prState: "open",
         worktreePath: "/tmp/wt",
         isRunning: false,
@@ -20,6 +30,7 @@ describe("worktree-cleanup", () => {
     ).toBe(false)
     expect(
       shouldAutoRemoveMergedWorktree({
+        enabled: true,
         prState: "merged",
         worktreePath: "/tmp/wt",
         isRunning: true,
@@ -27,6 +38,7 @@ describe("worktree-cleanup", () => {
     ).toBe(false)
     expect(
       shouldAutoRemoveMergedWorktree({
+        enabled: true,
         prState: "merged",
         worktreePath: null,
         isRunning: false,

@@ -94,8 +94,8 @@ _À éviter_ : inbox PR, archive auto, lien Ticket
 
 **Cleanup worktree**:
 Suppression live d'un worktree lié (`vcs.removeWorktree`) puis déliaison du Checkout
-(`worktreePath: null`). Auto quand la PR live passe à `merged` ; manuel via ⌘⇧ clic dans le
-sélecteur de branche. Jamais le WorkspaceRoot.
+(`worktreePath: null`). Auto opt-in (Préférence, off par défaut) quand la PR live passe à
+`merged` ; manuel via ⌘⇧ clic dans le sélecteur de branche. Jamais le WorkspaceRoot.
 _À éviter_ : archive Thread, settle, suppression de branche
 
 **Créer le repo**:

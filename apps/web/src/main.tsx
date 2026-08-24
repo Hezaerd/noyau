@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client"
 import { AnchoredToastProvider, ToastProvider } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { initializeAppearance } from "@/lib/appearance"
+import { initializeAutoRemoveMergedWorktreePreference } from "@/lib/auto-remove-merged-worktree-preference"
 import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
 import { initializeDiscordPresencePreference } from "@/lib/discord-presence-preference"
 import { initializeKeybindings } from "@/lib/keybindings"
@@ -23,6 +24,7 @@ initializeKeybindings()
 initializeProjectFolderStartDirectory()
 initializeDiscordPresencePreference()
 initializeThreadEnvModePreference()
+initializeAutoRemoveMergedWorktreePreference()
 initializeTurnCuePreference()
 initializeThreadVisits()
 

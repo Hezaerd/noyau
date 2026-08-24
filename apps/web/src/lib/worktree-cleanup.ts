@@ -10,10 +10,12 @@ import {
 import { makeThreadMetaUpdateRequest } from "./thread-commands"
 
 export const shouldAutoRemoveMergedWorktree = (input: {
+  readonly enabled: boolean
   readonly prState: string | null
   readonly worktreePath: string | null
   readonly isRunning: boolean
 }): boolean =>
+  input.enabled &&
   input.prState === "merged" &&
   input.worktreePath !== null &&
   input.worktreePath.length > 0 &&

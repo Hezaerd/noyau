@@ -4,6 +4,7 @@ import type { ProjectId } from "@noyau/protocol/ids"
 import type { ThreadShell } from "@noyau/protocol/shell"
 import { useEffect, useRef } from "react"
 
+import { useAutoRemoveMergedWorktreeEnabled } from "@/hooks/use-auto-remove-merged-worktree"
 import {
   isThreadCheckoutBusy,
   releaseWorktree,
@@ -15,13 +16,18 @@ export const useMergedWorktreeCleanup = (
   threads: ReadonlyArray<ThreadShell>,
   pullRequests: ReadonlyMap<string, VcsStatusPullRequest>,
 ): void => {
+  const enabled = useAutoRemoveMergedWorktreeEnabled()
   const inFlight = useRef(new Set<string>())
 
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
     for (const thread of threads) {
       const path = threadWorktreePathOf(thread)
       if (
         !shouldAutoRemoveMergedWorktree({
+          enabled,
           prState: pullRequests.get(thread.id)?.state ?? null,
           worktreePath: path,
           isRunning: isThreadCheckoutBusy(thread),
@@ -41,5 +47,5 @@ export const useMergedWorktreeCleanup = (
         inFlight.current.delete(path)
       })
     }
-  }, [projectId, pullRequests, threads])
+  }, [enabled, projectId, pullRequests, threads])
 }

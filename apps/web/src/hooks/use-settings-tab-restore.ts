@@ -1,10 +1,15 @@
 import { DEFAULT_APPEARANCE_PREFERENCE } from "@/components/settings/AppearanceSettingsPanel"
 import { useAppearance } from "@/hooks/use-appearance"
+import { useAutoRemoveMergedWorktreeEnabled } from "@/hooks/use-auto-remove-merged-worktree"
 import { useDiscordPresenceEnabled } from "@/hooks/use-discord-presence-enabled"
 import { useKeybindings } from "@/hooks/use-keybindings"
 import { useProjectFolderStartDirectory } from "@/hooks/use-project-folder-start-directory"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
 import { setAppearancePreference } from "@/lib/appearance"
+import {
+  DEFAULT_AUTO_REMOVE_MERGED_WORKTREE,
+  setAutoRemoveMergedWorktreeEnabled,
+} from "@/lib/auto-remove-merged-worktree-preference"
 import {
   DEFAULT_DISCORD_PRESENCE_ENABLED,
   setDiscordPresenceEnabled,
@@ -23,6 +28,7 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
   const { preference } = useAppearance()
   const { resetAll } = useKeybindings()
   const projectFolderStartDirectory = useProjectFolderStartDirectory()
+  const autoRemoveMergedWorktree = useAutoRemoveMergedWorktreeEnabled()
   const discordPresenceEnabled = useDiscordPresenceEnabled()
   const turnCue = useTurnCuePreference()
 
@@ -31,10 +37,12 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
       return {
         canRestore:
           projectFolderStartDirectory !== "" ||
+          autoRemoveMergedWorktree !== DEFAULT_AUTO_REMOVE_MERGED_WORKTREE ||
           discordPresenceEnabled !== DEFAULT_DISCORD_PRESENCE_ENABLED ||
           !isTurnCuePreferenceDefault(turnCue),
         restore: () => {
           setProjectFolderStartDirectory("")
+          setAutoRemoveMergedWorktreeEnabled(DEFAULT_AUTO_REMOVE_MERGED_WORKTREE)
           setDiscordPresenceEnabled(DEFAULT_DISCORD_PRESENCE_ENABLED)
           resetTurnCuePreference()
         },
