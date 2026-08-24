@@ -7,6 +7,13 @@ export type ComposerInlineToken =
       readonly end: number
     }
   | {
+      readonly type: "ticket"
+      readonly value: string
+      readonly source: string
+      readonly start: number
+      readonly end: number
+    }
+  | {
       readonly type: "skill"
       readonly value: string
       readonly source: string
@@ -17,6 +24,22 @@ export type ComposerInlineToken =
 export type ComposerPromptSegment =
   | { readonly type: "text"; readonly text: string }
   | { readonly type: "mention"; readonly path: string; readonly source: string }
+  | { readonly type: "ticket"; readonly ticketId: string; readonly source: string }
+
+const TICKET_MENTION_PREFIX = "ticket:"
+const TICKET_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export const parseComposerTicketMentionId = (value: string): string | null => {
+  const trimmed = value.trim()
+  if (!trimmed.startsWith(TICKET_MENTION_PREFIX)) {
+    return null
+  }
+  const ticketId = trimmed.slice(TICKET_MENTION_PREFIX.length)
+  return TICKET_ID_REGEX.test(ticketId) ? ticketId.toLowerCase() : null
+}
+
+export const serializeComposerTicketMention = (ticketId: string): string =>
+  `${TICKET_MENTION_PREFIX}${ticketId}`
 
 const SKILL_TOKEN_REGEX = /(^|\s)\$([a-zA-Z][a-zA-Z0-9:_-]*)(?=\s|$)/g
 const MENTION_TOKEN_REGEX = /(^|[\s"'(*_~])@(?:"((?:\\.|[^"\\])*)"|([^\s@"]+))/g
@@ -60,12 +83,23 @@ const collectMentionTokens = (text: string): ComposerInlineToken[] => {
     } catch {
       path = encodedPath
     }
+    const ticketId = parseComposerTicketMentionId(path)
     const hasExternalScheme = URI_SCHEME_REGEX.test(path) && !WINDOWS_DRIVE_PATH_REGEX.test(path)
+    const start = (match.index ?? 0) + prefix.length
+    const end = start + fullMatch.length - prefix.length
+    if (ticketId !== null) {
+      matches.push({
+        type: "ticket",
+        value: ticketId,
+        source: text.slice(start, end),
+        start,
+        end,
+      })
+      continue
+    }
     if (!path || hasExternalScheme || label !== basenameOfPath(path)) {
       continue
     }
-    const start = (match.index ?? 0) + prefix.length
-    const end = start + fullMatch.length - prefix.length
     matches.push({
       type: "mention",
       value: path,
@@ -87,13 +121,23 @@ const collectMentionTokens = (text: string): ComposerInlineToken[] => {
     const start = (match.index ?? 0) + prefix.length
     const trimmedLength = quotedPath !== undefined ? 0 : rawPath.length - path.length
     const end = start + fullMatch.length - prefix.length - trimmedLength
-    const token: ComposerInlineToken = {
-      type: "mention",
-      value: path,
-      source: text.slice(start, end),
-      start,
-      end,
-    }
+    const ticketId = parseComposerTicketMentionId(path)
+    const token: ComposerInlineToken =
+      ticketId === null
+        ? {
+            type: "mention",
+            value: path,
+            source: text.slice(start, end),
+            start,
+            end,
+          }
+        : {
+            type: "ticket",
+            value: ticketId,
+            source: text.slice(start, end),
+            start,
+            end,
+          }
     if (matches.some((existing) => overlaps(existing, token))) {
       continue
     }
@@ -127,8 +171,23 @@ export function collectComposerInlineTokens(text: string): ReadonlyArray<Compose
   return matches.toSorted((left, right) => left.start - right.start)
 }
 
+export const collectComposerTicketIds = (text: string): ReadonlyArray<string> => {
+  const seen = new Set<string>()
+  const ticketIds: string[] = []
+  for (const token of collectComposerInlineTokens(text)) {
+    if (token.type !== "ticket" || seen.has(token.value)) {
+      continue
+    }
+    seen.add(token.value)
+    ticketIds.push(token.value)
+  }
+  return ticketIds
+}
+
 export function composerPromptSegments(text: string): ReadonlyArray<ComposerPromptSegment> {
-  const mentions = collectComposerInlineTokens(text).filter((token) => token.type === "mention")
+  const mentions = collectComposerInlineTokens(text).filter(
+    (token) => token.type === "mention" || token.type === "ticket",
+  )
   if (mentions.length === 0) {
     return text.length === 0 ? [] : [{ type: "text", text }]
   }
@@ -142,7 +201,11 @@ export function composerPromptSegments(text: string): ReadonlyArray<ComposerProm
     if (mention.start > cursor) {
       segments.push({ type: "text", text: text.slice(cursor, mention.start) })
     }
-    segments.push({ type: "mention", path: mention.value, source: mention.source })
+    segments.push(
+      mention.type === "ticket"
+        ? { type: "ticket", ticketId: mention.value, source: mention.source }
+        : { type: "mention", path: mention.value, source: mention.source },
+    )
     cursor = mention.end
   }
   if (cursor < text.length) {

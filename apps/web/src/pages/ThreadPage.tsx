@@ -4,6 +4,7 @@ import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import { useNavigate } from "@tanstack/react-router"
 import { DateTime } from "effect"
 import {
   useCallback,
@@ -20,6 +21,7 @@ import {
   ResourceErrorState,
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
+import { FixMergeConflictsButton } from "@/components/thread/FixMergeConflictsButton"
 import { ThreadCheckoutBar } from "@/components/thread/ThreadCheckoutBar"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
@@ -28,6 +30,8 @@ import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
+import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
+import { useVcsStatus } from "@/hooks/use-vcs-status"
 import { invalidInputFailure } from "@/lib/app-failure"
 import {
   clearCreatedCheckout,
@@ -60,6 +64,12 @@ import {
 } from "@/lib/thread-page-actions"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
 import { markThreadVisited } from "@/lib/thread-visits"
+import {
+  buildFixMergeConflictsPrompt,
+  FIX_MERGE_CONFLICTS_PRESENTATION,
+  turnPresentationLabel,
+} from "@/lib/turn-presentation"
+import { isConflictingOpenPullRequest, vcsScopeForThread } from "@/lib/vcs-status"
 
 interface ThreadPageProps {
   readonly projectId: ProjectId
@@ -70,6 +80,8 @@ interface ThreadPageProps {
 
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
   const { cursor, projects } = useControlPlane()
+  const navigate = useNavigate()
+  const tickets = useProjectComposerTickets(projectId)
   const project = projects.find((candidate) => candidate.id === projectId)
   const [snapshot, setSnapshot] = useState<ThreadSnapshot>()
   const [loading, setLoading] = useState(threadId !== undefined)
@@ -100,6 +112,14 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       ),
     [projectId],
   )
+  const snapshotWorktreePath = snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)
+  const gitStatus = useVcsStatus(
+    threadId === undefined
+      ? null
+      : vcsScopeForThread(projectId, { id: threadId, worktreePath: snapshotWorktreePath }),
+  )
+  const conflictingPr =
+    gitStatus?.pr != null && isConflictingOpenPullRequest(gitStatus.pr) ? gitStatus.pr : null
 
   useEffect(() => {
     if (threadId === undefined) {
@@ -247,8 +267,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     const submittedImages = images
     const submittedProjectId = projectId
     const submittedThreadId = threadId
-    const snapshotWorktreePath =
-      snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)
     if (
       envMode === "worktree" &&
       snapshotWorktreePath === null &&
@@ -324,6 +342,63 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         onCreated(result.threadId)
       }
       revokeComposerImages(submittedImages)
+      setActionFailure(undefined)
+      return undefined
+    })
+  }
+
+  const submitFixMergeConflicts = () => {
+    if (
+      conflictingPr === null ||
+      threadId === undefined ||
+      isRunning ||
+      project?.available !== true ||
+      !cursorReady
+    ) {
+      return
+    }
+    setComposerFailure(undefined)
+    setSendStartedAtMs(Date.now())
+    setFollowLatestKey((current) => current + 1)
+    const input = {
+      projectId,
+      threadId,
+      prompt: buildFixMergeConflictsPrompt(conflictingPr),
+      titleSeed: turnPresentationLabel(FIX_MERGE_CONFLICTS_PRESENTATION),
+      presentation: FIX_MERGE_CONFLICTS_PRESENTATION,
+      runtimeMode,
+      modelSelection,
+      envMode,
+      startFromOrigin,
+      worktreePath: snapshotWorktreePath,
+    } as const
+    void submitTurnAction(
+      baseBranch === null ? input : Object.assign({}, input, { baseBranch }),
+    ).then((result) => {
+      if (result.kind === "composer-error") {
+        setSendStartedAtMs(null)
+        setComposerFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
+        return undefined
+      }
+      if (result.kind === "error") {
+        setSendStartedAtMs(null)
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
+        return undefined
+      }
       setActionFailure(undefined)
       return undefined
     })
@@ -535,6 +610,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }}
       onInterrupt={() => interruptTurn()}
       searchPaths={searchPaths}
+      tickets={tickets}
+      toolbar={
+        isNewThread || conflictingPr === null ? undefined : (
+          <FixMergeConflictsButton
+            disabled={awaitingThread || project?.available !== true || !cursorReady || isRunning}
+            onClick={submitFixMergeConflicts}
+          />
+        )
+      }
       context={
         <ThreadCheckoutBar
           projectId={projectId}
@@ -584,6 +668,14 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
                   : (threadWorktreePathOf(snapshot.thread) ?? project?.workspaceRoot)
               }
               projectId={projectId}
+              tickets={tickets}
+              onOpenTicket={(ticketId) => {
+                void navigate({
+                  to: "/projects/$projectId/board",
+                  params: { projectId },
+                  search: { ticket: ticketId },
+                })
+              }}
               error={transcriptError}
               notices={
                 threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (

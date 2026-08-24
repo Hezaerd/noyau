@@ -24,7 +24,7 @@ import {
 } from "./pull-request.ts"
 import { runGh, runGit } from "./run-command.ts"
 
-const PR_LIST_JSON_FIELDS = "number,title,url,baseRefName,headRefName,state,updatedAt"
+const PR_LIST_JSON_FIELDS = "number,title,url,baseRefName,headRefName,state,mergeable,updatedAt"
 
 const ExistingPullRequest = Schema.Struct({
   url: Schema.optionalKey(Schema.String),
@@ -162,15 +162,20 @@ const deriveLocalBranchName = (refName: string): string => {
 
 const lastKnownPrKey = (cwd: string, branch: string): string => `${cwd}\u0000${branch}`
 
-const sanitizeBranchFragment = (raw: string): string =>
-  raw
-    .trim()
-    .toLowerCase()
-    .replace(/['"`]/g, "")
-    .replace(/[^a-z0-9._/-]+/g, "-")
-    .replace(/\/+/g, "/")
-    .replace(/^[-./]+|[-./]+$/g, "")
-    .slice(0, 64) || "worktree"
+/** Un seul segment dossier : `noyau/safer-reconnect` → `safer-reconnect`. */
+export const sanitizeWorktreeFolderName = (raw: string): string => {
+  const normalized = raw.trim().toLowerCase().replace(/['"`]/g, "")
+  const withoutPrefix = normalized.startsWith(`${WORKTREE_BRANCH_PREFIX}/`)
+    ? normalized.slice(`${WORKTREE_BRANCH_PREFIX}/`.length)
+    : normalized
+  return (
+    withoutPrefix
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^[-._]+|[-._]+$/g, "")
+      .slice(0, 64) || "worktree"
+  )
+}
 
 export interface GitStatusOptions {
   readonly includePr?: boolean
@@ -519,7 +524,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     const worktreePath = path.join(
       input.worktreesDir,
       path.basename(input.cwd),
-      sanitizeBranchFragment(newRefName),
+      sanitizeWorktreeFolderName(newRefName),
     )
     let startRef = input.baseBranch
     if (input.startFromOrigin === true) {

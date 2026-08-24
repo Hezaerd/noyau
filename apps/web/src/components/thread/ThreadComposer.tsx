@@ -2,6 +2,7 @@ import type { CursorModel } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { WorkspacePathEntry } from "@noyau/protocol/entities/workspace-path"
+import { serializeComposerTicketMention } from "@noyau/shared/composer-inline-tokens"
 import {
   detectComposerTrigger,
   replaceTextRange,
@@ -31,7 +32,7 @@ import {
   type ReactNode,
 } from "react"
 
-import { ComposerPathMenu } from "@/components/thread/ComposerPathMenu"
+import { ComposerMentionMenu } from "@/components/thread/ComposerMentionMenu"
 import {
   ComposerPromptField,
   type ComposerPromptFieldHandle,
@@ -54,6 +55,13 @@ import {
 } from "@/components/ui/menu"
 import { Separator } from "@/components/ui/separator"
 import type { ComposerImage } from "@/lib/composer-images"
+import {
+  buildComposerMentionEntries,
+  EMPTY_COMPOSER_TICKETS,
+  filterComposerTickets,
+  type ComposerMentionEntry,
+  type ComposerTicket,
+} from "@/lib/composer-tickets"
 import { buildExpandedImagePreview, type ExpandedImagePreview } from "@/lib/expanded-image-preview"
 import { isRuntimeMode, runtimeModes } from "@/lib/thread-commands"
 import { cn } from "@/lib/utils"
@@ -90,7 +98,9 @@ export function ThreadComposer({
   onImageRemove,
   onInterrupt,
   searchPaths,
+  tickets = EMPTY_COMPOSER_TICKETS,
   context,
+  toolbar,
 }: {
   readonly isRunning: boolean
   readonly disabled: boolean
@@ -110,7 +120,9 @@ export function ThreadComposer({
   readonly onImageRemove: (localId: string) => void
   readonly onInterrupt: () => void
   readonly searchPaths?: (query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>
+  readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly context?: ReactNode
+  readonly toolbar?: ReactNode
 }) {
   const listboxId = useId()
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
@@ -122,8 +134,13 @@ export function ThreadComposer({
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const [dismissedQuery, setDismissedQuery] = useState<string | null>(null)
   const trigger = detectComposerTrigger(text, cursor)
-  const pathQuery = searchPaths !== undefined && trigger?.kind === "path" ? trigger.query : null
-  const pathMenuOpen = pathQuery !== null && dismissedQuery !== pathQuery
+  const mentionQuery = trigger?.kind === "path" ? trigger.query : null
+  const mentionMenuOpen =
+    mentionQuery !== null &&
+    dismissedQuery !== mentionQuery &&
+    (searchPaths !== undefined || tickets.length > 0)
+  const ticketEntries = mentionQuery === null ? [] : filterComposerTickets(tickets, mentionQuery)
+  const mentionEntries = buildComposerMentionEntries(ticketEntries, pathEntries)
   const controlsDisabled = isRunning || disabled
   const sendDisabled = (text.trim() === "" && images.length === 0) || controlsDisabled
   const selectedModel = models.find((model) => model.modelId === modelSelection?.modelId)
@@ -167,7 +184,7 @@ export function ThreadComposer({
   }, [text])
 
   useEffect(() => {
-    if (searchPaths === undefined || pathQuery === null || dismissedQuery === pathQuery) {
+    if (searchPaths === undefined || mentionQuery === null || dismissedQuery === mentionQuery) {
       setPathEntries([])
       setPathSearchLoading(false)
       return
@@ -175,7 +192,7 @@ export function ThreadComposer({
     let cancelled = false
     setPathSearchLoading(true)
     const handle = globalThis.setTimeout(() => {
-      void searchPaths(pathQuery).then((entries) => {
+      void searchPaths(mentionQuery).then((entries) => {
         if (!cancelled) {
           setPathEntries(entries)
           setHighlightedIndex(0)
@@ -188,13 +205,16 @@ export function ThreadComposer({
       cancelled = true
       globalThis.clearTimeout(handle)
     }
-  }, [dismissedQuery, pathQuery, searchPaths])
+  }, [dismissedQuery, mentionQuery, searchPaths])
 
-  const insertPathMention = (entry: WorkspacePathEntry) => {
+  const insertMention = (entry: ComposerMentionEntry) => {
     if (trigger === null || trigger.kind !== "path") {
       return
     }
-    const mention = `@${serializeComposerMentionPath(entry.path)} `
+    const mention =
+      entry.kind === "ticket"
+        ? `@${serializeComposerTicketMention(entry.ticketId)} `
+        : `@${serializeComposerMentionPath(entry.path)} `
     const next = replaceTextRange(text, trigger.rangeStart, trigger.rangeEnd, mention)
     pendingCursor.current = next.cursor
     setDismissedQuery(null)
@@ -209,10 +229,10 @@ export function ThreadComposer({
       onTextChange(next.text)
       return
     }
-    if (pathMenuOpen && pathEntries.length > 0) {
+    if (mentionMenuOpen && mentionEntries.length > 0) {
       if (event.key === "ArrowDown") {
         event.preventDefault()
-        setHighlightedIndex((index) => Math.min(pathEntries.length - 1, index + 1))
+        setHighlightedIndex((index) => Math.min(mentionEntries.length - 1, index + 1))
         return
       }
       if (event.key === "ArrowUp") {
@@ -221,16 +241,16 @@ export function ThreadComposer({
         return
       }
       if (event.key === "Enter" || event.key === "Tab") {
-        const entry = pathEntries[highlightedIndex]
+        const entry = mentionEntries[highlightedIndex]
         if (entry !== undefined) {
           event.preventDefault()
-          insertPathMention(entry)
+          insertMention(entry)
         }
         return
       }
       if (event.key === "Escape") {
         event.preventDefault()
-        setDismissedQuery(pathQuery)
+        setDismissedQuery(mentionQuery)
         return
       }
     }
@@ -259,16 +279,17 @@ export function ThreadComposer({
           context === undefined ? "gap-2" : "gap-0",
         )}
       >
-        {pathMenuOpen ? (
-          <ComposerPathMenu
-            entries={pathEntries}
+        {mentionMenuOpen ? (
+          <ComposerMentionMenu
+            entries={mentionEntries}
             highlightedIndex={highlightedIndex}
             id={listboxId}
             loading={pathSearchLoading}
             onHighlight={setHighlightedIndex}
-            onSelect={insertPathMention}
+            onSelect={insertMention}
           />
         ) : null}
+        {toolbar === undefined ? null : <div className="mb-2 flex justify-start">{toolbar}</div>}
         <InputGroup className="rounded-xl bg-background shadow-xs/5 dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
           {images.length === 0 ? null : (
             <div className="flex w-full flex-wrap justify-start gap-2 px-3 pt-3">
@@ -315,10 +336,11 @@ export function ThreadComposer({
               text={text}
               disabled={controlsDisabled}
               autoFocus
-              pathMenuOpen={pathMenuOpen}
+              pathMenuOpen={mentionMenuOpen}
+              tickets={tickets}
               listboxId={listboxId}
               activeOptionId={
-                pathMenuOpen && pathEntries[highlightedIndex] !== undefined
+                mentionMenuOpen && mentionEntries[highlightedIndex] !== undefined
                   ? `composer-path-option-${highlightedIndex}`
                   : undefined
               }

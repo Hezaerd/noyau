@@ -4,12 +4,15 @@ import { replaceTextRange } from "@noyau/shared/composer-trigger"
 
 const mentionTouchingCursor = (text: string, cursor: number): ComposerInlineToken | undefined =>
   collectComposerInlineTokens(text).find(
-    (token) => token.type === "mention" && cursor > token.start && cursor <= token.end,
+    (token) =>
+      (token.type === "mention" || token.type === "ticket") &&
+      cursor > token.start &&
+      cursor <= token.end,
   )
 
 const mentionStartingAtCursor = (text: string, cursor: number): ComposerInlineToken | undefined =>
   collectComposerInlineTokens(text).find(
-    (token) => token.type === "mention" && cursor === token.start,
+    (token) => (token.type === "mention" || token.type === "ticket") && cursor === token.start,
   )
 
 export const applyComposerMentionKey = ({

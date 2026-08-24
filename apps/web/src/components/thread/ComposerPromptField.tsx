@@ -19,6 +19,7 @@ import {
   serializeComposerPromptSelection,
   setComposerPromptFieldCaret,
 } from "@/lib/composer-prompt-field"
+import { EMPTY_COMPOSER_TICKETS, type ComposerTicket } from "@/lib/composer-tickets"
 import { cn } from "@/lib/utils"
 
 export const COMPOSER_PROMPT_FIELD_CLASS_NAME =
@@ -35,6 +36,7 @@ export function ComposerPromptField({
   disabled,
   autoFocus,
   pathMenuOpen,
+  tickets = EMPTY_COMPOSER_TICKETS,
   listboxId,
   activeOptionId,
   onTextChange,
@@ -48,6 +50,7 @@ export function ComposerPromptField({
   readonly disabled: boolean
   readonly autoFocus: boolean
   readonly pathMenuOpen: boolean
+  readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly listboxId: string
   readonly activeOptionId: string | undefined
   readonly onTextChange: (value: string) => void
@@ -143,14 +146,14 @@ export function ComposerPromptField({
         return
       }
       syncedText.current = text
-      paintComposerPrompt(editorRef.current, text)
+      paintComposerPrompt(editorRef.current, text, tickets)
       painted.current = true
       const caret = pendingCaret.current ?? text.length
       pendingCaret.current = null
       restoreCaretRef.current(caret)
     }
     queueMicrotask(paint)
-  }, [text])
+  }, [text, tickets])
 
   useEffect(() => {
     if (!autoFocus || disabled || didAutoFocus.current) {
@@ -238,7 +241,8 @@ export function ComposerPromptField({
           }
           const pasted = event.clipboardData?.getData("text/plain") ?? ""
           const hasMention = collectComposerInlineTokens(`${pasted}\n`).some(
-            (token) => token.type === "mention" && token.end <= pasted.length,
+            (token) =>
+              (token.type === "mention" || token.type === "ticket") && token.end <= pasted.length,
           )
           if (!hasMention) {
             return

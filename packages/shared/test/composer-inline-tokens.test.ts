@@ -1,6 +1,9 @@
 import {
   collectComposerInlineTokens,
+  collectComposerTicketIds,
   composerPromptSegments,
+  parseComposerTicketMentionId,
+  serializeComposerTicketMention,
 } from "@noyau/shared/composer-inline-tokens"
 import { describe, expect, it } from "vite-plus/test"
 
@@ -80,6 +83,60 @@ describe("collectComposerInlineTokens", () => {
       },
     ])
   })
+
+  it("collects a ticket mention by durable id", () => {
+    const ticketId = "40818da4-a4de-46f6-a60f-1aa305093a6e"
+    expect(collectComposerInlineTokens(`see @ticket:${ticketId}`)).toEqual([
+      {
+        type: "ticket",
+        value: ticketId,
+        source: `@ticket:${ticketId}`,
+        start: 4,
+        end: 48,
+      },
+    ])
+  })
+
+  it("collects a markdown ticket link", () => {
+    const ticketId = "40818da4-a4de-46f6-a60f-1aa305093a6e"
+    expect(collectComposerInlineTokens(`[Pin threads](ticket:${ticketId})`)).toEqual([
+      {
+        type: "ticket",
+        value: ticketId,
+        source: `[Pin threads](ticket:${ticketId})`,
+        start: 0,
+        end: 58,
+      },
+    ])
+  })
+
+  it("leaves a non-uuid ticket path as a file mention", () => {
+    expect(collectComposerInlineTokens("open @ticket:draft")).toEqual([
+      {
+        type: "mention",
+        value: "ticket:draft",
+        source: "@ticket:draft",
+        start: 5,
+        end: 18,
+      },
+    ])
+  })
+})
+
+describe("composer ticket mention helpers", () => {
+  const ticketId = "40818da4-a4de-46f6-a60f-1aa305093a6e"
+
+  it("parses and serializes a ticket mention value", () => {
+    expect(serializeComposerTicketMention(ticketId)).toBe(`ticket:${ticketId}`)
+    expect(parseComposerTicketMentionId(`ticket:${ticketId}`)).toBe(ticketId)
+    expect(parseComposerTicketMentionId("ticket:draft")).toBeNull()
+  })
+
+  it("collects unique ticket ids from the prompt", () => {
+    expect(
+      collectComposerTicketIds(`do @ticket:${ticketId} and again @ticket:${ticketId}`),
+    ).toEqual([ticketId])
+  })
 })
 
 describe("composerPromptSegments", () => {
@@ -93,6 +150,15 @@ describe("composerPromptSegments", () => {
     expect(composerPromptSegments("look at @src/a.ts please")).toEqual([
       { type: "text", text: "look at " },
       { type: "mention", path: "src/a.ts", source: "@src/a.ts" },
+      { type: "text", text: " please" },
+    ])
+  })
+
+  it("splits text around ticket mentions", () => {
+    const ticketId = "40818da4-a4de-46f6-a60f-1aa305093a6e"
+    expect(composerPromptSegments(`look at @ticket:${ticketId} please`)).toEqual([
+      { type: "text", text: "look at " },
+      { type: "ticket", ticketId, source: `@ticket:${ticketId}` },
       { type: "text", text: " please" },
     ])
   })
