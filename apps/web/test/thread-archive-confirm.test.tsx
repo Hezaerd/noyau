@@ -94,6 +94,7 @@ describe("thread archive confirmation", () => {
                 workspaceRoot,
               }}
               pullRequest={null}
+              liveBranch={null}
               isActive={false}
               onSelect={vi.fn()}
             />

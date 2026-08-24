@@ -27,7 +27,10 @@ const sameSnapshot = (
 export const useThreadChangeRequests = (
   projectId: ProjectId,
   threads: ReadonlyArray<ThreadShell>,
-): ReadonlyMap<string, VcsStatusPullRequest> => {
+): {
+  readonly pullRequests: ReadonlyMap<string, VcsStatusPullRequest>
+  readonly liveBranches: ReadonlyMap<string, string>
+} => {
   const scopes = useMemo(() => uniqueVcsScopes(projectId, threads), [projectId, threads])
   const [statuses, setStatuses] = useState<ReadonlyMap<string, VcsStatusResult>>(new Map())
   const [snapshots, setSnapshots] = useState<ReadonlyMap<string, ThreadChangeRequestSnapshot>>(
@@ -78,7 +81,8 @@ export const useThreadChangeRequests = (
   }, [projectId, statuses, threads])
 
   return useMemo(() => {
-    const displayed = new Map<string, VcsStatusPullRequest>()
+    const pullRequests = new Map<string, VcsStatusPullRequest>()
+    const liveBranches = new Map<string, string>()
     for (const thread of threads) {
       const status = statuses.get(vcsStatusScopeKey(vcsScopeForThread(projectId, thread))) ?? null
       const pr = displayedThreadPr({
@@ -87,9 +91,12 @@ export const useThreadChangeRequests = (
         snapshot: snapshots.get(thread.id),
       })
       if (pr !== null) {
-        displayed.set(thread.id, pr)
+        pullRequests.set(thread.id, pr)
+      }
+      if (status?.refName != null) {
+        liveBranches.set(thread.id, status.refName)
       }
     }
-    return displayed
+    return { pullRequests, liveBranches }
   }, [projectId, snapshots, statuses, threads])
 }

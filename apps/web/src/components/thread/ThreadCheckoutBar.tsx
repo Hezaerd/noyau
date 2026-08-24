@@ -131,17 +131,23 @@ export function ThreadCheckoutBar({
   }, [projectId, threadId, worktreePath])
 
   useEffect(() => {
-    if (!selectingWorktreeBase || (branch !== null && branch !== "")) {
+    if (branch !== null && branch !== "") {
       return
     }
-    const candidate = resolveWorktreeBaseBranch({
-      refs,
-      currentBranch: status?.refName ?? null,
-    })
-    if (candidate !== null) {
-      onBaseBranchChange(candidate)
+    if (selectingWorktreeBase) {
+      const candidate = resolveWorktreeBaseBranch({
+        refs,
+        currentBranch: status?.refName ?? null,
+      })
+      if (candidate !== null) {
+        onBaseBranchChange(candidate)
+      }
+      return
     }
-  }, [branch, onBaseBranchChange, refs, selectingWorktreeBase, status?.refName])
+    if (envMode === "local" && status?.refName != null) {
+      onBaseBranchChange(status.refName)
+    }
+  }, [branch, envMode, onBaseBranchChange, refs, selectingWorktreeBase, status?.refName])
 
   const bindCheckout = (next: {
     readonly branch?: string | null
