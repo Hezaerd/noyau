@@ -98,8 +98,18 @@ _À éviter_ : agrégat Commit, événement Push, outbox Git
 
 **Pull request live**:
 PR GitHub du HEAD courant, portée par `vcs.status` / `vcs.subscribeStatus`. Join cwd + branche via
-`gh`, jamais un identifiant du journal.
+`gh`, jamais un identifiant du journal. Porte la Mergeability GitHub.
 _À éviter_ : pullRequestId persisté, webhook, settle
+
+**Mergeability**:
+Verdict GitHub live de la PR (`mergeable | conflicting | unknown`). `unknown` n'est pas l'absence
+de conflit.
+_À éviter_ : état local git, fait du journal
+
+**Présentation de Turn**:
+Discriminant optionnel de `thread.turn.start` / `transcript.user` qui dit comment montrer le
+prompt. Le `text` reste le prompt Provider.
+_À éviter_ : remplacer text, Action palette
 
 **Publish**:
 Opération live GitHub : `gh repo create`, remote `origin`, push HEAD s'il existe. Pas une Command.

@@ -23,7 +23,7 @@ import {
 } from "./pull-request.ts"
 import { runGh, runGit } from "./run-command.ts"
 
-const PR_LIST_JSON_FIELDS = "number,title,url,baseRefName,headRefName,state,updatedAt"
+const PR_LIST_JSON_FIELDS = "number,title,url,baseRefName,headRefName,state,mergeable,updatedAt"
 
 const ExistingPullRequest = Schema.Struct({
   url: Schema.optionalKey(Schema.String),

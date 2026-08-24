@@ -19,11 +19,16 @@ export type TranscriptToolAction = (typeof TranscriptToolAction)["Type"]
 export const TranscriptRequestStatus = Schema.Literals(["pending", "resolved"])
 export type TranscriptRequestStatus = (typeof TranscriptRequestStatus)["Type"]
 
+/** Comment le prompt utilisateur est montré. Le `text` reste le prompt Provider. */
+export const TurnPresentation = Schema.Literals(["fix-merge-conflicts"])
+export type TurnPresentation = (typeof TurnPresentation)["Type"]
+
 export const TranscriptUser = Schema.TaggedStruct("transcript.user", {
   threadId: ThreadId,
   turnId: TurnId,
   text: Schema.optionalKey(Schema.NonEmptyString),
   attachments: Schema.optionalKey(TurnImageAttachments),
+  presentation: Schema.optionalKey(TurnPresentation),
 }).check(
   Schema.makeFilter(turnHasPrompt, {
     expected: "non-empty text or at least one image attachment",

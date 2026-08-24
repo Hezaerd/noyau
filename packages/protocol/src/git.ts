@@ -33,6 +33,10 @@ export type VcsWorktree = (typeof VcsWorktree)["Type"]
 export const VcsStatusPullRequestState = Schema.Literals(["open", "closed", "merged"])
 export type VcsStatusPullRequestState = (typeof VcsStatusPullRequestState)["Type"]
 
+/** Verdict GitHub live. `unknown` n'est pas l'absence de conflit. */
+export const VcsStatusMergeability = Schema.Literals(["mergeable", "conflicting", "unknown"])
+export type VcsStatusMergeability = (typeof VcsStatusMergeability)["Type"]
+
 /** PR GitHub live du HEAD courant. Hors journal : join cwd/branche via `gh`. */
 export const VcsStatusPullRequest = Schema.Struct({
   number: Schema.Int.check(Schema.isGreaterThan(0)),
@@ -41,6 +45,7 @@ export const VcsStatusPullRequest = Schema.Struct({
   baseRef: TrimmedNonEmpty,
   headRef: TrimmedNonEmpty,
   state: VcsStatusPullRequestState,
+  mergeability: VcsStatusMergeability,
 })
 export type VcsStatusPullRequest = (typeof VcsStatusPullRequest)["Type"]
 

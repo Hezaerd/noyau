@@ -20,6 +20,7 @@ import {
   ResourceErrorState,
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
+import { FixMergeConflictsButton } from "@/components/thread/FixMergeConflictsButton"
 import { ThreadCheckoutBar } from "@/components/thread/ThreadCheckoutBar"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
@@ -28,6 +29,7 @@ import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useControlPlane } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
+import { useVcsStatus } from "@/hooks/use-vcs-status"
 import { invalidInputFailure } from "@/lib/app-failure"
 import {
   clearCreatedCheckout,
@@ -60,6 +62,12 @@ import {
 } from "@/lib/thread-page-actions"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
 import { markThreadVisited } from "@/lib/thread-visits"
+import {
+  buildFixMergeConflictsPrompt,
+  FIX_MERGE_CONFLICTS_PRESENTATION,
+  turnPresentationLabel,
+} from "@/lib/turn-presentation"
+import { isConflictingOpenPullRequest, vcsScopeForThread } from "@/lib/vcs-status"
 
 interface ThreadPageProps {
   readonly projectId: ProjectId
@@ -100,6 +108,14 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       ),
     [projectId],
   )
+  const snapshotWorktreePath = snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)
+  const gitStatus = useVcsStatus(
+    threadId === undefined
+      ? null
+      : vcsScopeForThread(projectId, { id: threadId, worktreePath: snapshotWorktreePath }),
+  )
+  const conflictingPr =
+    gitStatus?.pr != null && isConflictingOpenPullRequest(gitStatus.pr) ? gitStatus.pr : null
 
   useEffect(() => {
     if (threadId === undefined) {
@@ -241,8 +257,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     const submittedImages = images
     const submittedProjectId = projectId
     const submittedThreadId = threadId
-    const snapshotWorktreePath =
-      snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)
     if (
       envMode === "worktree" &&
       snapshotWorktreePath === null &&
@@ -318,6 +332,63 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         onCreated(result.threadId)
       }
       revokeComposerImages(submittedImages)
+      setActionFailure(undefined)
+      return undefined
+    })
+  }
+
+  const submitFixMergeConflicts = () => {
+    if (
+      conflictingPr === null ||
+      threadId === undefined ||
+      isRunning ||
+      project?.available !== true ||
+      !cursorReady
+    ) {
+      return
+    }
+    setComposerFailure(undefined)
+    setSendStartedAtMs(Date.now())
+    setFollowLatestKey((current) => current + 1)
+    const input = {
+      projectId,
+      threadId,
+      prompt: buildFixMergeConflictsPrompt(conflictingPr),
+      titleSeed: turnPresentationLabel(FIX_MERGE_CONFLICTS_PRESENTATION),
+      presentation: FIX_MERGE_CONFLICTS_PRESENTATION,
+      runtimeMode,
+      modelSelection,
+      envMode,
+      startFromOrigin,
+      worktreePath: snapshotWorktreePath,
+    } as const
+    void submitTurnAction(
+      baseBranch === null ? input : Object.assign({}, input, { baseBranch }),
+    ).then((result) => {
+      if (result.kind === "composer-error") {
+        setSendStartedAtMs(null)
+        setComposerFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
+        return undefined
+      }
+      if (result.kind === "error") {
+        setSendStartedAtMs(null)
+        setActionFailure(
+          presentFailure(result.failure, {
+            operation: "thread.turn.start",
+            scope: "action",
+            initiatedByUser: true,
+            hasUsableData: snapshot !== undefined,
+          }),
+        )
+        return undefined
+      }
       setActionFailure(undefined)
       return undefined
     })
@@ -529,6 +600,14 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }}
       onInterrupt={() => interruptTurn()}
       searchPaths={searchPaths}
+      toolbar={
+        isNewThread || conflictingPr === null ? undefined : (
+          <FixMergeConflictsButton
+            disabled={awaitingThread || project?.available !== true || !cursorReady || isRunning}
+            onClick={submitFixMergeConflicts}
+          />
+        )
+      }
       context={
         <ThreadCheckoutBar
           projectId={projectId}

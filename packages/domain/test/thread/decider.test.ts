@@ -558,6 +558,35 @@ describe("Turn invariants", () => {
     expect(error).toMatchObject({ _tag: "ImageAttachmentRejected", threadId: ids.thread })
   })
 
+  it("porte la présentation de Turn jusqu'au transcript", () => {
+    const state = withThread()
+    const accepted = apply(
+      state,
+      success(
+        decide(
+          state,
+          turnStartCommand({
+            _tag: "thread.turn.start",
+            ...meta,
+            commandId: ids.turn1,
+            payload: {
+              threadId: ids.thread,
+              text: "PR #12 conflicts with main.",
+              presentation: "fix-merge-conflicts",
+              titleSeed: "Fix merge conflicts",
+            },
+          }),
+        ),
+      ),
+    )
+    const user = accepted.threads[0]?.transcript.find((item) => item._tag === "transcript.user")
+    expect(user).toMatchObject({
+      text: "PR #12 conflicts with main.",
+      presentation: "fix-merge-conflicts",
+    })
+    expect(accepted.threads[0]?.title).toBe("Fix merge conflicts")
+  })
+
   it("ne réécrit ni transcript ni état d'un Turn terminal", () => {
     const running = withRunningTurn()
     const terminal = apply(running, setSession(running, "ready", null, later))

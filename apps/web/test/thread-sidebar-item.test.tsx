@@ -69,6 +69,7 @@ const pullRequest = {
   baseRef: "main",
   headRef: "feat/worktree-checkout",
   state: "open" as const,
+  mergeability: "unknown" as const,
 }
 
 const renderItem = (
