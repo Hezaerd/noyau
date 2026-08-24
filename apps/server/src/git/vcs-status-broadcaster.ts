@@ -15,7 +15,7 @@ import {
 
 import { GitRuntime } from "./git-runtime.ts"
 
-export const DEFAULT_VCS_STATUS_REFRESH_INTERVAL = Duration.seconds(30)
+export const DEFAULT_VCS_STATUS_REFRESH_INTERVAL = Duration.seconds(60)
 
 interface VcsStatusChange {
   readonly cwd: string
@@ -85,6 +85,14 @@ export const make = Effect.gen(function* () {
     return yield* publishIfChanged(cwd, status)
   })
 
+  const pollOnce = Effect.fn("VcsStatusBroadcaster.pollOnce")(function* (
+    cwd: string,
+    includePr: boolean,
+  ) {
+    const status = yield* git.status(cwd, { includePr })
+    return yield* publishIfChanged(cwd, status)
+  })
+
   const retainPoller = Effect.fn("VcsStatusBroadcaster.retainPoller")(function* (
     cwd: string,
     interval: Duration.Duration,
@@ -96,18 +104,23 @@ export const make = Effect.gen(function* () {
         next.set(cwd, { ...existing, subscriberCount: existing.subscriberCount + 1 })
         return Effect.succeed([undefined, next] as const)
       }
-      const loop = refresh(cwd).pipe(
-        Effect.catchTag("GitCommandError", (error) =>
-          Effect.logWarning("VCS status refresh failed").pipe(
-            Effect.annotateLogs({
-              operation: error.operation,
-              cwdLength: cwd.length,
-            }),
+      const pollerState = { pollCount: 0 }
+      const loop = Effect.gen(function* () {
+        pollerState.pollCount += 1
+        // PR metadata (gh) is expensive — only every 3rd tick; git status stays frequent enough.
+        const includePr = pollerState.pollCount % 3 === 1
+        yield* pollOnce(cwd, includePr).pipe(
+          Effect.catchTag("GitCommandError", (error) =>
+            Effect.logWarning("VCS status refresh failed").pipe(
+              Effect.annotateLogs({
+                operation: error.operation,
+                cwdLength: cwd.length,
+              }),
+            ),
           ),
-        ),
-        Effect.andThen(Effect.sleep(interval)),
-        Effect.forever,
-      )
+        )
+        yield* Effect.sleep(interval)
+      }).pipe(Effect.forever)
       return loop.pipe(
         Effect.forkIn(broadcasterScope),
         Effect.map((fiber) => {

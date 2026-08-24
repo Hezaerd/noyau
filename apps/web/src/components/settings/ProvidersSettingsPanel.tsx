@@ -11,7 +11,7 @@ import {
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useControlPlane } from "@/hooks/use-control-plane"
+import { useControlPlaneSelector } from "@/hooks/use-control-plane"
 import { resolveCursorReadiness } from "@/lib/cursor-readiness"
 import {
   presentCursorConnection,
@@ -136,7 +136,7 @@ function CursorProviderRow({
 }
 
 export function ProvidersSettingsPanel(): ReactElement {
-  const { cursor } = useControlPlane()
+  const cursor = useControlPlaneSelector((state) => state.cursor)
   const cursorConnection = presentCursorConnection(cursor)
   const cursorReadiness = resolveCursorReadiness(cursor)
   const cursorVersion = presentCursorVersion(cursor?.version)

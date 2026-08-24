@@ -1,6 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron"
 
-import { GET_CURSOR_POINT_CHANNEL, type CursorClientPoint } from "./cursor-point"
 import {
   CHECK_DESKTOP_UPDATE_CHANNEL,
   GET_APP_VERSION_CHANNEL,
@@ -25,7 +24,6 @@ export interface NoyauDesktopBridge {
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
   readonly pickFolder: (options?: FolderPickerOptions) => Promise<string | undefined>
   readonly openPath: (path: string) => Promise<void>
-  readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
   readonly checkDesktopUpdate: (
     channel?: DesktopUpdatePackagedChannel,
   ) => Promise<DesktopUpdateCheckResult>
@@ -45,8 +43,6 @@ const desktopBridge: NoyauDesktopBridge = Object.freeze({
   pickFolder: (options?: FolderPickerOptions): Promise<string | undefined> =>
     ipcRenderer.invoke(PICK_FOLDER_CHANNEL, options),
   openPath: (path: string): Promise<void> => ipcRenderer.invoke(OPEN_PATH_CHANNEL, path),
-  getCursorPoint: (): Promise<CursorClientPoint | undefined> =>
-    ipcRenderer.invoke(GET_CURSOR_POINT_CHANNEL),
   checkDesktopUpdate: (channel?: DesktopUpdatePackagedChannel): Promise<DesktopUpdateCheckResult> =>
     ipcRenderer.invoke(CHECK_DESKTOP_UPDATE_CHANNEL, channel === undefined ? {} : { channel }),
   openDesktopInstaller: (

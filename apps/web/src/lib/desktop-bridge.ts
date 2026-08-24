@@ -10,13 +10,6 @@ export const APPEARANCE_PREFERENCES = ["system", "light", "dark"] as const
 
 export type AppearancePreference = (typeof APPEARANCE_PREFERENCES)[number]
 
-export interface CursorClientPoint {
-  readonly x: number
-  readonly y: number
-  readonly width: number
-  readonly height: number
-}
-
 export type DesktopReleaseChannel = ReleaseChannel
 
 export type DesktopUpdatePackagedChannel = "latest" | "nightly"
@@ -61,7 +54,6 @@ export interface NoyauDesktopBridge {
   readonly setTheme: (theme: AppearancePreference) => Promise<void>
   readonly pickFolder: (options?: { readonly initialPath?: string }) => Promise<string | undefined>
   readonly openPath: (path: string) => Promise<void>
-  readonly getCursorPoint: () => Promise<CursorClientPoint | undefined>
   readonly checkDesktopUpdate?: (
     channel?: DesktopUpdatePackagedChannel,
   ) => Promise<DesktopUpdateCheckResult>

@@ -1,5 +1,5 @@
 import { CircleAlertIcon, CircleCheckIcon, CircleDashedIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef } from "react"
 
 import {
   formatElapsedLabel,
@@ -16,18 +16,25 @@ const statusClassName = {
 } as const satisfies Record<ThreadActivityKind, string>
 
 function ThreadWorkingDuration({ startedAtMs }: { readonly startedAtMs: number }) {
-  const [, setTick] = useState(0)
+  const textRef = useRef<HTMLSpanElement>(null)
+  const initial = formatElapsedLabel(Date.now() - startedAtMs)
+
   useEffect(() => {
-    const id = window.setInterval(() => {
-      setTick((tick) => tick + 1)
-    }, 1_000)
+    const updateText = () => {
+      if (textRef.current !== null) {
+        textRef.current.textContent = formatElapsedLabel(Date.now() - startedAtMs)
+      }
+    }
+    updateText()
+    const id = window.setInterval(updateText, 1_000)
     return () => {
       window.clearInterval(id)
     }
   }, [startedAtMs])
+
   return (
-    <span aria-hidden className="font-mono tabular-nums">
-      {formatElapsedLabel(Date.now() - startedAtMs)}
+    <span ref={textRef} aria-hidden className="font-mono tabular-nums">
+      {initial}
     </span>
   )
 }

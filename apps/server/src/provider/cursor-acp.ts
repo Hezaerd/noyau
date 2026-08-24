@@ -11,7 +11,18 @@ import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
-import { Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Schema, Stream } from "effect"
+import {
+  Deferred,
+  Duration,
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Schema,
+  Stream,
+} from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import {
@@ -42,6 +53,8 @@ const CURSOR_AUTH_METHOD = "cursor_login"
 const CURSOR_LIST_AVAILABLE_MODELS = "cursor/list_available_models"
 const IMPLEMENT_MODE_ALIASES = ["code", "agent", "default", "chat", "implement"]
 const APPROVAL_MODE_ALIASES = ["ask"]
+/** Coalesce ACP assistant text chunks before durable append (cuts SQLite/WS/React thrash). */
+const ASSISTANT_CHUNK_COALESCE = Duration.millis(40)
 const decodeCursorModels = Schema.decodeUnknownEffect(CursorListAvailableModelsResponse)
 
 export interface CursorAdapterOptions {
@@ -63,6 +76,8 @@ interface ActiveTurn {
   readonly pendingApprovals: Map<string, PendingApproval>
   readonly pendingUserInputs: Map<string, Deferred.Deferred<ProviderUserInputAnswers>>
   readonly toolCalls: Map<string, ToolCallPresentationInput>
+  pendingAssistantText: string
+  assistantFlushFiber?: Fiber.Fiber<void>
   acp?: AcpClient.AcpClient["Service"]
   handle?: ChildProcessSpawner.ChildProcessHandle
   sessionId?: string
@@ -73,6 +88,62 @@ interface ActiveTurn {
   terminalEmitted: boolean
   fiber?: Fiber.Fiber<void>
 }
+
+const flushAssistantText = Effect.fn("CursorAdapter.flushAssistantText")(function* (
+  control: ActiveTurn,
+) {
+  const scheduled = control.assistantFlushFiber
+  delete control.assistantFlushFiber
+  if (scheduled !== undefined) {
+    yield* Fiber.interrupt(scheduled).pipe(Effect.ignore)
+  }
+  const text = control.pendingAssistantText
+  if (text.length === 0) {
+    return
+  }
+  control.pendingAssistantText = ""
+  yield* control.emit({
+    _tag: "transcript",
+    item: {
+      _tag: "transcript.assistant",
+      threadId: control.input.threadId,
+      turnId: control.input.turnId,
+      text,
+    },
+  })
+})
+
+const enqueueAssistantText = Effect.fn("CursorAdapter.enqueueAssistantText")(function* (
+  control: ActiveTurn,
+  text: string,
+) {
+  control.pendingAssistantText += text
+  if (control.assistantFlushFiber !== undefined) {
+    // Burst window already open — keep accumulating until it closes.
+    return
+  }
+  // First fragment of a burst: emit immediately so UI/tests see progress without
+  // waiting on the coalesce timer (TestClock-sensitive).
+  yield* flushAssistantText(control)
+  control.assistantFlushFiber = yield* Effect.forkChild(
+    Effect.sleep(ASSISTANT_CHUNK_COALESCE).pipe(
+      Effect.andThen(
+        Effect.gen(function* () {
+          delete control.assistantFlushFiber
+          yield* flushAssistantText(control)
+        }),
+      ),
+    ),
+  )
+})
+
+const emitSignal = Effect.fn("CursorAdapter.emitSignal")(function* (
+  control: ActiveTurn,
+  signal: ProviderSignal,
+) {
+  yield* flushAssistantText(control)
+  yield* control.emit(signal)
+})
 
 const executableExists = (fileSystem: FileSystem.FileSystem, candidate: string) =>
   fileSystem.access(candidate, { ok: true }).pipe(
@@ -673,7 +744,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     requestId: string,
     status: "pending" | "resolved",
   ) {
-    yield* control.emit({
+    yield* emitSignal(control, {
       _tag: "transcript",
       item: {
         _tag: "transcript.permission",
@@ -696,7 +767,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     }
     const requestId = request.toolCall.toolCallId
     const presentation = rememberToolCall(control, requestId, request.toolCall)
-    yield* control.emit({
+    yield* emitSignal(control, {
       _tag: "transcript",
       item: toTranscriptTool(control, requestId, "in_progress", presentation),
     })
@@ -756,13 +827,13 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
             prompt,
             status: "pending" as const,
           }
-    yield* control.emit({
+    yield* emitSignal(control, {
       _tag: "transcript",
       item: pendingItem,
     })
     const answers = yield* Deferred.await(deferred)
     control.pendingUserInputs.delete(requestId)
-    yield* control.emit({
+    yield* emitSignal(control, {
       _tag: "transcript",
       item: { ...pendingItem, status: "resolved" },
     })
@@ -786,22 +857,14 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     switch (update.sessionUpdate) {
       case "agent_message_chunk": {
         if (update.content.type === "text" && update.content.text.length > 0) {
-          yield* control.emit({
-            _tag: "transcript",
-            item: {
-              _tag: "transcript.assistant",
-              threadId: control.input.threadId,
-              turnId: control.input.turnId,
-              text: update.content.text,
-            },
-          })
+          yield* enqueueAssistantText(control, update.content.text)
         }
         return
       }
       case "tool_call":
       case "tool_call_update": {
         const presentation = rememberToolCall(control, update.toolCallId, update)
-        yield* control.emit({
+        yield* emitSignal(control, {
           _tag: "transcript",
           item: toTranscriptTool(
             control,
@@ -817,7 +880,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           .map((entry) => `- [${entry.status === "completed" ? "x" : " "}] ${entry.content}`)
           .join("\n")
         if (markdown.length > 0) {
-          yield* control.emit({
+          yield* emitSignal(control, {
             _tag: "transcript",
             item: {
               _tag: "transcript.plan",
@@ -920,7 +983,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           schemaVersion: 1 as const,
           sessionId: ProviderSessionId.make(sessionId),
         }
-        yield* control.emit(sessionSignal(control, "running", resumeCursor))
+        yield* emitSignal(control, sessionSignal(control, "running", resumeCursor))
 
         let configOptions = setup.configOptions ?? []
         const selection = control.input.modelSelection
@@ -1041,14 +1104,14 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
 
         if (control.cancelRequested) {
           control.terminalEmitted = true
-          yield* control.emit({
+          yield* emitSignal(control, {
             _tag: "turn-ended",
             threadId: control.input.threadId,
             turnId: control.input.turnId,
             state: "interrupted",
           })
           if (control.stopRequested) {
-            yield* control.emit(sessionSignal(control, "stopped", resumeCursor))
+            yield* emitSignal(control, sessionSignal(control, "stopped", resumeCursor))
           }
           return
         }
@@ -1078,14 +1141,14 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           })
           .pipe(Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)))
         control.terminalEmitted = true
-        yield* control.emit({
+        yield* emitSignal(control, {
           _tag: "turn-ended",
           threadId: control.input.threadId,
           turnId: control.input.turnId,
           state: response.stopReason === "end_turn" ? "completed" : "interrupted",
         })
         if (control.stopRequested) {
-          yield* control.emit(sessionSignal(control, "stopped", resumeCursor))
+          yield* emitSignal(control, sessionSignal(control, "stopped", resumeCursor))
         }
       }).pipe(
         Effect.catch((error: AcpError.AcpError) =>
@@ -1094,7 +1157,8 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
             : Effect.gen(function* () {
                 control.terminalEmitted = true
                 const detail = errorDetail(error)
-                yield* control.emit(
+                yield* emitSignal(
+                  control,
                   sessionSignal(
                     control,
                     "error",
@@ -1113,11 +1177,16 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       ),
     ).pipe(
       Effect.ensuring(
-        Effect.sync(() => {
-          if (active.get(control.input.threadId) === control) {
-            active.delete(control.input.threadId)
-          }
-        }),
+        flushAssistantText(control).pipe(
+          Effect.andThen(
+            Effect.sync(() => {
+              if (active.get(control.input.threadId) === control) {
+                active.delete(control.input.threadId)
+              }
+            }),
+          ),
+          Effect.ignore,
+        ),
       ),
     )
 
@@ -1133,13 +1202,14 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       pendingApprovals: new Map(),
       pendingUserInputs: new Map(),
       toolCalls: new Map(),
+      pendingAssistantText: "",
       promptStarted: false,
       cancelRequested: false,
       stopRequested: false,
       terminalEmitted: false,
     }
     active.set(input.threadId, control)
-    yield* emit(sessionSignal(control, "starting", input.resumeCursor))
+    yield* emitSignal(control, sessionSignal(control, "starting", input.resumeCursor))
     const fiber = yield* Effect.forkIn(runTurn(control), providerScope, { startImmediately: true })
     control.fiber = fiber
     turnFibers.set(input.threadId, fiber)
