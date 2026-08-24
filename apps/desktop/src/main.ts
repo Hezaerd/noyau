@@ -25,7 +25,6 @@ import {
 import {
   CHECK_DESKTOP_UPDATE_CHANNEL,
   decodeDesktopUpdateRequest,
-  GET_APP_VERSION_CHANNEL,
   OPEN_DESKTOP_INSTALLER_CHANNEL,
   type DesktopUpdatePackagedChannel,
 } from "./desktop-update-contract"
@@ -40,6 +39,7 @@ import { PICK_FOLDER_CHANNEL } from "./folder-picker-contract"
 import { decodeOpenPathInput, openFilesystemPathOnHost } from "./open-path"
 import { OPEN_PATH_CHANNEL } from "./open-path-contract"
 import { isRendererPermissionAllowed } from "./permissions"
+import { encodePreloadBootstrapArgs } from "./preload-bootstrap"
 import {
   decodePackagedReleaseChannelFile,
   desktopBrandName,
@@ -49,7 +49,6 @@ import {
   resolveDesktopReleaseChannel,
   type DesktopReleaseChannel,
 } from "./release-channel"
-import { GET_RELEASE_CHANNEL_CHANNEL } from "./release-channel-bridge"
 import {
   DESKTOP_HOST,
   DESKTOP_SCHEME,
@@ -231,9 +230,6 @@ const desktopUpdateCheckInput = (requested?: DesktopUpdatePackagedChannel) => ({
 })
 
 const registerDesktopUpdateBridge = (): void => {
-  ipcMain.on(GET_APP_VERSION_CHANNEL, (event) => {
-    event.returnValue = app.getVersion()
-  })
   ipcMain.handle(CHECK_DESKTOP_UPDATE_CHANNEL, (_event, input) =>
     desktopRuntime.runPromise(
       decodeDesktopUpdateRequest(input ?? {}).pipe(
@@ -390,6 +386,12 @@ const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: Ser
       nodeIntegration: false,
       sandbox: true,
       backgroundThrottling: true,
+      additionalArguments: [
+        ...encodePreloadBootstrapArgs({
+          releaseChannel: flags.releaseChannel,
+          appVersion: app.getVersion(),
+        }),
+      ],
     },
   })
 
@@ -489,9 +491,6 @@ const launch = Effect.fn("launch")(function* () {
   serverSupervisor = new ServerSupervisor(supervisorOptions)
   yield* serverSupervisor.start()
   registerRendererProtocol()
-  ipcMain.on(GET_RELEASE_CHANNEL_CHANNEL, (event) => {
-    event.returnValue = flags.releaseChannel
-  })
   registerThemeBridge()
   registerFolderPickerBridge()
   registerOpenPathBridge()

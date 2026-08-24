@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer } from "electron"
 
 import {
   CHECK_DESKTOP_UPDATE_CHANNEL,
-  GET_APP_VERSION_CHANNEL,
   OPEN_DESKTOP_INSTALLER_CHANNEL,
   type DesktopUpdateCheckResult,
   type DesktopUpdateOpenResult,
@@ -10,11 +9,8 @@ import {
 } from "./desktop-update-contract"
 import { PICK_FOLDER_CHANNEL, type FolderPickerOptions } from "./folder-picker-contract"
 import { OPEN_PATH_CHANNEL } from "./open-path-contract"
-import {
-  decodeReleaseChannelFromMain,
-  GET_RELEASE_CHANNEL_CHANNEL,
-  type DesktopReleaseChannel,
-} from "./release-channel-bridge"
+import { readPreloadBootstrapFromArgv } from "./preload-bootstrap"
+import { type DesktopReleaseChannel } from "./release-channel-bridge"
 import { SET_THEME_CHANNEL, type AppearancePreference } from "./theme"
 
 export interface NoyauDesktopBridge {
@@ -32,12 +28,12 @@ export interface NoyauDesktopBridge {
   ) => Promise<DesktopUpdateOpenResult>
 }
 
+const bootstrap = readPreloadBootstrapFromArgv(process.argv)
+
 const desktopBridge: NoyauDesktopBridge = Object.freeze({
   platform: process.platform,
-  releaseChannel: decodeReleaseChannelFromMain(
-    String(ipcRenderer.sendSync(GET_RELEASE_CHANNEL_CHANNEL)),
-  ),
-  appVersion: String(ipcRenderer.sendSync(GET_APP_VERSION_CHANNEL)),
+  releaseChannel: bootstrap.releaseChannel,
+  appVersion: bootstrap.appVersion,
   setTheme: (theme: AppearancePreference): Promise<void> =>
     ipcRenderer.invoke(SET_THEME_CHANNEL, theme).then(() => undefined),
   pickFolder: (options?: FolderPickerOptions): Promise<string | undefined> =>
