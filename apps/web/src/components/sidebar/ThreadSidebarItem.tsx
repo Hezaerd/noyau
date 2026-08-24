@@ -129,7 +129,7 @@ export function ThreadSidebarItem({
 
   if (renaming) {
     return (
-      <div className="flex h-8 items-center gap-2 rounded-lg px-2 pl-8">
+      <div className="flex h-8 items-center gap-2 rounded-lg px-2">
         <MessageCircleIcon className="size-4 shrink-0 text-sidebar-foreground/58" />
         <Input
           ref={titleInputRef}
@@ -178,7 +178,7 @@ export function ThreadSidebarItem({
                 <ThreadSidebarPopover project={project} thread={thread} pullRequest={pullRequest} />
               ),
             }}
-            className="h-auto min-h-8 items-start py-1.5 pl-8 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+            className="h-auto min-h-8 items-start py-1.5 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
           >
             <MessageCircleIcon className="mt-0.5" />
             <ThreadSidebarItemContent
