@@ -1,4 +1,4 @@
-import { ProjectId } from "@noyau/protocol/ids"
+import { ProjectId, type ThreadId } from "@noyau/protocol/ids"
 import { useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 
@@ -65,6 +65,13 @@ export function BoardRoutePage() {
     })
   }
 
+  const openThread = (threadId: ThreadId) => {
+    void navigate({
+      to: "/projects/$projectId/thread/$threadId",
+      params: { projectId, threadId },
+    })
+  }
+
   return (
     <BoardPage
       projectId={projectId}
@@ -72,6 +79,7 @@ export function BoardRoutePage() {
       onSearchChange={updateSearch}
       onOpenTicket={openTicket}
       onCloseTicket={closeTicket}
+      onOpenThread={openThread}
     />
   )
 }
