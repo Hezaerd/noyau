@@ -62,6 +62,7 @@ import {
   setThreadModelSelection as setThreadModelSelectionAction,
   submitTurn as submitTurnAction,
 } from "@/lib/thread-page-actions"
+import { readThreadSnapshotCache, writeThreadSnapshotCache } from "@/lib/thread-snapshot-cache"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
 import { markThreadVisited } from "@/lib/thread-visits"
 import {
@@ -134,12 +135,18 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setStartFromOrigin(draftCheckout.startFromOrigin)
       return
     }
+    const cached = readThreadSnapshotCache(threadId)
     const pendingCheckout = peekCreatedCheckout(threadId)
     if (pendingCheckout !== undefined) {
       createdThreadIdRef.current = threadId
       setEnvMode(pendingCheckout.envMode)
       setBaseBranch(pendingCheckout.baseBranch)
       setStartFromOrigin(pendingCheckout.startFromOrigin)
+    } else if (cached !== undefined) {
+      const boundPath = threadWorktreePathOf(cached.thread)
+      setEnvMode(boundPath !== null ? "worktree" : "local")
+      setBaseBranch(threadBranchOf(cached.thread))
+      setStartFromOrigin(false)
     } else if (threadId !== createdThreadIdRef.current) {
       createdThreadIdRef.current = undefined
       clearCreatedCheckout()
@@ -147,32 +154,42 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setBaseBranch(null)
       setStartFromOrigin(false)
     }
-    setSnapshot(undefined)
-    setLoading(true)
+    // Paint immediately from a warm cache; cold paths still clear then load.
+    setSnapshot(cached)
+    setLoading(cached === undefined)
     setSubscriptionStatus(undefined)
-    setRuntimeMode("full-access")
-    setModelSelection(null)
-    const unsubscribe = subscribeThread(threadId, undefined, {
+    if (cached !== undefined) {
+      setRuntimeMode(cached.thread.runtimeMode)
+      setModelSelection(cached.thread.modelSelection)
+    } else {
+      setRuntimeMode("full-access")
+      setModelSelection(null)
+    }
+    const commitSnapshot = (next: ThreadSnapshot) => {
+      writeThreadSnapshotCache(next)
+      setSnapshot(next)
+      setRuntimeMode(next.thread.runtimeMode)
+      setModelSelection(next.thread.modelSelection)
+      const boundPath = threadWorktreePathOf(next.thread)
+      if (boundPath !== null) {
+        setEnvMode("worktree")
+        clearCreatedCheckout(next.thread.id)
+      } else if (createdThreadIdRef.current !== next.thread.id) {
+        setEnvMode("local")
+      }
+      const boundBranch = threadBranchOf(next.thread)
+      if (
+        boundBranch !== null &&
+        (boundPath !== null || createdThreadIdRef.current !== next.thread.id)
+      ) {
+        setBaseBranch(boundBranch)
+      }
+      setLoading(false)
+      setActionFailure(undefined)
+    }
+    const unsubscribe = subscribeThread(threadId, cached?.snapshotSequence, {
       onSnapshot: (next) => {
-        setSnapshot(next)
-        setRuntimeMode(next.thread.runtimeMode)
-        setModelSelection(next.thread.modelSelection)
-        const boundPath = threadWorktreePathOf(next.thread)
-        if (boundPath !== null) {
-          setEnvMode("worktree")
-          clearCreatedCheckout(next.thread.id)
-        } else if (createdThreadIdRef.current !== next.thread.id) {
-          setEnvMode("local")
-        }
-        const boundBranch = threadBranchOf(next.thread)
-        if (
-          boundBranch !== null &&
-          (boundPath !== null || createdThreadIdRef.current !== next.thread.id)
-        ) {
-          setBaseBranch(boundBranch)
-        }
-        setLoading(false)
-        setActionFailure(undefined)
+        commitSnapshot(next)
       },
       onEvent: (envelope) => {
         const event = envelope.event
@@ -180,7 +197,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           if (current === undefined) {
             return current
           }
-          return applyThreadEnvelope(current, envelope) ?? current
+          const next = applyThreadEnvelope(current, envelope) ?? current
+          writeThreadSnapshotCache(next)
+          return next
         })
         if (event._tag === "thread.turn.started") {
           setRuntimeMode((current) => event.runtimeMode ?? current)
