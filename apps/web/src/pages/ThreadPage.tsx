@@ -9,6 +9,7 @@ import { DateTime } from "effect"
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type DragEvent,
@@ -64,6 +65,7 @@ import {
 } from "@/lib/thread-page-actions"
 import { readThreadSnapshotCache, writeThreadSnapshotCache } from "@/lib/thread-snapshot-cache"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
+import { shouldCatchUpTranscriptOnOpen } from "@/lib/thread-transcript-catch-up"
 import { markThreadVisited } from "@/lib/thread-visits"
 import {
   buildFixMergeConflictsPrompt,
@@ -264,6 +266,21 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
     markThreadVisited(threadId, DateTime.toEpochMillis(latestTurnCompletedAt))
   }, [latestTurnCompletedAt, threadId])
+
+  // Catch up to the present when a Thread opens or finishes loading: scroll to
+  // end and re-enter following-bottom so a live stream resumes.
+  useLayoutEffect(() => {
+    if (
+      !shouldCatchUpTranscriptOnOpen({
+        threadId,
+        loading,
+        snapshotThreadId: snapshot?.thread.id,
+      })
+    ) {
+      return
+    }
+    setFollowLatestKey((current) => current + 1)
+  }, [threadId, loading, snapshot?.thread.id])
 
   useEffect(() => {
     if (isRunning) {
@@ -717,6 +734,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               onRespondUserInput={(requestId) => {
                 respondToUserInput(requestId)
               }}
+              scrollerKey={threadId}
               followLatestKey={followLatestKey}
             />
           </div>
