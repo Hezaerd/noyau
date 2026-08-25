@@ -1,5 +1,6 @@
 import type { SessionStatus } from "@noyau/protocol/entities/session"
 import type { LatestTurn } from "@noyau/protocol/entities/turn"
+import type { ThreadId } from "@noyau/protocol/ids"
 import { DateTime } from "effect"
 
 export type ThreadActivityKind = "working" | "completed" | "interrupted" | "error"
@@ -69,6 +70,55 @@ export const resolveWorkingStartedAtMs = (input: {
     return firstValidEpochMs(turn.startedAt, turn.requestedAt)
   }
   return input.sendStartedAtMs ?? null
+}
+
+export type OptimisticSend = {
+  readonly threadId: ThreadId | undefined
+  readonly startedAtMs: number
+}
+
+export const sendStartedAtMsForThread = (
+  send: OptimisticSend | null,
+  threadId: ThreadId | undefined,
+): number | null => {
+  if (send === null || send.threadId !== threadId) {
+    return null
+  }
+  return send.startedAtMs
+}
+
+export type OpenThreadWorking = {
+  readonly isAuthoritativeWorking: boolean
+  readonly isWorking: boolean
+  readonly workingStartedAtMs: number | null
+}
+
+export const resolveOpenThreadWorking = (input: {
+  readonly openThreadId: ThreadId | undefined
+  readonly snapshotThreadId: ThreadId | undefined
+  readonly sessionStatus: SessionStatus | null
+  readonly latestTurn: LatestTurn | null
+  readonly send: OptimisticSend | null
+}): OpenThreadWorking => {
+  const snapshotMatches = input.snapshotThreadId === input.openThreadId
+  const latestTurn = snapshotMatches ? input.latestTurn : null
+  const sessionStatus = snapshotMatches ? input.sessionStatus : null
+  const sendStartedAtMs = sendStartedAtMsForThread(input.send, input.openThreadId)
+  const isAuthoritativeWorking = isThreadWorking(sessionStatus, latestTurn)
+  const isWorking =
+    isAuthoritativeWorking ||
+    isOptimisticSendActive({
+      sendStartedAtMs,
+      latestTurnCompletedAtMs: epochMsOf(latestTurn?.completedAt),
+      isAuthoritativeWorking,
+    })
+  return {
+    isAuthoritativeWorking,
+    isWorking,
+    workingStartedAtMs: isWorking
+      ? resolveWorkingStartedAtMs({ latestTurn, sendStartedAtMs })
+      : null,
+  }
 }
 
 /** Same buckets as t3code `formatDuration` (session-logic / orchestrationTiming). */
