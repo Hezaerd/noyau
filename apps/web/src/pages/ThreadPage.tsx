@@ -168,6 +168,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   })
 
   useEffect(() => {
+    setTurnDiffTarget(null)
     if (threadId === undefined) {
       createdThreadIdRef.current = undefined
       clearCreatedCheckout()

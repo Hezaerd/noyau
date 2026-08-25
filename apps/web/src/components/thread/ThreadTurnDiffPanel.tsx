@@ -49,6 +49,7 @@ export function ThreadTurnDiffPanel({
     let cancelled = false
     setLoading(true)
     setError(null)
+    setPatch(null)
     void (async () => {
       const result = await getTurnDiff({
         threadId: target.threadId,
