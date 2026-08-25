@@ -10,6 +10,7 @@ import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { turnUserInputRegistryLayer } from "@noyau/server/provider/turn-user-input-registry"
 import { serverRoutesLayer } from "@noyau/server/server"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
+import { threadLiveLayer } from "@noyau/server/thread-live"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
 import { Context, Crypto, Effect, Layer, ManagedRuntime, Path } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
@@ -60,6 +61,7 @@ const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(testServerConfigLayer()),
   Layer.provideMerge(testMcpSessionRegistryLayer),
   Layer.provideMerge(unavailableProviderLayer),
+  Layer.provideMerge(threadLiveLayer),
   Layer.provideMerge(turnUserInputRegistryLayer),
   Layer.provideMerge(unavailableTextGenerationLayer),
   Layer.provideMerge(noopDiscordPresenceLayer),

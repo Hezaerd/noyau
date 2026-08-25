@@ -51,6 +51,7 @@ const makeThread = (extra: Partial<(typeof ThreadShell)["Encoded"]> = {}): Threa
     title: "Fix sidebar",
     provider: "cursor",
     runtimeMode: "full-access",
+    modelSelection: null,
     status: "active",
     latestTurn: null,
     sessionStatus: null,

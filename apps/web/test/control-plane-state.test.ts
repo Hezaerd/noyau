@@ -47,6 +47,7 @@ const makeThread = (id: ThreadId): ThreadShell =>
     projectId,
     title: "Nouveau Thread",
     provider: "cursor",
+    modelSelection: null,
     runtimeMode: "full-access",
     status: "active",
     latestTurn: null,

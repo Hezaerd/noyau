@@ -413,10 +413,133 @@
 :root {
   --radius: 0.625rem;
   --destructive-foreground: var(--color-red-700);
+  --glass-blur: 12px;
+  --glass-opacity: 80%;
+  --glass-saturation: 1.14;
 }
 
 .dark {
   --destructive-foreground: var(--color-red-400);
+  --glass-blur: 16px;
+  --glass-saturation: 1.08;
+}
+
+@utility surface-glass {
+  background: color-mix(in srgb, var(--background) var(--glass-opacity), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    background: var(--background) !important;
+  }
+}
+
+@utility dropdown-glass {
+  /* Wins over primitive `bg-popover` (`background-color`) on Menu/Popover. */
+  background: color-mix(
+    in srgb,
+    var(--popover) 18%,
+    color-mix(in srgb, var(--popover) var(--glass-opacity), transparent)
+  ) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    background: var(--popover) !important;
+  }
+}
+
+.composer-glass {
+  --composer-glass-surface: var(--card);
+  --composer-outline: rgb(0 0 0 / 8%);
+}
+
+.dark .composer-glass {
+  --composer-glass-surface: color-mix(in srgb, var(--background) 96%, var(--color-white));
+  --composer-outline: color-mix(in srgb, var(--color-white) 5%, transparent);
+  --composer-highlight: rgb(255 255 255 / 3%);
+}
+
+.composer-glass-shell {
+  isolation: isolate;
+}
+
+.composer-glass-shell::before {
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--composer-glass-surface) var(--glass-opacity), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  content: "";
+}
+
+.composer-glass-host {
+  box-shadow: 0 12px 28px -18px rgb(0 0 0 / 40%);
+}
+
+.dark .composer-glass-host {
+  box-shadow: none;
+}
+
+.composer-glass-host::after {
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border: 1px solid var(--composer-outline);
+  border-radius: inherit;
+  content: "";
+}
+
+.dark .composer-glass-host::after {
+  box-shadow: inset 0 1px var(--composer-highlight);
+}
+
+.composer-glass-shell-with-context .composer-glass-host::after {
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 100%,
+    calc(100% - var(--radius-xl)) 100%,
+    calc(100% - var(--radius-xl)) calc(100% - 2px),
+    var(--radius-xl) calc(100% - 2px),
+    var(--radius-xl) 100%,
+    0 100%
+  );
+}
+
+.composer-context-strip {
+  position: relative;
+  isolation: isolate;
+}
+
+.composer-context-strip::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: 1px solid var(--composer-outline);
+  border-top: none;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  background: color-mix(in srgb, var(--composer-glass-surface) var(--glass-opacity), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  box-shadow: 0 12px 28px -18px rgb(0 0 0 / 40%);
+  content: "";
+}
+
+.dark .composer-context-strip::before {
+  box-shadow: none;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .composer-glass-shell::before,
+  .composer-context-strip::before {
+    background: var(--composer-glass-surface);
+  }
 }
 
 /*

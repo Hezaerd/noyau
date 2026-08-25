@@ -25,6 +25,11 @@ Curseur numérique global depuis lequel un client reprend un stream. Un gap hors
 demande un snapshot frais.
 _À éviter_ : EventCursor, offset SQL, position WebSocket
 
+**ThreadAssistantLive**:
+Hint volatile de `subscribeThread` : texte assistant peint, hors journal. Snapshot
+remplaçable, pas un Event.
+_À éviter_ : transcript-appended, delta durable, Command
+
 **resumeCursor**:
 `{ schemaVersion: 1, sessionId }` opaque pour `session/load` après perte du runtime provider. Il
 ne commande jamais le rejeu d'un prompt ; la Session n'a pas d'id métier.

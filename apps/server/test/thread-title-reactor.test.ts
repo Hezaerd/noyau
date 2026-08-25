@@ -14,6 +14,7 @@ import {
   TextGeneration,
   type ThreadTitleGenerationInput,
 } from "@noyau/server/text-generation/text-generation"
+import { threadLiveLayer } from "@noyau/server/thread-live"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
 import { Crypto, Effect, Layer, Path, Schema, Stream } from "effect"
 
@@ -61,6 +62,7 @@ const layer = (generate: (input: ThreadTitleGenerationInput) => { readonly title
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
+    Layer.provideMerge(threadLiveLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(stubGitRuntimeLayer),
     Layer.provideMerge(stubTextGenerationLayer(generate)),

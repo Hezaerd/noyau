@@ -144,6 +144,13 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["thème", "theme", "clair", "sombre", "dark", "light", "système"],
   },
   {
+    id: "transcript-paint",
+    tab: "appearance",
+    title: "Peinture du transcript",
+    description: "Fluide peint la bulle live au rythme de l’écran. Immédiat applique chaque hint.",
+    keywords: ["streaming", "fluide", "smooth", "transcript", "bulle", "60fps", "immédiat"],
+  },
+  {
     id: "providers",
     tab: "providers",
     title: "Providers",

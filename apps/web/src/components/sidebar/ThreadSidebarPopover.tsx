@@ -1,77 +1,50 @@
-import { threadBranchOf } from "@noyau/protocol/entities/checkout"
-import type { VcsStatusPullRequest } from "@noyau/protocol/git"
+import type { CursorModel } from "@noyau/protocol/entities/environment"
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
-import {
-  BoxIcon,
-  CircleAlertIcon,
-  FolderIcon,
-  GitBranchIcon,
-  LayersIcon,
-  GitPullRequestIcon,
-  LoaderCircleIcon,
-  ShieldIcon,
-} from "lucide-react"
-import type { ReactNode } from "react"
+import { GitBranchIcon, LayersIcon } from "lucide-react"
 
-import {
-  threadSidebarPopoverRows,
-  type ThreadSidebarPopoverRowKind,
-} from "@/lib/thread-sidebar-popover"
-import { cn } from "@/lib/utils"
+import { CursorIcon, type ProviderIcon } from "@/components/provider-icons"
+import { useCursor } from "@/hooks/use-control-plane"
+import { threadModelLabel } from "@/lib/thread-sidebar-popover"
 
-const rowIcons = {
-  project: <LayersIcon className="size-3 shrink-0 text-sidebar-primary" />,
-  workspace: <FolderIcon className="size-3 shrink-0 text-muted-foreground" />,
-  branch: <GitBranchIcon className="size-3 shrink-0 text-muted-foreground" />,
-  provider: <BoxIcon className="size-3 shrink-0 text-muted-foreground" />,
-  runtimeMode: <ShieldIcon className="size-3 shrink-0 text-muted-foreground" />,
-  pullRequest: <GitPullRequestIcon className="size-3 shrink-0 text-muted-foreground" />,
-  status: <LoaderCircleIcon className="size-3 shrink-0 text-muted-foreground" />,
-  error: <CircleAlertIcon className="size-3 shrink-0 text-destructive" />,
-} satisfies Record<ThreadSidebarPopoverRowKind, ReactNode>
+const EMPTY_MODELS: ReadonlyArray<CursorModel> = []
+
+const providerIcons = {
+  cursor: CursorIcon,
+} as const satisfies Record<ThreadShell["provider"], ProviderIcon>
 
 export function ThreadSidebarPopover({
   thread,
   project,
-  pullRequest,
   branch,
 }: {
-  readonly thread: Pick<
-    ThreadShell,
-    "title" | "branch" | "provider" | "runtimeMode" | "sessionStatus" | "latestTurn" | "lastError"
-  >
-  readonly project: Pick<ProjectShell, "name"> & { readonly workspaceRoot: string }
-  readonly pullRequest: VcsStatusPullRequest | null
-  readonly branch?: string | null
+  readonly thread: Pick<ThreadShell, "title" | "provider" | "modelSelection">
+  readonly project: Pick<ProjectShell, "name">
+  readonly branch: string | null
 }) {
-  const rows = threadSidebarPopoverRows({
-    projectName: project.name,
-    workspaceRoot: project.workspaceRoot,
-    branch: branch !== undefined ? branch : threadBranchOf(thread),
-    provider: thread.provider,
-    runtimeMode: thread.runtimeMode,
-    sessionStatus: thread.sessionStatus,
-    latestTurn: thread.latestTurn,
-    lastError: thread.lastError,
-    pullRequest,
-  })
+  const cursor = useCursor()
+  const models = cursor?.models ?? EMPTY_MODELS
+  const ProviderIcon = providerIcons[thread.provider]
 
   return (
     <div className="flex min-w-56 max-w-80 flex-col gap-2.5 p-3">
-      <p className="text-xs font-medium leading-snug text-foreground">{thread.title}</p>
+      <p className="text-xs font-semibold leading-snug text-foreground">{thread.title}</p>
       <ul className="grid gap-1.5">
-        {rows.map((row) => (
-          <li
-            key={row.kind}
-            className={cn(
-              "flex min-w-0 items-center gap-2 text-xs text-foreground/75",
-              row.kind === "error" && "text-destructive",
-            )}
-          >
-            {rowIcons[row.kind]}
-            <span className="min-w-0 truncate">{row.label}</span>
+        <li className="flex min-w-0 items-center gap-2 text-xs text-foreground/75">
+          <LayersIcon className="size-3 shrink-0 text-sidebar-primary" />
+          <span className="min-w-0 truncate">{project.name}</span>
+        </li>
+        {branch === null || branch === "" ? null : (
+          <li className="flex min-w-0 items-center gap-2 text-xs text-foreground/75">
+            <GitBranchIcon className="size-3 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 truncate">{branch}</span>
           </li>
-        ))}
+        )}
+        <li className="flex min-w-0 items-center gap-2 text-xs text-foreground/75">
+          <ProviderIcon aria-hidden className="size-3 shrink-0" />
+          <span className="min-w-0 truncate">
+            {threadModelLabel(thread.modelSelection, models)}
+          </span>
+        </li>
       </ul>
     </div>
   )

@@ -1,8 +1,9 @@
 import { fileURLToPath, URL } from "node:url"
 
+import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
-import react from "@vitejs/plugin-react"
+import react, { reactCompilerPreset } from "@vitejs/plugin-react"
 import { defineConfig, lazyPlugins } from "vite-plus"
 
 export default defineConfig({
@@ -32,6 +33,12 @@ export default defineConfig({
     lazyPlugins(() => [
       tanstackRouter({ target: "react", autoCodeSplitting: true }),
       react(),
+      babel({
+        // plugin-react v6 ne parse TS/JSX que sur des globs relatifs au CWD.
+        // Les packages workspace (chemins hors apps/web) cassent sans ça.
+        parserOpts: { plugins: ["typescript", "jsx"] },
+        presets: [reactCompilerPreset()],
+      }),
       tailwindcss(),
     ]) ?? [],
   resolve: {

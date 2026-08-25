@@ -1,10 +1,14 @@
-import type { ReactElement } from "react"
+import { useId, type ReactElement } from "react"
 
-import { SettingsPage, SettingsSection } from "@/components/settings/settings-layout"
+import { SettingsPage, SettingsRow, SettingsSection } from "@/components/settings/settings-layout"
 import { NOYAU_THEME_PREVIEW_COLORS, ThemeWireframe } from "@/components/settings/theme-wireframe"
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAppearance } from "@/hooks/use-appearance"
+import { useTranscriptPaintMode } from "@/hooks/use-transcript-paint-preference"
 import type { AppearancePreference } from "@/lib/desktop-bridge"
+import { isTranscriptPaintMode, TRANSCRIPT_PAINT_ITEMS } from "@/lib/transcript-paint-preference"
 import { cn } from "@/lib/utils"
+import { setTranscriptPaintMode } from "@/state/preferences"
 
 const appearanceModes: ReadonlyArray<{
   readonly value: AppearancePreference
@@ -32,6 +36,8 @@ const renderWireframe = (mode: AppearancePreference) => (
 
 export function AppearanceSettingsPanel(): ReactElement {
   const { preference, setPreference } = useAppearance()
+  const transcriptPaint = useTranscriptPaintMode()
+  const transcriptPaintSelectId = useId()
 
   return (
     <SettingsPage>
@@ -79,6 +85,38 @@ export function AppearanceSettingsPanel(): ReactElement {
             })}
           </div>
         </div>
+        <SettingsRow
+          id="transcript-paint"
+          title="Peinture du transcript"
+          description="Fluide peint la bulle live au rythme de l’écran. Immédiat applique chaque hint tout de suite."
+          control={
+            <Select
+              items={TRANSCRIPT_PAINT_ITEMS}
+              value={transcriptPaint}
+              onValueChange={(next) => {
+                if (next !== null && isTranscriptPaintMode(next)) {
+                  setTranscriptPaintMode(next)
+                }
+              }}
+            >
+              <SelectTrigger
+                id={transcriptPaintSelectId}
+                size="sm"
+                className="w-full sm:w-52"
+                aria-label="Peinture du transcript"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup>
+                {TRANSCRIPT_PAINT_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
+          }
+        />
       </SettingsSection>
     </SettingsPage>
   )

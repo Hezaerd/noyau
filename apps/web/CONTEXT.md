@@ -265,6 +265,11 @@ Vue UI volatile poussée au serveur (Tableau ou Thread). Les Paramètres restent
 dernier Project ouvert.
 _À éviter_ : présence, route, Command
 
+**Peinture du transcript**:
+Préférence renderer `fluide | immédiat` pour la bulle live. Fluide commit une fois par frame ;
+immédiat applique chaque hint. Pas une Command.
+_À éviter_ : 60 fps, typewriter, mode streaming Streamdown
+
 **FilePreview**:
 Aperçu hover d'un fichier mentionné dans le transcript (`text` | `image` | `unsupported`).
 Chargé via `previewFile` au moment où la carte s'ouvre. Le clic ouvre le fichier sur l'hôte.

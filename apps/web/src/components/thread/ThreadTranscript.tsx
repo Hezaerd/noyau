@@ -72,6 +72,7 @@ export function ThreadTranscript({
   onOpenTurnDiff,
   scrollerKey,
   followLatestKey = 0,
+  composerDockHeight = 0,
 }: {
   readonly transcript: ReadonlyArray<TranscriptItem>
   readonly isRunning: boolean
@@ -95,6 +96,7 @@ export function ThreadTranscript({
   readonly onOpenTurnDiff?: ((turnId: Turn["id"], filePath?: string) => void) | undefined
   readonly scrollerKey?: string
   readonly followLatestKey?: number
+  readonly composerDockHeight?: number
 }) {
   const lastItem = transcript.at(-1)
   const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
@@ -108,6 +110,7 @@ export function ThreadTranscript({
     return map
   }, [turns])
   const lastAssistantByTurn = useMemo(() => lastAssistantIndexByTurnId(transcript), [transcript])
+  const rows = useMemo(() => groupTranscriptRows(transcript), [transcript])
 
   return (
     <MessageScrollerProvider key={scrollerKey} autoScroll>
@@ -117,6 +120,7 @@ export function ThreadTranscript({
           <MessageScrollerContent
             aria-busy={isRunning}
             className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6"
+            style={{ paddingBottom: composerDockHeight }}
           >
             {loading ? (
               <MessageScrollerItem messageId="thread-loading">
@@ -130,7 +134,7 @@ export function ThreadTranscript({
               <MessageScrollerItem messageId="thread-notices">{notices}</MessageScrollerItem>
             )}
 
-            {groupTranscriptRows(transcript).map((row) =>
+            {rows.map((row) =>
               row.kind === "tool-group" ? (
                 <MessageScrollerItem
                   key={transcriptGroupRowId(row.items)}
@@ -145,6 +149,7 @@ export function ThreadTranscript({
                 <MessageScrollerItem
                   key={transcriptRowId(row.item, row.index)}
                   messageId={transcriptRowId(row.item, row.index)}
+                  live={isRunning && row.item === lastAssistant}
                 >
                   <ThreadTranscriptItem
                     item={row.item}
@@ -196,7 +201,7 @@ export function ThreadTranscript({
         {minimapItems.length >= TURN_MINIMAP_MIN_ITEMS ? (
           <ThreadTurnMinimap items={minimapItems} />
         ) : null}
-        <MessageScrollerButton>
+        <MessageScrollerButton style={{ bottom: composerDockHeight + 8 }}>
           <ArrowDownIcon />
           <span className="sr-only">Aller au dernier message</span>
         </MessageScrollerButton>

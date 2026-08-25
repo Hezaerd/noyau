@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
 
+import { CursorIcon, type ProviderIcon } from "@/components/provider-icons"
 import { ThreadArchiveConfirmDialog } from "@/components/sidebar/ThreadArchiveConfirmDialog"
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarStatus } from "@/components/sidebar/ThreadSidebarStatus"
@@ -41,6 +42,10 @@ import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thr
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle } from "@/lib/thread-settled"
 import { toggleThreadPinned } from "@/state/thread-pins"
+
+const providerIcons = {
+  cursor: CursorIcon,
+} as const satisfies Record<ThreadShell["provider"], ProviderIcon>
 
 export const ThreadSidebarItem = memo(function ThreadSidebarItem({
   thread,
@@ -188,16 +193,10 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
               side: "right",
               align: "start",
               sideOffset: 8,
+              variant: "glass",
               className:
                 "max-w-80 text-left whitespace-normal [&_[data-slot=tooltip-viewport]]:p-0",
-              children: (
-                <ThreadSidebarPopover
-                  project={project}
-                  thread={thread}
-                  branch={branch}
-                  pullRequest={pullRequest}
-                />
-              ),
+              children: <ThreadSidebarPopover project={project} thread={thread} branch={branch} />,
             }}
             className={
               settled && !isActive
@@ -214,6 +213,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
               activity={activity}
               workingStartedAtMs={workingStartedAtMs}
               pullRequest={pullRequest}
+              provider={thread.provider}
             />
           </SidebarMenuButton>
         </ContextMenuTrigger>
@@ -270,6 +270,7 @@ function ThreadSidebarItemContent({
   activity,
   workingStartedAtMs,
   pullRequest,
+  provider,
 }: {
   readonly title: string
   readonly pinned: boolean
@@ -278,7 +279,9 @@ function ThreadSidebarItemContent({
   readonly activity: ThreadActivity | null
   readonly workingStartedAtMs: number | null
   readonly pullRequest: VcsStatusPullRequest | null
+  readonly provider: ThreadShell["provider"]
 }) {
+  const ProviderIcon = providerIcons[provider]
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="flex min-w-0 items-center gap-1.5">
@@ -306,7 +309,10 @@ function ThreadSidebarItemContent({
             <span className="min-w-0 flex-1 truncate whitespace-nowrap">{branch}</span>
           </>
         )}
-        {pullRequest === null ? null : <ThreadPullRequestBadge pr={pullRequest} compact />}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {pullRequest === null ? null : <ThreadPullRequestBadge pr={pullRequest} compact />}
+          <ProviderIcon aria-hidden className="size-3 shrink-0" />
+        </span>
       </span>
     </span>
   )

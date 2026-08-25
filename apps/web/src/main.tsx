@@ -15,6 +15,7 @@ import {
   initializeDiscordPresencePreference,
   initializeProjectFolderStartDirectory,
   initializeThreadEnvModePreference,
+  initializeTranscriptPaintPreference,
   initializeTurnCuePreference,
 } from "@/state/preferences"
 import { initializeThreadPins } from "@/state/thread-pins"
@@ -35,6 +36,7 @@ initializeThreadEnvModePreference()
 initializeAutoRemoveMergedWorktreePreference()
 initializeThreadSettlePreference()
 initializeTurnCuePreference()
+initializeTranscriptPaintPreference()
 initializeThreadPins()
 initializeThreadVisits()
 initializeNowMinuteClock()

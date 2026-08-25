@@ -23,7 +23,8 @@ Stream d'un Project : snapshot Board puis faits ticket / colonne, par événemen
 _À éviter_ : liste de tâches, flux WebSocket brut
 
 **subscribeThread**:
-Stream d'un Thread : snapshot Session / Turns / transcript puis deltas de Turn.
+Stream d'un Thread : snapshot Session / Turns / transcript, deltas de Turn, et hints
+`ThreadAssistantLive` hors journal. Le snapshot (ou le catch-up) précède tout hint live.
 _À éviter_ : Channel, SSE, GetTicketActivity
 
 **commande interne**:

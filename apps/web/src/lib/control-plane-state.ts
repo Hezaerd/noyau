@@ -82,6 +82,7 @@ export const makeOptimisticThreadShell = (input: {
     projectId: input.projectId,
     title: input.title,
     provider: "cursor",
+    modelSelection: null,
     runtimeMode: input.runtimeMode,
     status: "active",
     latestTurn: null,

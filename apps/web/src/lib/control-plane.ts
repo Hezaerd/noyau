@@ -47,6 +47,7 @@ import {
   type ThreadStreamItem,
 } from "@noyau/protocol/rpc"
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
+import type { ThreadAssistantLive } from "@noyau/protocol/thread/live"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
 import type { Cause } from "effect"
 import { Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Option, Stream } from "effect"
@@ -452,6 +453,7 @@ type StreamCallbacks<Snapshot, Event> = {
   /** Return `false` to refuse the event and keep the stream cursor unmoved. */
   readonly onEvent: (event: Event) => boolean | void
   readonly onStatus: (status: SubscriptionStatus) => void
+  readonly onLive?: (live: ThreadAssistantLive) => void
 }
 
 type SequencedSnapshot = { readonly snapshotSequence: Sequence }
@@ -671,7 +673,19 @@ export const subscribeProject = (
 const consumeThreadStream = (
   stream: Stream.Stream<ThreadStreamItem, ControlPlaneStreamError>,
   consumer: ReturnType<typeof makeSequencedFrameConsumer<ThreadSnapshot, EventEnvelope>>,
-) => stream.pipe(Stream.runForEach((item) => Effect.sync(() => consumer.consume(item))))
+  onLive?: (live: ThreadAssistantLive) => void,
+) =>
+  stream.pipe(
+    Stream.runForEach((item) =>
+      Effect.sync(() => {
+        if (item.kind === "live") {
+          onLive?.(item.live)
+          return
+        }
+        consumer.consume(item)
+      }),
+    ),
+  )
 
 export const subscribeVcsStatus = (
   scope: VcsScope,
@@ -715,6 +729,7 @@ export const subscribeThread = (
               : { threadId, afterSequence: resumeAfterSequence },
           ),
           consumer,
+          callbacks.onLive,
         )
       })
       return startSubscriptionAttempt(session, stream, onFailure)

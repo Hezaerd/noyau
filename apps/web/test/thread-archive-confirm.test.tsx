@@ -46,6 +46,7 @@ const thread = Schema.decodeSync(ThreadShell)({
   projectId,
   title: threadTitle,
   provider: "cursor",
+  modelSelection: null,
   runtimeMode: "full-access",
   status: "active",
   latestTurn: null,

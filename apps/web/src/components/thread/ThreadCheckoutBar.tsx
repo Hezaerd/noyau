@@ -38,6 +38,7 @@ import {
   resolveLocalCheckoutBranchMismatch,
   resolveWorktreeBaseBranch,
 } from "@/lib/checkout"
+import { composerOverlayGlassClassName } from "@/lib/composer-glass"
 import {
   buildCommand,
   dispatchCommand,
@@ -46,6 +47,7 @@ import {
   vcsSwitchRef,
 } from "@/lib/control-plane"
 import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
+import { cn } from "@/lib/utils"
 import { releaseWorktree } from "@/lib/worktree-cleanup"
 
 const checkoutTriggerClassName =
@@ -291,7 +293,7 @@ export function ThreadCheckoutBar({
     <div className="flex flex-col gap-1">
       <div
         data-slot="thread-checkout-bar"
-        className="mx-6 -mt-px flex items-center gap-1 overflow-x-clip rounded-b-xl border border-t-0 bg-background px-2 py-1 shadow-xs/5"
+        className="composer-context-strip mx-6 -mt-px flex items-center gap-1 overflow-x-clip rounded-b-xl px-2 py-1"
       >
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <Menu>
@@ -299,7 +301,7 @@ export function ThreadCheckoutBar({
               <EnvModeIcon data-icon="inline-start" />
               {resolveEnvModeTriggerLabel({ envMode, worktreePath, locked: envModeLocked })}
             </CheckoutMenuTrigger>
-            <MenuPopup align="start" side="top">
+            <MenuPopup align="start" side="top" className={composerOverlayGlassClassName}>
               <MenuGroup>
                 <MenuGroupLabel>Checkout</MenuGroupLabel>
                 <MenuItem
@@ -333,7 +335,7 @@ export function ThreadCheckoutBar({
             <span className="min-w-0 max-w-[240px] truncate">{branchLabel}</span>
             <ChevronDownIcon data-icon="inline-end" />
           </CheckoutMenuTrigger>
-          <MenuPopup align="end" side="top" className="w-80">
+          <MenuPopup align="end" side="top" className={cn("w-80", composerOverlayGlassClassName)}>
             <div className="px-2 pt-1.5 pb-1">
               <div className="relative border-b border-border/70 pb-1.5 transition-colors focus-within:border-ring">
                 <SearchIcon
@@ -425,7 +427,13 @@ export function ThreadCheckoutBar({
                     </label>
                   }
                 />
-                <TooltipPopup side="top" className="max-w-72 whitespace-normal leading-tight">
+                <TooltipPopup
+                  side="top"
+                  className={cn(
+                    "max-w-72 whitespace-normal leading-tight",
+                    composerOverlayGlassClassName,
+                  )}
+                >
                   Crée le worktree depuis la branche correspondante sur origin, pas depuis le
                   checkout local.
                 </TooltipPopup>

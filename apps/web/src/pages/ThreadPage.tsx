@@ -43,6 +43,7 @@ import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useThreadSnapshot } from "@/hooks/use-thread-snapshot"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
 import { invalidInputFailure } from "@/lib/app-failure"
+import { clearAssistantPaint, pushAssistantLive } from "@/lib/assistant-paint"
 import {
   clearCreatedCheckout,
   draftCheckoutOf,
@@ -135,6 +136,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [optimisticSend, setOptimisticSend] = useState<OptimisticSend | null>(null)
   const [followLatestKey, setFollowLatestKey] = useState(0)
   const [turnDiffTarget, setTurnDiffTarget] = useState<ThreadTurnDiffTarget | null>(null)
+  const composerDockRef = useRef<HTMLDivElement>(null)
+  const [composerDockHeight, setComposerDockHeight] = useState(208)
   const restoredFailedTurnRef = useRef<string>(undefined)
   const cursorReady = isCursorReady(cursor)
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
@@ -155,6 +158,24 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     },
     [navigate, projectId],
   )
+  useLayoutEffect(() => {
+    if (threadId === undefined) {
+      return
+    }
+    const dock = composerDockRef.current
+    if (dock === null) {
+      return
+    }
+    const sync = () => {
+      setComposerDockHeight(Math.ceil(dock.getBoundingClientRect().height))
+    }
+    sync()
+    const observer = new ResizeObserver(sync)
+    observer.observe(dock)
+    return () => {
+      observer.disconnect()
+    }
+  }, [threadId])
   const pageSnapshot =
     snapshot !== undefined && snapshot.thread.id === threadId ? snapshot : undefined
   const snapshotWorktreePath =
@@ -245,9 +266,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setLoading(false)
       setActionFailure(undefined)
     }
+    clearAssistantPaint()
     const unsubscribe = subscribeThread(threadId, cached?.snapshotSequence, {
       onSnapshot: (next) => {
         commitSnapshot(next)
+      },
+      onLive: (live) => {
+        if (live.threadId === threadId) {
+          pushAssistantLive(live)
+        }
       },
       onEvent: (envelope) => {
         const event = envelope.event
@@ -288,6 +315,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     })
     return () => {
       unsubscribe()
+      clearAssistantPaint(threadId)
       setImages((current) => {
         revokeComposerImages(current)
         return []
@@ -844,8 +872,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         </ThreadDraftHero>
       ) : (
         <>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <ThreadTranscript
+              composerDockHeight={composerDockHeight}
               transcript={pageSnapshot?.transcript ?? []}
               isRunning={isWorking}
               workingStartedAtMs={workingStartedAtMs}
@@ -907,8 +936,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
                 setTurnDiffTarget({ threadId, turnId: openedTurnId, filePath })
               }}
             />
+            <div
+              ref={composerDockRef}
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-20"
+            >
+              <div className="pointer-events-auto">{composer}</div>
+            </div>
           </div>
-          {composer}
           <ThreadTurnDiffPanel target={turnDiffTarget} onClose={() => setTurnDiffTarget(null)} />
         </>
       )}
