@@ -90,6 +90,7 @@ const renderItem = (
           pullRequest={pr}
           liveBranch={liveBranch}
           isActive={false}
+          settled={false}
           onSelect={vi.fn()}
         />
       </SidebarProvider>

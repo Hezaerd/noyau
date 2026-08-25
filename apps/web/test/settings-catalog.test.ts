@@ -69,6 +69,12 @@ describe("settings catalog", () => {
       "default-thread-env-mode",
       "auto-remove-merged-worktree",
     ])
+    expect(searchSettings("classer").map((hit) => hit.id)).toEqual([
+      "auto-settle-merged-threads",
+      "auto-settle-inactive-threads",
+      "auto-settle-after-days",
+      "thread.settle",
+    ])
     expect(searchSettings("installeur").map((hit) => hit.id)).toEqual(["desktop-update"])
     expect(searchSettings("canal").map((hit) => hit.id)).toEqual([
       "desktop-update-channel",

@@ -96,6 +96,7 @@ describe("thread archive confirmation", () => {
               pullRequest={null}
               liveBranch={null}
               isActive={false}
+              settled={false}
               onSelect={vi.fn()}
             />
           </SidebarProvider>,

@@ -1,6 +1,8 @@
+import type { ThreadShell } from "@noyau/protocol/shell"
 import { DateTime } from "effect"
 
 import type { ThreadPins } from "@/lib/thread-pins"
+import { effectiveSettled, type ChangeRequestStateLike } from "@/lib/thread-settled"
 
 const compareByCreatedAtDesc = <
   T extends { readonly id: string; readonly createdAt: DateTime.Utc },
@@ -33,3 +35,44 @@ export const sortThreadsForSidebar = <
     }
     return compareByCreatedAtDesc(left, right)
   })
+
+export interface SidebarThreadPartition<T extends ThreadShell> {
+  readonly active: ReadonlyArray<T>
+  readonly settled: ReadonlyArray<T>
+}
+
+export const partitionThreadsForSidebar = <T extends ThreadShell>(
+  threads: ReadonlyArray<T>,
+  options: {
+    readonly pins: ThreadPins
+    readonly nowMs: number
+    readonly autoSettleAfterDays: number | null
+    readonly autoSettleOnMerge: boolean
+    readonly changeRequestStateOf: (thread: T) => ChangeRequestStateLike | null
+  },
+): SidebarThreadPartition<T> => {
+  const active: T[] = []
+  const settled: T[] = []
+  for (const thread of threads) {
+    if (options.pins.has(thread.id)) {
+      active.push(thread)
+      continue
+    }
+    if (
+      effectiveSettled(thread, {
+        nowMs: options.nowMs,
+        autoSettleAfterDays: options.autoSettleAfterDays,
+        autoSettleOnMerge: options.autoSettleOnMerge,
+        changeRequestState: options.changeRequestStateOf(thread),
+      })
+    ) {
+      settled.push(thread)
+      continue
+    }
+    active.push(thread)
+  }
+  return {
+    active: sortThreadsForSidebar(active, options.pins),
+    settled: sortThreadsForSidebar(settled),
+  }
+}

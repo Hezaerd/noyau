@@ -801,6 +801,140 @@ describe("Transcript projection", () => {
   })
 })
 
+describe("Thread settle", () => {
+  it("classe un Thread inactif et refuse une Session en cours", () => {
+    const idle = withThread()
+    const settled = success(
+      decide(
+        idle,
+        command({
+          _tag: "thread.settle",
+          ...meta,
+          payload: { threadId: ids.thread },
+        }),
+      ),
+    )
+    expect(settled[0]?._tag).toBe("thread.settled")
+    const next = apply(idle, settled)
+    expect(next.threads[0]?.settledOverride).toBe("settled")
+
+    const running = withRunningTurn()
+    expect(
+      failure(
+        decide(
+          running,
+          command({
+            _tag: "thread.settle",
+            ...meta,
+            payload: { threadId: ids.thread },
+          }),
+        ),
+      )._tag,
+    ).toBe("ThreadNotSettleable")
+  })
+
+  it("re-émet le même settledAt et pin active via unsettle", () => {
+    const idle = withThread()
+    const first = apply(
+      idle,
+      success(
+        decide(
+          idle,
+          command({
+            _tag: "thread.settle",
+            ...meta,
+            payload: { threadId: ids.thread },
+          }),
+        ),
+      ),
+    )
+    const settledAt = first.threads[0]?.settledAt
+    const reemit = success(
+      decide(
+        first,
+        command({
+          _tag: "thread.settle",
+          ...meta,
+          commandId: ids.command2,
+          issuedAt: later,
+          payload: { threadId: ids.thread },
+        }),
+      ),
+    )
+    expect(reemit[0]).toMatchObject({ _tag: "thread.settled", settledAt })
+
+    const unsettled = apply(
+      first,
+      success(
+        decide(
+          first,
+          command({
+            _tag: "thread.unsettle",
+            ...meta,
+            payload: { threadId: ids.thread, reason: "user" },
+          }),
+        ),
+      ),
+    )
+    expect(unsettled.threads[0]?.settledOverride).toBe("active")
+    expect(unsettled.threads[0]?.settledAt).toBeNull()
+  })
+
+  it("annule l'override à l'activité d'un Turn ou d'une Session", () => {
+    const idle = withThread()
+    const settled = apply(
+      idle,
+      success(
+        decide(
+          idle,
+          command({
+            _tag: "thread.settle",
+            ...meta,
+            payload: { threadId: ids.thread },
+          }),
+        ),
+      ),
+    )
+    const started = success(
+      decide(
+        settled,
+        command({
+          _tag: "thread.turn.start",
+          ...meta,
+          commandId: ids.turn1,
+          payload: { threadId: ids.thread, text: "Reprise" },
+        }),
+      ),
+    )
+    expect(started.map((event) => event._tag)).toEqual(["thread.unsettled", "thread.turn.started"])
+    expect(apply(settled, started).threads[0]?.settledOverride).toBeNull()
+
+    const sessionEvents = success(
+      decide(
+        settled,
+        command({
+          _tag: "thread.session.set",
+          ...meta,
+          payload: {
+            threadId: ids.thread,
+            session: {
+              threadId: ids.thread,
+              status: "starting",
+              lastError: null,
+              activeTurnId: null,
+              runtimeMode: "full-access",
+              resumeCursor,
+              updatedAt: later,
+            },
+          },
+        }),
+      ),
+    )
+    expect(sessionEvents[0]?._tag).toBe("thread.unsettled")
+    expect(apply(settled, sessionEvents).threads[0]?.settledOverride).toBeNull()
+  })
+})
+
 describe("boot recovery", () => {
   it.each(["starting", "running"] as const)(
     "convertit une Session %s en error, settle le Turn et conserve resumeCursor",

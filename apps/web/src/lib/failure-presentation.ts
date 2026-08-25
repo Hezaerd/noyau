@@ -11,6 +11,8 @@ export type FailureOperation =
   | "project.subscribe"
   | "shell.subscribe"
   | "thread.archive"
+  | "thread.settle"
+  | "thread.unsettle"
   | "thread.model-selection.set"
   | "thread.rename"
   | "thread.subscribe"
@@ -121,6 +123,8 @@ const rejectionMessage = (rejection: Rejection): string => {
       return "Restaure ce Thread avant de poursuivre."
     case "ThreadNotArchived":
       return "Ce Thread n’est pas archivé."
+    case "ThreadNotSettleable":
+      return "Ce Thread a encore une activité en cours et ne peut pas être classé."
     case "TurnAlreadyActive":
       return "Un Turn est déjà en cours dans ce Thread."
     case "TurnNotFound":
