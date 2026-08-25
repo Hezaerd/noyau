@@ -16,6 +16,8 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
+import { composerOverlayGlassClassName } from "@/lib/composer-glass"
+import { cn } from "@/lib/utils"
 
 const automaticModelId = "__noyau_automatic__"
 
@@ -126,7 +128,11 @@ export function ThreadModelPicker({
         </span>
         <ChevronsUpDownIcon data-icon="inline-end" />
       </PopoverTrigger>
-      <PopoverPopup side="top" align="start" className="w-80 [&>[data-slot=popover-viewport]]:p-0">
+      <PopoverPopup
+        side="top"
+        align="start"
+        className={cn("w-80 [&>[data-slot=popover-viewport]]:p-0", composerOverlayGlassClassName)}
+      >
         <PopoverTitle className="sr-only">Choisir un modèle</PopoverTitle>
         <Command items={groups} value={query} onValueChange={setQuery}>
           <CommandInput placeholder="Rechercher un modèle…" aria-label="Rechercher un modèle" />

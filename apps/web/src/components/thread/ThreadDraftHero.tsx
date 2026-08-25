@@ -10,6 +10,7 @@ import {
   MenuRadioItem,
   MenuTrigger,
 } from "@/components/ui/menu"
+import { composerOverlayGlassClassName } from "@/lib/composer-glass"
 import { cn } from "@/lib/utils"
 
 // Inline + underline, pas truncate : overflow:hidden sur inline-block
@@ -88,7 +89,10 @@ function ThreadDraftHeroProjectName({
       >
         {projectName}
       </MenuTrigger>
-      <MenuPopup align="center" className="max-h-80 min-w-40 w-max max-w-64">
+      <MenuPopup
+        align="center"
+        className={cn("max-h-80 min-w-40 w-max max-w-64", composerOverlayGlassClassName)}
+      >
         <MenuGroup>
           <MenuRadioGroup
             value={selectedProjectId}

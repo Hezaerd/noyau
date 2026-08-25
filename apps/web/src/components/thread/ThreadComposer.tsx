@@ -54,6 +54,7 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import { Separator } from "@/components/ui/separator"
+import { composerOverlayGlassClassName } from "@/lib/composer-glass"
 import type { ComposerImage } from "@/lib/composer-images"
 import {
   buildComposerMentionEntries,
@@ -268,13 +269,10 @@ export function ThreadComposer({
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className={cn(placement === "hero" ? "w-full" : "sticky bottom-0 shrink-0 px-4 pb-4 sm:px-6")}
-    >
+    <form onSubmit={onSubmit} className={cn(placement === "hero" ? "w-full" : "px-4 pb-4 sm:px-6")}>
       <div
         className={cn(
-          "relative flex flex-col",
+          "composer-glass relative flex flex-col",
           placement === "hero" ? "w-full" : "mx-auto max-w-3xl",
           context === undefined ? "gap-2" : "gap-0",
         )}
@@ -290,310 +288,325 @@ export function ThreadComposer({
           />
         ) : null}
         {toolbar === undefined ? null : (
-          <div
-            data-slot="composer-toolbar"
-            className="pointer-events-none absolute inset-x-0 bottom-full z-10 mb-2 flex justify-start"
-          >
-            <div className="pointer-events-auto flex items-center gap-2">{toolbar}</div>
+          <div data-slot="composer-toolbar" className="z-10 mb-2 flex justify-start">
+            <div className="flex items-center gap-2">{toolbar}</div>
           </div>
         )}
-        <InputGroup className="rounded-xl bg-background shadow-xs/5 dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
-          {images.length === 0 ? null : (
-            <div className="flex w-full flex-wrap justify-start gap-2 px-3 pt-3">
-              {images.map((image) => (
-                <ImageThumbnail
-                  key={image.localId}
-                  alt={image.upload.name}
-                  src={image.previewUrl}
-                  className="size-16"
-                  onExpand={() => {
-                    const preview = buildExpandedImagePreview(
-                      images.map((candidate) => ({
-                        id: candidate.localId,
-                        name: candidate.upload.name,
-                        previewUrl: candidate.previewUrl,
-                      })),
-                      image.localId,
-                    )
-                    if (preview !== null) {
-                      setExpandedImage(preview)
-                    }
-                  }}
-                >
-                  <Button
-                    type="button"
-                    size="icon-xs"
-                    variant="secondary"
-                    disabled={controlsDisabled}
-                    aria-label={`Retirer ${image.upload.name}`}
-                    className="absolute top-0.5 right-0.5 size-5"
-                    onClick={() => {
-                      onImageRemove(image.localId)
-                    }}
-                  >
-                    <XIcon className="size-3" />
-                  </Button>
-                </ImageThumbnail>
-              ))}
-            </div>
+        <div
+          className={cn(
+            "composer-glass-shell relative",
+            context === undefined ? undefined : "composer-glass-shell-with-context",
           )}
-          <span className="relative inline-flex w-full flex-1 before:hidden">
-            <ComposerPromptField
-              ref={fieldRef}
-              text={text}
-              disabled={controlsDisabled}
-              autoFocus
-              pathMenuOpen={mentionMenuOpen}
-              tickets={tickets}
-              listboxId={listboxId}
-              activeOptionId={
-                mentionMenuOpen && mentionEntries[highlightedIndex] !== undefined
-                  ? `composer-path-option-${highlightedIndex}`
-                  : undefined
-              }
-              onTextChange={(value) => {
-                setDismissedQuery(null)
-                onTextChange(value)
-              }}
-              onCursorChange={setCursor}
-              onKeyDown={handleKeyDown}
-              onPaste={onPaste}
-              onDrop={onDrop}
-            />
-          </span>
-          <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
-            <ThreadModelPicker
-              models={models}
-              modelSelection={modelSelection}
-              disabled={controlsDisabled || models.length === 0}
-              onModelSelectionChange={onModelSelectionChange}
-            />
-
-            <Separator orientation="vertical" className="mx-0.5 h-4" />
-
-            {modelSelection !== null && hasTraits ? (
-              <>
-                <Menu>
-                  <MenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        disabled={controlsDisabled}
-                        aria-label="Configuration du modèle"
-                      />
-                    }
-                  >
-                    <GaugeIcon data-icon="inline-start" />
-                    <span className="max-w-36 truncate">{traitsLabel}</span>
-                    <ChevronDownIcon data-icon="inline-end" />
-                  </MenuTrigger>
-                  <MenuPopup side="top" align="start" className="w-max">
-                    {(selectedModel?.reasoningEfforts.length ?? 0) > 0 ? (
-                      <MenuGroup>
-                        <MenuGroupLabel>Niveau d’effort</MenuGroupLabel>
-                        <MenuRadioGroup
-                          value={selectedEffort?.value ?? ""}
-                          onValueChange={(reasoningEffort) => {
-                            onModelSelectionChange({ ...modelSelection, reasoningEffort })
-                          }}
-                        >
-                          {selectedModel?.reasoningEfforts.map((effort) => (
-                            <MenuRadioItem
-                              key={effort.value}
-                              value={effort.value}
-                              closeOnClick
-                              hideIndicator
-                              className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
-                            >
-                              <span className="flex min-w-0 flex-col gap-0.5">
-                                <span className="flex items-center gap-1.5">
-                                  <span>{effort.label}</span>
-                                  {effort.isDefault === true ? (
-                                    <Badge variant="outline" size="sm">
-                                      Par défaut
-                                    </Badge>
-                                  ) : null}
-                                </span>
-                                {effort.description === undefined ? null : (
-                                  <span className="whitespace-nowrap text-muted-foreground text-xs">
-                                    {effort.description}
-                                  </span>
-                                )}
-                              </span>
-                            </MenuRadioItem>
-                          ))}
-                        </MenuRadioGroup>
-                      </MenuGroup>
-                    ) : null}
-                    {(selectedModel?.reasoningEfforts.length ?? 0) > 0 &&
-                    ((selectedModel?.serviceTiers.length ?? 0) > 0 ||
-                      selectedModel?.thinking !== undefined) ? (
-                      <MenuSeparator />
-                    ) : null}
-                    {(selectedModel?.serviceTiers.length ?? 0) > 0 ? (
-                      <MenuGroup>
-                        <MenuGroupLabel>Service tier</MenuGroupLabel>
-                        <MenuRadioGroup
-                          value={selectedTier?.value ?? ""}
-                          onValueChange={(serviceTier) => {
-                            onModelSelectionChange({ ...modelSelection, serviceTier })
-                          }}
-                        >
-                          {selectedModel?.serviceTiers.map((tier) => (
-                            <MenuRadioItem
-                              key={tier.value}
-                              value={tier.value}
-                              closeOnClick
-                              hideIndicator
-                              className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
-                            >
-                              <span className="flex min-w-0 flex-col gap-0.5">
-                                <span className="flex items-center gap-1.5">
-                                  <span>{tier.label}</span>
-                                  {tier.isDefault === true ? (
-                                    <Badge variant="outline" size="sm">
-                                      Par défaut
-                                    </Badge>
-                                  ) : null}
-                                </span>
-                                {tier.description === undefined ? null : (
-                                  <span className="whitespace-nowrap text-muted-foreground text-xs">
-                                    {tier.description}
-                                  </span>
-                                )}
-                              </span>
-                            </MenuRadioItem>
-                          ))}
-                        </MenuRadioGroup>
-                      </MenuGroup>
-                    ) : null}
-                    {(selectedModel?.serviceTiers.length ?? 0) > 0 &&
-                    selectedModel?.thinking !== undefined ? (
-                      <MenuSeparator />
-                    ) : null}
-                    {selectedModel?.thinking === undefined ? null : (
-                      <MenuGroup>
-                        <MenuGroupLabel>{selectedModel.thinking.label}</MenuGroupLabel>
-                        <MenuRadioGroup
-                          value={selectedThinking === true ? "on" : "off"}
-                          onValueChange={(value) => {
-                            onModelSelectionChange({ ...modelSelection, thinking: value === "on" })
-                          }}
-                        >
-                          <MenuRadioItem
-                            value="off"
-                            closeOnClick
-                            hideIndicator
-                            className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <span>Désactivée</span>
-                              {selectedModel.thinking.defaultValue === false ? (
-                                <Badge variant="outline" size="sm">
-                                  Par défaut
-                                </Badge>
-                              ) : null}
-                            </span>
-                          </MenuRadioItem>
-                          <MenuRadioItem
-                            value="on"
-                            closeOnClick
-                            hideIndicator
-                            className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <span>Activée</span>
-                              {selectedModel.thinking.defaultValue === true ? (
-                                <Badge variant="outline" size="sm">
-                                  Par défaut
-                                </Badge>
-                              ) : null}
-                            </span>
-                          </MenuRadioItem>
-                        </MenuRadioGroup>
-                      </MenuGroup>
-                    )}
-                  </MenuPopup>
-                </Menu>
-                <Separator orientation="vertical" className="mx-0.5 h-4" />
-              </>
-            ) : null}
-
-            <Menu>
-              <MenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={controlsDisabled}
-                    aria-label="Niveau d’accès"
-                    className="max-w-52"
-                  />
-                }
-              >
-                <SelectedRuntimeModeIcon data-icon="inline-start" />
-                <span className="truncate">{selectedRuntimeMode.label}</span>
-                <ChevronDownIcon data-icon="inline-end" />
-              </MenuTrigger>
-              <MenuPopup side="top" align="start" className="w-max">
-                <MenuGroup>
-                  <MenuGroupLabel>Niveau d’accès</MenuGroupLabel>
-                  <MenuRadioGroup
-                    value={runtimeMode}
-                    onValueChange={(value) => {
-                      if (isRuntimeMode(value)) {
-                        onRuntimeModeChange(value)
+        >
+          <InputGroup className="composer-glass-host relative z-10 rounded-xl border-transparent bg-transparent shadow-none dark:bg-transparent has-[[data-slot=input-group-control]:disabled]:bg-transparent has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+            {images.length === 0 ? null : (
+              <div className="flex w-full flex-wrap justify-start gap-2 px-3 pt-3">
+                {images.map((image) => (
+                  <ImageThumbnail
+                    key={image.localId}
+                    alt={image.upload.name}
+                    src={image.previewUrl}
+                    className="size-16"
+                    onExpand={() => {
+                      const preview = buildExpandedImagePreview(
+                        images.map((candidate) => ({
+                          id: candidate.localId,
+                          name: candidate.upload.name,
+                          previewUrl: candidate.previewUrl,
+                        })),
+                        image.localId,
+                      )
+                      if (preview !== null) {
+                        setExpandedImage(preview)
                       }
                     }}
                   >
-                    {runtimeModes.map((mode) => {
-                      const ModeIcon = runtimeModeIcons[mode.value]
-                      return (
-                        <MenuRadioItem
-                          key={mode.value}
-                          value={mode.value}
-                          closeOnClick
-                          hideIndicator
-                          className="py-2 data-checked:bg-accent data-checked:text-accent-foreground data-highlighted:bg-accent/60"
-                        >
-                          <span className="flex items-start gap-2">
-                            <ModeIcon className="mt-0.5 shrink-0" />
-                            <span className="flex flex-col gap-0.5">
-                              <span className="font-medium">{mode.label}</span>
-                              <span className="whitespace-nowrap text-muted-foreground text-xs leading-snug">
-                                {mode.description}
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="secondary"
+                      disabled={controlsDisabled}
+                      aria-label={`Retirer ${image.upload.name}`}
+                      className="absolute top-0.5 right-0.5 size-5"
+                      onClick={() => {
+                        onImageRemove(image.localId)
+                      }}
+                    >
+                      <XIcon className="size-3" />
+                    </Button>
+                  </ImageThumbnail>
+                ))}
+              </div>
+            )}
+            <span className="relative inline-flex w-full flex-1 before:hidden">
+              <ComposerPromptField
+                ref={fieldRef}
+                text={text}
+                disabled={controlsDisabled}
+                autoFocus
+                pathMenuOpen={mentionMenuOpen}
+                tickets={tickets}
+                listboxId={listboxId}
+                activeOptionId={
+                  mentionMenuOpen && mentionEntries[highlightedIndex] !== undefined
+                    ? `composer-path-option-${highlightedIndex}`
+                    : undefined
+                }
+                onTextChange={(value) => {
+                  setDismissedQuery(null)
+                  onTextChange(value)
+                }}
+                onCursorChange={setCursor}
+                onKeyDown={handleKeyDown}
+                onPaste={onPaste}
+                onDrop={onDrop}
+              />
+            </span>
+            <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
+              <ThreadModelPicker
+                models={models}
+                modelSelection={modelSelection}
+                disabled={controlsDisabled || models.length === 0}
+                onModelSelectionChange={onModelSelectionChange}
+              />
+
+              <Separator orientation="vertical" className="mx-0.5 h-4" />
+
+              {modelSelection !== null && hasTraits ? (
+                <>
+                  <Menu>
+                    <MenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={controlsDisabled}
+                          aria-label="Configuration du modèle"
+                        />
+                      }
+                    >
+                      <GaugeIcon data-icon="inline-start" />
+                      <span className="max-w-36 truncate">{traitsLabel}</span>
+                      <ChevronDownIcon data-icon="inline-end" />
+                    </MenuTrigger>
+                    <MenuPopup
+                      side="top"
+                      align="start"
+                      className={cn("w-max", composerOverlayGlassClassName)}
+                    >
+                      {(selectedModel?.reasoningEfforts.length ?? 0) > 0 ? (
+                        <MenuGroup>
+                          <MenuGroupLabel>Niveau d’effort</MenuGroupLabel>
+                          <MenuRadioGroup
+                            value={selectedEffort?.value ?? ""}
+                            onValueChange={(reasoningEffort) => {
+                              onModelSelectionChange({ ...modelSelection, reasoningEffort })
+                            }}
+                          >
+                            {selectedModel?.reasoningEfforts.map((effort) => (
+                              <MenuRadioItem
+                                key={effort.value}
+                                value={effort.value}
+                                closeOnClick
+                                hideIndicator
+                                className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
+                              >
+                                <span className="flex min-w-0 flex-col gap-0.5">
+                                  <span className="flex items-center gap-1.5">
+                                    <span>{effort.label}</span>
+                                    {effort.isDefault === true ? (
+                                      <Badge variant="outline" size="sm">
+                                        Par défaut
+                                      </Badge>
+                                    ) : null}
+                                  </span>
+                                  {effort.description === undefined ? null : (
+                                    <span className="whitespace-nowrap text-muted-foreground text-xs">
+                                      {effort.description}
+                                    </span>
+                                  )}
+                                </span>
+                              </MenuRadioItem>
+                            ))}
+                          </MenuRadioGroup>
+                        </MenuGroup>
+                      ) : null}
+                      {(selectedModel?.reasoningEfforts.length ?? 0) > 0 &&
+                      ((selectedModel?.serviceTiers.length ?? 0) > 0 ||
+                        selectedModel?.thinking !== undefined) ? (
+                        <MenuSeparator />
+                      ) : null}
+                      {(selectedModel?.serviceTiers.length ?? 0) > 0 ? (
+                        <MenuGroup>
+                          <MenuGroupLabel>Service tier</MenuGroupLabel>
+                          <MenuRadioGroup
+                            value={selectedTier?.value ?? ""}
+                            onValueChange={(serviceTier) => {
+                              onModelSelectionChange({ ...modelSelection, serviceTier })
+                            }}
+                          >
+                            {selectedModel?.serviceTiers.map((tier) => (
+                              <MenuRadioItem
+                                key={tier.value}
+                                value={tier.value}
+                                closeOnClick
+                                hideIndicator
+                                className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
+                              >
+                                <span className="flex min-w-0 flex-col gap-0.5">
+                                  <span className="flex items-center gap-1.5">
+                                    <span>{tier.label}</span>
+                                    {tier.isDefault === true ? (
+                                      <Badge variant="outline" size="sm">
+                                        Par défaut
+                                      </Badge>
+                                    ) : null}
+                                  </span>
+                                  {tier.description === undefined ? null : (
+                                    <span className="whitespace-nowrap text-muted-foreground text-xs">
+                                      {tier.description}
+                                    </span>
+                                  )}
+                                </span>
+                              </MenuRadioItem>
+                            ))}
+                          </MenuRadioGroup>
+                        </MenuGroup>
+                      ) : null}
+                      {(selectedModel?.serviceTiers.length ?? 0) > 0 &&
+                      selectedModel?.thinking !== undefined ? (
+                        <MenuSeparator />
+                      ) : null}
+                      {selectedModel?.thinking === undefined ? null : (
+                        <MenuGroup>
+                          <MenuGroupLabel>{selectedModel.thinking.label}</MenuGroupLabel>
+                          <MenuRadioGroup
+                            value={selectedThinking === true ? "on" : "off"}
+                            onValueChange={(value) => {
+                              onModelSelectionChange({
+                                ...modelSelection,
+                                thinking: value === "on",
+                              })
+                            }}
+                          >
+                            <MenuRadioItem
+                              value="off"
+                              closeOnClick
+                              hideIndicator
+                              className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <span>Désactivée</span>
+                                {selectedModel.thinking.defaultValue === false ? (
+                                  <Badge variant="outline" size="sm">
+                                    Par défaut
+                                  </Badge>
+                                ) : null}
+                              </span>
+                            </MenuRadioItem>
+                            <MenuRadioItem
+                              value="on"
+                              closeOnClick
+                              hideIndicator
+                              className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <span>Activée</span>
+                                {selectedModel.thinking.defaultValue === true ? (
+                                  <Badge variant="outline" size="sm">
+                                    Par défaut
+                                  </Badge>
+                                ) : null}
+                              </span>
+                            </MenuRadioItem>
+                          </MenuRadioGroup>
+                        </MenuGroup>
+                      )}
+                    </MenuPopup>
+                  </Menu>
+                  <Separator orientation="vertical" className="mx-0.5 h-4" />
+                </>
+              ) : null}
+
+              <Menu>
+                <MenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={controlsDisabled}
+                      aria-label="Niveau d’accès"
+                      className="max-w-52"
+                    />
+                  }
+                >
+                  <SelectedRuntimeModeIcon data-icon="inline-start" />
+                  <span className="truncate">{selectedRuntimeMode.label}</span>
+                  <ChevronDownIcon data-icon="inline-end" />
+                </MenuTrigger>
+                <MenuPopup
+                  side="top"
+                  align="start"
+                  className={cn("w-max", composerOverlayGlassClassName)}
+                >
+                  <MenuGroup>
+                    <MenuGroupLabel>Niveau d’accès</MenuGroupLabel>
+                    <MenuRadioGroup
+                      value={runtimeMode}
+                      onValueChange={(value) => {
+                        if (isRuntimeMode(value)) {
+                          onRuntimeModeChange(value)
+                        }
+                      }}
+                    >
+                      {runtimeModes.map((mode) => {
+                        const ModeIcon = runtimeModeIcons[mode.value]
+                        return (
+                          <MenuRadioItem
+                            key={mode.value}
+                            value={mode.value}
+                            closeOnClick
+                            hideIndicator
+                            className="py-2 data-checked:bg-accent data-checked:text-accent-foreground data-highlighted:bg-accent/60"
+                          >
+                            <span className="flex items-start gap-2">
+                              <ModeIcon className="mt-0.5 shrink-0" />
+                              <span className="flex flex-col gap-0.5">
+                                <span className="font-medium">{mode.label}</span>
+                                <span className="whitespace-nowrap text-muted-foreground text-xs leading-snug">
+                                  {mode.description}
+                                </span>
                               </span>
                             </span>
-                          </span>
-                        </MenuRadioItem>
-                      )
-                    })}
-                  </MenuRadioGroup>
-                </MenuGroup>
-              </MenuPopup>
-            </Menu>
+                          </MenuRadioItem>
+                        )
+                      })}
+                    </MenuRadioGroup>
+                  </MenuGroup>
+                </MenuPopup>
+              </Menu>
 
-            <div className="ml-auto flex gap-2">
-              <Button
-                type={isRunning ? "button" : "submit"}
-                size="icon-sm"
-                variant={isRunning ? "destructive" : "default"}
-                disabled={isRunning ? false : sendDisabled}
-                aria-label={isRunning ? "Interrompre" : "Envoyer"}
-                onClick={isRunning ? onInterrupt : undefined}
-              >
-                {isRunning ? (
-                  <SquareIcon aria-hidden="true" className="size-3 fill-current" />
-                ) : (
-                  <ArrowUpIcon aria-hidden="true" />
-                )}
-              </Button>
-            </div>
-          </InputGroupAddon>
-        </InputGroup>
+              <div className="ml-auto flex gap-2">
+                <Button
+                  type={isRunning ? "button" : "submit"}
+                  size="icon-sm"
+                  variant={isRunning ? "destructive" : "default"}
+                  disabled={isRunning ? false : sendDisabled}
+                  aria-label={isRunning ? "Interrompre" : "Envoyer"}
+                  onClick={isRunning ? onInterrupt : undefined}
+                >
+                  {isRunning ? (
+                    <SquareIcon aria-hidden="true" className="size-3 fill-current" />
+                  ) : (
+                    <ArrowUpIcon aria-hidden="true" />
+                  )}
+                </Button>
+              </div>
+            </InputGroupAddon>
+          </InputGroup>
+        </div>
         {context}
         {error === undefined ? null : (
           <div id="thread-composer-error" className={context === undefined ? undefined : "pt-2"}>
