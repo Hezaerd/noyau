@@ -7,6 +7,7 @@ import {
   bootSplashAssetPath,
   dismissBootSplash,
   resolveBootSplashChannel,
+  resolveBootSplashChannelFromBoot,
 } from "../src/lib/boot-splash"
 
 afterEach(() => {
@@ -20,6 +21,23 @@ describe("boot splash", () => {
     expect(resolveBootSplashChannel("latest")).toBe("latest")
     expect(resolveBootSplashChannel("beta")).toBe("latest")
     expect(resolveBootSplashChannel(null)).toBe("latest")
+  })
+
+  it("préfère le canal preload au query, qui disparaît après le navigate Tableau", () => {
+    expect(
+      resolveBootSplashChannelFromBoot({
+        desktopChannel: "nightly",
+        search: "?rpc=ws://127.0.0.1:1/rpc&token=x&channel=latest",
+      }),
+    ).toBe("nightly")
+    expect(resolveBootSplashChannelFromBoot({ search: "?channel=development" })).toBe("development")
+    expect(
+      resolveBootSplashChannelFromBoot({
+        desktopChannel: "beta",
+        search: "?channel=nightly",
+      }),
+    ).toBe("nightly")
+    expect(resolveBootSplashChannelFromBoot({ search: "" })).toBe("latest")
   })
 
   it("pointe chaque canal vers son SVG public", () => {

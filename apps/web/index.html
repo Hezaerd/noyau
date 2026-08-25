@@ -50,7 +50,13 @@
       <img id="noyau-boot-splash-mark" width="96" height="96" alt="" />
       <script>
         ;(() => {
-          const raw = new URLSearchParams(location.search).get("channel")
+          const desktopChannel = window.noyauDesktop && window.noyauDesktop.releaseChannel
+          const raw =
+            desktopChannel === "development" ||
+            desktopChannel === "latest" ||
+            desktopChannel === "nightly"
+              ? desktopChannel
+              : new URLSearchParams(location.search).get("channel")
           const channel =
             raw === "development" || raw === "latest" || raw === "nightly" ? raw : "latest"
           const mark = document.getElementById("noyau-boot-splash-mark")
