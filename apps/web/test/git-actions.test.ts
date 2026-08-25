@@ -72,6 +72,8 @@ describe("git-actions", () => {
       headRef: "feat/checkout",
       state: "open" as const,
       mergeability: "unknown" as const,
+      ciStatus: "none" as const,
+      failedChecks: [],
     }
     const open = status({ pr: openPr, aheadCount: 1 })
     expect(resolveQuickAction(open, false)).toEqual({

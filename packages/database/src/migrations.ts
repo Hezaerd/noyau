@@ -7,6 +7,7 @@ import ThreadModelSelectionMigration from "./migrations/003_thread_model_selecti
 import ThreadServiceTierMigration from "./migrations/004_thread_service_tier.ts"
 import ThreadThinkingMigration from "./migrations/005_thread_thinking.ts"
 import ThreadCheckoutMigration from "./migrations/006_thread_checkout.ts"
+import ThreadSettledMigration from "./migrations/007_thread_settled.ts"
 
 export const migrations: Migrator.Loader = Migrator.fromRecord({
   "1_journal": JournalMigration,
@@ -15,6 +16,7 @@ export const migrations: Migrator.Loader = Migrator.fromRecord({
   "4_thread_service_tier": ThreadServiceTierMigration,
   "5_thread_thinking": ThreadThinkingMigration,
   "6_thread_checkout": ThreadCheckoutMigration,
+  "7_thread_settled": ThreadSettledMigration,
 })
 
 const migrate = Migrator.make({})

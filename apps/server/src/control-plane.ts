@@ -109,6 +109,7 @@ import { makePresenceController } from "./discord/presence.ts"
 import { readFilePreview } from "./file-preview.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
+import { makeProviderSessionReaper } from "./provider/provider-session-reaper.ts"
 import { TextGeneration } from "./text-generation/text-generation.ts"
 import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
 import { makeWorktreeBranchReactor } from "./text-generation/worktree-branch-reactor.ts"
@@ -286,6 +287,8 @@ const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
       return yield* projectForTicket(request.payload.ticketId)
     case "thread.archive":
     case "thread.restore":
+    case "thread.settle":
+    case "thread.unsettle":
     case "thread.meta.update":
     case "thread.runtime-mode.set":
     case "thread.model-selection.set":
@@ -662,6 +665,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const path = yield* Path.Path
       const crypto = yield* Crypto.Crypto
       let dispatchInternal = workerNotReady
+      const providerSessionReaper = yield* makeProviderSessionReaper()
       const textGeneration = yield* TextGeneration
       const presence = yield* makePresenceController()
       const cursorStatus = yield* provider.status
@@ -746,6 +750,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           ),
           Effect.orDie,
         )
+      yield* providerSessionReaper.start
 
       const ensureWorkspaceAvailable = Effect.fn("ControlPlane.ensureWorkspaceAvailable")(
         function* (request: ClientCommandRequest) {
@@ -1165,8 +1170,10 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         previewAttachment,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {
+          yield* providerSessionReaper.stop
           yield* worker.drainReactors
           yield* provider.drain
+          yield* provider.stopAll
           yield* worker.drainReactors
           yield* worker.drainReactors
         }),

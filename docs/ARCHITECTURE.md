@@ -41,7 +41,7 @@ Cible de sortie : macOS et Windows natif. Linux, WSL, client web distribué et m
   ([ADR-0015](adr/0015-tableau-accessible-aux-agents-par-mcp.md)) ;
 - skill `noyau` installable explicitement dans chaque WorkspaceRoot pour enseigner aux agents les
   pratiques du Tableau ([ADR-0016](adr/0016-skill-noyau-installe-par-project.md)) ;
-- Cursor ACP local comme unique provider réel ([ADR-0013](adr/0013-session-projetee-et-cursor.md)).
+- Cursor ACP local comme unique provider réel ([ADR-0018](adr/0018-runtime-cursor-porte-par-la-session.md)).
   Le fil de fer ACP est `@noyau/acp` ([ADR-0014](adr/0014-fil-de-fer-acp.md)), pas un port
   multi-harnais.
 
@@ -57,7 +57,7 @@ Noyau Desktop (Electron main)
   └─ Noyau Server enfant (Node)
        ├─ SQLite (journal, receipts, projections)
        ├─ WorkspaceRoot des Projects
-       ├─ processus Cursor ACP (handle + Scope)
+       ├─ runtimes Cursor ACP des Sessions (un processus par Session live, handle + Scope)
        ├─ MCP HTTP (capacités agent bornées)
        └─ transcripts et resumeCursor
 
@@ -112,7 +112,8 @@ Noyau Server possède :
 - les Projects, leur `WorkspaceRoot`, le Tableau et les Tickets ;
 - les Threads, Turns, Sessions projetées et transcripts ;
 - les commandes enrichies, événements, receipts et projections ;
-- l'adaptateur Cursor et les handles des processus spawnés ;
+- l'adaptateur Cursor et les runtimes Cursor des Sessions (processus, `AcpClient`, handle +
+  `Scope`) ;
 - le serveur MCP HTTP, ses capacités volatiles bornées et ses toolkits Tableau ;
 - les reactors `TxQueue` pour les effets provider.
 - l’inspection et l’installation explicite de l’Intégration agent dans le WorkspaceRoot, sans en
@@ -218,7 +219,9 @@ Le détail UX reste dans [`docs/design/kanban-ux.md`](design/kanban-ux.md).
   Statut `active | archived`. Un Thread archivé doit être restauré avant un nouveau Turn.
 - **Session** : projection `0..1`. `status` :
   `idle | starting | running | ready | interrupted | stopped | error`, plus `lastError`,
-  `activeTurnId`, `runtimeMode`, `resumeCursor`.
+  `activeTurnId`, `runtimeMode`, `resumeCursor`. Le runtime ACP vivant est une ressource volatile
+  possédée par la Session ; son absence après un restart, un arrêt, un crash ou un reaper ne crée
+  pas une nouvelle Session.
 - **Turn** : append-only. Un seul Turn actif par Thread. `latestTurn.state` =
   `running | interrupted | completed | error`. Settlement = la Session quitte `running`
   (`ready`/`idle` → `completed` ; `error` → `error` ; `interrupted`/`stopped` → `interrupted`).
@@ -226,13 +229,28 @@ Le détail UX reste dans [`docs/design/kanban-ux.md`](design/kanban-ux.md).
   échec → `session/new` en place. Pas de `cwdLastBound`.
 - **Transcript** : projection du Turn. Chaque réception normalisée est un fait persisté dès
   arrivée. Un Turn terminal n'est jamais réécrit. Images rejetées (coupe v0.1).
-- **Reprise** : nouveau Turn, nouveau subprocess, `session/load` avec le `WorkspaceRoot` courant.
-  Aucun prompt rejoué. `end_turn` seul complète. Autre `stopReason` → `interrupted`. Rupture
-  stdio / process mort → Session `error` + `lastError`. Jamais `completed` par inférence.
+- **Runtime Cursor** : une Session live possède au plus un subprocess `cursor-agent acp`, son
+  `AcpClient`, son handle et son `Scope`. Le runtime est créé paresseusement au premier Turn ou
+  après sa perte, puis le même client sert les Turns suivants ; un Turn terminé ne ferme pas le
+  runtime. Les appels `session/new`, `initialize` et `authenticate` ne sont donc pas rejoués
+  entre deux Turns normaux.
+- **Reprise** : après restart du Server, crash du process, `session.stop` ou reaper, le prochain
+  Turn recrée un runtime et utilise `session/load` avec le `WorkspaceRoot` courant et le
+  `resumeCursor` persistant. Un load impossible peut basculer vers `session/new` ; cela ne rejoue
+  aucun prompt historique. Seul le mandat du Turn courant est envoyé lorsqu'un nouveau contexte
+  doit être créé. `end_turn` seul complète. Autre `stopReason` → `interrupted`. Rupture stdio /
+  process mort → Session `error` + `lastError`. Jamais `completed` par inférence.
+- **Arrêt et reaper** : `session.stop` ferme explicitement le runtime et passe la Session à
+  `stopped`. Un reaper ferme le runtime des Sessions sans Turn actif après la durée d'inactivité
+  opérationnelle (30 minutes par défaut, comme t3code), mais ne persiste aucun statut : la
+  Session ne passe pas à `stopped`. Le prochain Turn reste reprenable par `session/load`. Aucun
+  reaper ne touche un Turn actif.
 - **Boot** : avant readiness, sans I/O Cursor, toute Session encore `starting` / `running` →
-  `error` + `lastError` (rupture). Ça settle `latestTurn` en `error`. `resumeCursor` inchangé.
-- **Appartenance process** : handle capturé au spawn, lié au `Scope` du serveur. `child.kill()`
-  sur ce handle. Pas de sweep, pas de registre, pas de scan par nom.
+  `error` + `lastError` (rupture). Ça settle `latestTurn` en `error`. `resumeCursor` inchangé ; le
+  runtime ne réapparaît qu'à la demande d'un nouveau Turn.
+- **Appartenance process** : handle capturé au spawn, lié au `Scope` détenu par la Session. Toute
+  fermeture de runtime agit sur ce handle (`child.kill()`) et ferme son Scope. Pas de sweep
+  d'orphelins, pas de scan par nom, pas de processus Cursor partagé entre Sessions.
 
 Mapping Cursor de `runtimeMode` : `approval-required` essaie `ask` puis implement. `full-access`
 auto-répond `allow_always` / `allow_once`. La politique locale Cursor reste un niveau inférieur.
@@ -315,12 +333,14 @@ d'un Thread.
 
 Noyau Server monte `/mcp` avec `McpServer.layerHttp` sur son listener loopback. Avant une Session
 Cursor, il émet une capacité volatile dont seul le hash reste en mémoire ; le contexte associé
-borne l'agent à son Project, son Thread, son Turn et ses opérations autorisées. Le secret brut est
-injecté comme bearer dans la configuration MCP HTTP d'ACP.
+borne l'agent à son Project, son Thread, sa Session et ses opérations autorisées. Le bearer
+survit entre les Turns, mais `resolve` exige un Turn actif : `/mcp` répond 401 hors Turn. Ce
+Turn complète le contexte pour borner les mutations et l'audit. Le secret brut est injecté comme
+bearer dans la configuration MCP HTTP d'ACP.
 
 Les lectures interrogent les projections dans le process serveur. Les mutations décodent leurs
 arguments, construisent une commande publique idempotente et passent par le `CommandGateway`. Le
-finalizer du subprocess provider du Turn révoque la capacité ; une expiration borne les arrêts
+finalizer du runtime provider de la Session révoque la capacité ; une expiration borne les arrêts
 anormaux. Le registre est vide au boot. Cursor sans capability MCP HTTP est inactif et Noyau ne
 fournit pas de fallback stdio.
 
@@ -378,7 +398,8 @@ Un package n'est créé que lorsqu'une frontière réelle et testée le justifie
 2. Store `node:sqlite` : txn event + receipt + projection, `TxQueue`, WAL, Migrator.
 3. Electron + serveur Node : fd3, readiness, backoff / `degraded`, grâce 2 s.
 4. RPC : `dispatchCommand`, `subscribeShell` / `subscribeProject` / `subscribeThread`.
-5. Adaptateur Cursor ACP : handshake, `session/new` / `load`, mapping `runtimeMode`.
+5. Adaptateur Cursor ACP : runtime porté par la Session, handshake, `session/new` / `load`,
+   `startTurn` réutilisé, reaper et mapping `runtimeMode`.
 6. MCP HTTP : capacités bornées, outils Tableau et injection Cursor.
 7. UI Tableau-first, sidebar Threads, `lastError`, lien Ticket–Thread, reprise après restart.
 

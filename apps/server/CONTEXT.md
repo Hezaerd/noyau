@@ -35,14 +35,22 @@ Fil de fer `@noyau/acp` utilisé par l'adaptateur Cursor. Les extensions (`curso
 restent ici.
 _À éviter_ : schémas ACP maison, JSON-RPC maison
 
+**SessionRuntime**:
+Runtime Cursor ACP vivant et volatil attaché à une Session : processus `cursor-agent`,
+`AcpClient` et `Scope` possédés par le Server. Il est réutilisé entre Turns, puis recréé
+paresseusement avec `session/load` après restart, crash, arrêt ou reaper ; aucun prompt historique
+n'est rejoué.
+_À éviter_ : subprocess par Turn, Execution, sweep d'orphelins
+
 **MCP Noyau**:
 Façade agent du control plane qui expose le Tableau et ses Tickets sans devenir une source de
 vérité distincte.
 _À éviter_ : TodoList agent, bridge SQLite, outil `dispatchCommand` brut
 
 **Capacité MCP**:
-Autorisation volatile et bornée d'un Turn Cursor sur un Project, un Thread et un ensemble
-d'opérations Tableau.
+Autorisation volatile et bornée d'une Session Cursor sur un Project, un Thread et un ensemble
+d'opérations Tableau. Le bearer survit entre les Turns, mais `resolve` exige un Turn actif :
+`/mcp` répond 401 hors Turn. Elle est révoquée quand son runtime est arrêté, perdu ou expiré.
 _À éviter_ : bearer Electron, identité dans les arguments d'outil, permission `runtimeMode`
 
 **catalogue Cursor**:
@@ -110,9 +118,10 @@ _À éviter_ : agrégat VCS, outbox SQL
 
 **Pull request live**:
 PR GitHub du HEAD, jointe par `gh pr list --head` sur le cwd du Checkout. Stream
-`vcs.subscribeStatus` : snapshot local puis poll. Inclut la Mergeability (`mergeable` gh).
-Pas un fait du journal.
-_À éviter_ : pullRequestId, webhook, settle
+`vcs.subscribeStatus` : snapshot local puis poll. Inclut la Mergeability (`mergeable` gh)
+et le CI status (`statusCheckRollup` plié en verdict + checks en échec). Pas un fait du
+journal.
+_À éviter_ : pullRequestId, webhook, settle, mergeStateStatus, rollup brut
 
 **Publish**:
 Création live d'un dépôt GitHub (`gh repo create`) puis câblage de `origin`. Hors journal.

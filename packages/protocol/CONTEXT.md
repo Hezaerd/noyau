@@ -26,7 +26,8 @@ demande un snapshot frais.
 _À éviter_ : EventCursor, offset SQL, position WebSocket
 
 **resumeCursor**:
-`{ schemaVersion: 1, sessionId }` opaque pour `session/load`. La Session n'a pas d'id métier.
+`{ schemaVersion: 1, sessionId }` opaque pour `session/load` après perte du runtime provider. Il
+ne commande jamais le rejeu d'un prompt ; la Session n'a pas d'id métier.
 _À éviter_ : cwdLastBound, ProviderBinding
 
 **modelSelection**:
@@ -97,15 +98,26 @@ Capacité live du Server (`vcs.*`, `git.*`) hors journal. L'idempotence client p
 `vcs.removeWorktree` retire un worktree lié et renvoie les Threads à délier.
 _À éviter_ : agrégat Commit, événement Push, outbox Git
 
+**settledOverride**:
+Pin utilisateur `settled | active` du cycle settle. Absent = pas de pin ; l'auto-settle client
+s'applique. Persisté par `thread.settle` / `thread.unsettle`.
+_À éviter_ : status archived, snooze
+
 **Pull request live**:
 PR GitHub du HEAD courant, portée par `vcs.status` / `vcs.subscribeStatus`. Join cwd + branche via
-`gh`, jamais un identifiant du journal. Porte la Mergeability GitHub.
-_À éviter_ : pullRequestId persisté, webhook, settle
+`gh`, jamais un identifiant du journal. Porte la Mergeability et le CI status GitHub. Alimente
+l'auto-settle client (`merged` / `closed`).
+_À éviter_ : pullRequestId persisté, webhook
 
 **Mergeability**:
 Verdict GitHub live de la PR (`mergeable | conflicting | unknown`). `unknown` n'est pas l'absence
 de conflit.
 _À éviter_ : état local git, fait du journal
+
+**CI status**:
+Verdict live des checks GitHub (`none | pending | passing | failing`). `failing` = au moins un
+FAILURE / ERROR / TIMED_OUT. `none` n'est pas un succès. Noms des checks en échec bornés.
+_À éviter_ : mergeStateStatus, rollup brut, logs, webhook
 
 **Présentation de Turn**:
 Discriminant optionnel de `thread.turn.start` / `transcript.user` qui dit comment montrer le

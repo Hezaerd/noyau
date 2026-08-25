@@ -180,7 +180,7 @@ describe("ControlPlane", () => {
         assert.strictEqual(frames[1]?.kind, "synchronized")
 
         const config = yield* controlPlane.getConfig
-        assert.strictEqual(config.databaseSchemaVersion, 6)
+        assert.strictEqual(config.databaseSchemaVersion, 7)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
         assert.deepStrictEqual(
           yield* controlPlane.setShellFocus({
@@ -674,6 +674,24 @@ describe("ControlPlane", () => {
                 item._tag === "transcript.assistant" && item.text === "hello from fake Cursor",
             ),
           )
+        }
+
+        yield* controlPlane.dispatch(
+          request({
+            _tag: "session.stop",
+            commandId: uuid(23),
+            payload: { threadId },
+          }),
+          actorId,
+        )
+        yield* controlPlane.drainReactors
+        const stoppedFrames = yield* controlPlane
+          .subscribeThread({ threadId })
+          .pipe(Stream.take(1), Stream.runCollect)
+        const stoppedSnapshot = stoppedFrames[0]
+        assert.strictEqual(stoppedSnapshot?.kind, "snapshot")
+        if (stoppedSnapshot?.kind === "snapshot") {
+          assert.strictEqual(stoppedSnapshot.snapshot.session?.status, "stopped")
         }
       }),
     ),

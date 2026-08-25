@@ -9,6 +9,7 @@ import type {
 import type { ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import type { ThreadEvent } from "@noyau/protocol/thread/events"
 import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
+import type { DateTime } from "effect"
 
 export interface TurnProjection {
   readonly turnId: TurnId
@@ -27,6 +28,8 @@ export interface ThreadProjection {
   readonly worktreePath: string | null
   readonly status: "active" | "archived"
   readonly session: Session | null
+  readonly settledOverride: "settled" | "active" | null
+  readonly settledAt: DateTime.Utc | null
   readonly turns: ReadonlyArray<TurnProjection>
   readonly transcript: ReadonlyArray<TranscriptItem>
 }
@@ -206,6 +209,8 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
             worktreePath: event.worktreePath ?? null,
             status: "active",
             session: null,
+            settledOverride: null,
+            settledAt: null,
             turns: [],
             transcript: [],
           },
@@ -215,6 +220,18 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
       return updateThread(state, event.threadId, (thread) => ({ ...thread, status: "archived" }))
     case "thread.restored":
       return updateThread(state, event.threadId, (thread) => ({ ...thread, status: "active" }))
+    case "thread.settled":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        settledOverride: "settled",
+        settledAt: event.settledAt,
+      }))
+    case "thread.unsettled":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        settledOverride: event.reason === "user" ? "active" : null,
+        settledAt: null,
+      }))
     case "thread.meta-updated":
       return updateThread(state, event.threadId, (thread) => ({
         ...thread,

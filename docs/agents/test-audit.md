@@ -8,7 +8,7 @@ TypeScript.
 
 | | Avant | Après (notes 3–5) |
 | --- | ---: | ---: |
-| Fichiers | 151 | 85 chemins distincts (11 note 5 + 31 note 4 + 43 note 3) |
+| Fichiers | 153 (main) | 87 chemins distincts (11 note 5 + 33 note 4 + 43 note 3) |
 | Lignes | ~21 900 | ~15 000 |
 | Retirés (notes 1–2) | — | 66 fichiers |
 
@@ -43,7 +43,7 @@ casse l’idempotence, ou ouvre une frontière d’auth.
 
 ---
 
-## Note 4 — importants
+## Note 4 — importants (33 fichiers)
 
 Frontières d’intégration ou gardes destructives. Pas le journal, mais un raté
 coûte un cwd faux, une suppression non confirmée, ou une connexion perdue.
@@ -63,6 +63,7 @@ coûte un cwd faux, une suppression non confirmée, ou une connexion perdue.
 | `apps/server/test/git-runtime.test.ts` | Nommage branche temp, flatten worktree, refuse le checkout primaire, parse URL `gh`. | Helpers qui bornent des ops destructives. |
 | `apps/server/test/attachments.test.ts` | Parse `data:` sans regex sur le payload ; persist hors journal. | Images hors SQLite, frontière dataUrl. |
 | `apps/server/test/workspace-root.test.ts` | Decode + `isAvailable` seulement pour un dossier existant. | Gate avant bind de Project. |
+| `apps/server/test/provider-session-reaper.test.ts` | Fauche les runtimes Cursor idle (session `ready` stale) ; épargne Turn `running` et sessions fraîches. | ADR-0018 : un reaper trop zélé tue une Session live. |
 | `apps/desktop/src/renderer.test.ts` | URL renderer + **refuse `../` hors root packaged**. | Jail de fichiers servis à l’UI. |
 | `apps/desktop/src/open-path.test.ts` | Accepte paths / `file://` ; refuse `https:`, `javascript:`, `data:`. | IPC open-in-finder depuis le renderer. |
 | `apps/web/test/app-failure.test.ts` | Taxonomie `normalizeCause` ; defects → incidentId sans leak de cause. | Tous les surfaces d’échec passent par là. |
@@ -81,10 +82,11 @@ coûte un cwd faux, une suppression non confirmée, ou une connexion perdue.
 | `apps/web/test/thread-ticketthread-acceptance.test.ts` | Builders Thread + images + link/unlink + contrat `subscribeThread`. | Commandes qui corrompent Thread/Ticket si le tag est faux. |
 | `apps/web/test/board-model.test.ts` | Preview locale : jamais créer dans Done, drag indexes, cycle DAG, open-deps archive. | Miroir client des invariants board, utile avant le round-trip. |
 | `apps/web/test/checkout.test.ts` | Lock env après bind, geste delete worktree, `threadEnvMode`, pas de `main` en dur, reuse worktree. | Mauvais mode = mauvais cwd pour Cursor. |
+| `apps/web/test/thread-settled.test.ts` | `canSettle` refuse session/turn live ; `effectiveSettled` (override, PR, inactivité) ; auto-settle merge. | Règles Settle : un Thread ne doit pas reculer pendant un Turn. |
 
 ---
 
-## Note 3 — utiles, pas vitaux
+## Note 3 — utiles, pas vitaux (43 fichiers)
 
 Documentent une règle produit non évidente. On pourrait les amincir ; ils
 restent moins chers à garder qu’à redécouvrir.

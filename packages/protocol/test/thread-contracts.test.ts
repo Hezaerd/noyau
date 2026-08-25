@@ -181,6 +181,17 @@ describe("Thread commands", () => {
     expect(Schema.decodeSync(ThreadTurnStartRequest)(request).payload.presentation).toBe(
       "fix-merge-conflicts",
     )
+    expect(
+      Schema.decodeSync(ThreadTurnStartRequest)({
+        ...request,
+        payload: {
+          ...request.payload,
+          text: "PR #12 has failing CI.",
+          presentation: "fix-ci" as const,
+          titleSeed: "Fix CI",
+        },
+      }).payload.presentation,
+    ).toBe("fix-ci")
     const user = Schema.decodeSync(TranscriptItem)({
       _tag: "transcript.user",
       threadId: ids.thread,
@@ -350,6 +361,8 @@ describe("Thread commands", () => {
     "thread.create",
     "thread.archive",
     "thread.restore",
+    "thread.settle",
+    "thread.unsettle",
     "thread.meta.update",
     "thread.runtime-mode.set",
     "thread.model-selection.set",
@@ -367,6 +380,8 @@ describe("Thread commands", () => {
       },
       "thread.archive": { threadId: ids.thread },
       "thread.restore": { threadId: ids.thread },
+      "thread.settle": { threadId: ids.thread },
+      "thread.unsettle": { threadId: ids.thread, reason: "user" },
       "thread.meta.update": { threadId: ids.thread, title: "Titre" },
       "thread.runtime-mode.set": { threadId: ids.thread, runtimeMode: "auto-accept-edits" },
       "thread.model-selection.set": {

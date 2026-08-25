@@ -26,6 +26,7 @@
     "./provider/undelivered-mandate": "./src/provider/undelivered-mandate.ts",
     "./provider/provider-port": "./src/provider/provider-port.ts",
     "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
+    "./provider/provider-session-reaper": "./src/provider/provider-session-reaper.ts",
     "./provider/turn-user-input-registry": "./src/provider/turn-user-input-registry.ts",
     "./text-generation/text-generation": "./src/text-generation/text-generation.ts",
     "./text-generation/prompts": "./src/text-generation/prompts.ts",

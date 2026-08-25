@@ -16,6 +16,8 @@ import {
   ApprovalRespondRequest,
   ThreadArchiveRequest,
   ThreadCreateRequest,
+  ThreadSettleRequest,
+  ThreadUnsettleRequest,
   ThreadMetaUpdateRequest,
   ThreadModelSelectionSetRequest,
   ThreadRuntimeModeSetRequest,
@@ -202,6 +204,24 @@ export const makeThreadArchiveRequest = Effect.fnUntraced(function* (input: {
   return ThreadArchiveRequest.make({
     commandId: CommandId.make(yield* uuid()),
     payload: { threadId: input.threadId },
+  })
+})
+
+export const makeThreadSettleRequest = Effect.fnUntraced(function* (input: {
+  readonly threadId: ThreadId
+}) {
+  return ThreadSettleRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: { threadId: input.threadId },
+  })
+})
+
+export const makeThreadUnsettleRequest = Effect.fnUntraced(function* (input: {
+  readonly threadId: ThreadId
+}) {
+  return ThreadUnsettleRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: { threadId: input.threadId, reason: "user" },
   })
 })
 
