@@ -1,23 +1,43 @@
 // @vitest-environment happy-dom
 
-import { emptyCursorProviderStatus } from "@noyau/protocol/entities/environment"
+import { EnvironmentId } from "@noyau/protocol/ids"
+import { ShellSnapshot } from "@noyau/protocol/shell"
 import { cleanup, render, screen } from "@testing-library/react"
+import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
-import {
-  getControlPlaneSnapshot,
-  publishControlPlaneSnapshot,
-} from "../src/lib/control-plane-store"
-import { EMPTY_THREAD_SHELL_INDEX } from "../src/lib/thread-shell-index"
 import { threadModelLabel } from "../src/lib/thread-sidebar-popover"
+import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
+import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
 
-const emptyStore = getControlPlaneSnapshot()
+const makeSnapshot = (models: ShellSnapshot["environment"]["cursor"]["models"]) =>
+  Schema.decodeSync(ShellSnapshot)({
+    snapshotSequence: 1,
+    environment: {
+      id: EnvironmentId.make("30000000-0000-4000-8000-000000000001"),
+      cursor: {
+        installed: false,
+        handshakeOk: false,
+        version: null,
+        plan: null,
+        binaryPath: null,
+        models,
+      },
+      createdAt: "2026-08-25T12:00:00.000Z",
+    },
+    projects: [],
+    threads: [],
+  })
 
 afterEach(() => {
   cleanup()
-  publishControlPlaneSnapshot(emptyStore)
+  resetAppAtomRegistryForTests()
+  resetAppliedShell()
 })
+
+const renderPopover = (ui: Parameters<typeof render>[0]) =>
+  render(<AppAtomRegistryProvider>{ui}</AppAtomRegistryProvider>)
 
 describe("threadModelLabel", () => {
   it("uses the catalog label when the model is known", () => {
@@ -40,28 +60,18 @@ describe("threadModelLabel", () => {
 
 describe("ThreadSidebarPopover", () => {
   it("shows title, project, branch and provider icon with the model label", () => {
-    publishControlPlaneSnapshot({
-      ...EMPTY_THREAD_SHELL_INDEX,
-      shell: undefined,
-      cursor: {
-        ...emptyCursorProviderStatus,
-        models: [
-          {
-            modelId: "grok-4.6",
-            label: "Grok 4.6",
-            reasoningEfforts: [],
-            serviceTiers: [],
-          },
-        ],
-      },
-      projects: [],
-      threads: [],
-      lastProjectId: undefined,
-      subscriptionStatus: undefined,
-      selectProject: () => undefined,
-    })
+    replaceAppliedShell(
+      makeSnapshot([
+        {
+          modelId: "grok-4.6",
+          label: "Grok 4.6",
+          reasoningEfforts: [],
+          serviceTiers: [],
+        },
+      ]),
+    )
 
-    render(
+    renderPopover(
       <ThreadSidebarPopover
         thread={{
           title: "Stores Zustand t3code vs shell",
@@ -82,7 +92,7 @@ describe("ThreadSidebarPopover", () => {
   })
 
   it("omits the branch row and falls back to Auto without a selection", () => {
-    render(
+    renderPopover(
       <ThreadSidebarPopover
         thread={{
           title: "Nouveau Thread",

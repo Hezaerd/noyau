@@ -29,7 +29,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
-import { useControlPlaneSelector, useProjectThreads } from "@/hooks/use-control-plane"
+import { useLastProjectId, useProjectThreads } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import {
   buildPaletteGroups,
@@ -41,13 +41,13 @@ import {
   serializeRecentActionIds,
   updateRecentActionIds,
 } from "@/lib/app-palette"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
 import {
   getHotkeysPlatform,
   paletteItemHotkey,
   paletteItemModifierPressed,
 } from "@/lib/keyboard-shortcut"
 import { DEFAULT_SETTINGS_TAB, isSettingsPath } from "@/lib/settings-catalog"
+import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 
 const RECENT_ACTIONS_STORAGE_KEY = "noyau.palette.recent-actions"
 
@@ -69,7 +69,7 @@ const readRecentActionIds = (): ReadonlyArray<string> => {
 export function AppPaletteProvider({ children }: { readonly children: ReactNode }): ReactElement {
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const lastProjectId = useControlPlaneSelector((state) => state.lastProjectId)
+  const lastProjectId = useLastProjectId()
   const threads = useProjectThreads(lastProjectId)
   const threadCreateHotkey = useKeybinding("thread.create")
   const [open, setOpen] = useState(false)

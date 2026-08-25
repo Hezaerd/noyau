@@ -31,21 +31,17 @@ import {
 import { Input } from "@/components/ui/input"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
 import { useKeybinding } from "@/hooks/use-keybindings"
-import { useThreadPins } from "@/hooks/use-thread-pins"
-import { useThreadVisits } from "@/hooks/use-thread-visits"
+import { useThreadActivity } from "@/hooks/use-sidebar-queues"
+import { useThreadPinned } from "@/hooks/use-thread-pins"
 import { resolveSidebarCheckoutBranch } from "@/lib/checkout"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
-import {
-  resolveThreadActivity,
-  resolveWorkingStartedAtMs,
-  type ThreadActivity,
-} from "@/lib/thread-activity"
+import { resolveWorkingStartedAtMs, type ThreadActivity } from "@/lib/thread-activity"
 import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
-import { isThreadPinned, toggleThreadPinned } from "@/lib/thread-pins"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle } from "@/lib/thread-settled"
+import { toggleThreadPinned } from "@/state/thread-pins"
 
 const providerIcons = {
   cursor: CursorIcon,
@@ -69,16 +65,10 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
   readonly onSelect: () => void
 }) {
   const navigate = useNavigate()
-  const visits = useThreadVisits()
-  const pins = useThreadPins()
   const pinHotkey = useKeybinding("thread.pin")
   const settleHotkey = useKeybinding("thread.settle")
-  const pinned = isThreadPinned(thread.id, pins)
-  const activity = resolveThreadActivity({
-    sessionStatus: thread.sessionStatus,
-    latestTurn: thread.latestTurn,
-    lastVisitedAtMs: visits.get(thread.id),
-  })
+  const pinned = useThreadPinned(thread.id)
+  const activity = useThreadActivity(thread.id)
   const workingStartedAtMs =
     activity?.kind === "working"
       ? resolveWorkingStartedAtMs({ latestTurn: thread.latestTurn })

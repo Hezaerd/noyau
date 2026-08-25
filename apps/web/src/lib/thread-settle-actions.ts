@@ -4,8 +4,8 @@ import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
 import { makeThreadSettleRequest, makeThreadUnsettleRequest } from "@/lib/thread-commands"
-import { setThreadPinned } from "@/lib/thread-pins"
 import { canSettle } from "@/lib/thread-settled"
+import { setThreadPinned } from "@/state/thread-pins"
 
 export const dispatchThreadSettle = (
   thread: Pick<

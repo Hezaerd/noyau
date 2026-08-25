@@ -23,7 +23,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
-import { useControlPlaneSelector, useProjectThreadIds } from "@/hooks/use-control-plane"
+import {
+  useProjectThreadIds,
+  useProjects,
+  useSelectProject,
+  useSelectedProject,
+} from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
@@ -39,14 +44,13 @@ export function AppSidebar() {
   const paletteHotkey = useKeybinding("palette.open")
   const settingsHotkey = useKeybinding("settings.open")
   const createThreadHotkey = useKeybinding("thread.create")
-  const projects = useControlPlaneSelector((state) => state.projects)
-  const lastProjectId = useControlPlaneSelector((state) => state.lastProjectId)
-  const selectProject = useControlPlaneSelector((state) => state.selectProject)
+  const projects = useProjects()
+  const selectedProject = useSelectedProject()
+  const selectProject = useSelectProject()
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [rebindProjectId, setRebindProjectId] = useState<ProjectId>()
   const [deleteProjectId, setDeleteProjectId] = useState<ProjectId>()
   const pendingProjectIdRef = useRef<ProjectId | undefined>(undefined)
-  const selectedProject = projects.find((project) => project.id === lastProjectId) ?? projects[0]
   const deleteThreadCount = useProjectThreadIds(deleteProjectId).length
   const closeMobileNavigation = useCallback(() => {
     if (isMobile) {

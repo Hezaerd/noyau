@@ -1,11 +1,9 @@
+import { useAtomValue } from "@effect/atom-react"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import { useCallback, useSyncExternalStore } from "react"
+import { useCallback } from "react"
 
-import {
-  readComposerDraft,
-  subscribeComposerDrafts,
-  writeComposerDraft,
-} from "@/lib/composer-drafts"
+import { composerDraftStoreKey } from "@/lib/composer-drafts"
+import { draftAtom, writeComposerDraft } from "@/state/composer-drafts"
 
 export interface ComposerDraft {
   readonly text: string
@@ -17,11 +15,7 @@ export function useComposerDraft(
   projectId: ProjectId,
   threadId: ThreadId | undefined,
 ): ComposerDraft {
-  const text = useSyncExternalStore(
-    subscribeComposerDrafts,
-    () => readComposerDraft(projectId, threadId),
-    () => "",
-  )
+  const text = useAtomValue(draftAtom(composerDraftStoreKey(projectId, threadId)))
   const setText = useCallback(
     (next: string) => {
       writeComposerDraft(projectId, threadId, next)

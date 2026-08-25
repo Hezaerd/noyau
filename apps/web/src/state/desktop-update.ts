@@ -1,3 +1,5 @@
+import { Atom } from "effect/unstable/reactivity"
+
 import type { DesktopUpdateCheckResult, DesktopUpdateOpenResult } from "@/lib/desktop-bridge"
 import { desktopAppVersion, desktopReleaseChannel, isDesktopRuntime } from "@/lib/desktop-bridge"
 import {
@@ -5,33 +7,23 @@ import {
   initialDesktopUpdateState,
   type DesktopUpdateState,
 } from "@/lib/desktop-update"
-import { getDesktopUpdateChannel } from "@/lib/desktop-update-channel-preference"
+import { appAtomRegistry } from "@/state/atom-registry"
+import { getDesktopUpdateChannel } from "@/state/preferences"
 
-const listeners = new Set<() => void>()
+export const desktopUpdateStateAtom = Atom.make<DesktopUpdateState>({
+  phase: "idle",
+  result: undefined,
+}).pipe(Atom.keepAlive, Atom.withLabel("chrome:desktop-update"))
 
-let state: DesktopUpdateState = { phase: "idle", result: undefined }
 let inFlight: Promise<void> | undefined
 let autoCheckStarted = false
 
-const emit = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
 const setState = (next: DesktopUpdateState): void => {
-  state = next
-  emit()
+  appAtomRegistry.set(desktopUpdateStateAtom, next)
 }
 
-export const getDesktopUpdateState = (): DesktopUpdateState => state
-
-export const subscribeDesktopUpdateState = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
+export const getDesktopUpdateState = (): DesktopUpdateState =>
+  appAtomRegistry.get(desktopUpdateStateAtom)
 
 const requestedUpdateChannel = () =>
   desktopReleaseChannel() === "development" ? undefined : getDesktopUpdateChannel()
@@ -45,9 +37,15 @@ const checkFromBridge = async (): Promise<DesktopUpdateCheckResult> => {
 }
 
 export const checkDesktopUpdate = async (): Promise<DesktopUpdateCheckResult> => {
+  const state = getDesktopUpdateState()
   if (inFlight !== undefined) {
     await inFlight
-    return state.result ?? { _tag: "unsupported", currentVersion: desktopAppVersion() }
+    return (
+      getDesktopUpdateState().result ?? {
+        _tag: "unsupported",
+        currentVersion: desktopAppVersion(),
+      }
+    )
   }
 
   setState({ phase: "checking", result: state.result })
@@ -59,7 +57,7 @@ export const checkDesktopUpdate = async (): Promise<DesktopUpdateCheckResult> =>
     .catch(() => {
       const result: DesktopUpdateCheckResult = {
         _tag: "failed",
-        currentVersion: state.result?.currentVersion ?? desktopAppVersion(),
+        currentVersion: getDesktopUpdateState().result?.currentVersion ?? desktopAppVersion(),
         message: "Impossible de vérifier les mises à jour.",
       }
       setState({ phase: "idle", result })
@@ -77,11 +75,12 @@ export const openDesktopInstaller = async (): Promise<DesktopUpdateOpenResult> =
   if (open === undefined) {
     return { _tag: "unavailable", reason: "unsupported" }
   }
-  setState({ phase: "opening", result: state.result })
+  setState({ phase: "opening", result: getDesktopUpdateState().result })
   try {
     const result = await open(requestedUpdateChannel())
+    const current = getDesktopUpdateState()
     if (result._tag === "opened") {
-      setState({ phase: "idle", result: state.result })
+      setState({ phase: "idle", result: current.result })
       return result
     }
     if (result._tag === "failed" || desktopUpdateOpenErrorMessage(result) !== undefined) {
@@ -89,12 +88,12 @@ export const openDesktopInstaller = async (): Promise<DesktopUpdateOpenResult> =
         phase: "idle",
         result: {
           _tag: "failed",
-          currentVersion: state.result?.currentVersion ?? desktopAppVersion(),
+          currentVersion: current.result?.currentVersion ?? desktopAppVersion(),
           message: desktopUpdateOpenErrorMessage(result) ?? "Impossible d’ouvrir l’installeur.",
         },
       })
     } else {
-      setState({ phase: "idle", result: state.result })
+      setState({ phase: "idle", result: current.result })
     }
     return result
   } catch {
@@ -106,7 +105,7 @@ export const openDesktopInstaller = async (): Promise<DesktopUpdateOpenResult> =
       phase: "idle",
       result: {
         _tag: "failed",
-        currentVersion: state.result?.currentVersion ?? desktopAppVersion(),
+        currentVersion: getDesktopUpdateState().result?.currentVersion ?? desktopAppVersion(),
         message: result.message,
       },
     })

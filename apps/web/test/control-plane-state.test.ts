@@ -3,15 +3,19 @@ import { ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
 import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
+import { applyShellEvent, makeOptimisticThreadShell } from "../src/lib/control-plane-state"
+import { appAtomRegistry, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
+import { readComposerDraft, writeComposerDraft } from "../src/state/composer-drafts"
 import {
-  applyShellEvent,
   getAppliedShell,
-  makeOptimisticThreadShell,
+  publishCreatedThread,
   reduceAppliedShellEvent,
   replaceAppliedShell,
   resetAppliedShell,
+  threadIndexAtom,
+  threadShellAtom,
   upsertAppliedShellThread,
-} from "../src/lib/control-plane-state"
+} from "../src/state/shell"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
@@ -54,6 +58,7 @@ const makeThread = (id: ThreadId): ThreadShell =>
   })
 
 afterEach(() => {
+  resetAppAtomRegistryForTests()
   resetAppliedShell()
 })
 
@@ -125,6 +130,7 @@ describe("reduceAppliedShellEvent", () => {
     ).toBe(true)
     expect(getAppliedShell()?.threads).toEqual([thread])
     expect(getAppliedShell()?.snapshotSequence).toBe(11)
+    expect(appAtomRegistry.get(threadIndexAtom).threadsById.get(threadId)).toBe(thread)
   })
 })
 
@@ -148,6 +154,8 @@ describe("upsertAppliedShellThread", () => {
     expect(upsertAppliedShellThread(thread)).toBe(true)
     expect(getAppliedShell()?.threads).toEqual([thread])
     expect(getAppliedShell()?.snapshotSequence).toBe(10)
+    expect(appAtomRegistry.get(threadIndexAtom).threadsById.get(threadId)).toBe(thread)
+    expect(appAtomRegistry.get(threadShellAtom(threadId))).toBe(thread)
   })
 
   it("keeps the next live event applyable after an optimistic insert", () => {
@@ -211,5 +219,23 @@ describe("upsertAppliedShellThread", () => {
         createdAt: makeThread(threadId).createdAt,
       }),
     ).not.toHaveProperty("branch")
+  })
+})
+
+describe("publishCreatedThread", () => {
+  it("upserts the optimistic shell and promotes the new-Thread Brouillon", () => {
+    replaceAppliedShell(makeSnapshot(10))
+    writeComposerDraft(projectId, undefined, "continue after create")
+    const thread = makeOptimisticThreadShell({
+      id: threadId,
+      projectId,
+      title: "Nouveau thread",
+      runtimeMode: "full-access",
+    })
+
+    expect(publishCreatedThread(thread)).toBe(true)
+    expect(getAppliedShell()?.threads).toEqual([thread])
+    expect(readComposerDraft(projectId, undefined)).toBe("")
+    expect(readComposerDraft(projectId, threadId)).toBe("continue after create")
   })
 })

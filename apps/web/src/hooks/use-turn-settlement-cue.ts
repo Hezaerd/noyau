@@ -1,11 +1,11 @@
 import { useEffect, useEffectEvent, useRef } from "react"
 
-import { useControlPlaneSelector } from "@/hooks/use-control-plane"
+import { useThreads } from "@/hooks/use-control-plane"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
 import { playTurnCue, settledTurns, type TurnCueThread } from "@/lib/turn-cue"
 
 export const useTurnSettlementCue = (): void => {
-  const threads = useControlPlaneSelector((state) => state.threads)
+  const threads = useThreads()
   const preference = useTurnCuePreference()
   const previousRef = useRef<ReadonlyArray<TurnCueThread> | undefined>(undefined)
   const onPreference = useEffectEvent(() => preference)

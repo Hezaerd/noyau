@@ -14,14 +14,6 @@ export interface TurnCuePreference {
 const TurnCueEnabledPreference = Schema.Literals(["on", "off"])
 const decodeTurnCueEnabledPreference = Schema.decodeUnknownOption(TurnCueEnabledPreference)
 
-const listeners = new Set<() => void>()
-
-let current: TurnCuePreference = {
-  enabled: DEFAULT_TURN_CUE_ENABLED,
-  sound: DEFAULT_TURN_CUE_SOUND,
-}
-let initialized = false
-
 export const parseTurnCueEnabled = (value: string | null): boolean =>
   Option.match(decodeTurnCueEnabledPreference(value), {
     onNone: () => DEFAULT_TURN_CUE_ENABLED,
@@ -31,7 +23,7 @@ export const parseTurnCueEnabled = (value: string | null): boolean =>
 export const parseTurnCueSound = (value: string | null): TurnCueSound =>
   value !== null && isTurnCueSound(value) ? value : DEFAULT_TURN_CUE_SOUND
 
-const readStoredPreference = (): TurnCuePreference => {
+export const readStoredTurnCuePreference = (): TurnCuePreference => {
   try {
     return {
       enabled: parseTurnCueEnabled(window.localStorage.getItem(TURN_CUE_ENABLED_STORAGE_KEY)),
@@ -45,7 +37,7 @@ const readStoredPreference = (): TurnCuePreference => {
   }
 }
 
-const persistPreference = (preference: TurnCuePreference): void => {
+export const persistTurnCuePreference = (preference: TurnCuePreference): void => {
   try {
     if (preference.enabled === DEFAULT_TURN_CUE_ENABLED) {
       window.localStorage.removeItem(TURN_CUE_ENABLED_STORAGE_KEY)
@@ -60,53 +52,6 @@ const persistPreference = (preference: TurnCuePreference): void => {
   } catch {
     // The preference remains active for this renderer session when storage is unavailable.
   }
-}
-
-const emitChange = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-const replacePreference = (next: TurnCuePreference): void => {
-  if (current.enabled === next.enabled && current.sound === next.sound) {
-    return
-  }
-  current = next
-  persistPreference(next)
-  emitChange()
-}
-
-export const initializeTurnCuePreference = (): void => {
-  if (initialized) {
-    return
-  }
-  initialized = true
-  current = readStoredPreference()
-}
-
-export const getTurnCuePreference = (): TurnCuePreference => current
-
-export const subscribeTurnCuePreference = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export const setTurnCueEnabled = (enabled: boolean): void => {
-  replacePreference({ enabled, sound: current.sound })
-}
-
-export const setTurnCueSound = (sound: TurnCueSound): void => {
-  replacePreference({ enabled: current.enabled, sound })
-}
-
-export const resetTurnCuePreference = (): void => {
-  replacePreference({
-    enabled: DEFAULT_TURN_CUE_ENABLED,
-    sound: DEFAULT_TURN_CUE_SOUND,
-  })
 }
 
 export const isTurnCuePreferenceDefault = (preference: TurnCuePreference): boolean =>

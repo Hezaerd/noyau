@@ -1,35 +1,17 @@
-import type { VcsStatusPullRequest } from "@noyau/protocol/git"
+import type { ProjectId } from "@noyau/protocol/ids"
 import type { ThreadShell } from "@noyau/protocol/shell"
 import { Fragment, type ReactNode } from "react"
 
-import { useNowMinuteMs } from "@/hooks/use-now-minute"
-import { useThreadPins } from "@/hooks/use-thread-pins"
-import {
-  useAutoSettleAfterDays,
-  useAutoSettleOnMergeEnabled,
-} from "@/hooks/use-thread-settle-preference"
-import { partitionThreadsForSidebar } from "@/lib/thread-sidebar-sort"
+import { useSidebarQueues } from "@/hooks/use-sidebar-queues"
 
 export function ThreadSidebarSection({
-  threads,
-  pullRequests,
+  projectId,
   renderThread,
 }: {
-  readonly threads: ReadonlyArray<ThreadShell>
-  readonly pullRequests: ReadonlyMap<string, VcsStatusPullRequest>
+  readonly projectId: ProjectId
   readonly renderThread: (thread: ThreadShell, settled: boolean) => ReactNode
 }) {
-  const pins = useThreadPins()
-  const nowMs = useNowMinuteMs()
-  const autoSettleAfterDays = useAutoSettleAfterDays()
-  const autoSettleOnMerge = useAutoSettleOnMergeEnabled()
-  const { active, settled } = partitionThreadsForSidebar(threads, {
-    pins,
-    nowMs,
-    autoSettleAfterDays,
-    autoSettleOnMerge,
-    changeRequestStateOf: (thread) => pullRequests.get(thread.id)?.state ?? null,
-  })
+  const { active, settled } = useSidebarQueues(projectId)
 
   return (
     <section aria-label="Threads" className="mt-1">

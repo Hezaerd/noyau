@@ -1,9 +1,9 @@
 import type { BoardSnapshot } from "@noyau/protocol/board"
 import type { ProjectId } from "@noyau/protocol/ids"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 
+import { useProjectBoardSnapshot } from "@/hooks/use-project-board"
 import type { ComposerTicket } from "@/lib/composer-tickets"
-import { subscribeProjectBoard } from "@/lib/project-board-store"
 
 export const composerTicketsFromBoard = (
   snapshot: BoardSnapshot,
@@ -26,15 +26,9 @@ export const composerTicketsFromBoard = (
 }
 
 export const useProjectComposerTickets = (projectId: ProjectId): ReadonlyArray<ComposerTicket> => {
-  const [tickets, setTickets] = useState<ReadonlyArray<ComposerTicket>>([])
-
-  useEffect(() => {
-    return subscribeProjectBoard(projectId, {
-      onSnapshot: (snapshot) => {
-        setTickets(composerTicketsFromBoard(snapshot))
-      },
-    })
-  }, [projectId])
-
-  return useMemo(() => tickets, [tickets])
+  const snapshot = useProjectBoardSnapshot(projectId)
+  return useMemo(
+    () => (snapshot === undefined ? [] : composerTicketsFromBoard(snapshot)),
+    [snapshot],
+  )
 }

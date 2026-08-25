@@ -1,10 +1,7 @@
-import { useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
 
-import {
-  getTranscriptPaintMode,
-  subscribeTranscriptPaintMode,
-  type TranscriptPaintMode,
-} from "@/lib/transcript-paint-preference"
+import type { TranscriptPaintMode } from "@/lib/transcript-paint-preference"
+import { transcriptPaintModeAtom } from "@/state/preferences"
 
 export const useTranscriptPaintMode = (): TranscriptPaintMode =>
-  useSyncExternalStore(subscribeTranscriptPaintMode, getTranscriptPaintMode, getTranscriptPaintMode)
+  useAtomValue(transcriptPaintModeAtom)

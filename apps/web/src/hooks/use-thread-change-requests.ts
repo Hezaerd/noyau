@@ -12,6 +12,7 @@ import {
   vcsScopeForThread,
   vcsStatusScopeKey,
 } from "@/lib/vcs-status"
+import { replaceProjectPullRequests } from "@/state/sidebar"
 
 const sameSnapshot = (
   left: ThreadChangeRequestSnapshot | undefined,
@@ -80,7 +81,7 @@ export const useThreadChangeRequests = (
     })
   }, [projectId, statuses, threads])
 
-  return useMemo(() => {
+  const derived = useMemo(() => {
     const pullRequests = new Map<string, VcsStatusPullRequest>()
     const liveBranches = new Map<string, string>()
     for (const thread of threads) {
@@ -99,4 +100,10 @@ export const useThreadChangeRequests = (
     }
     return { pullRequests, liveBranches }
   }, [projectId, snapshots, statuses, threads])
+
+  useEffect(() => {
+    replaceProjectPullRequests(projectId, derived.pullRequests)
+  }, [projectId, derived.pullRequests])
+
+  return derived
 }

@@ -1,14 +1,7 @@
+import { useAtomValue } from "@effect/atom-react"
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
-import { useSyncExternalStore } from "react"
 
-import {
-  getThreadEnvModePreference,
-  subscribeThreadEnvModePreference,
-} from "@/lib/thread-env-mode-preference"
+import { threadEnvModePreferenceAtom } from "@/state/preferences"
 
 export const useThreadEnvModePreference = (): ThreadEnvMode =>
-  useSyncExternalStore(
-    subscribeThreadEnvModePreference,
-    getThreadEnvModePreference,
-    getThreadEnvModePreference,
-  )
+  useAtomValue(threadEnvModePreferenceAtom)

@@ -3,7 +3,7 @@ import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import { GitBranchIcon, LayersIcon } from "lucide-react"
 
 import { CursorIcon, type ProviderIcon } from "@/components/provider-icons"
-import { useControlPlaneSelector } from "@/hooks/use-control-plane"
+import { useCursor } from "@/hooks/use-control-plane"
 import { threadModelLabel } from "@/lib/thread-sidebar-popover"
 
 const EMPTY_MODELS: ReadonlyArray<CursorModel> = []
@@ -21,7 +21,8 @@ export function ThreadSidebarPopover({
   readonly project: Pick<ProjectShell, "name">
   readonly branch: string | null
 }) {
-  const models = useControlPlaneSelector((state) => state.cursor?.models ?? EMPTY_MODELS)
+  const cursor = useCursor()
+  const models = cursor?.models ?? EMPTY_MODELS
   const ProviderIcon = providerIcons[thread.provider]
 
   return (

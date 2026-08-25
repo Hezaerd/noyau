@@ -10,28 +10,25 @@ import {
 } from "@/hooks/use-thread-settle-preference"
 import { useTranscriptPaintMode } from "@/hooks/use-transcript-paint-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
-import { setAppearancePreference } from "@/lib/appearance"
-import {
-  DEFAULT_AUTO_REMOVE_MERGED_WORKTREE,
-  setAutoRemoveMergedWorktreeEnabled,
-} from "@/lib/auto-remove-merged-worktree-preference"
-import {
-  DEFAULT_DISCORD_PRESENCE_ENABLED,
-  setDiscordPresenceEnabled,
-} from "@/lib/discord-presence-preference"
-import { hasCustomKeybindings } from "@/lib/keybindings"
-import { setProjectFolderStartDirectory } from "@/lib/project-folder-preference"
+import { DEFAULT_AUTO_REMOVE_MERGED_WORKTREE } from "@/lib/auto-remove-merged-worktree-preference"
+import { DEFAULT_DISCORD_PRESENCE_ENABLED } from "@/lib/discord-presence-preference"
 import type { SettingsTabId } from "@/lib/settings-catalog"
 import {
   DEFAULT_AUTO_SETTLE_AFTER_DAYS,
   DEFAULT_AUTO_SETTLE_ON_MERGE,
-  resetThreadSettlePreference,
 } from "@/lib/thread-settle-preference"
+import { isTranscriptPaintPreferenceDefault } from "@/lib/transcript-paint-preference"
+import { isTurnCuePreferenceDefault } from "@/lib/turn-cue-preference"
+import { hasCustomKeybindings } from "@/state/keybindings"
 import {
-  isTranscriptPaintPreferenceDefault,
   resetTranscriptPaintPreference,
-} from "@/lib/transcript-paint-preference"
-import { isTurnCuePreferenceDefault, resetTurnCuePreference } from "@/lib/turn-cue-preference"
+  resetTurnCuePreference,
+  setAppearancePreference,
+  setAutoRemoveMergedWorktreeEnabled,
+  setDiscordPresenceEnabled,
+  setProjectFolderStartDirectory,
+} from "@/state/preferences"
+import { resetThreadSettlePreference } from "@/state/thread-settle"
 
 export interface SettingsTabRestore {
   readonly canRestore: boolean

@@ -1,13 +1,5 @@
-import { useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
 
-import {
-  getDiscordPresenceEnabled,
-  subscribeDiscordPresenceEnabled,
-} from "@/lib/discord-presence-preference"
+import { discordPresenceEnabledAtom } from "@/state/preferences"
 
-export const useDiscordPresenceEnabled = (): boolean =>
-  useSyncExternalStore(
-    subscribeDiscordPresenceEnabled,
-    getDiscordPresenceEnabled,
-    getDiscordPresenceEnabled,
-  )
+export const useDiscordPresenceEnabled = (): boolean => useAtomValue(discordPresenceEnabledAtom)

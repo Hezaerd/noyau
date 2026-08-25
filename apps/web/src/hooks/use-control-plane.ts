@@ -1,55 +1,48 @@
+import { useAtomValue } from "@effect/atom-react"
+import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import type { ThreadShell } from "@noyau/protocol/shell"
-import { useCallback, useDebugValue, useRef, useSyncExternalStore } from "react"
+import type { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
 
-import type { ControlPlaneContextValue } from "@/lib/control-plane-state"
-import { getControlPlaneSnapshot, subscribeControlPlaneStore } from "@/lib/control-plane-store"
-import { EMPTY_THREAD_IDS, EMPTY_THREAD_SHELLS } from "@/lib/thread-shell-index"
+import type { SubscriptionStatus } from "@/lib/control-plane"
+import {
+  appliedShellAtom,
+  cursorAtom,
+  emptyThreadIdsAtom,
+  emptyThreadShellAtom,
+  emptyThreadShellsAtom,
+  lastProjectIdAtom,
+  projectThreadIdsAtom,
+  projectThreadsAtom,
+  projectsAtom,
+  selectProject,
+  selectedProjectAtom,
+  subscriptionStatusAtom,
+  threadShellAtom,
+  threadsAtom,
+} from "@/state/shell"
 
-export type { ControlPlaneContextValue }
+export const useAppliedShell = (): ShellSnapshot | undefined => useAtomValue(appliedShellAtom)
 
-/** Full shell snapshot — re-renders on any control-plane publish. Prefer a selector. */
-export const useControlPlane = (): ControlPlaneContextValue =>
-  useSyncExternalStore(subscribeControlPlaneStore, getControlPlaneSnapshot, getControlPlaneSnapshot)
+export const useProjects = (): ReadonlyArray<ProjectShell> => useAtomValue(projectsAtom)
+
+export const useCursor = (): CursorProviderStatus | undefined => useAtomValue(cursorAtom)
+
+export const useThreads = (): ReadonlyArray<ThreadShell> => useAtomValue(threadsAtom)
+
+export const useSubscriptionStatus = (): SubscriptionStatus | undefined =>
+  useAtomValue(subscriptionStatusAtom)
+
+export const useLastProjectId = (): ProjectId | undefined => useAtomValue(lastProjectIdAtom)
+
+export const useSelectedProject = (): ProjectShell | undefined => useAtomValue(selectedProjectAtom)
+
+export const useSelectProject = (): typeof selectProject => selectProject
 
 export const useThreadShell = (threadId: ThreadId | undefined): ThreadShell | undefined =>
-  useControlPlaneSelector((state) =>
-    threadId === undefined ? undefined : state.threadsById.get(threadId),
-  )
+  useAtomValue(threadId === undefined ? emptyThreadShellAtom : threadShellAtom(threadId))
 
 export const useProjectThreadIds = (projectId: ProjectId | undefined): ReadonlyArray<ThreadId> =>
-  useControlPlaneSelector((state) =>
-    projectId === undefined
-      ? EMPTY_THREAD_IDS
-      : (state.threadIdsByProjectId.get(projectId) ?? EMPTY_THREAD_IDS),
-  )
+  useAtomValue(projectId === undefined ? emptyThreadIdsAtom : projectThreadIdsAtom(projectId))
 
 export const useProjectThreads = (projectId: ProjectId | undefined): ReadonlyArray<ThreadShell> =>
-  useControlPlaneSelector((state) =>
-    projectId === undefined
-      ? EMPTY_THREAD_SHELLS
-      : (state.threadsByProjectId.get(projectId) ?? EMPTY_THREAD_SHELLS),
-  )
-
-/**
- * Subscribe to a slice of the control plane. Re-renders only when the selected
- * value changes by `Object.is` (stable refs for unchanged `projects` / `cursor`).
- */
-export const useControlPlaneSelector = <T>(selector: (state: ControlPlaneContextValue) => T): T => {
-  const selectorRef = useRef(selector)
-  selectorRef.current = selector
-  const valueRef = useRef<T>(selector(getControlPlaneSnapshot()))
-
-  const getSelection = useCallback((): T => {
-    const next = selectorRef.current(getControlPlaneSnapshot())
-    if (Object.is(valueRef.current, next)) {
-      return valueRef.current
-    }
-    valueRef.current = next
-    return next
-  }, [])
-
-  const selected = useSyncExternalStore(subscribeControlPlaneStore, getSelection, getSelection)
-  useDebugValue(selected)
-  return selected
-}
+  useAtomValue(projectId === undefined ? emptyThreadShellsAtom : projectThreadsAtom(projectId))

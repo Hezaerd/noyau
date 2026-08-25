@@ -4,19 +4,23 @@ import { createRoot } from "react-dom/client"
 
 import { AnchoredToastProvider, ToastProvider } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { initializeAppearance } from "@/lib/appearance"
-import { initializeAutoRemoveMergedWorktreePreference } from "@/lib/auto-remove-merged-worktree-preference"
 import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
-import { initializeDesktopUpdateChannelPreference } from "@/lib/desktop-update-channel-preference"
-import { initializeDiscordPresencePreference } from "@/lib/discord-presence-preference"
-import { initializeKeybindings } from "@/lib/keybindings"
-import { initializeProjectFolderStartDirectory } from "@/lib/project-folder-preference"
-import { initializeThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
-import { initializeThreadPins } from "@/lib/thread-pins"
-import { initializeThreadSettlePreference } from "@/lib/thread-settle-preference"
-import { initializeThreadVisits } from "@/lib/thread-visits"
-import { initializeTranscriptPaintPreference } from "@/lib/transcript-paint-preference"
-import { initializeTurnCuePreference } from "@/lib/turn-cue-preference"
+import { AppAtomRegistryProvider } from "@/state/atom-registry"
+import { initializeKeybindings } from "@/state/keybindings"
+import { initializeNowMinuteClock } from "@/state/now"
+import {
+  initializeAppearance,
+  initializeAutoRemoveMergedWorktreePreference,
+  initializeDesktopUpdateChannelPreference,
+  initializeDiscordPresencePreference,
+  initializeProjectFolderStartDirectory,
+  initializeThreadEnvModePreference,
+  initializeTranscriptPaintPreference,
+  initializeTurnCuePreference,
+} from "@/state/preferences"
+import { initializeThreadPins } from "@/state/thread-pins"
+import { initializeThreadSettlePreference } from "@/state/thread-settle"
+import { initializeThreadVisits } from "@/state/thread-visits"
 
 import { routeTree } from "./routeTree.gen"
 
@@ -35,6 +39,7 @@ initializeTurnCuePreference()
 initializeTranscriptPaintPreference()
 initializeThreadPins()
 initializeThreadVisits()
+initializeNowMinuteClock()
 
 const router = createRouter({ routeTree })
 
@@ -52,12 +57,14 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <TooltipProvider>
-      <ToastProvider>
-        <AnchoredToastProvider>
-          <RouterProvider router={router} />
-        </AnchoredToastProvider>
-      </ToastProvider>
-    </TooltipProvider>
+    <AppAtomRegistryProvider>
+      <TooltipProvider>
+        <ToastProvider>
+          <AnchoredToastProvider>
+            <RouterProvider router={router} />
+          </AnchoredToastProvider>
+        </ToastProvider>
+      </TooltipProvider>
+    </AppAtomRegistryProvider>
   </StrictMode>,
 )

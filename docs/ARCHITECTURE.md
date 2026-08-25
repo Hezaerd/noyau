@@ -45,7 +45,8 @@ Cible de sortie : macOS et Windows natif. Linux, WSL, client web distribué et m
   Le fil de fer ACP est `@noyau/acp` ([ADR-0014](adr/0014-fil-de-fer-acp.md)), pas un port
   multi-harnais.
 
-Effect n'est pas imposé à l'état local ni au rendu React.
+Effect.gen n'est pas imposé au rendu React. L'état renderer (projections `subscribe*` et
+chrome) vit dans Effect Atom ([ADR-0020](adr/0020-effect-atom-etat-renderer.md)).
 
 ## Principe d'architecture
 

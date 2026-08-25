@@ -6,12 +6,9 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { useAppearance } from "@/hooks/use-appearance"
 import { useTranscriptPaintMode } from "@/hooks/use-transcript-paint-preference"
 import type { AppearancePreference } from "@/lib/desktop-bridge"
-import {
-  isTranscriptPaintMode,
-  setTranscriptPaintMode,
-  TRANSCRIPT_PAINT_ITEMS,
-} from "@/lib/transcript-paint-preference"
+import { isTranscriptPaintMode, TRANSCRIPT_PAINT_ITEMS } from "@/lib/transcript-paint-preference"
 import { cn } from "@/lib/utils"
+import { setTranscriptPaintMode } from "@/state/preferences"
 
 const appearanceModes: ReadonlyArray<{
   readonly value: AppearancePreference

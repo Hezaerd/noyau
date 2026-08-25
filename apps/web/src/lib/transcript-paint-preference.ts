@@ -16,11 +16,6 @@ export const TRANSCRIPT_PAINT_ITEMS: ReadonlyArray<{
 const TranscriptPaintPreference = Schema.Literals(TRANSCRIPT_PAINT_MODES)
 const decodeTranscriptPaintPreference = Schema.decodeUnknownOption(TranscriptPaintPreference)
 
-const listeners = new Set<() => void>()
-
-let currentMode: TranscriptPaintMode = DEFAULT_TRANSCRIPT_PAINT_MODE
-let initialized = false
-
 export const isTranscriptPaintMode = (value: string): value is TranscriptPaintMode =>
   TRANSCRIPT_PAINT_MODES.some((mode) => mode === value)
 
@@ -30,7 +25,7 @@ export const parseTranscriptPaintMode = (value: string | null): TranscriptPaintM
     onSome: (preference) => preference,
   })
 
-const readStoredPreference = (): TranscriptPaintMode => {
+export const readStoredTranscriptPaintMode = (): TranscriptPaintMode => {
   try {
     return parseTranscriptPaintMode(window.localStorage.getItem(TRANSCRIPT_PAINT_STORAGE_KEY))
   } catch {
@@ -38,7 +33,7 @@ const readStoredPreference = (): TranscriptPaintMode => {
   }
 }
 
-const persistPreference = (mode: TranscriptPaintMode): void => {
+export const persistTranscriptPaintMode = (mode: TranscriptPaintMode): void => {
   try {
     if (mode === DEFAULT_TRANSCRIPT_PAINT_MODE) {
       window.localStorage.removeItem(TRANSCRIPT_PAINT_STORAGE_KEY)
@@ -48,42 +43,6 @@ const persistPreference = (mode: TranscriptPaintMode): void => {
   } catch {
     // The preference remains active for this renderer session when storage is unavailable.
   }
-}
-
-const emitChange = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-export const initializeTranscriptPaintPreference = (): void => {
-  if (initialized) {
-    return
-  }
-  initialized = true
-  currentMode = readStoredPreference()
-}
-
-export const getTranscriptPaintMode = (): TranscriptPaintMode => currentMode
-
-export const subscribeTranscriptPaintMode = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export const setTranscriptPaintMode = (mode: TranscriptPaintMode): void => {
-  if (mode === currentMode) {
-    return
-  }
-  currentMode = mode
-  persistPreference(mode)
-  emitChange()
-}
-
-export const resetTranscriptPaintPreference = (): void => {
-  setTranscriptPaintMode(DEFAULT_TRANSCRIPT_PAINT_MODE)
 }
 
 export const isTranscriptPaintPreferenceDefault = (mode: TranscriptPaintMode): boolean =>

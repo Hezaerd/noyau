@@ -18,11 +18,6 @@ const decodeDesktopUpdateChannelPreference = Schema.decodeUnknownOption(
   DesktopUpdateChannelPreference,
 )
 
-const listeners = new Set<() => void>()
-
-let currentChannel: DesktopUpdatePackagedChannel = "latest"
-let initialized = false
-
 export const isDesktopUpdatePackagedChannel = (
   value: string,
 ): value is DesktopUpdatePackagedChannel => value === "latest" || value === "nightly"
@@ -39,7 +34,7 @@ export const parseDesktopUpdateChannelPreference = (
     defaultDesktopUpdateChannel(packaged),
   )
 
-const readStoredPreference = (): DesktopUpdatePackagedChannel => {
+export const readStoredDesktopUpdateChannel = (): DesktopUpdatePackagedChannel => {
   try {
     return parseDesktopUpdateChannelPreference(
       window.localStorage.getItem(DESKTOP_UPDATE_CHANNEL_STORAGE_KEY),
@@ -50,10 +45,8 @@ const readStoredPreference = (): DesktopUpdatePackagedChannel => {
   }
 }
 
-const persistPreference = (
-  channel: DesktopUpdatePackagedChannel,
-  packaged: DesktopReleaseChannel,
-): void => {
+export const persistDesktopUpdateChannel = (channel: DesktopUpdatePackagedChannel): void => {
+  const packaged = desktopReleaseChannel()
   try {
     if (packaged !== "development" && channel === packaged) {
       window.localStorage.removeItem(DESKTOP_UPDATE_CHANNEL_STORAGE_KEY)
@@ -63,36 +56,4 @@ const persistPreference = (
   } catch {
     // The preference remains active for this renderer session when storage is unavailable.
   }
-}
-
-const emitChange = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-export const initializeDesktopUpdateChannelPreference = (): void => {
-  if (initialized) {
-    return
-  }
-  initialized = true
-  currentChannel = readStoredPreference()
-}
-
-export const getDesktopUpdateChannel = (): DesktopUpdatePackagedChannel => currentChannel
-
-export const subscribeDesktopUpdateChannel = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export const setDesktopUpdateChannel = (channel: DesktopUpdatePackagedChannel): void => {
-  if (channel === currentChannel) {
-    return
-  }
-  currentChannel = channel
-  persistPreference(channel, desktopReleaseChannel())
-  emitChange()
 }

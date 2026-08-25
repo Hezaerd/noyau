@@ -1,13 +1,6 @@
-import { useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
 
-import {
-  getProjectFolderStartDirectory,
-  subscribeProjectFolderStartDirectory,
-} from "@/lib/project-folder-preference"
+import { projectFolderStartDirectoryAtom } from "@/state/preferences"
 
 export const useProjectFolderStartDirectory = (): string =>
-  useSyncExternalStore(
-    subscribeProjectFolderStartDirectory,
-    getProjectFolderStartDirectory,
-    getProjectFolderStartDirectory,
-  )
+  useAtomValue(projectFolderStartDirectoryAtom)

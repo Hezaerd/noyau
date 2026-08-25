@@ -34,8 +34,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useKeybinding } from "@/hooks/use-keybindings"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
+import { useKeybindingRecorderActive, useKeybindings } from "@/hooks/use-keybindings"
+import { matchesKeybinding } from "@/lib/keybindings"
 import {
   searchSettings,
   SETTINGS_TABS,
@@ -57,7 +57,9 @@ export function SettingsSidebar(): ReactElement {
   const currentHash = useLocation({ select: (location) => location.hash })
   const canGoBack = useCanGoBack()
   const { isMobile, setOpenMobile, open, setOpen } = useSidebar()
-  const searchHotkey = useKeybinding("settings.search")
+  const { resolved } = useKeybindings()
+  const searchHotkey = resolved["settings.search"]
+  const recorderActive = useKeybindingRecorderActive()
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
   const [activeResultIndex, setActiveResultIndex] = useState(0)
@@ -77,7 +79,7 @@ export function SettingsSidebar(): ReactElement {
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (isKeybindingRecorderActive() || !matchesKeybinding(event, "settings.search")) {
+      if (recorderActive || !matchesKeybinding(event, "settings.search", resolved)) {
         return
       }
 
@@ -105,7 +107,7 @@ export function SettingsSidebar(): ReactElement {
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [isMobile, open, setOpen, setOpenMobile, searchHotkey])
+  }, [isMobile, open, recorderActive, resolved, setOpen, setOpenMobile, searchHotkey])
 
   const navigateBack = useCallback(() => {
     if (isMobile) {

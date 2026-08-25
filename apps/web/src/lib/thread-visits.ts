@@ -1,4 +1,3 @@
-import type { ThreadId } from "@noyau/protocol/ids"
 import { Option, Schema } from "effect"
 
 export const THREAD_VISITS_STORAGE_KEY = "noyau:thread-visits"
@@ -7,11 +6,6 @@ const ThreadVisitsRecord = Schema.Record(Schema.String, Schema.String)
 const decodeThreadVisitsRecord = Schema.decodeUnknownOption(ThreadVisitsRecord)
 
 export type ThreadVisits = ReadonlyMap<string, number>
-
-const listeners = new Set<() => void>()
-
-let current: ThreadVisits = new Map()
-let initialized = false
 
 export const parseThreadVisits = (value: string | null): ThreadVisits => {
   if (value === null || value === "") {
@@ -63,7 +57,7 @@ export const nextVisitedAtMs = (
   return candidateMs
 }
 
-const readStoredVisits = (): ThreadVisits => {
+export const readStoredThreadVisits = (): ThreadVisits => {
   try {
     return parseThreadVisits(window.localStorage.getItem(THREAD_VISITS_STORAGE_KEY))
   } catch {
@@ -71,7 +65,7 @@ const readStoredVisits = (): ThreadVisits => {
   }
 }
 
-const persistVisits = (visits: ThreadVisits): void => {
+export const persistThreadVisits = (visits: ThreadVisits): void => {
   try {
     if (visits.size === 0) {
       window.localStorage.removeItem(THREAD_VISITS_STORAGE_KEY)
@@ -81,39 +75,4 @@ const persistVisits = (visits: ThreadVisits): void => {
   } catch {
     // Visits remain active for this renderer session when storage is unavailable.
   }
-}
-
-const emitChange = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-export const initializeThreadVisits = (): void => {
-  if (initialized) {
-    return
-  }
-  initialized = true
-  current = readStoredVisits()
-}
-
-export const getThreadVisits = (): ThreadVisits => current
-
-export const subscribeThreadVisits = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export const markThreadVisited = (threadId: ThreadId, visitedAtMs: number): void => {
-  const nextMs = nextVisitedAtMs(current.get(threadId), visitedAtMs)
-  if (nextMs === undefined || nextMs === current.get(threadId)) {
-    return
-  }
-  const next = new Map(current)
-  next.set(threadId, nextMs)
-  current = next
-  persistVisits(current)
-  emitChange()
 }

@@ -21,12 +21,6 @@ const decodeAutoSettleAfterDaysPreference = Schema.decodeUnknownOption(
   AutoSettleAfterDaysPreference,
 )
 
-const listeners = new Set<() => void>()
-
-let currentAutoSettleOnMerge = DEFAULT_AUTO_SETTLE_ON_MERGE
-let currentAutoSettleAfterDays: number | null = DEFAULT_AUTO_SETTLE_AFTER_DAYS
-let initialized = false
-
 export const parseAutoSettleOnMergeEnabled = (value: string | null): boolean =>
   Option.match(decodeAutoSettleOnMergePreference(value), {
     onNone: () => DEFAULT_AUTO_SETTLE_ON_MERGE,
@@ -50,7 +44,13 @@ export const parseAutoSettleAfterDays = (value: string | null): number | null =>
   )
 }
 
-const readStoredOnMerge = (): boolean => {
+export const decodeAutoSettleAfterDaysValue = (days: number): number | undefined =>
+  Option.match(decodeAutoSettleAfterDaysPreference(days), {
+    onNone: () => undefined,
+    onSome: (value) => value ?? undefined,
+  })
+
+export const readStoredAutoSettleOnMerge = (): boolean => {
   try {
     return parseAutoSettleOnMergeEnabled(
       window.localStorage.getItem(AUTO_SETTLE_ON_MERGE_STORAGE_KEY),
@@ -60,7 +60,7 @@ const readStoredOnMerge = (): boolean => {
   }
 }
 
-const readStoredAfterDays = (): number | null => {
+export const readStoredAutoSettleAfterDays = (): number | null => {
   try {
     return parseAutoSettleAfterDays(window.localStorage.getItem(AUTO_SETTLE_AFTER_DAYS_STORAGE_KEY))
   } catch {
@@ -68,7 +68,7 @@ const readStoredAfterDays = (): number | null => {
   }
 }
 
-const persistOnMerge = (enabled: boolean): void => {
+export const persistAutoSettleOnMerge = (enabled: boolean): void => {
   try {
     if (enabled === DEFAULT_AUTO_SETTLE_ON_MERGE) {
       window.localStorage.removeItem(AUTO_SETTLE_ON_MERGE_STORAGE_KEY)
@@ -80,7 +80,7 @@ const persistOnMerge = (enabled: boolean): void => {
   }
 }
 
-const persistAfterDays = (days: number | null): void => {
+export const persistAutoSettleAfterDays = (days: number | null): void => {
   try {
     if (days === DEFAULT_AUTO_SETTLE_AFTER_DAYS) {
       window.localStorage.removeItem(AUTO_SETTLE_AFTER_DAYS_STORAGE_KEY)
@@ -93,66 +93,4 @@ const persistAfterDays = (days: number | null): void => {
   } catch {
     // Preference stays in-session when storage is unavailable.
   }
-}
-
-const emitChange = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-export const initializeThreadSettlePreference = (): void => {
-  if (initialized) {
-    return
-  }
-  initialized = true
-  currentAutoSettleOnMerge = readStoredOnMerge()
-  currentAutoSettleAfterDays = readStoredAfterDays()
-}
-
-export const getAutoSettleOnMergeEnabled = (): boolean => currentAutoSettleOnMerge
-export const getAutoSettleAfterDays = (): number | null => currentAutoSettleAfterDays
-
-export const subscribeThreadSettlePreference = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export const setAutoSettleOnMergeEnabled = (enabled: boolean): void => {
-  if (enabled === currentAutoSettleOnMerge) {
-    return
-  }
-  currentAutoSettleOnMerge = enabled
-  persistOnMerge(enabled)
-  emitChange()
-}
-
-export const setAutoSettleAfterDays = (days: number | null): void => {
-  const next =
-    days === null
-      ? null
-      : Option.match(decodeAutoSettleAfterDaysPreference(days), {
-          onNone: () => currentAutoSettleAfterDays,
-          onSome: (value) => value,
-        })
-  if (next === currentAutoSettleAfterDays) {
-    return
-  }
-  currentAutoSettleAfterDays = next
-  persistAfterDays(next)
-  emitChange()
-}
-
-export const isThreadSettlePreferenceDefault = (): boolean =>
-  currentAutoSettleOnMerge === DEFAULT_AUTO_SETTLE_ON_MERGE &&
-  currentAutoSettleAfterDays === DEFAULT_AUTO_SETTLE_AFTER_DAYS
-
-export const resetThreadSettlePreference = (): void => {
-  currentAutoSettleOnMerge = DEFAULT_AUTO_SETTLE_ON_MERGE
-  currentAutoSettleAfterDays = DEFAULT_AUTO_SETTLE_AFTER_DAYS
-  persistOnMerge(DEFAULT_AUTO_SETTLE_ON_MERGE)
-  persistAfterDays(DEFAULT_AUTO_SETTLE_AFTER_DAYS)
-  emitChange()
 }

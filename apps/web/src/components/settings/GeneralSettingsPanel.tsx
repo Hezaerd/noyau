@@ -18,23 +18,24 @@ import {
   useAutoSettleOnMergeEnabled,
 } from "@/hooks/use-thread-settle-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
-import { setAutoRemoveMergedWorktreeEnabled } from "@/lib/auto-remove-merged-worktree-preference"
 import { THREAD_ENV_MODE_ITEMS } from "@/lib/checkout"
-import { setDiscordPresenceEnabled } from "@/lib/discord-presence-preference"
-import { setProjectFolderStartDirectory } from "@/lib/project-folder-preference"
-import { isThreadEnvMode, setThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
-import {
-  DEFAULT_AUTO_SETTLE_AFTER_DAYS,
-  setAutoSettleAfterDays,
-  setAutoSettleOnMergeEnabled,
-} from "@/lib/thread-settle-preference"
+import { isThreadEnvMode } from "@/lib/thread-env-mode-preference"
+import { DEFAULT_AUTO_SETTLE_AFTER_DAYS } from "@/lib/thread-settle-preference"
 import {
   isTurnCueSound,
   playTurnCue,
   TURN_CUE_SOUND_ITEMS,
   type TurnCueSound,
 } from "@/lib/turn-cue"
-import { setTurnCueEnabled, setTurnCueSound } from "@/lib/turn-cue-preference"
+import {
+  setAutoRemoveMergedWorktreeEnabled,
+  setDiscordPresenceEnabled,
+  setProjectFolderStartDirectory,
+  setThreadEnvModePreference,
+  setTurnCueEnabled,
+  setTurnCueSound,
+} from "@/state/preferences"
+import { setAutoSettleAfterDays, setAutoSettleOnMergeEnabled } from "@/state/thread-settle"
 
 const selectTurnCueSound = (sound: TurnCueSound): void => {
   setTurnCueSound(sound)

@@ -1,21 +1,7 @@
-import { useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
 
-import {
-  getAutoSettleAfterDays,
-  getAutoSettleOnMergeEnabled,
-  subscribeThreadSettlePreference,
-} from "@/lib/thread-settle-preference"
+import { autoSettleAfterDaysAtom, autoSettleOnMergeAtom } from "@/state/thread-settle"
 
-export const useAutoSettleOnMergeEnabled = (): boolean =>
-  useSyncExternalStore(
-    subscribeThreadSettlePreference,
-    getAutoSettleOnMergeEnabled,
-    getAutoSettleOnMergeEnabled,
-  )
+export const useAutoSettleOnMergeEnabled = (): boolean => useAtomValue(autoSettleOnMergeAtom)
 
-export const useAutoSettleAfterDays = (): number | null =>
-  useSyncExternalStore(
-    subscribeThreadSettlePreference,
-    getAutoSettleAfterDays,
-    getAutoSettleAfterDays,
-  )
+export const useAutoSettleAfterDays = (): number | null => useAtomValue(autoSettleAfterDaysAtom)

@@ -14,10 +14,10 @@ import {
   useAutoSettleAfterDays,
   useAutoSettleOnMergeEnabled,
 } from "@/hooks/use-thread-settle-preference"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle, effectiveSettled } from "@/lib/thread-settled"
 import { EMPTY_THREAD_SHELLS } from "@/lib/thread-shell-index"
+import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 
 export function ThreadHeaderActions({
   projectId,
