@@ -172,6 +172,8 @@ const invocation = {
 const client = McpSchema.McpServerClient.of({
   clientId: 1,
   protocolVersion: "2025-06-18",
+  clientCapabilities: {},
+  clientInfo: { name: "noyau-test", version: "1.0.0" },
   initializePayload: {
     protocolVersion: "2025-06-18",
     capabilities: {},

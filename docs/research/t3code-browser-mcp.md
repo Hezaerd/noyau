@@ -5,7 +5,7 @@ Date de l'étude : 21 août 2026.
 > **Statut : note factuelle.** Sources primaires : snapshot vendored de t3code et code Noyau.
 > Cette note éclaire [ADR-0015](../adr/0015-tableau-accessible-aux-agents-par-mcp.md), sans le
 > modifier. Le snapshot t3code étudié utilise Effect `4.0.0-beta.103`; Noyau épingle
-> `4.0.0-beta.107`.
+> `4.0.0-rc.112`.
 
 ## Conclusion
 

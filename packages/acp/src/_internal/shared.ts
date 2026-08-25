@@ -94,7 +94,7 @@ export const jsonRpcRequest = <A, I>(method: string, params: Schema.Codec<A, I>)
     id: JsonRpcId,
     method: Schema.Literal(method),
     params,
-    headers: JsonRpcHeaders,
+    headers: Schema.optionalKey(JsonRpcHeaders),
   })
 
 export const jsonRpcNotification = <A, I>(method: string, params: Schema.Codec<A, I>) =>
