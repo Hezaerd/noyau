@@ -6,7 +6,7 @@ import { assert, describe, it } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { CommandIdConflict } from "@noyau/protocol/errors"
-import { ActorId, ProjectId, ThreadId } from "@noyau/protocol/ids"
+import { ActorId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { ProjectNotFound, ProjectUnavailable } from "@noyau/protocol/project/errors"
 import {
   WorkspaceRootConflict,
@@ -24,7 +24,7 @@ import { mcpSessionRegistryLayer } from "@noyau/server/mcp/mcp-session-registry"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
-import { threadLiveLayer } from "@noyau/server/thread-live"
+import { ThreadLive, threadLiveLayer } from "@noyau/server/thread-live"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "@noyau/server/workspace-root"
 import {
   Crypto,
@@ -48,6 +48,7 @@ const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
 const projectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000001")
 const otherProjectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000002")
 const threadId = Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000001")
+const turnId = Schema.decodeSync(TurnId)("40000000-0000-4000-8000-000000000001")
 const fakeCursorAgent = fileURLToPath(new URL("./fixtures/fake-cursor-acp.mjs", import.meta.url))
 
 const uuid = (index: number) => `30000000-0000-4000-8000-${index.toString().padStart(12, "0")}`
@@ -149,7 +150,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
   )
 
 const run = <A, E>(
-  effect: Effect.Effect<A, E, ControlPlane | SqlClient>,
+  effect: Effect.Effect<A, E, ControlPlane | SqlClient | ThreadLive>,
   hooks: ControlPlaneHooks = {},
   workspaceRoots: WorkspaceRootAccessService = availableWorkspaceRoots,
 ) =>
@@ -574,6 +575,44 @@ describe("ControlPlane", () => {
           started.sequence,
         )
         assert.strictEqual(frames[2]?.kind, "synchronized")
+      })
+      yield* run(program, hooks)
+    }),
+  )
+
+  it.effect("emits the Thread snapshot before any assistant live hint", () =>
+    Effect.gen(function* () {
+      const snapshotRead = yield* Deferred.make<void>()
+      const releaseSnapshot = yield* Deferred.make<void>()
+      const hooks: ControlPlaneHooks = {
+        afterThreadSnapshot: () =>
+          Deferred.succeed(snapshotRead, undefined).pipe(
+            Effect.andThen(Deferred.await(releaseSnapshot)),
+          ),
+      }
+      const program = Effect.gen(function* () {
+        const controlPlane = yield* ControlPlane
+        const threadLive = yield* ThreadLive
+        yield* controlPlane.dispatch(projectCreate(), actorId)
+        yield* controlPlane.dispatch(threadCreate, actorId)
+        const subscription = yield* controlPlane
+          .subscribeThread({ threadId, requestCompletionMarker: true })
+          .pipe(Stream.take(3), Stream.runCollect, Effect.forkChild)
+        yield* Deferred.await(snapshotRead)
+        yield* threadLive.publish({
+          threadId,
+          turnId,
+          text: "Bonjour",
+        })
+        yield* Deferred.succeed(releaseSnapshot, undefined)
+        const frames = yield* Fiber.join(subscription)
+
+        assert.strictEqual(frames[0]?.kind, "snapshot")
+        const live = frames.find((frame) => frame.kind === "live")
+        assert.strictEqual(live?.kind, "live")
+        if (live?.kind === "live") {
+          assert.strictEqual(live.live.text, "Bonjour")
+        }
       })
       yield* run(program, hooks)
     }),

@@ -24,7 +24,7 @@ _À éviter_ : liste de tâches, flux WebSocket brut
 
 **subscribeThread**:
 Stream d'un Thread : snapshot Session / Turns / transcript, deltas de Turn, et hints
-`ThreadAssistantLive` hors journal.
+`ThreadAssistantLive` hors journal. Le snapshot (ou le catch-up) précède tout hint live.
 _À éviter_ : Channel, SSE, GetTicketActivity
 
 **commande interne**:

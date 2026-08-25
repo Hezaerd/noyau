@@ -472,17 +472,20 @@ const bufferedTail = <A, E = never, R = never>(
     : stream
 }
 
+const assistantLiveFrames = (threadLive: ThreadLive["Service"], threadId: ThreadId) =>
+  threadLive
+    .subscribe(threadId)
+    .pipe(Stream.map((live): ThreadStreamItem => ({ kind: "live" as const, live })))
+
 const withAssistantLive = (
   threadLive: ThreadLive["Service"],
   threadId: ThreadId,
-  events: Stream.Stream<ThreadStreamItem, ServiceUnavailable>,
+  prefix: Stream.Stream<ThreadStreamItem, ServiceUnavailable>,
+  tail: Stream.Stream<ThreadStreamItem, ServiceUnavailable>,
 ) =>
-  Stream.merge(
-    events,
-    threadLive
-      .subscribe(threadId)
-      .pipe(Stream.map((live): ThreadStreamItem => ({ kind: "live" as const, live }))),
-    { haltStrategy: "left" },
+  Stream.concat(
+    prefix,
+    Stream.merge(tail, assistantLiveFrames(threadLive, threadId), { haltStrategy: "left" }),
   )
 
 const isProjectStreamEvent = (event: DomainEventType): boolean =>
@@ -1030,7 +1033,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
                     : Effect.succeed([]),
                 { kind: "synchronized" },
               )
-              return withAssistantLive(threadLive, input.threadId, Stream.concat(historical, tail))
+              return withAssistantLive(threadLive, input.threadId, historical, tail)
             }
             const snapshot = yield* readThreadSnapshot(input.threadId).pipe(
               Effect.mapError(unavailable("thread-snapshot")),
@@ -1042,25 +1045,23 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             return withAssistantLive(
               threadLive,
               input.threadId,
-              Stream.concat(
-                Stream.make({
-                  kind: "snapshot" as const,
-                  snapshot: snapshot.value,
-                } satisfies ThreadStreamItem),
-                bufferedTail<ThreadStreamItem>(
-                  buffer,
-                  snapshot.value.snapshotSequence,
-                  input.requestCompletionMarker,
-                  (event) =>
-                    matches(event)
-                      ? toEnvelope(event).pipe(
-                          Effect.map((envelope) => [
-                            { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
-                          ]),
-                        )
-                      : Effect.succeed([]),
-                  { kind: "synchronized" },
-                ),
+              Stream.make({
+                kind: "snapshot" as const,
+                snapshot: snapshot.value,
+              } satisfies ThreadStreamItem),
+              bufferedTail<ThreadStreamItem>(
+                buffer,
+                snapshot.value.snapshotSequence,
+                input.requestCompletionMarker,
+                (event) =>
+                  matches(event)
+                    ? toEnvelope(event).pipe(
+                        Effect.map((envelope) => [
+                          { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
+                        ]),
+                      )
+                    : Effect.succeed([]),
+                { kind: "synchronized" },
               ),
             )
           }),
