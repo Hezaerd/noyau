@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { SettingsPageTitle, ThreadPageTitle } from "@/components/WorkspaceBreadcrumb"
-import { useControlPlaneSelector } from "@/hooks/use-control-plane"
+import { useControlPlaneSelector, useThreadShell } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
 import { useShellFocusReporter } from "@/hooks/use-shell-focus-reporter"
@@ -22,7 +22,7 @@ import {
   NARROW_PAGE_TITLEBAR_INSET_CLASS,
 } from "@/lib/desktop-titlebar"
 import { presentFailure } from "@/lib/failure-presentation"
-import { resolvePageTitlebar } from "@/lib/page-titlebar"
+import { resolvePageTitlebar, threadIdFromPathname } from "@/lib/page-titlebar"
 import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"
 
 function SidebarControl() {
@@ -49,8 +49,12 @@ function SidebarControl() {
 function DesktopPageTitle() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const projects = useControlPlaneSelector((state) => state.projects)
-  const threads = useControlPlaneSelector((state) => state.threads)
-  const titlebar = resolvePageTitlebar({ pathname, projects, threads })
+  const thread = useThreadShell(threadIdFromPathname(pathname))
+  const titlebar = resolvePageTitlebar({
+    pathname,
+    projects,
+    threads: thread === undefined ? [] : [thread],
+  })
 
   if (titlebar.kind === "settings") {
     return <SettingsPageTitle tabLabel={titlebar.tabLabel} />
@@ -91,8 +95,12 @@ function SettingsRestoreAction() {
 function ThreadHeaderActionsSlot() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const projects = useControlPlaneSelector((state) => state.projects)
-  const threads = useControlPlaneSelector((state) => state.threads)
-  const titlebar = resolvePageTitlebar({ pathname, projects, threads })
+  const thread = useThreadShell(threadIdFromPathname(pathname))
+  const titlebar = resolvePageTitlebar({
+    pathname,
+    projects,
+    threads: thread === undefined ? [] : [thread],
+  })
   if (titlebar.kind !== "thread") {
     return null
   }

@@ -69,6 +69,23 @@ describe("applyShellEvent", () => {
     expect(next.threads).toEqual([thread])
   })
 
+  it("keeps the other Thread object identity when one is upserted", () => {
+    const first = makeThread(threadId)
+    const secondId = ThreadId.make("20000000-0000-4000-8000-000000000002")
+    const second = makeThread(secondId)
+    const current = makeSnapshot(10, [first, second])
+    const updated: ThreadShell = { ...first, title: "Renommé" }
+
+    const next = applyShellEvent(current, {
+      _tag: "thread-upserted",
+      sequence: Sequence.make(11),
+      thread: updated,
+    })
+
+    expect(next.threads[0]).toBe(updated)
+    expect(next.threads[1]).toBe(second)
+  })
+
   it("ignores a live event whose sequence is already in the snapshot", () => {
     const current = makeSnapshot(12, [makeThread(threadId)])
     const next = applyShellEvent(current, {

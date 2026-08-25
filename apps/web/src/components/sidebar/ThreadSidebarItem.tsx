@@ -13,7 +13,7 @@ import {
   PinOffIcon,
   Trash2Icon,
 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { memo, useEffect, useRef, useState } from "react"
 
 import { ThreadArchiveConfirmDialog } from "@/components/sidebar/ThreadArchiveConfirmDialog"
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
@@ -46,7 +46,7 @@ import { isThreadPinned, toggleThreadPinned } from "@/lib/thread-pins"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle } from "@/lib/thread-settled"
 
-export function ThreadSidebarItem({
+export const ThreadSidebarItem = memo(function ThreadSidebarItem({
   thread,
   project,
   pullRequest,
@@ -270,7 +270,7 @@ export function ThreadSidebarItem({
       />
     </>
   )
-}
+})
 
 function ThreadSidebarItemContent({
   title,

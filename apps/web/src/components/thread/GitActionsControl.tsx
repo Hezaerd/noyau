@@ -41,7 +41,7 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu"
 import { Textarea } from "@/components/ui/textarea"
 import { toastManager } from "@/components/ui/toast"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
-import { useControlPlaneSelector } from "@/hooks/use-control-plane"
+import { useThreadShell } from "@/hooks/use-control-plane"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
 import {
   buildCommand,
@@ -158,8 +158,7 @@ export function GitActionsControl({
   readonly threadId: ThreadId | undefined
   readonly disabled: boolean
 }) {
-  const threads = useControlPlaneSelector((state) => state.threads)
-  const thread = threads.find((candidate) => candidate.id === threadId)
+  const thread = useThreadShell(threadId)
   const scope = resolveGitActionsScope(projectId, { threadId, thread })
   const actionsDisabled = disabled || scope === null
   const status = useVcsStatus(scope)

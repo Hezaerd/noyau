@@ -1,24 +1,24 @@
-import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
+import type { ProjectShell } from "@noyau/protocol/shell"
 import { Link } from "@tanstack/react-router"
 import { LayoutGridIcon } from "lucide-react"
 
 import { ThreadSidebarItem } from "@/components/sidebar/ThreadSidebarItem"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useMergedWorktreeCleanup } from "@/hooks/use-merged-worktree-cleanup"
 import { useThreadChangeRequests } from "@/hooks/use-thread-change-requests"
 
 export function ProjectSidebarItem({
   project,
-  threads,
   pathname,
   onSelect,
 }: {
   readonly project: ProjectShell
-  readonly threads: ReadonlyArray<ThreadShell>
   readonly pathname: string
   readonly onSelect: () => void
 }) {
+  const threads = useProjectThreads(project.id)
   const { pullRequests, liveBranches } = useThreadChangeRequests(project.id, threads)
   useMergedWorktreeCleanup(project.id, threads, pullRequests)
   return (

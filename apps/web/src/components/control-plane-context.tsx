@@ -1,4 +1,5 @@
 import type { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectShell } from "@noyau/protocol/shell"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
 import { subscribeShell, type SubscriptionStatus } from "@/lib/control-plane"
@@ -14,6 +15,13 @@ import {
 } from "@/lib/control-plane-state"
 import { publishControlPlaneSnapshot } from "@/lib/control-plane-store"
 import { nextLastProjectId } from "@/lib/project-navigation"
+import {
+  EMPTY_THREAD_SHELLS,
+  EMPTY_THREAD_SHELL_INDEX,
+  indexThreadShells,
+} from "@/lib/thread-shell-index"
+
+const EMPTY_PROJECTS: ReadonlyArray<ProjectShell> = Object.freeze([])
 
 export function ControlPlaneProvider({ children }: { readonly children: ReactNode }) {
   const [shell, setShell] = useState<ControlPlaneContextValue["shell"]>(getAppliedShell)
@@ -54,17 +62,23 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
     writeLastProjectId(projectId)
   }, [])
 
+  const threads = shell?.threads ?? EMPTY_THREAD_SHELLS
+  const indexRef = useRef(EMPTY_THREAD_SHELL_INDEX)
+  const index = indexThreadShells(threads, indexRef.current)
+  indexRef.current = index
+
   const value = useMemo<ControlPlaneContextValue>(() => {
     return {
+      ...index,
       shell,
       cursor: shell?.environment.cursor,
-      projects: shell?.projects ?? [],
-      threads: shell?.threads ?? [],
+      projects: shell?.projects ?? EMPTY_PROJECTS,
+      threads,
       lastProjectId,
       subscriptionStatus,
       selectProject,
     }
-  }, [lastProjectId, selectProject, shell, subscriptionStatus])
+  }, [index, lastProjectId, selectProject, shell, subscriptionStatus, threads])
 
   const publishedRef = useRef(value)
   if (!Object.is(publishedRef.current, value)) {

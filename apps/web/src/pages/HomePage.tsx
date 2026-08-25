@@ -4,13 +4,17 @@ import { useEffect, useState } from "react"
 import { ResourceErrorState } from "@/components/failure/FailureSurfaces"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { Button } from "@/components/ui/button"
-import { useControlPlane } from "@/hooks/use-control-plane"
+import { useControlPlaneSelector } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { presentFailure } from "@/lib/failure-presentation"
 
 export function HomePage() {
   const navigate = useNavigate()
-  const { shell, lastProjectId, projects, selectProject, subscriptionStatus } = useControlPlane()
+  const shell = useControlPlaneSelector((state) => state.shell)
+  const lastProjectId = useControlPlaneSelector((state) => state.lastProjectId)
+  const projects = useControlPlaneSelector((state) => state.projects)
+  const selectProject = useControlPlaneSelector((state) => state.selectProject)
+  const subscriptionStatus = useControlPlaneSelector((state) => state.subscriptionStatus)
   const failure = useDelayedSubscriptionFailure(subscriptionStatus)
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
 

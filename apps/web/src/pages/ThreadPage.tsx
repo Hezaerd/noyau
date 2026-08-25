@@ -33,7 +33,7 @@ import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
-import { useControlPlane } from "@/hooks/use-control-plane"
+import { useControlPlaneSelector } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
@@ -98,7 +98,8 @@ interface ThreadPageProps {
 }
 
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
-  const { cursor, projects } = useControlPlane()
+  const cursor = useControlPlaneSelector((state) => state.cursor)
+  const projects = useControlPlaneSelector((state) => state.projects)
   const navigate = useNavigate()
   const tickets = useProjectComposerTickets(projectId)
   const project = projects.find((candidate) => candidate.id === projectId)

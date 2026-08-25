@@ -5,6 +5,15 @@ import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-c
 
 export const NEW_THREAD_TITLE = "Nouveau Thread"
 
+export const threadIdFromPathname = (pathname: string): ThreadId | undefined => {
+  const threadMatch = /^\/projects\/[^/]+\/thread\/([^/]+)$/.exec(pathname)
+  const rawThreadId = threadMatch?.[1]
+  if (rawThreadId === undefined || rawThreadId === "new") {
+    return undefined
+  }
+  return ThreadId.make(rawThreadId)
+}
+
 export type PageTitlebar =
   | { readonly kind: "plain"; readonly title: string }
   | {

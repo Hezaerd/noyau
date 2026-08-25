@@ -6,7 +6,7 @@ import { useAppPaletteActions, type AppPaletteAction } from "@/components/app-pa
 import { GitActionsControl } from "@/components/thread/GitActionsControl"
 import { OpenInPicker } from "@/components/thread/OpenInPicker"
 import { Button } from "@/components/ui/button"
-import { useControlPlaneSelector } from "@/hooks/use-control-plane"
+import { useThreadShell } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { useNowMinuteMs } from "@/hooks/use-now-minute"
 import { useThreadChangeRequests } from "@/hooks/use-thread-change-requests"
@@ -17,6 +17,7 @@ import {
 import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle, effectiveSettled } from "@/lib/thread-settled"
+import { EMPTY_THREAD_SHELLS } from "@/lib/thread-shell-index"
 
 export function ThreadHeaderActions({
   projectId,
@@ -48,9 +49,12 @@ function ThreadSettleButton({
   readonly threadId: ThreadId | undefined
   readonly disabled: boolean
 }) {
-  const threads = useControlPlaneSelector((state) => state.threads)
-  const thread = threads.find((candidate) => candidate.id === threadId)
-  const { pullRequests } = useThreadChangeRequests(projectId, thread === undefined ? [] : [thread])
+  const thread = useThreadShell(threadId)
+  const settleThreads = useMemo(
+    () => (thread === undefined ? EMPTY_THREAD_SHELLS : [thread]),
+    [thread],
+  )
+  const { pullRequests } = useThreadChangeRequests(projectId, settleThreads)
   const nowMs = useNowMinuteMs()
   const autoSettleAfterDays = useAutoSettleAfterDays()
   const autoSettleOnMerge = useAutoSettleOnMergeEnabled()
