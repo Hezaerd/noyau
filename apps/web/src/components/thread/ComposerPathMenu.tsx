@@ -50,7 +50,7 @@ export function ComposerPathMenu({
   }, [entries, loading])
 
   return (
-    <div className="absolute inset-x-6 bottom-full z-20 translate-y-px overflow-hidden rounded-t-xl border border-b-0 bg-background">
+    <div className="surface-glass absolute inset-x-6 bottom-full z-20 translate-y-px overflow-hidden rounded-t-xl border border-b-0">
       <ul
         ref={listRef}
         id={id}
@@ -107,7 +107,7 @@ export function ComposerPathMenu({
         <div
           aria-hidden
           data-composer-path-fade
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-linear-to-t from-background to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-linear-to-t from-background/80 to-transparent"
         />
       ) : null}
     </div>

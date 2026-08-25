@@ -72,6 +72,7 @@ export function ThreadTranscript({
   onOpenTurnDiff,
   scrollerKey,
   followLatestKey = 0,
+  composerDockHeight = 0,
 }: {
   readonly transcript: ReadonlyArray<TranscriptItem>
   readonly isRunning: boolean
@@ -95,6 +96,7 @@ export function ThreadTranscript({
   readonly onOpenTurnDiff?: ((turnId: Turn["id"], filePath?: string) => void) | undefined
   readonly scrollerKey?: string
   readonly followLatestKey?: number
+  readonly composerDockHeight?: number
 }) {
   const lastItem = transcript.at(-1)
   const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
@@ -117,6 +119,7 @@ export function ThreadTranscript({
           <MessageScrollerContent
             aria-busy={isRunning}
             className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6"
+            style={{ paddingBottom: composerDockHeight }}
           >
             {loading ? (
               <MessageScrollerItem messageId="thread-loading">
@@ -196,7 +199,7 @@ export function ThreadTranscript({
         {minimapItems.length >= TURN_MINIMAP_MIN_ITEMS ? (
           <ThreadTurnMinimap items={minimapItems} />
         ) : null}
-        <MessageScrollerButton>
+        <MessageScrollerButton style={{ bottom: composerDockHeight + 8 }}>
           <ArrowDownIcon />
           <span className="sr-only">Aller au dernier message</span>
         </MessageScrollerButton>
