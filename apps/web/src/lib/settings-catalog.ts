@@ -95,6 +95,27 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["worktree", "merge", "pr", "cleanup", "supprimer", "git", "fusion"],
   },
   {
+    id: "auto-settle-merged-threads",
+    tab: "general",
+    title: "Classer après merge de PR",
+    description: "Classe le Thread quand sa PR live est fusionnée. Une PR fermée classe toujours.",
+    keywords: ["settle", "classer", "merge", "pr", "fusion", "thread", "sidebar"],
+  },
+  {
+    id: "auto-settle-inactive-threads",
+    tab: "general",
+    title: "Classer après inactivité",
+    description: "Classe les Threads sans activité depuis ce nombre de jours.",
+    keywords: ["settle", "classer", "inactivité", "jours", "thread", "sidebar"],
+  },
+  {
+    id: "auto-settle-after-days",
+    tab: "general",
+    title: "Jours d'inactivité",
+    description: "Une nouvelle activité déclasse automatiquement le Thread.",
+    keywords: ["settle", "classer", "jours", "inactivité", "seuil"],
+  },
+  {
     id: "turn-cue",
     tab: "general",
     title: "Son de fin de Turn",

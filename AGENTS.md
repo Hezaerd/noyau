@@ -15,6 +15,7 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | **WorkspaceRoot**     | Chemin du dossier où Noyau et Cursor travaillent.                                          |
 | **Checkout**          | Liaison Thread → cwd : `worktreePath` (`null` = WorkspaceRoot) + `branch` (snapshot).      |
 | **threadEnvMode**     | Intention de draft `local \| worktree`. Matérialisée au premier Turn.                      |
+| **Settle**            | Cycle qui recule un Thread de l'inbox (`settledOverride` + auto PR/inactivité).            |
 | **GitRuntime**        | Capacité live `git`/`gh` du Server ; hors journal.                                         |
 | **Tableau**           | Projection Kanban unique d'un Project ; colonnes libres et ordre partagé.                  |
 | **Ticket**            | Élément de travail durable : titre, détails, cycle Kanban, audit et dépendances.           |

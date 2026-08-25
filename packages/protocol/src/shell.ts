@@ -2,7 +2,7 @@ import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/check
 import { Environment, Provider, WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { SessionStatus } from "@noyau/protocol/entities/session"
-import { ThreadStatus } from "@noyau/protocol/entities/thread"
+import { SettledOverride, ThreadStatus } from "@noyau/protocol/entities/thread"
 import { LatestTurn } from "@noyau/protocol/entities/turn"
 import { ProjectId, Sequence, ThreadId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
@@ -29,6 +29,10 @@ export const ThreadShell = Schema.Struct({
   latestTurn: Schema.NullOr(LatestTurn),
   sessionStatus: Schema.NullOr(SessionStatus),
   lastError: Schema.NullOr(Schema.NonEmptyString),
+  settledOverride: Schema.optionalKey(SettledOverride),
+  settledAt: Schema.optionalKey(Schema.DateTimeUtcFromString),
+  hasPendingApprovals: Schema.optionalKey(Schema.Boolean),
+  hasPendingUserInput: Schema.optionalKey(Schema.Boolean),
   createdAt: Schema.DateTimeUtcFromString,
   updatedAt: Schema.DateTimeUtcFromString,
 })

@@ -36,6 +36,21 @@ export const ThreadRestored = Schema.TaggedStruct("thread.restored", {
 })
 export type ThreadRestored = (typeof ThreadRestored)["Type"]
 
+export const ThreadSettled = Schema.TaggedStruct("thread.settled", {
+  threadId: ThreadId,
+  settledAt: Schema.DateTimeUtcFromString,
+})
+export type ThreadSettled = (typeof ThreadSettled)["Type"]
+
+export const ThreadUnsettledReason = Schema.Literals(["user", "activity"])
+export type ThreadUnsettledReason = (typeof ThreadUnsettledReason)["Type"]
+
+export const ThreadUnsettled = Schema.TaggedStruct("thread.unsettled", {
+  threadId: ThreadId,
+  reason: ThreadUnsettledReason,
+})
+export type ThreadUnsettled = (typeof ThreadUnsettled)["Type"]
+
 export const ThreadMetaUpdated = Schema.TaggedStruct("thread.meta-updated", {
   threadId: ThreadId,
   title: Schema.optionalKey(Schema.NonEmptyString),
@@ -124,6 +139,8 @@ export const ThreadEvent = Schema.Union([
   ThreadCreated,
   ThreadArchived,
   ThreadRestored,
+  ThreadSettled,
+  ThreadUnsettled,
   ThreadMetaUpdated,
   ThreadRuntimeModeSet,
   ThreadModelSelectionSet,

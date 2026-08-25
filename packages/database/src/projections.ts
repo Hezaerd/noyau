@@ -534,6 +534,27 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         WHERE thread_id = ${event.threadId}
       `
       return
+    case "thread.settled":
+      yield* sql`
+        UPDATE projection_threads
+        SET settled_override = 'settled',
+            settled_at = ${DateTime.formatIso(event.settledAt)},
+            updated_at = CASE
+              WHEN settled_override = 'settled' THEN updated_at
+              ELSE ${occurredAt}
+            END
+        WHERE thread_id = ${event.threadId}
+      `
+      return
+    case "thread.unsettled":
+      yield* sql`
+        UPDATE projection_threads
+        SET settled_override = ${event.reason === "user" ? "active" : null},
+            settled_at = NULL,
+            updated_at = ${occurredAt}
+        WHERE thread_id = ${event.threadId}
+      `
+      return
     case "thread.meta-updated":
       if (event.title !== undefined) {
         yield* sql`

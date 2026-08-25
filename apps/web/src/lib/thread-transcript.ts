@@ -456,6 +456,8 @@ const replaceThread = (
     readonly worktreePath?: Thread["worktreePath"]
     readonly updatedAt?: Thread["updatedAt"]
     readonly archivedAt?: Thread["archivedAt"] | null
+    readonly settledOverride?: Thread["settledOverride"] | null
+    readonly settledAt?: Thread["settledAt"] | null
   },
 ): Thread => {
   const current = snapshot.thread
@@ -478,7 +480,16 @@ const replaceThread = (
     createdAt: current.createdAt,
     updatedAt: patch.updatedAt ?? current.updatedAt,
   }
-  return archivedAt === undefined ? new Thread(fields) : new Thread({ ...fields, archivedAt })
+  const settledOverride =
+    patch.settledOverride === null ? undefined : (patch.settledOverride ?? current.settledOverride)
+  const settledAt = patch.settledAt === null ? undefined : (patch.settledAt ?? current.settledAt)
+  const withSettled =
+    settledOverride === undefined ? fields : Object.assign(fields, { settledOverride })
+  const withSettledAt =
+    settledAt === undefined ? withSettled : Object.assign(withSettled, { settledAt })
+  return archivedAt === undefined
+    ? new Thread(withSettledAt)
+    : new Thread({ ...withSettledAt, archivedAt })
 }
 
 const withEnvelope = (
@@ -693,6 +704,36 @@ export const applyThreadEnvelope = (
         thread: replaceThread(snapshot, {
           status: "active",
           archivedAt: null,
+          updatedAt: envelope.occurredAt,
+        }),
+        session: snapshot.session,
+        turns: snapshot.turns,
+        transcript: snapshot.transcript,
+      })
+    }
+    case "thread.settled": {
+      if (event.threadId !== snapshot.thread.id) {
+        return withEnvelope(snapshot, envelope, snapshot)
+      }
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, {
+          settledOverride: "settled",
+          settledAt: event.settledAt,
+          updatedAt: envelope.occurredAt,
+        }),
+        session: snapshot.session,
+        turns: snapshot.turns,
+        transcript: snapshot.transcript,
+      })
+    }
+    case "thread.unsettled": {
+      if (event.threadId !== snapshot.thread.id) {
+        return withEnvelope(snapshot, envelope, snapshot)
+      }
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, {
+          settledOverride: event.reason === "user" ? "active" : null,
+          settledAt: null,
           updatedAt: envelope.occurredAt,
         }),
         session: snapshot.session,

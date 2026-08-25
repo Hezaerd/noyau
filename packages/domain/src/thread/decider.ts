@@ -11,6 +11,7 @@ import {
   ThreadArchived as ThreadArchivedError,
   ThreadNotArchived,
   ThreadNotFound,
+  ThreadNotSettleable,
   TurnAlreadyActive,
   TurnNotFound,
 } from "@noyau/protocol/thread/errors"
@@ -21,6 +22,8 @@ import {
   ThreadCreated,
   type ThreadEvent,
   ThreadMetaUpdated,
+  ThreadSettled,
+  ThreadUnsettled,
   ThreadModelSelectionSet,
   ThreadRestored,
   ThreadRuntimeModeSet,
@@ -46,6 +49,7 @@ export type ThreadDecisionError =
   | ThreadArchivedError
   | ThreadNotArchived
   | ThreadNotFound
+  | ThreadNotSettleable
   | TurnAlreadyActive
   | TurnNotFound
 
@@ -90,6 +94,27 @@ const requireRunningTurn = (
     ? Result.fail(new TurnNotFound({ threadId: thread.threadId, turnId: requestedTurnId }))
     : Result.succeed(turn)
 }
+
+const hasOpenBlockingRequest = (thread: ThreadProjection): boolean =>
+  thread.transcript.some(
+    (item) =>
+      (item._tag === "transcript.permission" || item._tag === "transcript.user-input") &&
+      item.status === "pending",
+  )
+
+const hasLiveSession = (thread: ThreadProjection): boolean =>
+  thread.session?.status === "starting" || thread.session?.status === "running"
+
+const canSettleThread = (thread: ThreadProjection): boolean =>
+  thread.status !== "archived" &&
+  !hasLiveSession(thread) &&
+  runningTurn(thread) === undefined &&
+  !hasOpenBlockingRequest(thread)
+
+const activityUnsettle = (thread: ThreadProjection): ThreadUnsettled | null =>
+  thread.settledOverride === null
+    ? null
+    : ThreadUnsettled.make({ threadId: thread.threadId, reason: "activity" })
 
 const hasLeakedImageUpload = (
   payload: Extract<ThreadCommand, { _tag: "thread.turn.start" }>["payload"],
@@ -170,6 +195,49 @@ export const decide = (
             : Result.succeed([ThreadRestored.make({ threadId: thread.threadId })]),
         ),
       )
+    case "thread.settle":
+      return requireThread(state, command.payload.threadId).pipe(
+        Result.flatMap((thread) =>
+          requireActiveThread(thread).pipe(
+            Result.flatMap(() =>
+              canSettleThread(thread)
+                ? Result.succeed(thread)
+                : Result.fail(new ThreadNotSettleable({ threadId: thread.threadId })),
+            ),
+          ),
+        ),
+        Result.map((thread) => {
+          const alreadySettled = thread.settledOverride === "settled" && thread.settledAt !== null
+          const events: Array<ThreadEvent> = [
+            ThreadSettled.make({
+              threadId: thread.threadId,
+              settledAt: alreadySettled ? thread.settledAt : command.issuedAt,
+            }),
+          ]
+          if (
+            !alreadySettled &&
+            thread.session !== null &&
+            thread.session.status !== "idle" &&
+            thread.session.status !== "stopped"
+          ) {
+            events.push(SessionStopRequested.make({ threadId: thread.threadId }))
+          }
+          return events
+        }),
+      )
+    case "thread.unsettle":
+      return requireThread(state, command.payload.threadId).pipe(
+        Result.flatMap((thread) =>
+          requireActiveThread(thread).pipe(
+            Result.map(() => [
+              ThreadUnsettled.make({
+                threadId: thread.threadId,
+                reason: command.payload.reason,
+              }),
+            ]),
+          ),
+        ),
+      )
     case "thread.meta.update":
       return requireThread(state, command.payload.threadId).pipe(
         Result.map(() => [ThreadMetaUpdated.make(command.payload)]),
@@ -184,7 +252,7 @@ export const decide = (
       )
     case "thread.turn.start":
       return requireThread(state, command.payload.threadId).pipe(
-        Result.flatMap((thread): Result.Result<void, ThreadDecisionError> =>
+        Result.flatMap((thread): Result.Result<ThreadProjection, ThreadDecisionError> =>
           requireActiveThread(thread).pipe(
             Result.flatMap(() => requireAvailableProject(state, thread)),
             Result.flatMap(() => {
@@ -203,9 +271,10 @@ export const decide = (
                 ? Result.fail(new ImageAttachmentRejected({ threadId: thread.threadId }))
                 : Result.succeed(undefined),
             ),
+            Result.map(() => thread),
           ),
         ),
-        Result.map(() => {
+        Result.map((thread) => {
           let started: Omit<ThreadTurnStarted, "_tag"> = {
             threadId: command.payload.threadId,
             turnId: TurnId.make(command.commandId),
@@ -231,7 +300,9 @@ export const decide = (
           if (command.payload.presentation !== undefined) {
             started = Object.assign(started, { presentation: command.payload.presentation })
           }
-          return [ThreadTurnStarted.make(started)]
+          const startedEvent = ThreadTurnStarted.make(started)
+          const unsettle = activityUnsettle(thread)
+          return unsettle === null ? [startedEvent] : [unsettle, startedEvent]
         }),
       )
     case "thread.turn.interrupt":
@@ -319,12 +390,13 @@ export const decide = (
               )
             }
           }
-          return Result.succeed([
-            ThreadSessionSet.make({
-              threadId: thread.threadId,
-              session,
-            }),
-          ])
+          const sessionSet = ThreadSessionSet.make({
+            threadId: thread.threadId,
+            session,
+          })
+          const isSessionActivity = session.status === "starting" || session.status === "running"
+          const unsettle = isSessionActivity ? activityUnsettle(thread) : null
+          return Result.succeed(unsettle === null ? [sessionSet] : [unsettle, sessionSet])
         }),
       )
     case "thread.transcript.append":

@@ -286,6 +286,8 @@ const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
       return yield* projectForTicket(request.payload.ticketId)
     case "thread.archive":
     case "thread.restore":
+    case "thread.settle":
+    case "thread.unsettle":
     case "thread.meta.update":
     case "thread.runtime-mode.set":
     case "thread.model-selection.set":

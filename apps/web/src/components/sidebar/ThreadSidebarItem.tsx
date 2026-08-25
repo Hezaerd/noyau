@@ -3,6 +3,8 @@ import type { VcsStatusPullRequest } from "@noyau/protocol/git"
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
+  CircleCheckIcon,
+  CircleDotIcon,
   FolderGit2Icon,
   GitBranchIcon,
   MessageCircleIcon,
@@ -41,6 +43,8 @@ import {
 } from "@/lib/thread-activity"
 import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 import { isThreadPinned, toggleThreadPinned } from "@/lib/thread-pins"
+import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
+import { canSettle } from "@/lib/thread-settled"
 
 export function ThreadSidebarItem({
   thread,
@@ -48,6 +52,7 @@ export function ThreadSidebarItem({
   pullRequest,
   liveBranch,
   isActive,
+  settled,
   onSelect,
 }: {
   readonly thread: ThreadShell
@@ -55,12 +60,14 @@ export function ThreadSidebarItem({
   readonly pullRequest: VcsStatusPullRequest | null
   readonly liveBranch: string | null
   readonly isActive: boolean
+  readonly settled: boolean
   readonly onSelect: () => void
 }) {
   const navigate = useNavigate()
   const visits = useThreadVisits()
   const pins = useThreadPins()
   const pinHotkey = useKeybinding("thread.pin")
+  const settleHotkey = useKeybinding("thread.settle")
   const pinned = isThreadPinned(thread.id, pins)
   const activity = resolveThreadActivity({
     sessionStatus: thread.sessionStatus,
@@ -202,7 +209,11 @@ export function ThreadSidebarItem({
                 />
               ),
             }}
-            className="h-auto min-h-8 items-start py-1.5 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+            className={
+              settled && !isActive
+                ? "h-auto min-h-8 items-start py-1.5 text-sidebar-foreground/38 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+                : "h-auto min-h-8 items-start py-1.5 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+            }
           >
             <MessageCircleIcon className="mt-0.5" />
             <ThreadSidebarItemContent
@@ -230,6 +241,15 @@ export function ThreadSidebarItem({
             {pinned ? <PinOffIcon /> : <PinIcon />}
             {pinned ? "Désépingler" : "Épingler"}
             <ContextMenuShortcut hotkey={pinHotkey} />
+          </ContextMenuItem>
+          <ContextMenuItem
+            closeOnClick
+            disabled={!settled && !canSettle(thread)}
+            onClick={() => dispatchThreadSettle(thread, !settled)}
+          >
+            {settled ? <CircleDotIcon /> : <CircleCheckIcon />}
+            {settled ? "Déclasser" : "Classer"}
+            <ContextMenuShortcut hotkey={settleHotkey} />
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem

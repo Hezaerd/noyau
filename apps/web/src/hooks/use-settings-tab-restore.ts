@@ -4,6 +4,10 @@ import { useAutoRemoveMergedWorktreeEnabled } from "@/hooks/use-auto-remove-merg
 import { useDiscordPresenceEnabled } from "@/hooks/use-discord-presence-enabled"
 import { useKeybindings } from "@/hooks/use-keybindings"
 import { useProjectFolderStartDirectory } from "@/hooks/use-project-folder-start-directory"
+import {
+  useAutoSettleAfterDays,
+  useAutoSettleOnMergeEnabled,
+} from "@/hooks/use-thread-settle-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
 import { setAppearancePreference } from "@/lib/appearance"
 import {
@@ -17,6 +21,11 @@ import {
 import { hasCustomKeybindings } from "@/lib/keybindings"
 import { setProjectFolderStartDirectory } from "@/lib/project-folder-preference"
 import type { SettingsTabId } from "@/lib/settings-catalog"
+import {
+  DEFAULT_AUTO_SETTLE_AFTER_DAYS,
+  DEFAULT_AUTO_SETTLE_ON_MERGE,
+  resetThreadSettlePreference,
+} from "@/lib/thread-settle-preference"
 import { isTurnCuePreferenceDefault, resetTurnCuePreference } from "@/lib/turn-cue-preference"
 
 export interface SettingsTabRestore {
@@ -29,6 +38,8 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
   const { resetAll } = useKeybindings()
   const projectFolderStartDirectory = useProjectFolderStartDirectory()
   const autoRemoveMergedWorktree = useAutoRemoveMergedWorktreeEnabled()
+  const autoSettleOnMerge = useAutoSettleOnMergeEnabled()
+  const autoSettleAfterDays = useAutoSettleAfterDays()
   const discordPresenceEnabled = useDiscordPresenceEnabled()
   const turnCue = useTurnCuePreference()
 
@@ -38,11 +49,14 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
         canRestore:
           projectFolderStartDirectory !== "" ||
           autoRemoveMergedWorktree !== DEFAULT_AUTO_REMOVE_MERGED_WORKTREE ||
+          autoSettleOnMerge !== DEFAULT_AUTO_SETTLE_ON_MERGE ||
+          autoSettleAfterDays !== DEFAULT_AUTO_SETTLE_AFTER_DAYS ||
           discordPresenceEnabled !== DEFAULT_DISCORD_PRESENCE_ENABLED ||
           !isTurnCuePreferenceDefault(turnCue),
         restore: () => {
           setProjectFolderStartDirectory("")
           setAutoRemoveMergedWorktreeEnabled(DEFAULT_AUTO_REMOVE_MERGED_WORKTREE)
+          resetThreadSettlePreference()
           setDiscordPresenceEnabled(DEFAULT_DISCORD_PRESENCE_ENABLED)
           resetTurnCuePreference()
         },
