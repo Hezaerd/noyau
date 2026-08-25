@@ -36,7 +36,7 @@ layer(testLayer)("GitRuntime checkpoints", (it) => {
       })
       const files = parseTurnDiffNumstat(numstat)
       assert.strictEqual(
-        files.some((file) => file.path === "src.ts"),
+        files.some((file) => file.path === "src.ts" && file.kind === "added"),
         true,
       )
       const patch = yield* git.diffCheckpoints({

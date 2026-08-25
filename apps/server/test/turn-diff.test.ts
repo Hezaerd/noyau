@@ -21,6 +21,27 @@ describe("parseTurnDiffNumstat", () => {
       { path: "src/new.ts", kind: "modified", additions: 1, deletions: 0 },
     ])
   })
+
+  it("joint name-status et expand les renames à accolades", () => {
+    expect(
+      parseTurnDiffNumstat(
+        [
+          "A\tsrc/new.ts",
+          "M\tsrc/app.ts",
+          "D\told.ts",
+          "1\t0\tsrc/new.ts",
+          "12\t3\tsrc/app.ts",
+          "0\t4\told.ts",
+          "2\t1\tsrc/{a => b}/file.ts",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      { path: "src/new.ts", kind: "added", additions: 1, deletions: 0 },
+      { path: "src/app.ts", kind: "modified", additions: 12, deletions: 3 },
+      { path: "old.ts", kind: "deleted", additions: 0, deletions: 4 },
+      { path: "src/b/file.ts", kind: "modified", additions: 2, deletions: 1 },
+    ])
+  })
 })
 
 describe("turnDiffStatusFromSettlement", () => {

@@ -9,30 +9,71 @@ import {
 import type { ThreadId, TurnId } from "@noyau/protocol/ids"
 import type { TurnDiffUnavailableReason } from "@noyau/protocol/turn-diff"
 
-export const parseTurnDiffNumstat = (stdout: string): ReadonlyArray<TurnDiffFile> =>
-  stdout.split(/\r?\n/g).flatMap((line) => {
+const destinationPath = (rawPath: string): string => {
+  const braced = /^(.*)\{(.*?) => (.*?)\}(.*)$/.exec(rawPath)
+  if (braced !== null) {
+    return `${braced[1] ?? ""}${braced[3] ?? ""}${braced[4] ?? ""}`
+  }
+  return rawPath.includes(" => ") ? (rawPath.split(" => ").at(-1) ?? rawPath) : rawPath
+}
+
+const kindFromNameStatus = (status: string): string | undefined => {
+  switch (status.charAt(0)) {
+    case "A":
+      return "added"
+    case "D":
+      return "deleted"
+    case "M":
+    case "T":
+    case "C":
+      return "modified"
+    default:
+      return undefined
+  }
+}
+
+export const parseTurnDiffNumstat = (stdout: string): ReadonlyArray<TurnDiffFile> => {
+  const kinds = new Map<string, string>()
+  const stats: Array<{ path: string; additions: number; deletions: number }> = []
+  for (const line of stdout.split(/\r?\n/g)) {
     const trimmed = line.trim()
     if (trimmed.length === 0) {
-      return []
+      continue
     }
-    const match = /^(\d+|-)\t(\d+|-)\t(.+)$/.exec(trimmed)
-    if (match === null) {
-      return []
-    }
-    const rawPath = match[3] ?? ""
-    const path = rawPath.includes(" => ") ? (rawPath.split(" => ").at(-1) ?? rawPath) : rawPath
-    if (path.length === 0) {
-      return []
-    }
-    return [
-      {
+    const numstat = /^(\d+|-)\t(\d+|-)\t(.+)$/.exec(trimmed)
+    if (numstat !== null) {
+      const path = destinationPath(numstat[3] ?? "")
+      if (path.length === 0) {
+        continue
+      }
+      stats.push({
         path,
-        kind: "modified",
-        additions: match[1] === "-" ? 0 : Number(match[1]),
-        deletions: match[2] === "-" ? 0 : Number(match[2]),
-      },
-    ]
-  })
+        additions: numstat[1] === "-" ? 0 : Number(numstat[1]),
+        deletions: numstat[2] === "-" ? 0 : Number(numstat[2]),
+      })
+      continue
+    }
+    const nameStatus = /^([A-Z])\d*(?:\t(.+))?$/.exec(trimmed)
+    if (nameStatus === null) {
+      continue
+    }
+    const kind = kindFromNameStatus(nameStatus[1] ?? "")
+    const rawPath = nameStatus[2] ?? ""
+    const path = rawPath.includes("\t")
+      ? destinationPath(rawPath.split("\t").at(-1) ?? rawPath)
+      : destinationPath(rawPath)
+    if (kind === undefined || path.length === 0) {
+      continue
+    }
+    kinds.set(path, kind)
+  }
+  return stats.map((file) => ({
+    path: file.path,
+    kind: kinds.get(file.path) ?? "modified",
+    additions: file.additions,
+    deletions: file.deletions,
+  }))
+}
 
 export const turnDiffStatusFromSettlement = (state: TurnSettlementState): TurnDiffStatus => {
   switch (state) {

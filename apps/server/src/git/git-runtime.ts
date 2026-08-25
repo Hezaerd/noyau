@@ -22,7 +22,19 @@ import {
   selectStatusPullRequest,
   type ListedPullRequest,
 } from "./pull-request.ts"
-import { runGh, runGit } from "./run-command.ts"
+import { runGh, runGit, type CommandResult } from "./run-command.ts"
+
+const acceptCheckpointDiff = (operation: string, result: CommandResult) => {
+  if (result.code !== 0 && result.code !== 1) {
+    return Effect.fail(
+      new GitCommandError({
+        operation,
+        detail: result.stderr.trim() || result.stdout.trim() || `${operation} failed`,
+      }),
+    )
+  }
+  return Effect.succeed(result.stdout)
+}
 
 const PR_LIST_JSON_FIELDS =
   "number,title,url,baseRefName,headRefName,state,mergeable,updatedAt,statusCheckRollup"
@@ -720,30 +732,38 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     readonly ignoreWhitespace?: boolean
   }) {
     const format = input.format ?? "numstat"
-    const operation = format === "patch" ? "git.diff-patch" : "git.diff-numstat"
-    const fromRef =
-      format === "patch" ? `${input.fromCheckpointRef}^{commit}` : input.fromCheckpointRef
-    const toRef = format === "patch" ? `${input.toCheckpointRef}^{commit}` : input.toCheckpointRef
-    const result = yield* runGit(
-      operation,
-      input.cwd,
-      [
-        "diff",
-        format === "patch" ? "--patch" : "--numstat",
-        ...(format === "patch" ? ["--no-color", "--no-ext-diff", "--no-textconv"] : []),
-        ...(input.ignoreWhitespace === true ? ["--ignore-all-space"] : []),
-        fromRef,
-        toRef,
-      ],
-      { allowNonZero: true },
-    )
-    if (result.code !== 0 && result.code !== 1) {
-      return yield* new GitCommandError({
-        operation,
-        detail: result.stderr.trim() || result.stdout.trim() || `${operation} failed`,
-      })
+    const fromRef = `${input.fromCheckpointRef}^{commit}`
+    const toRef = `${input.toCheckpointRef}^{commit}`
+    const shared = [
+      "--no-renames",
+      ...(input.ignoreWhitespace === true ? ["--ignore-all-space"] : []),
+      fromRef,
+      toRef,
+      "--",
+    ]
+    if (format === "patch") {
+      const result = yield* runGit(
+        "git.diff-patch",
+        input.cwd,
+        ["diff", "--patch", "--no-color", "--no-ext-diff", "--no-textconv", ...shared],
+        { allowNonZero: true },
+      )
+      return yield* acceptCheckpointDiff("git.diff-patch", result)
     }
-    return result.stdout
+    const [nameStatus, numstat] = yield* Effect.all(
+      [
+        runGit("git.diff-name-status", input.cwd, ["diff", "--name-status", ...shared], {
+          allowNonZero: true,
+        }),
+        runGit("git.diff-numstat", input.cwd, ["diff", "--numstat", ...shared], {
+          allowNonZero: true,
+        }),
+      ],
+      { concurrency: "unbounded" },
+    )
+    yield* acceptCheckpointDiff("git.diff-name-status", nameStatus)
+    const stats = yield* acceptCheckpointDiff("git.diff-numstat", numstat)
+    return `${nameStatus.stdout}\n${stats}`
   })
 
   const diffContext = Effect.fn("GitRuntime.diffContext")(function* (cwd: string) {
