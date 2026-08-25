@@ -16,6 +16,7 @@ import { initializeThreadPins } from "@/lib/thread-pins"
 import { initializeThreadSettlePreference } from "@/lib/thread-settle-preference"
 import { initializeThreadVisits } from "@/lib/thread-visits"
 import { initializeTurnCuePreference } from "@/lib/turn-cue-preference"
+import { AppAtomRegistryProvider } from "@/state/atom-registry"
 
 import { routeTree } from "./routeTree.gen"
 
@@ -50,12 +51,14 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <TooltipProvider>
-      <ToastProvider>
-        <AnchoredToastProvider>
-          <RouterProvider router={router} />
-        </AnchoredToastProvider>
-      </ToastProvider>
-    </TooltipProvider>
+    <AppAtomRegistryProvider>
+      <TooltipProvider>
+        <ToastProvider>
+          <AnchoredToastProvider>
+            <RouterProvider router={router} />
+          </AnchoredToastProvider>
+        </ToastProvider>
+      </TooltipProvider>
+    </AppAtomRegistryProvider>
   </StrictMode>,
 )

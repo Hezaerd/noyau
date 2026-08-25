@@ -55,7 +55,7 @@ vérité. La reprise Session est une passe de projection au boot, pas le rejeu d
 
 ```text
 apps/
-  web/                  # renderer React partagé — pas d'Effect dans l'état local
+  web/                  # renderer React partagé — Atom pour l'état, pas d'Effect.gen dans le render
   server/               # Noyau Server local (SQLite + Cursor)
   desktop/              # Electron : superviseur et chrome, sans état métier
 
@@ -167,7 +167,8 @@ git subtree pull \
 - Modéliser les erreurs attendues dans le canal d'erreur, avec des erreurs taguées.
 - Exposer les capacités externes comme services ; construire les implémentations avec des `Layer`.
 - Garder les appels `run*` aux points d'entrée de l'application seulement.
-- Ne pas forcer Effect dans l'état local ou le rendu React.
+- Ne pas forcer Effect.gen / `run*` dans le rendu React. L'état renderer passe par Effect
+  Atom (`apps/web/src/state/`, ADR-0020) ; les composants ne font que `useAtomValue` / `useAtomSet`.
 - Imports `effect/unstable/*` permis s'ils apportent une vraie valeur, mais isolés derrière un port ou module interne.
 - Un `Context.Tag` par provider ne convient pas aux instances multiples : registry = service singleton, adaptateur = valeur scopée.
 
@@ -213,7 +214,7 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 | Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`                        |
 | `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                                    |
 | `Context.Tag` par instance dynamique          | Registry singleton + adaptateur en valeur                        |
-| Effect Atom dans React                        | Effect aux frontières ; état UI React idiomatique                |
+| Effect.gen dans un composant React            | `useAtomValue` / `useAtomSet` ; Atom.make(stream) hors RPC       |
 | Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements                         |
 | Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`                         |
 | Checklist ou todolist dans un Ticket          | Tickets liés par un DAG                                          |
