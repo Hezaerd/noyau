@@ -290,6 +290,9 @@ for await (const line of lines) {
   }
 
   if (message.method === "session/new") {
+    if (scenario === "hang-new") {
+      continue
+    }
     activeSessionId = sessionId
     respond(message.id, {
       sessionId,
@@ -305,21 +308,26 @@ for await (const line of lines) {
       continue
     }
     activeSessionId = message.params.sessionId
-    notify("session/update", {
-      _meta: { isReplay: true },
-      sessionId: activeSessionId,
-      update: {
-        sessionUpdate: "agent_message_chunk",
-        content: { type: "text", text: "replayed text must be ignored" },
-      },
-    })
-    notify("session/update", {
-      sessionId: activeSessionId,
-      update: {
-        sessionUpdate: "agent_message_chunk",
-        content: { type: "text", text: "load-gated text must be ignored" },
-      },
-    })
+    if (scenario !== "hang-load-silent") {
+      notify("session/update", {
+        _meta: { isReplay: true },
+        sessionId: activeSessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: "replayed text must be ignored" },
+        },
+      })
+      notify("session/update", {
+        sessionId: activeSessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: "load-gated text must be ignored" },
+        },
+      })
+    }
+    if (scenario === "hang-load" || scenario === "hang-load-silent") {
+      continue
+    }
     respond(message.id, {
       modes,
       configOptions: scenario === "model-traits" ? traitConfigOptions : configOptions,

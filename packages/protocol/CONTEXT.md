@@ -26,7 +26,8 @@ demande un snapshot frais.
 _À éviter_ : EventCursor, offset SQL, position WebSocket
 
 **resumeCursor**:
-`{ schemaVersion: 1, sessionId }` opaque pour `session/load`. La Session n'a pas d'id métier.
+`{ schemaVersion: 1, sessionId }` opaque pour `session/load` après perte du runtime provider. Il
+ne commande jamais le rejeu d'un prompt ; la Session n'a pas d'id métier.
 _À éviter_ : cwdLastBound, ProviderBinding
 
 **modelSelection**:

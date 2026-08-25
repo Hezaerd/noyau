@@ -1,8 +1,13 @@
 # Session projetée t3code et adaptateur Cursor
 
-> **Statut : accepté.** Remplace [ADR-0007](0007-hermes-local-ou-tailscale.md) et le modèle
+> **Statut : supersédé par [ADR-0018](0018-runtime-cursor-porte-par-la-session.md).** Remplace
+> [ADR-0007](0007-hermes-local-ou-tailscale.md) et le modèle
 > `Execution` / `Attempt` / `AgentRun` de [l'ADR-0008](0008-separer-ticket-et-execution.md).
 > Repli : [Replier les décisions v0.1 sur le modèle t3code](https://github.com/Hezaerd/noyau/issues/71).
+
+Cette ADR est conservée comme historique de la première forme de la Session projetée. Sa règle
+« nouveau subprocess à chaque reprise » n'est plus normative ; le cycle de vie accepté est celui
+de l'ADR-0018.
 
 Un Thread porte un titre obligatoire, un Provider immuable et un `runtimeMode` t3code. La Session
 est une projection `0..1` du runtime (`status`, `lastError`, `activeTurnId`, `runtimeMode`,

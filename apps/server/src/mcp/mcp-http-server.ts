@@ -11,7 +11,8 @@ import { NoyauMcpToolkit, NoyauMcpToolkitHandlersLive } from "./tools.ts"
 const unauthorized = HttpServerResponse.jsonUnsafe(
   {
     error: "invalid_mcp_credential",
-    message: "A valid Turn-scoped Noyau MCP bearer credential is required.",
+    message:
+      "A valid Session-scoped Noyau MCP bearer credential is required during an active Turn.",
   },
   {
     status: 401,

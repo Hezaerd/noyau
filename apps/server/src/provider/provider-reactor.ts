@@ -331,26 +331,29 @@ export const makeProviderReactor = (
             if (Option.isNone(snapshot) || snapshot.value.session === null) {
               return
             }
+            yield* provider.stop(threadEvent.threadId)
+            // A stopped Session projection survives a Server restart with no in-memory runtime,
+            // so the adapter cannot emit a signal in that case. Persist the explicit stop for idle
+            // projections while active Turns remain responsible for their own settlement signal.
             if (
-              snapshot.value.session.status === "starting" ||
-              snapshot.value.session.status === "running"
+              snapshot.value.session.status !== "starting" &&
+              snapshot.value.session.status !== "running" &&
+              snapshot.value.session.status !== "stopped"
             ) {
-              yield* provider.stop(threadEvent.threadId)
-              return
-            }
-            const latestTurn = snapshot.value.thread.latestTurn
-            if (latestTurn !== null) {
-              yield* stopIdleSession(
-                dispatchInternal,
-                persisted,
-                snapshot.value.thread.runtimeMode,
-                threadEvent.threadId,
-                latestTurn.turnId,
-                snapshot.value.session.resumeCursor,
-              ).pipe(
-                Effect.provideService(SqlClient, sql),
-                Effect.provideService(Crypto.Crypto, crypto),
-              )
+              const latestTurn = snapshot.value.thread.latestTurn
+              if (latestTurn !== null) {
+                yield* stopIdleSession(
+                  dispatchInternal,
+                  persisted,
+                  snapshot.value.thread.runtimeMode,
+                  threadEvent.threadId,
+                  latestTurn.turnId,
+                  snapshot.value.session.resumeCursor,
+                ).pipe(
+                  Effect.provideService(SqlClient, sql),
+                  Effect.provideService(Crypto.Crypto, crypto),
+                )
+              }
             }
           })
         case "approval.responded":

@@ -1,6 +1,7 @@
 # Tableau accessible aux agents par MCP HTTP
 
-> **Statut : accepté.** Complète [ADR-0013](0013-session-projetee-et-cursor.md) et
+> **Statut : accepté.** Complète le modèle Session de [ADR-0013](0013-session-projetee-et-cursor.md)
+> et le runtime de [ADR-0018](0018-runtime-cursor-porte-par-la-session.md), ainsi que
 > [ADR-0014](0014-fil-de-fer-acp.md). Le choix du transport reprend le pattern documenté dans
 > [le MCP browser de t3code](../research/t3code-browser-mcp.md).
 
@@ -18,10 +19,13 @@ est inactive. Noyau ne fournit aucun fallback MCP stdio, second entrypoint ou br
 
 Avant de démarrer ou reprendre une Session provider, Noyau émet une capacité MCP éphémère
 distincte du bearer Electron. Le registre mémoire ne conserve que son hash et l'associe à
-l'Environment, au Project, au Thread, au Turn et à la session provider, à l'acteur d'audit et aux
-opérations autorisées. Le secret brut n'est transmis qu'à Cursor. Le trafic renouvelle sa
-vivacité ; le finalizer du subprocess provider du Turn le révoque et une expiration bornée couvre
-les arrêts anormaux. Le registre est vide au boot et n'est jamais une source de vérité.
+l'Environment, au Project, au Thread, à la Session provider et à l'ensemble d'opérations
+autorisées. Le bearer survit entre les Turns, mais `McpSessionRegistry.resolve` exige un
+`activeTurnId` : le middleware `/mcp` refuse HTTP 401 hors Turn actif. Ce Turn complète le
+contexte d'invocation pour l'audit et les limites de mutation. Le secret brut n'est transmis
+qu'à Cursor. Le trafic et chaque nouveau Turn renouvellent sa vivacité ; le finalizer du
+runtime provider de la Session le révoque et une expiration bornée couvre les arrêts anormaux.
+Le registre est vide au boot et n'est jamais une source de vérité.
 
 Le middleware `/mcp` résout cette capacité et fournit un contexte d'invocation aux handlers. Les
 outils ne laissent jamais l'agent choisir un autre `projectId`, se faire passer pour un autre

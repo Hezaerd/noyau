@@ -11,7 +11,20 @@ import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
-import { Deferred, Duration, Effect, Fiber, FileSystem, Layer, Path, Schema } from "effect"
+import {
+  Clock,
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Schema,
+  Scope,
+} from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import {
@@ -40,6 +53,9 @@ const IMPLEMENT_MODE_ALIASES = ["code", "agent", "default", "chat", "implement"]
 const APPROVAL_MODE_ALIASES = ["ask"]
 /** Coalesce ACP assistant text chunks before durable append (cuts SQLite/WS/React thrash). */
 const ASSISTANT_CHUNK_COALESCE = Duration.millis(40)
+/** Cursor may leave `session/load` pending after replay; treat an idle gap as ready. */
+const DEFAULT_SESSION_LOAD_REPLAY_IDLE_GAP = Duration.seconds(2)
+const DEFAULT_SESSION_LOAD_TIMEOUT = Duration.seconds(90)
 const decodeCursorModels = Schema.decodeUnknownEffect(CursorListAvailableModelsResponse)
 
 export interface CursorAdapterOptions {
@@ -48,10 +64,30 @@ export interface CursorAdapterOptions {
   readonly environment?: NodeJS.ProcessEnv
   readonly platform?: NodeJS.Platform
   readonly clientVersion?: string
+  readonly sessionLoadReplayIdleGap?: Duration.Input | undefined
+  readonly sessionLoadTimeout?: Duration.Input | undefined
 }
 
 interface PendingApproval {
   readonly decision: Deferred.Deferred<ProviderApprovalDecision>
+}
+
+interface CursorSession {
+  readonly threadId: ProviderTurnInput["threadId"]
+  readonly projectId: ProviderTurnInput["projectId"]
+  readonly workspaceRoot: string
+  readonly scope: Scope.Closeable
+  readonly acp: AcpClient.AcpClient["Service"]
+  readonly handle: ChildProcessSpawner.ChildProcessHandle
+  sessionId: string
+  resumeCursor: ProviderTurnInput["resumeCursor"]
+  setup: AcpSchema.NewSessionResponse | AcpSchema.LoadSessionResponse | undefined
+  configOptions: ReadonlyArray<AcpSchema.SessionConfigOption>
+  modes: AcpSchema.SessionModeState | undefined
+  loading: boolean
+  loadLastActivityAt: number | undefined
+  activeTurn: ActiveTurn | undefined
+  stopped: boolean
 }
 
 interface ActiveTurn {
@@ -62,11 +98,13 @@ interface ActiveTurn {
   readonly toolCalls: Map<string, ToolCallPresentationInput>
   pendingAssistantText: string
   assistantFlushFiber?: Fiber.Fiber<void>
+  session?: CursorSession
   acp?: AcpClient.AcpClient["Service"]
   handle?: ChildProcessSpawner.ChildProcessHandle
   sessionId?: string
   resumeSessionId?: string
   promptStarted: boolean
+  mcpActivated: boolean
   cancelRequested: boolean
   stopRequested: boolean
   terminalEmitted: boolean
@@ -595,17 +633,22 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   const binaryArgs = options.binaryArgs ?? []
   const clientVersion = options.clientVersion ?? "0.0.0"
   const active = new Map<string, ActiveTurn>()
+  const queued = new Map<string, ActiveTurn>()
+  const sessions = new Map<string, CursorSession>()
   const turnFibers = new Map<string, Fiber.Fiber<void>>()
 
   const executable = yield* resolveCursorExecutable(configuredPath, environment, platform)
 
-  const spawnHandle = Effect.fn("CursorAdapter.spawn")(function* (cwd: string) {
+  const spawnHandle = Effect.fn("CursorAdapter.spawn")(function* (
+    cwd: string,
+    sessionScope?: Scope.Scope,
+  ) {
     if (executable === null) {
       return yield* adapterError(
         "Cursor provider is inactive: executable or required ACP capabilities missing",
       )
     }
-    return yield* spawner
+    const spawned = spawner
       .spawn(
         ChildProcess.make(executable, [...binaryArgs, "acp"], {
           cwd,
@@ -619,11 +662,19 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           adapterError(`Failed to spawn Cursor ACP at ${executable}`, cause),
         ),
       )
+    return yield* sessionScope === undefined
+      ? spawned
+      : spawned.pipe(Effect.provideService(Scope.Scope, sessionScope))
   })
 
-  const openClient = Effect.fn("CursorAdapter.openClient")(function* (cwd: string) {
-    const handle = yield* spawnHandle(cwd)
-    const context = yield* Layer.build(AcpClient.layerChildProcess(handle))
+  const openClient = Effect.fn("CursorAdapter.openClient")(function* (
+    cwd: string,
+    sessionScope?: Scope.Scope,
+  ) {
+    const handle = yield* spawnHandle(cwd, sessionScope)
+    const context = yield* sessionScope === undefined
+      ? Layer.build(AcpClient.layerChildProcess(handle))
+      : Layer.buildWithScope(AcpClient.layerChildProcess(handle), sessionScope)
     const acp = yield* Effect.service(AcpClient.AcpClient).pipe(Effect.provideContext(context))
     return { handle, acp }
   })
@@ -819,34 +870,129 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     }
   })
 
-  const runTurn = (control: ActiveTurn) =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        if (executable === null || !providerStatus.handshakeOk) {
-          return yield* adapterError(
-            "Cursor provider is inactive: executable or required ACP capabilities missing",
-          )
+  const sessionLoadReplayIdleGap = Duration.fromInputUnsafe(
+    options.sessionLoadReplayIdleGap ?? DEFAULT_SESSION_LOAD_REPLAY_IDLE_GAP,
+  )
+  const sessionLoadTimeout = Duration.fromInputUnsafe(
+    options.sessionLoadTimeout ?? DEFAULT_SESSION_LOAD_TIMEOUT,
+  )
+
+  const waitForSessionLoadReplayIdle = (session: CursorSession) =>
+    Effect.gen(function* () {
+      const idleGapMillis = Duration.toMillis(sessionLoadReplayIdleGap)
+      while (true) {
+        if (session.loading && session.loadLastActivityAt !== undefined) {
+          const now = yield* Clock.currentTimeMillis
+          if (now - session.loadLastActivityAt >= idleGapMillis) {
+            return {
+              _tag: "idle" as const,
+              modes: session.modes,
+              configOptions: session.configOptions,
+            }
+          }
         }
-        const { acp, handle } = yield* openClient(control.input.workspaceRoot)
+        yield* Effect.sleep(Duration.millis(25))
+      }
+    })
+
+  const closeSession = Effect.fn("CursorAdapter.closeSession")(function* (session: CursorSession) {
+    if (session.stopped) {
+      return
+    }
+    session.stopped = true
+    if (sessions.get(session.threadId) === session) {
+      sessions.delete(session.threadId)
+    }
+    const control = session.activeTurn
+    if (control !== undefined) {
+      for (const pending of control.pendingApprovals.values()) {
+        yield* Deferred.succeed(pending.decision, "cancel").pipe(Effect.ignore)
+      }
+      yield* userInputs.cancelTurn(session.threadId)
+    }
+    yield* Scope.close(session.scope, Exit.void).pipe(Effect.ignore)
+  })
+
+  const runTurn = (control: ActiveTurn) =>
+    Effect.gen(function* () {
+      if (executable === null || !providerStatus.handshakeOk) {
+        return yield* adapterError(
+          "Cursor provider is inactive: executable or required ACP capabilities missing",
+        )
+      }
+
+      let session = sessions.get(control.input.threadId)
+      if (session !== undefined && !session.stopped) {
+        const credentialAlive = yield* mcpSessions.touchSession(control.input.threadId)
+        if (!credentialAlive) {
+          yield* closeSession(session)
+          session = undefined
+        }
+      }
+      let transferred = false
+      if (session === undefined || session.stopped) {
+        const sessionScope = yield* Scope.make("sequential")
+        const releaseUntransferred = Effect.suspend(() =>
+          transferred ? Effect.void : Scope.close(sessionScope, Exit.void).pipe(Effect.ignore),
+        )
+        yield* Effect.addFinalizer(() => releaseUntransferred)
+        const { acp, handle } = yield* openClient(control.input.workspaceRoot, sessionScope).pipe(
+          Effect.onError(() => releaseUntransferred),
+        )
+        const created: CursorSession = {
+          threadId: control.input.threadId,
+          projectId: control.input.projectId,
+          workspaceRoot: control.input.workspaceRoot,
+          scope: sessionScope,
+          acp,
+          handle,
+          sessionId: "",
+          resumeCursor: control.input.resumeCursor,
+          setup: undefined,
+          configOptions: [],
+          modes: undefined,
+          loading: false,
+          loadLastActivityAt: undefined,
+          activeTurn: undefined,
+          stopped: false,
+        }
+        session = created
+        control.session = created
         control.handle = handle
         control.acp = acp
-        let loading = false
-        yield* acp.handleRequestPermission((request) => handlePermission(control, request))
-        yield* acp.handleExtRequest("cursor/ask_question", CursorAskQuestionRequest, (request) =>
-          handleAskQuestion(control, request),
-        )
+
+        yield* acp.handleRequestPermission((request) => {
+          const current = created.activeTurn
+          return current === undefined
+            ? AcpError.AcpRequestError.invalidRequest("Permission request outside an active Turn")
+            : handlePermission(current, request)
+        })
+        yield* acp.handleExtRequest("cursor/ask_question", CursorAskQuestionRequest, (request) => {
+          const current = created.activeTurn
+          return current === undefined
+            ? AcpError.AcpRequestError.invalidRequest("User-input request outside an active Turn")
+            : handleAskQuestion(current, request)
+        })
         yield* acp.handleSessionUpdate((notification) =>
-          handleUpdate(control, () => loading, notification),
+          Effect.gen(function* () {
+            if (created.loading) {
+              created.loadLastActivityAt = yield* Clock.currentTimeMillis
+              return
+            }
+            const current = created.activeTurn
+            if (current === undefined) {
+              return
+            }
+            yield* handleUpdate(current, () => created.loading, notification)
+          }),
         )
         yield* initialize(acp, clientVersion)
-        const mcpCredential = yield* Effect.acquireRelease(
-          mcpSessions.issue({
-            projectId: control.input.projectId,
-            threadId: control.input.threadId,
-            turnId: control.input.turnId,
-          }),
-          () => mcpSessions.revokeTurn(control.input.turnId),
-        )
+
+        const mcpCredential = yield* mcpSessions.issue({
+          projectId: control.input.projectId,
+          threadId: control.input.threadId,
+        })
+        yield* Scope.addFinalizer(sessionScope, mcpSessions.revokeSession(control.input.threadId))
         const mcpServers: ReadonlyArray<AcpSchema.McpServer> = [
           {
             type: "http",
@@ -861,248 +1007,322 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           },
         ]
 
+        const resumeSessionId = control.input.resumeCursor?.sessionId
         let setup: AcpSchema.NewSessionResponse | AcpSchema.LoadSessionResponse
         let sessionId: string
-        const resumeSessionId = control.input.resumeCursor?.sessionId
         if (resumeSessionId !== undefined) {
-          loading = true
-          const loaded = yield* acp.agent
-            .loadSession({
-              sessionId: resumeSessionId,
-              cwd: control.input.workspaceRoot,
-              mcpServers,
-            })
-            .pipe(
-              Effect.option,
-              Effect.ensuring(
-                Effect.sync(() => {
-                  loading = false
-                }),
-              ),
-            )
-          if (loaded._tag === "Some") {
-            setup = loaded.value
+          created.loading = true
+          created.loadLastActivityAt = undefined
+          const loaded = yield* Effect.raceFirst(
+            acp.agent
+              .loadSession({
+                sessionId: resumeSessionId,
+                cwd: control.input.workspaceRoot,
+                mcpServers,
+              })
+              .pipe(Effect.map((response) => ({ _tag: "rpc" as const, response }))),
+            waitForSessionLoadReplayIdle(created),
+          ).pipe(
+            Effect.timeoutOption(sessionLoadTimeout),
+            Effect.orElseSucceed(() => Option.none()),
+            Effect.ensuring(
+              Effect.sync(() => {
+                created.loading = false
+                created.loadLastActivityAt = undefined
+              }),
+            ),
+          )
+          if (Option.isSome(loaded)) {
             sessionId = resumeSessionId
+            if (loaded.value._tag === "rpc") {
+              setup = loaded.value.response
+            } else {
+              if (loaded.value.modes !== undefined) {
+                created.modes = loaded.value.modes
+              }
+              if (loaded.value.configOptions.length > 0) {
+                created.configOptions = loaded.value.configOptions
+              }
+              let idleSetup: AcpSchema.LoadSessionResponse = {
+                configOptions: created.configOptions,
+              }
+              if (created.modes !== undefined) {
+                idleSetup = { ...idleSetup, modes: created.modes }
+              }
+              if (created.setup?.models != null) {
+                idleSetup = { ...idleSetup, models: created.setup.models }
+              }
+              setup = idleSetup
+            }
           } else {
-            const created = yield* acp.agent.createSession({
+            const createdSession = yield* acp.agent.createSession({
               cwd: control.input.workspaceRoot,
               mcpServers,
             })
-            setup = created
-            sessionId = created.sessionId
+            setup = createdSession
+            sessionId = createdSession.sessionId
           }
         } else {
-          const created = yield* acp.agent.createSession({
+          const createdSession = yield* acp.agent.createSession({
             cwd: control.input.workspaceRoot,
             mcpServers,
           })
-          setup = created
-          sessionId = created.sessionId
+          setup = createdSession
+          sessionId = createdSession.sessionId
         }
-        control.sessionId = sessionId
-        control.resumeSessionId = sessionId
-        const resumeCursor = {
+        created.setup = setup
+        created.configOptions = setup.configOptions ?? []
+        created.modes = setup.modes ?? undefined
+        created.sessionId = sessionId
+        created.resumeCursor = {
           schemaVersion: 1 as const,
           sessionId: ProviderSessionId.make(sessionId),
         }
-        yield* emitSignal(control, sessionSignal(control, "running", resumeCursor))
+        created.activeTurn = control
+        sessions.set(control.input.threadId, created)
+        transferred = true
+        yield* emitSignal(control, sessionSignal(control, "running", created.resumeCursor))
+      } else {
+        control.session = session
+        control.handle = session.handle
+        control.acp = session.acp
+        control.sessionId = session.sessionId
+        control.resumeSessionId = session.sessionId
+        session.activeTurn = control
+      }
 
-        let configOptions = setup.configOptions ?? []
-        const selection = control.input.modelSelection
-        if (selection !== null) {
-          const modelOption = configOptions.find((option) => option.category === "model")
-          const advertisedModel = selectOptions(modelOption).find(
-            (option) => option.value === selection.modelId,
+      const currentSession = session
+      const setup = currentSession.setup
+      if (setup === undefined) {
+        return yield* adapterError("Cursor ACP session setup did not return a session")
+      }
+      control.sessionId = currentSession.sessionId
+      control.resumeSessionId = currentSession.sessionId
+      currentSession.activeTurn = control
+      let configOptions = currentSession.configOptions
+      const selection = control.input.modelSelection
+      if (selection !== null) {
+        const modelOption = configOptions.find((option) => option.category === "model")
+        const advertisedModel = selectOptions(modelOption).find(
+          (option) => option.value === selection.modelId,
+        )
+        if (modelOption?.type === "select" && advertisedModel !== undefined) {
+          const response = yield* currentSession.acp.agent.setSessionConfigOption({
+            sessionId: currentSession.sessionId,
+            configId: modelOption.id,
+            value: advertisedModel.value,
+          })
+          configOptions = response.configOptions
+        } else if (
+          setup.models?.availableModels.some((model) => model.modelId === selection.modelId) ===
+          true
+        ) {
+          yield* currentSession.acp.agent.setSessionModel({
+            sessionId: currentSession.sessionId,
+            modelId: selection.modelId,
+          })
+        } else {
+          return yield* adapterError(`Cursor model is unavailable: ${selection.modelId}`)
+        }
+
+        if (selection.reasoningEffort !== undefined) {
+          const effortOption = reasoningOption(configOptions)
+          const advertisedEffort = selectOptions(effortOption).find(
+            (option) => option.value === selection.reasoningEffort,
           )
-          if (modelOption?.type === "select" && advertisedModel !== undefined) {
-            const response = yield* acp.agent.setSessionConfigOption({
-              sessionId,
-              configId: modelOption.id,
-              value: advertisedModel.value,
-            })
-            configOptions = response.configOptions
-          } else if (
-            setup.models?.availableModels.some((model) => model.modelId === selection.modelId) ===
-            true
-          ) {
-            yield* acp.agent.setSessionModel({ sessionId, modelId: selection.modelId })
-          } else {
-            return yield* adapterError(`Cursor model is unavailable: ${selection.modelId}`)
-          }
-
-          if (selection.reasoningEffort !== undefined) {
-            const effortOption = reasoningOption(configOptions)
-            const advertisedEffort = selectOptions(effortOption).find(
-              (option) => option.value === selection.reasoningEffort,
+          if (effortOption?.type !== "select" || advertisedEffort === undefined) {
+            return yield* adapterError(
+              `Cursor reasoning effort is unavailable: ${selection.reasoningEffort}`,
             )
-            if (effortOption?.type !== "select" || advertisedEffort === undefined) {
-              return yield* adapterError(
-                `Cursor reasoning effort is unavailable: ${selection.reasoningEffort}`,
-              )
-            }
-            const response = yield* acp.agent.setSessionConfigOption({
-              sessionId,
-              configId: effortOption.id,
-              value: advertisedEffort.value,
-            })
-            configOptions = response.configOptions
           }
+          const response = yield* currentSession.acp.agent.setSessionConfigOption({
+            sessionId: currentSession.sessionId,
+            configId: effortOption.id,
+            value: advertisedEffort.value,
+          })
+          configOptions = response.configOptions
+        }
 
-          if (selection.serviceTier !== undefined) {
-            const tierOption = serviceTierOption(configOptions)
-            const fast = fastOption(configOptions)
-            const advertisedTier = selectOptions(tierOption).find(
-              (option) => option.value === selection.serviceTier,
-            )
-            const response =
-              tierOption?.type === "select" && advertisedTier !== undefined
-                ? yield* acp.agent.setSessionConfigOption({
-                    sessionId,
-                    configId: tierOption.id,
-                    value: advertisedTier.value,
-                  })
-                : fast?.type === "boolean" &&
-                    ["standard", "normal", "fast"].includes(selection.serviceTier)
-                  ? yield* acp.agent.setSessionConfigOption({
-                      sessionId,
-                      configId: fast.id,
-                      type: "boolean",
-                      value: selection.serviceTier === "fast",
-                    })
-                  : fast?.type === "select" &&
-                      ["standard", "normal", "fast"].includes(selection.serviceTier)
-                    ? yield* acp.agent.setSessionConfigOption({
-                        sessionId,
-                        configId: fast.id,
-                        value:
-                          booleanSelectValue(fast, selection.serviceTier === "fast") ??
-                          selection.serviceTier,
-                      })
-                    : undefined
-            if (response === undefined) {
-              return yield* adapterError(
-                `Cursor service tier is unavailable: ${selection.serviceTier}`,
-              )
-            }
-            configOptions = response.configOptions
-          }
-
-          if (selection.thinking !== undefined) {
-            const thinking = thinkingOption(configOptions)
-            const response =
-              thinking?.type === "boolean"
-                ? yield* acp.agent.setSessionConfigOption({
-                    sessionId,
-                    configId: thinking.id,
+        if (selection.serviceTier !== undefined) {
+          const tierOption = serviceTierOption(configOptions)
+          const fast = fastOption(configOptions)
+          const advertisedTier = selectOptions(tierOption).find(
+            (option) => option.value === selection.serviceTier,
+          )
+          const response =
+            tierOption?.type === "select" && advertisedTier !== undefined
+              ? yield* currentSession.acp.agent.setSessionConfigOption({
+                  sessionId: currentSession.sessionId,
+                  configId: tierOption.id,
+                  value: advertisedTier.value,
+                })
+              : fast?.type === "boolean" &&
+                  ["standard", "normal", "fast"].includes(selection.serviceTier)
+                ? yield* currentSession.acp.agent.setSessionConfigOption({
+                    sessionId: currentSession.sessionId,
+                    configId: fast.id,
                     type: "boolean",
-                    value: selection.thinking,
+                    value: selection.serviceTier === "fast",
                   })
-                : thinking?.type === "select"
-                  ? yield* acp.agent.setSessionConfigOption({
-                      sessionId,
-                      configId: thinking.id,
+                : fast?.type === "select" &&
+                    ["standard", "normal", "fast"].includes(selection.serviceTier)
+                  ? yield* currentSession.acp.agent.setSessionConfigOption({
+                      sessionId: currentSession.sessionId,
+                      configId: fast.id,
                       value:
-                        booleanSelectValue(thinking, selection.thinking) ??
-                        String(selection.thinking),
+                        booleanSelectValue(fast, selection.serviceTier === "fast") ??
+                        selection.serviceTier,
                     })
                   : undefined
-            if (response === undefined) {
-              return yield* adapterError("Cursor thinking option is unavailable")
-            }
-            configOptions = response.configOptions
+          if (response === undefined) {
+            return yield* adapterError(
+              `Cursor service tier is unavailable: ${selection.serviceTier}`,
+            )
           }
+          configOptions = response.configOptions
         }
 
-        const mode = requestedMode(control.input.runtimeMode, setup.modes ?? undefined)
-        if (mode !== undefined && mode !== setup.modes?.currentModeId) {
-          yield* acp.agent
-            .setSessionConfigOption({
-              sessionId,
-              configId: "mode",
-              value: mode,
-            })
-            .pipe(Effect.ignore)
-        }
-
-        if (control.cancelRequested) {
-          control.terminalEmitted = true
-          yield* emitSignal(control, {
-            _tag: "turn-ended",
-            threadId: control.input.threadId,
-            turnId: control.input.turnId,
-            state: "interrupted",
-          })
-          if (control.stopRequested) {
-            yield* emitSignal(control, sessionSignal(control, "stopped", resumeCursor))
+        if (selection.thinking !== undefined) {
+          const thinking = thinkingOption(configOptions)
+          const response =
+            thinking?.type === "boolean"
+              ? yield* currentSession.acp.agent.setSessionConfigOption({
+                  sessionId: currentSession.sessionId,
+                  configId: thinking.id,
+                  type: "boolean",
+                  value: selection.thinking,
+                })
+              : thinking?.type === "select"
+                ? yield* currentSession.acp.agent.setSessionConfigOption({
+                    sessionId: currentSession.sessionId,
+                    configId: thinking.id,
+                    value:
+                      booleanSelectValue(thinking, selection.thinking) ??
+                      String(selection.thinking),
+                  })
+                : undefined
+          if (response === undefined) {
+            return yield* adapterError("Cursor thinking option is unavailable")
           }
-          return
+          configOptions = response.configOptions
         }
+      }
 
-        control.promptStarted = true
-        const prompt: Array<AcpSchema.ContentBlock> = []
-        if (control.input.text.trim().length > 0) {
-          prompt.push(
-            ...(yield* promptContentBlocks(
-              control.input.text,
-              control.input.workspaceRoot,
-              control.input.tickets ?? [],
-            ).pipe(Effect.provideService(Path.Path, path))),
-          )
+      currentSession.configOptions = configOptions
+      const mode = requestedMode(control.input.runtimeMode, currentSession.modes)
+      if (mode !== undefined && mode !== currentSession.modes?.currentModeId) {
+        yield* currentSession.acp.agent.setSessionConfigOption({
+          sessionId: currentSession.sessionId,
+          configId: "mode",
+          value: mode,
+        })
+        if (currentSession.modes !== undefined) {
+          currentSession.modes = { ...currentSession.modes, currentModeId: mode }
         }
-        for (const attachment of control.input.attachments ?? []) {
-          prompt.push({
-            type: "image",
-            data: Buffer.from(attachment.data).toString("base64"),
-            mimeType: attachment.mimeType,
-          })
-        }
-        const response = yield* acp.agent
-          .prompt({
-            sessionId,
-            prompt,
-          })
-          .pipe(Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)))
+      }
+
+      if (control.cancelRequested) {
         control.terminalEmitted = true
         yield* emitSignal(control, {
           _tag: "turn-ended",
           threadId: control.input.threadId,
           turnId: control.input.turnId,
-          state: response.stopReason === "end_turn" ? "completed" : "interrupted",
+          state: "interrupted",
         })
         if (control.stopRequested) {
-          yield* emitSignal(control, sessionSignal(control, "stopped", resumeCursor))
+          yield* emitSignal(control, sessionSignal(control, "stopped", currentSession.resumeCursor))
+          yield* closeSession(currentSession)
         }
-      }).pipe(
-        Effect.catch((error: AcpError.AcpError) =>
-          control.terminalEmitted
-            ? Effect.void
-            : Effect.gen(function* () {
-                control.terminalEmitted = true
-                const detail = errorDetail(error)
-                yield* emitSignal(
+        return
+      }
+
+      yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
+      control.mcpActivated = true
+      control.promptStarted = true
+      const prompt: Array<AcpSchema.ContentBlock> = []
+      if (control.input.text.trim().length > 0) {
+        prompt.push(
+          ...(yield* promptContentBlocks(
+            control.input.text,
+            control.input.workspaceRoot,
+            control.input.tickets ?? [],
+          ).pipe(Effect.provideService(Path.Path, path))),
+        )
+      }
+      for (const attachment of control.input.attachments ?? []) {
+        prompt.push({
+          type: "image",
+          data: Buffer.from(attachment.data).toString("base64"),
+          mimeType: attachment.mimeType,
+        })
+      }
+      const response = yield* currentSession.acp.agent
+        .prompt({
+          sessionId: currentSession.sessionId,
+          prompt,
+        })
+        .pipe(Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)))
+      control.terminalEmitted = true
+      yield* emitSignal(control, {
+        _tag: "turn-ended",
+        threadId: control.input.threadId,
+        turnId: control.input.turnId,
+        state: response.stopReason === "end_turn" ? "completed" : "interrupted",
+      })
+      if (control.stopRequested) {
+        yield* emitSignal(control, sessionSignal(control, "stopped", currentSession.resumeCursor))
+      } else {
+        yield* emitSignal(control, sessionSignal(control, "ready", currentSession.resumeCursor))
+      }
+    }).pipe(
+      Effect.catch((error: AcpError.AcpError) =>
+        control.terminalEmitted
+          ? Effect.void
+          : Effect.gen(function* () {
+              control.terminalEmitted = true
+              const detail = errorDetail(error)
+              const currentSession = control.session
+              if (currentSession !== undefined) {
+                yield* closeSession(currentSession)
+              }
+              yield* emitSignal(
+                control,
+                sessionSignal(
                   control,
-                  sessionSignal(
-                    control,
-                    "error",
-                    control.resumeSessionId === undefined
+                  "error",
+                  currentSession?.resumeCursor ??
+                    (control.resumeSessionId === undefined
                       ? control.input.resumeCursor
                       : {
                           schemaVersion: 1,
                           sessionId: ProviderSessionId.make(control.resumeSessionId),
-                        },
-                    detail,
-                  ),
-                )
-                yield* Deferred.succeed(control.promptSettled, undefined)
-              }),
-        ),
+                        }),
+                  detail,
+                ),
+              )
+              yield* Deferred.succeed(control.promptSettled, undefined)
+            }),
       ),
-    ).pipe(
       Effect.ensuring(
         flushAssistantText(control).pipe(
           Effect.andThen(userInputs.unbindTurn(control.input.threadId)),
           Effect.andThen(
+            Effect.suspend(() =>
+              control.mcpActivated
+                ? mcpSessions
+                    .deactivateTurn(control.input.threadId, control.input.turnId)
+                    .pipe(Effect.ignore)
+                : Effect.void,
+            ),
+          ),
+          Effect.andThen(
             Effect.sync(() => {
+              if (control.session?.activeTurn === control) {
+                control.session.activeTurn = undefined
+              }
+              if (control.mcpActivated) {
+                control.mcpActivated = false
+              }
               if (active.get(control.input.threadId) === control) {
                 active.delete(control.input.threadId)
               }
@@ -1126,14 +1346,57 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       toolCalls: new Map(),
       pendingAssistantText: "",
       promptStarted: false,
+      mcpActivated: false,
       cancelRequested: false,
       stopRequested: false,
       terminalEmitted: false,
     }
-    yield* userInputs.bindTurn(input.threadId, (signal) => emitSignal(control, signal))
-    active.set(input.threadId, control)
-    yield* emitSignal(control, sessionSignal(control, "starting", input.resumeCursor))
-    const fiber = yield* Effect.forkIn(runTurn(control), providerScope, { startImmediately: true })
+
+    const previous = turnFibers.get(input.threadId)
+    queued.set(input.threadId, control)
+    const runQueued = Effect.gen(function* () {
+      if (previous !== undefined) {
+        yield* Fiber.join(previous).pipe(Effect.ignore)
+      }
+      if (queued.get(input.threadId) !== control) {
+        return
+      }
+      queued.delete(input.threadId)
+
+      let existing = sessions.get(input.threadId)
+      if (
+        existing !== undefined &&
+        !existing.stopped &&
+        (existing.projectId !== input.projectId || existing.workspaceRoot !== input.workspaceRoot)
+      ) {
+        yield* closeSession(existing)
+        existing = undefined
+      }
+      if (existing !== undefined && !existing.stopped) {
+        const running = yield* existing.handle.isRunning.pipe(Effect.orElseSucceed(() => false))
+        if (!running) {
+          yield* closeSession(existing)
+          existing = undefined
+        }
+      }
+
+      yield* userInputs.bindTurn(input.threadId, (signal) => emitSignal(control, signal))
+      active.set(input.threadId, control)
+      yield* emitSignal(
+        control,
+        sessionSignal(
+          control,
+          existing === undefined ? "starting" : "running",
+          existing?.resumeCursor ?? input.resumeCursor,
+        ),
+      )
+      yield* runTurn(control)
+    })
+    const fiber = yield* Effect.forkIn(
+      Effect.scoped(runQueued),
+      providerScope,
+      previous === undefined ? { startImmediately: true } : undefined,
+    )
     control.fiber = fiber
     turnFibers.set(input.threadId, fiber)
   })
@@ -1142,8 +1405,14 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     threadId: ProviderTurnInput["threadId"],
     stop: boolean,
   ) {
-    const control = active.get(threadId)
+    const control = active.get(threadId) ?? queued.get(threadId)
     if (control === undefined) {
+      if (stop) {
+        const session = sessions.get(threadId)
+        if (session !== undefined) {
+          yield* closeSession(session)
+        }
+      }
       return
     }
     control.cancelRequested = true
@@ -1153,6 +1422,26 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     }
     yield* userInputs.cancelTurn(threadId)
     if (!control.promptStarted || control.acp === undefined || control.sessionId === undefined) {
+      const session = control.session ?? sessions.get(threadId)
+      if (session !== undefined && (stop || sessions.get(threadId) !== session)) {
+        yield* closeSession(session)
+      } else if (control.handle !== undefined && control.handle !== session?.handle) {
+        yield* control.handle.kill({ killSignal: "SIGTERM" }).pipe(Effect.ignore)
+      }
+      if (control.fiber !== undefined) {
+        yield* Fiber.join(control.fiber).pipe(
+          Effect.ignoreCause,
+          Effect.raceFirst(
+            Effect.sleep("2 seconds").pipe(
+              Effect.tap(() =>
+                control.handle === undefined || control.handle === session?.handle
+                  ? Effect.void
+                  : control.handle.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore),
+              ),
+            ),
+          ),
+        )
+      }
       return
     }
     yield* control.acp.agent.cancel({ sessionId: control.sessionId }).pipe(Effect.ignore)
@@ -1167,6 +1456,15 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         ),
       ),
     )
+    if (stop) {
+      const session = control.session
+      if (session !== undefined && control.fiber !== undefined) {
+        yield* Fiber.join(control.fiber).pipe(Effect.ignore)
+      }
+      if (session !== undefined) {
+        yield* closeSession(session)
+      }
+    }
   })
 
   const respondApproval = Effect.fn("CursorAdapter.respondApproval")(function* (
@@ -1189,20 +1487,50 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   })
 
   const drain = Effect.gen(function* () {
-    const entries = [...turnFibers.entries()]
-    yield* Effect.forEach(entries, ([, fiber]) => Fiber.join(fiber), { discard: true })
-    for (const [threadId, fiber] of entries) {
-      if (turnFibers.get(threadId) === fiber) {
-        turnFibers.delete(threadId)
+    while (turnFibers.size > 0) {
+      const entries = [...turnFibers.entries()]
+      yield* Effect.forEach(entries, ([, fiber]) => Fiber.join(fiber).pipe(Effect.ignoreCause), {
+        discard: true,
+      })
+      for (const [id, fiber] of entries) {
+        if (turnFibers.get(id) === fiber) {
+          turnFibers.delete(id)
+        }
       }
     }
   })
+
+  const stopAll = Effect.sync(() => [...sessions.values()]).pipe(
+    Effect.flatMap((current) => Effect.forEach(current, closeSession, { discard: true })),
+    Effect.ignore,
+  )
+
+  const reapIdle = Effect.fn("CursorAdapter.reapIdle")(function* (
+    threadId: ProviderTurnInput["threadId"],
+  ) {
+    const session = sessions.get(threadId)
+    if (
+      session === undefined ||
+      session.stopped ||
+      session.activeTurn !== undefined ||
+      queued.has(threadId) ||
+      active.has(threadId)
+    ) {
+      return false
+    }
+    yield* closeSession(session)
+    return true
+  })
+
+  yield* Effect.addFinalizer(() => stopAll)
 
   return ProviderPort.of({
     status: Effect.succeed(providerStatus),
     startTurn,
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),
+    reapIdle,
+    stopAll,
     respondApproval,
     respondUserInput,
     drain,

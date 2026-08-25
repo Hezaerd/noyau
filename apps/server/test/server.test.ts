@@ -47,7 +47,10 @@ const testMcpSessionRegistryLayer = Layer.succeed(McpSessionRegistry)({
           }
         : undefined,
     ),
-  revokeTurn: () => Effect.void,
+  activateTurn: () => Effect.void,
+  deactivateTurn: () => Effect.void,
+  touchSession: () => Effect.succeed(true),
+  revokeSession: () => Effect.void,
   revokeAll: Effect.void,
 })
 
@@ -91,8 +94,8 @@ describe("server routes", () => {
       const mcpCredential = yield* mcpSessions.issue({
         projectId: mcpProjectId,
         threadId: mcpThreadId,
-        turnId: mcpTurnId,
       })
+      yield* mcpSessions.activateTurn(mcpThreadId, mcpTurnId)
       const [
         live,
         ready,
