@@ -27,16 +27,23 @@ export const runCommand = Effect.fn("GitRuntime.runCommand")(function* (
   executable: string,
   args: ReadonlyArray<string>,
   cwd: string,
-  options: { readonly allowNonZero?: boolean } = {},
+  options: { readonly allowNonZero?: boolean; readonly env?: Record<string, string> } = {},
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const handle = yield* spawner
     .spawn(
-      ChildProcess.make(executable, args, {
-        cwd,
-        detached: false,
-        windowsHide: true,
-      }),
+      ChildProcess.make(
+        executable,
+        args,
+        Object.assign(
+          {
+            cwd,
+            detached: false,
+            windowsHide: true,
+          },
+          options.env === undefined ? {} : { env: options.env, extendEnv: true },
+        ),
+      ),
     )
     .pipe(
       Effect.mapError(
@@ -76,7 +83,7 @@ export const runGit = (
   operation: string,
   cwd: string,
   args: ReadonlyArray<string>,
-  options: { readonly allowNonZero?: boolean } = {},
+  options: { readonly allowNonZero?: boolean; readonly env?: Record<string, string> } = {},
 ) => runCommand(operation, "git", args, cwd, options)
 
 export const runGh = (

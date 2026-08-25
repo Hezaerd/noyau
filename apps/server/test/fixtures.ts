@@ -30,6 +30,10 @@ export const stubGitRuntimeLayer = Layer.succeed(GitRuntime)({
     Effect.succeed({ worktree: { path: `${input.worktreesDir}/stub`, refName: input.branch } }),
   removeWorktree: (input) => Effect.succeed({ path: input.path }),
   renameBranch: (input) => Effect.succeed({ branch: input.newBranch }),
+  isGitRepository: () => Effect.succeed(false),
+  captureCheckpoint: () => Effect.void,
+  hasCheckpointRef: () => Effect.succeed(false),
+  diffCheckpoints: () => Effect.succeed(""),
   diffContext: () => Effect.succeed(""),
   runStackedAction: (input) =>
     Effect.succeed({

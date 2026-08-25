@@ -116,6 +116,15 @@ _À éviter_ : `userData/environment/worktrees`, segment `development`, slash da
 Port live `git` / `gh` du Server. Les lectures et mutations Git ne passent pas par le journal.
 _À éviter_ : agrégat VCS, outbox SQL
 
+**Checkpoint**:
+Snapshot git hors journal d'un cwd de Checkout, adressé par un `CheckpointRef`.
+_À éviter_ : commit utilisateur, stash, fait du journal
+
+**TurnDiffReactor**:
+Reactor `TxQueue` qui capture le baseline au start (ou après bind worktree) et le TurnDiff à
+`thread.turn.ended`.
+_À éviter_ : ProviderReactor, diff ACP, outbox Git
+
 **Pull request live**:
 PR GitHub du HEAD, jointe par `gh pr list --head` sur le cwd du Checkout. Stream
 `vcs.subscribeStatus` : snapshot local puis poll. Inclut la Mergeability (`mergeable` gh)

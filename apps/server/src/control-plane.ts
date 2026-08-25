@@ -107,6 +107,7 @@ import { loadTurnAttachments, persistTurnUploads, readAttachmentPreview } from "
 import { ServerConfig } from "./config.ts"
 import { makePresenceController } from "./discord/presence.ts"
 import { readFilePreview } from "./file-preview.ts"
+import { makeTurnDiffReactor } from "./git/turn-diff-reactor.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { makeProviderSessionReaper } from "./provider/provider-session-reaper.ts"
@@ -695,6 +696,9 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         Effect.provideService(TextGeneration, textGeneration),
         Effect.provideService(SqlClient, sql),
       )
+      const processTurnDiffEvent = yield* makeTurnDiffReactor((command) =>
+        dispatchInternal(command),
+      ).pipe(Effect.provideService(SqlClient, sql))
       const processPresenceEvent = (_event: PersistedEvent<DomainEventType>) =>
         readShellSnapshot(environment).pipe(
           Effect.provideService(SqlClient, sql),
@@ -706,6 +710,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const providerReactor = yield* makeDrainableWorker(processProviderEvent)
       const titleReactor = yield* makeDrainableWorker(processTitleEvent)
       const worktreeBranchReactor = yield* makeDrainableWorker(processWorktreeBranchEvent)
+      const turnDiffReactor = yield* makeDrainableWorker(processTurnDiffEvent)
       const presenceReactor = yield* makeDrainableWorker(processPresenceEvent)
       const reactor = {
         enqueue: (event: PersistedEvent<DomainEventType>) =>
@@ -713,14 +718,20 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             providerReactor.enqueue(event),
             Effect.andThen(
               titleReactor.enqueue(event),
-              Effect.andThen(worktreeBranchReactor.enqueue(event), presenceReactor.enqueue(event)),
+              Effect.andThen(
+                worktreeBranchReactor.enqueue(event),
+                Effect.andThen(turnDiffReactor.enqueue(event), presenceReactor.enqueue(event)),
+              ),
             ),
           ),
         drain: Effect.andThen(
           providerReactor.drain,
           Effect.andThen(
             titleReactor.drain,
-            Effect.andThen(worktreeBranchReactor.drain, presenceReactor.drain),
+            Effect.andThen(
+              worktreeBranchReactor.drain,
+              Effect.andThen(turnDiffReactor.drain, presenceReactor.drain),
+            ),
           ),
         ),
       }
