@@ -2,16 +2,16 @@ import { fileURLToPath } from "node:url"
 
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, FileSystem } from "effect"
+import { Effect, FileSystem, Schema } from "effect"
 
 import { resolveAppIdentity } from "./electron-launcher.ts"
 import {
   assertHostCanPackage,
+  DmgImageFormatOutput,
   dmgImageFormatArgs,
   dmgOutputsToConvert,
   electronBuilderArgs,
   isUlmoDmgFormat,
-  parseDmgImageFormat,
   parsePackageDesktopArgs,
   requiredPackagedArtifacts,
   resolveElectronBuilderCli,
@@ -114,22 +114,23 @@ describe("package desktop", () => {
     ).toEqual(["release/Noyau-0.1.0-mac-arm64.dmg", "release\\Noyau-0.1.0-mac-x64.dmg"])
   })
 
-  it("asks hdiutil for a max-compression ULMO image", () => {
+  it("asks hdiutil for a ULMO image", () => {
     expect(dmgImageFormatArgs("/tmp/Noyau.dmg")).toEqual(["imageinfo", "-format", "/tmp/Noyau.dmg"])
     expect(ulmoConvertArgs("/in.dmg", "/out.dmg")).toEqual([
       "convert",
       "/in.dmg",
       "-format",
       "ULMO",
-      "-imagekey",
-      "lzma-level=9",
       "-o",
       "/out.dmg",
     ])
     expect(ulmoTempDmgPath("release/Noyau-0.1.0-mac-arm64.dmg")).toBe(
       "release/Noyau-0.1.0-mac-arm64.ulmo.tmp.dmg",
     )
-    expect(parseDmgImageFormat("UDZO\n")).toBe("UDZO")
+    expect(Schema.decodeSync(DmgImageFormatOutput)("UDZO\n")).toBe("UDZO")
+    expect(Schema.decodeSync(DmgImageFormatOutput)("ULMO")).toBe("ULMO")
+    expect(() => Schema.decodeSync(DmgImageFormatOutput)("")).toThrow()
+    expect(() => Schema.decodeSync(DmgImageFormatOutput)("not-a-format")).toThrow()
     expect(isUlmoDmgFormat("ULMO")).toBe(true)
     expect(isUlmoDmgFormat("UDZO")).toBe(false)
   })

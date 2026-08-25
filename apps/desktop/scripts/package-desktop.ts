@@ -4,13 +4,13 @@ import { ChildProcess } from "effect/unstable/process"
 import { desktopDir, resolveAppIdentity } from "./electron-launcher.ts"
 import {
   assertHostCanPackage,
+  decodeDmgImageFormat,
   dmgImageFormatArgs,
   dmgOutputsToConvert,
   electronBuilderArgs,
   isUlmoDmgFormat,
   PACKAGED_ARTIFACTS,
   PackageDesktopError,
-  parseDmgImageFormat,
   parsePackageDesktopArgs,
   resolveElectronBuilderCli,
   ulmoConvertArgs,
@@ -75,7 +75,11 @@ const readDmgImageFormat = Effect.fn("readDmgImageFormat")(function* (dmgPath: s
     const details = [result.stdout, result.stderr].filter(Boolean).join("\n")
     return yield* packageError(`hdiutil imageinfo failed for ${dmgPath}: ${details}`.trim())
   }
-  return parseDmgImageFormat(result.stdout)
+  return yield* decodeDmgImageFormat(result.stdout).pipe(
+    Effect.mapError((cause) =>
+      packageError(`Unexpected hdiutil image format for ${dmgPath}: ${String(cause)}`),
+    ),
+  )
 })
 
 const formatMegabytes = (bytes: number): string => `${(bytes / 1_048_576).toFixed(1)} MB`

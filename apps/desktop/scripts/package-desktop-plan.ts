@@ -185,15 +185,27 @@ export const ulmoConvertArgs = (inputPath: string, outputPath: string): Readonly
   inputPath,
   "-format",
   "ULMO",
-  "-imagekey",
-  "lzma-level=9",
   "-o",
   outputPath,
 ]
 
-export const parseDmgImageFormat = (stdout: string): string => stdout.trim()
+export const DmgImageFormat = Schema.Literals([
+  "UDZO",
+  "ULMO",
+  "ULFO",
+  "UDBZ",
+  "UDRW",
+  "UDRO",
+  "UDCO",
+])
 
-export const isUlmoDmgFormat = (format: string): boolean => format === "ULMO"
+export type DmgImageFormat = typeof DmgImageFormat.Type
+
+export const DmgImageFormatOutput = Schema.Trim.pipe(Schema.decodeTo(DmgImageFormat))
+
+export const decodeDmgImageFormat = Schema.decodeEffect(DmgImageFormatOutput)
+
+export const isUlmoDmgFormat = (format: DmgImageFormat): boolean => format === "ULMO"
 
 export const assertHostCanPackage = (
   platform: PackageDesktopArgs["platform"],
