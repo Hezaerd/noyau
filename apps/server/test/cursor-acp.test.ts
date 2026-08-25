@@ -12,13 +12,17 @@ import {
 } from "@noyau/protocol/ids"
 import type { McpInvocationScope } from "@noyau/server/mcp/mcp-invocation-context"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
-import { cursorProviderLayer, resolveCursorExecutable } from "@noyau/server/provider/cursor-acp"
+import {
+  cursorProviderLayer,
+  resolveCursorExecutable,
+  type CursorAdapterOptions,
+} from "@noyau/server/provider/cursor-acp"
 import {
   ProviderPort,
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
-import { Deferred, Effect, Fiber, FileSystem, Layer, Path } from "effect"
+import { Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { TestClock } from "effect/testing"
 
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
@@ -26,19 +30,60 @@ const fakeAgent = fileURLToPath(new URL("./fixtures/fake-cursor-acp.mjs", import
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const turnId = TurnId.make("30000000-0000-4000-8000-000000000001")
+const secondTurnId = TurnId.make("30000000-0000-4000-8000-000000000002")
 const missingMcpScope: McpInvocationScope | undefined = undefined
+const staticMcpCredential = {
+  config: {
+    endpoint: "http://127.0.0.1:43123/mcp",
+    authorizationHeader: "Bearer test-mcp-token",
+  },
+}
 const testMcpSessionsLayer = Layer.succeed(McpSessionRegistry)({
-  issue: () =>
-    Effect.succeed({
-      config: {
-        endpoint: "http://127.0.0.1:43123/mcp",
-        authorizationHeader: "Bearer test-mcp-token",
-      },
-    }),
+  issue: () => Effect.succeed(staticMcpCredential),
   resolve: () => Effect.succeed(missingMcpScope),
-  revokeTurn: () => Effect.void,
+  activateTurn: () => Effect.void,
+  deactivateTurn: () => Effect.void,
+  touchSession: () => Effect.succeed(true),
+  revokeSession: () => Effect.void,
   revokeAll: Effect.void,
 })
+
+const recordingMcpSessions = (touchAlive = true) => {
+  const issued: Array<string> = []
+  const revoked: Array<string> = []
+  let nextToken = 0
+  let alive = touchAlive
+  return {
+    issued,
+    revoked,
+    setTouchAlive: (value: boolean) => {
+      alive = value
+    },
+    layer: Layer.succeed(McpSessionRegistry)({
+      issue: () =>
+        Effect.sync(() => {
+          nextToken += 1
+          const token = `Bearer test-mcp-token-${nextToken}`
+          issued.push(token)
+          return {
+            config: {
+              endpoint: "http://127.0.0.1:43123/mcp",
+              authorizationHeader: token,
+            },
+          }
+        }),
+      resolve: () => Effect.succeed(missingMcpScope),
+      activateTurn: () => Effect.void,
+      deactivateTurn: () => Effect.void,
+      touchSession: () => Effect.sync(() => alive),
+      revokeSession: () =>
+        Effect.sync(() => {
+          revoked.push(threadId)
+        }),
+      revokeAll: Effect.void,
+    }),
+  }
+}
 
 const input = (
   runtimeMode: ProviderTurnInput["runtimeMode"] = "full-access",
@@ -55,7 +100,13 @@ const input = (
   resumeCursor,
 })
 
-const makeOptions = Effect.fn("CursorAdapterTest.makeOptions")(function* (scenario: string) {
+const makeOptions = Effect.fn("CursorAdapterTest.makeOptions")(function* (
+  scenario: string,
+  extras: {
+    readonly sessionLoadReplayIdleGap?: CursorAdapterOptions["sessionLoadReplayIdleGap"] | undefined
+    readonly sessionLoadTimeout?: CursorAdapterOptions["sessionLoadTimeout"] | undefined
+  } = {},
+) {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-fake-acp-" })
@@ -74,6 +125,7 @@ const makeOptions = Effect.fn("CursorAdapterTest.makeOptions")(function* (scenar
         NOYAU_FAKE_ACP_EXIT_LOG: exitLog,
       },
       clientVersion: "test",
+      ...extras,
     },
   } as const
 })
@@ -84,12 +136,22 @@ const withProvider = <A, E, R>(
     provider: ProviderPort["Service"],
     evidence: { readonly requestLog: string; readonly exitLog: string },
   ) => Effect.Effect<A, E, R>,
+  extras: {
+    readonly mcp?: Layer.Layer<McpSessionRegistry>
+    readonly sessionLoadReplayIdleGap?: CursorAdapterOptions["sessionLoadReplayIdleGap"]
+    readonly sessionLoadTimeout?: CursorAdapterOptions["sessionLoadTimeout"]
+  } = {},
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const evidence = yield* makeOptions(scenario)
+      const evidence = yield* makeOptions(scenario, {
+        sessionLoadReplayIdleGap: extras.sessionLoadReplayIdleGap,
+        sessionLoadTimeout: extras.sessionLoadTimeout,
+      })
       const services = yield* Layer.build(
-        cursorProviderLayer(evidence.options).pipe(Layer.provide(testMcpSessionsLayer)),
+        cursorProviderLayer(evidence.options).pipe(
+          Layer.provide(extras.mcp ?? testMcpSessionsLayer),
+        ),
       )
       return yield* Effect.gen(function* () {
         const provider = yield* ProviderPort
@@ -115,6 +177,50 @@ const capture = Effect.fn("CursorAdapterTest.capture")(function* (
 const readLog = Effect.fn("CursorAdapterTest.readLog")(function* (filePath: string) {
   const fileSystem = yield* FileSystem.FileSystem
   return yield* fileSystem.readFileString(filePath)
+})
+
+const LoggedRequest = Schema.Struct({
+  method: Schema.optionalKey(Schema.String),
+})
+const decodeLoggedRequest = Schema.decodeUnknownOption(LoggedRequest)
+
+const parseRequests = (log: string) =>
+  log
+    .trim()
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .flatMap((line) => {
+      const decoded = decodeLoggedRequest(JSON.parse(line))
+      return Option.isSome(decoded) ? [decoded.value] : []
+    })
+
+const requestMethods = (log: string, method: string) =>
+  parseRequests(log).filter((message) => message.method === method)
+
+const resumeFrom = (signals: ReadonlyArray<ProviderSignal>) => {
+  const session = signals.findLast((signal) => signal._tag === "session")
+  return session?._tag === "session" ? session.resumeCursor : null
+}
+
+const waitForLog = Effect.fn("CursorAdapterTest.waitForLog")(function* (
+  filePath: string,
+  snippet: string,
+) {
+  // Wall-clock poll: the fake ACP child writes the request log outside TestClock.
+  const deadline = Date.now() + 2_000
+  while (Date.now() < deadline) {
+    const log = yield* readLog(filePath).pipe(Effect.orElseSucceed(() => ""))
+    if (log.includes(snippet)) {
+      return log
+    }
+    yield* Effect.promise(
+      () =>
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 20)
+        }),
+    )
+  }
+  return yield* Effect.die(`request log never contained ${snippet}`)
 })
 
 layer(platformLayer)("Cursor ACP adapter", (it) => {
@@ -330,6 +436,121 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
             },
           ],
         })
+      }),
+    ),
+  )
+
+  it.effect("keeps one ACP subprocess across Turns and closes it on session stop", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        const first = yield* capture(provider, input())
+        const second = yield* capture(provider, {
+          ...input(),
+          turnId: secondTurnId,
+          text: "Continue the adapter",
+        })
+
+        const requests = (yield* readLog(evidence.requestLog))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+        assert.strictEqual(requests.filter((message) => message.method === "initialize").length, 2)
+        assert.strictEqual(
+          requests.filter((message) => message.method === "authenticate").length,
+          2,
+        )
+        assert.strictEqual(requests.filter((message) => message.method === "session/new").length, 1)
+        assert.strictEqual(
+          requests.filter((message) => message.method === "session/prompt").length,
+          2,
+        )
+        assert.isTrue(
+          first.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
+        )
+        assert.isTrue(
+          second.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
+        )
+
+        const exitsBeforeStop = (yield* readLog(evidence.exitLog)).split("SIGTERM").length - 1
+        yield* provider.stop(threadId)
+        const exitsAfterStop = (yield* readLog(evidence.exitLog)).split("SIGTERM").length - 1
+        assert.strictEqual(exitsAfterStop, exitsBeforeStop + 1)
+      }),
+    ),
+  )
+
+  it.effect("queues a Turn requested before the previous Turn finalizer completes", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        const firstSignals: Array<ProviderSignal> = []
+        const secondSignals: Array<ProviderSignal> = []
+        let secondRequested = false
+        const secondInput = { ...input(), turnId: secondTurnId, text: "Continue the adapter" }
+        const onSecondSignal = (signal: ProviderSignal) =>
+          Effect.sync(() => {
+            secondSignals.push(signal)
+          })
+        const onFirstSignal = (signal: ProviderSignal) =>
+          Effect.sync(() => {
+            firstSignals.push(signal)
+          }).pipe(
+            Effect.andThen(
+              signal._tag === "turn-ended" && !secondRequested
+                ? Effect.sync(() => {
+                    secondRequested = true
+                  }).pipe(Effect.andThen(provider.startTurn(secondInput, onSecondSignal)))
+                : Effect.void,
+            ),
+          )
+
+        yield* provider.startTurn(input(), onFirstSignal)
+        yield* provider.drain
+
+        const requests = (yield* readLog(evidence.requestLog))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+        assert.strictEqual(requests.filter((message) => message.method === "session/new").length, 1)
+        assert.strictEqual(
+          requests.filter((message) => message.method === "session/prompt").length,
+          2,
+        )
+        assert.isTrue(
+          firstSignals.some(
+            (signal) => signal._tag === "turn-ended" && signal.state === "completed",
+          ),
+        )
+        assert.isTrue(
+          secondSignals.some(
+            (signal) => signal._tag === "turn-ended" && signal.state === "completed",
+          ),
+        )
+      }),
+    ),
+  )
+
+  it.effect("updates the cached ACP mode when runtimeMode changes between Turns", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        yield* capture(provider, input("full-access"))
+        yield* capture(provider, { ...input("approval-required"), turnId: secondTurnId })
+        yield* capture(provider, {
+          ...input("full-access"),
+          turnId: TurnId.make("30000000-0000-4000-8000-000000000003"),
+        })
+
+        const requests = (yield* readLog(evidence.requestLog))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+          .filter(
+            (message) =>
+              message.method === "session/set_config_option" && message.params.configId === "mode",
+          )
+        assert.deepStrictEqual(
+          requests.map((message) => message.params.value),
+          ["ask", "agent"],
+        )
       }),
     ),
   )
@@ -744,6 +965,213 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         assert.isTrue(
           signals.some((signal) => signal._tag === "session" && signal.status === "error"),
         )
+      }),
+    ),
+  )
+
+  it.effect("loads the persisted session after an idle reap", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        const first = yield* capture(provider, input())
+        const resumeCursor = resumeFrom(first)
+        assert.isNotNull(resumeCursor)
+        assert.isTrue(yield* provider.reapIdle(threadId))
+        const second = yield* capture(provider, {
+          ...input(),
+          turnId: secondTurnId,
+          resumeCursor,
+        })
+        const log = yield* readLog(evidence.requestLog)
+        assert.strictEqual(requestMethods(log, "session/new").length, 1)
+        assert.strictEqual(requestMethods(log, "session/load").length, 1)
+        assert.strictEqual(requestMethods(log, "session/prompt").length, 2)
+        assert.isFalse(
+          second.some(
+            (signal) =>
+              signal._tag === "transcript" &&
+              signal.item._tag === "transcript.assistant" &&
+              signal.item.text.includes("replay"),
+          ),
+        )
+      }),
+    ),
+  )
+
+  it.effect("loads the persisted session after an explicit stop", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        const first = yield* capture(provider, input())
+        const resumeCursor = resumeFrom(first)
+        yield* provider.stop(threadId)
+        yield* capture(provider, { ...input(), turnId: secondTurnId, resumeCursor })
+        const log = yield* readLog(evidence.requestLog)
+        assert.strictEqual(requestMethods(log, "session/new").length, 1)
+        assert.strictEqual(requestMethods(log, "session/load").length, 1)
+      }),
+    ),
+  )
+
+  it.effect("loads the persisted session after a mid-prompt rupture", () =>
+    withProvider("rupture", (provider, evidence) =>
+      Effect.gen(function* () {
+        const first = yield* capture(provider, input())
+        const resumeCursor = resumeFrom(first)
+        assert.isNotNull(resumeCursor)
+        yield* capture(provider, { ...input(), turnId: secondTurnId, resumeCursor })
+        const log = yield* readLog(evidence.requestLog)
+        assert.strictEqual(requestMethods(log, "session/new").length, 1)
+        assert.strictEqual(requestMethods(log, "session/load").length, 1)
+      }),
+    ),
+  )
+
+  it.effect("issues one MCP credential per spawn and revokes it on stop", () => {
+    const mcp = recordingMcpSessions()
+    return withProvider(
+      "success",
+      (provider, evidence) =>
+        Effect.gen(function* () {
+          yield* capture(provider, input())
+          yield* capture(provider, { ...input(), turnId: secondTurnId })
+          assert.deepStrictEqual(mcp.issued, ["Bearer test-mcp-token-1"])
+          assert.deepStrictEqual(mcp.revoked, [])
+          const firstPrompt = (yield* readLog(evidence.requestLog))
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line))
+            .find((message) => message.method === "session/new")
+          assert.strictEqual(
+            firstPrompt?.params.mcpServers[0]?.headers[0]?.value,
+            "Bearer test-mcp-token-1",
+          )
+          yield* provider.stop(threadId)
+          assert.deepStrictEqual(mcp.revoked, [threadId])
+        }),
+      { mcp: mcp.layer },
+    )
+  })
+
+  it.effect("respawns with a new bearer when touchSession reports the credential dead", () => {
+    const mcp = recordingMcpSessions()
+    return withProvider(
+      "success",
+      (provider, evidence) =>
+        Effect.gen(function* () {
+          const first = yield* capture(provider, input())
+          mcp.setTouchAlive(false)
+          yield* capture(provider, {
+            ...input(),
+            turnId: secondTurnId,
+            resumeCursor: resumeFrom(first),
+          })
+          const log = yield* readLog(evidence.requestLog)
+          assert.strictEqual(requestMethods(log, "session/new").length, 1)
+          assert.strictEqual(requestMethods(log, "session/load").length, 1)
+          assert.deepStrictEqual(mcp.issued, ["Bearer test-mcp-token-1", "Bearer test-mcp-token-2"])
+          assert.deepStrictEqual(mcp.revoked, [threadId])
+        }),
+      { mcp: mcp.layer },
+    )
+  })
+
+  it.effect("treats a hung session/load as ready after replay goes idle", () =>
+    withProvider(
+      "hang-load",
+      (provider, evidence) =>
+        Effect.gen(function* () {
+          const signals: Array<ProviderSignal> = []
+          yield* provider.startTurn(
+            input("full-access", {
+              schemaVersion: 1,
+              sessionId: ProviderSessionId.make("persisted-session"),
+            }),
+            (signal) =>
+              Effect.sync(() => {
+                signals.push(signal)
+              }),
+          )
+          yield* waitForLog(evidence.requestLog, '"method":"session/load"')
+          yield* Effect.promise(
+            () =>
+              new Promise<void>((resolve) => {
+                setTimeout(resolve, 50)
+              }),
+          )
+          yield* TestClock.adjust("2 seconds")
+          yield* provider.drain
+          const log = yield* readLog(evidence.requestLog)
+          assert.strictEqual(requestMethods(log, "session/load").length, 1)
+          assert.strictEqual(requestMethods(log, "session/new").length, 0)
+          assert.strictEqual(requestMethods(log, "session/prompt").length, 1)
+          assert.isFalse(
+            signals.some(
+              (signal) =>
+                signal._tag === "transcript" &&
+                signal.item._tag === "transcript.assistant" &&
+                signal.item.text.includes("replay"),
+            ),
+          )
+        }),
+      { sessionLoadReplayIdleGap: "50 millis", sessionLoadTimeout: "5 seconds" },
+    ),
+  )
+
+  it.effect("falls back to session/new when session/load stays pending without replay", () =>
+    withProvider(
+      "hang-load-silent",
+      (provider, evidence) =>
+        Effect.gen(function* () {
+          yield* provider.startTurn(
+            input("full-access", {
+              schemaVersion: 1,
+              sessionId: ProviderSessionId.make("persisted-session"),
+            }),
+            () => Effect.void,
+          )
+          yield* waitForLog(evidence.requestLog, '"method":"session/load"')
+          yield* TestClock.adjust("90 seconds")
+          yield* provider.drain
+          const log = yield* readLog(evidence.requestLog)
+          const methods = parseRequests(log).map((message) => message.method)
+          assert.include(methods, "session/load")
+          assert.include(methods, "session/new")
+          assert.isAbove(methods.lastIndexOf("session/new"), methods.indexOf("session/load"))
+        }),
+      { sessionLoadReplayIdleGap: "2 seconds", sessionLoadTimeout: "90 seconds" },
+    ),
+  )
+
+  it.effect("stops a Session whose handshake is still in flight", () =>
+    withProvider("hang-new", (provider, evidence) =>
+      Effect.gen(function* () {
+        yield* provider.startTurn(input(), () => Effect.void)
+        yield* waitForLog(evidence.requestLog, '"method":"session/new"')
+        const stop = yield* provider.stop(threadId).pipe(Effect.forkChild)
+        yield* TestClock.adjust("2 seconds")
+        yield* Fiber.join(stop)
+        yield* provider.drain
+        const exits = yield* readLog(evidence.exitLog).pipe(Effect.orElseSucceed(() => ""))
+        assert.isTrue(
+          exits.includes("SIGTERM") || exits.includes("SIGKILL") || exits.includes("exit"),
+        )
+      }),
+    ),
+  )
+
+  it.effect("does not reap a Session that has an in-flight Turn", () =>
+    withProvider("cancel", (provider) =>
+      Effect.gen(function* () {
+        const promptOpened = yield* Deferred.make<void>()
+        yield* provider.startTurn(input(), (signal) =>
+          signal._tag === "transcript" && signal.item._tag === "transcript.assistant"
+            ? Deferred.succeed(promptOpened, undefined)
+            : Effect.void,
+        )
+        yield* Deferred.await(promptOpened)
+        assert.isFalse(yield* provider.reapIdle(threadId))
+        yield* provider.interrupt(threadId)
+        yield* provider.drain
+        assert.isTrue(yield* provider.reapIdle(threadId))
       }),
     ),
   )

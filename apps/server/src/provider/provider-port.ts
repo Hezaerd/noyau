@@ -59,9 +59,15 @@ export type ProviderEmit = (signal: ProviderSignal) => Effect.Effect<void>
 
 export interface ProviderPortService {
   readonly status: Effect.Effect<CursorProviderStatus>
+  /** Starts a Turn, reusing the live provider Session for its Thread when one exists. */
   readonly startTurn: (input: ProviderTurnInput, emit: ProviderEmit) => Effect.Effect<void>
   readonly interrupt: (threadId: ThreadId) => Effect.Effect<void>
+  /** Stops the provider Session, including when it is idle between Turns. */
   readonly stop: (threadId: ThreadId) => Effect.Effect<void>
+  /** Atomically closes an idle runtime; returns false when no idle runtime was owned. */
+  readonly reapIdle: (threadId: ThreadId) => Effect.Effect<boolean>
+  /** Closes every live provider Session during Server shutdown. */
+  readonly stopAll: Effect.Effect<void>
   readonly respondApproval: (
     threadId: ThreadId,
     requestId: ApprovalRequestId,
@@ -72,6 +78,7 @@ export interface ProviderPortService {
     requestId: ApprovalRequestId,
     answers: ProviderUserInputAnswers,
   ) => Effect.Effect<void>
+  /** Waits for the Turn fibers owned by this port; it does not stop idle Sessions. */
   readonly drain: Effect.Effect<void>
 }
 
@@ -84,6 +91,8 @@ export const unavailableProviderLayer = Layer.succeed(ProviderPort)({
   startTurn: (_input, _emit) => Effect.void,
   interrupt: (_threadId) => Effect.void,
   stop: (_threadId) => Effect.void,
+  reapIdle: (_threadId) => Effect.succeed(false),
+  stopAll: Effect.void,
   respondApproval: (_threadId, _requestId, _decision) => Effect.void,
   respondUserInput: (_threadId, _requestId, _answers) => Effect.void,
   drain: Effect.void,

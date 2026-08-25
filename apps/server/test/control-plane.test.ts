@@ -675,6 +675,24 @@ describe("ControlPlane", () => {
             ),
           )
         }
+
+        yield* controlPlane.dispatch(
+          request({
+            _tag: "session.stop",
+            commandId: uuid(23),
+            payload: { threadId },
+          }),
+          actorId,
+        )
+        yield* controlPlane.drainReactors
+        const stoppedFrames = yield* controlPlane
+          .subscribeThread({ threadId })
+          .pipe(Stream.take(1), Stream.runCollect)
+        const stoppedSnapshot = stoppedFrames[0]
+        assert.strictEqual(stoppedSnapshot?.kind, "snapshot")
+        if (stoppedSnapshot?.kind === "snapshot") {
+          assert.strictEqual(stoppedSnapshot.snapshot.session?.status, "stopped")
+        }
       }),
     ),
   )
