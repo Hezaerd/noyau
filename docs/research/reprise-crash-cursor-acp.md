@@ -4,7 +4,8 @@ Date de l'étude : 19 août 2026.
 
 > **Statut : note factuelle.** Les décisions produit sont dans
 > [Tester la reprise après crash de Cursor ACP](https://github.com/Hezaerd/noyau/issues/64) et
-> [l'ADR-0013](../adr/0013-session-projetee-et-cursor.md). Le repli t3code (`error` + `lastError`,
+> [l'ADR-0018](../adr/0018-runtime-cursor-porte-par-la-session.md) (qui supersède l'ADR-0013).
+> Le repli t3code (`error` + `lastError`,
 > pas `lost`) gagne en cas de conflit avec une phrase de cette note.
 
 ## Question

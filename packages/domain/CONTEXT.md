@@ -57,7 +57,9 @@ starting/running) remet l'override à `null`.
 _À éviter_ : archive, snooze, status archived
 
 **Session**:
-Projection `0..1` du runtime provider sur un Thread (`status`, `lastError`, `resumeCursor`).
+Projection `0..1` du runtime provider sur un Thread (`status`, `lastError`, `resumeCursor`). Une
+Session live peut servir plusieurs Turns ; la perte de son runtime ne crée pas une nouvelle
+Session métier.
 _À éviter_ : Execution, Attempt, AgentRun, ProviderBinding
 
 **Turn**:

@@ -35,14 +35,22 @@ Fil de fer `@noyau/acp` utilisé par l'adaptateur Cursor. Les extensions (`curso
 restent ici.
 _À éviter_ : schémas ACP maison, JSON-RPC maison
 
+**SessionRuntime**:
+Runtime Cursor ACP vivant et volatil attaché à une Session : processus `cursor-agent`,
+`AcpClient` et `Scope` possédés par le Server. Il est réutilisé entre Turns, puis recréé
+paresseusement avec `session/load` après restart, crash, arrêt ou reaper ; aucun prompt historique
+n'est rejoué.
+_À éviter_ : subprocess par Turn, Execution, sweep d'orphelins
+
 **MCP Noyau**:
 Façade agent du control plane qui expose le Tableau et ses Tickets sans devenir une source de
 vérité distincte.
 _À éviter_ : TodoList agent, bridge SQLite, outil `dispatchCommand` brut
 
 **Capacité MCP**:
-Autorisation volatile et bornée d'un Turn Cursor sur un Project, un Thread et un ensemble
-d'opérations Tableau.
+Autorisation volatile et bornée d'une Session Cursor sur un Project, un Thread et un ensemble
+d'opérations Tableau ; elle reste valide entre les Turns de cette Session et est révoquée quand
+son runtime est arrêté, perdu ou expiré.
 _À éviter_ : bearer Electron, identité dans les arguments d'outil, permission `runtimeMode`
 
 **catalogue Cursor**:

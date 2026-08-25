@@ -5,38 +5,38 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 
 ## Glossaire
 
-| Terme                 | Sens                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------ |
-| **Noyau**             | Control plane : état, commandes, événements et projections.                                |
-| **Environment**       | Autorité locale unique d'une installation.                                                 |
-| **Noyau Desktop**     | Client Electron et superviseur ; aucun état métier autoritatif.                            |
-| **Noyau Server**      | Processus Node local ; unique autorité durable de sa base SQLite.                          |
-| **Project**           | Dossier existant relié, avec un Tableau et des Threads.                                    |
-| **WorkspaceRoot**     | Chemin du dossier où Noyau et Cursor travaillent.                                          |
-| **Checkout**          | Liaison Thread → cwd : `worktreePath` (`null` = WorkspaceRoot) + `branch` (snapshot).      |
-| **threadEnvMode**     | Intention de draft `local \| worktree`. Matérialisée au premier Turn.                      |
-| **Settle**            | Cycle qui recule un Thread de l'inbox (`settledOverride` + auto PR/inactivité).            |
-| **GitRuntime**        | Capacité live `git`/`gh` du Server ; hors journal.                                         |
-| **Tableau**           | Projection Kanban unique d'un Project ; colonnes libres et ordre partagé.                  |
-| **Ticket**            | Élément de travail durable : titre, détails, cycle Kanban, audit et dépendances.           |
-| **Responsable**       | Acteur durable optionnel d'un Ticket ; masqué de l'UI v0.1.                                |
-| **Dépendance Ticket** | Relation orientée « dépend de » ; l'ensemble forme un DAG.                                 |
-| **TicketThread**      | Lien optionnel plusieurs-à-plusieurs entre un Ticket et un Thread.                         |
-| **Thread**            | Conversation provider titrée d'un Project (`Project → Thread → Turn`).                     |
-| **Session**           | Projection `0..1` du runtime provider sur un Thread.                                       |
-| **Turn**              | Unité append-only de travail agent. `latestTurn` : running, interrupted, completed, error. |
-| **resumeCursor**      | `{ schemaVersion, sessionId }` opaque pour `session/load`.                                 |
-| **runtimeMode**       | Politique d'outils t3code du Thread.                                                       |
-| **Command**           | Entrée typée (`commandId`, acteur hors payload) persistée avant effet.                     |
-| **Event**             | Fait immuable produit par un decider pur.                                                  |
-| **Projection**        | Vue dérivée reconstruite depuis le journal.                                                |
-| **Receipt**           | Preuve d'idempotence d'une commande ; réponse stable aux retries.                          |
-| **TxQueue**           | File mémoire post-commit pour les reactors ; vide au boot, pas une outbox de reprise.      |
-| **Reactor**           | Consommateur de la `TxQueue` pour un effet externe (Cursor).                               |
+| Terme                 | Sens                                                                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Noyau**             | Control plane : état, commandes, événements et projections.                                                                              |
+| **Environment**       | Autorité locale unique d'une installation.                                                                                               |
+| **Noyau Desktop**     | Client Electron et superviseur ; aucun état métier autoritatif.                                                                          |
+| **Noyau Server**      | Processus Node local ; unique autorité durable de sa base SQLite.                                                                        |
+| **Project**           | Dossier existant relié, avec un Tableau et des Threads.                                                                                  |
+| **WorkspaceRoot**     | Chemin du dossier où Noyau et Cursor travaillent.                                                                                        |
+| **Checkout**          | Liaison Thread → cwd : `worktreePath` (`null` = WorkspaceRoot) + `branch` (snapshot).                                                    |
+| **threadEnvMode**     | Intention de draft `local \| worktree`. Matérialisée au premier Turn.                                                                    |
+| **Settle**            | Cycle qui recule un Thread de l'inbox (`settledOverride` + auto PR/inactivité).                                                          |
+| **GitRuntime**        | Capacité live `git`/`gh` du Server ; hors journal.                                                                                       |
+| **Tableau**           | Projection Kanban unique d'un Project ; colonnes libres et ordre partagé.                                                                |
+| **Ticket**            | Élément de travail durable : titre, détails, cycle Kanban, audit et dépendances.                                                         |
+| **Responsable**       | Acteur durable optionnel d'un Ticket ; masqué de l'UI v0.1.                                                                              |
+| **Dépendance Ticket** | Relation orientée « dépend de » ; l'ensemble forme un DAG.                                                                               |
+| **TicketThread**      | Lien optionnel plusieurs-à-plusieurs entre un Ticket et un Thread.                                                                       |
+| **Thread**            | Conversation provider titrée d'un Project (`Project → Thread → Turn`).                                                                   |
+| **Session**           | Projection `0..1` du runtime provider sur un Thread ; tant qu'elle est live, elle réutilise un runtime Cursor ACP entre plusieurs Turns. |
+| **Turn**              | Unité append-only de travail agent. `latestTurn` : running, interrupted, completed, error.                                               |
+| **resumeCursor**      | `{ schemaVersion, sessionId }` opaque pour `session/load`.                                                                               |
+| **runtimeMode**       | Politique d'outils t3code du Thread.                                                                                                     |
+| **Command**           | Entrée typée (`commandId`, acteur hors payload) persistée avant effet.                                                                   |
+| **Event**             | Fait immuable produit par un decider pur.                                                                                                |
+| **Projection**        | Vue dérivée reconstruite depuis le journal.                                                                                              |
+| **Receipt**           | Preuve d'idempotence d'une commande ; réponse stable aux retries.                                                                        |
+| **TxQueue**           | File mémoire post-commit pour les reactors ; vide au boot, pas une outbox de reprise.                                                    |
+| **Reactor**           | Consommateur de la `TxQueue` pour un effet externe (Cursor).                                                                             |
 
 Modèle v0.1 : `Environment → Project → (Tableau → Ticket) + (Thread → Session? → Turn)`. Lien
 optionnel `TicketThread`. Pas de `Channel`, `Message`, Workbench, `Execution`, `Attempt`, outbox
-SQL, Hermes ni PGlite (ADR-0011, ADR-0013).
+SQL, Hermes ni PGlite (ADR-0011, ADR-0018 ; modèle durable issu d'ADR-0013).
 
 ## Flux cible
 
@@ -204,24 +204,24 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 
 ## Pièges fréquents
 
-| Piège                                         | Choix Noyau                                                 |
-| --------------------------------------------- | ----------------------------------------------------------- |
-| `Queue` / `PubSub` comme source de vérité     | Journal SQLite + receipts ; `TxQueue` n'est pas une reprise |
-| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                          |
-| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`                   |
-| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                               |
-| `Context.Tag` par instance dynamique          | Registry singleton + adaptateur en valeur                   |
-| Effect Atom dans React                        | Effect aux frontières ; état UI React idiomatique           |
-| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements                    |
-| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`                    |
-| Checklist ou todolist dans un Ticket          | Tickets liés par un DAG                                     |
-| Thread dédié ou Workbench par Ticket          | `TicketThread` optionnel N-N                                |
-| `Execution` / `Attempt` / `Channel` / Hermes  | Thread + Session projetée + adaptateur Cursor (ADR-0013)    |
-| Sweep d'orphelins `cursor-agent`              | Handle + `Scope` seulement                                  |
-| Forge Git autre que GitHub                    | GitHub seulement (ADR-0006)                                 |
-| Package ou workspace sans frontière testée    | Attendre une frontière réelle                               |
-| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                                |
-| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                              |
+| Piège                                         | Choix Noyau                                                      |
+| --------------------------------------------- | ---------------------------------------------------------------- |
+| `Queue` / `PubSub` comme source de vérité     | Journal SQLite + receipts ; `TxQueue` n'est pas une reprise      |
+| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                               |
+| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`                        |
+| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                                    |
+| `Context.Tag` par instance dynamique          | Registry singleton + adaptateur en valeur                        |
+| Effect Atom dans React                        | Effect aux frontières ; état UI React idiomatique                |
+| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements                         |
+| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`                         |
+| Checklist ou todolist dans un Ticket          | Tickets liés par un DAG                                          |
+| Thread dédié ou Workbench par Ticket          | `TicketThread` optionnel N-N                                     |
+| `Execution` / `Attempt` / `Channel` / Hermes  | Thread + Session projetée + runtime Cursor de Session (ADR-0018) |
+| Sweep d'orphelins `cursor-agent`              | Handle + `Scope` seulement                                       |
+| Forge Git autre que GitHub                    | GitHub seulement (ADR-0006)                                      |
+| Package ou workspace sans frontière testée    | Attendre une frontière réelle                                    |
+| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                                     |
+| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                                   |
 
 ## Opérations dangereuses
 
