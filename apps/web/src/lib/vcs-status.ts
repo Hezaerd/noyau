@@ -34,6 +34,26 @@ export const vcsScopeForThread = (
 ): VcsScope =>
   threadWorktreePathOf(thread) === null ? { projectId } : { projectId, threadId: thread.id }
 
+/** `null` = Thread sélectionné pas encore dans le shell : ne pas tomber sur WorkspaceRoot. */
+export const resolveGitActionsScope = (
+  projectId: ProjectId,
+  input: {
+    readonly threadId: ThreadId | undefined
+    readonly thread: { readonly id: ThreadId; readonly worktreePath?: string | null } | undefined
+  },
+): VcsScope | null => {
+  if (input.threadId === undefined) {
+    return { projectId }
+  }
+  if (input.thread === undefined || input.thread.id !== input.threadId) {
+    return null
+  }
+  return vcsScopeForThread(projectId, {
+    id: input.threadId,
+    worktreePath: input.thread.worktreePath ?? null,
+  })
+}
+
 export const resolveThreadPr = (input: {
   readonly threadBranch: string | null
   readonly gitStatus: VcsStatusResult | null

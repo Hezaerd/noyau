@@ -64,7 +64,7 @@ import {
   type GitActionIconName,
   type GitQuickAction,
 } from "@/lib/git-actions"
-import { vcsScopeForThread } from "@/lib/vcs-status"
+import { resolveGitActionsScope } from "@/lib/vcs-status"
 
 interface GitStackedDrafts {
   commitMessage?: string
@@ -160,13 +160,8 @@ export function GitActionsControl({
 }) {
   const threads = useControlPlaneSelector((state) => state.threads)
   const thread = threads.find((candidate) => candidate.id === threadId)
-  const scope =
-    threadId === undefined
-      ? { projectId }
-      : vcsScopeForThread(projectId, {
-          id: threadId,
-          worktreePath: thread?.worktreePath ?? null,
-        })
+  const scope = resolveGitActionsScope(projectId, { threadId, thread })
+  const actionsDisabled = disabled || scope === null
   const status = useVcsStatus(scope)
   const [busy, setBusy] = useState(false)
   const [dialogAction, setDialogAction] = useState<GitStackedAction>()
@@ -182,8 +177,8 @@ export function GitActionsControl({
   const [publishRepository, setPublishRepository] = useState("")
   const [publishVisibility, setPublishVisibility] = useState<GitRepositoryVisibility>("private")
 
-  const quickAction = resolveQuickAction(status, busy || disabled)
-  const menuItems = buildMenuItems(status, busy || disabled)
+  const quickAction = resolveQuickAction(status, busy || actionsDisabled)
+  const menuItems = buildMenuItems(status, busy || actionsDisabled)
 
   const closeDialog = () => {
     setDialogAction(undefined)
@@ -194,6 +189,9 @@ export function GitActionsControl({
   }
 
   const runAction = (action: GitStackedAction, drafts?: GitStackedDrafts) => {
+    if (scope === null) {
+      return
+    }
     setBusy(true)
     void nextActionId().then((built) => {
       if (!built.ok) {
@@ -224,6 +222,9 @@ export function GitActionsControl({
   }
 
   const openDialog = (action: GitStackedAction) => {
+    if (scope === null) {
+      return
+    }
     setDialogAction(action)
     setDrafting(true)
     const drafts = [
@@ -312,6 +313,9 @@ export function GitActionsControl({
   }
 
   const openPublish = () => {
+    if (scope === null) {
+      return
+    }
     setPublishVisibility("private")
     setPublishRepository(suggestPublishRepository(status?.cwd ?? "", null))
     setPublishOpen(true)
@@ -328,6 +332,9 @@ export function GitActionsControl({
   }
 
   const confirmPublish = () => {
+    if (scope === null) {
+      return
+    }
     const repository = publishRepository.trim()
     if (repository === "") {
       return
@@ -410,7 +417,7 @@ export function GitActionsControl({
                 variant="outline"
                 className="no-drag"
                 aria-label="Options Git"
-                disabled={busy || disabled}
+                disabled={busy || actionsDisabled}
               />
             }
           >

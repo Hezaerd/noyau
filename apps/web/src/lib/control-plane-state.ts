@@ -134,15 +134,20 @@ export const reduceAppliedShellEvent = (event: ShellLiveEvent): boolean => {
   return true
 }
 
-/** Insert or replace a Thread in the applied shell without moving the stream cursor. */
+/**
+ * Insert a Thread in the applied shell without moving the stream cursor.
+ * An existing Thread (live event already applied) is kept — the optimistic
+ * shell must not wipe worktreePath / branch after the receipt races behind
+ * `reduceAppliedShellEvent`.
+ */
 export const upsertAppliedShellThread = (thread: ThreadShell): boolean => {
   if (appliedShell === undefined) {
     return false
   }
-  const threads = appliedShell.threads.some((candidate) => candidate.id === thread.id)
-    ? appliedShell.threads.map((candidate) => (candidate.id === thread.id ? thread : candidate))
-    : [...appliedShell.threads, thread]
-  appliedShell = { ...appliedShell, threads }
+  if (appliedShell.threads.some((candidate) => candidate.id === thread.id)) {
+    return true
+  }
+  appliedShell = { ...appliedShell, threads: [...appliedShell.threads, thread] }
   emitAppliedShell()
   return true
 }

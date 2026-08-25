@@ -154,6 +154,34 @@ describe("upsertAppliedShellThread", () => {
     expect(getAppliedShell()?.snapshotSequence).toBe(11)
   })
 
+  it("keeps the authoritative Thread when the receipt arrives after the live event", () => {
+    replaceAppliedShell(makeSnapshot(10))
+    const authoritative: ThreadShell = {
+      ...makeThread(threadId),
+      title: "Authoritative title",
+      branch: "feat/live",
+      worktreePath: "/tmp/wt",
+    }
+    expect(
+      reduceAppliedShellEvent({
+        _tag: "thread-upserted",
+        sequence: Sequence.make(11),
+        thread: authoritative,
+      }),
+    ).toBe(true)
+
+    const optimistic = makeOptimisticThreadShell({
+      id: threadId,
+      projectId,
+      title: "Nouveau thread",
+      runtimeMode: "full-access",
+      createdAt: makeThread(threadId).createdAt,
+    })
+    expect(upsertAppliedShellThread(optimistic)).toBe(true)
+    expect(getAppliedShell()?.threads).toEqual([authoritative])
+    expect(getAppliedShell()?.snapshotSequence).toBe(11)
+  })
+
   it("omits an empty branch on the optimistic shell", () => {
     expect(
       makeOptimisticThreadShell({
