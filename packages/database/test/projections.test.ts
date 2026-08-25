@@ -3,7 +3,12 @@ import { assert, layer } from "@effect/vitest"
 import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
 import { makeDrainableWorker } from "@noyau/database/drainable-worker"
 import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/database/projections"
-import { readBoardSnapshot, readShellSnapshot, readThreadSnapshot } from "@noyau/database/snapshots"
+import {
+  readBoardSnapshot,
+  readShellSnapshot,
+  readThreadShellById,
+  readThreadSnapshot,
+} from "@noyau/database/snapshots"
 import { layer as sqliteLayer } from "@noyau/database/sqlite"
 import { decide } from "@noyau/domain/board/decider"
 import { emptyBoardState, evolve } from "@noyau/domain/board/projector"
@@ -582,6 +587,16 @@ layer(platformLayer)("SQL projections", (it) => {
             DateTime.formatIso(afterPermission.thread.updatedAt),
             "2026-08-20T00:02:20.000Z",
           )
+          const byId = expectSome(
+            yield* readThreadShellById(ids.recoveryThread),
+            "Thread shell should exist",
+          )
+          const fromCatalogue = (yield* readShellSnapshot(environment)).threads.find(
+            (thread) => thread.id === ids.recoveryThread,
+          )
+          assert.strictEqual(byId.id, ids.recoveryThread)
+          assert.strictEqual(byId.hasPendingApprovals, true)
+          assert.deepStrictEqual(byId, fromCatalogue)
         }).pipe(Effect.provideService(SqlClient, sql))
       }),
     )
