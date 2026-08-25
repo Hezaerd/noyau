@@ -3,10 +3,7 @@ import { ThreadShell } from "@noyau/protocol/shell"
 import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
-import {
-  EMPTY_THREAD_SHELL_INDEX,
-  indexThreadShells,
-} from "../src/lib/thread-shell-index"
+import { EMPTY_THREAD_SHELL_INDEX, indexThreadShells } from "../src/lib/thread-shell-index"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const otherProjectId = ProjectId.make("10000000-0000-4000-8000-000000000002")
@@ -36,10 +33,14 @@ describe("indexThreadShells", () => {
     const updated = { ...first, title: "Renommé" }
     const next = indexThreadShells([updated, second], initial)
 
-    expect(next.threadIdsByProjectId.get(projectId)).toBe(initial.threadIdsByProjectId.get(projectId))
+    expect(next.threadIdsByProjectId.get(projectId)).toBe(
+      initial.threadIdsByProjectId.get(projectId),
+    )
     expect(next.threadsById.get(firstId)).toBe(updated)
     expect(next.threadsById.get(secondId)).toBe(second)
-    expect(next.threadsByProjectId.get(projectId)).not.toBe(initial.threadsByProjectId.get(projectId))
+    expect(next.threadsByProjectId.get(projectId)).not.toBe(
+      initial.threadsByProjectId.get(projectId),
+    )
     expect(next.threadsByProjectId.get(projectId)?.[1]).toBe(second)
   })
 
@@ -58,7 +59,9 @@ describe("indexThreadShells", () => {
     const updatedRemote = { ...remote, title: "Autre Project" }
     const next = indexThreadShells([local, updatedRemote], initial)
 
-    expect(next.threadIdsByProjectId.get(projectId)).toBe(initial.threadIdsByProjectId.get(projectId))
+    expect(next.threadIdsByProjectId.get(projectId)).toBe(
+      initial.threadIdsByProjectId.get(projectId),
+    )
     expect(next.threadsByProjectId.get(projectId)).toBe(initial.threadsByProjectId.get(projectId))
     expect(next.threadsById.get(firstId)).toBe(local)
     expect(next.threadsById.get(secondId)).toBe(updatedRemote)

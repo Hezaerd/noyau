@@ -4,10 +4,14 @@ import type { ThreadShell } from "@noyau/protocol/shell"
 export const EMPTY_THREAD_IDS: ReadonlyArray<ThreadId> = Object.freeze([])
 export const EMPTY_THREAD_SHELLS: ReadonlyArray<ThreadShell> = Object.freeze([])
 export const EMPTY_THREADS_BY_ID: ReadonlyMap<ThreadId, ThreadShell> = new Map()
-export const EMPTY_THREAD_IDS_BY_PROJECT: ReadonlyMap<ProjectId, ReadonlyArray<ThreadId>> =
-  new Map()
-export const EMPTY_THREADS_BY_PROJECT: ReadonlyMap<ProjectId, ReadonlyArray<ThreadShell>> =
-  new Map()
+export const EMPTY_THREAD_IDS_BY_PROJECT: ReadonlyMap<
+  ProjectId,
+  ReadonlyArray<ThreadId>
+> = new Map()
+export const EMPTY_THREADS_BY_PROJECT: ReadonlyMap<
+  ProjectId,
+  ReadonlyArray<ThreadShell>
+> = new Map()
 
 export interface ThreadShellIndex {
   readonly threadsById: ReadonlyMap<ThreadId, ThreadShell>
