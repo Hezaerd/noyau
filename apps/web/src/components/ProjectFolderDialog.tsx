@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useControlPlaneSelector } from "@/hooks/use-control-plane"
+import { useProjects } from "@/hooks/use-control-plane"
 import { invalidInputFailure } from "@/lib/app-failure"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { pickProjectFolder, submitProjectFolder } from "@/lib/project-folder"
@@ -39,7 +39,7 @@ export function ProjectFolderDialog({
   onOpenChange,
   onProjectCreated,
 }: ProjectFolderDialogProps) {
-  const projects = useControlPlaneSelector((state) => state.projects)
+  const projects = useProjects()
   const project = projects.find((candidate) => candidate.id === projectId)
   const [workspaceRoot, setWorkspaceRoot] = useState("")
   const [name, setName] = useState("")

@@ -29,7 +29,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
-import { useControlPlaneSelector, useProjectThreads } from "@/hooks/use-control-plane"
+import { useLastProjectId, useProjectThreads } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import {
   buildPaletteGroups,
@@ -69,7 +69,7 @@ const readRecentActionIds = (): ReadonlyArray<string> => {
 export function AppPaletteProvider({ children }: { readonly children: ReactNode }): ReactElement {
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const lastProjectId = useControlPlaneSelector((state) => state.lastProjectId)
+  const lastProjectId = useLastProjectId()
   const threads = useProjectThreads(lastProjectId)
   const threadCreateHotkey = useKeybinding("thread.create")
   const [open, setOpen] = useState(false)

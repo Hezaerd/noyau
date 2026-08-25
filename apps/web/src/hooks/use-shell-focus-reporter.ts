@@ -1,14 +1,14 @@
 import { useRouterState } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 
-import { useControlPlaneSelector } from "@/hooks/use-control-plane"
+import { useLastProjectId } from "@/hooks/use-control-plane"
 import { useDiscordPresenceEnabled } from "@/hooks/use-discord-presence-enabled"
 import { setShellFocus } from "@/lib/control-plane"
 import { resolveShellFocus, type ResolvedShellFocus } from "@/lib/shell-focus"
 
 export const useShellFocusReporter = (): void => {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const lastProjectId = useControlPlaneSelector((state) => state.lastProjectId)
+  const lastProjectId = useLastProjectId()
   const enabled = useDiscordPresenceEnabled()
   const lastSent = useRef<string | undefined>(undefined)
   const stickyFocus = useRef<ResolvedShellFocus>({ _tag: "idle" })

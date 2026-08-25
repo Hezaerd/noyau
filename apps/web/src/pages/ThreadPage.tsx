@@ -37,7 +37,7 @@ import {
 } from "@/components/thread/ThreadTurnDiffPanel"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
-import { useControlPlaneSelector } from "@/hooks/use-control-plane"
+import { useCursor, useProjects } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
@@ -61,7 +61,7 @@ import {
 } from "@/lib/composer-images"
 import { loadComposerImagesFromAttachments } from "@/lib/composer-images-from-attachments"
 import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
-import { makeOptimisticThreadShell, upsertAppliedShellThread } from "@/lib/control-plane-state"
+import { makeOptimisticThreadShell } from "@/lib/control-plane-state"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { resolveOpenThreadWorking, type OptimisticSend } from "@/lib/thread-activity"
@@ -93,6 +93,7 @@ import {
   isFailingCiOpenPullRequest,
   vcsScopeForThread,
 } from "@/lib/vcs-status"
+import { upsertAppliedShellThread } from "@/state/shell"
 
 interface ThreadPageProps {
   readonly projectId: ProjectId
@@ -102,8 +103,8 @@ interface ThreadPageProps {
 }
 
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
-  const cursor = useControlPlaneSelector((state) => state.cursor)
-  const projects = useControlPlaneSelector((state) => state.projects)
+  const cursor = useCursor()
+  const projects = useProjects()
   const navigate = useNavigate()
   const tickets = useProjectComposerTickets(projectId)
   const project = projects.find((candidate) => candidate.id === projectId)
