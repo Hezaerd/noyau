@@ -18,7 +18,10 @@ describe("desktop renderer", () => {
 
   it("passes the supervisor-owned loopback connection to the renderer without IPC", () => {
     expect(desktopUrlForServer("127.0.0.1", 4567, "launch-token")).toBe(
-      "noyau://app/?rpc=ws%3A%2F%2F127.0.0.1%3A4567%2Frpc&token=launch-token",
+      "noyau://app/?rpc=ws%3A%2F%2F127.0.0.1%3A4567%2Frpc&token=launch-token&channel=latest",
+    )
+    expect(desktopUrlForServer("127.0.0.1", 4567, "launch-token", "nightly")).toBe(
+      "noyau://app/?rpc=ws%3A%2F%2F127.0.0.1%3A4567%2Frpc&token=launch-token&channel=nightly",
     )
   })
 })

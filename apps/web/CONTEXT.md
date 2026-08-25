@@ -273,3 +273,8 @@ _À éviter_ : shortcut, hotkey, binding
 **Raccourci**:
 Combinaison de touches au format tanstack (`Mod+K`).
 _À éviter_ : shortcut, hotkey
+
+**Écran de démarrage**:
+SVG blobatar autonome (`public/boot-splash-*.svg`) affiché par `index.html` avant le chrome,
+jusqu'au snapshot `shell` ou à un échec de souscription. L'anim est dans le fichier, pas dans React.
+_À éviter_ : splash Electron séparé, `@blobatar/react` au boot, « Connexion au control plane »
