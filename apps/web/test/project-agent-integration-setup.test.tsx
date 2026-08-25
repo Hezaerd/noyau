@@ -23,8 +23,8 @@ beforeEach(() => {
       projectId,
       skillName: "noyau",
       targetPath: "/workspace/.agents/skills/noyau",
-      currentVersion: "1.0.0",
-      installedVersion: "1.0.0",
+      currentVersion: "1.1.0",
+      installedVersion: "1.1.0",
       status: "current",
     },
   })

@@ -234,7 +234,7 @@ describe("ControlPlaneRpcs", () => {
         ...input,
         skillName: "noyau",
         targetPath: "/tmp/noyau/.agents/skills/noyau",
-        currentVersion: "1.0.0",
+        currentVersion: "1.1.0",
         installedVersion: "0.9.0",
         status: "outdated",
       }).status,

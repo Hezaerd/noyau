@@ -4,6 +4,7 @@ import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import { isResumePrompt } from "@noyau/shared/resume-prompt"
 import { useNavigate } from "@tanstack/react-router"
 import { DateTime } from "effect"
 import {
@@ -52,6 +53,7 @@ import {
   revokeComposerImages,
   type ComposerImage,
 } from "@/lib/composer-images"
+import { loadComposerImagesFromAttachments } from "@/lib/composer-images-from-attachments"
 import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
@@ -78,6 +80,7 @@ import {
   FIX_MERGE_CONFLICTS_PRESENTATION,
   turnPresentationLabel,
 } from "@/lib/turn-presentation"
+import { retryableFailedTurnMandate } from "@/lib/undelivered-mandate"
 import { toProviderAnswers } from "@/lib/user-input-answers"
 import { isConflictingOpenPullRequest, vcsScopeForThread } from "@/lib/vcs-status"
 
@@ -114,6 +117,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
   const [sendStartedAtMs, setSendStartedAtMs] = useState<number | null>(null)
   const [followLatestKey, setFollowLatestKey] = useState(0)
+  const restoredFailedTurnRef = useRef<string>(undefined)
   const cursorReady = isCursorReady(cursor)
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
@@ -131,6 +135,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   )
   const conflictingPr =
     gitStatus?.pr != null && isConflictingOpenPullRequest(gitStatus.pr) ? gitStatus.pr : null
+  const retryMandate = retryableFailedTurnMandate({
+    resumeCursor: snapshot?.session?.resumeCursor,
+    sessionStatus: snapshot?.session?.status,
+    transcript: snapshot?.transcript ?? [],
+  })
 
   useEffect(() => {
     if (threadId === undefined) {
@@ -304,21 +313,47 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
   }, [isWorking])
 
-  const submitTurn = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const prompt = text.trim()
+  useEffect(() => {
+    restoredFailedTurnRef.current = undefined
+  }, [threadId])
+
+  useEffect(() => {
+    if (retryMandate === undefined || threadId === undefined) {
+      return
+    }
+    if (restoredFailedTurnRef.current === retryMandate.turnId) {
+      return
+    }
+    if ((text.trim() !== "" && !isResumePrompt(text)) || images.length > 0) {
+      return
+    }
+    restoredFailedTurnRef.current = retryMandate.turnId
+    const mandateText = retryMandate.text ?? ""
+    setText(mandateText)
+    if (retryMandate.attachments === undefined || retryMandate.attachments.length === 0) {
+      return
+    }
+    void loadComposerImagesFromAttachments(retryMandate.attachments).then((nextImages) => {
+      setImages(nextImages)
+      return undefined
+    })
+  }, [images.length, retryMandate, setText, text, threadId])
+
+  const dispatchTurn = (
+    submittedText: string,
+    submittedImages: ReadonlyArray<ComposerImage>,
+    submittedThreadId: ThreadId | undefined,
+  ) => {
+    const prompt = submittedText.trim()
     if (
-      (prompt === "" && images.length === 0) ||
+      (prompt === "" && submittedImages.length === 0) ||
       isRunning ||
       project?.available !== true ||
       !cursorReady
     ) {
       return
     }
-    const submittedText = text
-    const submittedImages = images
     const submittedProjectId = projectId
-    const submittedThreadId = threadId
     if (
       envMode === "worktree" &&
       snapshotWorktreePath === null &&
@@ -395,6 +430,25 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }
       revokeComposerImages(submittedImages)
       setActionFailure(undefined)
+      return undefined
+    })
+  }
+
+  const submitTurn = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    dispatchTurn(text, images, threadId)
+  }
+
+  const retryFailedTurn = () => {
+    if (retryMandate === undefined) {
+      return
+    }
+    void loadComposerImagesFromAttachments(retryMandate.attachments).then((nextImages) => {
+      const mandateText = retryMandate.text ?? ""
+      setText(mandateText)
+      setImages(nextImages)
+      writeComposerDraft(projectId, threadId, mandateText)
+      dispatchTurn(mandateText, nextImages, threadId)
       return undefined
     })
   }
@@ -745,6 +799,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
                   <ThreadStatusNotices
                     session={snapshot?.session}
                     latestTurn={snapshot?.thread.latestTurn}
+                    onRetry={retryMandate === undefined ? undefined : retryFailedTurn}
                   />
                 ) : null
               }

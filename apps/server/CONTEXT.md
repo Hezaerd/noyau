@@ -77,6 +77,11 @@ Skill portable qui apprend aux agents à employer le MCP Noyau. Son état appart
 WorkspaceRoot et se constate sur le filesystem ; ce n’est ni une Command ni une projection.
 _À éviter_ : préférence, événement d’installation, instructions ACP
 
+**Mandat non livré**:
+Dernier `transcript.user` de CE Thread, injecté dans `session/prompt` quand `resumeCursor`
+est `null`. Un jeton de reprise (« Reprends ») ne voyage pas seul vers Cursor.
+_À éviter_ : rejouer le prompt d'un autre Thread, historique provider comme source de vérité
+
 **previewAttachment**:
 Lecture sandboxée d'une TurnImageAttachment depuis le dossier Environment `attachments/`.
 Pas une Command, pas un fait du journal.

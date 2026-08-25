@@ -6,6 +6,8 @@ import {
   type TurnImageUpload,
 } from "@noyau/protocol/entities/attachment"
 
+import { createImagePreviewUrl } from "./image-preview-url"
+
 export type ComposerImage = {
   readonly localId: string
   readonly previewUrl: string
@@ -107,6 +109,28 @@ export const appendComposerImages = async (
     images.push(result.image)
   }
   return overflow ? { ok: false, reason: "limit", images } : { ok: true, images }
+}
+
+export const composerImageFromBytes = (input: {
+  readonly name: string
+  readonly mimeType: TurnImageMime
+  readonly bytes: Uint8Array
+}): ComposerImage | undefined => {
+  if (input.bytes.byteLength === 0 || input.bytes.byteLength > TURN_MAX_IMAGE_BYTES) {
+    return undefined
+  }
+  const previewUrl = createImagePreviewUrl(input.bytes, input.mimeType)
+  return {
+    localId: `${input.name}-${input.bytes.byteLength}-${previewUrl}`,
+    previewUrl,
+    upload: {
+      type: "image",
+      name: input.name.trim() === "" ? "image" : input.name,
+      mimeType: input.mimeType,
+      sizeBytes: input.bytes.byteLength,
+      dataUrl: `data:${input.mimeType};base64,${bytesToBase64(input.bytes)}`,
+    },
+  }
 }
 
 export const revokeComposerImages = (images: ReadonlyArray<ComposerImage>) => {

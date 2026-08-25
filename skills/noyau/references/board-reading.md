@@ -11,8 +11,9 @@ target moves and creates by `columnId`.
 
 Use `actionable`, `blockedBy`, priority, due date, column, and
 `linkedToCurrentThread` together. Do not treat visual order alone as authorization to start a
-blocked Ticket. If several Tickets are equally suitable, summarize the trade-off and ask the user
-instead of silently choosing based on title.
+blocked Ticket. `linkedToCurrentThread: false` on an En cours Ticket means another Thread owns
+that work — do not pick it as a resume of the current conversation. If several Tickets are equally
+suitable, summarize the trade-off and ask the user instead of silently choosing based on title.
 
 Retain `snapshotSequence` as evidence of when the view was read. If a later mutation reports stale
 state or a conflict, list again before retrying.
