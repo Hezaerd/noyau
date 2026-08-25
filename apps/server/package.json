@@ -34,6 +34,7 @@
     "./text-generation/cursor-text-generation": "./src/text-generation/cursor-text-generation.ts",
     "./rpc-handlers": "./src/rpc-handlers.ts",
     "./server": "./src/server.ts",
+    "./shell-live": "./src/shell-live.ts",
     "./workspace-cwd": "./src/workspace-cwd.ts",
     "./workspace-root": "./src/workspace-root.ts",
     "./workspace-path-search": "./src/workspace-path-search.ts",

@@ -110,6 +110,7 @@ import { readFilePreview } from "./file-preview.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { makeProviderSessionReaper } from "./provider/provider-session-reaper.ts"
+import { threadEventTouchesShell } from "./shell-live.ts"
 import { TextGeneration } from "./text-generation/text-generation.ts"
 import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
 import { makeWorktreeBranchReactor } from "./text-generation/worktree-branch-reactor.ts"
@@ -503,6 +504,9 @@ const shellLiveEvent = Effect.fn("ControlPlane.shellLiveEvent")(function* (
         ]
   }
   if (isThreadEvent(event)) {
+    if (!threadEventTouchesShell(event)) {
+      return []
+    }
     const snapshot = yield* readShellSnapshot(environment)
     const threadId = threadIdOf(event)
     const thread = snapshot.threads.find((candidate) => candidate.id === threadId)
