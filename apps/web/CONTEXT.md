@@ -213,8 +213,11 @@ _À éviter_ : notification système, événement de journal, fichier audio emba
 **Activité de Turn**:
 Indicateur UI dérivé (`En cours`, `Terminé`, `Interrompu`, `Erreur`) depuis `sessionStatus` et
 `latestTurn`. Un `completedAt` gagne sur une Session encore `starting`/`running`. La durée live
-part de `startedAt` / `requestedAt` d'un Turn ouvert. Pas une Command.
-_À éviter_ : badge lost, notification OS, champ du journal, `updatedAt` comme horloge live
+et settled partent de `startedAt` d'un Turn ouvert (puis `requestedAt`, puis send local) — même
+origine sidebar et transcript, comme t3code. Libellé : ms, dixièmes sous 10s, secondes arrondies.
+Pas une Command.
+_À éviter_ : badge lost, notification OS, champ du journal, `updatedAt` ou `session.updatedAt` comme
+horloge live
 
 **lastVisitedAt**:
 Horloge locale renderer de la dernière visite d'un Thread. Un Terminé n'apparaît que si

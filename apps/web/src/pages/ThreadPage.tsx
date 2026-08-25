@@ -56,8 +56,8 @@ import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import {
-  deriveActiveWorkStartedAtMs,
   epochMsOf,
+  resolveWorkingStartedAtMs,
   isOptimisticSendActive,
   isThreadWorking,
 } from "@/lib/thread-activity"
@@ -263,7 +263,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       latestTurnCompletedAtMs: epochMsOf(snapshot?.thread.latestTurn?.completedAt),
       isAuthoritativeWorking: isRunning,
     })
-  const workingStartedAtMs = deriveActiveWorkStartedAtMs({
+  const workingStartedAtMs = resolveWorkingStartedAtMs({
     latestTurn: snapshot?.thread.latestTurn ?? null,
     sendStartedAtMs,
   })

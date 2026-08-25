@@ -437,7 +437,7 @@ const projectSession = Effect.fn("Projections.projectSession")(function* (
   if (session.status === "running" && session.activeTurnId !== null) {
     yield* sql`
       UPDATE projection_turns
-      SET started_at = COALESCE(started_at, ${updatedAt})
+      SET started_at = COALESCE(started_at, requested_at)
       WHERE turn_id = ${session.activeTurnId}
         AND state = 'running'
     `
@@ -607,7 +607,7 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         INSERT INTO projection_turns (
           turn_id, thread_id, ordinal, state, requested_at, started_at, completed_at
         ) VALUES (
-          ${event.turnId}, ${event.threadId}, ${ordinal}, 'running', ${occurredAt}, NULL, NULL
+          ${event.turnId}, ${event.threadId}, ${ordinal}, 'running', ${occurredAt}, ${occurredAt}, NULL
         )
       `
       if (ordinal === 1) {

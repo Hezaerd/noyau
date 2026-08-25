@@ -62,33 +62,39 @@ export const isOptimisticSendActive = (input: {
 
 export const resolveWorkingStartedAtMs = (input: {
   readonly latestTurn: Pick<LatestTurn, "startedAt" | "requestedAt" | "completedAt"> | null
-  readonly updatedAt?: DateTime.Utc | undefined
+  readonly sendStartedAtMs?: number | null
 }): number | null => {
   const turn = input.latestTurn
   if (turn !== null && turn.completedAt === null) {
     return firstValidEpochMs(turn.startedAt, turn.requestedAt)
   }
-  if (isLatestTurnSettled(turn)) {
-    return null
-  }
-  return firstValidEpochMs(input.updatedAt)
+  return input.sendStartedAtMs ?? null
 }
 
+/** Same buckets as t3code `formatDuration` (session-logic / orchestrationTiming). */
 export const formatElapsedLabel = (elapsedMs: number): string => {
-  const seconds = Number.isFinite(elapsedMs) ? Math.max(0, Math.floor(elapsedMs / 1000)) : 0
-  if (seconds < 60) {
-    return `${String(seconds)}s`
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+    return "0ms"
   }
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) {
-    const remainder = seconds % 60
-    return remainder === 0 ? `${String(minutes)}m` : `${String(minutes)}m ${String(remainder)}s`
+  if (elapsedMs < 1_000) {
+    return `${String(Math.max(1, Math.round(elapsedMs)))}ms`
   }
-  const hours = Math.floor(minutes / 60)
-  const remainderMinutes = minutes % 60
-  return remainderMinutes === 0
-    ? `${String(hours)}h`
-    : `${String(hours)}h ${String(remainderMinutes)}m`
+  if (elapsedMs < 10_000) {
+    const tenths = Math.round(elapsedMs / 100) / 10
+    return tenths >= 10 ? "10s" : `${tenths.toFixed(1)}s`
+  }
+  if (elapsedMs < 60_000) {
+    return `${String(Math.round(elapsedMs / 1_000))}s`
+  }
+  const minutes = Math.floor(elapsedMs / 60_000)
+  const seconds = Math.round((elapsedMs % 60_000) / 1_000)
+  if (seconds === 0) {
+    return `${String(minutes)}m`
+  }
+  if (seconds === 60) {
+    return `${String(minutes + 1)}m`
+  }
+  return `${String(minutes)}m ${String(seconds)}s`
 }
 
 export const hasUnseenCompletion = (input: {
@@ -152,12 +158,12 @@ export const workingTranscriptLabel = (startedAtMs: number | null, nowMs: number
 }
 
 export const settledTranscriptLabel = (
-  latestTurn: Pick<LatestTurn, "state" | "startedAt" | "completedAt"> | null,
+  latestTurn: Pick<LatestTurn, "state" | "requestedAt" | "startedAt" | "completedAt"> | null,
 ): string | null => {
   if (latestTurn === null || latestTurn.completedAt === null) {
     return null
   }
-  const startedAtMs = firstValidEpochMs(latestTurn.startedAt)
+  const startedAtMs = firstValidEpochMs(latestTurn.startedAt, latestTurn.requestedAt)
   const completedAtMs = epochMsOf(latestTurn.completedAt)
   const duration =
     startedAtMs === null || completedAtMs === null || completedAtMs < startedAtMs
@@ -177,15 +183,4 @@ export const settledTranscriptLabel = (
           ? "A travaillé"
           : `A travaillé ${duration}`
   }
-}
-
-export const deriveActiveWorkStartedAtMs = (input: {
-  readonly latestTurn: Pick<LatestTurn, "startedAt" | "requestedAt" | "completedAt"> | null
-  readonly updatedAt?: DateTime.Utc | undefined
-  readonly sendStartedAtMs: number | null
-}): number | null => {
-  if (input.latestTurn !== null && input.latestTurn.completedAt === null) {
-    return firstValidEpochMs(input.latestTurn.startedAt, input.latestTurn.requestedAt)
-  }
-  return input.sendStartedAtMs
 }
