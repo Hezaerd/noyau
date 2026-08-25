@@ -105,6 +105,7 @@ import { SqlClient } from "effect/unstable/sql/SqlClient"
 import { AgentSkillInstaller } from "./agent-skill/installer.ts"
 import { loadTurnAttachments, persistTurnUploads, readAttachmentPreview } from "./attachments.ts"
 import { ServerConfig } from "./config.ts"
+import { journalEventTouchesPresence } from "./discord/activity.ts"
 import { makePresenceController } from "./discord/presence.ts"
 import { readFilePreview } from "./file-preview.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
@@ -699,14 +700,16 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         Effect.provideService(TextGeneration, textGeneration),
         Effect.provideService(SqlClient, sql),
       )
-      const processPresenceEvent = (_event: PersistedEvent<DomainEventType>) =>
-        readShellSnapshot(environment).pipe(
-          Effect.provideService(SqlClient, sql),
-          Effect.flatMap(presence.sync),
-          Effect.catchCause((cause) =>
-            Effect.logWarning("Discord presence sync failed", { cause }),
-          ),
-        )
+      const processPresenceEvent = (event: PersistedEvent<DomainEventType>) =>
+        journalEventTouchesPresence(event.event)
+          ? readShellSnapshot(environment).pipe(
+              Effect.provideService(SqlClient, sql),
+              Effect.flatMap(presence.sync),
+              Effect.catchCause((cause) =>
+                Effect.logWarning("Discord presence sync failed", { cause }),
+              ),
+            )
+          : Effect.void
       const providerReactor = yield* makeDrainableWorker(processProviderEvent)
       const titleReactor = yield* makeDrainableWorker(processTitleEvent)
       const worktreeBranchReactor = yield* makeDrainableWorker(processWorktreeBranchEvent)
