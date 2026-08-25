@@ -4,7 +4,10 @@ import { SettingsRow, SettingsSection } from "@/components/settings/settings-lay
 import { Button } from "@/components/ui/button"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useDesktopUpdate } from "@/hooks/use-desktop-update"
-import { useDesktopUpdateChannel } from "@/hooks/use-desktop-update-channel"
+import {
+  useDesktopUpdateChannel,
+  useSetDesktopUpdateChannel,
+} from "@/hooks/use-desktop-update-channel"
 import {
   desktopAppVersion,
   desktopChannelHint,
@@ -21,11 +24,11 @@ import {
   DESKTOP_UPDATE_CHANNEL_ITEMS,
   isDesktopUpdatePackagedChannel,
 } from "@/lib/desktop-update-channel-preference"
-import { setDesktopUpdateChannel } from "@/state/preferences"
 
 export function DesktopUpdateSettings(): ReactElement | null {
   const { state, check, openInstaller } = useDesktopUpdate()
   const updateChannel = useDesktopUpdateChannel()
+  const setUpdateChannel = useSetDesktopUpdateChannel()
   const channelSelectId = useId()
   const packagedChannel = desktopReleaseChannel()
   if (!isDesktopRuntime()) {
@@ -54,7 +57,7 @@ export function DesktopUpdateSettings(): ReactElement | null {
               value={updateChannel}
               onValueChange={(next) => {
                 if (next !== null && isDesktopUpdatePackagedChannel(next)) {
-                  setDesktopUpdateChannel(next)
+                  setUpdateChannel(next)
                   void check()
                 }
               }}

@@ -5,7 +5,7 @@ import { useEffect, useState, type ReactElement } from "react"
 import { SettingsPage, SettingsRow, SettingsSection } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
-import { useKeybindings } from "@/hooks/use-keybindings"
+import { useKeybindings, useSetKeybindingRecorderActive } from "@/hooks/use-keybindings"
 import { keybindingConflicts } from "@/lib/keybindings"
 import {
   KEYBINDING_GROUP_IDS,
@@ -14,10 +14,10 @@ import {
   keybindingsInGroup,
   type KeybindingId,
 } from "@/lib/keybindings-catalog"
-import { isCustomKeybinding, setKeybindingRecorderActive } from "@/state/keybindings"
 
 export function KeybindingsSettingsPanel(): ReactElement {
-  const { resolved, setKeybinding, resetKeybinding } = useKeybindings()
+  const { resolved, setKeybinding, resetKeybinding, isCustom } = useKeybindings()
+  const setRecorderActive = useSetKeybindingRecorderActive()
   const [recordingId, setRecordingId] = useState<KeybindingId>()
 
   const recorder = useHotkeyRecorder({
@@ -40,11 +40,11 @@ export function KeybindingsSettingsPanel(): ReactElement {
   })
 
   useEffect(() => {
-    setKeybindingRecorderActive(recordingId !== undefined)
+    setRecorderActive(recordingId !== undefined)
     return () => {
-      setKeybindingRecorderActive(false)
+      setRecorderActive(false)
     }
-  }, [recordingId])
+  }, [recordingId, setRecorderActive])
 
   const startRecording = (id: KeybindingId): void => {
     if (recordingId === id) {
@@ -68,7 +68,7 @@ export function KeybindingsSettingsPanel(): ReactElement {
             {keybindings.map((keybinding) => {
               const hotkey = resolved[keybinding.id]
               const isRecording = recordingId === keybinding.id
-              const customized = isCustomKeybinding(keybinding.id)
+              const customized = isCustom(keybinding.id)
               const conflicts = keybindingConflicts(keybinding.id, hotkey, resolved)
               const conflictLabels = conflicts.map((id) => getKeybindingDefinition(id).title)
 

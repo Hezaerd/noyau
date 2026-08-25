@@ -79,7 +79,7 @@ import {
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
-import { useKeybindings } from "@/hooks/use-keybindings"
+import { useKeybindingRecorderActive, useKeybindings } from "@/hooks/use-keybindings"
 import { useProjectBoard } from "@/hooks/use-project-board"
 import {
   createBoardActions,
@@ -124,8 +124,6 @@ import {
   makeTicketUpdateRequest,
 } from "@/lib/ticket-commands"
 import { cn } from "@/lib/utils"
-import { isKeybindingRecorderActive } from "@/state/keybindings"
-
 const priorityLabels = {
   none: "Sans priorité",
   low: "Basse",
@@ -653,6 +651,7 @@ export function BoardPage({
 }: BoardPageProps) {
   const projectThreads = useProjectThreads(projectId)
   const { resolved: keybindings } = useKeybindings()
+  const recorderActive = useKeybindingRecorderActive()
   const { snapshot: boardSnapshot, status: subscriptionStatus } = useProjectBoard(projectId)
   const [state, setState] = useState<BoardState>({
     columns: [],
@@ -943,7 +942,7 @@ export function BoardPage({
     ],
     {
       target: boardRef,
-      enabled: selectedTicket === undefined && !isKeybindingRecorderActive(),
+      enabled: selectedTicket === undefined && !recorderActive,
       preventDefault: true,
     },
   )

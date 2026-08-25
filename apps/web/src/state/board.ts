@@ -19,6 +19,7 @@ export const boardStatusAtom = Atom.family((projectId: ProjectId) =>
 
 interface BoardWriter {
   count: number
+  generation: number
   stop: (() => void) | undefined
 }
 
@@ -28,6 +29,18 @@ const replaceBoardSnapshot = (projectId: ProjectId, snapshot: BoardSnapshot): vo
   appAtomRegistry.set(boardSnapshotAtom(projectId), snapshot)
 }
 
+const applyBoardSnapshotIfCurrent = (
+  projectId: ProjectId,
+  writer: BoardWriter,
+  generation: number,
+  snapshot: BoardSnapshot,
+): void => {
+  if (writers.get(projectId) !== writer || writer.generation !== generation) {
+    return
+  }
+  replaceBoardSnapshot(projectId, snapshot)
+}
+
 /** One subscribeProject per Project, ref-counted across Tableau and Composer. */
 export const retainProjectBoard = (projectId: ProjectId): (() => void) => {
   const existing = writers.get(projectId)
@@ -35,21 +48,27 @@ export const retainProjectBoard = (projectId: ProjectId): (() => void) => {
     existing.count += 1
     return () => releaseProjectBoard(projectId)
   }
-  const writer: BoardWriter = { count: 1, stop: undefined }
+  const writer: BoardWriter = { count: 1, generation: 0, stop: undefined }
   writer.stop = subscribeProject(projectId, undefined, {
     onSnapshot: (snapshot) => {
-      replaceBoardSnapshot(projectId, snapshot)
+      writer.generation += 1
+      applyBoardSnapshotIfCurrent(projectId, writer, writer.generation, snapshot)
     },
     onEvent: () => {
+      writer.generation += 1
+      const generation = writer.generation
       void loadBoardSnapshot(projectId).then((result) => {
         if (!result.ok) {
           return undefined
         }
-        replaceBoardSnapshot(projectId, result.value)
+        applyBoardSnapshotIfCurrent(projectId, writer, generation, result.value)
         return undefined
       })
     },
     onStatus: (status) => {
+      if (writers.get(projectId) !== writer) {
+        return
+      }
       appAtomRegistry.set(boardStatusAtom(projectId), status)
     },
   })
@@ -66,6 +85,7 @@ const releaseProjectBoard = (projectId: ProjectId): void => {
   if (writer.count > 0) {
     return
   }
+  writer.generation += 1
   writer.stop?.()
   writers.delete(projectId)
 }

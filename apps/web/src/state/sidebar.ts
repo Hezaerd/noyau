@@ -21,7 +21,10 @@ const sameThreadRefs = (
   left.length === right.length && left.every((thread, index) => Object.is(thread, right[index]))
 
 export const projectPullRequestsAtom = Atom.family((projectId: ProjectId) =>
-  Atom.make(EMPTY_PULL_REQUESTS).pipe(Atom.withLabel(`chrome:pull-requests:${projectId}`)),
+  Atom.make(EMPTY_PULL_REQUESTS).pipe(
+    Atom.keepAlive,
+    Atom.withLabel(`chrome:pull-requests:${projectId}`),
+  ),
 )
 
 export const replaceProjectPullRequests = (

@@ -81,7 +81,7 @@ export const useThreadChangeRequests = (
     })
   }, [projectId, statuses, threads])
 
-  return useMemo(() => {
+  const derived = useMemo(() => {
     const pullRequests = new Map<string, VcsStatusPullRequest>()
     const liveBranches = new Map<string, string>()
     for (const thread of threads) {
@@ -98,7 +98,12 @@ export const useThreadChangeRequests = (
         liveBranches.set(thread.id, status.refName)
       }
     }
-    replaceProjectPullRequests(projectId, pullRequests)
     return { pullRequests, liveBranches }
   }, [projectId, snapshots, statuses, threads])
+
+  useEffect(() => {
+    replaceProjectPullRequests(projectId, derived.pullRequests)
+  }, [projectId, derived.pullRequests])
+
+  return derived
 }

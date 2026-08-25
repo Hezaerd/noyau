@@ -168,7 +168,8 @@ git subtree pull \
 - Exposer les capacités externes comme services ; construire les implémentations avec des `Layer`.
 - Garder les appels `run*` aux points d'entrée de l'application seulement.
 - Ne pas forcer Effect.gen / `run*` dans le rendu React. L'état renderer passe par Effect
-  Atom (`apps/web/src/state/`, ADR-0020) ; les composants ne font que `useAtomValue` / `useAtomSet`.
+  Atom (`apps/web/src/state/`, ADR-0020) ; les composants n'utilisent que `useAtomValue` /
+  `useAtomSet` / `useAtom`. `Atom.make(stream | effect)` est interdit hors frontière RPC.
 - Imports `effect/unstable/*` permis s'ils apportent une vraie valeur, mais isolés derrière un port ou module interne.
 - Un `Context.Tag` par provider ne convient pas aux instances multiples : registry = service singleton, adaptateur = valeur scopée.
 
@@ -207,24 +208,24 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 
 ## Pièges fréquents
 
-| Piège                                         | Choix Noyau                                                      |
-| --------------------------------------------- | ---------------------------------------------------------------- |
-| `Queue` / `PubSub` comme source de vérité     | Journal SQLite + receipts ; `TxQueue` n'est pas une reprise      |
-| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                               |
-| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`                        |
-| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                                    |
-| `Context.Tag` par instance dynamique          | Registry singleton + adaptateur en valeur                        |
-| Effect.gen dans un composant React            | `useAtomValue` / `useAtomSet` ; Atom.make(stream) hors RPC       |
-| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements                         |
-| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`                         |
-| Checklist ou todolist dans un Ticket          | Tickets liés par un DAG                                          |
-| Thread dédié ou Workbench par Ticket          | `TicketThread` optionnel N-N                                     |
-| `Execution` / `Attempt` / `Channel` / Hermes  | Thread + Session projetée + runtime Cursor de Session (ADR-0018) |
-| Sweep d'orphelins `cursor-agent`              | Handle + `Scope` seulement                                       |
-| Forge Git autre que GitHub                    | GitHub seulement (ADR-0006)                                      |
-| Package ou workspace sans frontière testée    | Attendre une frontière réelle                                    |
-| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                                     |
-| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                                   |
+| Piège                                         | Choix Noyau                                                                        |
+| --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `Queue` / `PubSub` comme source de vérité     | Journal SQLite + receipts ; `TxQueue` n'est pas une reprise                        |
+| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                                                 |
+| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`                                          |
+| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                                                      |
+| `Context.Tag` par instance dynamique          | Registry singleton + adaptateur en valeur                                          |
+| Effect.gen dans un composant React            | `useAtomValue` / `useAtomSet` / `useAtom` ; `Atom.make(stream \| effect)` hors RPC |
+| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements                                           |
+| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`                                           |
+| Checklist ou todolist dans un Ticket          | Tickets liés par un DAG                                                            |
+| Thread dédié ou Workbench par Ticket          | `TicketThread` optionnel N-N                                                       |
+| `Execution` / `Attempt` / `Channel` / Hermes  | Thread + Session projetée + runtime Cursor de Session (ADR-0018)                   |
+| Sweep d'orphelins `cursor-agent`              | Handle + `Scope` seulement                                                         |
+| Forge Git autre que GitHub                    | GitHub seulement (ADR-0006)                                                        |
+| Package ou workspace sans frontière testée    | Attendre une frontière réelle                                                      |
+| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                                                       |
+| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                                                     |
 
 ## Opérations dangereuses
 
