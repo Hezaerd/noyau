@@ -1,6 +1,7 @@
 import type { PersistedEvent } from "@noyau/database/command-worker"
 import { readThreadSnapshot } from "@noyau/database/snapshots"
 import { type InternalCommand as InternalCommandType } from "@noyau/protocol/commands"
+import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { checkpointRefForTurn, type TurnDiffFile } from "@noyau/protocol/entities/turn"
 import type { DomainEvent } from "@noyau/protocol/events"
 import {
@@ -107,19 +108,16 @@ export const makeTurnDiffReactor = (
     const captureBaseline = Effect.fn("TurnDiffReactor.captureBaseline")(function* (input: {
       readonly threadId: ThreadId
       readonly projectId: string
+      readonly snapshot: ThreadSnapshot
     }) {
-      const snapshot = yield* loadSnapshot(input.threadId)
-      if (Option.isNone(snapshot)) {
-        return
-      }
-      const latest = snapshot.value.turns.at(-1)
+      const latest = input.snapshot.turns.at(-1)
       if (latest === undefined) {
         return
       }
       const workspaceRoot = yield* projectRoot(input.projectId).pipe(
         Effect.provideService(SqlClient, sql),
       )
-      const cwd = resolveCwd(snapshot.value.thread.worktreePath, workspaceRoot)
+      const cwd = resolveCwd(input.snapshot.thread.worktreePath, workspaceRoot)
       const isRepo = yield* git.isGitRepository(cwd)
       if (!isRepo) {
         return
@@ -152,7 +150,7 @@ export const makeTurnDiffReactor = (
       }
       const baseline = checkpointRefForTurn(input.threadId, turn.ordinal - 1)
       const target = checkpointRefForTurn(input.threadId, turn.ordinal)
-      const files = yield* ensureCheckpoint(cwd, baseline).pipe(
+      const captured = yield* ensureCheckpoint(cwd, baseline).pipe(
         Effect.andThen(git.captureCheckpoint({ cwd, checkpointRef: target })),
         Effect.andThen(
           git.diffCheckpoints({
@@ -161,13 +159,24 @@ export const makeTurnDiffReactor = (
             toCheckpointRef: target,
           }),
         ),
-        Effect.map(parseTurnDiffNumstat),
+        Effect.map((stdout) => ({
+          status: input.status,
+          files: parseTurnDiffNumstat(stdout),
+        })),
         Effect.catch((error) =>
           Effect.logWarning("turn diff capture failed", {
             threadId: input.threadId,
             turnId: input.turnId,
             detail: error.detail,
-          }).pipe(Effect.as<ReadonlyArray<TurnDiffFile>>([])),
+          }).pipe(
+            Effect.as<{
+              readonly status: (typeof ThreadTurnDiffComplete.Type)["payload"]["status"]
+              readonly files: ReadonlyArray<TurnDiffFile>
+            }>({
+              status: input.status === "ready" ? "error" : input.status,
+              files: [],
+            }),
+          ),
         ),
       )
       yield* dispatchComplete({
@@ -175,8 +184,8 @@ export const makeTurnDiffReactor = (
         threadId: input.threadId,
         turnId: input.turnId,
         checkpointRef: target,
-        status: input.status,
-        files,
+        status: captured.status,
+        files: captured.files,
       })
     })
 
@@ -203,6 +212,7 @@ export const makeTurnDiffReactor = (
             yield* captureBaseline({
               threadId: event.threadId,
               projectId: persisted.projectId,
+              snapshot: snapshot.value,
             })
           }).pipe(
             Effect.catchCause((cause) =>
@@ -224,6 +234,7 @@ export const makeTurnDiffReactor = (
                 yield* captureBaseline({
                   threadId: event.threadId,
                   projectId: persisted.projectId,
+                  snapshot: snapshot.value,
                 })
               }).pipe(
                 Effect.catchCause((cause) =>
