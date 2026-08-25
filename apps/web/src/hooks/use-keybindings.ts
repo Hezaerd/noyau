@@ -1,21 +1,17 @@
-import { useMemo, useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
+import { useMemo } from "react"
 
+import type { KeybindingId } from "@/lib/keybindings-catalog"
 import {
-  getResolvedKeybindings,
   resetAllKeybindings,
   resetKeybinding,
+  resolvedKeybindingsAtom,
   setKeybinding,
-  subscribeKeybindings,
   type ResolvedKeybindings,
-} from "@/lib/keybindings"
-import type { KeybindingId } from "@/lib/keybindings-catalog"
+} from "@/state/keybindings"
 
 export const useKeybindings = () => {
-  const resolved = useSyncExternalStore(
-    subscribeKeybindings,
-    getResolvedKeybindings,
-    getResolvedKeybindings,
-  )
+  const resolved = useAtomValue(resolvedKeybindingsAtom)
 
   return useMemo(
     () => ({

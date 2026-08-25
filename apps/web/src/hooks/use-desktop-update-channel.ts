@@ -1,14 +1,7 @@
-import { useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
 
 import type { DesktopUpdatePackagedChannel } from "@/lib/desktop-bridge"
-import {
-  getDesktopUpdateChannel,
-  subscribeDesktopUpdateChannel,
-} from "@/lib/desktop-update-channel-preference"
+import { desktopUpdateChannelAtom } from "@/state/preferences"
 
 export const useDesktopUpdateChannel = (): DesktopUpdatePackagedChannel =>
-  useSyncExternalStore(
-    subscribeDesktopUpdateChannel,
-    getDesktopUpdateChannel,
-    getDesktopUpdateChannel,
-  )
+  useAtomValue(desktopUpdateChannelAtom)

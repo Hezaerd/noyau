@@ -1,13 +1,6 @@
-import { useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
 
-import {
-  getAutoRemoveMergedWorktreeEnabled,
-  subscribeAutoRemoveMergedWorktreeEnabled,
-} from "@/lib/auto-remove-merged-worktree-preference"
+import { autoRemoveMergedWorktreeAtom } from "@/state/preferences"
 
 export const useAutoRemoveMergedWorktreeEnabled = (): boolean =>
-  useSyncExternalStore(
-    subscribeAutoRemoveMergedWorktreeEnabled,
-    getAutoRemoveMergedWorktreeEnabled,
-    getAutoRemoveMergedWorktreeEnabled,
-  )
+  useAtomValue(autoRemoveMergedWorktreeAtom)

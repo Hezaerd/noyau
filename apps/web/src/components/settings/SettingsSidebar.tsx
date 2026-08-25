@@ -35,7 +35,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useKeybinding } from "@/hooks/use-keybindings"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
 import {
   searchSettings,
   SETTINGS_TABS,
@@ -43,6 +42,7 @@ import {
   type SettingsTabId,
 } from "@/lib/settings-catalog"
 import { scrollToSettingsTargetId } from "@/lib/settings-scroll"
+import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 
 const SETTINGS_TAB_ICONS = {
   general: FolderKanbanIcon,

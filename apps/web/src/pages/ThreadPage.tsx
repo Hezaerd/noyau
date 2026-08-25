@@ -65,7 +65,6 @@ import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { resolveOpenThreadWorking, type OptimisticSend } from "@/lib/thread-activity"
 import { seedTitleFromTurn } from "@/lib/thread-commands"
-import { getThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
 import {
   interruptTurn as interruptTurnAction,
   respondToApproval as respondToApprovalAction,
@@ -92,6 +91,7 @@ import {
   vcsScopeForThread,
 } from "@/lib/vcs-status"
 import { writeComposerDraft } from "@/state/composer-drafts"
+import { getThreadEnvModePreference } from "@/state/preferences"
 import { publishCreatedThread } from "@/state/shell"
 import { markThreadVisited } from "@/state/thread-visits"
 

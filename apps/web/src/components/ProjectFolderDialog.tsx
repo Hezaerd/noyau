@@ -18,7 +18,7 @@ import { useProjects } from "@/hooks/use-control-plane"
 import { invalidInputFailure } from "@/lib/app-failure"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { pickProjectFolder, submitProjectFolder } from "@/lib/project-folder"
-import { getProjectFolderStartDirectory } from "@/lib/project-folder-preference"
+import { getProjectFolderStartDirectory } from "@/state/preferences"
 
 interface ProjectFolderDialogProps {
   readonly open: boolean

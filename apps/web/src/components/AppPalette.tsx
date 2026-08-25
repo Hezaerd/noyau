@@ -41,13 +41,13 @@ import {
   serializeRecentActionIds,
   updateRecentActionIds,
 } from "@/lib/app-palette"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
 import {
   getHotkeysPlatform,
   paletteItemHotkey,
   paletteItemModifierPressed,
 } from "@/lib/keyboard-shortcut"
 import { DEFAULT_SETTINGS_TAB, isSettingsPath } from "@/lib/settings-catalog"
+import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 
 const RECENT_ACTIONS_STORAGE_KEY = "noyau.palette.recent-actions"
 

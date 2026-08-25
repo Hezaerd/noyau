@@ -20,8 +20,8 @@ import {
 import {
   DESKTOP_UPDATE_CHANNEL_ITEMS,
   isDesktopUpdatePackagedChannel,
-  setDesktopUpdateChannel,
 } from "@/lib/desktop-update-channel-preference"
+import { setDesktopUpdateChannel } from "@/state/preferences"
 
 export function DesktopUpdateSettings(): ReactElement | null {
   const { state, check, openInstaller } = useDesktopUpdate()

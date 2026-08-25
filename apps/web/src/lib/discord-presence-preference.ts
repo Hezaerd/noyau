@@ -6,18 +6,13 @@ export const DEFAULT_DISCORD_PRESENCE_ENABLED = true
 const DiscordPresencePreference = Schema.Literals(["on", "off"])
 const decodeDiscordPresencePreference = Schema.decodeUnknownOption(DiscordPresencePreference)
 
-const listeners = new Set<() => void>()
-
-let currentEnabled = DEFAULT_DISCORD_PRESENCE_ENABLED
-let initialized = false
-
 export const parseDiscordPresenceEnabled = (value: string | null): boolean =>
   Option.match(decodeDiscordPresencePreference(value), {
     onNone: () => DEFAULT_DISCORD_PRESENCE_ENABLED,
     onSome: (preference) => preference === "on",
   })
 
-const readStoredPreference = (): boolean => {
+export const readStoredDiscordPresence = (): boolean => {
   try {
     return parseDiscordPresenceEnabled(window.localStorage.getItem(DISCORD_PRESENCE_STORAGE_KEY))
   } catch {
@@ -25,7 +20,7 @@ const readStoredPreference = (): boolean => {
   }
 }
 
-const persistPreference = (enabled: boolean): void => {
+export const persistDiscordPresence = (enabled: boolean): void => {
   try {
     if (enabled === DEFAULT_DISCORD_PRESENCE_ENABLED) {
       window.localStorage.removeItem(DISCORD_PRESENCE_STORAGE_KEY)
@@ -35,36 +30,4 @@ const persistPreference = (enabled: boolean): void => {
   } catch {
     // The preference remains active for this renderer session when storage is unavailable.
   }
-}
-
-const emitChange = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-export const initializeDiscordPresencePreference = (): void => {
-  if (initialized) {
-    return
-  }
-  initialized = true
-  currentEnabled = readStoredPreference()
-}
-
-export const getDiscordPresenceEnabled = (): boolean => currentEnabled
-
-export const subscribeDiscordPresenceEnabled = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export const setDiscordPresenceEnabled = (enabled: boolean): void => {
-  if (enabled === currentEnabled) {
-    return
-  }
-  currentEnabled = enabled
-  persistPreference(enabled)
-  emitChange()
 }

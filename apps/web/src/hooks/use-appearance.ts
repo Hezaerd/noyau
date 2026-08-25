@@ -1,18 +1,9 @@
-import { useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
 
-import {
-  getAppearancePreference,
-  setAppearancePreference,
-  subscribeAppearance,
-} from "@/lib/appearance"
+import { appearancePreferenceAtom, setAppearancePreference } from "@/state/preferences"
 
 export const useAppearance = () => {
-  const preference = useSyncExternalStore(
-    subscribeAppearance,
-    getAppearancePreference,
-    getAppearancePreference,
-  )
-
+  const preference = useAtomValue(appearancePreferenceAtom)
   return {
     preference,
     setPreference: setAppearancePreference,

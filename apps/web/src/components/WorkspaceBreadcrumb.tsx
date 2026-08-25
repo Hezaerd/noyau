@@ -5,9 +5,9 @@ import { Input } from "@/components/ui/input"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
 import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 import { cn } from "@/lib/utils"
+import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 import { toggleThreadPinned } from "@/state/thread-pins"
 
 export function WorkspaceBreadcrumb({

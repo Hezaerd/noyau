@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 
-import { isKeybindingRecorderActive } from "@/lib/keybindings"
+import { isKeybindingRecorderActive } from "@/state/keybindings"
 
 export function useSettingsEscape(onEscape: () => void): void {
   useEffect(() => {

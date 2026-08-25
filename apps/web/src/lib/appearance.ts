@@ -9,10 +9,6 @@ const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)"
 const NO_TRANSITIONS_CLASS_NAME = "no-theme-transitions"
 const AppearancePreferenceSchema = Schema.Literals(APPEARANCE_PREFERENCES)
 const decodeAppearancePreference = Schema.decodeUnknownOption(AppearancePreferenceSchema)
-const listeners = new Set<() => void>()
-
-let currentPreference: AppearancePreference = "system"
-let initialized = false
 
 export const parseAppearancePreference = (value: string | null): AppearancePreference =>
   Option.getOrElse(decodeAppearancePreference(value), () => "system")
@@ -23,7 +19,7 @@ export const resolveAppearance = (
 ): ResolvedAppearance =>
   preference === "system" ? (systemUsesDarkColors ? "dark" : "light") : preference
 
-const readStoredPreference = (): AppearancePreference => {
+export const readStoredAppearancePreference = (): AppearancePreference => {
   try {
     return parseAppearancePreference(window.localStorage.getItem(APPEARANCE_STORAGE_KEY))
   } catch {
@@ -31,7 +27,7 @@ const readStoredPreference = (): AppearancePreference => {
   }
 }
 
-const persistPreference = (preference: AppearancePreference): void => {
+export const persistAppearancePreference = (preference: AppearancePreference): void => {
   try {
     window.localStorage.setItem(APPEARANCE_STORAGE_KEY, preference)
   } catch {
@@ -63,7 +59,10 @@ const syncDesktopTheme = (preference: AppearancePreference): void => {
     })
 }
 
-const applyAppearance = (preference: AppearancePreference, suppressTransitions: boolean): void => {
+export const applyAppearance = (
+  preference: AppearancePreference,
+  suppressTransitions: boolean,
+): void => {
   if (suppressTransitions) {
     suppressThemeTransitions()
   }
@@ -75,44 +74,6 @@ const applyAppearance = (preference: AppearancePreference, suppressTransitions: 
   syncDesktopTheme(preference)
 }
 
-const emitChange = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-export const initializeAppearance = (): void => {
-  if (initialized) {
-    return
-  }
-
-  initialized = true
-  currentPreference = readStoredPreference()
-  const systemAppearance = window.matchMedia(SYSTEM_DARK_QUERY)
-  systemAppearance.addEventListener("change", () => {
-    if (currentPreference === "system") {
-      applyAppearance(currentPreference, true)
-    }
-  })
-  applyAppearance(currentPreference, true)
-}
-
-export const getAppearancePreference = (): AppearancePreference => currentPreference
-
-export const subscribeAppearance = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export const setAppearancePreference = (preference: AppearancePreference): void => {
-  if (preference === currentPreference) {
-    return
-  }
-
-  currentPreference = preference
-  persistPreference(preference)
-  applyAppearance(preference, true)
-  emitChange()
+export const watchSystemAppearance = (onChange: () => void): void => {
+  window.matchMedia(SYSTEM_DARK_QUERY).addEventListener("change", onChange)
 }

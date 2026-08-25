@@ -6,11 +6,7 @@ import { SettingsPage, SettingsRow, SettingsSection } from "@/components/setting
 import { Button } from "@/components/ui/button"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { useKeybindings } from "@/hooks/use-keybindings"
-import {
-  isCustomKeybinding,
-  keybindingConflicts,
-  setKeybindingRecorderActive,
-} from "@/lib/keybindings"
+import { keybindingConflicts } from "@/lib/keybindings"
 import {
   KEYBINDING_GROUP_IDS,
   KEYBINDING_GROUP_LABELS,
@@ -18,6 +14,7 @@ import {
   keybindingsInGroup,
   type KeybindingId,
 } from "@/lib/keybindings-catalog"
+import { isCustomKeybinding, setKeybindingRecorderActive } from "@/state/keybindings"
 
 export function KeybindingsSettingsPanel(): ReactElement {
   const { resolved, setKeybinding, resetKeybinding } = useKeybindings()

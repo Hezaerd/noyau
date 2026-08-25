@@ -110,7 +110,6 @@ import { boardStateFromSnapshot } from "@/lib/board-snapshot"
 import { type SubscriptionStatus } from "@/lib/control-plane"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
-import { isKeybindingRecorderActive } from "@/lib/keybindings"
 import { subscribeProjectBoard } from "@/lib/project-board-store"
 import {
   makeKanbanColumnCreateRequest,
@@ -126,6 +125,7 @@ import {
   makeTicketUpdateRequest,
 } from "@/lib/ticket-commands"
 import { cn } from "@/lib/utils"
+import { isKeybindingRecorderActive } from "@/state/keybindings"
 
 const priorityLabels = {
   none: "Sans priorité",

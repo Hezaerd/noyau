@@ -1,19 +1,15 @@
-import { useEffect, useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
+import { useEffect } from "react"
 
 import {
   checkDesktopUpdate,
-  getDesktopUpdateState,
+  desktopUpdateStateAtom,
   openDesktopInstaller,
   startDesktopUpdateAutoCheck,
-  subscribeDesktopUpdateState,
-} from "@/lib/desktop-update-store"
+} from "@/state/desktop-update"
 
 export const useDesktopUpdate = () => {
-  const state = useSyncExternalStore(
-    subscribeDesktopUpdateState,
-    getDesktopUpdateState,
-    getDesktopUpdateState,
-  )
+  const state = useAtomValue(desktopUpdateStateAtom)
 
   useEffect(() => {
     startDesktopUpdateAutoCheck()

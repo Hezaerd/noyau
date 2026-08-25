@@ -1,10 +1,6 @@
-import { useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
 
-import {
-  getTurnCuePreference,
-  subscribeTurnCuePreference,
-  type TurnCuePreference,
-} from "@/lib/turn-cue-preference"
+import type { TurnCuePreference } from "@/lib/turn-cue-preference"
+import { turnCuePreferenceAtom } from "@/state/preferences"
 
-export const useTurnCuePreference = (): TurnCuePreference =>
-  useSyncExternalStore(subscribeTurnCuePreference, getTurnCuePreference, getTurnCuePreference)
+export const useTurnCuePreference = (): TurnCuePreference => useAtomValue(turnCuePreferenceAtom)
