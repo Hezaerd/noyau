@@ -9,6 +9,7 @@ import {
   isFailingCiOpenPullRequest,
   nextThreadChangeRequestSnapshot,
   resolveThreadPr,
+  resolveGitActionsScope,
   uniqueVcsScopes,
   vcsScopeForThread,
   vcsStatusScopeKey,
@@ -141,5 +142,20 @@ describe("vcs-status", () => {
     expect(vcsStatusScopeKey({ projectId, threadId: worktree.id })).toBe(
       `${projectId}:${worktree.id}`,
     )
+  })
+
+  it("n’ouvre pas le WorkspaceRoot tant que le Thread sélectionné n’est pas résolu", () => {
+    const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
+    const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
+    expect(resolveGitActionsScope(projectId, { threadId, thread: undefined })).toBeNull()
+    expect(
+      resolveGitActionsScope(projectId, {
+        threadId,
+        thread: { id: threadId, worktreePath: "/tmp/wt" },
+      }),
+    ).toEqual({ projectId, threadId })
+    expect(resolveGitActionsScope(projectId, { threadId: undefined, thread: undefined })).toEqual({
+      projectId,
+    })
   })
 })

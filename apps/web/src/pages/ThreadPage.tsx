@@ -57,9 +57,11 @@ import {
 } from "@/lib/composer-images"
 import { loadComposerImagesFromAttachments } from "@/lib/composer-images-from-attachments"
 import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
+import { makeOptimisticThreadShell, upsertAppliedShellThread } from "@/lib/control-plane-state"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { resolveOpenThreadWorking, type OptimisticSend } from "@/lib/thread-activity"
+import { seedTitleFromTurn } from "@/lib/thread-commands"
 import { getThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
 import {
   interruptTurn as interruptTurnAction,
@@ -82,6 +84,7 @@ import {
 import { retryableFailedTurnMandate } from "@/lib/undelivered-mandate"
 import { toProviderAnswers } from "@/lib/user-input-answers"
 import {
+  displayedThreadPr,
   isConflictingOpenPullRequest,
   isFailingCiOpenPullRequest,
   vcsScopeForThread,
@@ -143,10 +146,16 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       ? null
       : vcsScopeForThread(projectId, { id: threadId, worktreePath: snapshotWorktreePath }),
   )
-  const conflictingPr =
-    gitStatus?.pr != null && isConflictingOpenPullRequest(gitStatus.pr) ? gitStatus.pr : null
-  const failingCiPr =
-    gitStatus?.pr != null && isFailingCiOpenPullRequest(gitStatus.pr) ? gitStatus.pr : null
+  const displayedPr = displayedThreadPr({
+    thread: {
+      branch: pageSnapshot === undefined ? baseBranch : threadBranchOf(pageSnapshot.thread),
+      worktreePath: snapshotWorktreePath,
+    },
+    gitStatus,
+    snapshot: undefined,
+  })
+  const conflictingPr = isConflictingOpenPullRequest(displayedPr) ? displayedPr : null
+  const failingCiPr = isFailingCiOpenPullRequest(displayedPr) ? displayedPr : null
   const retryMandate = retryableFailedTurnMandate({
     resumeCursor: pageSnapshot?.session?.resumeCursor,
     sessionStatus: pageSnapshot?.session?.status,
@@ -197,6 +206,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setModelSelection(null)
     }
     const commitSnapshot = (next: ThreadSnapshot) => {
+      if (next.thread.id !== threadId) {
+        return
+      }
       writeThreadSnapshotCache(next)
       setSnapshot(next)
       setRuntimeMode(next.thread.runtimeMode)
@@ -225,13 +237,19 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       onEvent: (envelope) => {
         const event = envelope.event
         setSnapshot((current) => {
-          if (current === undefined) {
+          if (current === undefined || current.thread.id !== threadId) {
             return current
           }
-          const next = applyThreadEnvelope(current, envelope) ?? current
+          const next = applyThreadEnvelope(current, envelope)
+          if (next === undefined) {
+            return current
+          }
           writeThreadSnapshotCache(next)
           return next
         })
+        if ("threadId" in event && event.threadId !== threadId) {
+          return
+        }
         if (event._tag === "thread.turn.started") {
           setRuntimeMode((current) => event.runtimeMode ?? current)
           if (event.modelSelection !== undefined) {
@@ -439,6 +457,18 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           baseBranch,
           startFromOrigin,
         })
+        upsertAppliedShellThread(
+          makeOptimisticThreadShell({
+            id: result.threadId,
+            projectId: submittedProjectId,
+            title: seedTitleFromTurn(
+              prompt,
+              submittedImages.map((image) => image.upload),
+            ),
+            runtimeMode,
+            branch: baseBranch,
+          }),
+        )
         onCreated(result.threadId)
       }
       revokeComposerImages(submittedImages)
