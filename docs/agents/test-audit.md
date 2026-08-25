@@ -8,9 +8,13 @@ TypeScript.
 
 | | Avant | Après (notes 3–5) |
 | --- | ---: | ---: |
-| Fichiers | 151 | 85 |
+| Fichiers | 151 | 85 chemins distincts (11 note 5 + 31 note 4 + 43 note 3) |
 | Lignes | ~21 900 | ~15 000 |
 | Retirés (notes 1–2) | — | 66 fichiers |
+
+Deux fichiers homonymes `undelivered-mandate.test.ts` sont conservés : un côté
+Server (injection Provider) et un côté Web (retry Composer). Ce ne sont pas la
+même entrée.
 
 Méthode : six subagents de lecture (domain/database/protocol, acp/shared, server,
 desktop, web chrome, web métier). Notes conflictuelles relues à la source avant
@@ -18,7 +22,7 @@ agrégation.
 
 ---
 
-## Note 5 — nécessaires
+## Note 5 — nécessaires (11 fichiers)
 
 Sans ces tests, une régression corrompt le journal, perd un Project/Ticket/Turn,
 casse l’idempotence, ou ouvre une frontière d’auth.
@@ -55,7 +59,7 @@ coûte un cwd faux, une suppression non confirmée, ou une connexion perdue.
 | `apps/server/test/agent-skill-installer.test.ts` | Install/inspect/remove skill géré, refuse overwrite et symlink escape. | FS safety ADR-0016, ne pas écraser un skill humain. |
 | `apps/server/test/worktree-branch-reactor.test.ts` | Rename de la branche temp `noyau/<hex>` au premier Turn, skip sinon. | Effet git réel, facile à rater. |
 | `apps/server/test/thread-title-reactor.test.ts` | Auto-titre au premier Turn, skip si rename humain, régénération transcript. | Reactor qui mute le Thread hors Turn. |
-| `apps/server/test/undelivered-mandate.test.ts` | Sans `resumeCursor`, réinjecte le mandat (+ images) sur « Reprends », pas de double préfixe. | Sinon le retry envoie un prompt vide. |
+| `apps/server/test/undelivered-mandate.test.ts` | Côté Server : sans `resumeCursor`, réinjecte le mandat (+ images) sur « Reprends », pas de double préfixe. | Sinon le Provider reçoit un prompt vide. Distinct du test Web homonyme. |
 | `apps/server/test/git-runtime.test.ts` | Nommage branche temp, flatten worktree, refuse le checkout primaire, parse URL `gh`. | Helpers qui bornent des ops destructives. |
 | `apps/server/test/attachments.test.ts` | Parse `data:` sans regex sur le payload ; persist hors journal. | Images hors SQLite, frontière dataUrl. |
 | `apps/server/test/workspace-root.test.ts` | Decode + `isAvailable` seulement pour un dossier existant. | Gate avant bind de Project. |
@@ -68,7 +72,7 @@ coûte un cwd faux, une suppression non confirmée, ou une connexion perdue.
 | `apps/web/test/ticket-archive-confirm.test.tsx` | Dialog bloque archive ; copy dépendances ; TicketDialog exige confirm. | Archive Ticket sans confirm casse le board. |
 | `apps/web/test/thread-archive-confirm.test.tsx` | Même garde côté Thread (dialog + menu sidebar). | Symétrique, même coût. |
 | `apps/web/test/worktree-cleanup.test.ts` | Auto-remove seulement si PR merged + idle + opt-in + worktree lié. | Empêche d’effacer un worktree en cours de Turn. |
-| `apps/web/test/undelivered-mandate.test.ts` | Sur Session `error` sans `resumeCursor`, extrait le dernier prompt user. | Retry Composer : ne pas perdre le mandat. |
+| `apps/web/test/undelivered-mandate.test.ts` | Côté Web : Session en erreur sans `resumeCursor`, extrait le dernier prompt user pour le Composer. | Retry UI : ne pas perdre le mandat. Distinct du test Server homonyme. |
 | `apps/web/test/control-plane-config.test.ts` | RPC/bearer dev ; persist bootstrap desktop ; JSON stale/invalid. | Perdre le bootstrap = plus de WS après strip de query. |
 | `apps/web/test/control-plane.test.ts` | Dédup de séquence, snapshot-before-events, warm resume, resubscribe. | Curseur client : drop ou doublon d’événements. |
 | `apps/web/test/git-actions.test.ts` | Matrice dirty/ahead/PR/no-remote ; confirm push default branch. | Empêche la mauvaise action git empilée. |
