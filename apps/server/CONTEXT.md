@@ -110,9 +110,10 @@ _À éviter_ : agrégat VCS, outbox SQL
 
 **Pull request live**:
 PR GitHub du HEAD, jointe par `gh pr list --head` sur le cwd du Checkout. Stream
-`vcs.subscribeStatus` : snapshot local puis poll. Inclut la Mergeability (`mergeable` gh).
-Pas un fait du journal.
-_À éviter_ : pullRequestId, webhook, settle
+`vcs.subscribeStatus` : snapshot local puis poll. Inclut la Mergeability (`mergeable` gh)
+et le CI status (`statusCheckRollup` plié en verdict + checks en échec). Pas un fait du
+journal.
+_À éviter_ : pullRequestId, webhook, settle, mergeStateStatus, rollup brut
 
 **Publish**:
 Création live d'un dépôt GitHub (`gh repo create`) puis câblage de `origin`. Hors journal.

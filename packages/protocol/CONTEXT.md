@@ -99,13 +99,18 @@ _À éviter_ : agrégat Commit, événement Push, outbox Git
 
 **Pull request live**:
 PR GitHub du HEAD courant, portée par `vcs.status` / `vcs.subscribeStatus`. Join cwd + branche via
-`gh`, jamais un identifiant du journal. Porte la Mergeability GitHub.
+`gh`, jamais un identifiant du journal. Porte la Mergeability et le CI status GitHub.
 _À éviter_ : pullRequestId persisté, webhook, settle
 
 **Mergeability**:
 Verdict GitHub live de la PR (`mergeable | conflicting | unknown`). `unknown` n'est pas l'absence
 de conflit.
 _À éviter_ : état local git, fait du journal
+
+**CI status**:
+Verdict live des checks GitHub (`none | pending | passing | failing`). `failing` = au moins un
+FAILURE / ERROR / TIMED_OUT. `none` n'est pas un succès. Noms des checks en échec bornés.
+_À éviter_ : mergeStateStatus, rollup brut, logs, webhook
 
 **Présentation de Turn**:
 Discriminant optionnel de `thread.turn.start` / `transcript.user` qui dit comment montrer le

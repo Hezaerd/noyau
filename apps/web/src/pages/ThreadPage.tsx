@@ -3,6 +3,7 @@ import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/c
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
+import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { isResumePrompt } from "@noyau/shared/resume-prompt"
 import { useNavigate } from "@tanstack/react-router"
@@ -23,6 +24,7 @@ import {
   ResourceErrorState,
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
+import { FixCiButton } from "@/components/thread/FixCiButton"
 import { FixMergeConflictsButton } from "@/components/thread/FixMergeConflictsButton"
 import { ThreadCheckoutBar } from "@/components/thread/ThreadCheckoutBar"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
@@ -76,13 +78,19 @@ import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-tr
 import { shouldCatchUpTranscriptOnOpen } from "@/lib/thread-transcript-catch-up"
 import { markThreadVisited } from "@/lib/thread-visits"
 import {
+  buildFixCiPrompt,
   buildFixMergeConflictsPrompt,
+  FIX_CI_PRESENTATION,
   FIX_MERGE_CONFLICTS_PRESENTATION,
   turnPresentationLabel,
 } from "@/lib/turn-presentation"
 import { retryableFailedTurnMandate } from "@/lib/undelivered-mandate"
 import { toProviderAnswers } from "@/lib/user-input-answers"
-import { isConflictingOpenPullRequest, vcsScopeForThread } from "@/lib/vcs-status"
+import {
+  isConflictingOpenPullRequest,
+  isFailingCiOpenPullRequest,
+  vcsScopeForThread,
+} from "@/lib/vcs-status"
 
 interface ThreadPageProps {
   readonly projectId: ProjectId
@@ -135,6 +143,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   )
   const conflictingPr =
     gitStatus?.pr != null && isConflictingOpenPullRequest(gitStatus.pr) ? gitStatus.pr : null
+  const failingCiPr =
+    gitStatus?.pr != null && isFailingCiOpenPullRequest(gitStatus.pr) ? gitStatus.pr : null
   const retryMandate = retryableFailedTurnMandate({
     resumeCursor: snapshot?.session?.resumeCursor,
     sessionStatus: snapshot?.session?.status,
@@ -453,14 +463,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     })
   }
 
-  const submitFixMergeConflicts = () => {
-    if (
-      conflictingPr === null ||
-      threadId === undefined ||
-      isRunning ||
-      project?.available !== true ||
-      !cursorReady
-    ) {
+  const submitPresentedTurn = (presentation: TurnPresentation, prompt: string) => {
+    if (threadId === undefined || isRunning || project?.available !== true || !cursorReady) {
       return
     }
     setComposerFailure(undefined)
@@ -469,9 +473,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     const input = {
       projectId,
       threadId,
-      prompt: buildFixMergeConflictsPrompt(conflictingPr),
-      titleSeed: turnPresentationLabel(FIX_MERGE_CONFLICTS_PRESENTATION),
-      presentation: FIX_MERGE_CONFLICTS_PRESENTATION,
+      prompt,
+      titleSeed: turnPresentationLabel(presentation),
+      presentation,
       runtimeMode,
       modelSelection,
       envMode,
@@ -508,6 +512,23 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setActionFailure(undefined)
       return undefined
     })
+  }
+
+  const submitFixMergeConflicts = () => {
+    if (conflictingPr === null) {
+      return
+    }
+    submitPresentedTurn(
+      FIX_MERGE_CONFLICTS_PRESENTATION,
+      buildFixMergeConflictsPrompt(conflictingPr),
+    )
+  }
+
+  const submitFixCi = () => {
+    if (failingCiPr === null) {
+      return
+    }
+    submitPresentedTurn(FIX_CI_PRESENTATION, buildFixCiPrompt(failingCiPr))
   }
 
   const interruptTurn = () => {
@@ -729,11 +750,25 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       searchPaths={searchPaths}
       tickets={tickets}
       toolbar={
-        isNewThread || conflictingPr === null ? undefined : (
-          <FixMergeConflictsButton
-            disabled={awaitingThread || project?.available !== true || !cursorReady || isRunning}
-            onClick={submitFixMergeConflicts}
-          />
+        isNewThread || (conflictingPr === null && failingCiPr === null) ? undefined : (
+          <>
+            {conflictingPr === null ? null : (
+              <FixMergeConflictsButton
+                disabled={
+                  awaitingThread || project?.available !== true || !cursorReady || isRunning
+                }
+                onClick={submitFixMergeConflicts}
+              />
+            )}
+            {failingCiPr === null ? null : (
+              <FixCiButton
+                disabled={
+                  awaitingThread || project?.available !== true || !cursorReady || isRunning
+                }
+                onClick={submitFixCi}
+              />
+            )}
+          </>
         )
       }
       context={

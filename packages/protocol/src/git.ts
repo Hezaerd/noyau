@@ -37,6 +37,16 @@ export type VcsStatusPullRequestState = (typeof VcsStatusPullRequestState)["Type
 export const VcsStatusMergeability = Schema.Literals(["mergeable", "conflicting", "unknown"])
 export type VcsStatusMergeability = (typeof VcsStatusMergeability)["Type"]
 
+/** Verdict live des checks GitHub. `none` = pas de check, pas un succès. */
+export const VcsStatusCiVerdict = Schema.Literals(["none", "pending", "passing", "failing"])
+export type VcsStatusCiVerdict = (typeof VcsStatusCiVerdict)["Type"]
+
+export const VcsStatusFailedCheck = Schema.Struct({
+  name: TrimmedNonEmpty,
+  url: Schema.optionalKey(Schema.NonEmptyString),
+})
+export type VcsStatusFailedCheck = (typeof VcsStatusFailedCheck)["Type"]
+
 /** PR GitHub live du HEAD courant. Hors journal : join cwd/branche via `gh`. */
 export const VcsStatusPullRequest = Schema.Struct({
   number: Schema.Int.check(Schema.isGreaterThan(0)),
@@ -46,6 +56,8 @@ export const VcsStatusPullRequest = Schema.Struct({
   headRef: TrimmedNonEmpty,
   state: VcsStatusPullRequestState,
   mergeability: VcsStatusMergeability,
+  ciStatus: VcsStatusCiVerdict,
+  failedChecks: Schema.Array(VcsStatusFailedCheck),
 })
 export type VcsStatusPullRequest = (typeof VcsStatusPullRequest)["Type"]
 
