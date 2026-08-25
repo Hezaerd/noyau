@@ -25,6 +25,8 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | **Thread**            | Conversation provider titrée d'un Project (`Project → Thread → Turn`).                                                                   |
 | **Session**           | Projection `0..1` du runtime provider sur un Thread ; tant qu'elle est live, elle réutilise un runtime Cursor ACP entre plusieurs Turns. |
 | **Turn**              | Unité append-only de travail agent. `latestTurn` : running, interrupted, completed, error.                                               |
+| **TurnDiff**          | Résumé durable des fichiers touchés par un Turn (`files`, `checkpointRef`, `status`).                                                    |
+| **Checkpoint**        | Snapshot git hors journal, ref `refs/noyau/checkpoint/<threadId>/<ordinal>`.                                                             |
 | **resumeCursor**      | `{ schemaVersion, sessionId }` opaque pour `session/load`.                                                                               |
 | **runtimeMode**       | Politique d'outils t3code du Thread.                                                                                                     |
 | **Command**           | Entrée typée (`commandId`, acteur hors payload) persistée avant effet.                                                                   |

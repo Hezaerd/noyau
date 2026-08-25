@@ -52,6 +52,7 @@ import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/protocol/id
 import { ProjectNotFound, ProjectUnavailable } from "@noyau/protocol/project/errors"
 import { DispatchResult, Rejection } from "@noyau/protocol/receipts"
 import { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
+import { GetTurnDiffInput, TurnDiffPatch, TurnDiffUnavailable } from "@noyau/protocol/turn-diff"
 import { Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/unstable/rpc"
 
@@ -75,6 +76,7 @@ export const RPC_METHODS = {
   installProjectAgentIntegration: "workspace.installProjectAgentIntegration",
   removeProjectAgentIntegration: "workspace.removeProjectAgentIntegration",
   previewAttachment: "thread.previewAttachment",
+  getTurnDiff: "thread.getTurnDiff",
   getConfig: "server.getConfig",
   probe: "server.probe",
   searchWorkspacePaths: "workspace.searchPaths",
@@ -253,6 +255,12 @@ export const PreviewAttachment = Rpc.make(RPC_METHODS.previewAttachment, {
   error: Schema.Union([AttachmentPreviewFailed, ServiceUnavailable]),
 })
 
+export const GetTurnDiff = Rpc.make(RPC_METHODS.getTurnDiff, {
+  payload: GetTurnDiffInput,
+  success: TurnDiffPatch,
+  error: Schema.Union([TurnDiffUnavailable, GitCommandError, ServiceUnavailable]),
+})
+
 export const VcsStatus = Rpc.make(RPC_METHODS.vcsStatus, {
   payload: VcsScope,
   success: VcsStatusResult,
@@ -347,6 +355,7 @@ export const ControlPlaneRpcs = RpcGroup.make(
   InstallProjectAgentIntegration,
   RemoveProjectAgentIntegration,
   PreviewAttachment,
+  GetTurnDiff,
   VcsStatus,
   SubscribeVcsStatus,
   VcsListRefs,

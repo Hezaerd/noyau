@@ -14,7 +14,7 @@ import {
   type VcsSwitchRefResult,
   type VcsWorktree,
 } from "@noyau/protocol/git"
-import { Context, Effect, Layer, Path, Schema, type Scope } from "effect"
+import { Context, Effect, FileSystem, Layer, Path, Schema, type Scope } from "effect"
 import { ChildProcessSpawner } from "effect/unstable/process"
 
 import {
@@ -22,7 +22,19 @@ import {
   selectStatusPullRequest,
   type ListedPullRequest,
 } from "./pull-request.ts"
-import { runGh, runGit } from "./run-command.ts"
+import { runGh, runGit, type CommandResult } from "./run-command.ts"
+
+const acceptCheckpointDiff = (operation: string, result: CommandResult) => {
+  if (result.code !== 0 && result.code !== 1) {
+    return Effect.fail(
+      new GitCommandError({
+        operation,
+        detail: result.stderr.trim() || result.stdout.trim() || `${operation} failed`,
+      }),
+    )
+  }
+  return Effect.succeed(result.stdout)
+}
 
 const PR_LIST_JSON_FIELDS =
   "number,title,url,baseRefName,headRefName,state,mergeable,updatedAt,statusCheckRollup"
@@ -217,6 +229,22 @@ export interface GitRuntimeService {
     readonly oldBranch: string
     readonly newBranch: string
   }) => Effect.Effect<{ readonly branch: string }, GitCommandError>
+  readonly isGitRepository: (cwd: string) => Effect.Effect<boolean, GitCommandError>
+  readonly captureCheckpoint: (input: {
+    readonly cwd: string
+    readonly checkpointRef: string
+  }) => Effect.Effect<void, GitCommandError>
+  readonly hasCheckpointRef: (input: {
+    readonly cwd: string
+    readonly checkpointRef: string
+  }) => Effect.Effect<boolean, GitCommandError>
+  readonly diffCheckpoints: (input: {
+    readonly cwd: string
+    readonly fromCheckpointRef: string
+    readonly toCheckpointRef: string
+    readonly format?: "numstat" | "patch"
+    readonly ignoreWhitespace?: boolean
+  }) => Effect.Effect<string, GitCommandError>
   readonly diffContext: (cwd: string) => Effect.Effect<string, GitCommandError>
   readonly runStackedAction: (input: {
     readonly cwd: string
@@ -265,6 +293,7 @@ const listWorktrees = Effect.fn("GitRuntime.listWorktrees")(function* (cwd: stri
 const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const path = yield* Path.Path
+  const fileSystem = yield* FileSystem.FileSystem
   const enclose = <A>(
     effect: Effect.Effect<
       A,
@@ -626,6 +655,117 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     return { branch: targetBranch }
   })
 
+  const gitCommonDir = Effect.fn("GitRuntime.gitCommonDir")(function* (cwd: string) {
+    const result = yield* runGit("git.common-dir", cwd, ["rev-parse", "--git-common-dir"])
+    const raw = firstLine(result.stdout)
+    return path.isAbsolute(raw) ? raw : path.join(cwd, raw)
+  })
+
+  const captureCheckpoint = Effect.fn("GitRuntime.captureCheckpoint")(function* (input: {
+    readonly cwd: string
+    readonly checkpointRef: string
+  }) {
+    const commonDir = yield* gitCommonDir(input.cwd)
+    const indexName = input.checkpointRef.replace(/[/\\:]/g, "-")
+    const tempIndexPath = path.join(commonDir, `noyau-checkpoint-index-${indexName}`)
+    const env = {
+      GIT_INDEX_FILE: tempIndexPath,
+      GIT_AUTHOR_NAME: "Noyau",
+      GIT_AUTHOR_EMAIL: "noyau@users.noreply.github.com",
+      GIT_COMMITTER_NAME: "Noyau",
+      GIT_COMMITTER_EMAIL: "noyau@users.noreply.github.com",
+    }
+    yield* Effect.gen(function* () {
+      const head = yield* runGit(
+        "git.rev-parse-head",
+        input.cwd,
+        ["rev-parse", "--verify", "HEAD"],
+        { allowNonZero: true },
+      )
+      if (head.code === 0) {
+        yield* runGit("git.read-tree", input.cwd, ["read-tree", "HEAD"], { env })
+      }
+      yield* runGit("git.add", input.cwd, ["add", "-A", "--", "."], { env })
+      const tree = yield* runGit("git.write-tree", input.cwd, ["write-tree"], { env })
+      const treeOid = firstLine(tree.stdout)
+      if (treeOid.length === 0) {
+        return yield* new GitCommandError({
+          operation: "git.write-tree",
+          detail: "git write-tree returned an empty tree oid.",
+        })
+      }
+      const commit = yield* runGit(
+        "git.commit-tree",
+        input.cwd,
+        ["commit-tree", treeOid, "-m", `noyau checkpoint ${input.checkpointRef}`],
+        { env },
+      )
+      const commitOid = firstLine(commit.stdout)
+      if (commitOid.length === 0) {
+        return yield* new GitCommandError({
+          operation: "git.commit-tree",
+          detail: "git commit-tree returned an empty commit oid.",
+        })
+      }
+      yield* runGit("git.update-ref", input.cwd, ["update-ref", input.checkpointRef, commitOid])
+    }).pipe(Effect.ensuring(fileSystem.remove(tempIndexPath, { force: true }).pipe(Effect.ignore)))
+  })
+
+  const hasCheckpointRef = Effect.fn("GitRuntime.hasCheckpointRef")(function* (input: {
+    readonly cwd: string
+    readonly checkpointRef: string
+  }) {
+    const result = yield* runGit(
+      "git.rev-parse-checkpoint",
+      input.cwd,
+      ["rev-parse", "--verify", "--quiet", input.checkpointRef],
+      { allowNonZero: true },
+    )
+    return result.code === 0 && firstLine(result.stdout).length > 0
+  })
+
+  const diffCheckpoints = Effect.fn("GitRuntime.diffCheckpoints")(function* (input: {
+    readonly cwd: string
+    readonly fromCheckpointRef: string
+    readonly toCheckpointRef: string
+    readonly format?: "numstat" | "patch"
+    readonly ignoreWhitespace?: boolean
+  }) {
+    const format = input.format ?? "numstat"
+    const fromRef = `${input.fromCheckpointRef}^{commit}`
+    const toRef = `${input.toCheckpointRef}^{commit}`
+    const shared = [
+      "--no-renames",
+      ...(input.ignoreWhitespace === true ? ["--ignore-all-space"] : []),
+      fromRef,
+      toRef,
+      "--",
+    ]
+    if (format === "patch") {
+      const result = yield* runGit(
+        "git.diff-patch",
+        input.cwd,
+        ["diff", "--patch", "--no-color", "--no-ext-diff", "--no-textconv", ...shared],
+        { allowNonZero: true },
+      )
+      return yield* acceptCheckpointDiff("git.diff-patch", result)
+    }
+    const [nameStatus, numstat] = yield* Effect.all(
+      [
+        runGit("git.diff-name-status", input.cwd, ["diff", "--name-status", ...shared], {
+          allowNonZero: true,
+        }),
+        runGit("git.diff-numstat", input.cwd, ["diff", "--numstat", ...shared], {
+          allowNonZero: true,
+        }),
+      ],
+      { concurrency: "unbounded" },
+    )
+    yield* acceptCheckpointDiff("git.diff-name-status", nameStatus)
+    const stats = yield* acceptCheckpointDiff("git.diff-numstat", numstat)
+    return `${nameStatus.stdout}\n${stats}`
+  })
+
   const diffContext = Effect.fn("GitRuntime.diffContext")(function* (cwd: string) {
     const [stat, diff, log] = yield* Effect.all(
       [
@@ -803,6 +943,10 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     createWorktree: (input) => enclose(createWorktree(input)),
     removeWorktree: (input) => enclose(removeWorktree(input)),
     renameBranch: (input) => enclose(renameBranch(input)),
+    isGitRepository: (cwd) => enclose(isRepo(cwd)),
+    captureCheckpoint: (input) => enclose(captureCheckpoint(input)),
+    hasCheckpointRef: (input) => enclose(hasCheckpointRef(input)),
+    diffCheckpoints: (input) => enclose(diffCheckpoints(input)),
     diffContext: (cwd) => enclose(diffContext(cwd)),
     runStackedAction: (input) => enclose(runStackedAction(input)),
     githubAccount: (cwd) => enclose(githubAccount(cwd)),

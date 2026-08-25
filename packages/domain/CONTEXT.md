@@ -67,6 +67,10 @@ Unité append-only de travail agent dans un Thread. `latestTurn` vaut
 `running | interrupted | completed | error`.
 _À éviter_ : Attempt, requested, lost, failed
 
+**TurnDiff**:
+Résumé durable des fichiers touchés par un Turn, projeté sur ce Turn.
+_À éviter_ : item de transcript, agrégat Git, diff ACP comme preuve
+
 **runtimeMode**:
 Politique d'outils du Thread :
 `approval-required | auto-accept-edits | auto | full-access`.

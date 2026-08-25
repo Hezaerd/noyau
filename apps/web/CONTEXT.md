@@ -229,6 +229,15 @@ Cue Cuelume joué quand un Turn passe de `running` à un état terminal. Préfé
 (toggle + son). Pas une notification OS.
 _À éviter_ : notification système, événement de journal, fichier audio embarqué
 
+**TurnDiff**:
+Carte de fichiers changés sous le dernier message assistant d'un Turn. Jointe depuis
+`turns[].turnDiff`, pas un item de transcript. Le clic ouvre le Panneau TurnDiff.
+_À éviter_ : hunk inline, item de transcript, diff ACP
+
+**Panneau TurnDiff**:
+Sheet Pierre qui rend le patch unifié d'un Turn via `thread.getTurnDiff`.
+_À éviter_ : FilePreview, hunk inline, revert
+
 **Activité de Turn**:
 Indicateur UI dérivé (`En cours`, `Terminé`, `Interrompu`, `Erreur`) depuis `sessionStatus` et
 `latestTurn`. Un `completedAt` gagne sur une Session encore `starting`/`running`. La durée live

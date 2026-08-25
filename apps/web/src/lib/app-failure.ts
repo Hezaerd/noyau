@@ -10,6 +10,7 @@ import { FilePreviewFailed } from "@noyau/protocol/file-preview"
 import { GitCommandError } from "@noyau/protocol/git"
 import { ProjectNotFound } from "@noyau/protocol/project/errors"
 import { Rejection, type Rejection as RejectionType } from "@noyau/protocol/receipts"
+import { TurnDiffUnavailable } from "@noyau/protocol/turn-diff"
 import { Cause, Option, Schema } from "effect"
 import { RpcClientError } from "effect/unstable/rpc/RpcClientError"
 
@@ -25,6 +26,7 @@ const KnownControlPlaneError = Schema.Union([
   MissingIdentity,
   Forbidden,
   FilePreviewFailed,
+  TurnDiffUnavailable,
   ProjectNotFound,
   GitCommandError,
   OpenInEditorFailed,
@@ -66,6 +68,17 @@ const unexpectedFailure = (): AppFailure => ({
   incidentId: nextIncidentId(),
 })
 
+const turnDiffUnavailableMessage = (error: TurnDiffUnavailable): string => {
+  switch (error.reason) {
+    case "turn-not-found":
+      return "Ce Turn n'existe plus."
+    case "not-captured":
+      return "Aucun Checkpoint n'a été capturé pour ce Turn."
+    case "checkpoint-missing":
+      return "Les snapshots git de ce Turn ne sont plus disponibles."
+  }
+}
+
 const fromTypedError = (error: KnownControlPlaneError, phase: FailurePhase): AppFailure => {
   if (Schema.is(Rejection)(error)) {
     return { _tag: "Rejected", rejection: error }
@@ -92,6 +105,9 @@ const fromTypedError = (error: KnownControlPlaneError, phase: FailurePhase): App
   }
   if (Schema.is(AgentIntegrationFailed)(error)) {
     return { _tag: "AgentIntegrationFailure", reason: error.reason }
+  }
+  if (Schema.is(TurnDiffUnavailable)(error)) {
+    return { _tag: "InvalidInput", message: turnDiffUnavailableMessage(error) }
   }
   if (Schema.is(FilePreviewFailed)(error) || Schema.is(ProjectNotFound)(error)) {
     return { _tag: "InvalidInput" }

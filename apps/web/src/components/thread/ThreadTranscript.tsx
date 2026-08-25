@@ -20,10 +20,34 @@ import {
 } from "@/components/ui/message-scroller"
 import type { ComposerTicket } from "@/lib/composer-tickets"
 import { settledTranscriptLabel } from "@/lib/thread-activity"
-import { groupTranscriptRows, transcriptGroupRowId, transcriptRowId } from "@/lib/thread-transcript"
+import {
+  groupTranscriptRows,
+  lastAssistantIndexByTurnId,
+  transcriptGroupRowId,
+  transcriptRowId,
+  turnDiffForTranscriptItem,
+} from "@/lib/thread-transcript"
 import { deriveTurnMinimapItems, TURN_MINIMAP_MIN_ITEMS } from "@/lib/thread-turn-minimap"
 
 const EMPTY_TURNS: ReadonlyArray<Turn> = []
+
+const transcriptTurnDiffProps = (
+  item: TranscriptItem,
+  index: number,
+  turns: ReadonlyArray<Turn>,
+  lastAssistantByTurn: ReadonlyMap<Turn["id"], number>,
+  onOpenTurnDiff: ((turnId: Turn["id"], filePath?: string) => void) | undefined,
+): {
+  readonly turnDiff?: ReturnType<typeof turnDiffForTranscriptItem>
+  readonly onOpenTurnDiff?: (filePath?: string) => void
+} => {
+  const turnDiff = turnDiffForTranscriptItem(item, index, turns, lastAssistantByTurn)
+  if (onOpenTurnDiff === undefined) {
+    return turnDiff === undefined ? {} : { turnDiff }
+  }
+  const open = (filePath?: string) => onOpenTurnDiff(item.turnId, filePath)
+  return turnDiff === undefined ? { onOpenTurnDiff: open } : { turnDiff, onOpenTurnDiff: open }
+}
 
 export function ThreadTranscript({
   transcript,
@@ -45,6 +69,7 @@ export function ThreadTranscript({
   onLegacyFreeformChange,
   onRespondApproval,
   onRespondUserInput,
+  onOpenTurnDiff,
   scrollerKey,
   followLatestKey = 0,
 }: {
@@ -67,6 +92,7 @@ export function ThreadTranscript({
   readonly onLegacyFreeformChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
   readonly onRespondUserInput: (requestId: string) => void
+  readonly onOpenTurnDiff?: ((turnId: Turn["id"], filePath?: string) => void) | undefined
   readonly scrollerKey?: string
   readonly followLatestKey?: number
 }) {
@@ -81,6 +107,7 @@ export function ThreadTranscript({
     }
     return map
   }, [turns])
+  const lastAssistantByTurn = useMemo(() => lastAssistantIndexByTurnId(transcript), [transcript])
 
   return (
     <MessageScrollerProvider key={scrollerKey} autoScroll>
@@ -123,6 +150,13 @@ export function ThreadTranscript({
                     item={row.item}
                     streaming={isRunning && row.item === lastAssistant}
                     turn={turnById.get(row.item.turnId)}
+                    {...transcriptTurnDiffProps(
+                      row.item,
+                      row.index,
+                      turns,
+                      lastAssistantByTurn,
+                      onOpenTurnDiff,
+                    )}
                     workspaceRoot={
                       row.item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
                     }

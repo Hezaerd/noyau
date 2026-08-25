@@ -4,6 +4,7 @@ import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { ResumeCursor } from "@noyau/protocol/entities/session"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import { TurnDiffFile } from "@noyau/protocol/entities/turn"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { ShellSnapshot } from "@noyau/protocol/shell"
 import { Effect, Option, Schema } from "effect"
@@ -100,6 +101,9 @@ const TurnRow = Schema.Struct({
   requested_at: Schema.String,
   started_at: Schema.NullOr(Schema.String),
   completed_at: Schema.NullOr(Schema.String),
+  checkpoint_ref: Schema.NullOr(Schema.String),
+  checkpoint_status: Schema.NullOr(Schema.Literals(["ready", "missing", "error"])),
+  checkpoint_files_json: Schema.NullOr(Schema.String),
 })
 const TranscriptRow = Schema.Struct({
   item: Schema.String,
@@ -145,6 +149,7 @@ const decodeThreadSnapshot = Schema.decodeUnknownEffect(ThreadSnapshot)
 const decodeShellSnapshot = Schema.decodeUnknownEffect(ShellSnapshot)
 const decodeResumeCursor = Schema.decodeEffect(Schema.fromJsonString(ResumeCursor))
 const decodeTranscriptItem = Schema.decodeEffect(Schema.fromJsonString(TranscriptItem))
+const decodeTurnDiffFiles = Schema.decodeEffect(Schema.fromJsonString(Schema.Array(TurnDiffFile)))
 const decodeJson = Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))
 const encodeEnvironment = Schema.encodeEffect(Environment)
 
@@ -424,7 +429,8 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         `,
         sql<(typeof TurnRow)["Encoded"]>`
           SELECT
-            turn_id, thread_id, ordinal, state, requested_at, started_at, completed_at
+            turn_id, thread_id, ordinal, state, requested_at, started_at, completed_at,
+            checkpoint_ref, checkpoint_status, checkpoint_files_json
           FROM projection_turns
           WHERE thread_id = ${threadId}
           ORDER BY ordinal
@@ -444,15 +450,34 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
       const turns = yield* Effect.forEach(rawTurns, (raw) =>
         decodeTurnRow(raw).pipe(
           Effect.orDie,
-          Effect.map((row) => ({
-            id: row.turn_id,
-            threadId: row.thread_id,
-            ordinal: row.ordinal,
-            state: row.state,
-            requestedAt: row.requested_at,
-            startedAt: row.started_at,
-            completedAt: row.completed_at,
-          })),
+          Effect.flatMap((row) =>
+            Effect.gen(function* () {
+              const encoded = {
+                id: row.turn_id,
+                threadId: row.thread_id,
+                ordinal: row.ordinal,
+                state: row.state,
+                requestedAt: row.requested_at,
+                startedAt: row.started_at,
+                completedAt: row.completed_at,
+              }
+              if (
+                row.checkpoint_ref === null ||
+                row.checkpoint_status === null ||
+                row.checkpoint_files_json === null
+              ) {
+                return encoded
+              }
+              const files = yield* decodeTurnDiffFiles(row.checkpoint_files_json).pipe(Effect.orDie)
+              return Object.assign(encoded, {
+                turnDiff: {
+                  checkpointRef: row.checkpoint_ref,
+                  status: row.checkpoint_status,
+                  files,
+                },
+              })
+            }),
+          ),
         ),
       )
       const transcript = yield* Effect.forEach(rawTranscript, (raw) =>
