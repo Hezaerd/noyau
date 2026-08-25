@@ -884,16 +884,11 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         if (session.loading && session.loadLastActivityAt !== undefined) {
           const now = yield* Clock.currentTimeMillis
           if (now - session.loadLastActivityAt >= idleGapMillis) {
-            if (session.modes !== undefined && session.configOptions.length > 0) {
-              return { modes: session.modes, configOptions: session.configOptions }
+            return {
+              _tag: "idle" as const,
+              modes: session.modes,
+              configOptions: session.configOptions,
             }
-            if (session.modes !== undefined) {
-              return { modes: session.modes }
-            }
-            if (session.configOptions.length > 0) {
-              return { configOptions: session.configOptions }
-            }
-            return {}
           }
         }
         yield* Effect.sleep(Duration.millis(25))
@@ -1019,11 +1014,13 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           created.loading = true
           created.loadLastActivityAt = undefined
           const loaded = yield* Effect.raceFirst(
-            acp.agent.loadSession({
-              sessionId: resumeSessionId,
-              cwd: control.input.workspaceRoot,
-              mcpServers,
-            }),
+            acp.agent
+              .loadSession({
+                sessionId: resumeSessionId,
+                cwd: control.input.workspaceRoot,
+                mcpServers,
+              })
+              .pipe(Effect.map((response) => ({ _tag: "rpc" as const, response }))),
             waitForSessionLoadReplayIdle(created),
           ).pipe(
             Effect.timeoutOption(sessionLoadTimeout),
@@ -1036,8 +1033,27 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
             ),
           )
           if (Option.isSome(loaded)) {
-            setup = loaded.value
             sessionId = resumeSessionId
+            if (loaded.value._tag === "rpc") {
+              setup = loaded.value.response
+            } else {
+              if (loaded.value.modes !== undefined) {
+                created.modes = loaded.value.modes
+              }
+              if (loaded.value.configOptions.length > 0) {
+                created.configOptions = loaded.value.configOptions
+              }
+              let idleSetup: AcpSchema.LoadSessionResponse = {
+                configOptions: created.configOptions,
+              }
+              if (created.modes !== undefined) {
+                idleSetup = { ...idleSetup, modes: created.modes }
+              }
+              if (created.setup?.models != null) {
+                idleSetup = { ...idleSetup, models: created.setup.models }
+              }
+              setup = idleSetup
+            }
           } else {
             const createdSession = yield* acp.agent.createSession({
               cwd: control.input.workspaceRoot,
@@ -1377,7 +1393,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       yield* runTurn(control)
     })
     const fiber = yield* Effect.forkIn(
-      runQueued.pipe(Effect.provideService(Scope.Scope, providerScope)),
+      Effect.scoped(runQueued),
       providerScope,
       previous === undefined ? { startImmediately: true } : undefined,
     )
@@ -1409,7 +1425,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       const session = control.session ?? sessions.get(threadId)
       if (session !== undefined && (stop || sessions.get(threadId) !== session)) {
         yield* closeSession(session)
-      } else if (control.handle !== undefined) {
+      } else if (control.handle !== undefined && control.handle !== session?.handle) {
         yield* control.handle.kill({ killSignal: "SIGTERM" }).pipe(Effect.ignore)
       }
       if (control.fiber !== undefined) {
@@ -1418,7 +1434,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           Effect.raceFirst(
             Effect.sleep("2 seconds").pipe(
               Effect.tap(() =>
-                control.handle === undefined
+                control.handle === undefined || control.handle === session?.handle
                   ? Effect.void
                   : control.handle.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore),
               ),

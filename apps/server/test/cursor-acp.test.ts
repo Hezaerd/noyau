@@ -473,7 +473,8 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
 
         const exitsBeforeStop = (yield* readLog(evidence.exitLog)).split("SIGTERM").length - 1
         yield* provider.stop(threadId)
-        const exitsAfterStop = (yield* readLog(evidence.exitLog)).split("SIGTERM").length - 1
+        const exitLog = yield* waitForLog(evidence.exitLog, "SIGTERM")
+        const exitsAfterStop = exitLog.split("SIGTERM").length - 1
         assert.strictEqual(exitsAfterStop, exitsBeforeStop + 1)
       }),
     ),
