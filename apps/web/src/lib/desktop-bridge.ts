@@ -1,9 +1,9 @@
 import {
   DEFAULT_RELEASE_CHANNEL,
-  parseReleaseChannel,
   releaseBrand,
   type ReleaseChannel,
 } from "@noyau/shared/release-brand"
+import { Option, Schema } from "effect"
 
 import { getDesktopPlatform, getHotkeysPlatform } from "@/lib/keyboard-shortcut"
 
@@ -63,18 +63,21 @@ export interface NoyauDesktopBridge {
   ) => Promise<DesktopUpdateOpenResult>
 }
 
+const DesktopReleaseChannelSchema = Schema.Literals(["development", "latest", "nightly"])
+const decodeDesktopReleaseChannel = Schema.decodeUnknownOption(DesktopReleaseChannelSchema)
+
 export const resolveDesktopReleaseChannel = (input: {
   readonly bridgeChannel?: string | undefined
   readonly search?: string | undefined
   readonly isDesktopRuntime: boolean
 }): DesktopReleaseChannel => {
-  const bridgeChannel = parseReleaseChannel(input.bridgeChannel)
+  const bridgeChannel = Option.getOrUndefined(decodeDesktopReleaseChannel(input.bridgeChannel))
   if (bridgeChannel !== undefined) {
     return bridgeChannel
   }
   if (input.isDesktopRuntime) {
-    const searchChannel = parseReleaseChannel(
-      new URLSearchParams(input.search ?? "").get("channel") ?? undefined,
+    const searchChannel = Option.getOrUndefined(
+      decodeDesktopReleaseChannel(new URLSearchParams(input.search ?? "").get("channel")),
     )
     if (searchChannel !== undefined) {
       return searchChannel
