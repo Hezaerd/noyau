@@ -3,7 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { subscribeShell, type SubscriptionStatus } from "@/lib/control-plane"
 import {
-  applyShellEvent,
+  getAppliedShell,
+  reduceAppliedShellEvent,
+  replaceAppliedShell,
+  subscribeAppliedShell,
   ControlPlaneContext,
   readLastProjectId,
   writeLastProjectId,
@@ -13,20 +16,25 @@ import { publishControlPlaneSnapshot } from "@/lib/control-plane-store"
 import { nextLastProjectId } from "@/lib/project-navigation"
 
 export function ControlPlaneProvider({ children }: { readonly children: ReactNode }) {
-  const [shell, setShell] = useState<ControlPlaneContextValue["shell"]>()
+  const [shell, setShell] = useState<ControlPlaneContextValue["shell"]>(getAppliedShell)
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const [lastProjectId, setLastProjectId] = useState(readLastProjectId)
 
   useEffect(() => {
-    return subscribeShell(undefined, {
+    const unsubscribeApplied = subscribeAppliedShell(() => {
+      setShell(getAppliedShell())
+    })
+    const unsubscribeStream = subscribeShell(undefined, {
       onSnapshot: (next) => {
-        setShell(next)
+        replaceAppliedShell(next)
       },
-      onEvent: (event) => {
-        setShell((current) => (current === undefined ? current : applyShellEvent(current, event)))
-      },
+      onEvent: (event) => reduceAppliedShellEvent(event),
       onStatus: setSubscriptionStatus,
     })
+    return () => {
+      unsubscribeStream()
+      unsubscribeApplied()
+    }
   }, [])
 
   useEffect(() => {

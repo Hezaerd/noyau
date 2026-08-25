@@ -45,11 +45,12 @@ export const writeLastProjectId = (projectId: ProjectId | undefined): void => {
   }
 }
 
-export const applyShellEvent = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnapshot => {
+const withSequence = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnapshot => {
   switch (event._tag) {
     case "project-upserted":
       return {
         ...snapshot,
+        snapshotSequence: event.sequence,
         projects: snapshot.projects.some((project) => project.id === event.project.id)
           ? snapshot.projects.map((project) =>
               project.id === event.project.id ? event.project : project,
@@ -59,12 +60,14 @@ export const applyShellEvent = (snapshot: ShellSnapshot, event: ShellLiveEvent):
     case "project-removed":
       return {
         ...snapshot,
+        snapshotSequence: event.sequence,
         projects: snapshot.projects.filter((project) => project.id !== event.projectId),
         threads: snapshot.threads.filter((thread) => thread.projectId !== event.projectId),
       }
     case "thread-upserted":
       return {
         ...snapshot,
+        snapshotSequence: event.sequence,
         threads: snapshot.threads.some((thread) => thread.id === event.thread.id)
           ? snapshot.threads.map((thread) =>
               thread.id === event.thread.id ? event.thread : thread,
@@ -74,7 +77,62 @@ export const applyShellEvent = (snapshot: ShellSnapshot, event: ShellLiveEvent):
     case "thread-removed":
       return {
         ...snapshot,
+        snapshotSequence: event.sequence,
         threads: snapshot.threads.filter((thread) => thread.id !== event.threadId),
       }
   }
+}
+
+/** Reduce a live shell event. Stale or duplicate sequences keep the current snapshot. */
+export const applyShellEvent = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnapshot =>
+  event.sequence <= snapshot.snapshotSequence ? snapshot : withSequence(snapshot, event)
+
+type AppliedShellListener = () => void
+
+let appliedShell: ShellSnapshot | undefined
+const appliedShellListeners = new Set<AppliedShellListener>()
+
+const emitAppliedShell = (): void => {
+  for (const listener of appliedShellListeners) {
+    listener()
+  }
+}
+
+export const getAppliedShell = (): ShellSnapshot | undefined => appliedShell
+
+export const subscribeAppliedShell = (listener: AppliedShellListener): (() => void) => {
+  appliedShellListeners.add(listener)
+  return () => {
+    appliedShellListeners.delete(listener)
+  }
+}
+
+export const replaceAppliedShell = (next: ShellSnapshot): void => {
+  if (Object.is(appliedShell, next)) {
+    return
+  }
+  appliedShell = next
+  emitAppliedShell()
+}
+
+/**
+ * Apply a live event onto the authoritative in-memory shell.
+ * `false` means there is no snapshot yet — the stream cursor must not advance.
+ */
+export const reduceAppliedShellEvent = (event: ShellLiveEvent): boolean => {
+  if (appliedShell === undefined) {
+    return false
+  }
+  const next = applyShellEvent(appliedShell, event)
+  if (Object.is(next, appliedShell)) {
+    return true
+  }
+  appliedShell = next
+  emitAppliedShell()
+  return true
+}
+
+/** Test helper: drop the in-memory shell between cases. */
+export const resetAppliedShell = (): void => {
+  appliedShell = undefined
 }

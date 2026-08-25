@@ -438,7 +438,8 @@ export const buildCommand = <A, E>(
 
 type StreamCallbacks<Snapshot, Event> = {
   readonly onSnapshot: (snapshot: Snapshot) => void
-  readonly onEvent: (event: Event) => void
+  /** Return `false` to refuse the event and keep the stream cursor unmoved. */
+  readonly onEvent: (event: Event) => boolean | void
   readonly onStatus: (status: SubscriptionStatus) => void
 }
 
@@ -474,13 +475,16 @@ export const makeSequencedFrameConsumer = <
       if (!acceptsSequence(lastSequence, sequence)) {
         return
       }
-      lastSequence = sequence
       if (item.kind === "snapshot") {
+        lastSequence = sequence
         acceptsLiveEvents = true
         callbacks.onSnapshot(item.snapshot)
-      } else {
-        callbacks.onEvent(item.event)
+        return
       }
+      if (callbacks.onEvent(item.event) === false) {
+        return
+      }
+      lastSequence = sequence
     },
   }
 }

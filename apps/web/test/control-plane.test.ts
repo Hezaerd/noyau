@@ -30,7 +30,9 @@ describe("control plane stream cursor", () => {
       { readonly sequence: Sequence; readonly label: string }
     >(undefined, {
       onSnapshot: (snapshot) => accepted.push(`snapshot:${snapshot.label}`),
-      onEvent: (event) => accepted.push(`event:${event.label}`),
+      onEvent: (event) => {
+        accepted.push(`event:${event.label}`)
+      },
       onStatus: () => undefined,
     })
 
@@ -53,7 +55,9 @@ describe("control plane stream cursor", () => {
       { readonly sequence: Sequence; readonly label: string }
     >(Sequence.make(10), {
       onSnapshot: (snapshot) => accepted.push(`snapshot:${snapshot.label}`),
-      onEvent: (event) => accepted.push(`event:${event.label}`),
+      onEvent: (event) => {
+        accepted.push(`event:${event.label}`)
+      },
       onStatus: () => undefined,
     })
 
@@ -63,6 +67,33 @@ describe("control plane stream cursor", () => {
 
     expect(accepted).toEqual(["event:catch-up", "event:live"])
     expect(consumer.afterSequence()).toBe(12)
+  })
+
+  it("does not advance the cursor when onEvent refuses the live item", () => {
+    const accepted: Array<string> = []
+    const consumer = makeSequencedFrameConsumer<
+      { readonly snapshotSequence: Sequence; readonly label: string },
+      { readonly sequence: Sequence; readonly label: string }
+    >(undefined, {
+      onSnapshot: (snapshot) => accepted.push(`snapshot:${snapshot.label}`),
+      onEvent: (event) => {
+        accepted.push(`event:${event.label}`)
+        return event.label !== "hold"
+      },
+      onStatus: () => undefined,
+    })
+
+    consumer.consume({
+      kind: "snapshot",
+      snapshot: { snapshotSequence: Sequence.make(10), label: "initial" },
+    })
+    consumer.consume({ kind: "event", event: { sequence: Sequence.make(11), label: "hold" } })
+    expect(consumer.afterSequence()).toBe(10)
+    consumer.consume({ kind: "event", event: { sequence: Sequence.make(11), label: "hold" } })
+    consumer.consume({ kind: "event", event: { sequence: Sequence.make(11), label: "live" } })
+
+    expect(accepted).toEqual(["snapshot:initial", "event:hold", "event:hold", "event:live"])
+    expect(consumer.afterSequence()).toBe(11)
   })
 
   it("replaces a failed session and resubscribes from the last accepted global sequence", () =>
