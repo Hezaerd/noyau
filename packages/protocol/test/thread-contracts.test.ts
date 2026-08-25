@@ -4,7 +4,7 @@ import { ResumeCursor, Session } from "@noyau/protocol/entities/session"
 import { Thread } from "@noyau/protocol/entities/thread"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import { checkpointRefForTurn, Turn } from "@noyau/protocol/entities/turn"
+import { CheckpointRef, checkpointRefForTurn, Turn } from "@noyau/protocol/entities/turn"
 import { EventEnvelope } from "@noyau/protocol/events"
 import { ThreadId } from "@noyau/protocol/ids"
 import { Receipt } from "@noyau/protocol/receipts"
@@ -184,6 +184,16 @@ describe("Thread and Session entities", () => {
       },
     })
     expect(turn.turnDiff?.files[0]?.path).toBe("src/app.ts")
+  })
+
+  it("exige un UUID dans CheckpointRef", () => {
+    expect(Schema.decodeSync(CheckpointRef)(`refs/noyau/checkpoint/${ids.thread}/0`)).toBe(
+      `refs/noyau/checkpoint/${ids.thread}/0`,
+    )
+    expect(() =>
+      Schema.decodeSync(CheckpointRef)(`refs/noyau/checkpoint/${"-".repeat(36)}/1`),
+    ).toThrow()
+    expect(() => Schema.decodeSync(CheckpointRef)("refs/noyau/checkpoint/not-a-uuid/1")).toThrow()
   })
 
   it("round-trip un TurnDiffPatch", () => {

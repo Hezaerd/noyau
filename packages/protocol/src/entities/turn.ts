@@ -10,9 +10,12 @@ export type TurnSettlementState = (typeof TurnSettlementState)["Type"]
 const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
 /** Ref git cachée `refs/noyau/checkpoint/<threadId>/<ordinal>`. */
-export const CheckpointRef = Schema.NonEmptyString.check(
-  Schema.isPattern(/^refs\/noyau\/checkpoint\/[0-9a-f-]{36}\/\d+$/i),
-).pipe(Schema.brand("CheckpointRef"))
+export const CheckpointRef = Schema.TemplateLiteral([
+  "refs/noyau/checkpoint/",
+  Schema.String.check(Schema.isUUID()),
+  "/",
+  Schema.String.check(Schema.isPattern(/^\d+$/)),
+]).pipe(Schema.brand("CheckpointRef"))
 export type CheckpointRef = (typeof CheckpointRef)["Type"]
 
 export const checkpointRefForTurn = (threadId: ThreadId, ordinal: number): CheckpointRef =>
