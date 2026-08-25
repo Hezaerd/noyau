@@ -133,6 +133,16 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       ),
     [projectId],
   )
+  const openTicket = useCallback(
+    (ticketId: string) => {
+      void navigate({
+        to: "/projects/$projectId/board",
+        params: { projectId },
+        search: { ticket: ticketId },
+      })
+    },
+    [navigate, projectId],
+  )
   const pageSnapshot =
     snapshot !== undefined && snapshot.thread.id === threadId
       ? snapshot
@@ -854,13 +864,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               }
               projectId={projectId}
               tickets={tickets}
-              onOpenTicket={(ticketId) => {
-                void navigate({
-                  to: "/projects/$projectId/board",
-                  params: { projectId },
-                  search: { ticket: ticketId },
-                })
-              }}
+              onOpenTicket={openTicket}
               error={transcriptError}
               notices={
                 threadStatusNoticesVisible(

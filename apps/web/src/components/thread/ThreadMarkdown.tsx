@@ -1,5 +1,5 @@
 import type { ProjectId } from "@noyau/protocol/ids"
-import { useCallback, useMemo } from "react"
+import { memo, useCallback, useMemo } from "react"
 import { defaultUrlTransform, Streamdown, type ExtraProps } from "streamdown"
 
 import { ThreadMarkdownContext } from "@/components/thread/thread-markdown-context"
@@ -27,7 +27,9 @@ const streamdownComponents = {
   table: ThreadMarkdownTable,
 }
 
-export function ThreadMarkdown({
+const streamdownControls = { code: { copy: false, download: false }, table: false } as const
+
+export const ThreadMarkdown = memo(function ThreadMarkdown({
   text,
   streaming = false,
   workspaceRoot,
@@ -78,7 +80,7 @@ export function ThreadMarkdown({
       <Streamdown
         className={markdownClassName}
         components={streamdownComponents}
-        controls={{ code: { copy: false, download: false }, table: false }}
+        controls={streamdownControls}
         isAnimating={streaming}
         mode={streaming ? "streaming" : "static"}
         plugins={threadMarkdownPlugins}
@@ -89,4 +91,4 @@ export function ThreadMarkdown({
       </Streamdown>
     </ThreadMarkdownContext.Provider>
   )
-}
+})
