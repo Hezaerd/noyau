@@ -3,7 +3,7 @@ import { Schema } from "effect"
 import { ProjectId } from "./ids.ts"
 
 export const NOYAU_AGENT_SKILL_NAME = "noyau" as const
-export const NOYAU_AGENT_SKILL_VERSION = "1.0.0" as const
+export const NOYAU_AGENT_SKILL_VERSION = "1.1.0" as const
 
 export const AgentIntegrationStatusKind = Schema.Literals([
   "absent",

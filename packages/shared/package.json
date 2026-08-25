@@ -6,7 +6,8 @@
   "exports": {
     "./composer-trigger": "./src/composer-trigger.ts",
     "./composer-inline-tokens": "./src/composer-inline-tokens.ts",
-    "./release-brand": "./src/release-brand.ts"
+    "./release-brand": "./src/release-brand.ts",
+    "./resume-prompt": "./src/resume-prompt.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

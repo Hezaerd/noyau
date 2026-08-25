@@ -33,6 +33,11 @@ _À éviter_ : Channel, Message, forum, Workbench
 Diagnostic visible d'une Session en `error`. Remplace tout badge `lost`.
 _À éviter_ : lost, failed, requested
 
+**Retry de Turn**:
+Bouton Réessayer après une Session `error` sans `resumeCursor`. Restaure le mandat
+(texte + images) dans le Composer et le renvoie — pas un jeton « Reprends ».
+_À éviter_ : prompt de reprise, nouveau Thread, rejouer un autre Thread
+
 **Échec**:
 Résultat attendu d'une opération qui n'a pas abouti et dont l'humain peut comprendre la cause ou
 la correction.

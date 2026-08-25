@@ -10,11 +10,15 @@ available in the current Turn; never edit Noyau's database or invent a missing t
 
 ## Core workflow
 
-1. Inspect the Tableau before proposing or starting work.
-2. Prefer an open actionable Ticket whose dependencies are complete.
-3. Preserve the identifiers returned by Noyau. Never infer IDs from titles.
-4. Re-read affected Tickets after mutations when a read tool is available.
-5. Report a missing Noyau capability instead of maintaining a parallel todo list.
+1. The latest user message on **this** Thread is the mandate. A resume token
+   (« Reprends », « Resume ») does not replace it. Do not treat an En cours Ticket
+   linked to another Thread as work to resume.
+2. Inspect the Tableau before proposing or starting work.
+3. Prefer an open actionable Ticket whose dependencies are complete **and** that is
+   linked to this Thread, or that the latest user message named. Otherwise ask.
+4. Preserve the identifiers returned by Noyau. Never infer IDs from titles.
+5. Re-read affected Tickets after mutations when a read tool is available.
+6. Report a missing Noyau capability instead of maintaining a parallel todo list.
 
 The MCP capability is already scoped to the current Project and Thread. Do not ask for or pass a
 different `projectId`, `threadId`, bearer token, or MCP endpoint.

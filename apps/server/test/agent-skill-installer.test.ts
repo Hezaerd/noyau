@@ -78,13 +78,13 @@ layer(platformLayer)("AgentSkillInstaller", (it) => {
       const encoded = yield* fileSystem.readFileString(marker)
       yield* fileSystem.writeFileString(
         marker,
-        encoded.replace('"version":"1.0.0"', '"version":"0.9.0"'),
+        encoded.replace('"version":"1.1.0"', '"version":"0.9.0"'),
       )
 
       assert.strictEqual((yield* installer.inspect(projectId, root)).status, "outdated")
       const updated = yield* installer.install(projectId, root)
       assert.strictEqual(updated.status, "current")
-      assert.strictEqual(updated.installedVersion, "1.0.0")
+      assert.strictEqual(updated.installedVersion, "1.1.0")
     }),
   )
 

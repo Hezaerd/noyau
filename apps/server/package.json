@@ -23,6 +23,7 @@
     "./provider/cursor-about": "./src/provider/cursor-about.ts",
     "./provider/tool-call-presentation": "./src/provider/tool-call-presentation.ts",
     "./provider/prompt-blocks": "./src/provider/prompt-blocks.ts",
+    "./provider/undelivered-mandate": "./src/provider/undelivered-mandate.ts",
     "./provider/provider-port": "./src/provider/provider-port.ts",
     "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
     "./provider/turn-user-input-registry": "./src/provider/turn-user-input-registry.ts",

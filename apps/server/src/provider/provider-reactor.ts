@@ -32,6 +32,7 @@ import {
   type ProviderTurnAttachment,
   type ProviderTurnInput,
 } from "./provider-port.ts"
+import { resolveProviderTurnPrompt } from "./undelivered-mandate.ts"
 
 const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)
@@ -266,10 +267,17 @@ export const makeProviderReactor = (
               }).pipe(Effect.orDie)
               yield* dispatchInternal(bind)
             }
+            const mandate = resolveProviderTurnPrompt({
+              resumeCursor: snapshot.value.session?.resumeCursor ?? null,
+              currentText: threadEvent.text ?? "",
+              currentAttachments: threadEvent.attachments,
+              currentTurnId: threadEvent.turnId,
+              transcript: snapshot.value.transcript,
+            })
             const attachments =
-              threadEvent.attachments === undefined
+              mandate.attachments === undefined
                 ? undefined
-                : yield* loadAttachments(threadEvent.attachments).pipe(Effect.result)
+                : yield* loadAttachments(mandate.attachments).pipe(Effect.result)
             if (attachments !== undefined && Result.isFailure(attachments)) {
               yield* ingestSignal(dispatchInternal, persisted, runtimeMode, {
                 _tag: "turn-ended",
@@ -291,7 +299,7 @@ export const makeProviderReactor = (
               projectId: ProjectId.make(persisted.projectId),
               threadId: threadEvent.threadId,
               turnId: threadEvent.turnId,
-              text: threadEvent.text ?? "",
+              text: mandate.text,
               workspaceRoot: cwd,
               runtimeMode,
               modelSelection: snapshot.value.thread.modelSelection,

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   appendComposerImages,
+  composerImageFromBytes,
   composerImageFromFile,
   filesFromFileList,
+  revokeComposerImages,
 } from "../src/lib/composer-images"
 
 const pngFile = (name = "shot.png", size = 4) =>
@@ -46,5 +48,23 @@ describe("composer-images", () => {
     expect(filled.reason).toBe("limit")
     expect(filled.images).toHaveLength(8)
     expect(filesFromFileList(null)).toEqual([])
+  })
+
+  it("reconstruit un upload depuis les octets persistés", () => {
+    const bytes = new Uint8Array([1, 2, 3, 4])
+    const image = composerImageFromBytes({
+      name: "shot.png",
+      mimeType: "image/png",
+      bytes,
+    })
+    expect(image?.upload).toMatchObject({
+      type: "image",
+      name: "shot.png",
+      mimeType: "image/png",
+      sizeBytes: 4,
+    })
+    if (image !== undefined) {
+      revokeComposerImages([image])
+    }
   })
 })

@@ -15,6 +15,11 @@ dans le texte du Composer. Le serveur encode un fichier en `resource_link` ACP e
 un Ticket en texte structuré (`ticketId`, titre, colonne).
 _À éviter_ : attachment, Resource, ContentBlock
 
+**Jeton de reprise**:
+Prompt réduit à un mot de reprise (`reprends`, `resume`, `continuer`, …). Ce n'est
+pas un mandat. Le Server et le Composer le remplacent par le dernier `transcript.user`.
+_À éviter_ : nouveau prompt, historique provider
+
 **ReleaseBrand**:
 Identité pure et exhaustive d'un canal desktop : nom, bundle, icône, palette et application
 Discord. Chaque surface consomme cette même définition après avoir décodé le canal à sa

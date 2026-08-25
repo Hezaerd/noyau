@@ -186,6 +186,20 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByRole("alert").textContent).toContain("ACP indisponible")
     expect(screen.getByText(/You stopped/)).toBeTruthy()
     expect(screen.queryByText(/lost/i)).toBeNull()
+    expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull()
+  })
+
+  it("offers Réessayer when a failed Turn has no Cursor session", () => {
+    const onRetry = vi.fn()
+    render(
+      <ThreadStatusNotices
+        session={{ status: "error", lastError: "ACP indisponible" }}
+        latestTurn={{ state: "error" }}
+        onRetry={onRetry}
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: "Réessayer" })).toBeTruthy()
   })
 
   it("shows a Fix merge conflicts action to the left of the composer", () => {
