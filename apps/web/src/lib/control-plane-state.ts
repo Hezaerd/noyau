@@ -1,11 +1,13 @@
 import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
-import { ProjectId } from "@noyau/protocol/ids"
+import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
+import { ProjectId, type ThreadId } from "@noyau/protocol/ids"
 import type {
   ProjectShell,
   ShellLiveEvent,
   ShellSnapshot,
   ThreadShell,
 } from "@noyau/protocol/shell"
+import { DateTime } from "effect"
 import { createContext } from "react"
 
 import type { SubscriptionStatus } from "./control-plane"
@@ -130,6 +132,47 @@ export const reduceAppliedShellEvent = (event: ShellLiveEvent): boolean => {
   appliedShell = next
   emitAppliedShell()
   return true
+}
+
+/** Insert or replace a Thread in the applied shell without moving the stream cursor. */
+export const upsertAppliedShellThread = (thread: ThreadShell): boolean => {
+  if (appliedShell === undefined) {
+    return false
+  }
+  const threads = appliedShell.threads.some((candidate) => candidate.id === thread.id)
+    ? appliedShell.threads.map((candidate) => (candidate.id === thread.id ? thread : candidate))
+    : [...appliedShell.threads, thread]
+  appliedShell = { ...appliedShell, threads }
+  emitAppliedShell()
+  return true
+}
+
+export const makeOptimisticThreadShell = (input: {
+  readonly id: ThreadId
+  readonly projectId: ProjectId
+  readonly title: string
+  readonly runtimeMode: RuntimeMode
+  readonly branch?: string | null
+  readonly createdAt?: DateTime.Utc
+}): ThreadShell => {
+  const createdAt = input.createdAt ?? DateTime.nowUnsafe()
+  const thread: ThreadShell = {
+    id: input.id,
+    projectId: input.projectId,
+    title: input.title,
+    provider: "cursor",
+    runtimeMode: input.runtimeMode,
+    status: "active",
+    latestTurn: null,
+    sessionStatus: null,
+    lastError: null,
+    createdAt,
+    updatedAt: createdAt,
+  }
+  if (input.branch === undefined || input.branch === null || input.branch.trim() === "") {
+    return thread
+  }
+  return { ...thread, branch: input.branch }
 }
 
 /** Test helper: drop the in-memory shell between cases. */

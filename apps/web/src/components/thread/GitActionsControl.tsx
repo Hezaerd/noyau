@@ -41,6 +41,7 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu"
 import { Textarea } from "@/components/ui/textarea"
 import { toastManager } from "@/components/ui/toast"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { useControlPlaneSelector } from "@/hooks/use-control-plane"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
 import {
   buildCommand,
@@ -63,6 +64,7 @@ import {
   type GitActionIconName,
   type GitQuickAction,
 } from "@/lib/git-actions"
+import { vcsScopeForThread } from "@/lib/vcs-status"
 
 interface GitStackedDrafts {
   commitMessage?: string
@@ -156,7 +158,15 @@ export function GitActionsControl({
   readonly threadId: ThreadId | undefined
   readonly disabled: boolean
 }) {
-  const scope = threadId === undefined ? { projectId } : { projectId, threadId }
+  const threads = useControlPlaneSelector((state) => state.threads)
+  const thread = threads.find((candidate) => candidate.id === threadId)
+  const scope =
+    threadId === undefined
+      ? { projectId }
+      : vcsScopeForThread(projectId, {
+          id: threadId,
+          worktreePath: thread?.worktreePath ?? null,
+        })
   const status = useVcsStatus(scope)
   const [busy, setBusy] = useState(false)
   const [dialogAction, setDialogAction] = useState<GitStackedAction>()

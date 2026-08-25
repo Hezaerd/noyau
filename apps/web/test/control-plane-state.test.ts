@@ -6,9 +6,11 @@ import { afterEach, describe, expect, it } from "vite-plus/test"
 import {
   applyShellEvent,
   getAppliedShell,
+  makeOptimisticThreadShell,
   reduceAppliedShellEvent,
   replaceAppliedShell,
   resetAppliedShell,
+  upsertAppliedShellThread,
 } from "../src/lib/control-plane-state"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
@@ -105,5 +107,63 @@ describe("reduceAppliedShellEvent", () => {
     ).toBe(true)
     expect(getAppliedShell()?.threads).toEqual([thread])
     expect(getAppliedShell()?.snapshotSequence).toBe(11)
+  })
+})
+
+describe("upsertAppliedShellThread", () => {
+  it("refuses an upsert before the first snapshot", () => {
+    expect(upsertAppliedShellThread(makeThread(threadId))).toBe(false)
+    expect(getAppliedShell()).toBeUndefined()
+  })
+
+  it("inserts a Thread without moving the stream cursor", () => {
+    replaceAppliedShell(makeSnapshot(10))
+    const thread = makeOptimisticThreadShell({
+      id: threadId,
+      projectId,
+      title: "Fix sidebar ghost",
+      runtimeMode: "full-access",
+      branch: "main",
+      createdAt: makeThread(threadId).createdAt,
+    })
+
+    expect(upsertAppliedShellThread(thread)).toBe(true)
+    expect(getAppliedShell()?.threads).toEqual([thread])
+    expect(getAppliedShell()?.snapshotSequence).toBe(10)
+  })
+
+  it("keeps the next live event applyable after an optimistic insert", () => {
+    replaceAppliedShell(makeSnapshot(10))
+    const optimistic = makeOptimisticThreadShell({
+      id: threadId,
+      projectId,
+      title: "Nouveau thread",
+      runtimeMode: "full-access",
+    })
+    upsertAppliedShellThread(optimistic)
+    const authoritative = makeThread(threadId)
+
+    expect(
+      reduceAppliedShellEvent({
+        _tag: "thread-upserted",
+        sequence: Sequence.make(11),
+        thread: authoritative,
+      }),
+    ).toBe(true)
+    expect(getAppliedShell()?.threads).toEqual([authoritative])
+    expect(getAppliedShell()?.snapshotSequence).toBe(11)
+  })
+
+  it("omits an empty branch on the optimistic shell", () => {
+    expect(
+      makeOptimisticThreadShell({
+        id: threadId,
+        projectId,
+        title: "Nouveau thread",
+        runtimeMode: "full-access",
+        branch: "   ",
+        createdAt: makeThread(threadId).createdAt,
+      }),
+    ).not.toHaveProperty("branch")
   })
 })
