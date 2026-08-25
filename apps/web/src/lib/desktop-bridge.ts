@@ -1,5 +1,6 @@
 import {
   DEFAULT_RELEASE_CHANNEL,
+  parseReleaseChannel,
   releaseBrand,
   type ReleaseChannel,
 } from "@noyau/shared/release-brand"
@@ -62,8 +63,39 @@ export interface NoyauDesktopBridge {
   ) => Promise<DesktopUpdateOpenResult>
 }
 
-export const desktopReleaseChannel = (): DesktopReleaseChannel =>
-  window.noyauDesktop?.releaseChannel ?? DEFAULT_RELEASE_CHANNEL
+export const resolveDesktopReleaseChannel = (input: {
+  readonly bridgeChannel?: string | undefined
+  readonly search?: string | undefined
+  readonly isDesktopRuntime: boolean
+}): DesktopReleaseChannel => {
+  const bridgeChannel = parseReleaseChannel(input.bridgeChannel)
+  if (bridgeChannel !== undefined) {
+    return bridgeChannel
+  }
+  if (input.isDesktopRuntime) {
+    const searchChannel = parseReleaseChannel(
+      new URLSearchParams(input.search ?? "").get("channel") ?? undefined,
+    )
+    if (searchChannel !== undefined) {
+      return searchChannel
+    }
+  }
+  return DEFAULT_RELEASE_CHANNEL
+}
+
+const desktopWindow = globalThis.window
+const desktopNavigator = globalThis.navigator
+
+/** Immutable launch branding. The preload runs before page scripts; the URL is its safe fallback. */
+export const DESKTOP_RELEASE_CHANNEL: DesktopReleaseChannel = resolveDesktopReleaseChannel({
+  bridgeChannel: desktopWindow?.noyauDesktop?.releaseChannel,
+  search: desktopWindow?.location.search,
+  isDesktopRuntime:
+    desktopWindow?.noyauDesktop !== undefined ||
+    /Electron/i.test(desktopNavigator?.userAgent ?? ""),
+})
+
+export const desktopReleaseChannel = (): DesktopReleaseChannel => DESKTOP_RELEASE_CHANNEL
 
 export const desktopAppVersion = (): string => window.noyauDesktop?.appVersion ?? ""
 
