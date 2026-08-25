@@ -1,11 +1,27 @@
 import {
+  type VcsStatusCiVerdict,
+  type VcsStatusFailedCheck,
   type VcsStatusMergeability,
   type VcsStatusPullRequest,
   type VcsStatusPullRequestState,
 } from "@noyau/protocol/git"
 import { Effect, Schema } from "effect"
 
+const MAX_FAILED_CHECKS = 8
+
 const GhPullRequestState = Schema.Literals(["OPEN", "CLOSED", "MERGED", "open", "closed", "merged"])
+
+const GhCheck = Schema.Struct({
+  __typename: Schema.optionalKey(Schema.String),
+  name: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  context: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  status: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  conclusion: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  state: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  detailsUrl: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  targetUrl: Schema.optionalKey(Schema.NullOr(Schema.String)),
+})
+export type GhCheck = (typeof GhCheck)["Type"]
 
 const GhPullRequest = Schema.Struct({
   number: Schema.Int.check(Schema.isGreaterThan(0)),
@@ -16,6 +32,7 @@ const GhPullRequest = Schema.Struct({
   state: GhPullRequestState,
   mergeable: Schema.optionalKey(Schema.NullOr(Schema.String)),
   updatedAt: Schema.optionalKey(Schema.String),
+  statusCheckRollup: Schema.optionalKey(Schema.NullOr(Schema.Array(GhCheck))),
 })
 
 const GhPullRequestList = Schema.Array(GhPullRequest)
@@ -46,6 +63,79 @@ export const normalizeMergeability = (value: string | null | undefined): VcsStat
   }
 }
 
+type CheckKind = "pending" | "failure" | "success" | "other"
+
+const classifyCheck = (raw: GhCheck): CheckKind => {
+  const status = raw.status?.trim().toUpperCase()
+  if (status !== undefined && status !== "" && status !== "COMPLETED") {
+    return "pending"
+  }
+  switch ((raw.conclusion ?? raw.state)?.trim().toUpperCase()) {
+    case "FAILURE":
+    case "ERROR":
+    case "TIMED_OUT":
+    case "STARTUP_FAILURE":
+      return "failure"
+    case "SUCCESS":
+      return "success"
+    case "PENDING":
+    case "EXPECTED":
+      return "pending"
+    default:
+      return "other"
+  }
+}
+
+const checkName = (raw: GhCheck): string => (raw.name ?? raw.context ?? "").trim()
+
+const checkUrl = (raw: GhCheck): string | undefined => {
+  const url = (raw.detailsUrl ?? raw.targetUrl)?.trim()
+  return url === undefined || url === "" ? undefined : url
+}
+
+export interface FoldedCiStatus {
+  readonly ciStatus: VcsStatusCiVerdict
+  readonly failedChecks: ReadonlyArray<VcsStatusFailedCheck>
+}
+
+export const foldCiStatus = (rollup: ReadonlyArray<GhCheck> | null | undefined): FoldedCiStatus => {
+  const checks = rollup ?? []
+  if (checks.length === 0) {
+    return { ciStatus: "none", failedChecks: [] }
+  }
+  const failedChecks: Array<VcsStatusFailedCheck> = []
+  const seenFailed = new Set<string>()
+  let hasFailure = false
+  let hasPending = false
+  let hasSuccess = false
+  for (const check of checks) {
+    const kind = classifyCheck(check)
+    if (kind === "failure") {
+      hasFailure = true
+      const name = checkName(check)
+      if (name !== "" && !seenFailed.has(name) && failedChecks.length < MAX_FAILED_CHECKS) {
+        seenFailed.add(name)
+        const url = checkUrl(check)
+        failedChecks.push(url === undefined ? { name } : { name, url })
+      }
+    } else if (kind === "pending") {
+      hasPending = true
+    } else if (kind === "success") {
+      hasSuccess = true
+    }
+  }
+  if (hasFailure) {
+    return { ciStatus: "failing", failedChecks }
+  }
+  if (hasPending) {
+    return { ciStatus: "pending", failedChecks: [] }
+  }
+  if (hasSuccess) {
+    return { ciStatus: "passing", failedChecks: [] }
+  }
+  return { ciStatus: "none", failedChecks: [] }
+}
+
 export const toListedPullRequest = (item: {
   readonly number: number
   readonly title: string
@@ -55,16 +145,22 @@ export const toListedPullRequest = (item: {
   readonly state: string
   readonly mergeable?: string | null
   readonly updatedAt?: string
-}): ListedPullRequest => ({
-  number: item.number,
-  title: item.title,
-  url: item.url,
-  baseRef: item.baseRefName,
-  headRef: item.headRefName,
-  state: normalizePullRequestState(item.state),
-  mergeability: normalizeMergeability(item.mergeable),
-  updatedAt: item.updatedAt ?? null,
-})
+  readonly statusCheckRollup?: ReadonlyArray<GhCheck> | null
+}): ListedPullRequest => {
+  const ci = foldCiStatus(item.statusCheckRollup)
+  return {
+    number: item.number,
+    title: item.title,
+    url: item.url,
+    baseRef: item.baseRefName,
+    headRef: item.headRefName,
+    state: normalizePullRequestState(item.state),
+    mergeability: normalizeMergeability(item.mergeable),
+    ciStatus: ci.ciStatus,
+    failedChecks: ci.failedChecks,
+    updatedAt: item.updatedAt ?? null,
+  }
+}
 
 export const toStatusPullRequest = (item: ListedPullRequest): VcsStatusPullRequest => ({
   number: item.number,
@@ -74,6 +170,8 @@ export const toStatusPullRequest = (item: ListedPullRequest): VcsStatusPullReque
   headRef: item.headRef,
   state: item.state,
   mergeability: item.mergeability,
+  ciStatus: item.ciStatus,
+  failedChecks: item.failedChecks,
 })
 
 const updatedAtMs = (value: string | null): number => {

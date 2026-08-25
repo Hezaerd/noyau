@@ -181,6 +181,17 @@ describe("Thread commands", () => {
     expect(Schema.decodeSync(ThreadTurnStartRequest)(request).payload.presentation).toBe(
       "fix-merge-conflicts",
     )
+    expect(
+      Schema.decodeSync(ThreadTurnStartRequest)({
+        ...request,
+        payload: {
+          ...request.payload,
+          text: "PR #12 has failing CI.",
+          presentation: "fix-ci" as const,
+          titleSeed: "Fix CI",
+        },
+      }).payload.presentation,
+    ).toBe("fix-ci")
     const user = Schema.decodeSync(TranscriptItem)({
       _tag: "transcript.user",
       threadId: ids.thread,

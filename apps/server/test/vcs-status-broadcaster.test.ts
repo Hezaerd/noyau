@@ -36,6 +36,8 @@ const openPr = {
   headRef: "feat/live",
   state: "open" as const,
   mergeability: "unknown" as const,
+  ciStatus: "none" as const,
+  failedChecks: [],
 }
 
 const stubGitRuntime = (status: GitRuntimeService["status"]): GitRuntimeService => ({

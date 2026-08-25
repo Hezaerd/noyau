@@ -45,10 +45,14 @@ describe("git contracts", () => {
         headRef: "feat/checkout",
         state: "open",
         mergeability: "mergeable",
+        ciStatus: "failing",
+        failedChecks: [{ name: "Verify", url: "https://github.com/hezaerd/noyau/actions/1" }],
       },
     })
     expect(status.refName).toBe("main")
     expect(status.pr?.number).toBe(42)
+    expect(status.pr?.ciStatus).toBe("failing")
+    expect(status.pr?.failedChecks[0]?.name).toBe("Verify")
     expect(Schema.decodeSync(GitStackedAction)("commit_push_pr")).toBe("commit_push_pr")
     expect(
       Schema.decodeSync(VcsStatusStreamEvent)({

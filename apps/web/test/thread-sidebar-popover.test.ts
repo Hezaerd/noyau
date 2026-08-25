@@ -92,6 +92,8 @@ describe("thread sidebar popover", () => {
           headRef: "feat",
           state: "open",
           mergeability: "unknown",
+          ciStatus: "none",
+          failedChecks: [],
         },
       }).map((row) => row.kind),
     ).toEqual(["project", "provider", "runtimeMode", "pullRequest"])

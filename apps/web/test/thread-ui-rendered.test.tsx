@@ -15,6 +15,7 @@ import { TicketDialog } from "../src/components/board/TicketDialog"
 import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { ThreadSidebarStatus } from "../src/components/sidebar/ThreadSidebarStatus"
+import { FixCiButton } from "../src/components/thread/FixCiButton"
 import { FixMergeConflictsButton } from "../src/components/thread/FixMergeConflictsButton"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "../src/components/thread/ThreadDraftHero"
@@ -254,7 +255,12 @@ describe("rendered Thread UI evidence", () => {
         onDrop={vi.fn()}
         onImageRemove={vi.fn()}
         onInterrupt={vi.fn()}
-        toolbar={<FixMergeConflictsButton disabled={false} onClick={vi.fn()} />}
+        toolbar={
+          <>
+            <FixMergeConflictsButton disabled={false} onClick={vi.fn()} />
+            <FixCiButton disabled={false} onClick={vi.fn()} />
+          </>
+        }
       />,
     )
 
@@ -263,6 +269,7 @@ describe("rendered Thread UI evidence", () => {
     expect(toolbar).toBeTruthy()
     expect(toolbar?.className).toContain("absolute")
     expect(toolbar?.className).toContain("justify-start")
+    expect(screen.getByRole("button", { name: "Fix CI" })).toBeTruthy()
   })
 
   it("gates the composer while Cursor is unavailable", () => {
@@ -1533,6 +1540,34 @@ describe("rendered Thread UI evidence", () => {
     expect(label.closest("[data-slot=message]")?.getAttribute("data-align")).toBe("end")
     expect(label.closest("[data-slot=bubble]")).toBeTruthy()
     expect(screen.queryByText("PR #12 conflicts with its base branch `main`.")).toBeNull()
+  })
+
+  it("renders a presentation message instead of the raw fix-ci prompt", () => {
+    const item = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.user",
+      threadId,
+      turnId: TurnId.make("40000000-0000-4000-8000-000000000001"),
+      text: "PR #12 has failing CI on branch `feat/live`.",
+      presentation: "fix-ci",
+    })
+
+    render(
+      <ThreadTranscriptItem
+        item={item}
+        streaming={false}
+        draftAnswers={{}}
+        legacyFreeform=""
+        onDraftAnswersChange={vi.fn()}
+        onLegacyFreeformChange={vi.fn()}
+        onRespondApproval={vi.fn()}
+        onRespondUserInput={vi.fn()}
+      />,
+    )
+
+    const label = screen.getByText("Fix CI")
+    expect(label.closest("[data-slot=message]")?.getAttribute("data-align")).toBe("end")
+    expect(label.closest("[data-slot=bubble]")).toBeTruthy()
+    expect(screen.queryByText("PR #12 has failing CI on branch `feat/live`.")).toBeNull()
   })
 
   it("renders streamed assistant markdown inside a Message row", () => {

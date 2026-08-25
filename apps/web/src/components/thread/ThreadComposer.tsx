@@ -294,7 +294,7 @@ export function ThreadComposer({
             data-slot="composer-toolbar"
             className="pointer-events-none absolute inset-x-0 bottom-full z-10 mb-2 flex justify-start"
           >
-            <div className="pointer-events-auto">{toolbar}</div>
+            <div className="pointer-events-auto flex items-center gap-2">{toolbar}</div>
           </div>
         )}
         <InputGroup className="rounded-xl bg-background shadow-xs/5 dark:bg-background has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">

@@ -6,6 +6,7 @@ import {
   applyVcsStatusStreamEvent,
   displayedThreadPr,
   isConflictingOpenPullRequest,
+  isFailingCiOpenPullRequest,
   nextThreadChangeRequestSnapshot,
   resolveThreadPr,
   uniqueVcsScopes,
@@ -21,6 +22,8 @@ const pr = (overrides: Partial<VcsStatusPullRequest> = {}): VcsStatusPullRequest
   headRef: "feat/live",
   state: "open",
   mergeability: "unknown",
+  ciStatus: "none",
+  failedChecks: [],
   ...overrides,
 })
 
@@ -61,6 +64,15 @@ describe("vcs-status", () => {
       false,
     )
     expect(isConflictingOpenPullRequest(null)).toBe(false)
+  })
+
+  it("n’offre Fix CI que pour une PR ouverte failing", () => {
+    expect(isFailingCiOpenPullRequest(pr({ ciStatus: "failing" }))).toBe(true)
+    expect(isFailingCiOpenPullRequest(pr({ ciStatus: "pending" }))).toBe(false)
+    expect(isFailingCiOpenPullRequest(pr({ ciStatus: "passing" }))).toBe(false)
+    expect(isFailingCiOpenPullRequest(pr({ ciStatus: "none" }))).toBe(false)
+    expect(isFailingCiOpenPullRequest(pr({ state: "merged", ciStatus: "failing" }))).toBe(false)
+    expect(isFailingCiOpenPullRequest(null)).toBe(false)
   })
 
   it("n’affiche la PR live que si la branche du Thread matche HEAD", () => {
