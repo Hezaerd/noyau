@@ -19,6 +19,7 @@ import {
   type ThreadShellIndex,
 } from "@/lib/thread-shell-index"
 import { appAtomRegistry } from "@/state/atom-registry"
+import { promoteComposerDraft } from "@/state/composer-drafts"
 
 export const EMPTY_PROJECTS: ReadonlyArray<ProjectShell> = Object.freeze([])
 
@@ -154,6 +155,16 @@ export const upsertAppliedShellThread = (thread: ThreadShell): boolean => {
   }
   appAtomRegistry.set(appliedShellAtom, { ...current, threads: [...current.threads, thread] })
   return true
+}
+
+/** Optimistic sidebar row + promote the new-Thread Brouillon in one notification. */
+export const publishCreatedThread = (thread: ThreadShell): boolean => {
+  let inserted = false
+  Atom.batch(() => {
+    inserted = upsertAppliedShellThread(thread)
+    promoteComposerDraft(thread.projectId, thread.id)
+  })
+  return inserted
 }
 
 export const setSubscriptionStatus = (status: SubscriptionStatus): void => {

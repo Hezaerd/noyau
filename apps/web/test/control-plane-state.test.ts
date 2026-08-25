@@ -5,8 +5,10 @@ import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { applyShellEvent, makeOptimisticThreadShell } from "../src/lib/control-plane-state"
 import { appAtomRegistry, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
+import { readComposerDraft, writeComposerDraft } from "../src/state/composer-drafts"
 import {
   getAppliedShell,
+  publishCreatedThread,
   reduceAppliedShellEvent,
   replaceAppliedShell,
   resetAppliedShell,
@@ -216,5 +218,23 @@ describe("upsertAppliedShellThread", () => {
         createdAt: makeThread(threadId).createdAt,
       }),
     ).not.toHaveProperty("branch")
+  })
+})
+
+describe("publishCreatedThread", () => {
+  it("upserts the optimistic shell and promotes the new-Thread Brouillon", () => {
+    replaceAppliedShell(makeSnapshot(10))
+    writeComposerDraft(projectId, undefined, "continue after create")
+    const thread = makeOptimisticThreadShell({
+      id: threadId,
+      projectId,
+      title: "Nouveau thread",
+      runtimeMode: "full-access",
+    })
+
+    expect(publishCreatedThread(thread)).toBe(true)
+    expect(getAppliedShell()?.threads).toEqual([thread])
+    expect(readComposerDraft(projectId, undefined)).toBe("")
+    expect(readComposerDraft(projectId, threadId)).toBe("continue after create")
   })
 })

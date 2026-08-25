@@ -50,7 +50,6 @@ import {
   rememberCreatedCheckout,
   resolveEffectiveEnvMode,
 } from "@/lib/checkout"
-import { writeComposerDraft } from "@/lib/composer-drafts"
 import {
   appendComposerImages,
   composerImageFailureMessage,
@@ -92,7 +91,8 @@ import {
   isFailingCiOpenPullRequest,
   vcsScopeForThread,
 } from "@/lib/vcs-status"
-import { upsertAppliedShellThread } from "@/state/shell"
+import { writeComposerDraft } from "@/state/composer-drafts"
+import { publishCreatedThread } from "@/state/shell"
 import { markThreadVisited } from "@/state/thread-visits"
 
 interface ThreadPageProps {
@@ -475,7 +475,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           baseBranch,
           startFromOrigin,
         })
-        upsertAppliedShellThread(
+        publishCreatedThread(
           makeOptimisticThreadShell({
             id: result.threadId,
             projectId: submittedProjectId,
