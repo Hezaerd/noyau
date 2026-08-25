@@ -726,11 +726,7 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
             checkpoint_files_json = ${filesJson}
         WHERE turn_id = ${event.turnId}
           AND thread_id = ${event.threadId}
-          AND NOT (
-            checkpoint_status IS NOT NULL
-            AND checkpoint_status <> 'missing'
-            AND ${event.status} = 'missing'
-          )
+          AND (checkpoint_status IS NULL OR checkpoint_status <> 'ready')
       `
       break
     }

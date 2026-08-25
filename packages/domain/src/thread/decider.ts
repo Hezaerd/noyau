@@ -464,11 +464,7 @@ export const decide = (
               }),
             )
           }
-          if (
-            turn.turnDiff !== undefined &&
-            turn.turnDiff.status !== "missing" &&
-            command.payload.status === "missing"
-          ) {
+          if (turn.turnDiff?.status === "ready") {
             return Result.succeed([])
           }
           return Result.succeed([ThreadTurnDiffCompleted.make(command.payload)])

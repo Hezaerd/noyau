@@ -19,7 +19,11 @@ import {
   ThreadTranscriptAppend,
   ThreadTurnStart,
 } from "@noyau/protocol/thread/commands"
-import { ThreadTranscriptAppended, type ThreadEvent } from "@noyau/protocol/thread/events"
+import {
+  ThreadTranscriptAppended,
+  ThreadTurnDiffCompleted,
+  type ThreadEvent,
+} from "@noyau/protocol/thread/events"
 import { DEFAULT_THREAD_TITLE } from "@noyau/protocol/thread/title"
 import { Result, Schema } from "effect"
 
@@ -1026,6 +1030,67 @@ describe("TurnDiff", () => {
       ),
     ).toEqual([])
     expect(ready.threads[0]?.turns[0]?.turnDiff?.status).toBe("ready")
+  })
+
+  it("n'écrase pas un TurnDiff ready par error, ready ou replay", () => {
+    const running = withStartedTurn()
+    const ready = apply(
+      running,
+      success(
+        decide(
+          running,
+          command({
+            _tag: "thread.turn.diff.complete",
+            ...meta,
+            payload: {
+              threadId: ids.thread,
+              turnId: ids.turn1,
+              checkpointRef,
+              status: "ready",
+              files,
+            },
+          }),
+        ),
+      ),
+    )
+    for (const status of ["error", "ready"] as const) {
+      expect(
+        success(
+          decide(
+            ready,
+            command({
+              _tag: "thread.turn.diff.complete",
+              ...meta,
+              commandId: ids.command2,
+              payload: {
+                threadId: ids.thread,
+                turnId: ids.turn1,
+                checkpointRef: `refs/noyau/checkpoint/${ids.thread}/99`,
+                status,
+                files: [],
+              },
+            }),
+          ),
+        ),
+      ).toEqual([])
+    }
+    expect(
+      evolve(
+        ready,
+        Schema.decodeSync(ThreadTurnDiffCompleted)({
+          _tag: "thread.turn-diff-completed",
+          threadId: ids.thread,
+          turnId: ids.turn1,
+          checkpointRef: `refs/noyau/checkpoint/${ids.thread}/99`,
+          status: "error",
+          files: [],
+        }),
+      ).threads[0]?.turns[0]?.turnDiff,
+    ).toEqual({
+      checkpointRef,
+      status: "ready",
+      files,
+    })
   })
 })
 

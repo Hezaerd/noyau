@@ -340,11 +340,7 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
     case "thread.turn-diff-completed":
       return updateThread(state, event.threadId, (thread) => {
         const existing = thread.turns.find((turn) => turn.turnId === event.turnId)
-        if (
-          existing?.turnDiff !== undefined &&
-          existing.turnDiff.status !== "missing" &&
-          event.status === "missing"
-        ) {
+        if (existing?.turnDiff?.status === "ready") {
           return thread
         }
         return updateTurn(thread, event.turnId, (turn) => ({
