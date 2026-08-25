@@ -197,6 +197,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setModelSelection(null)
     }
     const commitSnapshot = (next: ThreadSnapshot) => {
+      if (next.thread.id !== threadId) {
+        return
+      }
       writeThreadSnapshotCache(next)
       setSnapshot(next)
       setRuntimeMode(next.thread.runtimeMode)
@@ -225,13 +228,19 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       onEvent: (envelope) => {
         const event = envelope.event
         setSnapshot((current) => {
-          if (current === undefined) {
+          if (current === undefined || current.thread.id !== threadId) {
             return current
           }
-          const next = applyThreadEnvelope(current, envelope) ?? current
+          const next = applyThreadEnvelope(current, envelope)
+          if (next === undefined) {
+            return current
+          }
           writeThreadSnapshotCache(next)
           return next
         })
+        if ("threadId" in event && event.threadId !== threadId) {
+          return
+        }
         if (event._tag === "thread.turn.started") {
           setRuntimeMode((current) => event.runtimeMode ?? current)
           if (event.modelSelection !== undefined) {

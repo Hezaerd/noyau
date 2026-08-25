@@ -374,6 +374,37 @@ describe("thread transcript projection", () => {
     expect(afterDelta?.transcript.at(-1)?._tag).toBe("transcript.user")
   })
 
+  it("settles the running Turn from thread.turn.ended without waiting for session-set", () => {
+    const next = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.turn.ended",
+        threadId: ids.thread,
+        turnId: ids.turn,
+        state: "completed",
+      }),
+    )
+
+    expect(next?.turns[0]?.state).toBe("completed")
+    expect(next?.thread.latestTurn?.state).toBe("completed")
+    expect(next?.session?.activeTurnId).toBeNull()
+  })
+
+  it("ignores an envelope that belongs to another Thread", () => {
+    const otherThread = ThreadId.make("20000000-0000-4000-8000-000000000099")
+    const next = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.turn.ended",
+        threadId: otherThread,
+        turnId: ids.turn,
+        state: "completed",
+      }),
+    )
+
+    expect(next).toBeUndefined()
+  })
+
   it("renders a compact tool caption without status or raw output", () => {
     const withPath = decodeTranscript({
       _tag: "transcript.tool",

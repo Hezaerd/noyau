@@ -17,6 +17,7 @@ export function ThreadRoutePage() {
 
   return (
     <ThreadPage
+      key={threadId ?? "new"}
       projectId={projectId}
       threadId={threadId}
       onCreated={(createdThreadId) => {

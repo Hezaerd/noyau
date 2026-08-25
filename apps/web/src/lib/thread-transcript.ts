@@ -506,6 +506,25 @@ const withEnvelope = (
   transcript: patch.transcript,
 })
 
+const settleTurn = (
+  snapshot: ThreadSnapshot,
+  turnId: Turn["id"],
+  state: TurnSettlementState,
+  occurredAt: Thread["updatedAt"],
+): ReadonlyArray<Turn> =>
+  snapshot.turns.map((turn) =>
+    turn.id === turnId && turn.state === "running"
+      ? { ...turn, state, completedAt: occurredAt }
+      : turn,
+  )
+
+const eventThreadIdOf = (event: EventEnvelope["event"]): Thread["id"] | undefined => {
+  if (event._tag === "thread.transcript-appended") {
+    return event.item.threadId
+  }
+  return "threadId" in event ? event.threadId : undefined
+}
+
 const settleRunningTurns = (
   snapshot: ThreadSnapshot,
   session: Session,
@@ -532,6 +551,10 @@ export const applyThreadEnvelope = (
   envelope: EventEnvelope,
 ): ThreadSnapshot | undefined => {
   const event = envelope.event
+  const eventThreadId = eventThreadIdOf(event)
+  if (eventThreadId !== undefined && eventThreadId !== snapshot.thread.id) {
+    return undefined
+  }
   switch (event._tag) {
     case "thread.transcript-appended": {
       const turn = snapshot.turns.find((candidate) => candidate.id === event.item.turnId)
@@ -741,9 +764,48 @@ export const applyThreadEnvelope = (
         transcript: snapshot.transcript,
       })
     }
+    case "thread.turn.interrupted": {
+      const turnId =
+        event.turnId ?? snapshot.session?.activeTurnId ?? snapshot.thread.latestTurn?.turnId
+      if (turnId === undefined || turnId === null) {
+        return withEnvelope(snapshot, envelope, snapshot)
+      }
+      const turns = settleTurn(snapshot, turnId, "interrupted", envelope.occurredAt)
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, {
+          latestTurn: latestTurnOf(turns),
+          updatedAt: envelope.occurredAt,
+        }),
+        session: snapshot.session,
+        turns,
+        transcript: snapshot.transcript,
+      })
+    }
+    case "thread.turn.ended": {
+      const turns = settleTurn(snapshot, event.turnId, event.state, envelope.occurredAt)
+      const session =
+        snapshot.session === null
+          ? null
+          : {
+              ...snapshot.session,
+              lastError: event.lastError ?? snapshot.session.lastError,
+              activeTurnId:
+                snapshot.session.activeTurnId === event.turnId
+                  ? null
+                  : snapshot.session.activeTurnId,
+            }
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, {
+          session,
+          latestTurn: latestTurnOf(turns),
+          updatedAt: envelope.occurredAt,
+        }),
+        session,
+        turns,
+        transcript: snapshot.transcript,
+      })
+    }
     case "thread.created":
-    case "thread.turn.interrupted":
-    case "thread.turn.ended":
     case "session.stop-requested":
       return withEnvelope(snapshot, envelope, snapshot)
     default:
