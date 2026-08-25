@@ -1,11 +1,12 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import type { Turn } from "@noyau/protocol/entities/turn"
+import type { Turn, TurnDiff } from "@noyau/protocol/entities/turn"
 import type { ProjectId } from "@noyau/protocol/ids"
 import { memo } from "react"
 
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
 import { ThreadMessageMeta } from "@/components/thread/ThreadMessageMeta"
 import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
+import { ThreadTurnDiffCard } from "@/components/thread/ThreadTurnDiffCard"
 import { ThreadTurnImages } from "@/components/thread/ThreadTurnImages"
 import {
   StickyUserInputShell,
@@ -34,10 +35,14 @@ function ThreadTranscriptItemImpl({
   onLegacyFreeformChange,
   onRespondApproval,
   onRespondUserInput,
+  turnDiff,
+  onOpenTurnDiff,
 }: {
   readonly item: TranscriptItem
   readonly streaming: boolean
   readonly turn?: Pick<Turn, "requestedAt" | "completedAt"> | undefined
+  readonly turnDiff?: TurnDiff | undefined
+  readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
@@ -100,6 +105,11 @@ function ThreadTranscriptItemImpl({
                 {...(tickets === undefined ? {} : { tickets })}
                 {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
               />
+              {turnDiff === undefined ? null : onOpenTurnDiff === undefined ? (
+                <ThreadTurnDiffCard turnDiff={turnDiff} />
+              ) : (
+                <ThreadTurnDiffCard turnDiff={turnDiff} onOpen={onOpenTurnDiff} />
+              )}
             </BubbleContent>
           </Bubble>
           <ThreadMessageMeta

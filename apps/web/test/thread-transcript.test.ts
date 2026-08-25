@@ -1,5 +1,6 @@
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import { checkpointRefForTurn } from "@noyau/protocol/entities/turn"
 import {
   DomainEvent,
   EventEnvelope,
@@ -12,6 +13,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   applyThreadEnvelope,
   groupTranscriptRows,
+  lastAssistantIndexByTurnId,
   presentTranscriptTool,
   projectTranscriptItem,
   summarizeTranscriptToolGroup,
@@ -22,6 +24,7 @@ import {
   transcriptToolGroupLabel,
   transcriptToolObject,
   transcriptToolVerb,
+  turnDiffForTranscriptItem,
 } from "../src/lib/thread-transcript"
 
 const ids = {
@@ -388,6 +391,48 @@ describe("thread transcript projection", () => {
     expect(next?.turns[0]?.state).toBe("completed")
     expect(next?.thread.latestTurn?.state).toBe("completed")
     expect(next?.session?.activeTurnId).toBeNull()
+  })
+
+  it("attache le TurnDiff au Turn et le joint à la last assistant row", () => {
+    const withAssistant: typeof snapshot = {
+      ...snapshot,
+      transcript: [
+        ...snapshot.transcript,
+        decodeTranscript({
+          _tag: "transcript.assistant",
+          threadId: ids.thread,
+          turnId: ids.turn,
+          text: "Premier",
+        }),
+        decodeTranscript({
+          _tag: "transcript.assistant",
+          threadId: ids.thread,
+          turnId: ids.turn,
+          text: " chunk",
+        }),
+      ],
+    }
+    const next = applyThreadEnvelope(
+      withAssistant,
+      envelopeFor({
+        _tag: "thread.turn-diff-completed",
+        threadId: ids.thread,
+        turnId: ids.turn,
+        checkpointRef: checkpointRefForTurn(ids.thread, 1),
+        status: "ready",
+        files: [{ path: "src/app.ts", kind: "modified", additions: 2, deletions: 1 }],
+      }),
+    )
+    expect(next?.turns[0]?.turnDiff?.files).toEqual([
+      { path: "src/app.ts", kind: "modified", additions: 2, deletions: 1 },
+    ])
+    const lastByTurn = lastAssistantIndexByTurnId(next?.transcript ?? [])
+    expect(
+      turnDiffForTranscriptItem(next!.transcript[1], 1, next!.turns, lastByTurn),
+    ).toBeUndefined()
+    expect(
+      turnDiffForTranscriptItem(next!.transcript[2], 2, next!.turns, lastByTurn)?.files,
+    ).toHaveLength(1)
   })
 
   it("ignores an envelope that belongs to another Thread", () => {
