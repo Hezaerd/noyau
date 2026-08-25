@@ -78,14 +78,9 @@ export function ThreadTurnDiffCard({
       </div>
       {expanded ? (
         <ul className="mt-1 space-y-0.5 px-2 pb-1">
-          {files.map((file) => (
-            <li key={file.path}>
-              <button
-                type="button"
-                className="flex w-full min-w-0 items-baseline justify-between gap-3 rounded-lg py-0.5 text-left text-xs transition-colors hover:bg-accent/60"
-                title={file.path}
-                onClick={() => onOpen?.(file.path)}
-              >
+          {files.map((file) => {
+            const content = (
+              <>
                 <span className="min-w-0 truncate text-foreground/90">
                   {fileName(file.path)}
                   <span className="ml-1.5 text-muted-foreground">{file.path}</span>
@@ -101,9 +96,30 @@ export function ThreadTurnDiffCard({
                     <span className="text-rose-600 dark:text-rose-400">−{file.deletions}</span>
                   ) : null}
                 </span>
-              </button>
-            </li>
-          ))}
+              </>
+            )
+            return (
+              <li key={file.path}>
+                {onOpen === undefined ? (
+                  <div
+                    className="flex w-full min-w-0 items-baseline justify-between gap-3 rounded-lg py-0.5 text-xs"
+                    title={file.path}
+                  >
+                    {content}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="flex w-full min-w-0 items-baseline justify-between gap-3 rounded-lg py-0.5 text-left text-xs transition-colors hover:bg-accent/60"
+                    title={file.path}
+                    onClick={() => onOpen(file.path)}
+                  >
+                    {content}
+                  </button>
+                )}
+              </li>
+            )
+          })}
         </ul>
       ) : null}
     </div>
