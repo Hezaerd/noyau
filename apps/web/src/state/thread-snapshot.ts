@@ -3,9 +3,11 @@ import type { EventEnvelope } from "@noyau/protocol/events"
 import type { ThreadId } from "@noyau/protocol/ids"
 import { Atom } from "effect/unstable/reactivity"
 
-import { THREAD_SNAPSHOT_CACHE_TTL_MS } from "@/lib/thread-snapshot-cache"
 import { applyThreadEnvelope } from "@/lib/thread-transcript"
 import { appAtomRegistry } from "@/state/atom-registry"
+
+/** Keep a recently visited Thread body warm across short switch gaps. */
+export const THREAD_SNAPSHOT_IDLE_TTL_MS = 5 * 60_000
 
 export const emptyThreadSnapshotAtom = Atom.make<ThreadSnapshot | undefined>(undefined).pipe(
   Atom.withLabel("thread:snapshot:empty"),
@@ -13,7 +15,7 @@ export const emptyThreadSnapshotAtom = Atom.make<ThreadSnapshot | undefined>(und
 
 export const threadSnapshotAtom = Atom.family((threadId: ThreadId) =>
   Atom.make<ThreadSnapshot | undefined>(undefined).pipe(
-    Atom.setIdleTTL(THREAD_SNAPSHOT_CACHE_TTL_MS),
+    Atom.setIdleTTL(THREAD_SNAPSHOT_IDLE_TTL_MS),
     Atom.withLabel(`thread:snapshot:${threadId}`),
   ),
 )

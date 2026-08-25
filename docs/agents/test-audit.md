@@ -129,7 +129,7 @@ restent moins chers à garder qu’à redécouvrir.
 | `apps/web/test/project-agent-integration-setup.test.tsx` | Install skill avant Terminer ; « Plus tard » skip. | Onboarding ADR-0016. |
 | `apps/web/test/cursor-readiness.test.ts` | Ready = installed ∧ handshake ; headlines sans email. | Gate Composer ; le copy est secondaire. |
 | `apps/web/test/thread-sidebar-sort.test.ts` | Tri `createdAt` desc, pins d’abord, tie-break pin time. | Ordre sidebar non évident (pas l’activité). |
-| `apps/web/test/thread-snapshot-cache.test.ts` | LRU + TTL du cache snapshot Thread. | Stale UI après nav, pas corruption. |
+| `apps/web/test/thread-snapshot.test.ts` | Atom snapshot Thread : replace / lecture. | Stale UI après nav, pas corruption. |
 | `apps/web/test/thread-page-title.test.tsx` | Rename inline F2/dblclick ; draft non renommable ; Escape sans dispatch. | Empêche un `thread.meta.update` accidentel. |
 | `apps/web/test/board-snapshot.test.ts` | Colonnes / positions / DAG dérivés du `BoardSnapshot`. | Vue dérivée, pas le decider. |
 | `apps/web/test/ticket-activity-chip.test.tsx` | Chip Thread jumpable seulement si Thread vivant ; archivé/manquant non cliquable. | Guard de nav morte. |
