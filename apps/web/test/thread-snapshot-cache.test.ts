@@ -7,6 +7,7 @@ import {
   readThreadSnapshotCache,
   removeThreadSnapshotCache,
   resetThreadSnapshotCache,
+  shouldPersistThreadSnapshot,
   THREAD_SNAPSHOT_CACHE_MAX_ENTRIES,
   THREAD_SNAPSHOT_CACHE_TTL_MS,
   threadSnapshotCacheSize,
@@ -15,7 +16,11 @@ import {
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 
-const makeSnapshot = (threadId: string, sequence: number): ThreadSnapshot =>
+const makeSnapshot = (
+  threadId: string,
+  sequence: number,
+  sessionStatus: "starting" | "running" | "ready" | null = null,
+): ThreadSnapshot =>
   Schema.decodeSync(ThreadSnapshot)({
     snapshotSequence: sequence,
     thread: {
@@ -31,7 +36,18 @@ const makeSnapshot = (threadId: string, sequence: number): ThreadSnapshot =>
       createdAt: "2026-08-19T12:00:00.000Z",
       updatedAt: "2026-08-19T12:00:00.000Z",
     },
-    session: null,
+    session:
+      sessionStatus === null
+        ? null
+        : {
+            threadId,
+            status: sessionStatus,
+            lastError: null,
+            activeTurnId: null,
+            runtimeMode: "auto",
+            resumeCursor: null,
+            updatedAt: "2026-08-19T12:00:00.000Z",
+          },
     turns: [],
     transcript: [],
   })
@@ -83,5 +99,28 @@ describe("thread snapshot cache", () => {
 
     removeThreadSnapshotCache(threadId)
     expect(readThreadSnapshotCache(threadId, 22)).toBeUndefined()
+  })
+
+  it("does not persist a snapshot while the Session is starting or running", () => {
+    const threadId = ThreadId.make("20000000-0000-4000-8000-000000000030")
+    const settled = makeSnapshot(threadId, 1)
+    const running = makeSnapshot(threadId, 2, "running")
+    const starting = makeSnapshot(threadId, 3, "starting")
+    const ready = makeSnapshot(threadId, 4, "ready")
+
+    expect(shouldPersistThreadSnapshot(settled)).toBe(true)
+    expect(shouldPersistThreadSnapshot(running)).toBe(false)
+    expect(shouldPersistThreadSnapshot(starting)).toBe(false)
+    expect(shouldPersistThreadSnapshot(ready)).toBe(true)
+
+    writeThreadSnapshotCache(settled, 10)
+    writeThreadSnapshotCache(running, 11)
+    expect(readThreadSnapshotCache(threadId, 12)?.snapshotSequence).toBe(1)
+
+    writeThreadSnapshotCache(starting, 13)
+    expect(readThreadSnapshotCache(threadId, 14)?.snapshotSequence).toBe(1)
+
+    writeThreadSnapshotCache(ready, 15)
+    expect(readThreadSnapshotCache(threadId, 16)?.snapshotSequence).toBe(4)
   })
 })

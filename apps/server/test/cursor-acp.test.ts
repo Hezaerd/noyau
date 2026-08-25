@@ -378,14 +378,12 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         assert.isTrue(
           signals.some((signal) => signal._tag === "session" && signal.status === "running"),
         )
-        assert.isTrue(
-          signals.some(
-            (signal) =>
-              signal._tag === "transcript" &&
-              signal.item._tag === "transcript.assistant" &&
-              signal.item.text === "hello from fake Cursor",
-          ),
+        const assistantTexts = signals.flatMap((signal) =>
+          signal._tag === "transcript" && signal.item._tag === "transcript.assistant"
+            ? [signal.item.text]
+            : [],
         )
+        assert.deepStrictEqual(assistantTexts, ["hello from fake Cursor"])
         assert.isTrue(
           signals.some(
             (signal) =>
@@ -917,22 +915,15 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
   )
 
   it.effect("cancels gracefully and settles the PromptResponse as interrupted", () =>
-    withProvider("cancel", (provider) =>
+    withProvider("cancel", (provider, evidence) =>
       Effect.gen(function* () {
-        const promptOpened = yield* Deferred.make<void>()
         const signals: Array<ProviderSignal> = []
         yield* provider.startTurn(input(), (signal) =>
           Effect.sync(() => {
             signals.push(signal)
-          }).pipe(
-            Effect.tap(() =>
-              signal._tag === "transcript" && signal.item._tag === "transcript.assistant"
-                ? Deferred.succeed(promptOpened, undefined)
-                : Effect.void,
-            ),
-          ),
+          }),
         )
-        yield* Deferred.await(promptOpened)
+        yield* waitForLog(evidence.requestLog, '"method":"session/prompt"')
         yield* provider.interrupt(threadId)
         yield* provider.drain
         assert.isTrue(
@@ -943,22 +934,15 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
   )
 
   it.effect("kills the exact child after a silent cancel exceeds two seconds", () =>
-    withProvider("ignore-cancel", (provider) =>
+    withProvider("ignore-cancel", (provider, evidence) =>
       Effect.gen(function* () {
-        const promptOpened = yield* Deferred.make<void>()
         const signals: Array<ProviderSignal> = []
         yield* provider.startTurn(input(), (signal) =>
           Effect.sync(() => {
             signals.push(signal)
-          }).pipe(
-            Effect.tap(() =>
-              signal._tag === "transcript" && signal.item._tag === "transcript.assistant"
-                ? Deferred.succeed(promptOpened, undefined)
-                : Effect.void,
-            ),
-          ),
+          }),
         )
-        yield* Deferred.await(promptOpened)
+        yield* waitForLog(evidence.requestLog, '"method":"session/prompt"')
         const interrupt = yield* provider.interrupt(threadId).pipe(Effect.forkChild)
         yield* TestClock.adjust("2 seconds")
         yield* Fiber.join(interrupt)
@@ -1160,15 +1144,10 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
   )
 
   it.effect("does not reap a Session that has an in-flight Turn", () =>
-    withProvider("cancel", (provider) =>
+    withProvider("cancel", (provider, evidence) =>
       Effect.gen(function* () {
-        const promptOpened = yield* Deferred.make<void>()
-        yield* provider.startTurn(input(), (signal) =>
-          signal._tag === "transcript" && signal.item._tag === "transcript.assistant"
-            ? Deferred.succeed(promptOpened, undefined)
-            : Effect.void,
-        )
-        yield* Deferred.await(promptOpened)
+        yield* provider.startTurn(input(), () => Effect.void)
+        yield* waitForLog(evidence.requestLog, '"method":"session/prompt"')
         assert.isFalse(yield* provider.reapIdle(threadId))
         yield* provider.interrupt(threadId)
         yield* provider.drain
