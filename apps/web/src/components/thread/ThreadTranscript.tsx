@@ -1,5 +1,5 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import type { LatestTurn } from "@noyau/protocol/entities/turn"
+import type { LatestTurn, Turn } from "@noyau/protocol/entities/turn"
 import type { ProjectId } from "@noyau/protocol/ids"
 import { ArrowDownIcon } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
@@ -23,11 +23,14 @@ import { settledTranscriptLabel } from "@/lib/thread-activity"
 import { groupTranscriptRows, transcriptGroupRowId, transcriptRowId } from "@/lib/thread-transcript"
 import { deriveTurnMinimapItems, TURN_MINIMAP_MIN_ITEMS } from "@/lib/thread-turn-minimap"
 
+const EMPTY_TURNS: ReadonlyArray<Turn> = []
+
 export function ThreadTranscript({
   transcript,
   isRunning,
   workingStartedAtMs = null,
   latestTurn = null,
+  turns = EMPTY_TURNS,
   loading,
   error,
   notices,
@@ -49,6 +52,7 @@ export function ThreadTranscript({
   readonly isRunning: boolean
   readonly workingStartedAtMs?: number | null
   readonly latestTurn?: LatestTurn | null
+  readonly turns?: ReadonlyArray<Turn>
   readonly loading: boolean
   readonly error: ReactNode
   readonly notices: ReactNode
@@ -70,6 +74,13 @@ export function ThreadTranscript({
   const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
   const settledLabel = isRunning ? null : settledTranscriptLabel(latestTurn)
   const minimapItems = useMemo(() => deriveTurnMinimapItems(transcript), [transcript])
+  const turnById = useMemo(() => {
+    const map = new Map<Turn["id"], Turn>()
+    for (const turn of turns) {
+      map.set(turn.id, turn)
+    }
+    return map
+  }, [turns])
 
   return (
     <MessageScrollerProvider key={scrollerKey} autoScroll>
@@ -111,6 +122,7 @@ export function ThreadTranscript({
                   <ThreadTranscriptItem
                     item={row.item}
                     streaming={isRunning && row.item === lastAssistant}
+                    turn={turnById.get(row.item.turnId)}
                     workspaceRoot={
                       row.item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
                     }

@@ -845,6 +845,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               isRunning={isWorking}
               workingStartedAtMs={workingStartedAtMs}
               latestTurn={pageSnapshot?.thread.latestTurn ?? null}
+              turns={pageSnapshot?.turns ?? []}
               loading={loading || awaitingThread}
               workspaceRoot={project?.workspaceRoot}
               cwd={
