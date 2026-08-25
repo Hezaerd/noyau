@@ -41,6 +41,7 @@ const makeThread = (status: ThreadShellType["status"] = "active"): ThreadShellTy
     projectId,
     title: "Thread de reprise",
     provider: "cursor",
+    modelSelection: null,
     runtimeMode: "full-access",
     status,
     latestTurn: null,

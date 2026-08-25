@@ -114,6 +114,10 @@ const ThreadShellRow = Schema.Struct({
   title: Schema.String,
   provider: Schema.String,
   runtime_mode: Schema.String,
+  model_id: Schema.NullOr(Schema.String),
+  reasoning_effort: Schema.NullOr(Schema.String),
+  service_tier: Schema.NullOr(Schema.String),
+  thinking: Schema.NullOr(Schema.Int),
   branch: Schema.NullOr(Schema.String),
   worktree_path: Schema.NullOr(Schema.String),
   status: Schema.String,
@@ -176,12 +180,35 @@ const encodedProject = (row: (typeof ProjectRow)["Type"]) => ({
   updatedAt: row.updated_at,
 })
 
+const modelSelectionFromRow = (row: {
+  readonly model_id: string | null
+  readonly reasoning_effort: string | null
+  readonly service_tier: string | null
+  readonly thinking: number | null
+}): ModelSelection | null => {
+  if (row.model_id === null) {
+    return null
+  }
+  const modelSelection: ModelSelection = { modelId: row.model_id }
+  if (row.reasoning_effort !== null) {
+    Object.assign(modelSelection, { reasoningEffort: row.reasoning_effort })
+  }
+  if (row.service_tier !== null) {
+    Object.assign(modelSelection, { serviceTier: row.service_tier })
+  }
+  if (row.thinking !== null) {
+    Object.assign(modelSelection, { thinking: row.thinking === 1 })
+  }
+  return modelSelection
+}
+
 const encodedThreadShell = (row: (typeof ThreadShellRow)["Type"]) => {
   const encoded = {
     id: row.thread_id,
     projectId: row.project_id,
     title: row.title,
     provider: row.provider,
+    modelSelection: modelSelectionFromRow(row),
     runtimeMode: row.runtime_mode,
     branch: row.branch,
     worktreePath: row.worktree_path,
@@ -529,17 +556,7 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         latest === undefined
           ? null
           : encodedLatestTurn(yield* decodeTurnRow(latest).pipe(Effect.orDie))
-      const modelSelection: ModelSelection | null =
-        thread.model_id === null ? null : { modelId: thread.model_id }
-      if (modelSelection !== null && thread.reasoning_effort !== null) {
-        Object.assign(modelSelection, { reasoningEffort: thread.reasoning_effort })
-      }
-      if (modelSelection !== null && thread.service_tier !== null) {
-        Object.assign(modelSelection, { serviceTier: thread.service_tier })
-      }
-      if (modelSelection !== null && thread.thinking !== null) {
-        Object.assign(modelSelection, { thinking: thread.thinking === 1 })
-      }
+      const modelSelection = modelSelectionFromRow(thread)
       const encodedThread = {
         id: thread.thread_id,
         projectId: thread.project_id,
@@ -597,6 +614,10 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
             thread.title,
             thread.provider,
             thread.runtime_mode,
+            thread.model_id,
+            thread.reasoning_effort,
+            thread.service_tier,
+            thread.thinking,
             thread.branch,
             thread.worktree_path,
             thread.status,
@@ -693,6 +714,10 @@ export const readThreadShellById = Effect.fn("readThreadShellById")(function* (t
           thread.title,
           thread.provider,
           thread.runtime_mode,
+          thread.model_id,
+          thread.reasoning_effort,
+          thread.service_tier,
+          thread.thinking,
           thread.branch,
           thread.worktree_path,
           thread.status,

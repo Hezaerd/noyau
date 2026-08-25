@@ -96,6 +96,7 @@ describe("partitionThreadsForSidebar", () => {
         projectId,
         title: "Thread",
         provider: "cursor",
+        modelSelection: null,
         runtimeMode: "full-access",
         status: "active",
         latestTurn: {
