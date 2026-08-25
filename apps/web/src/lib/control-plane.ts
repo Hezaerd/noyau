@@ -47,6 +47,7 @@ import {
   type ThreadStreamItem,
 } from "@noyau/protocol/rpc"
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
+import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
 import type { Cause } from "effect"
 import { Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Option, Stream } from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
@@ -250,6 +251,16 @@ const requestPreviewFile = Effect.fn("ControlPlaneClient.previewFile")(function*
 
 export const previewFile = (input: PreviewFileInput): Promise<ControlPlaneResult<FilePreview>> =>
   runOperation(requestPreviewFile(input), "command")
+
+const requestGetTurnDiff = Effect.fn("ControlPlaneClient.getTurnDiff")(function* (
+  input: GetTurnDiffInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.getTurnDiff](input)
+})
+
+export const getTurnDiff = (input: GetTurnDiffInput): Promise<ControlPlaneResult<TurnDiffPatch>> =>
+  runOperation(requestGetTurnDiff(input), "command")
 
 const searchPaths = Effect.fn("ControlPlaneClient.searchWorkspacePaths")(function* (
   projectId: ProjectId,

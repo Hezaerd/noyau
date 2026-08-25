@@ -120,6 +120,11 @@ _À éviter_ : agrégat VCS, outbox SQL
 Snapshot git hors journal d'un cwd de Checkout, adressé par un `CheckpointRef`.
 _À éviter_ : commit utilisateur, stash, fait du journal
 
+**getTurnDiff**:
+Query RPC du patch unifié entre le Checkpoint baseline et celui du Turn.
+Hors journal ; le patch n'est pas persisté.
+_À éviter_ : Command, blob SQLite, FilePreview
+
 **TurnDiffReactor**:
 Reactor `TxQueue` qui capture le baseline au start (ou après bind worktree) et le TurnDiff à
 `thread.turn.ended`.

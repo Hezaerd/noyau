@@ -39,6 +39,9 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  optimizeDeps: {
+    include: ["@pierre/diffs", "@pierre/diffs/react"],
+  },
   server: {
     host: "127.0.0.1",
     port: 5173,

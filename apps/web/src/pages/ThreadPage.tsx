@@ -31,6 +31,10 @@ import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
 import { ThreadTranscript } from "@/components/thread/ThreadTranscript"
+import {
+  ThreadTurnDiffPanel,
+  type ThreadTurnDiffTarget,
+} from "@/components/thread/ThreadTurnDiffPanel"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useControlPlane } from "@/hooks/use-control-plane"
@@ -123,6 +127,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
   const [optimisticSend, setOptimisticSend] = useState<OptimisticSend | null>(null)
   const [followLatestKey, setFollowLatestKey] = useState(0)
+  const [turnDiffTarget, setTurnDiffTarget] = useState<ThreadTurnDiffTarget | null>(null)
   const restoredFailedTurnRef = useRef<string>(undefined)
   const cursorReady = isCursorReady(cursor)
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
@@ -897,9 +902,20 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               }}
               scrollerKey={threadId}
               followLatestKey={followLatestKey}
+              onOpenTurnDiff={(openedTurnId, filePath) => {
+                if (threadId === undefined) {
+                  return
+                }
+                if (filePath === undefined) {
+                  setTurnDiffTarget({ threadId, turnId: openedTurnId })
+                  return
+                }
+                setTurnDiffTarget({ threadId, turnId: openedTurnId, filePath })
+              }}
             />
           </div>
           {composer}
+          <ThreadTurnDiffPanel target={turnDiffTarget} onClose={() => setTurnDiffTarget(null)} />
         </>
       )}
     </main>

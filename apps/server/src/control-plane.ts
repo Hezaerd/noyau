@@ -44,6 +44,7 @@ import {
 } from "@noyau/protocol/events"
 import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
 import type { FilePreviewFailed } from "@noyau/protocol/file-preview"
+import type { GitCommandError } from "@noyau/protocol/git"
 import {
   type ActorId,
   CorrelationId,
@@ -83,6 +84,8 @@ import { ThreadCommand } from "@noyau/protocol/thread/commands"
 import { ThreadEvent, type ThreadEvent as ThreadEventType } from "@noyau/protocol/thread/events"
 import { BoardInitialize, TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketEvent } from "@noyau/protocol/ticket/events"
+import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
+import { TurnDiffUnavailable } from "@noyau/protocol/turn-diff"
 import {
   Context,
   Crypto,
@@ -107,7 +110,9 @@ import { loadTurnAttachments, persistTurnUploads, readAttachmentPreview } from "
 import { ServerConfig } from "./config.ts"
 import { makePresenceController } from "./discord/presence.ts"
 import { readFilePreview } from "./file-preview.ts"
+import { GitRuntime } from "./git/git-runtime.ts"
 import { makeTurnDiffReactor } from "./git/turn-diff-reactor.ts"
+import { resolveTurnDiffCheckpoints } from "./git/turn-diff.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { makeProviderSessionReaper } from "./provider/provider-session-reaper.ts"
@@ -608,6 +613,9 @@ export interface ControlPlaneService {
   readonly previewAttachment: (
     input: PreviewAttachmentInput,
   ) => Effect.Effect<AttachmentPreview, AttachmentPreviewFailed | ServiceUnavailable>
+  readonly getTurnDiff: (
+    input: GetTurnDiffInput,
+  ) => Effect.Effect<TurnDiffPatch, TurnDiffUnavailable | GitCommandError | ServiceUnavailable>
   readonly probe: Effect.Effect<Record<never, never>>
   readonly drainReactors: Effect.Effect<void>
 }
@@ -668,6 +676,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       let dispatchInternal = workerNotReady
       const providerSessionReaper = yield* makeProviderSessionReaper()
       const textGeneration = yield* TextGeneration
+      const git = yield* GitRuntime
       const presence = yield* makePresenceController()
       const cursorStatus = yield* provider.status
       const environment = new Environment({
@@ -1144,6 +1153,78 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         return { kind: "image", mime: preview.mime, bytes: preview.bytes }
       })
 
+      const getTurnDiff = Effect.fn("ControlPlane.getTurnDiff")(function* (
+        input: GetTurnDiffInput,
+      ): Effect.fn.Return<
+        TurnDiffPatch,
+        TurnDiffUnavailable | GitCommandError | ServiceUnavailable
+      > {
+        const snapshot = yield* readThreadSnapshot(input.threadId).pipe(
+          Effect.provideService(SqlClient, sql),
+          Effect.mapError(unavailable("sqlite")),
+        )
+        if (Option.isNone(snapshot)) {
+          return yield* new TurnDiffUnavailable({
+            threadId: input.threadId,
+            turnId: input.turnId,
+            reason: "turn-not-found",
+          })
+        }
+        const resolved = resolveTurnDiffCheckpoints({
+          threadId: input.threadId,
+          turnId: input.turnId,
+          turns: snapshot.value.turns,
+        })
+        if (resolved._tag === "unavailable") {
+          return yield* new TurnDiffUnavailable({
+            threadId: input.threadId,
+            turnId: input.turnId,
+            reason: resolved.reason,
+          })
+        }
+        const workspaceRoot = yield* workspaceRootForProject(snapshot.value.thread.projectId).pipe(
+          Effect.provideService(SqlClient, sql),
+          Effect.mapError(unavailable("sqlite")),
+        )
+        if (Option.isNone(workspaceRoot)) {
+          return yield* new TurnDiffUnavailable({
+            threadId: input.threadId,
+            turnId: input.turnId,
+            reason: "not-captured",
+          })
+        }
+        const worktreePath = snapshot.value.thread.worktreePath
+        const cwd =
+          worktreePath !== undefined && worktreePath !== null && worktreePath.length > 0
+            ? worktreePath
+            : workspaceRoot.value
+        const fromExists = yield* git.hasCheckpointRef({
+          cwd,
+          checkpointRef: resolved.from,
+        })
+        const toExists = yield* git.hasCheckpointRef({ cwd, checkpointRef: resolved.to })
+        if (!fromExists || !toExists) {
+          return yield* new TurnDiffUnavailable({
+            threadId: input.threadId,
+            turnId: input.turnId,
+            reason: "checkpoint-missing",
+          })
+        }
+        const patch = yield* git.diffCheckpoints({
+          cwd,
+          fromCheckpointRef: resolved.from,
+          toCheckpointRef: resolved.to,
+          format: "patch",
+          ignoreWhitespace: input.ignoreWhitespace ?? true,
+        })
+        return {
+          threadId: input.threadId,
+          turnId: input.turnId,
+          checkpointRef: resolved.to,
+          patch,
+        }
+      })
+
       const getConfig = readSchemaVersion().pipe(
         Effect.provideService(SqlClient, sql),
         Effect.map((databaseSchemaVersion) => ({
@@ -1179,6 +1260,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         installProjectAgentIntegration,
         removeProjectAgentIntegration,
         previewAttachment,
+        getTurnDiff,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {
           yield* providerSessionReaper.stop
