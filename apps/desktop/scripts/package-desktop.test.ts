@@ -2,15 +2,21 @@ import { fileURLToPath } from "node:url"
 
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, FileSystem } from "effect"
+import { Effect, FileSystem, Schema } from "effect"
 
 import { resolveAppIdentity } from "./electron-launcher.ts"
 import {
   assertHostCanPackage,
+  DmgImageFormatOutput,
+  dmgImageFormatArgs,
+  dmgOutputsToConvert,
   electronBuilderArgs,
+  isUlmoDmgFormat,
   parsePackageDesktopArgs,
   requiredPackagedArtifacts,
   resolveElectronBuilderCli,
+  ulmoConvertArgs,
+  ulmoTempDmgPath,
 } from "./package-desktop-plan.ts"
 
 const builderConfigPath = fileURLToPath(new URL("../electron-builder.yml", import.meta.url))
@@ -95,6 +101,40 @@ describe("package desktop", () => {
     expect(resolveElectronBuilderCli().endsWith("electron-builder/cli.js")).toBe(true)
   })
 
+  it("recompresses only publishable mac DMGs after a dmg target", () => {
+    expect(dmgOutputsToConvert("dir", ["release/Noyau-0.1.0-mac-arm64.dmg"])).toEqual([])
+    expect(dmgOutputsToConvert("nsis", ["release/Noyau-0.1.0-win-x64.exe"])).toEqual([])
+    expect(
+      dmgOutputsToConvert("dmg", [
+        "release/Noyau-0.1.0-mac-arm64.dmg",
+        "release/mac-arm64/Noyau.app",
+        "release/Noyau-0.1.0-mac-arm64.ulmo.tmp.dmg",
+        "release\\Noyau-0.1.0-mac-x64.dmg",
+      ]),
+    ).toEqual(["release/Noyau-0.1.0-mac-arm64.dmg", "release\\Noyau-0.1.0-mac-x64.dmg"])
+  })
+
+  it("asks hdiutil for a ULMO image", () => {
+    expect(dmgImageFormatArgs("/tmp/Noyau.dmg")).toEqual(["imageinfo", "-format", "/tmp/Noyau.dmg"])
+    expect(ulmoConvertArgs("/in.dmg", "/out.dmg")).toEqual([
+      "convert",
+      "/in.dmg",
+      "-format",
+      "ULMO",
+      "-o",
+      "/out.dmg",
+    ])
+    expect(ulmoTempDmgPath("release/Noyau-0.1.0-mac-arm64.dmg")).toBe(
+      "release/Noyau-0.1.0-mac-arm64.ulmo.tmp.dmg",
+    )
+    expect(Schema.decodeSync(DmgImageFormatOutput)("UDZO\n")).toBe("UDZO")
+    expect(Schema.decodeSync(DmgImageFormatOutput)("ULMO")).toBe("ULMO")
+    expect(() => Schema.decodeSync(DmgImageFormatOutput)("")).toThrow()
+    expect(() => Schema.decodeSync(DmgImageFormatOutput)("not-a-format")).toThrow()
+    expect(isUlmoDmgFormat("ULMO")).toBe(true)
+    expect(isUlmoDmgFormat("UDZO")).toBe(false)
+  })
+
   it("asks electron-builder for an unsigned artifact", () => {
     expect(electronBuilderArgs("mac", "dir", undefined, "latest", undefined)).toEqual([
       "--mac",
@@ -148,6 +188,7 @@ it.layer(NodeServices.layer)("electron-builder config", (spec) => {
       expect(config).toContain("dist-electron/release-channel.json")
       expect(config).toContain('"!**/node_modules/**"')
       expect(config).toContain("artifactName: Noyau-${version}-${os}-${arch}.${ext}")
+      expect(config).not.toContain("format: ULMO")
     }),
   )
 })
