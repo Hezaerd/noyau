@@ -27,6 +27,8 @@ npmRebuild: false
 nodeGypRebuild: false
 electronLanguages:
   - en
+# electron-builder 26 sort le DMG en UDZO. ULMO (lzma) n'est typé qu'en v27 :
+# package-desktop.ts reconvertit le .dmg avec hdiutil après le pack.
 mac:
   identity: null
   category: public.app-category.developer-tools

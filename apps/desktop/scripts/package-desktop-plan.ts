@@ -2,6 +2,7 @@ import * as NodeModule from "node:module"
 
 import { Schema } from "effect"
 
+import { isPublishableInstallerName } from "./collect-release-assets.ts"
 import { resolveReleaseBrand, type ReleaseChannel } from "./release-version.ts"
 
 export const PACKAGED_ARTIFACTS = [
@@ -153,6 +154,46 @@ export const resolveElectronBuilderCli = (
   createRequire: (url: string) => NodeJS.Require = NodeModule.createRequire,
   moduleUrl: string = import.meta.url,
 ): string => createRequire(moduleUrl).resolve("electron-builder/cli.js")
+
+const outputFileName = (outputPath: string): string =>
+  outputPath.replaceAll("\\", "/").split("/").pop() ?? outputPath
+
+export const dmgOutputsToConvert = (
+  target: PackageDesktopArgs["target"],
+  outputs: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
+  if (target !== "dmg") {
+    return []
+  }
+  return outputs.filter((output) => {
+    const name = outputFileName(output)
+    return name.endsWith(".dmg") && isPublishableInstallerName(name)
+  })
+}
+
+export const ulmoTempDmgPath = (dmgPath: string): string =>
+  dmgPath.replace(/\.dmg$/i, ".ulmo.tmp.dmg")
+
+export const dmgImageFormatArgs = (dmgPath: string): ReadonlyArray<string> => [
+  "imageinfo",
+  "-format",
+  dmgPath,
+]
+
+export const ulmoConvertArgs = (inputPath: string, outputPath: string): ReadonlyArray<string> => [
+  "convert",
+  inputPath,
+  "-format",
+  "ULMO",
+  "-imagekey",
+  "lzma-level=9",
+  "-o",
+  outputPath,
+]
+
+export const parseDmgImageFormat = (stdout: string): string => stdout.trim()
+
+export const isUlmoDmgFormat = (format: string): boolean => format === "ULMO"
 
 export const assertHostCanPackage = (
   platform: PackageDesktopArgs["platform"],

@@ -1,14 +1,20 @@
-import { Config, Effect, FileSystem, Path } from "effect"
+import { Config, Effect, FileSystem, Path, Stream } from "effect"
 import { ChildProcess } from "effect/unstable/process"
 
 import { desktopDir, resolveAppIdentity } from "./electron-launcher.ts"
 import {
   assertHostCanPackage,
+  dmgImageFormatArgs,
+  dmgOutputsToConvert,
   electronBuilderArgs,
+  isUlmoDmgFormat,
   PACKAGED_ARTIFACTS,
   PackageDesktopError,
+  parseDmgImageFormat,
   parsePackageDesktopArgs,
   resolveElectronBuilderCli,
+  ulmoConvertArgs,
+  ulmoTempDmgPath,
 } from "./package-desktop-plan.ts"
 import {
   formatPackagedReleaseChannel,
@@ -37,6 +43,81 @@ const runCommand = Effect.fn("runPackageCommand")(function* (
   const code = yield* handle.exitCode.pipe(Effect.orElseSucceed(() => 1))
   if (Number(code) !== 0) {
     return yield* packageError(`${command} ${args.join(" ")} exited with ${String(code)}`)
+  }
+})
+
+const collectProcessOutput = Effect.fn("collectPackageProcessOutput")(function* (
+  command: string,
+  args: ReadonlyArray<string>,
+) {
+  return yield* Effect.scoped(
+    Effect.gen(function* () {
+      const handle = yield* ChildProcess.make(command, args, {
+        stdout: "pipe",
+        stderr: "pipe",
+      })
+      const [exit, stdout, stderr] = yield* Effect.all(
+        [
+          handle.exitCode.pipe(Effect.orElseSucceed(() => 1)),
+          Stream.mkString(Stream.decodeText(handle.stdout)),
+          Stream.mkString(Stream.decodeText(handle.stderr)),
+        ],
+        { concurrency: "unbounded" },
+      )
+      return { status: Number(exit), stdout, stderr }
+    }),
+  )
+})
+
+const readDmgImageFormat = Effect.fn("readDmgImageFormat")(function* (dmgPath: string) {
+  const result = yield* collectProcessOutput("hdiutil", dmgImageFormatArgs(dmgPath))
+  if (result.status !== 0) {
+    const details = [result.stdout, result.stderr].filter(Boolean).join("\n")
+    return yield* packageError(`hdiutil imageinfo failed for ${dmgPath}: ${details}`.trim())
+  }
+  return parseDmgImageFormat(result.stdout)
+})
+
+const formatMegabytes = (bytes: number): string => `${(bytes / 1_048_576).toFixed(1)} MB`
+
+const convertDmgToUlmo = Effect.fn("convertDmgToUlmo")(function* (dmgPath: string) {
+  const format = yield* readDmgImageFormat(dmgPath)
+  if (isUlmoDmgFormat(format)) {
+    return
+  }
+
+  const fs = yield* FileSystem.FileSystem
+  const before = yield* fs.stat(dmgPath)
+  const tempPath = ulmoTempDmgPath(dmgPath)
+  yield* fs.remove(tempPath, { force: true })
+  yield* runCommand("hdiutil", ulmoConvertArgs(dmgPath, tempPath), desktopDir)
+
+  const convertedFormat = yield* readDmgImageFormat(tempPath)
+  if (!isUlmoDmgFormat(convertedFormat)) {
+    yield* fs.remove(tempPath, { force: true })
+    return yield* packageError(`hdiutil convert did not produce ULMO (${convertedFormat})`)
+  }
+
+  yield* fs.remove(dmgPath, { force: true })
+  yield* fs.rename(tempPath, dmgPath)
+  const after = yield* fs.stat(dmgPath)
+  yield* Effect.sync(() => {
+    process.stdout.write(
+      `DMG ULMO: ${dmgPath} (${formatMegabytes(Number(before.size))} → ${formatMegabytes(Number(after.size))})\n`,
+    )
+  })
+})
+
+const convertPackagedDmgsToUlmo = Effect.fn("convertPackagedDmgsToUlmo")(function* (
+  target: "dir" | "dmg" | "nsis",
+  outputs: ReadonlyArray<string>,
+) {
+  const dmgs = dmgOutputsToConvert(target, outputs)
+  if (target === "dmg" && dmgs.length === 0) {
+    return yield* packageError("electron-builder did not produce a publishable .dmg")
+  }
+  for (const dmgPath of dmgs) {
+    yield* convertDmgToUlmo(dmgPath)
   }
 })
 
@@ -118,6 +199,7 @@ const packageDesktop = Effect.fn("packageDesktop")(function* () {
   )
 
   const outputs = yield* findPackagedOutputs()
+  yield* convertPackagedDmgsToUlmo(args.target, outputs)
   yield* Effect.sync(() => {
     process.stdout.write(
       [

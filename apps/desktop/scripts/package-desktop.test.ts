@@ -7,10 +7,16 @@ import { Effect, FileSystem } from "effect"
 import { resolveAppIdentity } from "./electron-launcher.ts"
 import {
   assertHostCanPackage,
+  dmgImageFormatArgs,
+  dmgOutputsToConvert,
   electronBuilderArgs,
+  isUlmoDmgFormat,
+  parseDmgImageFormat,
   parsePackageDesktopArgs,
   requiredPackagedArtifacts,
   resolveElectronBuilderCli,
+  ulmoConvertArgs,
+  ulmoTempDmgPath,
 } from "./package-desktop-plan.ts"
 
 const builderConfigPath = fileURLToPath(new URL("../electron-builder.yml", import.meta.url))
@@ -95,6 +101,39 @@ describe("package desktop", () => {
     expect(resolveElectronBuilderCli().endsWith("electron-builder/cli.js")).toBe(true)
   })
 
+  it("recompresses only publishable mac DMGs after a dmg target", () => {
+    expect(dmgOutputsToConvert("dir", ["release/Noyau-0.1.0-mac-arm64.dmg"])).toEqual([])
+    expect(dmgOutputsToConvert("nsis", ["release/Noyau-0.1.0-win-x64.exe"])).toEqual([])
+    expect(
+      dmgOutputsToConvert("dmg", [
+        "release/Noyau-0.1.0-mac-arm64.dmg",
+        "release/mac-arm64/Noyau.app",
+        "release/Noyau-0.1.0-mac-arm64.ulmo.tmp.dmg",
+        "release\\Noyau-0.1.0-mac-x64.dmg",
+      ]),
+    ).toEqual(["release/Noyau-0.1.0-mac-arm64.dmg", "release\\Noyau-0.1.0-mac-x64.dmg"])
+  })
+
+  it("asks hdiutil for a max-compression ULMO image", () => {
+    expect(dmgImageFormatArgs("/tmp/Noyau.dmg")).toEqual(["imageinfo", "-format", "/tmp/Noyau.dmg"])
+    expect(ulmoConvertArgs("/in.dmg", "/out.dmg")).toEqual([
+      "convert",
+      "/in.dmg",
+      "-format",
+      "ULMO",
+      "-imagekey",
+      "lzma-level=9",
+      "-o",
+      "/out.dmg",
+    ])
+    expect(ulmoTempDmgPath("release/Noyau-0.1.0-mac-arm64.dmg")).toBe(
+      "release/Noyau-0.1.0-mac-arm64.ulmo.tmp.dmg",
+    )
+    expect(parseDmgImageFormat("UDZO\n")).toBe("UDZO")
+    expect(isUlmoDmgFormat("ULMO")).toBe(true)
+    expect(isUlmoDmgFormat("UDZO")).toBe(false)
+  })
+
   it("asks electron-builder for an unsigned artifact", () => {
     expect(electronBuilderArgs("mac", "dir", undefined, "latest", undefined)).toEqual([
       "--mac",
@@ -148,6 +187,7 @@ it.layer(NodeServices.layer)("electron-builder config", (spec) => {
       expect(config).toContain("dist-electron/release-channel.json")
       expect(config).toContain('"!**/node_modules/**"')
       expect(config).toContain("artifactName: Noyau-${version}-${os}-${arch}.${ext}")
+      expect(config).not.toContain("format: ULMO")
     }),
   )
 })
