@@ -57,12 +57,7 @@ import { loadComposerImagesFromAttachments } from "@/lib/composer-images-from-at
 import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
-import {
-  epochMsOf,
-  resolveWorkingStartedAtMs,
-  isOptimisticSendActive,
-  isThreadWorking,
-} from "@/lib/thread-activity"
+import { resolveOpenThreadWorking, type OptimisticSend } from "@/lib/thread-activity"
 import { getThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
 import {
   interruptTurn as interruptTurnAction,
@@ -115,7 +110,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [draftByRequest, setDraftByRequest] = useState<Record<string, DraftAnswers>>({})
   const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
-  const [sendStartedAtMs, setSendStartedAtMs] = useState<number | null>(null)
+  const [optimisticSend, setOptimisticSend] = useState<OptimisticSend | null>(null)
   const [followLatestKey, setFollowLatestKey] = useState(0)
   const restoredFailedTurnRef = useRef<string>(undefined)
   const cursorReady = isCursorReady(cursor)
@@ -127,7 +122,14 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       ),
     [projectId],
   )
-  const snapshotWorktreePath = snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)
+  const pageSnapshot =
+    snapshot !== undefined && snapshot.thread.id === threadId
+      ? snapshot
+      : threadId === undefined
+        ? undefined
+        : readThreadSnapshotCache(threadId)
+  const snapshotWorktreePath =
+    pageSnapshot === undefined ? null : threadWorktreePathOf(pageSnapshot.thread)
   const gitStatus = useVcsStatus(
     threadId === undefined
       ? null
@@ -136,9 +138,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const conflictingPr =
     gitStatus?.pr != null && isConflictingOpenPullRequest(gitStatus.pr) ? gitStatus.pr : null
   const retryMandate = retryableFailedTurnMandate({
-    resumeCursor: snapshot?.session?.resumeCursor,
-    sessionStatus: snapshot?.session?.status,
-    transcript: snapshot?.transcript ?? [],
+    resumeCursor: pageSnapshot?.session?.resumeCursor,
+    sessionStatus: pageSnapshot?.session?.status,
+    transcript: pageSnapshot?.transcript ?? [],
   })
 
   useEffect(() => {
@@ -260,23 +262,19 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
   }, [threadId])
 
-  const activeTurn = snapshot?.session?.activeTurnId ?? snapshot?.thread.latestTurn?.turnId
-  const isRunning = isThreadWorking(
-    snapshot?.session?.status ?? null,
-    snapshot?.thread.latestTurn ?? null,
-  )
-  const isWorking =
-    isRunning ||
-    isOptimisticSendActive({
-      sendStartedAtMs,
-      latestTurnCompletedAtMs: epochMsOf(snapshot?.thread.latestTurn?.completedAt),
-      isAuthoritativeWorking: isRunning,
-    })
-  const workingStartedAtMs = resolveWorkingStartedAtMs({
-    latestTurn: snapshot?.thread.latestTurn ?? null,
-    sendStartedAtMs,
+  const {
+    isAuthoritativeWorking: isRunning,
+    isWorking,
+    workingStartedAtMs,
+  } = resolveOpenThreadWorking({
+    openThreadId: threadId,
+    snapshotThreadId: pageSnapshot?.thread.id,
+    sessionStatus: pageSnapshot?.session?.status ?? null,
+    latestTurn: pageSnapshot?.thread.latestTurn ?? null,
+    send: optimisticSend,
   })
-  const latestTurnCompletedAt = snapshot?.thread.latestTurn?.completedAt
+  const activeTurn = pageSnapshot?.session?.activeTurnId ?? pageSnapshot?.thread.latestTurn?.turnId
+  const latestTurnCompletedAt = pageSnapshot?.thread.latestTurn?.completedAt
 
   useEffect(() => {
     if (threadId === undefined) {
@@ -309,7 +307,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
 
   useEffect(() => {
     if (!isWorking) {
-      setSendStartedAtMs(null)
+      setOptimisticSend(null)
     }
   }, [isWorking])
 
@@ -372,7 +370,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     clearDraft()
     setImages([])
     setComposerFailure(undefined)
-    setSendStartedAtMs(Date.now())
+    setOptimisticSend({ threadId, startedAtMs: Date.now() })
     setFollowLatestKey((current) => current + 1)
     void submitTurnAction(
       Object.assign(
@@ -393,7 +391,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       if (result.kind === "composer-error") {
         writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
         setImages(submittedImages)
-        setSendStartedAtMs(null)
+        setOptimisticSend(null)
         setComposerFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -407,7 +405,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       if (result.kind === "error") {
         writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
         setImages(submittedImages)
-        setSendStartedAtMs(null)
+        setOptimisticSend(null)
         setActionFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -420,6 +418,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }
       if (result.kind === "created") {
         createdThreadIdRef.current = result.threadId
+        setOptimisticSend((current) =>
+          current === null
+            ? current
+            : { threadId: result.threadId, startedAtMs: current.startedAtMs },
+        )
         rememberCreatedCheckout({
           threadId: result.threadId,
           envMode,
@@ -464,7 +467,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       return
     }
     setComposerFailure(undefined)
-    setSendStartedAtMs(Date.now())
+    setOptimisticSend({ threadId, startedAtMs: Date.now() })
     setFollowLatestKey((current) => current + 1)
     const input = {
       projectId,
@@ -482,7 +485,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       baseBranch === null ? input : Object.assign({}, input, { baseBranch }),
     ).then((result) => {
       if (result.kind === "composer-error") {
-        setSendStartedAtMs(null)
+        setOptimisticSend(null)
         setComposerFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -494,7 +497,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return undefined
       }
       if (result.kind === "error") {
-        setSendStartedAtMs(null)
+        setOptimisticSend(null)
         setActionFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -615,7 +618,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     if (threadId === undefined) {
       return
     }
-    const item = snapshot?.transcript.find(
+    const item = pageSnapshot?.transcript.find(
       (candidate) =>
         candidate._tag === "transcript.user-input" && candidate.requestId === requestId,
     )
@@ -680,7 +683,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     ) : (
       <InlineFailure presentation={transcriptFailure} />
     )
-  const worktreePath = snapshot === undefined ? null : threadWorktreePathOf(snapshot.thread)
+  const worktreePath = pageSnapshot === undefined ? null : threadWorktreePathOf(pageSnapshot.thread)
   const effectiveEnvMode = resolveEffectiveEnvMode({
     worktreePath,
     draftEnvMode: envMode,
@@ -689,7 +692,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     setEnvMode(mode)
     setStartFromOrigin(mode === "worktree")
   }
-  const awaitingThread = threadId !== undefined && snapshot?.thread.id !== threadId
+  const awaitingThread = threadId !== undefined && pageSnapshot === undefined
   const composer = (
     <ThreadComposer
       key={threadId ?? "new"}
@@ -746,7 +749,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           envMode={effectiveEnvMode}
           envModeLocked={envModeLockedOf({
             worktreePath,
-            latestTurn: snapshot?.thread.latestTurn,
+            latestTurn: pageSnapshot?.thread.latestTurn,
             isRunning,
           })}
           startFromOrigin={startFromOrigin}
@@ -773,16 +776,16 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         <>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <ThreadTranscript
-              transcript={snapshot?.transcript ?? []}
+              transcript={pageSnapshot?.transcript ?? []}
               isRunning={isWorking}
               workingStartedAtMs={workingStartedAtMs}
-              latestTurn={snapshot?.thread.latestTurn ?? null}
-              loading={loading}
+              latestTurn={pageSnapshot?.thread.latestTurn ?? null}
+              loading={loading || awaitingThread}
               workspaceRoot={project?.workspaceRoot}
               cwd={
-                snapshot === undefined
+                pageSnapshot === undefined
                   ? project?.workspaceRoot
-                  : (threadWorktreePathOf(snapshot.thread) ?? project?.workspaceRoot)
+                  : (threadWorktreePathOf(pageSnapshot.thread) ?? project?.workspaceRoot)
               }
               projectId={projectId}
               tickets={tickets}
@@ -795,10 +798,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               }}
               error={transcriptError}
               notices={
-                threadStatusNoticesVisible(snapshot?.session, snapshot?.thread.latestTurn) ? (
+                threadStatusNoticesVisible(
+                  pageSnapshot?.session,
+                  pageSnapshot?.thread.latestTurn,
+                ) ? (
                   <ThreadStatusNotices
-                    session={snapshot?.session}
-                    latestTurn={snapshot?.thread.latestTurn}
+                    session={pageSnapshot?.session}
+                    latestTurn={pageSnapshot?.thread.latestTurn}
                     onRetry={retryMandate === undefined ? undefined : retryFailedTurn}
                   />
                 ) : null

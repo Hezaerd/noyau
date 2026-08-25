@@ -1,5 +1,5 @@
 import { LatestTurn } from "@noyau/protocol/entities/turn"
-import { TurnId } from "@noyau/protocol/ids"
+import { ThreadId, TurnId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
@@ -8,13 +8,17 @@ import {
   hasUnseenCompletion,
   isOptimisticSendActive,
   isThreadWorking,
+  resolveOpenThreadWorking,
   resolveThreadActivity,
   resolveWorkingStartedAtMs,
+  sendStartedAtMsForThread,
   settledTranscriptLabel,
   workingTranscriptLabel,
 } from "../src/lib/thread-activity"
 
 const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
+const openThreadId = ThreadId.make("10000000-0000-4000-8000-000000000001")
+const otherThreadId = ThreadId.make("20000000-0000-4000-8000-000000000002")
 
 const latestTurn = (input: {
   readonly state: LatestTurn["state"]
@@ -254,6 +258,85 @@ describe("thread activity", () => {
         }),
       ),
     ).toBe("A travaillé 1m 19s")
+  })
+
+  it("ignores an optimistic send that belongs to another Thread", () => {
+    expect(
+      sendStartedAtMsForThread({ threadId: otherThreadId, startedAtMs: 1_000 }, openThreadId),
+    ).toBeNull()
+    expect(
+      sendStartedAtMsForThread({ threadId: openThreadId, startedAtMs: 1_000 }, openThreadId),
+    ).toBe(1_000)
+    expect(sendStartedAtMsForThread({ threadId: undefined, startedAtMs: 1_000 }, undefined)).toBe(
+      1_000,
+    )
+  })
+
+  it("does not show the running Thread timer on a different open Thread", () => {
+    const running = latestTurn({
+      state: "running",
+      startedAt: "2026-08-23T12:00:00.000Z",
+    })
+    const settled = latestTurn({
+      state: "completed",
+      completedAt: "2026-08-23T11:00:00.000Z",
+    })
+    const leakedSend = {
+      threadId: otherThreadId,
+      startedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+    }
+    expect(
+      resolveOpenThreadWorking({
+        openThreadId,
+        snapshotThreadId: openThreadId,
+        sessionStatus: "ready",
+        latestTurn: settled,
+        send: leakedSend,
+      }),
+    ).toEqual({
+      isAuthoritativeWorking: false,
+      isWorking: false,
+      workingStartedAtMs: null,
+    })
+    expect(
+      resolveOpenThreadWorking({
+        openThreadId,
+        snapshotThreadId: otherThreadId,
+        sessionStatus: "running",
+        latestTurn: running,
+        send: leakedSend,
+      }),
+    ).toEqual({
+      isAuthoritativeWorking: false,
+      isWorking: false,
+      workingStartedAtMs: null,
+    })
+    expect(
+      resolveOpenThreadWorking({
+        openThreadId,
+        snapshotThreadId: openThreadId,
+        sessionStatus: "running",
+        latestTurn: running,
+        send: leakedSend,
+      }),
+    ).toEqual({
+      isAuthoritativeWorking: true,
+      isWorking: true,
+      workingStartedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+    })
+    expect(
+      resolveOpenThreadWorking({
+        openThreadId: undefined,
+        snapshotThreadId: undefined,
+        sessionStatus: null,
+        latestTurn: null,
+        send: { threadId: undefined, startedAtMs: Date.parse("2026-08-23T12:00:00.000Z") },
+      }),
+    ).toEqual({
+      isAuthoritativeWorking: false,
+      isWorking: true,
+      workingStartedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+    })
   })
 
   it("keeps the local send timestamp until the open Turn has its own start", () => {
