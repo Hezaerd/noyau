@@ -4,7 +4,6 @@ import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
-  deriveActiveWorkStartedAtMs,
   formatElapsedLabel,
   hasUnseenCompletion,
   isOptimisticSendActive,
@@ -56,12 +55,16 @@ describe("thread activity", () => {
     ).toBe(false)
   })
 
-  it("counts elapsed from startedAt, then requestedAt, while the Turn is open", () => {
+  it("counts elapsed from startedAt, then requestedAt, like t3code", () => {
     expect(
       resolveWorkingStartedAtMs({
-        latestTurn: latestTurn({ state: "running", startedAt: "2026-08-23T12:00:05.000Z" }),
+        latestTurn: latestTurn({
+          state: "running",
+          requestedAt: "2026-08-23T12:00:00.000Z",
+          startedAt: "2026-08-23T12:00:15.000Z",
+        }),
       }),
-    ).toBe(Date.parse("2026-08-23T12:00:05.000Z"))
+    ).toBe(Date.parse("2026-08-23T12:00:15.000Z"))
     expect(
       resolveWorkingStartedAtMs({
         latestTurn: latestTurn({ state: "running", startedAt: null }),
@@ -73,19 +76,30 @@ describe("thread activity", () => {
           state: "completed",
           completedAt: "2026-08-23T12:01:00.000Z",
         }),
-        updatedAt: latestTurn({ state: "running" }).requestedAt,
+        sendStartedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+      }),
+    ).toBe(Date.parse("2026-08-23T12:00:00.000Z"))
+    expect(
+      resolveWorkingStartedAtMs({
+        latestTurn: latestTurn({
+          state: "completed",
+          completedAt: "2026-08-23T12:01:00.000Z",
+        }),
       }),
     ).toBeNull()
   })
 
-  it("formats compact elapsed labels", () => {
-    expect(formatElapsedLabel(0)).toBe("0s")
+  it("formats elapsed with t3code duration buckets", () => {
+    expect(formatElapsedLabel(0)).toBe("1ms")
+    expect(formatElapsedLabel(1)).toBe("1ms")
+    expect(formatElapsedLabel(4_200)).toBe("4.2s")
+    expect(formatElapsedLabel(9_950)).toBe("10s")
     expect(formatElapsedLabel(42_000)).toBe("42s")
     expect(formatElapsedLabel(5 * 60_000)).toBe("5m")
     expect(formatElapsedLabel(5 * 60_000 + 12_000)).toBe("5m 12s")
-    expect(formatElapsedLabel(90 * 60_000)).toBe("1h 30m")
-    expect(formatElapsedLabel(Number.NaN)).toBe("0s")
-    expect(formatElapsedLabel(-5_000)).toBe("0s")
+    expect(formatElapsedLabel(90 * 60_000)).toBe("90m")
+    expect(formatElapsedLabel(Number.NaN)).toBe("0ms")
+    expect(formatElapsedLabel(-5_000)).toBe("0ms")
   })
 
   it("hides historical completions until the Thread has been visited", () => {
@@ -219,7 +233,7 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:00:08.000Z",
         }),
       ),
-    ).toBe("Interrompu après 8s")
+    ).toBe("Interrompu après 8.0s")
     expect(settledTranscriptLabel(latestTurn({ state: "running" }))).toBeNull()
     expect(
       settledTranscriptLabel(
@@ -229,12 +243,22 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:00:08.000Z",
         }),
       ),
-    ).toBe("A travaillé 8s")
+    ).toBe("A travaillé 8.0s")
+    expect(
+      settledTranscriptLabel(
+        latestTurn({
+          state: "completed",
+          requestedAt: "2026-08-23T12:00:00.000Z",
+          startedAt: "2026-08-23T12:00:15.000Z",
+          completedAt: "2026-08-23T12:01:34.000Z",
+        }),
+      ),
+    ).toBe("A travaillé 1m 19s")
   })
 
   it("keeps the local send timestamp until the open Turn has its own start", () => {
     expect(
-      deriveActiveWorkStartedAtMs({
+      resolveWorkingStartedAtMs({
         latestTurn: latestTurn({
           state: "completed",
           completedAt: "2026-08-23T12:01:00.000Z",
@@ -243,8 +267,12 @@ describe("thread activity", () => {
       }),
     ).toBe(1_000)
     expect(
-      deriveActiveWorkStartedAtMs({
-        latestTurn: latestTurn({ state: "running", startedAt: "2026-08-23T12:00:05.000Z" }),
+      resolveWorkingStartedAtMs({
+        latestTurn: latestTurn({
+          state: "running",
+          requestedAt: "2026-08-23T12:00:00.000Z",
+          startedAt: "2026-08-23T12:00:05.000Z",
+        }),
         sendStartedAtMs: 1_000,
       }),
     ).toBe(Date.parse("2026-08-23T12:00:05.000Z"))

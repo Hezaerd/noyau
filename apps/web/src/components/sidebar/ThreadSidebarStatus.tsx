@@ -1,11 +1,7 @@
 import { CircleAlertIcon, CircleCheckIcon, CircleDashedIcon } from "lucide-react"
-import { useEffect, useRef } from "react"
 
-import {
-  formatElapsedLabel,
-  type ThreadActivity,
-  type ThreadActivityKind,
-} from "@/lib/thread-activity"
+import { LiveElapsed } from "@/components/thread/LiveElapsed"
+import { type ThreadActivity, type ThreadActivityKind } from "@/lib/thread-activity"
 import { cn } from "@/lib/utils"
 
 const statusClassName = {
@@ -14,30 +10,6 @@ const statusClassName = {
   interrupted: "text-muted-foreground",
   error: "text-destructive",
 } as const satisfies Record<ThreadActivityKind, string>
-
-function ThreadWorkingDuration({ startedAtMs }: { readonly startedAtMs: number }) {
-  const textRef = useRef<HTMLSpanElement>(null)
-  const initial = formatElapsedLabel(Date.now() - startedAtMs)
-
-  useEffect(() => {
-    const updateText = () => {
-      if (textRef.current !== null) {
-        textRef.current.textContent = formatElapsedLabel(Date.now() - startedAtMs)
-      }
-    }
-    updateText()
-    const id = window.setInterval(updateText, 1_000)
-    return () => {
-      window.clearInterval(id)
-    }
-  }, [startedAtMs])
-
-  return (
-    <span ref={textRef} aria-hidden className="font-mono tabular-nums">
-      {initial}
-    </span>
-  )
-}
 
 export function ThreadSidebarStatus({
   activity,
@@ -63,7 +35,7 @@ export function ThreadSidebarStatus({
       ) : null}
       <span role="status">{activity.label}</span>
       {activity.kind === "working" && startedAtMs !== null ? (
-        <ThreadWorkingDuration startedAtMs={startedAtMs} />
+        <LiveElapsed startedAtMs={startedAtMs} hidden className="font-mono tabular-nums" />
       ) : null}
     </span>
   )

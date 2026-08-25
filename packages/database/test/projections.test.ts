@@ -39,7 +39,7 @@ import {
   TicketEvent,
   TicketThreadLinked,
 } from "@noyau/protocol/ticket/events"
-import { Context, Crypto, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
+import { Context, Crypto, DateTime, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 const ids = {
@@ -466,6 +466,82 @@ layer(platformLayer)("SQL projections", (it) => {
         "error",
       )
     })
+  })
+
+  it.effect("ancre started_at sur turn.started, pas session.updatedAt", () => {
+    const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000003")
+    const running = Schema.decodeSync(Session)({
+      threadId: ids.recoveryThread,
+      status: "running",
+      lastError: null,
+      activeTurnId: turnId,
+      runtimeMode: "full-access",
+      resumeCursor: { schemaVersion: 1, sessionId: "cursor-session-1" },
+      updatedAt: "2026-08-20T00:01:15.000Z",
+    })
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Timer",
+                provider: "cursor",
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId,
+                text: "Compte le temps",
+              }),
+              "2026-08-20T00:01:00.000Z",
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadSessionSet.make({
+                threadId: ids.recoveryThread,
+                session: running,
+              }),
+              "2026-08-20T00:01:15.000Z",
+            ),
+          )
+          const snapshot = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "Thread should exist",
+          )
+          const shell = yield* readShellSnapshot(environment)
+          const latestTurn = snapshot.thread.latestTurn
+          const shellTurn = shell.threads.find(
+            (thread) => thread.id === ids.recoveryThread,
+          )?.latestTurn
+          assert.strictEqual(
+            latestTurn === null ? null : DateTime.formatIso(latestTurn.requestedAt),
+            "2026-08-20T00:01:00.000Z",
+          )
+          assert.strictEqual(
+            latestTurn?.startedAt == null ? null : DateTime.formatIso(latestTurn.startedAt),
+            "2026-08-20T00:01:00.000Z",
+          )
+          assert.strictEqual(
+            shellTurn?.startedAt == null ? null : DateTime.formatIso(shellTurn.startedAt),
+            "2026-08-20T00:01:00.000Z",
+          )
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    )
   })
 
   it.effect("retire le Project et ses projections enfants malgré les FK colonnes", () =>

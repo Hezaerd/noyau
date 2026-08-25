@@ -69,10 +69,7 @@ export function ThreadSidebarItem({
   })
   const workingStartedAtMs =
     activity?.kind === "working"
-      ? resolveWorkingStartedAtMs({
-          latestTurn: thread.latestTurn,
-          updatedAt: thread.updatedAt,
-        })
+      ? resolveWorkingStartedAtMs({ latestTurn: thread.latestTurn })
       : null
   const branch = resolveSidebarCheckoutBranch({
     threadBranch: threadBranchOf(thread),
