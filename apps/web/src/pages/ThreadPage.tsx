@@ -40,6 +40,7 @@ import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useCursor, useProjects } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
+import { useThreadSnapshot } from "@/hooks/use-thread-snapshot"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
 import { invalidInputFailure } from "@/lib/app-failure"
 import {
@@ -72,8 +73,7 @@ import {
   setThreadModelSelection as setThreadModelSelectionAction,
   submitTurn as submitTurnAction,
 } from "@/lib/thread-page-actions"
-import { readThreadSnapshotCache, writeThreadSnapshotCache } from "@/lib/thread-snapshot-cache"
-import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
+import { threadStatusNoticesVisible } from "@/lib/thread-transcript"
 import { shouldCatchUpTranscriptOnOpen } from "@/lib/thread-transcript-catch-up"
 import {
   buildFixCiPrompt,
@@ -93,6 +93,11 @@ import {
 import { writeComposerDraft } from "@/state/composer-drafts"
 import { getThreadEnvModePreference } from "@/state/preferences"
 import { publishCreatedThread } from "@/state/shell"
+import {
+  getThreadSnapshot,
+  reduceThreadSnapshotEnvelope,
+  replaceThreadSnapshot,
+} from "@/state/thread-snapshot"
 import { markThreadVisited } from "@/state/thread-visits"
 
 interface ThreadPageProps {
@@ -108,7 +113,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const navigate = useNavigate()
   const tickets = useProjectComposerTickets(projectId)
   const project = projects.find((candidate) => candidate.id === projectId)
-  const [snapshot, setSnapshot] = useState<ThreadSnapshot>()
+  const snapshot = useThreadSnapshot(threadId)
   const [loading, setLoading] = useState(threadId !== undefined)
   const [actionFailure, setActionFailure] = useState<FailurePresentation>()
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
@@ -151,11 +156,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     [navigate, projectId],
   )
   const pageSnapshot =
-    snapshot !== undefined && snapshot.thread.id === threadId
-      ? snapshot
-      : threadId === undefined
-        ? undefined
-        : readThreadSnapshotCache(threadId)
+    snapshot !== undefined && snapshot.thread.id === threadId ? snapshot : undefined
   const snapshotWorktreePath =
     pageSnapshot === undefined ? null : threadWorktreePathOf(pageSnapshot.thread)
   const gitStatus = useVcsStatus(
@@ -184,7 +185,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     if (threadId === undefined) {
       createdThreadIdRef.current = undefined
       clearCreatedCheckout()
-      setSnapshot(undefined)
       setLoading(false)
       setSubscriptionStatus(undefined)
       const draftCheckout = draftCheckoutOf(getThreadEnvModePreference())
@@ -193,7 +193,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setStartFromOrigin(draftCheckout.startFromOrigin)
       return
     }
-    const cached = readThreadSnapshotCache(threadId)
+    const cached = getThreadSnapshot(threadId)
     const pendingCheckout = peekCreatedCheckout(threadId)
     if (pendingCheckout !== undefined) {
       createdThreadIdRef.current = threadId
@@ -212,8 +212,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setBaseBranch(null)
       setStartFromOrigin(false)
     }
-    // Paint immediately from a warm cache; cold paths still clear then load.
-    setSnapshot(cached)
     setLoading(cached === undefined)
     setSubscriptionStatus(undefined)
     if (cached !== undefined) {
@@ -227,8 +225,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       if (next.thread.id !== threadId) {
         return
       }
-      writeThreadSnapshotCache(next)
-      setSnapshot(next)
+      replaceThreadSnapshot(next)
       setRuntimeMode(next.thread.runtimeMode)
       setModelSelection(next.thread.modelSelection)
       const boundPath = threadWorktreePathOf(next.thread)
@@ -254,17 +251,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       },
       onEvent: (envelope) => {
         const event = envelope.event
-        setSnapshot((current) => {
-          if (current === undefined || current.thread.id !== threadId) {
-            return current
-          }
-          const next = applyThreadEnvelope(current, envelope)
-          if (next === undefined) {
-            return current
-          }
-          writeThreadSnapshotCache(next)
-          return next
-        })
+        reduceThreadSnapshotEnvelope(threadId, envelope)
         if ("threadId" in event && event.threadId !== threadId) {
           return
         }
