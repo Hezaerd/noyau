@@ -9,11 +9,6 @@ const decodeThreadPinsRecord = Schema.decodeUnknownOption(ThreadPinsRecord)
 /** pinnedAtMs keyed by ThreadId — used to keep pinned Threads above the rest. */
 export type ThreadPins = ReadonlyMap<string, number>
 
-const listeners = new Set<() => void>()
-
-let current: ThreadPins = new Map()
-let initialized = false
-
 export const parseThreadPins = (value: string | null): ThreadPins => {
   if (value === null || value === "") {
     return new Map()
@@ -51,7 +46,7 @@ export const serializeThreadPins = (pins: ThreadPins): string => {
   return JSON.stringify(record)
 }
 
-const readStoredPins = (): ThreadPins => {
+export const readStoredThreadPins = (): ThreadPins => {
   try {
     return parseThreadPins(window.localStorage.getItem(THREAD_PINS_STORAGE_KEY))
   } catch {
@@ -59,7 +54,7 @@ const readStoredPins = (): ThreadPins => {
   }
 }
 
-const persistPins = (pins: ThreadPins): void => {
+export const persistThreadPins = (pins: ThreadPins): void => {
   try {
     if (pins.size === 0) {
       window.localStorage.removeItem(THREAD_PINS_STORAGE_KEY)
@@ -71,60 +66,5 @@ const persistPins = (pins: ThreadPins): void => {
   }
 }
 
-const emitChange = (): void => {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-export const initializeThreadPins = (): void => {
-  if (initialized) {
-    return
-  }
-  initialized = true
-  current = readStoredPins()
-}
-
-export const getThreadPins = (): ThreadPins => current
-
-export const subscribeThreadPins = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
-export const isThreadPinned = (threadId: ThreadId | string, pins: ThreadPins = current): boolean =>
+export const isThreadPinned = (threadId: ThreadId | string, pins: ThreadPins): boolean =>
   pins.has(threadId)
-
-export const setThreadPinned = (
-  threadId: ThreadId,
-  pinned: boolean,
-  pinnedAtMs: number = Date.now(),
-): void => {
-  const currentlyPinned = current.has(threadId)
-  if (pinned === currentlyPinned) {
-    return
-  }
-  const next = new Map(current)
-  if (pinned) {
-    if (!Number.isFinite(pinnedAtMs)) {
-      return
-    }
-    next.set(threadId, pinnedAtMs)
-  } else {
-    next.delete(threadId)
-  }
-  current = next
-  persistPins(current)
-  emitChange()
-}
-
-export const toggleThreadPinned = (
-  threadId: ThreadId,
-  pinnedAtMs: number = Date.now(),
-): boolean => {
-  const nextPinned = !current.has(threadId)
-  setThreadPinned(threadId, nextPinned, pinnedAtMs)
-  return nextPinned
-}

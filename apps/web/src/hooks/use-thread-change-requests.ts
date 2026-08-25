@@ -12,6 +12,7 @@ import {
   vcsScopeForThread,
   vcsStatusScopeKey,
 } from "@/lib/vcs-status"
+import { replaceProjectPullRequests } from "@/state/sidebar"
 
 const sameSnapshot = (
   left: ThreadChangeRequestSnapshot | undefined,
@@ -97,6 +98,7 @@ export const useThreadChangeRequests = (
         liveBranches.set(thread.id, status.refName)
       }
     }
+    replaceProjectPullRequests(projectId, pullRequests)
     return { pullRequests, liveBranches }
   }, [projectId, snapshots, statuses, threads])
 }

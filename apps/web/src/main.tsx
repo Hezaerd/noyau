@@ -12,11 +12,12 @@ import { initializeDiscordPresencePreference } from "@/lib/discord-presence-pref
 import { initializeKeybindings } from "@/lib/keybindings"
 import { initializeProjectFolderStartDirectory } from "@/lib/project-folder-preference"
 import { initializeThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
-import { initializeThreadPins } from "@/lib/thread-pins"
-import { initializeThreadSettlePreference } from "@/lib/thread-settle-preference"
-import { initializeThreadVisits } from "@/lib/thread-visits"
 import { initializeTurnCuePreference } from "@/lib/turn-cue-preference"
 import { AppAtomRegistryProvider } from "@/state/atom-registry"
+import { initializeNowMinuteClock } from "@/state/now"
+import { initializeThreadPins } from "@/state/thread-pins"
+import { initializeThreadSettlePreference } from "@/state/thread-settle"
+import { initializeThreadVisits } from "@/state/thread-visits"
 
 import { routeTree } from "./routeTree.gen"
 
@@ -34,6 +35,7 @@ initializeThreadSettlePreference()
 initializeTurnCuePreference()
 initializeThreadPins()
 initializeThreadVisits()
+initializeNowMinuteClock()
 
 const router = createRouter({ routeTree })
 

@@ -7,8 +7,8 @@ import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
 import { isKeybindingRecorderActive, matchesKeybinding } from "@/lib/keybindings"
 import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
-import { toggleThreadPinned } from "@/lib/thread-pins"
 import { cn } from "@/lib/utils"
+import { toggleThreadPinned } from "@/state/thread-pins"
 
 export function WorkspaceBreadcrumb({
   ariaLabel,

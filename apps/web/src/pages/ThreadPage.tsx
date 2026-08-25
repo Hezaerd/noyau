@@ -77,7 +77,6 @@ import {
 import { readThreadSnapshotCache, writeThreadSnapshotCache } from "@/lib/thread-snapshot-cache"
 import { applyThreadEnvelope, threadStatusNoticesVisible } from "@/lib/thread-transcript"
 import { shouldCatchUpTranscriptOnOpen } from "@/lib/thread-transcript-catch-up"
-import { markThreadVisited } from "@/lib/thread-visits"
 import {
   buildFixCiPrompt,
   buildFixMergeConflictsPrompt,
@@ -94,6 +93,7 @@ import {
   vcsScopeForThread,
 } from "@/lib/vcs-status"
 import { upsertAppliedShellThread } from "@/state/shell"
+import { markThreadVisited } from "@/state/thread-visits"
 
 interface ThreadPageProps {
   readonly projectId: ProjectId

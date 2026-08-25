@@ -24,10 +24,10 @@ import {
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import {
-  useLastProjectId,
   useProjectThreadIds,
   useProjects,
   useSelectProject,
+  useSelectedProject,
 } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
@@ -45,13 +45,12 @@ export function AppSidebar() {
   const settingsHotkey = useKeybinding("settings.open")
   const createThreadHotkey = useKeybinding("thread.create")
   const projects = useProjects()
-  const lastProjectId = useLastProjectId()
+  const selectedProject = useSelectedProject()
   const selectProject = useSelectProject()
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [rebindProjectId, setRebindProjectId] = useState<ProjectId>()
   const [deleteProjectId, setDeleteProjectId] = useState<ProjectId>()
   const pendingProjectIdRef = useRef<ProjectId | undefined>(undefined)
-  const selectedProject = projects.find((project) => project.id === lastProjectId) ?? projects[0]
   const deleteThreadCount = useProjectThreadIds(deleteProjectId).length
   const closeMobileNavigation = useCallback(() => {
     if (isMobile) {

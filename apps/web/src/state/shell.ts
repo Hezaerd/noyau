@@ -61,6 +61,12 @@ export const projectsAtom = Atom.make(
   (get): ReadonlyArray<ProjectShell> => get(appliedShellAtom)?.projects ?? EMPTY_PROJECTS,
 ).pipe(Atom.withLabel("shell:projects"))
 
+export const selectedProjectAtom = Atom.make((get): ProjectShell | undefined => {
+  const projects = get(projectsAtom)
+  const lastProjectId = get(lastProjectIdAtom)
+  return projects.find((project) => project.id === lastProjectId) ?? projects[0]
+}).pipe(Atom.withLabel("shell:selected-project"))
+
 export const cursorAtom = Atom.make(
   (get): CursorProviderStatus | undefined => get(appliedShellAtom)?.environment.cursor,
 ).pipe(Atom.withLabel("shell:cursor"))

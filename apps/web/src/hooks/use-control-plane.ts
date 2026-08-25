@@ -15,6 +15,7 @@ import {
   projectThreadsAtom,
   projectsAtom,
   selectProject,
+  selectedProjectAtom,
   subscriptionStatusAtom,
   threadShellAtom,
   threadsAtom,
@@ -32,6 +33,8 @@ export const useSubscriptionStatus = (): SubscriptionStatus | undefined =>
   useAtomValue(subscriptionStatusAtom)
 
 export const useLastProjectId = (): ProjectId | undefined => useAtomValue(lastProjectIdAtom)
+
+export const useSelectedProject = (): ProjectShell | undefined => useAtomValue(selectedProjectAtom)
 
 export const useSelectProject = (): typeof selectProject => selectProject
 

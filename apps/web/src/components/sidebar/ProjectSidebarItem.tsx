@@ -39,8 +39,7 @@ export function ProjectSidebarItem({
         <span>Tableau</span>
       </SidebarMenuButton>
       <ThreadSidebarSection
-        threads={threads.filter((thread) => thread.status === "active")}
-        pullRequests={pullRequests}
+        projectId={project.id}
         renderThread={(thread, settled) => (
           <ThreadSidebarItem
             thread={thread}

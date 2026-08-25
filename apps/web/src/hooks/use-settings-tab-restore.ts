@@ -24,9 +24,9 @@ import type { SettingsTabId } from "@/lib/settings-catalog"
 import {
   DEFAULT_AUTO_SETTLE_AFTER_DAYS,
   DEFAULT_AUTO_SETTLE_ON_MERGE,
-  resetThreadSettlePreference,
 } from "@/lib/thread-settle-preference"
 import { isTurnCuePreferenceDefault, resetTurnCuePreference } from "@/lib/turn-cue-preference"
+import { resetThreadSettlePreference } from "@/state/thread-settle"
 
 export interface SettingsTabRestore {
   readonly canRestore: boolean

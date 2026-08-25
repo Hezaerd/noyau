@@ -1,6 +1,10 @@
-import { useSyncExternalStore } from "react"
+import { useAtomValue } from "@effect/atom-react"
+import type { ThreadId } from "@noyau/protocol/ids"
 
-import { getThreadVisits, subscribeThreadVisits, type ThreadVisits } from "@/lib/thread-visits"
+import type { ThreadVisits } from "@/lib/thread-visits"
+import { threadVisitsAtom, visitAtom } from "@/state/thread-visits"
 
-export const useThreadVisits = (): ThreadVisits =>
-  useSyncExternalStore(subscribeThreadVisits, getThreadVisits, getThreadVisits)
+export const useThreadVisits = (): ThreadVisits => useAtomValue(threadVisitsAtom)
+
+export const useThreadVisit = (threadId: ThreadId): number | undefined =>
+  useAtomValue(visitAtom(threadId))

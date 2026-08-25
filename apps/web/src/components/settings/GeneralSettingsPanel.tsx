@@ -23,11 +23,7 @@ import { THREAD_ENV_MODE_ITEMS } from "@/lib/checkout"
 import { setDiscordPresenceEnabled } from "@/lib/discord-presence-preference"
 import { setProjectFolderStartDirectory } from "@/lib/project-folder-preference"
 import { isThreadEnvMode, setThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
-import {
-  DEFAULT_AUTO_SETTLE_AFTER_DAYS,
-  setAutoSettleAfterDays,
-  setAutoSettleOnMergeEnabled,
-} from "@/lib/thread-settle-preference"
+import { DEFAULT_AUTO_SETTLE_AFTER_DAYS } from "@/lib/thread-settle-preference"
 import {
   isTurnCueSound,
   playTurnCue,
@@ -35,6 +31,7 @@ import {
   type TurnCueSound,
 } from "@/lib/turn-cue"
 import { setTurnCueEnabled, setTurnCueSound } from "@/lib/turn-cue-preference"
+import { setAutoSettleAfterDays, setAutoSettleOnMergeEnabled } from "@/state/thread-settle"
 
 const selectTurnCueSound = (sound: TurnCueSound): void => {
   setTurnCueSound(sound)
