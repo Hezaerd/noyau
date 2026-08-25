@@ -56,6 +56,8 @@ export const journalEventTouchesPresence = (event: DomainEvent): boolean => {
     case "project.meta-updated":
     case "project.deleted":
       return true
+    case "thread.meta-updated":
+      return event.title !== undefined
     default:
       return false
   }
