@@ -472,6 +472,14 @@ layer(platformLayer)("SQL projections", (it) => {
         evidence.shell.threads.find((thread) => thread.id === ids.recoveryThread)?.sessionStatus,
         "error",
       )
+      assert.deepStrictEqual(
+        evidence.shell.threads.find((thread) => thread.id === ids.recoveryThread)?.modelSelection,
+        {
+          modelId: "composer-2.5",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+        },
+      )
     })
   })
 

@@ -19,6 +19,7 @@ const shell = (input: Partial<(typeof ThreadShell)["Encoded"]> = {}): ThreadShel
     projectId,
     title: "Thread",
     provider: "cursor",
+    modelSelection: null,
     runtimeMode: "full-access",
     status: "active",
     latestTurn: {

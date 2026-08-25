@@ -1,5 +1,6 @@
 import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import { Environment, Provider, WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { SessionStatus } from "@noyau/protocol/entities/session"
 import { SettledOverride, ThreadStatus } from "@noyau/protocol/entities/thread"
@@ -22,6 +23,7 @@ export const ThreadShell = Schema.Struct({
   projectId: ProjectId,
   title: Schema.NonEmptyString,
   provider: Provider,
+  modelSelection: Schema.NullOr(ModelSelection),
   runtimeMode: RuntimeMode,
   branch: Schema.optionalKey(ThreadBranch),
   worktreePath: Schema.optionalKey(ThreadWorktreePath),

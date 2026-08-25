@@ -203,16 +203,10 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
               side: "right",
               align: "start",
               sideOffset: 8,
+              variant: "glass",
               className:
                 "max-w-80 text-left whitespace-normal [&_[data-slot=tooltip-viewport]]:p-0",
-              children: (
-                <ThreadSidebarPopover
-                  project={project}
-                  thread={thread}
-                  branch={branch}
-                  pullRequest={pullRequest}
-                />
-              ),
+              children: <ThreadSidebarPopover project={project} thread={thread} branch={branch} />,
             }}
             className={
               settled && !isActive

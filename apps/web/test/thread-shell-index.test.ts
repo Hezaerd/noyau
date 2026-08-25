@@ -16,6 +16,7 @@ const makeThread = (id: ThreadId, nextProjectId: ProjectId = projectId): ThreadS
     projectId: nextProjectId,
     title: "Nouveau Thread",
     provider: "cursor",
+    modelSelection: null,
     runtimeMode: "full-access",
     status: "active",
     latestTurn: null,
