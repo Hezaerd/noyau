@@ -275,7 +275,7 @@ Commandes client :
 
 `ticket.assign` reste un contrat durable sans surface UI.
 
-Hors contrat : checkpoints, diffs, snooze, pin, settle, terminal, pairing, relay, usage.
+Hors contrat : revert de Checkpoint, snooze, pin, terminal, pairing, relay, usage.
 
 Les deltas ACP, tool updates, permissions et fins de Turn sont des **commandes internes**
 (ingestion). Le renderer ne les soumet pas.
@@ -366,7 +366,7 @@ ou événement distant, le snapshot autoritatif gagne.
 - Studio Server, Runtime Nodes, VPS, connexion distante, fédération d'Environments ;
 - comptes, pairing, permissions projet, présence ;
 - Claude, Codex, harnais générique, usage promis ;
-- checkpoints, provenance Git par Turn, inbox PR / reviews / checks t3code ;
+- revert de Checkpoint, provenance Git au-delà du TurnDiff, inbox PR / reviews / checks t3code ;
 - n8n, terminal intégré ;
 - Linux, WSL, client web distribué, mobile ;
 - packaging / MAJ / réparation desktop (effort suivant) ;

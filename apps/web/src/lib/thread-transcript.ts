@@ -6,7 +6,7 @@ import type {
   TranscriptTool,
   TranscriptToolAction,
 } from "@noyau/protocol/entities/transcript"
-import type { LatestTurn, Turn, TurnSettlementState } from "@noyau/protocol/entities/turn"
+import type { LatestTurn, Turn, TurnDiff, TurnSettlementState } from "@noyau/protocol/entities/turn"
 import type { EventEnvelope } from "@noyau/protocol/events"
 import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
 
@@ -805,10 +805,62 @@ export const applyThreadEnvelope = (
         transcript: snapshot.transcript,
       })
     }
+    case "thread.turn-diff-completed": {
+      const turns = snapshot.turns.map((turn) => {
+        if (turn.id !== event.turnId) {
+          return turn
+        }
+        if (
+          turn.turnDiff !== undefined &&
+          turn.turnDiff.status !== "missing" &&
+          event.status === "missing"
+        ) {
+          return turn
+        }
+        return {
+          ...turn,
+          turnDiff: {
+            checkpointRef: event.checkpointRef,
+            status: event.status,
+            files: event.files,
+          },
+        }
+      })
+      return withEnvelope(snapshot, envelope, {
+        session: snapshot.session,
+        turns,
+        transcript: snapshot.transcript,
+      })
+    }
     case "thread.created":
     case "session.stop-requested":
       return withEnvelope(snapshot, envelope, snapshot)
     default:
       return undefined
   }
+}
+
+export const lastAssistantIndexByTurnId = (
+  transcript: ReadonlyArray<TranscriptItem>,
+): ReadonlyMap<Turn["id"], number> => {
+  const last = new Map<Turn["id"], number>()
+  transcript.forEach((item, index) => {
+    if (item._tag === "transcript.assistant") {
+      last.set(item.turnId, index)
+    }
+  })
+  return last
+}
+
+export const turnDiffForTranscriptItem = (
+  item: TranscriptItem,
+  index: number,
+  turns: ReadonlyArray<Turn>,
+  lastAssistantByTurn: ReadonlyMap<Turn["id"], number>,
+): TurnDiff | undefined => {
+  if (item._tag !== "transcript.assistant" || lastAssistantByTurn.get(item.turnId) !== index) {
+    return undefined
+  }
+  const turnDiff = turns.find((turn) => turn.id === item.turnId)?.turnDiff
+  return turnDiff !== undefined && turnDiff.files.length > 0 ? turnDiff : undefined
 }

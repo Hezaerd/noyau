@@ -3,6 +3,7 @@ import { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
 import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { TranscriptItem as TranscriptItemSchema } from "@noyau/protocol/entities/transcript"
+import { TurnDiffFile } from "@noyau/protocol/entities/turn"
 import type { DomainEvent } from "@noyau/protocol/events"
 import { ProjectId, type ProjectId as ProjectIdType } from "@noyau/protocol/ids"
 import { DEFAULT_THREAD_TITLE } from "@noyau/protocol/thread/title"
@@ -16,6 +17,8 @@ const encodeTranscriptItem = Schema.encodeEffect(JsonTranscriptItem)
 const decodeTranscriptItem = Schema.decodeEffect(JsonTranscriptItem)
 const JsonUserInputAnswers = Schema.fromJsonString(ProviderUserInputAnswers)
 const encodeUserInputAnswers = Schema.encodeEffect(JsonUserInputAnswers)
+const JsonTurnDiffFiles = Schema.fromJsonString(Schema.Array(TurnDiffFile))
+const encodeTurnDiffFiles = Schema.encodeEffect(JsonTurnDiffFiles)
 
 const ResumeCursorJson = Schema.fromJsonString(
   Schema.Struct({
@@ -722,6 +725,19 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         WHERE thread_id = ${event.threadId}
       `
       break
+    case "thread.turn-diff-completed": {
+      const filesJson = yield* encodeTurnDiffFiles(event.files).pipe(Effect.orDie)
+      yield* sql`
+        UPDATE projection_turns
+        SET checkpoint_ref = ${event.checkpointRef},
+            checkpoint_status = ${event.status},
+            checkpoint_files_json = ${filesJson}
+        WHERE turn_id = ${event.turnId}
+          AND thread_id = ${event.threadId}
+          AND (checkpoint_status IS NULL OR checkpoint_status <> 'ready')
+      `
+      break
+    }
     case "thread.turn.interrupted":
     case "thread.turn.ended":
     case "session.stop-requested":

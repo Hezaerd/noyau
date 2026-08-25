@@ -12,7 +12,12 @@ import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { Session } from "@noyau/protocol/entities/session"
 import { TranscriptItem, TurnPresentation } from "@noyau/protocol/entities/transcript"
-import { TurnSettlementState } from "@noyau/protocol/entities/turn"
+import {
+  CheckpointRef,
+  TurnDiffFile,
+  TurnDiffStatus,
+  TurnSettlementState,
+} from "@noyau/protocol/entities/turn"
 import { PrepareWorktree } from "@noyau/protocol/git"
 import {
   ActorId,
@@ -273,6 +278,14 @@ const titleSeededPayload = {
   title: Schema.NonEmptyString,
 } as const
 
+const turnDiffCompletePayload = {
+  threadId: ThreadId,
+  turnId: TurnId,
+  checkpointRef: CheckpointRef,
+  status: TurnDiffStatus,
+  files: Schema.Array(TurnDiffFile),
+} as const
+
 export const ThreadSessionSet = command("thread.session.set", Schema.Struct(sessionSetPayload))
 export const ThreadTranscriptAppend = command(
   "thread.transcript.append",
@@ -280,12 +293,17 @@ export const ThreadTranscriptAppend = command(
 )
 export const ThreadTurnEnded = command("thread.turn.ended", Schema.Struct(turnEndedPayload))
 export const ThreadTitleSeeded = command("thread.title.seeded", Schema.Struct(titleSeededPayload))
+export const ThreadTurnDiffComplete = command(
+  "thread.turn.diff.complete",
+  Schema.Struct(turnDiffCompletePayload),
+)
 
 export const InternalThreadCommand = Schema.Union([
   ThreadSessionSet,
   ThreadTranscriptAppend,
   ThreadTurnEnded,
   ThreadTitleSeeded,
+  ThreadTurnDiffComplete,
 ])
 export type InternalThreadCommand = (typeof InternalThreadCommand)["Type"]
 

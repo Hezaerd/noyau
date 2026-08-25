@@ -1,9 +1,12 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import type { Turn, TurnDiff } from "@noyau/protocol/entities/turn"
 import type { ProjectId } from "@noyau/protocol/ids"
 import { memo } from "react"
 
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
+import { ThreadMessageMeta } from "@/components/thread/ThreadMessageMeta"
 import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
+import { ThreadTurnDiffCard } from "@/components/thread/ThreadTurnDiffCard"
 import { ThreadTurnImages } from "@/components/thread/ThreadTurnImages"
 import {
   StickyUserInputShell,
@@ -16,10 +19,12 @@ import { Button } from "@/components/ui/button"
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
 import type { ComposerTicket } from "@/lib/composer-tickets"
 import { transcriptLabel } from "@/lib/thread-transcript"
+import { transcriptItemCopyText, transcriptItemMessageAt } from "@/lib/transcript-message-at"
 
 function ThreadTranscriptItemImpl({
   item,
   streaming,
+  turn,
   workspaceRoot,
   projectId,
   tickets,
@@ -30,9 +35,14 @@ function ThreadTranscriptItemImpl({
   onLegacyFreeformChange,
   onRespondApproval,
   onRespondUserInput,
+  turnDiff,
+  onOpenTurnDiff,
 }: {
   readonly item: TranscriptItem
   readonly streaming: boolean
+  readonly turn?: Pick<Turn, "requestedAt" | "completedAt"> | undefined
+  readonly turnDiff?: TurnDiff | undefined
+  readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
@@ -50,19 +60,12 @@ function ThreadTranscriptItemImpl({
 
   if (item._tag === "transcript.user") {
     const attachments = item.attachments
-    if (item.presentation !== undefined) {
-      return (
-        <Message align="end">
-          <MessageContent>
-            <TurnPresentationBubble presentation={item.presentation} />
-          </MessageContent>
-        </Message>
-      )
-    }
     return (
       <Message align="end">
         <MessageContent>
-          {attachments !== undefined || item.text !== undefined ? (
+          {item.presentation !== undefined ? (
+            <TurnPresentationBubble presentation={item.presentation} />
+          ) : attachments !== undefined || item.text !== undefined ? (
             <Bubble variant="default" align="end">
               <BubbleContent className="flex flex-col items-start gap-2 leading-6">
                 {attachments === undefined ? null : <ThreadTurnImages attachments={attachments} />}
@@ -78,6 +81,11 @@ function ThreadTranscriptItemImpl({
               </BubbleContent>
             </Bubble>
           ) : null}
+          <ThreadMessageMeta
+            align="end"
+            at={transcriptItemMessageAt(item, turn)}
+            copyText={transcriptItemCopyText(item)}
+          />
         </MessageContent>
       </Message>
     )
@@ -97,8 +105,18 @@ function ThreadTranscriptItemImpl({
                 {...(tickets === undefined ? {} : { tickets })}
                 {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
               />
+              {turnDiff === undefined ? null : onOpenTurnDiff === undefined ? (
+                <ThreadTurnDiffCard turnDiff={turnDiff} />
+              ) : (
+                <ThreadTurnDiffCard turnDiff={turnDiff} onOpen={onOpenTurnDiff} />
+              )}
             </BubbleContent>
           </Bubble>
+          <ThreadMessageMeta
+            align="start"
+            at={transcriptItemMessageAt(item, turn, streaming)}
+            copyText={transcriptItemCopyText(item, streaming)}
+          />
         </MessageContent>
       </Message>
     )

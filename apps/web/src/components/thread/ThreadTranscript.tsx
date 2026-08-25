@@ -1,5 +1,5 @@
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import type { LatestTurn } from "@noyau/protocol/entities/turn"
+import type { LatestTurn, Turn } from "@noyau/protocol/entities/turn"
 import type { ProjectId } from "@noyau/protocol/ids"
 import { ArrowDownIcon } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
@@ -20,14 +20,41 @@ import {
 } from "@/components/ui/message-scroller"
 import type { ComposerTicket } from "@/lib/composer-tickets"
 import { settledTranscriptLabel } from "@/lib/thread-activity"
-import { groupTranscriptRows, transcriptGroupRowId, transcriptRowId } from "@/lib/thread-transcript"
+import {
+  groupTranscriptRows,
+  lastAssistantIndexByTurnId,
+  transcriptGroupRowId,
+  transcriptRowId,
+  turnDiffForTranscriptItem,
+} from "@/lib/thread-transcript"
 import { deriveTurnMinimapItems, TURN_MINIMAP_MIN_ITEMS } from "@/lib/thread-turn-minimap"
+
+const EMPTY_TURNS: ReadonlyArray<Turn> = []
+
+const transcriptTurnDiffProps = (
+  item: TranscriptItem,
+  index: number,
+  turns: ReadonlyArray<Turn>,
+  lastAssistantByTurn: ReadonlyMap<Turn["id"], number>,
+  onOpenTurnDiff: ((turnId: Turn["id"], filePath?: string) => void) | undefined,
+): {
+  readonly turnDiff?: ReturnType<typeof turnDiffForTranscriptItem>
+  readonly onOpenTurnDiff?: (filePath?: string) => void
+} => {
+  const turnDiff = turnDiffForTranscriptItem(item, index, turns, lastAssistantByTurn)
+  if (onOpenTurnDiff === undefined) {
+    return turnDiff === undefined ? {} : { turnDiff }
+  }
+  const open = (filePath?: string) => onOpenTurnDiff(item.turnId, filePath)
+  return turnDiff === undefined ? { onOpenTurnDiff: open } : { turnDiff, onOpenTurnDiff: open }
+}
 
 export function ThreadTranscript({
   transcript,
   isRunning,
   workingStartedAtMs = null,
   latestTurn = null,
+  turns = EMPTY_TURNS,
   loading,
   error,
   notices,
@@ -42,6 +69,7 @@ export function ThreadTranscript({
   onLegacyFreeformChange,
   onRespondApproval,
   onRespondUserInput,
+  onOpenTurnDiff,
   scrollerKey,
   followLatestKey = 0,
 }: {
@@ -49,6 +77,7 @@ export function ThreadTranscript({
   readonly isRunning: boolean
   readonly workingStartedAtMs?: number | null
   readonly latestTurn?: LatestTurn | null
+  readonly turns?: ReadonlyArray<Turn>
   readonly loading: boolean
   readonly error: ReactNode
   readonly notices: ReactNode
@@ -63,6 +92,7 @@ export function ThreadTranscript({
   readonly onLegacyFreeformChange: (requestId: string, value: string) => void
   readonly onRespondApproval: (requestId: string, decision: "accept" | "decline") => void
   readonly onRespondUserInput: (requestId: string) => void
+  readonly onOpenTurnDiff?: ((turnId: Turn["id"], filePath?: string) => void) | undefined
   readonly scrollerKey?: string
   readonly followLatestKey?: number
 }) {
@@ -70,6 +100,14 @@ export function ThreadTranscript({
   const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
   const settledLabel = isRunning ? null : settledTranscriptLabel(latestTurn)
   const minimapItems = useMemo(() => deriveTurnMinimapItems(transcript), [transcript])
+  const turnById = useMemo(() => {
+    const map = new Map<Turn["id"], Turn>()
+    for (const turn of turns) {
+      map.set(turn.id, turn)
+    }
+    return map
+  }, [turns])
+  const lastAssistantByTurn = useMemo(() => lastAssistantIndexByTurnId(transcript), [transcript])
 
   return (
     <MessageScrollerProvider key={scrollerKey} autoScroll>
@@ -111,6 +149,14 @@ export function ThreadTranscript({
                   <ThreadTranscriptItem
                     item={row.item}
                     streaming={isRunning && row.item === lastAssistant}
+                    turn={turnById.get(row.item.turnId)}
+                    {...transcriptTurnDiffProps(
+                      row.item,
+                      row.index,
+                      turns,
+                      lastAssistantByTurn,
+                      onOpenTurnDiff,
+                    )}
                     workspaceRoot={
                       row.item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
                     }

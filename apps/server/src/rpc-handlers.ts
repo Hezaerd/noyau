@@ -42,6 +42,8 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     ControlPlane.pipe(Effect.flatMap((service) => service.removeProjectAgentIntegration(input))),
   [RPC_METHODS.previewAttachment]: (input) =>
     ControlPlane.pipe(Effect.flatMap((service) => service.previewAttachment(input))),
+  [RPC_METHODS.getTurnDiff]: (input) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.getTurnDiff(input))),
   [RPC_METHODS.vcsStatus]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.status(input))),
   [RPC_METHODS.subscribeVcsStatus]: (input) =>
     Stream.unwrap(GitPlane.pipe(Effect.map((git) => git.subscribeStatus(input)))),

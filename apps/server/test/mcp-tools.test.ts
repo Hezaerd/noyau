@@ -151,6 +151,7 @@ const controlPlane = ControlPlane.of({
   previewFile: () => Effect.die("unused"),
   searchWorkspacePaths: () => Effect.die("unused"),
   previewAttachment: () => Effect.die("unused"),
+  getTurnDiff: () => Effect.die("unused"),
   inspectProjectAgentIntegration: () => Effect.die("unused"),
   installProjectAgentIntegration: () => Effect.die("unused"),
   removeProjectAgentIntegration: () => Effect.die("unused"),

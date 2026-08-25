@@ -3,6 +3,7 @@ import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { Session, SessionStatus } from "@noyau/protocol/entities/session"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import type {
+  TurnDiff,
   TurnSettlementState,
   TurnState as TurnLifecycleState,
 } from "@noyau/protocol/entities/turn"
@@ -15,6 +16,7 @@ export interface TurnProjection {
   readonly turnId: TurnId
   readonly ordinal: number
   readonly state: TurnLifecycleState
+  readonly turnDiff?: TurnDiff
 }
 
 export interface ThreadProjection {
@@ -335,6 +337,21 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
       return state
     case "thread.title-seeded":
       return updateThread(state, event.threadId, (thread) => ({ ...thread, title: event.title }))
+    case "thread.turn-diff-completed":
+      return updateThread(state, event.threadId, (thread) => {
+        const existing = thread.turns.find((turn) => turn.turnId === event.turnId)
+        if (existing?.turnDiff?.status === "ready") {
+          return thread
+        }
+        return updateTurn(thread, event.turnId, (turn) => ({
+          ...turn,
+          turnDiff: {
+            checkpointRef: event.checkpointRef,
+            status: event.status,
+            files: event.files,
+          },
+        }))
+      })
   }
 }
 
