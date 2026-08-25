@@ -1,9 +1,22 @@
 import { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
+import { Option, Schema } from "effect"
 
 import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"
 
 export const NEW_THREAD_TITLE = "Nouveau Thread"
+
+const decodeProjectId = Schema.decodeUnknownOption(ProjectId)
+const decodeThreadId = Schema.decodeUnknownOption(ThreadId)
+
+export const threadIdFromPathname = (pathname: string): ThreadId | undefined => {
+  const threadMatch = /^\/projects\/[^/]+\/thread\/([^/]+)$/.exec(pathname)
+  const rawThreadId = threadMatch?.[1]
+  if (rawThreadId === undefined || rawThreadId === "new") {
+    return undefined
+  }
+  return Option.getOrUndefined(decodeThreadId(rawThreadId))
+}
 
 export type PageTitlebar =
   | { readonly kind: "plain"; readonly title: string }
@@ -31,12 +44,14 @@ export const resolvePageTitlebar = (input: {
   if (threadMatch !== null) {
     const rawProjectId = threadMatch[1]
     const rawThreadId = threadMatch[2]
-    if (rawProjectId === undefined) {
+    const projectId = Option.getOrUndefined(decodeProjectId(rawProjectId))
+    if (projectId === undefined) {
       return { kind: "plain", title: "Control room" }
     }
-    const projectId = ProjectId.make(rawProjectId)
     const threadId =
-      rawThreadId === undefined || rawThreadId === "new" ? undefined : ThreadId.make(rawThreadId)
+      rawThreadId === undefined || rawThreadId === "new"
+        ? undefined
+        : Option.getOrUndefined(decodeThreadId(rawThreadId))
     const project = input.projects.find((candidate) => candidate.id === projectId)
     const thread =
       threadId === undefined

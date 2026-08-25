@@ -1,8 +1,10 @@
 import type { ControlPlaneContextValue } from "@/lib/control-plane-state"
+import { EMPTY_THREAD_SHELL_INDEX } from "@/lib/thread-shell-index"
 
 type Listener = () => void
 
 const EMPTY: ControlPlaneContextValue = {
+  ...EMPTY_THREAD_SHELL_INDEX,
   shell: undefined,
   cursor: undefined,
   projects: [],

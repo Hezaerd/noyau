@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useControlPlane } from "@/hooks/use-control-plane"
+import { useControlPlaneSelector } from "@/hooks/use-control-plane"
 import {
   inspectProjectAgentIntegration,
   installProjectAgentIntegration,
@@ -50,7 +50,8 @@ const integrationFailure = (
   })
 
 export function ProjectAgentIntegrationSettings() {
-  const { projects, lastProjectId } = useControlPlane()
+  const projects = useControlPlaneSelector((state) => state.projects)
+  const lastProjectId = useControlPlaneSelector((state) => state.lastProjectId)
   const project = projects.find((candidate) => candidate.id === lastProjectId)
   const projectId = project?.id
   const [integration, setIntegration] = useState<ProjectAgentIntegration>()

@@ -1,7 +1,13 @@
 import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
 import { makeDrainableWorker } from "@noyau/database/drainable-worker"
 import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/database/projections"
-import { readBoardSnapshot, readShellSnapshot, readThreadSnapshot } from "@noyau/database/snapshots"
+import {
+  readBoardSnapshot,
+  readProjectShellById,
+  readShellSnapshot,
+  readThreadShellById,
+  readThreadSnapshot,
+} from "@noyau/database/snapshots"
 import { decide as decideBoard } from "@noyau/domain/board/decider"
 import {
   emptyBoardState,
@@ -53,7 +59,6 @@ import {
   type ProjectId as ProjectIdType,
   Sequence,
   type Sequence as SequenceType,
-  type ThreadId,
 } from "@noyau/protocol/ids"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
 import {
@@ -81,7 +86,7 @@ import {
 } from "@noyau/protocol/rpc"
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import { ThreadCommand } from "@noyau/protocol/thread/commands"
-import { ThreadEvent, type ThreadEvent as ThreadEventType } from "@noyau/protocol/thread/events"
+import { ThreadEvent } from "@noyau/protocol/thread/events"
 import { BoardInitialize, TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketEvent } from "@noyau/protocol/ticket/events"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
@@ -108,6 +113,7 @@ import { SqlClient } from "effect/unstable/sql/SqlClient"
 import { AgentSkillInstaller } from "./agent-skill/installer.ts"
 import { loadTurnAttachments, persistTurnUploads, readAttachmentPreview } from "./attachments.ts"
 import { ServerConfig } from "./config.ts"
+import { journalEventTouchesPresence } from "./discord/activity.ts"
 import { makePresenceController } from "./discord/presence.ts"
 import { readFilePreview } from "./file-preview.ts"
 import { GitRuntime } from "./git/git-runtime.ts"
@@ -116,6 +122,7 @@ import { resolveTurnDiffCheckpoints } from "./git/turn-diff.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { makeProviderSessionReaper } from "./provider/provider-session-reaper.ts"
+import { coalescePersistedForShell, threadEventTouchesShell, threadIdOf } from "./shell-live.ts"
 import { TextGeneration } from "./text-generation/text-generation.ts"
 import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
 import { makeWorktreeBranchReactor } from "./text-generation/worktree-branch-reactor.ts"
@@ -463,9 +470,6 @@ const bufferedTail = <A, E = never, R = never>(
     : stream
 }
 
-const threadIdOf = (event: ThreadEventType): ThreadId =>
-  event._tag === "thread.transcript-appended" ? event.item.threadId : event.threadId
-
 const isProjectStreamEvent = (event: DomainEventType): boolean =>
   isProjectEvent(event) || isTicketEvent(event)
 
@@ -479,7 +483,6 @@ const readSchemaVersion = Effect.fn("ControlPlane.readSchemaVersion")(function* 
 })
 
 const shellLiveEvent = Effect.fn("ControlPlane.shellLiveEvent")(function* (
-  environment: Environment,
   persisted: PersistedEvent<DomainEventType>,
   workspaceRoots: WorkspaceRootAccessService,
 ) {
@@ -494,77 +497,116 @@ const shellLiveEvent = Effect.fn("ControlPlane.shellLiveEvent")(function* (
         } satisfies ShellLiveEvent,
       ]
     }
-    const snapshot = yield* readShellSnapshot(environment)
-    const project = snapshot.projects.find((candidate) => candidate.id === persisted.projectId)
-    const available =
-      project === undefined ? undefined : yield* workspaceRoots.isAvailable(project.workspaceRoot)
-    return project === undefined
-      ? []
-      : [
-          {
-            _tag: "project-upserted",
-            sequence: Sequence.make(persisted.sequence),
-            project: { ...project, available: available ?? false },
-          } satisfies ShellLiveEvent,
-        ]
+    const project = yield* readProjectShellById(event.projectId)
+    if (Option.isNone(project)) {
+      return []
+    }
+    const available = yield* workspaceRoots.isAvailable(project.value.workspaceRoot)
+    return [
+      {
+        _tag: "project-upserted",
+        sequence: Sequence.make(persisted.sequence),
+        project: { ...project.value, available },
+      } satisfies ShellLiveEvent,
+    ]
   }
   if (isThreadEvent(event)) {
-    const snapshot = yield* readShellSnapshot(environment)
+    if (!threadEventTouchesShell(event)) {
+      return []
+    }
     const threadId = threadIdOf(event)
-    const thread = snapshot.threads.find((candidate) => candidate.id === threadId)
-    return thread === undefined
-      ? [
-          {
-            _tag: "thread-removed",
-            sequence: Sequence.make(persisted.sequence),
-            threadId,
-          } satisfies ShellLiveEvent,
-        ]
-      : [
-          {
-            _tag: "thread-upserted",
-            sequence: Sequence.make(persisted.sequence),
-            thread,
-          } satisfies ShellLiveEvent,
-        ]
+    const thread = yield* readThreadShellById(threadId)
+    return Option.match(thread, {
+      onNone: () => [
+        {
+          _tag: "thread-removed",
+          sequence: Sequence.make(persisted.sequence),
+          threadId,
+        } satisfies ShellLiveEvent,
+      ],
+      onSome: (next) => [
+        {
+          _tag: "thread-upserted",
+          sequence: Sequence.make(persisted.sequence),
+          thread: next,
+        } satisfies ShellLiveEvent,
+      ],
+    })
   }
   return []
 })
 
-const coalesceShellItems = (
-  items: ReadonlyArray<ShellStreamItem>,
-): ReadonlyArray<ShellStreamItem> => {
-  const latest = new Map<string, Extract<ShellStreamItem, { readonly kind: "event" }>>()
-  let synchronized = false
-  for (const item of items) {
-    if (item.kind === "synchronized") {
-      synchronized = true
-      continue
-    }
-    if (item.kind !== "event") {
-      continue
-    }
-    const event = item.event
-    const key =
-      event._tag === "project-upserted" || event._tag === "project-removed"
-        ? `project:${event._tag === "project-upserted" ? event.project.id : event.projectId}`
-        : `thread:${event._tag === "thread-upserted" ? event.thread.id : event.threadId}`
-    latest.set(key, item)
-  }
-  const output: Array<ShellStreamItem> = [...latest.values()].toSorted(
-    (left, right) => left.event.sequence - right.event.sequence,
-  )
-  if (synchronized) {
-    output.push({ kind: "synchronized" })
-  }
-  return output
-}
+const SHELL_REFETCH_CONCURRENCY = 8
+const SHELL_COALESCE_WINDOW = Duration.millis(25)
+const SHELL_COALESCE_MAX_CHUNK = 256
 
-const coalesceShell = <E, R>(stream: Stream.Stream<ShellStreamItem, E, R>) =>
-  stream.pipe(
-    Stream.groupedWithin(256, Duration.millis(25)),
-    Stream.flatMap((items) => Stream.fromIterable(coalesceShellItems(items))),
+const fetchShellLiveItems = (
+  events: ReadonlyArray<PersistedEvent<DomainEventType>>,
+  workspaceRoots: WorkspaceRootAccessService,
+) =>
+  Effect.forEach(
+    coalescePersistedForShell(events),
+    (event) => shellLiveEvent(event, workspaceRoots),
+    { concurrency: SHELL_REFETCH_CONCURRENCY },
+  ).pipe(
+    Effect.map((batches) =>
+      batches.flatMap((shellEvents) =>
+        shellEvents.map(
+          (shellEvent) => ({ kind: "event" as const, event: shellEvent }) satisfies ShellStreamItem,
+        ),
+      ),
+    ),
   )
+
+const flushShellLiveInputs = (
+  inputs: ReadonlyArray<LiveInput>,
+  boundary: number,
+  workspaceRoots: WorkspaceRootAccessService,
+) =>
+  Effect.gen(function* () {
+    const output: Array<ShellStreamItem> = []
+    let pending: Array<PersistedEvent<DomainEventType>> = []
+    const flushPending = Effect.gen(function* () {
+      if (pending.length === 0) {
+        return
+      }
+      const items = yield* fetchShellLiveItems(pending, workspaceRoots)
+      pending = []
+      output.push(...items)
+    })
+    for (const item of inputs) {
+      if (item.kind === "synchronized") {
+        yield* flushPending
+        output.push({ kind: "synchronized" })
+        continue
+      }
+      if (eventSequence(item) <= boundary) {
+        continue
+      }
+      pending.push(item.event)
+    }
+    yield* flushPending
+    return output
+  })
+
+const shellLiveTail = (
+  buffer: Queue.Dequeue<LiveInput> & Queue.Enqueue<LiveInput>,
+  boundary: number,
+  requestCompletionMarker: boolean | undefined,
+  workspaceRoots: WorkspaceRootAccessService,
+) => {
+  const stream = Stream.fromQueue(buffer).pipe(
+    Stream.groupedWithin(SHELL_COALESCE_MAX_CHUNK, SHELL_COALESCE_WINDOW),
+    Stream.mapEffect((items) => flushShellLiveInputs(items, boundary, workspaceRoots)),
+    Stream.flatMap((items) => Stream.fromIterable(items)),
+  )
+  return requestCompletionMarker === true
+    ? Stream.concat(
+        Stream.fromEffect(Queue.offer(buffer, { kind: "synchronized" })).pipe(Stream.drain),
+        stream,
+      )
+    : stream
+}
 
 export interface ControlPlaneService {
   readonly dispatch: (
@@ -708,14 +750,16 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const processTurnDiffEvent = yield* makeTurnDiffReactor((command) =>
         dispatchInternal(command),
       ).pipe(Effect.provideService(SqlClient, sql))
-      const processPresenceEvent = (_event: PersistedEvent<DomainEventType>) =>
-        readShellSnapshot(environment).pipe(
-          Effect.provideService(SqlClient, sql),
-          Effect.flatMap(presence.sync),
-          Effect.catchCause((cause) =>
-            Effect.logWarning("Discord presence sync failed", { cause }),
-          ),
-        )
+      const processPresenceEvent = (event: PersistedEvent<DomainEventType>) =>
+        journalEventTouchesPresence(event.event)
+          ? readShellSnapshot(environment).pipe(
+              Effect.provideService(SqlClient, sql),
+              Effect.flatMap(presence.sync),
+              Effect.catchCause((cause) =>
+                Effect.logWarning("Discord presence sync failed", { cause }),
+              ),
+            )
+          : Effect.void
       const providerReactor = yield* makeDrainableWorker(processProviderEvent)
       const titleReactor = yield* makeDrainableWorker(processTitleEvent)
       const worktreeBranchReactor = yield* makeDrainableWorker(processWorktreeBranchEvent)
@@ -1009,16 +1053,6 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             const head = yield* worker.latestSequence.pipe(
               Effect.mapError(unavailable("shell-stream")),
             )
-            const mapEvent = (event: PersistedEvent<DomainEventType>) =>
-              shellLiveEvent(environment, event, workspaceRoots).pipe(
-                Effect.mapError(unavailable("shell-stream")),
-                Effect.map((events) =>
-                  events.map(
-                    (shellEvent) =>
-                      ({ kind: "event" as const, event: shellEvent }) satisfies ShellStreamItem,
-                  ),
-                ),
-              )
             const replayGap =
               input.afterSequence === undefined ? undefined : head - input.afterSequence
             if (
@@ -1029,21 +1063,14 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               const catchUp = yield* worker
                 .readEvents(input.afterSequence, Math.max(1, replayGap))
                 .pipe(Effect.mapError(unavailable("shell-stream")))
-              const historical = Stream.fromIterable(catchUp).pipe(
-                Stream.filter((event) => event.sequence <= head),
-                Stream.mapEffect(mapEvent),
-                Stream.flatMap((items) => Stream.fromIterable(items)),
-              )
-              return coalesceShell(
-                Stream.concat(
-                  historical,
-                  bufferedTail<ShellStreamItem, ServiceUnavailable, SqlClient>(
-                    buffer,
-                    head,
-                    input.requestCompletionMarker,
-                    mapEvent,
-                    { kind: "synchronized" },
-                  ),
+              const historical = yield* fetchShellLiveItems(
+                catchUp.filter((event) => event.sequence <= head),
+                workspaceRoots,
+              ).pipe(Effect.mapError(unavailable("shell-stream")))
+              return Stream.concat(
+                Stream.fromIterable(historical),
+                shellLiveTail(buffer, head, input.requestCompletionMarker, workspaceRoots).pipe(
+                  Stream.mapError(unavailable("shell-stream")),
                 ),
               )
             }
@@ -1053,15 +1080,12 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             yield* hooks.afterShellSnapshot?.(snapshot.snapshotSequence) ?? Effect.void
             return Stream.concat(
               Stream.make({ kind: "snapshot" as const, snapshot } satisfies ShellStreamItem),
-              coalesceShell(
-                bufferedTail<ShellStreamItem, ServiceUnavailable, SqlClient>(
-                  buffer,
-                  snapshot.snapshotSequence,
-                  input.requestCompletionMarker,
-                  mapEvent,
-                  { kind: "synchronized" },
-                ),
-              ),
+              shellLiveTail(
+                buffer,
+                snapshot.snapshotSequence,
+                input.requestCompletionMarker,
+                workspaceRoots,
+              ).pipe(Stream.mapError(unavailable("shell-stream"))),
             )
           }),
         ).pipe(Stream.provideService(SqlClient, sql))

@@ -37,7 +37,7 @@ import {
 } from "@/components/thread/ThreadTurnDiffPanel"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
-import { useControlPlane } from "@/hooks/use-control-plane"
+import { useControlPlaneSelector } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
@@ -102,7 +102,8 @@ interface ThreadPageProps {
 }
 
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
-  const { cursor, projects } = useControlPlane()
+  const cursor = useControlPlaneSelector((state) => state.cursor)
+  const projects = useControlPlaneSelector((state) => state.projects)
   const navigate = useNavigate()
   const tickets = useProjectComposerTickets(projectId)
   const project = projects.find((candidate) => candidate.id === projectId)
@@ -137,6 +138,16 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         result.ok ? result.value.entries : [],
       ),
     [projectId],
+  )
+  const openTicket = useCallback(
+    (ticketId: string) => {
+      void navigate({
+        to: "/projects/$projectId/board",
+        params: { projectId },
+        search: { ticket: ticketId },
+      })
+    },
+    [navigate, projectId],
   )
   const pageSnapshot =
     snapshot !== undefined && snapshot.thread.id === threadId
@@ -861,13 +872,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               }
               projectId={projectId}
               tickets={tickets}
-              onOpenTicket={(ticketId) => {
-                void navigate({
-                  to: "/projects/$projectId/board",
-                  params: { projectId },
-                  search: { ticket: ticketId },
-                })
-              }}
+              onOpenTicket={openTicket}
               error={transcriptError}
               notices={
                 threadStatusNoticesVisible(

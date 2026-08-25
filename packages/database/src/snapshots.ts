@@ -6,7 +6,7 @@ import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { TurnDiffFile } from "@noyau/protocol/entities/turn"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import { ShellSnapshot } from "@noyau/protocol/shell"
+import { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -147,6 +147,8 @@ const decodeThreadShellRow = Schema.decodeEffect(ThreadShellRow)
 const decodeBoardSnapshot = Schema.decodeUnknownEffect(BoardSnapshot)
 const decodeThreadSnapshot = Schema.decodeUnknownEffect(ThreadSnapshot)
 const decodeShellSnapshot = Schema.decodeUnknownEffect(ShellSnapshot)
+const decodeProjectShell = Schema.decodeUnknownEffect(ProjectShell)
+const decodeThreadShell = Schema.decodeUnknownEffect(ThreadShell)
 const decodeResumeCursor = Schema.decodeEffect(Schema.fromJsonString(ResumeCursor))
 const decodeTranscriptItem = Schema.decodeEffect(Schema.fromJsonString(TranscriptItem))
 const decodeTurnDiffFiles = Schema.decodeEffect(Schema.fromJsonString(Schema.Array(TurnDiffFile)))
@@ -173,6 +175,42 @@ const encodedProject = (row: (typeof ProjectRow)["Type"]) => ({
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 })
+
+const encodedThreadShell = (row: (typeof ThreadShellRow)["Type"]) => {
+  const encoded = {
+    id: row.thread_id,
+    projectId: row.project_id,
+    title: row.title,
+    provider: row.provider,
+    runtimeMode: row.runtime_mode,
+    branch: row.branch,
+    worktreePath: row.worktree_path,
+    status: row.status,
+    latestTurn:
+      row.turn_id === null || row.turn_state === null || row.requested_at === null
+        ? null
+        : {
+            turnId: row.turn_id,
+            state: row.turn_state,
+            requestedAt: row.requested_at,
+            startedAt: row.started_at,
+            completedAt: row.completed_at,
+          },
+    sessionStatus: row.session_status,
+    lastError: row.last_error,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    hasPendingApprovals: row.has_pending_approvals === 1,
+    hasPendingUserInput: row.has_pending_user_input === 1,
+  }
+  if (row.settled_override !== null) {
+    Object.assign(encoded, { settledOverride: row.settled_override })
+  }
+  if (row.settled_at !== null) {
+    Object.assign(encoded, { settledAt: row.settled_at })
+  }
+  return encoded
+}
 
 const encodedSession = Effect.fn("Snapshots.encodedSession")(function* (
   row: (typeof SessionRow)["Type"],
@@ -604,44 +642,7 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
         decodeProjectRow(raw).pipe(Effect.orDie, Effect.map(encodedProject)),
       )
       const threads = yield* Effect.forEach(rawThreads, (raw) =>
-        decodeThreadShellRow(raw).pipe(
-          Effect.orDie,
-          Effect.map((row) => {
-            const encoded = {
-              id: row.thread_id,
-              projectId: row.project_id,
-              title: row.title,
-              provider: row.provider,
-              runtimeMode: row.runtime_mode,
-              branch: row.branch,
-              worktreePath: row.worktree_path,
-              status: row.status,
-              latestTurn:
-                row.turn_id === null || row.turn_state === null || row.requested_at === null
-                  ? null
-                  : {
-                      turnId: row.turn_id,
-                      state: row.turn_state,
-                      requestedAt: row.requested_at,
-                      startedAt: row.started_at,
-                      completedAt: row.completed_at,
-                    },
-              sessionStatus: row.session_status,
-              lastError: row.last_error,
-              createdAt: row.created_at,
-              updatedAt: row.updated_at,
-              hasPendingApprovals: row.has_pending_approvals === 1,
-              hasPendingUserInput: row.has_pending_user_input === 1,
-            }
-            if (row.settled_override !== null) {
-              Object.assign(encoded, { settledOverride: row.settled_override })
-            }
-            if (row.settled_at !== null) {
-              Object.assign(encoded, { settledAt: row.settled_at })
-            }
-            return encoded
-          }),
-        ),
+        decodeThreadShellRow(raw).pipe(Effect.orDie, Effect.map(encodedThreadShell)),
       )
       return yield* decodeShellSnapshot({
         snapshotSequence,
@@ -649,6 +650,99 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
         projects,
         threads,
       }).pipe(Effect.orDie)
+    }),
+  )
+})
+
+/** Reads one Project row for a shell live upsert. */
+export const readProjectShellById = Effect.fn("readProjectShellById")(function* (
+  projectId: ProjectId,
+) {
+  const sql = yield* SqlClient
+  return yield* sql.withTransaction(
+    Effect.gen(function* () {
+      const rows = yield* sql<(typeof ProjectRow)["Encoded"]>`
+        SELECT project_id, name, workspace_root, available, created_at, updated_at
+        FROM projection_projects
+        WHERE project_id = ${projectId}
+      `
+      const raw = rows[0]
+      if (raw === undefined) {
+        return Option.none()
+      }
+      return Option.some(
+        yield* decodeProjectRow(raw).pipe(
+          Effect.orDie,
+          Effect.map(encodedProject),
+          Effect.flatMap((encoded) => decodeProjectShell(encoded).pipe(Effect.orDie)),
+        ),
+      )
+    }),
+  )
+})
+
+/** Reads one Thread shell. Used by live shell after coalesce, not the catalogue. */
+export const readThreadShellById = Effect.fn("readThreadShellById")(function* (threadId: ThreadId) {
+  const sql = yield* SqlClient
+  return yield* sql.withTransaction(
+    Effect.gen(function* () {
+      const rows = yield* sql<(typeof ThreadShellRow)["Encoded"]>`
+        SELECT
+          thread.thread_id,
+          thread.project_id,
+          thread.title,
+          thread.provider,
+          thread.runtime_mode,
+          thread.branch,
+          thread.worktree_path,
+          thread.status,
+          thread.created_at,
+          thread.updated_at,
+          thread.settled_override,
+          thread.settled_at,
+          session.status AS session_status,
+          session.last_error,
+          turn.turn_id,
+          turn.state AS turn_state,
+          turn.requested_at,
+          turn.started_at,
+          turn.completed_at,
+          EXISTS (
+            SELECT 1
+            FROM projection_transcript AS pending
+            WHERE pending.thread_id = thread.thread_id
+              AND pending.kind = 'transcript.permission'
+              AND json_extract(pending.item, '$.status') = 'pending'
+          ) AS has_pending_approvals,
+          EXISTS (
+            SELECT 1
+            FROM projection_transcript AS pending
+            WHERE pending.thread_id = thread.thread_id
+              AND pending.kind = 'transcript.user-input'
+              AND json_extract(pending.item, '$.status') = 'pending'
+          ) AS has_pending_user_input
+        FROM projection_threads AS thread
+        LEFT JOIN projection_sessions AS session ON session.thread_id = thread.thread_id
+        LEFT JOIN projection_turns AS turn ON turn.turn_id = (
+          SELECT latest.turn_id
+          FROM projection_turns AS latest
+          WHERE latest.thread_id = thread.thread_id
+          ORDER BY latest.ordinal DESC
+          LIMIT 1
+        )
+        WHERE thread.thread_id = ${threadId}
+      `
+      const raw = rows[0]
+      if (raw === undefined) {
+        return Option.none()
+      }
+      return Option.some(
+        yield* decodeThreadShellRow(raw).pipe(
+          Effect.orDie,
+          Effect.map(encodedThreadShell),
+          Effect.flatMap((encoded) => decodeThreadShell(encoded).pipe(Effect.orDie)),
+        ),
+      )
     }),
   )
 })

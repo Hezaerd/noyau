@@ -1,3 +1,4 @@
+import type { DomainEvent } from "@noyau/protocol/events"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import type { ShellFocus } from "@noyau/protocol/shell"
 
@@ -46,3 +47,18 @@ export const activityFromFocus = (
 
 export const presenceIdentity = (activity: PresenceActivity | null): string =>
   activity === null ? "clear" : `${activity.details}\0${activity.state}`
+
+/** Journal facts that can change Discord identity. Focus still syncs via setShellFocus. */
+export const journalEventTouchesPresence = (event: DomainEvent): boolean => {
+  switch (event._tag) {
+    case "thread.title-seeded":
+    case "project.created":
+    case "project.meta-updated":
+    case "project.deleted":
+      return true
+    case "thread.meta-updated":
+      return event.title !== undefined
+    default:
+      return false
+  }
+}

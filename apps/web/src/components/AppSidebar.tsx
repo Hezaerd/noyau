@@ -1,7 +1,7 @@
 import type { ProjectId } from "@noyau/protocol/ids"
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import { SearchIcon, SettingsIcon, SquarePenIcon } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { DesktopUpdateSidebarButton } from "@/components/sidebar/DesktopUpdateSidebarButton"
@@ -23,7 +23,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
-import { useControlPlane } from "@/hooks/use-control-plane"
+import { useControlPlaneSelector, useProjectThreadIds } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
@@ -39,20 +39,27 @@ export function AppSidebar() {
   const paletteHotkey = useKeybinding("palette.open")
   const settingsHotkey = useKeybinding("settings.open")
   const createThreadHotkey = useKeybinding("thread.create")
-  const { projects, threads, lastProjectId, selectProject } = useControlPlane()
+  const projects = useControlPlaneSelector((state) => state.projects)
+  const lastProjectId = useControlPlaneSelector((state) => state.lastProjectId)
+  const selectProject = useControlPlaneSelector((state) => state.selectProject)
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
   const [rebindProjectId, setRebindProjectId] = useState<ProjectId>()
   const [deleteProjectId, setDeleteProjectId] = useState<ProjectId>()
   const pendingProjectIdRef = useRef<ProjectId | undefined>(undefined)
   const selectedProject = projects.find((project) => project.id === lastProjectId) ?? projects[0]
-  const selectedProjectThreads = selectedProject
-    ? threads.filter((thread) => thread.projectId === selectedProject.id)
-    : []
-  const closeMobileNavigation = () => {
+  const deleteThreadCount = useProjectThreadIds(deleteProjectId).length
+  const closeMobileNavigation = useCallback(() => {
     if (isMobile) {
       setOpenMobile(false)
     }
-  }
+  }, [isMobile, setOpenMobile])
+  const selectSelectedProject = useCallback(() => {
+    if (selectedProject === undefined) {
+      return
+    }
+    selectProject(selectedProject.id)
+    closeMobileNavigation()
+  }, [closeMobileNavigation, selectProject, selectedProject])
   const openAddProjectDialog = () => {
     pendingProjectIdRef.current = undefined
     setRebindProjectId(undefined)
@@ -201,12 +208,8 @@ export function AppSidebar() {
                 <ProjectSidebarItem
                   key={selectedProject.id}
                   project={selectedProject}
-                  threads={selectedProjectThreads}
                   pathname={pathname}
-                  onSelect={() => {
-                    selectProject(selectedProject.id)
-                    closeMobileNavigation()
-                  }}
+                  onSelect={selectSelectedProject}
                 />
               )}
             </SidebarMenu>
@@ -264,7 +267,7 @@ export function AppSidebar() {
           projectName={
             projects.find((project) => project.id === deleteProjectId)?.name ?? "ce Project"
           }
-          threadCount={threads.filter((thread) => thread.projectId === deleteProjectId).length}
+          threadCount={deleteThreadCount}
           onOpenChange={(open) => {
             if (!open) {
               setDeleteProjectId(undefined)

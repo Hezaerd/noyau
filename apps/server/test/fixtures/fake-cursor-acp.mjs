@@ -168,7 +168,21 @@ const emitLiveUpdates = () => {
     sessionId: activeSessionId,
     update: {
       sessionUpdate: "agent_message_chunk",
-      content: { type: "text", text: "hello from fake Cursor" },
+      content: { type: "text", text: "hello " },
+    },
+  })
+  notify("session/update", {
+    sessionId: activeSessionId,
+    update: {
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "from " },
+    },
+  })
+  notify("session/update", {
+    sessionId: activeSessionId,
+    update: {
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "fake Cursor" },
     },
   })
   notify("session/update", {

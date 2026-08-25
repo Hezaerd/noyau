@@ -11,8 +11,9 @@ import { DateTime } from "effect"
 import { createContext } from "react"
 
 import type { SubscriptionStatus } from "./control-plane"
+import type { ThreadShellIndex } from "./thread-shell-index"
 
-export interface ControlPlaneContextValue {
+export interface ControlPlaneContextValue extends ThreadShellIndex {
   readonly shell: ShellSnapshot | undefined
   readonly cursor: CursorProviderStatus | undefined
   readonly projects: ReadonlyArray<ProjectShell>

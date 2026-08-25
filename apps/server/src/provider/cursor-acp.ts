@@ -27,6 +27,7 @@ import {
 } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
+import { takeBufferedAssistantSpill } from "./assistant-delivery.ts"
 import {
   CursorAskQuestionRequest,
   CursorListAvailableModelsResponse,
@@ -51,8 +52,6 @@ const CURSOR_AUTH_METHOD = "cursor_login"
 const CURSOR_LIST_AVAILABLE_MODELS = "cursor/list_available_models"
 const IMPLEMENT_MODE_ALIASES = ["code", "agent", "default", "chat", "implement"]
 const APPROVAL_MODE_ALIASES = ["ask"]
-/** Coalesce ACP assistant text chunks before durable append (cuts SQLite/WS/React thrash). */
-const ASSISTANT_CHUNK_COALESCE = Duration.millis(40)
 /** Cursor may leave `session/load` pending after replay; treat an idle gap as ready. */
 const DEFAULT_SESSION_LOAD_REPLAY_IDLE_GAP = Duration.seconds(2)
 const DEFAULT_SESSION_LOAD_TIMEOUT = Duration.seconds(90)
@@ -97,7 +96,6 @@ interface ActiveTurn {
   readonly pendingApprovals: Map<string, PendingApproval>
   readonly toolCalls: Map<string, ToolCallPresentationInput>
   pendingAssistantText: string
-  assistantFlushFiber?: Fiber.Fiber<void>
   session?: CursorSession
   acp?: AcpClient.AcpClient["Service"]
   handle?: ChildProcessSpawner.ChildProcessHandle
@@ -114,11 +112,6 @@ interface ActiveTurn {
 const flushAssistantText = Effect.fn("CursorAdapter.flushAssistantText")(function* (
   control: ActiveTurn,
 ) {
-  const scheduled = control.assistantFlushFiber
-  delete control.assistantFlushFiber
-  if (scheduled !== undefined) {
-    yield* Fiber.interrupt(scheduled).pipe(Effect.ignore)
-  }
   const text = control.pendingAssistantText
   if (text.length === 0) {
     return
@@ -139,24 +132,13 @@ const enqueueAssistantText = Effect.fn("CursorAdapter.enqueueAssistantText")(fun
   control: ActiveTurn,
   text: string,
 ) {
-  control.pendingAssistantText += text
-  if (control.assistantFlushFiber !== undefined) {
-    // Burst window already open — keep accumulating until it closes.
+  const next = takeBufferedAssistantSpill(control.pendingAssistantText, text)
+  if (next.spill.length > 0) {
+    control.pendingAssistantText = next.spill
+    yield* flushAssistantText(control)
     return
   }
-  // First fragment of a burst: emit immediately so UI/tests see progress without
-  // waiting on the coalesce timer (TestClock-sensitive).
-  yield* flushAssistantText(control)
-  control.assistantFlushFiber = yield* Effect.forkChild(
-    Effect.sleep(ASSISTANT_CHUNK_COALESCE).pipe(
-      Effect.andThen(
-        Effect.gen(function* () {
-          delete control.assistantFlushFiber
-          yield* flushAssistantText(control)
-        }),
-      ),
-    ),
-  )
+  control.pendingAssistantText = next.pending
 })
 
 const emitSignal = Effect.fn("CursorAdapter.emitSignal")(function* (

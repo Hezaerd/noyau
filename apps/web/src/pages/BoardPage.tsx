@@ -77,7 +77,7 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useControlPlane } from "@/hooks/use-control-plane"
+import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useKeybindings } from "@/hooks/use-keybindings"
 import {
@@ -652,7 +652,7 @@ export function BoardPage({
   onCloseTicket,
   onOpenThread,
 }: BoardPageProps) {
-  const { threads } = useControlPlane()
+  const projectThreads = useProjectThreads(projectId)
   const { resolved: keybindings } = useKeybindings()
   const [state, setState] = useState<BoardState>({
     columns: [],
@@ -690,7 +690,6 @@ export function BoardPage({
   const filtered = isFiltered(filters)
   const selectedTicket = state.tickets.find((ticket) => ticket.id === search.ticket)
   const selectedTicketId = selectedTicket?.id
-  const projectThreads = threads.filter((thread) => thread.projectId === projectId)
   const ticketActivity = useMemo(
     () =>
       ticketActivityByTicket.find((activity) => activity.ticketId === selectedTicketId)?.events ??

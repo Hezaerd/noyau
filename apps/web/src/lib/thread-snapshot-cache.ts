@@ -7,6 +7,12 @@ export const THREAD_SNAPSHOT_CACHE_TTL_MS = 5 * 60_000
 /** Cap retained transcripts so long sessions do not retain unbounded memory. */
 export const THREAD_SNAPSHOT_CACHE_MAX_ENTRIES = 12
 
+/** t3code `shouldPersistThread`: skip encoding while a Session is live. */
+export const shouldPersistThreadSnapshot = (snapshot: ThreadSnapshot): boolean => {
+  const status = snapshot.session?.status
+  return status !== "starting" && status !== "running"
+}
+
 type CacheEntry = {
   readonly snapshot: ThreadSnapshot
   readonly cachedAt: number
@@ -58,6 +64,9 @@ export const readThreadSnapshotCache = (
 }
 
 export const writeThreadSnapshotCache = (snapshot: ThreadSnapshot, now = Date.now()): void => {
+  if (!shouldPersistThreadSnapshot(snapshot)) {
+    return
+  }
   evictExpired(now)
   touch(snapshot.thread.id, { snapshot, cachedAt: now })
   evictOverflow()

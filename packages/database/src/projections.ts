@@ -499,6 +499,11 @@ const projectSession = Effect.fn("Projections.projectSession")(function* (
   `
 })
 
+const transcriptItemTouchesThreadUpdatedAt = (item: TranscriptItem): boolean =>
+  item._tag === "transcript.permission" ||
+  item._tag === "transcript.user-input" ||
+  item._tag === "transcript.user"
+
 const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function* (
   persisted: PersistedEvent<DomainEvent>,
 ) {
@@ -684,6 +689,9 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       return
     case "thread.transcript-appended":
       yield* projectTranscriptItem(event.item, persisted.sequence)
+      if (!transcriptItemTouchesThreadUpdatedAt(event.item)) {
+        return
+      }
       break
     case "approval.responded":
       yield* sql`

@@ -3,7 +3,12 @@ import { assert, layer } from "@effect/vitest"
 import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
 import { makeDrainableWorker } from "@noyau/database/drainable-worker"
 import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/database/projections"
-import { readBoardSnapshot, readShellSnapshot, readThreadSnapshot } from "@noyau/database/snapshots"
+import {
+  readBoardSnapshot,
+  readShellSnapshot,
+  readThreadShellById,
+  readThreadSnapshot,
+} from "@noyau/database/snapshots"
 import { layer as sqliteLayer } from "@noyau/database/sqlite"
 import { decide } from "@noyau/domain/board/decider"
 import { emptyBoardState, evolve } from "@noyau/domain/board/projector"
@@ -14,12 +19,14 @@ import { Session } from "@noyau/protocol/entities/session"
 import { type DomainEvent } from "@noyau/protocol/events"
 import {
   ActorId,
+  ApprovalRequestId,
   CommandId,
   CorrelationId,
   KanbanColumnId,
   ProjectId,
   ThreadId,
   TicketId,
+  ToolCallId,
   TurnId,
 } from "@noyau/protocol/ids"
 import { ProjectCreated, ProjectDeleted } from "@noyau/protocol/project/events"
@@ -466,6 +473,133 @@ layer(platformLayer)("SQL projections", (it) => {
         "error",
       )
     })
+  })
+
+  it.effect("ne bump pas updated_at sur assistant/tool/plan", () => {
+    const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000004")
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Streaming",
+                provider: "cursor",
+                runtimeMode: "full-access",
+              }),
+              "2026-08-20T00:02:00.000Z",
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId,
+                text: "Travaille",
+              }),
+              "2026-08-20T00:02:01.000Z",
+            ),
+          )
+          const afterTurn = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "Thread should exist",
+          )
+          const turnUpdatedAt = DateTime.formatIso(afterTurn.thread.updatedAt)
+
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: "hello",
+                },
+              }),
+              "2026-08-20T00:02:10.000Z",
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.plan",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  markdown: "- [ ] Work",
+                },
+              }),
+              "2026-08-20T00:02:11.000Z",
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              5,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.tool",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  toolCallId: ToolCallId.make("tool-1"),
+                  name: "Read",
+                  status: "completed",
+                },
+              }),
+              "2026-08-20T00:02:12.000Z",
+            ),
+          )
+          const afterStreaming = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "Thread should exist",
+          )
+          assert.strictEqual(DateTime.formatIso(afterStreaming.thread.updatedAt), turnUpdatedAt)
+          assert.strictEqual(afterStreaming.transcript.length, 4)
+
+          yield* projectDomainEvent(
+            persisted(
+              6,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.permission",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  requestId: ApprovalRequestId.make("permission-1"),
+                  status: "pending",
+                },
+              }),
+              "2026-08-20T00:02:20.000Z",
+            ),
+          )
+          const afterPermission = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "Thread should exist",
+          )
+          assert.strictEqual(
+            DateTime.formatIso(afterPermission.thread.updatedAt),
+            "2026-08-20T00:02:20.000Z",
+          )
+          const byId = expectSome(
+            yield* readThreadShellById(ids.recoveryThread),
+            "Thread shell should exist",
+          )
+          const fromCatalogue = (yield* readShellSnapshot(environment)).threads.find(
+            (thread) => thread.id === ids.recoveryThread,
+          )
+          assert.strictEqual(byId.id, ids.recoveryThread)
+          assert.strictEqual(byId.hasPendingApprovals, true)
+          assert.deepStrictEqual(byId, fromCatalogue)
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    )
   })
 
   it.effect("ancre started_at sur turn.started, pas session.updatedAt", () => {
