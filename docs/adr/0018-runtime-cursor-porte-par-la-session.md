@@ -24,9 +24,10 @@ seuil et sa fréquence sont des paramètres opérationnels. Une Session redevien
 après ce nettoyage, et un Turn actif est toujours exclu du reaper.
 
 La capacité MCP injectée dans `session/new` / `session/load` est portée par la Session runtime,
-pas par un Turn isolé : elle reste utilisable entre les Turns, renouvelle sa vivacité lors des
-Turns et est révoquée à l'arrêt, à la perte ou à l'expiration du runtime. Le contexte d'appel
-peut toutefois référencer le Turn actif pour borner les mutations et l'audit.
+pas par un Turn isolé : le bearer survit entre les Turns, renouvelle sa vivacité lors des Turns
+et est révoqué à l'arrêt, à la perte ou à l'expiration du runtime. `McpSessionRegistry.resolve`
+exige toutefois un `activeTurnId` : le middleware `/mcp` refuse HTTP 401 toute requête hors Turn
+actif. Le contexte d'appel référence ce Turn pour borner les mutations et l'audit.
 
 ## Conséquences
 

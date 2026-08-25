@@ -49,8 +49,8 @@ _À éviter_ : TodoList agent, bridge SQLite, outil `dispatchCommand` brut
 
 **Capacité MCP**:
 Autorisation volatile et bornée d'une Session Cursor sur un Project, un Thread et un ensemble
-d'opérations Tableau ; elle reste valide entre les Turns de cette Session et est révoquée quand
-son runtime est arrêté, perdu ou expiré.
+d'opérations Tableau. Le bearer survit entre les Turns, mais `resolve` exige un Turn actif :
+`/mcp` répond 401 hors Turn. Elle est révoquée quand son runtime est arrêté, perdu ou expiré.
 _À éviter_ : bearer Electron, identité dans les arguments d'outil, permission `runtimeMode`
 
 **catalogue Cursor**:

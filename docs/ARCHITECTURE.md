@@ -241,9 +241,10 @@ Le détail UX reste dans [`docs/design/kanban-ux.md`](design/kanban-ux.md).
   doit être créé. `end_turn` seul complète. Autre `stopReason` → `interrupted`. Rupture stdio /
   process mort → Session `error` + `lastError`. Jamais `completed` par inférence.
 - **Arrêt et reaper** : `session.stop` ferme explicitement le runtime et passe la Session à
-  `stopped`. Un reaper libère de la même manière les runtimes sans Turn actif après la durée
-  d'inactivité opérationnelle (30 minutes par défaut, comme t3code) ; le prochain Turn reste
-  reprenable par `session/load`. Aucun reaper ne touche un Turn actif.
+  `stopped`. Un reaper ferme le runtime des Sessions sans Turn actif après la durée d'inactivité
+  opérationnelle (30 minutes par défaut, comme t3code), mais ne persiste aucun statut : la
+  Session ne passe pas à `stopped`. Le prochain Turn reste reprenable par `session/load`. Aucun
+  reaper ne touche un Turn actif.
 - **Boot** : avant readiness, sans I/O Cursor, toute Session encore `starting` / `running` →
   `error` + `lastError` (rupture). Ça settle `latestTurn` en `error`. `resumeCursor` inchangé ; le
   runtime ne réapparaît qu'à la demande d'un nouveau Turn.
@@ -332,8 +333,9 @@ d'un Thread.
 
 Noyau Server monte `/mcp` avec `McpServer.layerHttp` sur son listener loopback. Avant une Session
 Cursor, il émet une capacité volatile dont seul le hash reste en mémoire ; le contexte associé
-borne l'agent à son Project, son Thread, sa Session et ses opérations autorisées. Le Turn actif
-peut compléter ce contexte pour borner les mutations et l'audit. Le secret brut est injecté comme
+borne l'agent à son Project, son Thread, sa Session et ses opérations autorisées. Le bearer
+survit entre les Turns, mais `resolve` exige un Turn actif : `/mcp` répond 401 hors Turn. Ce
+Turn complète le contexte pour borner les mutations et l'audit. Le secret brut est injecté comme
 bearer dans la configuration MCP HTTP d'ACP.
 
 Les lectures interrogent les projections dans le process serveur. Les mutations décodent leurs
