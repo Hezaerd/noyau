@@ -66,9 +66,9 @@ les étendre.
 
 ## Effect
 
-Le catalogue Bun épingle Effect v4 sur `4.0.0-beta.107`. Chaque workspace qui utilise Effect le
+Le catalogue Bun épingle Effect v4 sur `4.0.0-rc.112`. Chaque workspace qui utilise Effect le
 déclare avec `"effect": "catalog:"` afin de conserver une seule version dans tout le monorepo.
-Les versions beta restent épinglées exactement, car elles peuvent introduire des ruptures.
+Les versions RC restent épinglées exactement, car elles peuvent encore introduire des ruptures.
 
 Le language server Effect v4 repose sur `@effect/tsgo` et TypeScript 7. `bun install` applique
 automatiquement ses patches TypeScript et Oxlint. Dans Cursor :
@@ -98,7 +98,7 @@ Pour synchroniser le subtree Effect après un bump du catalogue :
 git subtree pull \
   --prefix=repos/effect \
   https://github.com/Effect-TS/effect.git \
-  effect@4.0.0-beta.107 \
+  effect@4.0.0-rc.112 \
   --squash
 ```
 
