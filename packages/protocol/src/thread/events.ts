@@ -9,7 +9,12 @@ import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { Session } from "@noyau/protocol/entities/session"
 import { TranscriptItem, TurnPresentation } from "@noyau/protocol/entities/transcript"
-import { TurnSettlementState } from "@noyau/protocol/entities/turn"
+import {
+  CheckpointRef,
+  TurnDiffFile,
+  TurnDiffStatus,
+  TurnSettlementState,
+} from "@noyau/protocol/entities/turn"
 import { PrepareWorktree } from "@noyau/protocol/git"
 import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
@@ -135,6 +140,15 @@ export const ThreadTitleSeeded = Schema.TaggedStruct("thread.title-seeded", {
 })
 export type ThreadTitleSeeded = (typeof ThreadTitleSeeded)["Type"]
 
+export const ThreadTurnDiffCompleted = Schema.TaggedStruct("thread.turn-diff-completed", {
+  threadId: ThreadId,
+  turnId: TurnId,
+  checkpointRef: CheckpointRef,
+  status: TurnDiffStatus,
+  files: Schema.Array(TurnDiffFile),
+})
+export type ThreadTurnDiffCompleted = (typeof ThreadTurnDiffCompleted)["Type"]
+
 export const ThreadEvent = Schema.Union([
   ThreadCreated,
   ThreadArchived,
@@ -153,5 +167,6 @@ export const ThreadEvent = Schema.Union([
   ThreadTranscriptAppended,
   ThreadTurnEnded,
   ThreadTitleSeeded,
+  ThreadTurnDiffCompleted,
 ])
 export type ThreadEvent = (typeof ThreadEvent)["Type"]

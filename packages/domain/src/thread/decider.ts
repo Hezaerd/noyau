@@ -30,6 +30,7 @@ import {
   ThreadSessionSet,
   ThreadTitleSeeded,
   ThreadTranscriptAppended,
+  ThreadTurnDiffCompleted,
   ThreadTurnEnded,
   ThreadTurnInterrupted,
   ThreadTurnStarted,
@@ -450,6 +451,28 @@ export const decide = (
     case "thread.title.seeded":
       return requireThread(state, command.payload.threadId).pipe(
         Result.map(() => [ThreadTitleSeeded.make(command.payload)]),
+      )
+    case "thread.turn.diff.complete":
+      return requireThread(state, command.payload.threadId).pipe(
+        Result.flatMap((thread) => {
+          const turn = thread.turns.find((candidate) => candidate.turnId === command.payload.turnId)
+          if (turn === undefined) {
+            return Result.fail(
+              new TurnNotFound({
+                threadId: thread.threadId,
+                turnId: command.payload.turnId,
+              }),
+            )
+          }
+          if (
+            turn.turnDiff !== undefined &&
+            turn.turnDiff.status !== "missing" &&
+            command.payload.status === "missing"
+          ) {
+            return Result.succeed([])
+          }
+          return Result.succeed([ThreadTurnDiffCompleted.make(command.payload)])
+        }),
       )
   }
 }

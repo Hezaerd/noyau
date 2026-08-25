@@ -89,6 +89,20 @@ Liaison durable d'un Thread à un cwd Git : `branch` (dernière ref Noyau) et `w
 (`null` = `WorkspaceRoot`).
 _À éviter_ : threadEnvMode persisté, cwd de Session
 
+**TurnDiff**:
+Résumé durable des fichiers touchés par un Turn (`files`, `checkpointRef`, `status`).
+Porté par le Turn, pas un item de transcript.
+_À éviter_ : patch unifié, item de transcript, `git diff` HEAD
+
+**TurnDiffPatch**:
+Lecture RPC du patch unifié entre le Checkpoint baseline et celui du Turn.
+Pas une Command, pas un fait du journal.
+_À éviter_ : blob SQLite, FilePreview, `git diff` HEAD
+
+**CheckpointRef**:
+Identité d'un snapshot git hors journal : `refs/noyau/checkpoint/<threadId>/<ordinal>`.
+_À éviter_ : SHA, branche, Commit
+
 **threadEnvMode**:
 Intention de draft `local | worktree` pour le prochain Turn. Pas un champ du Thread.
 _À éviter_ : mode durable, politique de lock Git

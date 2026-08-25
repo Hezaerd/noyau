@@ -4,7 +4,9 @@ import { ResumeCursor, Session } from "@noyau/protocol/entities/session"
 import { Thread } from "@noyau/protocol/entities/thread"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import { checkpointRefForTurn, Turn } from "@noyau/protocol/entities/turn"
 import { EventEnvelope } from "@noyau/protocol/events"
+import { ThreadId } from "@noyau/protocol/ids"
 import { Receipt } from "@noyau/protocol/receipts"
 import {
   decodeThreadCommandRequest,
@@ -19,6 +21,7 @@ import {
   seedTitleFromPrompt,
   seedTitleFromTurn,
 } from "@noyau/protocol/thread/title"
+import { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
 import { Effect, Schema } from "effect"
 
 const ids = {
@@ -163,6 +166,40 @@ describe("Thread and Session entities", () => {
 
     const decoded = Schema.decodeUnknownSync(ThreadSnapshot)(snapshot)
     expect(Schema.encodeSync(ThreadSnapshot)(decoded).snapshotSequence).toBe(8)
+  })
+
+  it("round-trip un Turn avec TurnDiff", () => {
+    const turn = Schema.decodeSync(Turn)({
+      id: ids.turn,
+      threadId: ids.thread,
+      ordinal: 1,
+      state: "completed",
+      requestedAt: "2026-08-19T12:00:00.000Z",
+      startedAt: "2026-08-19T12:00:00.100Z",
+      completedAt: "2026-08-19T12:00:02.000Z",
+      turnDiff: {
+        checkpointRef: checkpointRefForTurn(ThreadId.make(ids.thread), 1),
+        status: "ready",
+        files: [{ path: "src/app.ts", kind: "modified", additions: 2, deletions: 0 }],
+      },
+    })
+    expect(turn.turnDiff?.files[0]?.path).toBe("src/app.ts")
+  })
+
+  it("round-trip un TurnDiffPatch", () => {
+    const input = Schema.decodeSync(GetTurnDiffInput)({
+      threadId: ids.thread,
+      turnId: ids.turn,
+      ignoreWhitespace: true,
+    })
+    expect(input.ignoreWhitespace).toBe(true)
+    const patch = Schema.decodeSync(TurnDiffPatch)({
+      threadId: ids.thread,
+      turnId: ids.turn,
+      checkpointRef: checkpointRefForTurn(ThreadId.make(ids.thread), 1),
+      patch: "diff --git a/src.ts b/src.ts\n",
+    })
+    expect(patch.patch.startsWith("diff --git")).toBe(true)
   })
 })
 
@@ -355,6 +392,24 @@ describe("Thread commands", () => {
       "thread.session.set",
     )
     expect(Schema.decodeUnknownSync(Command)(enriched)._tag).toBe("thread.session.set")
+  })
+
+  it("décode thread.turn.diff.complete comme commande interne seulement", () => {
+    const complete = {
+      _tag: "thread.turn.diff.complete",
+      commandId: ids.command,
+      payload: {
+        threadId: ids.thread,
+        turnId: ids.turn,
+        checkpointRef: `refs/noyau/checkpoint/${ids.thread}/1`,
+        status: "ready",
+        files: [{ path: "src/app.ts", kind: "modified", additions: 2, deletions: 1 }],
+      },
+    }
+    expect(() => Schema.decodeUnknownSync(ThreadCommandRequest)(complete)).toThrow()
+    expect(
+      Schema.decodeUnknownSync(InternalThreadCommand)({ ...complete, ...commandMeta })._tag,
+    ).toBe("thread.turn.diff.complete")
   })
 
   it.each([

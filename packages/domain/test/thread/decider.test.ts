@@ -935,6 +935,100 @@ describe("Thread settle", () => {
   })
 })
 
+describe("TurnDiff", () => {
+  const checkpointRef = `refs/noyau/checkpoint/${ids.thread}/1`
+  const files = [{ path: "src/app.ts", kind: "modified", additions: 2, deletions: 1 }]
+
+  it("attache un TurnDiff au Turn existant", () => {
+    const running = withStartedTurn()
+    const events = success(
+      decide(
+        running,
+        command({
+          _tag: "thread.turn.diff.complete",
+          ...meta,
+          payload: {
+            threadId: ids.thread,
+            turnId: ids.turn1,
+            checkpointRef,
+            status: "ready",
+            files,
+          },
+        }),
+      ),
+    )
+    expect(events).toHaveLength(1)
+    expect(events[0]?._tag).toBe("thread.turn-diff-completed")
+    expect(apply(running, events).threads[0]?.turns[0]?.turnDiff).toEqual({
+      checkpointRef,
+      status: "ready",
+      files,
+    })
+  })
+
+  it("refuse un Turn inconnu et n'écrase pas ready par missing", () => {
+    const running = withStartedTurn()
+    expect(
+      failure(
+        decide(
+          running,
+          command({
+            _tag: "thread.turn.diff.complete",
+            ...meta,
+            payload: {
+              threadId: ids.thread,
+              turnId: ids.turn2,
+              checkpointRef,
+              status: "ready",
+              files,
+            },
+          }),
+        ),
+      )._tag,
+    ).toBe("TurnNotFound")
+
+    const ready = apply(
+      running,
+      success(
+        decide(
+          running,
+          command({
+            _tag: "thread.turn.diff.complete",
+            ...meta,
+            payload: {
+              threadId: ids.thread,
+              turnId: ids.turn1,
+              checkpointRef,
+              status: "ready",
+              files,
+            },
+          }),
+        ),
+      ),
+    )
+    expect(
+      success(
+        decide(
+          ready,
+          command({
+            _tag: "thread.turn.diff.complete",
+            ...meta,
+            commandId: ids.command2,
+            payload: {
+              threadId: ids.thread,
+              turnId: ids.turn1,
+              checkpointRef,
+              status: "missing",
+              files: [],
+            },
+          }),
+        ),
+      ),
+    ).toEqual([])
+    expect(ready.threads[0]?.turns[0]?.turnDiff?.status).toBe("ready")
+  })
+})
+
 describe("boot recovery", () => {
   it.each(["starting", "running"] as const)(
     "convertit une Session %s en error, settle le Turn et conserve resumeCursor",
