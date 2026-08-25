@@ -40,13 +40,15 @@ export function ProjectSidebarItem({
       </SidebarMenuButton>
       <ThreadSidebarSection
         threads={threads.filter((thread) => thread.status === "active")}
-        renderThread={(thread) => (
+        pullRequests={pullRequests}
+        renderThread={(thread, settled) => (
           <ThreadSidebarItem
             thread={thread}
             project={project}
             pullRequest={pullRequests.get(thread.id) ?? null}
             liveBranch={liveBranches.get(thread.id) ?? null}
             isActive={pathname === `/projects/${project.id}/thread/${thread.id}`}
+            settled={settled}
             onSelect={onSelect}
           />
         )}

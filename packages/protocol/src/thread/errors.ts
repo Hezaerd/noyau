@@ -21,6 +21,13 @@ export class ThreadNotArchived extends Schema.TaggedError<ThreadNotArchived>()(
   },
 ) {}
 
+export class ThreadNotSettleable extends Schema.TaggedError<ThreadNotSettleable>()(
+  "ThreadNotSettleable",
+  {
+    threadId: ThreadId,
+  },
+) {}
+
 export class TurnAlreadyActive extends Schema.TaggedError<TurnAlreadyActive>()(
   "TurnAlreadyActive",
   {
@@ -59,6 +66,7 @@ export const ThreadRejection = Schema.Union([
   ThreadNotFound,
   ThreadArchived,
   ThreadNotArchived,
+  ThreadNotSettleable,
   TurnAlreadyActive,
   TurnNotFound,
   ImageAttachmentRejected,

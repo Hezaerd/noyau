@@ -13,12 +13,21 @@ import { useAutoRemoveMergedWorktreeEnabled } from "@/hooks/use-auto-remove-merg
 import { useDiscordPresenceEnabled } from "@/hooks/use-discord-presence-enabled"
 import { useProjectFolderStartDirectory } from "@/hooks/use-project-folder-start-directory"
 import { useThreadEnvModePreference } from "@/hooks/use-thread-env-mode-preference"
+import {
+  useAutoSettleAfterDays,
+  useAutoSettleOnMergeEnabled,
+} from "@/hooks/use-thread-settle-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
 import { setAutoRemoveMergedWorktreeEnabled } from "@/lib/auto-remove-merged-worktree-preference"
 import { THREAD_ENV_MODE_ITEMS } from "@/lib/checkout"
 import { setDiscordPresenceEnabled } from "@/lib/discord-presence-preference"
 import { setProjectFolderStartDirectory } from "@/lib/project-folder-preference"
 import { isThreadEnvMode, setThreadEnvModePreference } from "@/lib/thread-env-mode-preference"
+import {
+  DEFAULT_AUTO_SETTLE_AFTER_DAYS,
+  setAutoSettleAfterDays,
+  setAutoSettleOnMergeEnabled,
+} from "@/lib/thread-settle-preference"
 import {
   isTurnCueSound,
   playTurnCue,
@@ -36,10 +45,15 @@ export function GeneralSettingsPanel(): ReactElement {
   const startDirectory = useProjectFolderStartDirectory()
   const defaultThreadEnvMode = useThreadEnvModePreference()
   const autoRemoveMergedWorktree = useAutoRemoveMergedWorktreeEnabled()
+  const autoSettleOnMerge = useAutoSettleOnMergeEnabled()
+  const autoSettleAfterDays = useAutoSettleAfterDays()
   const discordPresenceEnabled = useDiscordPresenceEnabled()
   const turnCue = useTurnCuePreference()
   const discordPresenceSwitchId = useId()
   const autoRemoveMergedWorktreeSwitchId = useId()
+  const autoSettleOnMergeSwitchId = useId()
+  const autoSettleAfterDaysSwitchId = useId()
+  const autoSettleAfterDaysInputId = useId()
   const threadEnvModeSelectId = useId()
   const turnCueSwitchId = useId()
   const turnCueSoundSelectId = useId()
@@ -143,6 +157,59 @@ export function GeneralSettingsPanel(): ReactElement {
             />
           }
         />
+        <SettingsRow
+          id="auto-settle-merged-threads"
+          title="Classer après merge de PR"
+          description="Classe le Thread quand sa PR live est fusionnée. Une PR fermée classe toujours."
+          control={
+            <Switch
+              id={autoSettleOnMergeSwitchId}
+              checked={autoSettleOnMerge}
+              aria-label="Classer automatiquement après merge de PR"
+              onCheckedChange={(checked) => setAutoSettleOnMergeEnabled(checked)}
+            />
+          }
+        />
+        <SettingsRow
+          id="auto-settle-inactive-threads"
+          title="Classer après inactivité"
+          description="Classe les Threads sans activité depuis ce nombre de jours."
+          control={
+            <Switch
+              id={autoSettleAfterDaysSwitchId}
+              checked={autoSettleAfterDays !== null}
+              aria-label="Classer automatiquement après inactivité"
+              onCheckedChange={(checked) =>
+                setAutoSettleAfterDays(checked ? DEFAULT_AUTO_SETTLE_AFTER_DAYS : null)
+              }
+            />
+          }
+        />
+        {autoSettleAfterDays !== null ? (
+          <SettingsRow
+            id="auto-settle-after-days"
+            className="bg-muted/20 pl-7 sm:pl-9"
+            title="Jours d'inactivité"
+            description="Une nouvelle activité déclasse automatiquement le Thread."
+            control={
+              <Input
+                id={autoSettleAfterDaysInputId}
+                type="number"
+                min={1}
+                max={90}
+                className="w-20"
+                aria-label="Jours d'inactivité avant classement"
+                value={String(autoSettleAfterDays)}
+                onChange={(event) => {
+                  const next = Number.parseInt(event.target.value, 10)
+                  if (Number.isFinite(next)) {
+                    setAutoSettleAfterDays(next)
+                  }
+                }}
+              />
+            }
+          />
+        ) : null}
       </SettingsSection>
       <SettingsSection id="autre" title="Autre">
         <SettingsRow

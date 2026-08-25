@@ -80,6 +80,8 @@ const ThreadRow = Schema.Struct({
   created_at: Schema.String,
   updated_at: Schema.String,
   archived_at: Schema.NullOr(Schema.String),
+  settled_override: Schema.NullOr(Schema.Literals(["settled", "active"])),
+  settled_at: Schema.NullOr(Schema.String),
 })
 const SessionRow = Schema.Struct({
   thread_id: Schema.String,
@@ -120,6 +122,10 @@ const ThreadShellRow = Schema.Struct({
   requested_at: Schema.NullOr(Schema.String),
   started_at: Schema.NullOr(Schema.String),
   completed_at: Schema.NullOr(Schema.String),
+  settled_override: Schema.NullOr(Schema.Literals(["settled", "active"])),
+  settled_at: Schema.NullOr(Schema.String),
+  has_pending_approvals: Schema.Int,
+  has_pending_user_input: Schema.Int,
 })
 
 const decodeSequenceRow = Schema.decodeEffect(SequenceRow)
@@ -399,7 +405,7 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         SELECT
           thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
           service_tier, thinking, branch, worktree_path, status, created_at, updated_at,
-          archived_at
+          archived_at, settled_override, settled_at
         FROM projection_threads
         WHERE thread_id = ${threadId}
       `
@@ -489,6 +495,12 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
       if (thread.archived_at !== null) {
         Object.assign(encodedThread, { archivedAt: thread.archived_at })
       }
+      if (thread.settled_override !== null) {
+        Object.assign(encodedThread, { settledOverride: thread.settled_override })
+      }
+      if (thread.settled_at !== null) {
+        Object.assign(encodedThread, { settledAt: thread.settled_at })
+      }
       const snapshot = yield* decodeThreadSnapshot({
         snapshotSequence,
         thread: encodedThread,
@@ -527,13 +539,29 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
             thread.status,
             thread.created_at,
             thread.updated_at,
+            thread.settled_override,
+            thread.settled_at,
             session.status AS session_status,
             session.last_error,
             turn.turn_id,
             turn.state AS turn_state,
             turn.requested_at,
             turn.started_at,
-            turn.completed_at
+            turn.completed_at,
+            EXISTS (
+              SELECT 1
+              FROM projection_transcript AS pending
+              WHERE pending.thread_id = thread.thread_id
+                AND pending.kind = 'transcript.permission'
+                AND json_extract(pending.item, '$.status') = 'pending'
+            ) AS has_pending_approvals,
+            EXISTS (
+              SELECT 1
+              FROM projection_transcript AS pending
+              WHERE pending.thread_id = thread.thread_id
+                AND pending.kind = 'transcript.user-input'
+                AND json_extract(pending.item, '$.status') = 'pending'
+            ) AS has_pending_user_input
           FROM projection_threads AS thread
           LEFT JOIN projection_sessions AS session ON session.thread_id = thread.thread_id
           LEFT JOIN projection_turns AS turn ON turn.turn_id = (
@@ -553,30 +581,41 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
       const threads = yield* Effect.forEach(rawThreads, (raw) =>
         decodeThreadShellRow(raw).pipe(
           Effect.orDie,
-          Effect.map((row) => ({
-            id: row.thread_id,
-            projectId: row.project_id,
-            title: row.title,
-            provider: row.provider,
-            runtimeMode: row.runtime_mode,
-            branch: row.branch,
-            worktreePath: row.worktree_path,
-            status: row.status,
-            latestTurn:
-              row.turn_id === null || row.turn_state === null || row.requested_at === null
-                ? null
-                : {
-                    turnId: row.turn_id,
-                    state: row.turn_state,
-                    requestedAt: row.requested_at,
-                    startedAt: row.started_at,
-                    completedAt: row.completed_at,
-                  },
-            sessionStatus: row.session_status,
-            lastError: row.last_error,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-          })),
+          Effect.map((row) => {
+            const encoded = {
+              id: row.thread_id,
+              projectId: row.project_id,
+              title: row.title,
+              provider: row.provider,
+              runtimeMode: row.runtime_mode,
+              branch: row.branch,
+              worktreePath: row.worktree_path,
+              status: row.status,
+              latestTurn:
+                row.turn_id === null || row.turn_state === null || row.requested_at === null
+                  ? null
+                  : {
+                      turnId: row.turn_id,
+                      state: row.turn_state,
+                      requestedAt: row.requested_at,
+                      startedAt: row.started_at,
+                      completedAt: row.completed_at,
+                    },
+              sessionStatus: row.session_status,
+              lastError: row.last_error,
+              createdAt: row.created_at,
+              updatedAt: row.updated_at,
+              hasPendingApprovals: row.has_pending_approvals === 1,
+              hasPendingUserInput: row.has_pending_user_input === 1,
+            }
+            if (row.settled_override !== null) {
+              Object.assign(encoded, { settledOverride: row.settled_override })
+            }
+            if (row.settled_at !== null) {
+              Object.assign(encoded, { settledAt: row.settled_at })
+            }
+            return encoded
+          }),
         ),
       )
       return yield* decodeShellSnapshot({

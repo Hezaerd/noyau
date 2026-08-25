@@ -10,6 +10,7 @@ export const KEYBINDING_IDS = [
   "thread.create",
   "thread.rename",
   "thread.pin",
+  "thread.settle",
   "board.search",
   "board.ticket.create",
   "board.ticket.open",
@@ -78,6 +79,13 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Épingler le Thread",
     description: "Épingle ou désépingle le Thread ouvert en haut de la sidebar.",
     defaultHotkey: "Mod+P",
+  },
+  {
+    id: "thread.settle",
+    group: "thread",
+    title: "Classer le Thread",
+    description: "Classe ou déclasse le Thread ouvert dans la queue Classés.",
+    defaultHotkey: "Mod+E",
   },
   {
     id: "board.search",

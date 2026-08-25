@@ -97,10 +97,16 @@ Capacité live du Server (`vcs.*`, `git.*`) hors journal. L'idempotence client p
 `vcs.removeWorktree` retire un worktree lié et renvoie les Threads à délier.
 _À éviter_ : agrégat Commit, événement Push, outbox Git
 
+**settledOverride**:
+Pin utilisateur `settled | active` du cycle settle. Absent = pas de pin ; l'auto-settle client
+s'applique. Persisté par `thread.settle` / `thread.unsettle`.
+_À éviter_ : status archived, snooze
+
 **Pull request live**:
 PR GitHub du HEAD courant, portée par `vcs.status` / `vcs.subscribeStatus`. Join cwd + branche via
-`gh`, jamais un identifiant du journal. Porte la Mergeability et le CI status GitHub.
-_À éviter_ : pullRequestId persisté, webhook, settle
+`gh`, jamais un identifiant du journal. Porte la Mergeability et le CI status GitHub. Alimente
+l'auto-settle client (`merged` / `closed`).
+_À éviter_ : pullRequestId persisté, webhook
 
 **Mergeability**:
 Verdict GitHub live de la PR (`mergeable | conflicting | unknown`). `unknown` n'est pas l'absence

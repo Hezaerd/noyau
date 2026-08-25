@@ -93,15 +93,24 @@ Contrôle qui lance une action empilée live (`commit | push | create_pr | …`)
 _À éviter_ : git commands, bouton commit, VCS toolbar
 
 **Pull request live**:
-Badge `#n` du HEAD du Checkout, alimenté par `vcs.subscribeStatus`. Pas un settle, pas un
-identifiant du journal.
-_À éviter_ : inbox PR, archive auto, lien Ticket
+Badge `#n` du HEAD du Checkout, alimenté par `vcs.subscribeStatus`. Alimente l'auto-settle
+quand l'état est `merged` ou `closed`.
+_À éviter_ : inbox PR, identifiant du journal, lien Ticket
+
+**Settle**:
+Cycle qui recule un Thread dans la queue Classés de la sidebar. Override durable, sinon
+auto via PR live ou inactivité. Le Pin local sort le Thread de la queue.
+_À éviter_ : archive, snooze
+
+**Queue Classés**:
+Queue de la sidebar pour les Threads effectiveSettled, distincte de l'archive.
+_À éviter_ : Done, archive Thread
 
 **Cleanup worktree**:
 Suppression live d'un worktree lié (`vcs.removeWorktree`) puis déliaison du Checkout
 (`worktreePath: null`). Auto opt-in (Préférence, off par défaut) quand la PR live passe à
 `merged` ; manuel via ⌘⇧ clic dans le sélecteur de branche. Jamais le WorkspaceRoot.
-_À éviter_ : archive Thread, settle, suppression de branche
+_À éviter_ : archive Thread, suppression de branche
 
 **Présentation de Turn**:
 Comment le prompt utilisateur d'un Turn est montré dans le transcript : même Message / Bubble

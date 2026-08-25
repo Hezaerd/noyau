@@ -89,6 +89,7 @@ describe("rendered Thread UI evidence", () => {
           makeThread(threadId, "Corriger la reprise"),
           makeThread(secondThreadId, "Documenter Cursor"),
         ]}
+        pullRequests={new Map()}
         renderThread={(thread) => <a href={`/thread/${thread.id}`}>{thread.title}</a>}
       />,
     )
@@ -97,6 +98,36 @@ describe("rendered Thread UI evidence", () => {
     expect(screen.getByText("Threads")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Corriger la reprise" })).toBeTruthy()
     expect(screen.getByRole("link", { name: "Documenter Cursor" })).toBeTruthy()
+  })
+
+  it("recedes an explicitly settled Thread under Classés", () => {
+    render(
+      <ThreadSidebarSection
+        threads={[
+          makeThread(threadId, "Actif"),
+          Schema.decodeSync(ThreadShell)({
+            id: secondThreadId,
+            projectId,
+            title: "Classé",
+            provider: "cursor",
+            runtimeMode: "full-access",
+            status: "active",
+            latestTurn: null,
+            sessionStatus: null,
+            lastError: null,
+            settledOverride: "settled",
+            createdAt: "2026-08-20T00:00:00.000Z",
+            updatedAt: "2026-08-20T00:00:00.000Z",
+          }),
+        ]}
+        pullRequests={new Map()}
+        renderThread={(thread) => <a href={`/thread/${thread.id}`}>{thread.title}</a>}
+      />,
+    )
+
+    expect(screen.getByText("Classés")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Actif" })).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Classé" })).toBeTruthy()
   })
 
   it("renders En cours and Terminé on the sidebar status cluster", () => {
@@ -126,6 +157,7 @@ describe("rendered Thread UI evidence", () => {
             updatedAt: "2026-08-23T12:00:00.000Z",
           }),
         ]}
+        pullRequests={new Map()}
         renderThread={(thread) => <a href={`/thread/${thread.id}`}>{thread.title}</a>}
       />,
     )
@@ -147,6 +179,7 @@ describe("rendered Thread UI evidence", () => {
             updatedAt: "2026-08-23T12:00:00.000Z",
           }),
         ]}
+        pullRequests={new Map()}
         renderThread={(thread) => <a href={`/thread/${thread.id}`}>{thread.title}</a>}
       />,
     )
