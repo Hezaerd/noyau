@@ -80,6 +80,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useKeybindings } from "@/hooks/use-keybindings"
+import { useProjectBoard } from "@/hooks/use-project-board"
 import {
   createBoardActions,
   groupBoardActions,
@@ -107,10 +108,8 @@ import {
 } from "@/lib/board-model"
 import { refreshBoard as fetchBoardSnapshot, runBoardCommand } from "@/lib/board-page-actions"
 import { boardStateFromSnapshot } from "@/lib/board-snapshot"
-import { type SubscriptionStatus } from "@/lib/control-plane"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
-import { subscribeProjectBoard } from "@/lib/project-board-store"
 import {
   makeKanbanColumnCreateRequest,
   makeKanbanColumnDeleteRequest,
@@ -654,6 +653,7 @@ export function BoardPage({
 }: BoardPageProps) {
   const projectThreads = useProjectThreads(projectId)
   const { resolved: keybindings } = useKeybindings()
+  const { snapshot: boardSnapshot, status: subscriptionStatus } = useProjectBoard(projectId)
   const [state, setState] = useState<BoardState>({
     columns: [],
     tickets: [],
@@ -661,7 +661,6 @@ export function BoardPage({
     ticketThreads: [],
   })
   const [boardFailure, setBoardFailure] = useState<FailurePresentation>()
-  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const [loading, setLoading] = useState(true)
   const [ticketActivityError, setTicketActivityError] = useState<string>()
   const [ticketActivityByTicket, setTicketActivityByTicket] = useState<
@@ -746,22 +745,25 @@ export function BoardPage({
 
   useEffect(() => {
     setLoading(true)
-    setSubscriptionStatus(undefined)
     setTicketActivityByTicket([])
-    return subscribeProjectBoard(projectId, {
-      onSnapshot: (snapshot) => {
-        hasBoardDataRef.current = snapshot.columns.length > 0
-        setState(boardStateFromSnapshot(snapshot))
-        setTicketActivityByTicket(snapshot.ticketActivity)
-        setLoading(false)
-        setBoardFailure(undefined)
-      },
-      onStatus: (status) => {
-        setSubscriptionStatus(status)
-        if (status._tag === "Reconnecting") setLoading(false)
-      },
-    })
   }, [projectId])
+
+  useEffect(() => {
+    if (boardSnapshot === undefined) {
+      return
+    }
+    hasBoardDataRef.current = boardSnapshot.columns.length > 0
+    setState(boardStateFromSnapshot(boardSnapshot))
+    setTicketActivityByTicket(boardSnapshot.ticketActivity)
+    setLoading(false)
+    setBoardFailure(undefined)
+  }, [boardSnapshot])
+
+  useEffect(() => {
+    if (subscriptionStatus?._tag === "Reconnecting") {
+      setLoading(false)
+    }
+  }, [subscriptionStatus])
 
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
