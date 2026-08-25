@@ -59,6 +59,7 @@ import {
   type ProjectId as ProjectIdType,
   Sequence,
   type Sequence as SequenceType,
+  type ThreadId,
 } from "@noyau/protocol/ids"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
 import {
@@ -91,6 +92,7 @@ import { BoardInitialize, TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketEvent } from "@noyau/protocol/ticket/events"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
 import { TurnDiffUnavailable } from "@noyau/protocol/turn-diff"
+import { ThreadLive } from "@noyau/server/thread-live"
 import {
   Context,
   Crypto,
@@ -470,6 +472,22 @@ const bufferedTail = <A, E = never, R = never>(
     : stream
 }
 
+const assistantLiveFrames = (threadLive: ThreadLive["Service"], threadId: ThreadId) =>
+  threadLive
+    .subscribe(threadId)
+    .pipe(Stream.map((live): ThreadStreamItem => ({ kind: "live" as const, live })))
+
+const withAssistantLive = (
+  threadLive: ThreadLive["Service"],
+  threadId: ThreadId,
+  prefix: Stream.Stream<ThreadStreamItem, ServiceUnavailable>,
+  tail: Stream.Stream<ThreadStreamItem, ServiceUnavailable>,
+) =>
+  Stream.concat(
+    prefix,
+    Stream.merge(tail, assistantLiveFrames(threadLive, threadId), { haltStrategy: "left" }),
+  )
+
 const isProjectStreamEvent = (event: DomainEventType): boolean =>
   isProjectEvent(event) || isTicketEvent(event)
 
@@ -717,6 +735,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const crypto = yield* Crypto.Crypto
       let dispatchInternal = workerNotReady
       const providerSessionReaper = yield* makeProviderSessionReaper()
+      const threadLive = yield* ThreadLive
       const textGeneration = yield* TextGeneration
       const git = yield* GitRuntime
       const presence = yield* makePresenceController()
@@ -1014,7 +1033,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
                     : Effect.succeed([]),
                 { kind: "synchronized" },
               )
-              return Stream.concat(historical, tail)
+              return withAssistantLive(threadLive, input.threadId, historical, tail)
             }
             const snapshot = yield* readThreadSnapshot(input.threadId).pipe(
               Effect.mapError(unavailable("thread-snapshot")),
@@ -1023,7 +1042,9 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               return yield* new ServiceUnavailable({ service: "thread-snapshot" })
             }
             yield* hooks.afterThreadSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
-            return Stream.concat(
+            return withAssistantLive(
+              threadLive,
+              input.threadId,
               Stream.make({
                 kind: "snapshot" as const,
                 snapshot: snapshot.value,

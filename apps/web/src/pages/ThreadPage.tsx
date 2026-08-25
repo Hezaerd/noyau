@@ -42,6 +42,7 @@ import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
 import { invalidInputFailure } from "@/lib/app-failure"
+import { clearAssistantPaint, pushAssistantLive } from "@/lib/assistant-paint"
 import {
   clearCreatedCheckout,
   draftCheckoutOf,
@@ -267,9 +268,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setLoading(false)
       setActionFailure(undefined)
     }
+    clearAssistantPaint()
     const unsubscribe = subscribeThread(threadId, cached?.snapshotSequence, {
       onSnapshot: (next) => {
         commitSnapshot(next)
+      },
+      onLive: (live) => {
+        if (live.threadId === threadId) {
+          pushAssistantLive(live)
+        }
       },
       onEvent: (envelope) => {
         const event = envelope.event
@@ -320,6 +327,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     })
     return () => {
       unsubscribe()
+      clearAssistantPaint(threadId)
       setImages((current) => {
         revokeComposerImages(current)
         return []

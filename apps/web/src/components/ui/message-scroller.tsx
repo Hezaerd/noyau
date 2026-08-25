@@ -64,14 +64,18 @@ function MessageScrollerContent({
 function MessageScrollerItem({
   className,
   scrollAnchor = false,
+  live = false,
   ...props
-}: React.ComponentProps<typeof MessageScrollerPrimitive.Item>) {
+}: React.ComponentProps<typeof MessageScrollerPrimitive.Item> & {
+  readonly live?: boolean
+}) {
   return (
     <MessageScrollerPrimitive.Item
       data-slot="message-scroller-item"
       scrollAnchor={scrollAnchor}
       className={cn(
-        "min-w-0 shrink-0 select-text [contain-intrinsic-size:auto_10rem] [content-visibility:auto]",
+        "min-w-0 shrink-0 select-text [contain-intrinsic-size:auto_10rem]",
+        !live && "[content-visibility:auto]",
         className,
       )}
       {...props}

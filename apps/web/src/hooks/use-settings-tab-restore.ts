@@ -8,6 +8,7 @@ import {
   useAutoSettleAfterDays,
   useAutoSettleOnMergeEnabled,
 } from "@/hooks/use-thread-settle-preference"
+import { useTranscriptPaintMode } from "@/hooks/use-transcript-paint-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
 import { setAppearancePreference } from "@/lib/appearance"
 import {
@@ -26,6 +27,10 @@ import {
   DEFAULT_AUTO_SETTLE_ON_MERGE,
   resetThreadSettlePreference,
 } from "@/lib/thread-settle-preference"
+import {
+  isTranscriptPaintPreferenceDefault,
+  resetTranscriptPaintPreference,
+} from "@/lib/transcript-paint-preference"
 import { isTurnCuePreferenceDefault, resetTurnCuePreference } from "@/lib/turn-cue-preference"
 
 export interface SettingsTabRestore {
@@ -35,6 +40,7 @@ export interface SettingsTabRestore {
 
 export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore => {
   const { preference } = useAppearance()
+  const transcriptPaint = useTranscriptPaintMode()
   const { resetAll } = useKeybindings()
   const projectFolderStartDirectory = useProjectFolderStartDirectory()
   const autoRemoveMergedWorktree = useAutoRemoveMergedWorktreeEnabled()
@@ -63,8 +69,13 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
       }
     case "appearance":
       return {
-        canRestore: preference !== DEFAULT_APPEARANCE_PREFERENCE,
-        restore: () => setAppearancePreference(DEFAULT_APPEARANCE_PREFERENCE),
+        canRestore:
+          preference !== DEFAULT_APPEARANCE_PREFERENCE ||
+          !isTranscriptPaintPreferenceDefault(transcriptPaint),
+        restore: () => {
+          setAppearancePreference(DEFAULT_APPEARANCE_PREFERENCE)
+          resetTranscriptPaintPreference()
+        },
       }
     case "keybindings":
       return {

@@ -45,8 +45,8 @@ export const ThreadMarkdown = memo(function ThreadMarkdown({
   readonly onOpenTicket?: ((ticketId: string) => void) | undefined
 }) {
   const mentionExpanded = useMemo(
-    () => rewriteComposerMentionsToMarkdownFileLinks(text, tickets),
-    [text, tickets],
+    () => (streaming ? text : rewriteComposerMentionsToMarkdownFileLinks(text, tickets)),
+    [streaming, text, tickets],
   )
   const fileLinks = useMemo(
     () =>
@@ -59,8 +59,11 @@ export const ThreadMarkdown = memo(function ThreadMarkdown({
     [mentionExpanded, onOpenTicket, projectId, tickets, workspaceRoot],
   )
   const renderedText = useMemo(
-    () => rewriteMarkdownFileLinkDestinations(mentionExpanded, workspaceRoot),
-    [mentionExpanded, workspaceRoot],
+    () =>
+      streaming
+        ? mentionExpanded
+        : rewriteMarkdownFileLinkDestinations(mentionExpanded, workspaceRoot),
+    [mentionExpanded, streaming, workspaceRoot],
   )
   const urlTransform = useCallback(
     (href: string, key: string, node: NonNullable<ExtraProps["node"]>) => {

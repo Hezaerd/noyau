@@ -17,9 +17,62 @@ import { TurnPresentationBubble } from "@/components/thread/TurnPresentationBubb
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
+import { useAssistantPaint } from "@/hooks/use-assistant-paint"
 import type { ComposerTicket } from "@/lib/composer-tickets"
 import { transcriptLabel } from "@/lib/thread-transcript"
 import { transcriptItemCopyText, transcriptItemMessageAt } from "@/lib/transcript-message-at"
+
+function LiveAssistantMessage({
+  item,
+  streaming,
+  turn,
+  workspaceRoot,
+  projectId,
+  tickets,
+  onOpenTicket,
+  turnDiff,
+  onOpenTurnDiff,
+}: {
+  readonly item: Extract<TranscriptItem, { readonly _tag: "transcript.assistant" }>
+  readonly streaming: boolean
+  readonly turn?: Pick<Turn, "requestedAt" | "completedAt"> | undefined
+  readonly workspaceRoot?: string | undefined
+  readonly projectId?: ProjectId | undefined
+  readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
+  readonly onOpenTicket?: ((ticketId: string) => void) | undefined
+  readonly turnDiff?: TurnDiff | undefined
+  readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
+}) {
+  const paintedText = useAssistantPaint(item.text, item.threadId, item.turnId, streaming)
+  return (
+    <Message align="start">
+      <MessageContent>
+        <Bubble variant="ghost" align="start">
+          <BubbleContent>
+            <ThreadMarkdown
+              text={paintedText}
+              streaming={streaming}
+              workspaceRoot={workspaceRoot}
+              projectId={projectId}
+              {...(tickets === undefined ? {} : { tickets })}
+              {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
+            />
+            {turnDiff === undefined ? null : onOpenTurnDiff === undefined ? (
+              <ThreadTurnDiffCard turnDiff={turnDiff} />
+            ) : (
+              <ThreadTurnDiffCard turnDiff={turnDiff} onOpen={onOpenTurnDiff} />
+            )}
+          </BubbleContent>
+        </Bubble>
+        <ThreadMessageMeta
+          align="start"
+          at={transcriptItemMessageAt(item, turn, streaming)}
+          copyText={transcriptItemCopyText(item, streaming)}
+        />
+      </MessageContent>
+    </Message>
+  )
+}
 
 function ThreadTranscriptItemImpl({
   item,
@@ -93,32 +146,17 @@ function ThreadTranscriptItemImpl({
 
   if (item._tag === "transcript.assistant") {
     return (
-      <Message align="start">
-        <MessageContent>
-          <Bubble variant="ghost" align="start">
-            <BubbleContent>
-              <ThreadMarkdown
-                text={item.text}
-                streaming={streaming}
-                workspaceRoot={workspaceRoot}
-                projectId={projectId}
-                {...(tickets === undefined ? {} : { tickets })}
-                {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
-              />
-              {turnDiff === undefined ? null : onOpenTurnDiff === undefined ? (
-                <ThreadTurnDiffCard turnDiff={turnDiff} />
-              ) : (
-                <ThreadTurnDiffCard turnDiff={turnDiff} onOpen={onOpenTurnDiff} />
-              )}
-            </BubbleContent>
-          </Bubble>
-          <ThreadMessageMeta
-            align="start"
-            at={transcriptItemMessageAt(item, turn, streaming)}
-            copyText={transcriptItemCopyText(item, streaming)}
-          />
-        </MessageContent>
-      </Message>
+      <LiveAssistantMessage
+        item={item}
+        streaming={streaming}
+        turn={turn}
+        workspaceRoot={workspaceRoot}
+        projectId={projectId}
+        tickets={tickets}
+        onOpenTicket={onOpenTicket}
+        turnDiff={turnDiff}
+        onOpenTurnDiff={onOpenTurnDiff}
+      />
     )
   }
 
