@@ -3,7 +3,7 @@ import type { ReactElement } from "react"
 
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover"
 import { BRAND_BLOBATAR_NAME, brandBlobatarPalette } from "@/lib/brand-blobatar"
-import { desktopChannelHint, desktopReleaseChannel } from "@/lib/desktop-bridge"
+import { DESKTOP_RELEASE_CHANNEL, desktopChannelHint } from "@/lib/desktop-bridge"
 import { SIDEBAR_TITLEBAR_INSET_CLASS } from "@/lib/desktop-titlebar"
 import { cn } from "@/lib/utils"
 
@@ -11,7 +11,7 @@ const BRAND_TITLE = "Noyau"
 const brandTitleClassName = "truncate text-sm font-semibold tracking-[-0.02em]"
 
 function BrandBlobatar(): ReactElement {
-  const palette = brandBlobatarPalette(desktopReleaseChannel())
+  const palette = brandBlobatarPalette(DESKTOP_RELEASE_CHANNEL)
 
   return (
     <span className="brand-blobatar no-drag inline-flex size-8 shrink-0 overflow-hidden rounded-md">
@@ -29,7 +29,7 @@ function BrandBlobatar(): ReactElement {
 }
 
 function BrandTitle(): ReactElement {
-  const channelHint = desktopChannelHint()
+  const channelHint = desktopChannelHint(DESKTOP_RELEASE_CHANNEL)
 
   if (channelHint === undefined) {
     return <p className={brandTitleClassName}>{BRAND_TITLE}</p>
