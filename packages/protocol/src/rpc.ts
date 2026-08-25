@@ -52,6 +52,7 @@ import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/protocol/id
 import { ProjectNotFound, ProjectUnavailable } from "@noyau/protocol/project/errors"
 import { DispatchResult, Rejection } from "@noyau/protocol/receipts"
 import { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
+import { ThreadAssistantLive } from "@noyau/protocol/thread/live"
 import { GetTurnDiffInput, TurnDiffPatch, TurnDiffUnavailable } from "@noyau/protocol/turn-diff"
 import { Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/unstable/rpc"
@@ -159,7 +160,13 @@ export type ShellStreamItem = (typeof ShellStreamItem)["Type"]
 export const ProjectStreamItem = streamFrame(BoardSnapshot, EventEnvelope)
 export type ProjectStreamItem = (typeof ProjectStreamItem)["Type"]
 
-export const ThreadStreamItem = streamFrame(ThreadSnapshot, EventEnvelope)
+export const ThreadStreamItem = Schema.Union([
+  streamFrame(ThreadSnapshot, EventEnvelope),
+  Schema.Struct({
+    kind: Schema.Literal("live"),
+    live: ThreadAssistantLive,
+  }),
+])
 export type ThreadStreamItem = (typeof ThreadStreamItem)["Type"]
 
 export const DispatchCommand = Rpc.make(RPC_METHODS.dispatchCommand, {

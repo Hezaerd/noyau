@@ -15,6 +15,7 @@ import { initializeThreadEnvModePreference } from "@/lib/thread-env-mode-prefere
 import { initializeThreadPins } from "@/lib/thread-pins"
 import { initializeThreadSettlePreference } from "@/lib/thread-settle-preference"
 import { initializeThreadVisits } from "@/lib/thread-visits"
+import { initializeTranscriptPaintPreference } from "@/lib/transcript-paint-preference"
 import { initializeTurnCuePreference } from "@/lib/turn-cue-preference"
 
 import { routeTree } from "./routeTree.gen"
@@ -31,6 +32,7 @@ initializeThreadEnvModePreference()
 initializeAutoRemoveMergedWorktreePreference()
 initializeThreadSettlePreference()
 initializeTurnCuePreference()
+initializeTranscriptPaintPreference()
 initializeThreadPins()
 initializeThreadVisits()
 

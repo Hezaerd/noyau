@@ -8,6 +8,7 @@ import { CheckpointRef, checkpointRefForTurn, Turn } from "@noyau/protocol/entit
 import { EventEnvelope } from "@noyau/protocol/events"
 import { ThreadId } from "@noyau/protocol/ids"
 import { Receipt } from "@noyau/protocol/receipts"
+import { ThreadStreamItem } from "@noyau/protocol/rpc"
 import {
   decodeThreadCommandRequest,
   InternalThreadCommand,
@@ -15,6 +16,7 @@ import {
   ThreadTurnStartRequest,
   ThreadTurnStart,
 } from "@noyau/protocol/thread/commands"
+import { ThreadAssistantLive } from "@noyau/protocol/thread/live"
 import {
   canReplaceThreadTitle,
   DEFAULT_THREAD_TITLE,
@@ -558,6 +560,24 @@ describe("Thread events and receipts", () => {
       response: { _tag: "accepted", sequence: 44 },
     })
     expect(receipt.response).toEqual({ _tag: "accepted", sequence: 44 })
+  })
+})
+
+describe("ThreadAssistantLive", () => {
+  it("round-trip un hint live hors journal", () => {
+    const live = Schema.decodeSync(ThreadAssistantLive)({
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "Bonjour",
+    })
+    const frame = Schema.decodeSync(ThreadStreamItem)({
+      kind: "live",
+      live,
+    })
+    expect(frame.kind).toBe("live")
+    if (frame.kind === "live") {
+      expect(frame.live.text).toBe("Bonjour")
+    }
   })
 })
 

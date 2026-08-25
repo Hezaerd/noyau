@@ -108,6 +108,7 @@ export function ThreadTranscript({
     return map
   }, [turns])
   const lastAssistantByTurn = useMemo(() => lastAssistantIndexByTurnId(transcript), [transcript])
+  const rows = useMemo(() => groupTranscriptRows(transcript), [transcript])
 
   return (
     <MessageScrollerProvider key={scrollerKey} autoScroll>
@@ -130,7 +131,7 @@ export function ThreadTranscript({
               <MessageScrollerItem messageId="thread-notices">{notices}</MessageScrollerItem>
             )}
 
-            {groupTranscriptRows(transcript).map((row) =>
+            {rows.map((row) =>
               row.kind === "tool-group" ? (
                 <MessageScrollerItem
                   key={transcriptGroupRowId(row.items)}
@@ -145,6 +146,7 @@ export function ThreadTranscript({
                 <MessageScrollerItem
                   key={transcriptRowId(row.item, row.index)}
                   messageId={transcriptRowId(row.item, row.index)}
+                  live={isRunning && row.item === lastAssistant}
                 >
                   <ThreadTranscriptItem
                     item={row.item}

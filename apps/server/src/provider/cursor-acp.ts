@@ -11,6 +11,7 @@ import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
+import { ThreadLive, threadLiveLayer } from "@noyau/server/thread-live"
 import {
   Clock,
   Deferred,
@@ -96,6 +97,8 @@ interface ActiveTurn {
   readonly pendingApprovals: Map<string, PendingApproval>
   readonly toolCalls: Map<string, ToolCallPresentationInput>
   pendingAssistantText: string
+  flushedAssistantText: string
+  readonly live: ThreadLive["Service"]
   session?: CursorSession
   acp?: AcpClient.AcpClient["Service"]
   handle?: ChildProcessSpawner.ChildProcessHandle
@@ -109,6 +112,16 @@ interface ActiveTurn {
   fiber?: Fiber.Fiber<void>
 }
 
+const visibleAssistantText = (control: ActiveTurn) =>
+  `${control.flushedAssistantText}${control.pendingAssistantText}`
+
+const publishAssistantLive = (control: ActiveTurn) =>
+  control.live.publish({
+    threadId: control.input.threadId,
+    turnId: control.input.turnId,
+    text: visibleAssistantText(control),
+  })
+
 const flushAssistantText = Effect.fn("CursorAdapter.flushAssistantText")(function* (
   control: ActiveTurn,
 ) {
@@ -117,6 +130,7 @@ const flushAssistantText = Effect.fn("CursorAdapter.flushAssistantText")(functio
     return
   }
   control.pendingAssistantText = ""
+  control.flushedAssistantText = `${control.flushedAssistantText}${text}`
   yield* control.emit({
     _tag: "transcript",
     item: {
@@ -126,6 +140,7 @@ const flushAssistantText = Effect.fn("CursorAdapter.flushAssistantText")(functio
       text,
     },
   })
+  yield* publishAssistantLive(control)
 })
 
 const enqueueAssistantText = Effect.fn("CursorAdapter.enqueueAssistantText")(function* (
@@ -139,6 +154,7 @@ const enqueueAssistantText = Effect.fn("CursorAdapter.enqueueAssistantText")(fun
     return
   }
   control.pendingAssistantText = next.pending
+  yield* publishAssistantLive(control)
 })
 
 const emitSignal = Effect.fn("CursorAdapter.emitSignal")(function* (
@@ -604,6 +620,7 @@ const initialize = Effect.fn("CursorAdapter.initialize")(function* (
 const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   options: CursorAdapterOptions = {},
 ) {
+  const threadLive = yield* ThreadLive
   const providerScope = yield* Effect.scope
   const path = yield* Path.Path
   const mcpSessions = yield* McpSessionRegistry
@@ -1287,6 +1304,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       ),
       Effect.ensuring(
         flushAssistantText(control).pipe(
+          Effect.andThen(threadLive.clear(control.input.threadId)),
           Effect.andThen(userInputs.unbindTurn(control.input.threadId)),
           Effect.andThen(
             Effect.suspend(() =>
@@ -1327,6 +1345,8 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       pendingApprovals: new Map(),
       toolCalls: new Map(),
       pendingAssistantText: "",
+      flushedAssistantText: "",
+      live: threadLive,
       promptStarted: false,
       mcpActivated: false,
       cancelRequested: false,
@@ -1523,4 +1543,5 @@ export const cursorProviderLayer = (options: CursorAdapterOptions = {}) =>
   Layer.effect(ProviderPort, makeCursorProvider(options)).pipe(
     Layer.provide(NodeServices.layer),
     Layer.provideMerge(turnUserInputRegistryLayer),
+    Layer.provideMerge(threadLiveLayer),
   )

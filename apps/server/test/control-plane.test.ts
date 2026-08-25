@@ -24,6 +24,7 @@ import { mcpSessionRegistryLayer } from "@noyau/server/mcp/mcp-session-registry"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
+import { threadLiveLayer } from "@noyau/server/thread-live"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "@noyau/server/workspace-root"
 import {
   Crypto,
@@ -111,6 +112,7 @@ const controlPlaneTestLayer = (
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
+    Layer.provideMerge(threadLiveLayer),
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(stubGitRuntimeLayer),

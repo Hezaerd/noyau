@@ -59,6 +59,7 @@ import {
   type ProjectId as ProjectIdType,
   Sequence,
   type Sequence as SequenceType,
+  type ThreadId,
 } from "@noyau/protocol/ids"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
 import {
@@ -91,6 +92,7 @@ import { BoardInitialize, TicketCommand } from "@noyau/protocol/ticket/commands"
 import { TicketEvent } from "@noyau/protocol/ticket/events"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
 import { TurnDiffUnavailable } from "@noyau/protocol/turn-diff"
+import { ThreadLive } from "@noyau/server/thread-live"
 import {
   Context,
   Crypto,
@@ -470,6 +472,19 @@ const bufferedTail = <A, E = never, R = never>(
     : stream
 }
 
+const withAssistantLive = (
+  threadLive: ThreadLive["Service"],
+  threadId: ThreadId,
+  events: Stream.Stream<ThreadStreamItem, ServiceUnavailable>,
+) =>
+  Stream.merge(
+    events,
+    threadLive
+      .subscribe(threadId)
+      .pipe(Stream.map((live): ThreadStreamItem => ({ kind: "live" as const, live }))),
+    { haltStrategy: "left" },
+  )
+
 const isProjectStreamEvent = (event: DomainEventType): boolean =>
   isProjectEvent(event) || isTicketEvent(event)
 
@@ -717,6 +732,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const crypto = yield* Crypto.Crypto
       let dispatchInternal = workerNotReady
       const providerSessionReaper = yield* makeProviderSessionReaper()
+      const threadLive = yield* ThreadLive
       const textGeneration = yield* TextGeneration
       const git = yield* GitRuntime
       const presence = yield* makePresenceController()
@@ -1014,7 +1030,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
                     : Effect.succeed([]),
                 { kind: "synchronized" },
               )
-              return Stream.concat(historical, tail)
+              return withAssistantLive(threadLive, input.threadId, Stream.concat(historical, tail))
             }
             const snapshot = yield* readThreadSnapshot(input.threadId).pipe(
               Effect.mapError(unavailable("thread-snapshot")),
@@ -1023,24 +1039,28 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               return yield* new ServiceUnavailable({ service: "thread-snapshot" })
             }
             yield* hooks.afterThreadSnapshot?.(snapshot.value.snapshotSequence) ?? Effect.void
-            return Stream.concat(
-              Stream.make({
-                kind: "snapshot" as const,
-                snapshot: snapshot.value,
-              } satisfies ThreadStreamItem),
-              bufferedTail<ThreadStreamItem>(
-                buffer,
-                snapshot.value.snapshotSequence,
-                input.requestCompletionMarker,
-                (event) =>
-                  matches(event)
-                    ? toEnvelope(event).pipe(
-                        Effect.map((envelope) => [
-                          { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
-                        ]),
-                      )
-                    : Effect.succeed([]),
-                { kind: "synchronized" },
+            return withAssistantLive(
+              threadLive,
+              input.threadId,
+              Stream.concat(
+                Stream.make({
+                  kind: "snapshot" as const,
+                  snapshot: snapshot.value,
+                } satisfies ThreadStreamItem),
+                bufferedTail<ThreadStreamItem>(
+                  buffer,
+                  snapshot.value.snapshotSequence,
+                  input.requestCompletionMarker,
+                  (event) =>
+                    matches(event)
+                      ? toEnvelope(event).pipe(
+                          Effect.map((envelope) => [
+                            { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
+                          ]),
+                        )
+                      : Effect.succeed([]),
+                  { kind: "synchronized" },
+                ),
               ),
             )
           }),
