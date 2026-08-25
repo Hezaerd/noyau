@@ -24,7 +24,8 @@ describe("boot splash svg", () => {
     expect(svg).toContain("mo-root mo-always mo-expr")
     expect(svg).toContain("--mo-phase:")
     expect(svg).toContain(`fill="${RELEASE_BRANDS.latest.palette.head}"`)
-    expect(svg).toContain(`fill="${RELEASE_BRANDS.latest.palette.background}"`)
+    expect(svg).not.toContain(`fill="${RELEASE_BRANDS.latest.palette.background}"`)
+    expect(svg).not.toContain('d="M0 0H100V100H0Z"')
   })
 
   it("garde un SVG par canal aligné sur le renderer", () => {

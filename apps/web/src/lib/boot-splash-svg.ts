@@ -15,7 +15,7 @@ const escapeXmlAttribute = (value: string): string =>
 export const renderBootSplashSvg = (channel: ReleaseChannel, motionCss: string): string => {
   const parts = _parts(BRAND_BLOBATAR_NAME, {
     size: BOOT_SPLASH_SIZE,
-    background: "square",
+    background: false,
     contrast: false,
     palette: brandBlobatarPalette(channel),
     animate: "always",
