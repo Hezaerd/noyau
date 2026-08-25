@@ -2,6 +2,8 @@ import type { ProjectId } from "@noyau/protocol/ids"
 import type { ProjectShell } from "@noyau/protocol/shell"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
+import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
+import { dismissBootSplash } from "@/lib/boot-splash"
 import { subscribeShell, type SubscriptionStatus } from "@/lib/control-plane"
 import {
   getAppliedShell,
@@ -27,6 +29,7 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
   const [shell, setShell] = useState<ControlPlaneContextValue["shell"]>(getAppliedShell)
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
   const [lastProjectId, setLastProjectId] = useState(readLastProjectId)
+  const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
 
   useEffect(() => {
     const unsubscribeApplied = subscribeAppliedShell(() => {
@@ -44,6 +47,12 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
       unsubscribeApplied()
     }
   }, [])
+
+  useEffect(() => {
+    if (shell !== undefined || subscriptionFailure !== undefined) {
+      dismissBootSplash()
+    }
+  }, [shell, subscriptionFailure])
 
   useEffect(() => {
     if (shell === undefined) {

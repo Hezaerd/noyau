@@ -445,7 +445,14 @@ const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: Ser
   })
 
   yield* Effect.promise(() =>
-    window.loadURL(desktopUrlForServer(bootstrap.host, bootstrap.port, bootstrap.bearerToken)),
+    window.loadURL(
+      desktopUrlForServer(
+        bootstrap.host,
+        bootstrap.port,
+        bootstrap.bearerToken,
+        flags.releaseChannel,
+      ),
+    ),
   )
 })
 

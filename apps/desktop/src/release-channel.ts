@@ -6,6 +6,8 @@ import {
 } from "@noyau/shared/release-brand"
 import { Schema } from "effect"
 
+export { DEFAULT_RELEASE_CHANNEL }
+
 export const RELEASE_CHANNEL_ENV = "NOYAU_RELEASE_CHANNEL"
 
 export const PackagedReleaseChannelFile = Schema.Struct({
