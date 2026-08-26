@@ -236,7 +236,7 @@ _À éviter_ : Son de Turn, Notification web du renderer, toast
 
 **Thread en attente**:
 Thread actif dont le dernier Turn est Terminé ou Interrompu après `lastVisitedAt`. Unité
-du Badge d'attente.
+du Badge d’attente.
 _À éviter_ : unread mail, inbox, mention
 
 **TurnDiff**:

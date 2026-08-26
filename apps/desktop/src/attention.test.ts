@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
@@ -6,7 +6,11 @@ import {
   openThreadFromNotification,
   turnNotificationOptions,
 } from "./attention"
-import { decodeBadgeCount, decodeTurnNotification } from "./attention-contract"
+import {
+  decodeBadgeCount,
+  decodeOpenThreadFromNotificationOption,
+  decodeTurnNotification,
+} from "./attention-contract"
 
 const notification = {
   projectId: "10000000-0000-4000-8000-000000000001",
@@ -48,4 +52,24 @@ describe("desktop attention", () => {
         })
       }),
     ))
+
+  it("parses a click payload and drops malformed IPC", () => {
+    expect(
+      Option.getOrUndefined(
+        decodeOpenThreadFromNotificationOption({
+          projectId: notification.projectId,
+          threadId: notification.threadId,
+        }),
+      ),
+    ).toEqual({
+      projectId: notification.projectId,
+      threadId: notification.threadId,
+    })
+    expect(
+      Option.getOrUndefined(
+        decodeOpenThreadFromNotificationOption({ projectId: "not-a-uuid", threadId: "also-bad" }),
+      ),
+    ).toBeUndefined()
+    expect(Option.getOrUndefined(decodeOpenThreadFromNotificationOption(null))).toBeUndefined()
+  })
 })

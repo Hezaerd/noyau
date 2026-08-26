@@ -275,7 +275,7 @@ export function GeneralSettingsPanel(): ReactElement {
         <SettingsRow
           id="turn-notification"
           title="Notifications de fin de Turn"
-          description="Bannière OS quand un Turn se termine hors du Thread ouvert. Le badge compte les Threads en attente."
+          description="Bannière OS quand un Turn se termine hors du Thread ouvert, ou si la fenêtre est en arrière-plan. Le badge compte les Threads en attente."
           control={
             <Switch
               id={turnNotificationSwitchId}

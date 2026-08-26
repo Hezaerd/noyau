@@ -1,6 +1,8 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron"
+import { Option } from "effect"
+import { contextBridge, ipcRenderer } from "electron"
 
 import {
+  decodeOpenThreadFromNotificationOption,
   OPEN_THREAD_FROM_NOTIFICATION_CHANNEL,
   SET_BADGE_COUNT_CHANNEL,
   SHOW_TURN_NOTIFICATION_CHANNEL,
@@ -64,8 +66,12 @@ const desktopBridge: NoyauDesktopBridge = Object.freeze({
   onOpenThreadFromNotification: (
     listener: (input: OpenThreadFromNotification) => void,
   ): (() => void) => {
-    const handler = (_event: IpcRendererEvent, input: OpenThreadFromNotification): void => {
-      listener(input)
+    const handler: Parameters<typeof ipcRenderer.on>[1] = (_event, payload) => {
+      const parsed = Option.getOrUndefined(decodeOpenThreadFromNotificationOption(payload))
+      if (parsed === undefined) {
+        return
+      }
+      listener(parsed)
     }
     ipcRenderer.on(OPEN_THREAD_FROM_NOTIFICATION_CHANNEL, handler)
     return () => {

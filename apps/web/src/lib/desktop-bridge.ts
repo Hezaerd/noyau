@@ -1,3 +1,4 @@
+import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import {
   DEFAULT_RELEASE_CHANNEL,
   releaseBrand,
@@ -63,13 +64,13 @@ export interface NoyauDesktopBridge {
   ) => Promise<DesktopUpdateOpenResult>
   readonly setBadgeCount?: (count: number) => Promise<void>
   readonly showTurnNotification?: (input: {
-    readonly projectId: string
-    readonly threadId: string
+    readonly projectId: ProjectId
+    readonly threadId: ThreadId
     readonly title: string
     readonly body: string
   }) => Promise<void>
   readonly onOpenThreadFromNotification?: (
-    listener: (input: { readonly projectId: string; readonly threadId: string }) => void,
+    listener: (input: { readonly projectId: ProjectId; readonly threadId: ThreadId }) => void,
   ) => () => void
 }
 

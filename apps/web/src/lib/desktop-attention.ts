@@ -1,8 +1,10 @@
+import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+
 import { isDesktopRuntime } from "@/lib/desktop-bridge"
 
 export interface DesktopTurnNotification {
-  readonly projectId: string
-  readonly threadId: string
+  readonly projectId: ProjectId
+  readonly threadId: ThreadId
   readonly title: string
   readonly body: string
 }
@@ -19,7 +21,7 @@ export const showDesktopTurnNotification = (input: DesktopTurnNotification): voi
 }
 
 export const subscribeOpenThreadFromNotification = (
-  listener: (input: { readonly projectId: string; readonly threadId: string }) => void,
+  listener: (input: { readonly projectId: ProjectId; readonly threadId: ThreadId }) => void,
 ): (() => void) => {
   const subscribe = window.noyauDesktop?.onOpenThreadFromNotification
   if (subscribe === undefined) {
