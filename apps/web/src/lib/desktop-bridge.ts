@@ -61,6 +61,16 @@ export interface NoyauDesktopBridge {
   readonly openDesktopInstaller?: (
     channel?: DesktopUpdatePackagedChannel,
   ) => Promise<DesktopUpdateOpenResult>
+  readonly setBadgeCount?: (count: number) => Promise<void>
+  readonly showTurnNotification?: (input: {
+    readonly projectId: string
+    readonly threadId: string
+    readonly title: string
+    readonly body: string
+  }) => Promise<void>
+  readonly onOpenThreadFromNotification?: (
+    listener: (input: { readonly projectId: string; readonly threadId: string }) => void,
+  ) => () => void
 }
 
 const DesktopReleaseChannelSchema = Schema.Literals(["development", "latest", "nightly"])

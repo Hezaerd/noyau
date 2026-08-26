@@ -18,9 +18,11 @@ import {
   useThreadShell,
 } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
+import { useOpenThreadFromNotification } from "@/hooks/use-open-thread-from-notification"
 import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
 import { useShellFocusReporter } from "@/hooks/use-shell-focus-reporter"
 import { useTurnSettlementCue } from "@/hooks/use-turn-settlement-cue"
+import { useWaitingThreadBadge } from "@/hooks/use-waiting-thread-badge"
 import {
   COLLAPSED_PAGE_TITLEBAR_INSET_CLASS,
   macosDesktopControlsStyle,
@@ -142,6 +144,8 @@ function ShellFocusReporter() {
 
 function TurnSettlementCue() {
   useTurnSettlementCue()
+  useWaitingThreadBadge()
+  useOpenThreadFromNotification()
   return null
 }
 

@@ -7,7 +7,6 @@ import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { isResumePrompt } from "@noyau/shared/resume-prompt"
 import { useNavigate } from "@tanstack/react-router"
-import { DateTime } from "effect"
 import {
   useCallback,
   useEffect,
@@ -41,6 +40,7 @@ import { useCursor, useProjects } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useThreadSnapshot } from "@/hooks/use-thread-snapshot"
+import { useThreadVisitTracking } from "@/hooks/use-thread-visit-tracking"
 import { useVcsStatus } from "@/hooks/use-vcs-status"
 import { invalidInputFailure } from "@/lib/app-failure"
 import { clearAssistantPaint, pushAssistantLive } from "@/lib/assistant-paint"
@@ -99,7 +99,6 @@ import {
   reduceThreadSnapshotEnvelope,
   replaceThreadSnapshot,
 } from "@/state/thread-snapshot"
-import { markThreadVisited } from "@/state/thread-visits"
 
 interface ThreadPageProps {
   readonly projectId: ProjectId
@@ -337,19 +336,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const activeTurn = pageSnapshot?.session?.activeTurnId ?? pageSnapshot?.thread.latestTurn?.turnId
   const latestTurnCompletedAt = pageSnapshot?.thread.latestTurn?.completedAt
 
-  useEffect(() => {
-    if (threadId === undefined) {
-      return
-    }
-    markThreadVisited(threadId, Date.now())
-  }, [threadId])
-
-  useEffect(() => {
-    if (threadId === undefined || latestTurnCompletedAt == null) {
-      return
-    }
-    markThreadVisited(threadId, DateTime.toEpochMillis(latestTurnCompletedAt))
-  }, [latestTurnCompletedAt, threadId])
+  useThreadVisitTracking(threadId, latestTurnCompletedAt)
 
   // Catch up to the present when a Thread opens or finishes loading: scroll to
   // end and re-enter following-bottom so a live stream resumes.

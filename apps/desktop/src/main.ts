@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url"
 
 import * as NodeServices from "@effect/platform-node/NodeServices"
+import { releaseBrand } from "@noyau/shared/release-brand"
 import { Config, Effect, FileSystem, Layer, ManagedRuntime, Option, Path, Schema } from "effect"
 import { FetchHttpClient } from "effect/unstable/http"
 import {
@@ -11,6 +12,7 @@ import {
   Menu,
   nativeTheme,
   net,
+  Notification,
   type OpenDialogOptions,
   protocol,
   session,
@@ -18,6 +20,18 @@ import {
 } from "electron"
 
 import { applicationMenuTemplate } from "./application-menu"
+import {
+  normalizeBadgeCount,
+  openThreadFromNotification,
+  turnNotificationOptions,
+} from "./attention"
+import {
+  decodeBadgeCount,
+  decodeTurnNotification,
+  OPEN_THREAD_FROM_NOTIFICATION_CHANNEL,
+  SET_BADGE_COUNT_CHANNEL,
+  SHOW_TURN_NOTIFICATION_CHANNEL,
+} from "./attention-contract"
 import {
   openCheckedDesktopInstaller,
   resolveDesktopUpdateCheckChannel,
@@ -255,6 +269,63 @@ const registerDesktopUpdateBridge = (): void => {
   )
 }
 
+const focusMainWindow = (): void => {
+  if (mainWindow === undefined || mainWindow.isDestroyed()) {
+    return
+  }
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore()
+  }
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+const turnNotificationsByThread = new Map<string, Notification>()
+
+const registerAttentionBridge = (): void => {
+  ipcMain.handle(SET_BADGE_COUNT_CHANNEL, (_event, input) =>
+    desktopRuntime.runPromise(
+      decodeBadgeCount(input).pipe(
+        Effect.map((count) => {
+          app.setBadgeCount(normalizeBadgeCount(count))
+          return undefined
+        }),
+      ),
+    ),
+  )
+  ipcMain.handle(SHOW_TURN_NOTIFICATION_CHANNEL, (_event, input) =>
+    desktopRuntime.runPromise(
+      decodeTurnNotification(input).pipe(
+        Effect.map((notificationInput) => {
+          if (!Notification.isSupported()) {
+            return undefined
+          }
+          turnNotificationsByThread.get(notificationInput.threadId)?.close()
+          const notification = new Notification(turnNotificationOptions(notificationInput))
+          turnNotificationsByThread.set(notificationInput.threadId, notification)
+          notification.on("click", () => {
+            focusMainWindow()
+            if (mainWindow === undefined || mainWindow.isDestroyed()) {
+              return
+            }
+            mainWindow.webContents.send(
+              OPEN_THREAD_FROM_NOTIFICATION_CHANNEL,
+              openThreadFromNotification(notificationInput),
+            )
+          })
+          notification.on("close", () => {
+            if (turnNotificationsByThread.get(notificationInput.threadId) === notification) {
+              turnNotificationsByThread.delete(notificationInput.threadId)
+            }
+          })
+          notification.show()
+          return undefined
+        }),
+      ),
+    ),
+  )
+}
+
 const withSecurityHeaders = (response: Response): Response => {
   const headers = new Headers(response.headers)
   headers.set(
@@ -475,6 +546,7 @@ const launch = Effect.fn("launch")(function* () {
     },
   ])
   app.setName(appDisplayName)
+  app.setAppUserModelId(releaseBrand(flags.releaseChannel).bundleId)
   app.setAboutPanelOptions({ applicationName: appDisplayName })
   Menu.setApplicationMenu(
     Menu.buildFromTemplate(applicationMenuTemplate(process.platform, appDisplayName)),
@@ -487,6 +559,7 @@ const launch = Effect.fn("launch")(function* () {
   registerFolderPickerBridge()
   registerOpenPathBridge()
   registerDesktopUpdateBridge()
+  registerAttentionBridge()
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
     isRendererPermissionAllowed(permission),
   )

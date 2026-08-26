@@ -10,6 +10,7 @@ import {
 } from "@/hooks/use-thread-settle-preference"
 import { useTranscriptPaintMode } from "@/hooks/use-transcript-paint-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
+import { useTurnNotificationEnabled } from "@/hooks/use-turn-notification"
 import { DEFAULT_AUTO_REMOVE_MERGED_WORKTREE } from "@/lib/auto-remove-merged-worktree-preference"
 import { DEFAULT_DISCORD_PRESENCE_ENABLED } from "@/lib/discord-presence-preference"
 import type { SettingsTabId } from "@/lib/settings-catalog"
@@ -19,10 +20,12 @@ import {
 } from "@/lib/thread-settle-preference"
 import { isTranscriptPaintPreferenceDefault } from "@/lib/transcript-paint-preference"
 import { isTurnCuePreferenceDefault } from "@/lib/turn-cue-preference"
+import { DEFAULT_TURN_NOTIFICATION_ENABLED } from "@/lib/turn-notification-preference"
 import { hasCustomKeybindings } from "@/state/keybindings"
 import {
   resetTranscriptPaintPreference,
   resetTurnCuePreference,
+  resetTurnNotificationPreference,
   setAppearancePreference,
   setAutoRemoveMergedWorktreeEnabled,
   setDiscordPresenceEnabled,
@@ -45,6 +48,7 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
   const autoSettleAfterDays = useAutoSettleAfterDays()
   const discordPresenceEnabled = useDiscordPresenceEnabled()
   const turnCue = useTurnCuePreference()
+  const turnNotificationEnabled = useTurnNotificationEnabled()
 
   switch (tabId) {
     case "general":
@@ -55,13 +59,15 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
           autoSettleOnMerge !== DEFAULT_AUTO_SETTLE_ON_MERGE ||
           autoSettleAfterDays !== DEFAULT_AUTO_SETTLE_AFTER_DAYS ||
           discordPresenceEnabled !== DEFAULT_DISCORD_PRESENCE_ENABLED ||
-          !isTurnCuePreferenceDefault(turnCue),
+          !isTurnCuePreferenceDefault(turnCue) ||
+          turnNotificationEnabled !== DEFAULT_TURN_NOTIFICATION_ENABLED,
         restore: () => {
           setProjectFolderStartDirectory("")
           setAutoRemoveMergedWorktreeEnabled(DEFAULT_AUTO_REMOVE_MERGED_WORKTREE)
           resetThreadSettlePreference()
           setDiscordPresenceEnabled(DEFAULT_DISCORD_PRESENCE_ENABLED)
           resetTurnCuePreference()
+          resetTurnNotificationPreference()
         },
       }
     case "appearance":

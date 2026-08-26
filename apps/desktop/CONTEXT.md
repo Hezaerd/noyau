@@ -34,6 +34,11 @@ Marque Dock du bundle brandé, dérivée du blobatar sidebar. Ember en Dev, dark
 light en latest.
 _À éviter_ : favicon web, icône Electron stock
 
+**Badge d'attente**:
+Compteur Dock / barre des tâches du nombre de Threads en attente. Chrome hôte, poussé
+par le renderer. Zéro retire le badge.
+_À éviter_ : badge lost, Notification de Turn, mention Discord
+
 **Chrome de fenêtre**:
 Enveloppe visuelle qui relie la surface Noyau aux contrôles de fenêtre du système.
 _À éviter_ : header desktop, barre de titre
