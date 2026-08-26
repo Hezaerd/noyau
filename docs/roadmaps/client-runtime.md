@@ -591,7 +591,7 @@ nécessaire à la suite doit finir ici, dans un ADR, un `CONTEXT.md`, un test ou
 | 0 — Baseline | Terminé | #272 | tests streams + inventaire 58 | Phase 1 : squelette `@noyau/client-runtime` |
 | 1 — Package | Terminé | #272 / #273 | 16 tests package + 46 tests Phase 0 Web verts | Phase 2 : Session RPC / superviseur |
 | 2 — Session/superviseur | Terminé | #273 | 29 tests package + 61 tests Phase 0 Web verts | Phase 3 : primitives Atom |
-| 3 — Primitives Atom | À faire | — | — | Bloqué par phase 2 |
+| 3 — Primitives Atom | Terminé | #273 | families + scheduler package verts | Phase 4 : tranche Shell |
 | 4 — Shell | À faire | — | — | Bloqué par phase 3 |
 | 5 — Tableau | À faire | — | — | Bloqué par phase 4 |
 | 6 — Thread | À faire | — | — | Bloqué par phase 4 |
@@ -606,6 +606,22 @@ critères de sortie de la phase, pas seulement du code présent.
 ## 14. Journal des sessions
 
 Ajouter les entrées les plus récentes en premier.
+
+### 2026-08-26 — Phase 3 terminée (primitives Atom)
+
+- Issue / PR de continuité : [#272](https://github.com/Hezaerd/noyau/issues/272) /
+  [#273](https://github.com/Hezaerd/noyau/pull/273).
+- Subpath `@noyau/client-runtime/state/runtime` : `createQueryAtomFamily`,
+  `createSubscriptionAtomFamily`, scheduler `parallel | serial | singleFlight |
+  latest`, `RemoteResourceState`. Pas d'`EnvironmentId`. `staleTime` / `idleTTL`
+  / refresh seulement à la demande.
+- Query : attend `phase === "connected"`, se revalide sur génération, ignore un
+  résultat plus ancien (`publishIfCurrentGeneration`). Subscription : `switchMap`
+  sur la génération connected. Ownership Atom (`mount` / `unmount` / idleTTL).
+- Preuves : `vp test run packages/client-runtime` (53) ; `vp check --fix
+  packages/client-runtime`. Share/release/reacquire, génération 1 ignorée,
+  quatre modes de scheduler, valeur conservée sur erreur.
+- Web / Shell inchangés. Prochain pas : Phase 4 tranche verticale Shell.
 
 ### 2026-08-26 — Phase 2 terminée (Session RPC + ConnectionSupervisor)
 

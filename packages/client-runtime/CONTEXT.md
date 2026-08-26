@@ -37,3 +37,14 @@ Identité monotone d'une Session RPC. Commence à 0, s'incrémente à chaque
 tentative de session. Une génération plus ancienne ne peut pas écraser une plus
 récente.
 _À éviter_ : attempt, retry count, sequence
+
+**QueryAtomFamily**:
+Family Atom de query RPC, clé = `JSON.stringify(input)`. Elle attend une
+génération `connected`, se revalide quand la génération change, et ignore un
+résultat plus ancien. `staleTime`, `idleTTL` et refresh seulement à la demande.
+_À éviter_ : EnvironmentId, Map de ref-count, défauts t3code 30s / 5 min
+
+**SubscriptionAtomFamily**:
+Family Atom de subscription RPC. L'ownership reste sur l'Atom (`mount` /
+`unmount` / `idleTTL`). Un changement de génération commute le Stream.
+_À éviter_ : Map de ref-count, retry par subscription, followStream multi-Environment

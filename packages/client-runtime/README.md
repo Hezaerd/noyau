@@ -5,8 +5,8 @@ de connexion, discipline snapshot / sequence / `synchronized`. Aucun export raci
 importer un subpath.
 
 `apps/web/src/lib/control-plane.ts` attend le `ConnectionSupervisor` pour le
-transport. Les primitives Atom (Phase 3) et la migration Shell (Phase 4) ne sont
-pas encore portées.
+transport. Les primitives Atom (Phase 3) sont portées. La migration Shell
+(Phase 4) n'est pas encore commencée.
 
 ## Subpaths publics
 
@@ -17,6 +17,7 @@ pas encore portées.
 | `@noyau/client-runtime/connection`       | `src/connection/supervisor.ts` | Propriétaire unique de la reconnexion et de la génération |
 | `@noyau/client-runtime/connection/model` | `src/connection/model.ts`      | Phases, `TransportRupture`, classification d'erreurs      |
 | `@noyau/client-runtime/state/stream`     | `src/state/stream-reducer.ts`  | Reducer séquencé et phase `empty → synchronizing → live`  |
+| `@noyau/client-runtime/state/runtime`    | `src/state/runtime.ts`         | Families Atom, scheduler de commandes, état distant       |
 | `@noyau/client-runtime/testing`          | `src/testing/layers.ts`        | Layers mémoire et Registry Atom de test                   |
 
 Il n'y a pas d'export `"."`. Un import `@noyau/client-runtime` est une erreur de lint.
@@ -31,8 +32,19 @@ Aucune source t3code n'est copiée. Référence lue seulement.
 | `state/stream`          | (Noyau-specific ; web `makeSequencedFrameConsumer`) | Phase 1 done         |
 | `rpc/session`           | `rpc/session.ts`                                    | Phase 2 done         |
 | `connection/supervisor` | `connection/supervisor.ts`                          | Phase 2 done         |
-| `state/runtime`         | `state/runtime.ts`                                  | Phase 3              |
+| `state/runtime`         | `state/runtime.ts`                                  | Phase 3 done         |
 | `state/shell`           | `state/shell.ts`                                    | Phase 4              |
+
+## Primitives Atom (`./state/runtime`)
+
+`createQueryAtomFamily` et `createSubscriptionAtomFamily` reçoivent un
+`Atom.runtime(layer)` qui fournit `ConnectionSupervisor`. La clé de family est
+`JSON.stringify(input)` ; pas d'`EnvironmentId`. Une query attend
+`phase === "connected"`, se revalide quand la génération change, et ignore un
+résultat plus ancien. Une subscription commute via `Stream.switchMap` sur la
+nouvelle génération. `staleTime`, `idleTTL` et refresh ne s'appliquent que s'ils
+sont passés. Le scheduler de commandes expose `parallel | serial | singleFlight |
+latest`. `RemoteResourceState` conserve `value` quand `phase` ou `error` change.
 
 ## Contrat `synchronized`
 
