@@ -204,8 +204,8 @@ export function AppSidebar() {
         />
       </SidebarHeader>
 
-      <SidebarContent className="px-1">
-        <SidebarGroup className="pt-1">
+      <SidebarContent>
+        <SidebarGroup className="p-0 px-2.5 pt-1">
           <SidebarGroupContent>
             <SidebarMenu>
               {selectedProject === undefined ? null : (
