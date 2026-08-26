@@ -88,6 +88,11 @@ attaché au Thread pour ses prochains Turns et reste distinct du modèle effecti
 une Session.
 _À éviter_ : modèle de Session, capacité Provider
 
+**defaultModelSelection**:
+Préférence durable d'un Project pour initialiser le Provider et la `modelSelection` de ses nouveaux
+Threads. L'absence live du Provider peut produire un fallback sans modifier cette préférence.
+_À éviter_ : modèle de Session, défaut Environment, fallback durable
+
 **Responsable**:
 Acteur unique et optionnel qui porte la responsabilité principale d'un Ticket. Masqué de l'UI v0.1.
 _À éviter_ : participant, exécutant

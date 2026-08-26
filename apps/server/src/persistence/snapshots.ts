@@ -1,6 +1,9 @@
 import { BoardSnapshot, TICKET_ACTIVITY_LIMIT } from "@noyau/protocol/board"
 import { Environment } from "@noyau/protocol/entities/environment"
-import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
+import {
+  DefaultModelSelection,
+  type ModelSelection,
+} from "@noyau/protocol/entities/model-selection"
 import { ResumeCursor } from "@noyau/protocol/entities/session"
 import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/protocol/entities/transcript"
@@ -15,6 +18,7 @@ const ProjectRow = Schema.Struct({
   project_id: Schema.String,
   name: Schema.String,
   workspace_root: Schema.String,
+  default_model_selection_json: Schema.NullOr(Schema.String),
   available: Schema.Int,
   created_at: Schema.String,
   updated_at: Schema.String,
@@ -138,6 +142,9 @@ const ThreadShellRow = Schema.Struct({
 
 const decodeSequenceRow = Schema.decodeEffect(SequenceRow)
 const decodeProjectRow = Schema.decodeEffect(ProjectRow)
+const decodeDefaultModelSelection = Schema.decodeEffect(
+  Schema.fromJsonString(DefaultModelSelection),
+)
 const decodeColumnRow = Schema.decodeEffect(ColumnRow)
 const decodeTicketRow = Schema.decodeEffect(TicketRow)
 const decodeDependencyRow = Schema.decodeEffect(DependencyRow)
@@ -171,13 +178,21 @@ const readLatestSequence = Effect.fn("Snapshots.readLatestSequence")(function* (
   return (yield* decodeSequenceRow(row).pipe(Effect.orDie)).sequence
 })
 
-const encodedProject = (row: (typeof ProjectRow)["Type"]) => ({
-  id: row.project_id,
-  name: row.name,
-  workspaceRoot: row.workspace_root,
-  available: row.available === 1,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
+const encodedProject = Effect.fn("Snapshots.encodedProject")(function* (
+  row: (typeof ProjectRow)["Type"],
+) {
+  return {
+    id: row.project_id,
+    name: row.name,
+    workspaceRoot: row.workspace_root,
+    defaultModelSelection:
+      row.default_model_selection_json === null
+        ? null
+        : yield* decodeDefaultModelSelection(row.default_model_selection_json).pipe(Effect.orDie),
+    available: row.available === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
 })
 
 const modelSelectionFromRow = (row: {
@@ -270,7 +285,8 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
   return yield* sql.withTransaction(
     Effect.gen(function* () {
       const projectRows = yield* sql<(typeof ProjectRow)["Encoded"]>`
-        SELECT project_id, name, workspace_root, available, created_at, updated_at
+        SELECT project_id, name, workspace_root, default_model_selection_json,
+          available, created_at, updated_at
         FROM projection_projects
         WHERE project_id = ${projectId}
       `
@@ -454,7 +470,7 @@ export const readBoardSnapshot = Effect.fn("readBoardSnapshot")(function* (proje
       const snapshot = yield* decodeBoardSnapshot({
         snapshotSequence,
         projectId,
-        project: encodedProject(project),
+        project: yield* encodedProject(project),
         columns,
         tickets,
         ticketDependencies,
@@ -603,7 +619,8 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
       const [snapshotSequence, rawProjects, rawThreads, encodedEnvironment] = yield* Effect.all([
         readLatestSequence(),
         sql<(typeof ProjectRow)["Encoded"]>`
-          SELECT project_id, name, workspace_root, available, created_at, updated_at
+          SELECT project_id, name, workspace_root, default_model_selection_json,
+            available, created_at, updated_at
           FROM projection_projects
           ORDER BY created_at, project_id
         `,
@@ -660,7 +677,7 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
         encodeEnvironment(environment),
       ])
       const projects = yield* Effect.forEach(rawProjects, (raw) =>
-        decodeProjectRow(raw).pipe(Effect.orDie, Effect.map(encodedProject)),
+        decodeProjectRow(raw).pipe(Effect.orDie, Effect.flatMap(encodedProject)),
       )
       const threads = yield* Effect.forEach(rawThreads, (raw) =>
         decodeThreadShellRow(raw).pipe(Effect.orDie, Effect.map(encodedThreadShell)),
@@ -683,7 +700,8 @@ export const readProjectShellById = Effect.fn("readProjectShellById")(function* 
   return yield* sql.withTransaction(
     Effect.gen(function* () {
       const rows = yield* sql<(typeof ProjectRow)["Encoded"]>`
-        SELECT project_id, name, workspace_root, available, created_at, updated_at
+        SELECT project_id, name, workspace_root, default_model_selection_json,
+          available, created_at, updated_at
         FROM projection_projects
         WHERE project_id = ${projectId}
       `
@@ -694,7 +712,7 @@ export const readProjectShellById = Effect.fn("readProjectShellById")(function* 
       return Option.some(
         yield* decodeProjectRow(raw).pipe(
           Effect.orDie,
-          Effect.map(encodedProject),
+          Effect.flatMap(encodedProject),
           Effect.flatMap((encoded) => decodeProjectShell(encoded).pipe(Effect.orDie)),
         ),
       )

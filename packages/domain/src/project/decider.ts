@@ -68,6 +68,7 @@ export const decide = (
           projectId: command.payload.projectId,
           name: command.payload.name,
           workspaceRoot: command.payload.workspaceRoot,
+          defaultModelSelection: null,
         }),
       ])
     }

@@ -32,6 +32,7 @@ function LiveAssistantMessage({
   onOpenTicket,
   turnDiff,
   onOpenTurnDiff,
+  isLatestTurn,
 }: {
   readonly item: Extract<TranscriptItem, { readonly _tag: "transcript.assistant" }>
   readonly streaming: boolean
@@ -42,6 +43,7 @@ function LiveAssistantMessage({
   readonly onOpenTicket?: ((ticketId: string) => void) | undefined
   readonly turnDiff?: TurnDiff | undefined
   readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
+  readonly isLatestTurn?: boolean
 }) {
   const paintedText = useAssistantPaint(item.text, item.threadId, item.turnId, streaming)
   return (
@@ -57,10 +59,12 @@ function LiveAssistantMessage({
               {...(tickets === undefined ? {} : { tickets })}
               {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
             />
-            {turnDiff === undefined ? null : onOpenTurnDiff === undefined ? (
-              <ThreadTurnDiffCard turnDiff={turnDiff} />
-            ) : (
-              <ThreadTurnDiffCard turnDiff={turnDiff} onOpen={onOpenTurnDiff} />
+            {turnDiff === undefined ? null : (
+              <ThreadTurnDiffCard
+                turnDiff={turnDiff}
+                {...(isLatestTurn === undefined ? {} : { isLatestTurn })}
+                {...(onOpenTurnDiff === undefined ? {} : { onOpen: onOpenTurnDiff })}
+              />
             )}
           </BubbleContent>
         </Bubble>
@@ -90,12 +94,14 @@ function ThreadTranscriptItemImpl({
   onRespondUserInput,
   turnDiff,
   onOpenTurnDiff,
+  isLatestTurn,
 }: {
   readonly item: TranscriptItem
   readonly streaming: boolean
   readonly turn?: Pick<Turn, "requestedAt" | "completedAt"> | undefined
   readonly turnDiff?: TurnDiff | undefined
   readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
+  readonly isLatestTurn?: boolean
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
@@ -156,6 +162,7 @@ function ThreadTranscriptItemImpl({
         onOpenTicket={onOpenTicket}
         turnDiff={turnDiff}
         onOpenTurnDiff={onOpenTurnDiff}
+        {...(isLatestTurn === undefined ? {} : { isLatestTurn })}
       />
     )
   }

@@ -872,6 +872,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               id: snapshot.value.project.id,
               name: snapshot.value.project.name,
               workspaceRoot: snapshot.value.project.workspaceRoot,
+              defaultModelSelection: snapshot.value.project.defaultModelSelection,
               available,
               createdAt: snapshot.value.project.createdAt,
               updatedAt: snapshot.value.project.updatedAt,

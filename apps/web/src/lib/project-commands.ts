@@ -1,8 +1,10 @@
 import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import type { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"
 import { CommandId, ProjectId } from "@noyau/protocol/ids"
 import {
   ProjectCreateRequest,
   ProjectDeleteRequest,
+  ProjectMetaUpdateRequest,
   ProjectRebindRequest,
 } from "@noyau/protocol/project/commands"
 import { Crypto, Effect, Schema } from "effect"
@@ -10,6 +12,19 @@ import { Crypto, Effect, Schema } from "effect"
 const uuid = Effect.fnUntraced(function* () {
   const crypto = yield* Crypto.Crypto
   return yield* crypto.randomUUIDv4
+})
+
+export const makeProjectDefaultModelUpdateRequest = Effect.fnUntraced(function* (input: {
+  readonly projectId: ProjectId
+  readonly defaultModelSelection: DefaultModelSelection | null
+}) {
+  return ProjectMetaUpdateRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: {
+      projectId: input.projectId,
+      defaultModelSelection: input.defaultModelSelection,
+    },
+  })
 })
 
 export const makeProjectCreateRequest = Effect.fnUntraced(function* (input: {

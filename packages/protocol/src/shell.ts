@@ -1,6 +1,6 @@
 import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
 import { Environment, Provider, WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import { ModelSelection } from "@noyau/protocol/entities/model-selection"
+import { DefaultModelSelection, ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { SessionStatus } from "@noyau/protocol/entities/session"
 import { SettledOverride, ThreadStatus } from "@noyau/protocol/entities/thread"
@@ -12,6 +12,7 @@ export const ProjectShell = Schema.Struct({
   id: ProjectId,
   name: Schema.NonEmptyString,
   workspaceRoot: WorkspaceRoot,
+  defaultModelSelection: Schema.NullOr(DefaultModelSelection),
   available: Schema.Boolean,
   createdAt: Schema.DateTimeUtcFromString,
   updatedAt: Schema.DateTimeUtcFromString,

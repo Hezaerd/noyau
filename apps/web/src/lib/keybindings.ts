@@ -24,6 +24,7 @@ export interface ResolvedKeybindings {
   readonly "thread.rename": Hotkey
   readonly "thread.pin": Hotkey
   readonly "thread.settle": Hotkey
+  readonly "thread.model-picker.open": Hotkey
   readonly "board.search": Hotkey
   readonly "board.ticket.create": Hotkey
   readonly "board.ticket.open": Hotkey
@@ -95,6 +96,8 @@ export const resolveKeybindings = (overrides: KeybindingOverrides): ResolvedKeyb
   "thread.rename": overrides.get("thread.rename") ?? defaultKeybinding("thread.rename"),
   "thread.pin": overrides.get("thread.pin") ?? defaultKeybinding("thread.pin"),
   "thread.settle": overrides.get("thread.settle") ?? defaultKeybinding("thread.settle"),
+  "thread.model-picker.open":
+    overrides.get("thread.model-picker.open") ?? defaultKeybinding("thread.model-picker.open"),
   "board.search": overrides.get("board.search") ?? defaultKeybinding("board.search"),
   "board.ticket.create":
     overrides.get("board.ticket.create") ?? defaultKeybinding("board.ticket.create"),

@@ -1,6 +1,7 @@
 import { settledTurnStateForSessionStatus } from "@noyau/domain/thread/projector"
 import { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
 import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import { TranscriptItem as TranscriptItemSchema } from "@noyau/protocol/entities/transcript"
 import { TurnDiffFile } from "@noyau/protocol/entities/turn"
@@ -19,6 +20,8 @@ const JsonUserInputAnswers = Schema.fromJsonString(ProviderUserInputAnswers)
 const encodeUserInputAnswers = Schema.encodeEffect(JsonUserInputAnswers)
 const JsonTurnDiffFiles = Schema.fromJsonString(Schema.Array(TurnDiffFile))
 const encodeTurnDiffFiles = Schema.encodeEffect(JsonTurnDiffFiles)
+const JsonDefaultModelSelection = Schema.fromJsonString(DefaultModelSelection)
+const encodeDefaultModelSelection = Schema.encodeEffect(JsonDefaultModelSelection)
 
 const ResumeCursorJson = Schema.fromJsonString(
   Schema.Struct({
@@ -191,11 +194,18 @@ const projectProjectEvent = Effect.fn("Projections.projectProjectEvent")(functio
 
   switch (event._tag) {
     case "project.created":
+      const createdDefaultModelSelection =
+        event.defaultModelSelection === undefined || event.defaultModelSelection === null
+          ? null
+          : yield* encodeDefaultModelSelection(event.defaultModelSelection).pipe(Effect.orDie)
       yield* sql`
         INSERT INTO projection_projects (
-          project_id, name, workspace_root, available, created_at, updated_at
+          project_id, name, workspace_root, default_model_selection_json,
+          available, created_at, updated_at
         ) VALUES (
-          ${event.projectId}, ${event.name}, ${event.workspaceRoot}, 1, ${occurredAt}, ${occurredAt}
+          ${event.projectId}, ${event.name}, ${event.workspaceRoot},
+          ${createdDefaultModelSelection},
+          1, ${occurredAt}, ${occurredAt}
         )
       `
       return
@@ -204,6 +214,18 @@ const projectProjectEvent = Effect.fn("Projections.projectProjectEvent")(functio
         yield* sql`
           UPDATE projection_projects
           SET name = ${event.name}, updated_at = ${occurredAt}
+          WHERE project_id = ${event.projectId}
+        `
+      }
+      if (event.defaultModelSelection !== undefined) {
+        const updatedDefaultModelSelection =
+          event.defaultModelSelection === null
+            ? null
+            : yield* encodeDefaultModelSelection(event.defaultModelSelection).pipe(Effect.orDie)
+        yield* sql`
+          UPDATE projection_projects
+          SET default_model_selection_json = ${updatedDefaultModelSelection},
+            updated_at = ${occurredAt}
           WHERE project_id = ${event.projectId}
         `
       }

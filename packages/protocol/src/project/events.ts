@@ -1,4 +1,5 @@
 import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"
 import { ProjectId } from "@noyau/protocol/ids"
 import { Schema } from "effect"
 
@@ -6,12 +7,14 @@ export const ProjectCreated = Schema.TaggedStruct("project.created", {
   projectId: ProjectId,
   name: Schema.NonEmptyString,
   workspaceRoot: WorkspaceRoot,
+  defaultModelSelection: Schema.optionalKey(Schema.NullOr(DefaultModelSelection)),
 })
 export type ProjectCreated = (typeof ProjectCreated)["Type"]
 
 export const ProjectMetaUpdated = Schema.TaggedStruct("project.meta-updated", {
   projectId: ProjectId,
   name: Schema.optionalKey(Schema.NonEmptyString),
+  defaultModelSelection: Schema.optionalKey(Schema.NullOr(DefaultModelSelection)),
 })
 export type ProjectMetaUpdated = (typeof ProjectMetaUpdated)["Type"]
 

@@ -24,9 +24,9 @@ export function ThreadSidebarPopover({
   const claude = useClaude()
   const codex = useCodex()
   const models = catalogModels(thread.provider, {
-    cursor: cursor?.models,
-    claude: claude?.models,
-    codex: codex?.models,
+    cursor: cursor?.models ?? [],
+    claude: claude?.models ?? [],
+    codex: codex?.models ?? [],
   })
   const ProviderIcon = providerIcons[thread.provider]
 

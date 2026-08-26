@@ -106,6 +106,11 @@ _À éviter_ : archive, snooze
 Queue de la sidebar pour les Threads effectiveSettled, distincte de la suppression.
 _À éviter_ : Done, archive Thread
 
+**Shelf Classés**:
+Présentation repliable de la Queue Classés. Replié par défaut ; le compte reste dans le header.
+Le Thread ouvert reste visible même replié.
+_À éviter_ : archive, Done, liste toujours ouverte
+
 **Cleanup worktree**:
 Suppression live d'un worktree lié (`vcs.removeWorktree`) puis déliaison du Checkout
 (`worktreePath: null`). Auto opt-in (Préférence, off par défaut) quand la PR live passe à
@@ -155,6 +160,11 @@ le menu de configuration du modèle et reste mémorisée dans la `modelSelection
 Choix durable du Composer attaché au Thread : modèle, Effort, Vitesse et Réflexion. Chaque Thread
 retrouve son dernier choix indépendamment des autres Threads.
 _À éviter_ : choix global, modèle de Session
+
+**Modèle par défaut**:
+Préférence durable d'un Project, composée d'un Provider et d'une sélection de modèle, utilisée
+pour initialiser ses nouveaux Threads. Un fallback live ne réécrit jamais la préférence.
+_À éviter_ : modèle global, modèle de Session, fallback persisté
 
 **Mention**:
 Référence `@path` ou `@ticket:<id>` insérée depuis le Composer, affichée comme chip
@@ -241,8 +251,10 @@ _À éviter_ : unread mail, inbox, mention
 
 **TurnDiff**:
 Carte de fichiers changés sous le dernier message assistant d'un Turn. Jointe depuis
-`turns[].turnDiff`, pas un item de transcript. Le clic ouvre le Panneau TurnDiff.
-_À éviter_ : hunk inline, item de transcript, diff ACP
+`turns[].turnDiff`, pas un item de transcript. Arbre compacté (dossiers fusionnés, stats
+agrégées) ; le dernier Turn auto-expand si le diff est petit, sinon preview de scopes.
+Le clic ouvre le Panneau TurnDiff.
+_À éviter_ : hunk inline, item de transcript, diff ACP, FileTree Pierre
 
 **Panneau TurnDiff**:
 Sheet Pierre qui rend le patch unifié d'un Turn via `thread.getTurnDiff`.
