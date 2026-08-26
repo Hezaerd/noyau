@@ -87,6 +87,7 @@ describe("project.create", () => {
         projectId: ids.project,
         name: "Noyau",
         workspaceRoot: roots.noyau,
+        defaultModelSelection: null,
       },
     ])
     expect(events[0]).not.toHaveProperty("worktree")

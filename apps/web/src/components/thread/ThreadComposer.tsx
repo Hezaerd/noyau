@@ -1,5 +1,8 @@
 import type { CursorModel, Provider } from "@noyau/protocol/entities/environment"
-import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
+import type {
+  DefaultModelSelection,
+  ModelSelection,
+} from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { WorkspacePathEntry } from "@noyau/protocol/entities/workspace-path"
 import { serializeComposerTicketMention } from "@noyau/shared/composer-inline-tokens"
@@ -90,15 +93,18 @@ export function ThreadComposer({
   cursorModels,
   claudeModels,
   codexModels,
+  availableProviders,
   lockedProvider,
   selectedProvider,
   modelSelection,
+  defaultModelSelection,
   error,
   placement = "docked",
   onSubmit,
   onTextChange,
   onRuntimeModeChange,
   onModelSelectionChange,
+  onDefaultModelSelectionChange,
   onProviderChange,
   onPaste,
   onDrop,
@@ -118,15 +124,18 @@ export function ThreadComposer({
   readonly cursorModels: ReadonlyArray<CursorModel>
   readonly claudeModels: ReadonlyArray<CursorModel>
   readonly codexModels: ReadonlyArray<CursorModel>
+  readonly availableProviders: ReadonlyArray<Provider>
   readonly lockedProvider?: Provider | undefined
   readonly selectedProvider?: Provider | undefined
   readonly modelSelection: ModelSelection | null
+  readonly defaultModelSelection: DefaultModelSelection | null
   readonly error: ReactNode
   readonly placement?: "docked" | "hero"
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
   readonly onTextChange: (value: string) => void
   readonly onRuntimeModeChange: (runtimeMode: RuntimeMode) => void
   readonly onModelSelectionChange: (modelSelection: ModelSelection | null) => void
+  readonly onDefaultModelSelectionChange: (selection: DefaultModelSelection | null) => void
   readonly onProviderChange?: ((provider: Provider) => void) | undefined
   readonly onPaste: (event: ClipboardEvent<HTMLElement>) => void
   readonly onDrop: (event: DragEvent<HTMLElement>) => void
@@ -379,9 +388,11 @@ export function ThreadComposer({
                 cursorModels={cursorModels}
                 claudeModels={claudeModels}
                 codexModels={codexModels}
+                availableProviders={availableProviders}
                 lockedProvider={lockedProvider}
                 selectedProvider={selectedProvider}
                 modelSelection={modelSelection}
+                defaultModelSelection={defaultModelSelection}
                 disabled={
                   controlsDisabled ||
                   (cursorModels.length === 0 &&
@@ -389,6 +400,7 @@ export function ThreadComposer({
                     codexModels.length === 0)
                 }
                 onModelSelectionChange={onModelSelectionChange}
+                onDefaultModelSelectionChange={onDefaultModelSelectionChange}
                 onProviderChange={onProviderChange}
               />
 

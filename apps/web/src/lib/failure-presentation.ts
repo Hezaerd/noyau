@@ -7,6 +7,7 @@ export type FailureOperation =
   | "project.delete"
   | "project.folder.pick"
   | "project.folder.submit"
+  | "project.meta.update"
   | "project.agent-integration"
   | "project.subscribe"
   | "shell.subscribe"

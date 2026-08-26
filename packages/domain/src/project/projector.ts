@@ -1,4 +1,5 @@
 import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import type { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { ProjectId } from "@noyau/protocol/ids"
 import type { ProjectEvent } from "@noyau/protocol/project/events"
 
@@ -6,6 +7,7 @@ export interface ProjectState {
   readonly projectId: ProjectId
   readonly name: string
   readonly workspaceRoot: WorkspaceRoot
+  readonly defaultModelSelection: DefaultModelSelection | null
 }
 
 /** Catalogue Environment des Projects encore présents. */
@@ -37,17 +39,21 @@ export const evolve = (catalog: ProjectCatalog, event: ProjectEvent): ProjectCat
             projectId: event.projectId,
             name: event.name,
             workspaceRoot: event.workspaceRoot,
+            defaultModelSelection: event.defaultModelSelection ?? null,
           },
         ],
       }
     case "project.meta-updated": {
-      const name = event.name
-      return name === undefined
-        ? catalog
-        : updateProject(catalog, event.projectId, (project) => ({
-            ...project,
-            name,
-          }))
+      return updateProject(catalog, event.projectId, (project) => {
+        let updated = project
+        if (event.name !== undefined) {
+          updated = { ...updated, name: event.name }
+        }
+        if (event.defaultModelSelection !== undefined) {
+          updated = { ...updated, defaultModelSelection: event.defaultModelSelection }
+        }
+        return updated
+      })
     }
     case "project.rebound":
       return updateProject(catalog, event.projectId, (project) => ({
