@@ -39,6 +39,7 @@ afterEach(() => {
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const threadTitle = "Corriger la reprise"
+const threadLink = () => screen.getByRole("link", { name: new RegExp(threadTitle) })
 const workspaceRoot = Schema.decodeSync(WorkspaceRoot)("/tmp/noyau")
 
 const thread = Schema.decodeSync(ThreadShell)({
@@ -107,7 +108,7 @@ describe("thread archive confirmation", () => {
         yield* Effect.promise(() =>
           user.pointer({
             keys: "[MouseRight]",
-            target: screen.getByRole("link", { name: threadTitle }),
+            target: threadLink(),
           }),
         )
         const archiveItem = yield* Effect.promise(() =>
@@ -129,7 +130,7 @@ describe("thread archive confirmation", () => {
         yield* Effect.promise(() =>
           user.pointer({
             keys: "[MouseRight]",
-            target: screen.getByRole("link", { name: threadTitle }),
+            target: threadLink(),
           }),
         )
         const secondArchiveItem = yield* Effect.promise(() =>

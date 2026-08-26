@@ -1,6 +1,6 @@
 # Noyau — guide agents
 
-Control plane durable pour un LifeOS personnel : Environment local, Tableau et Threads Cursor.
+Control plane durable pour un orchestrateur d'agents local : Environment, Tableau et Threads Cursor.
 Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision structurante.
 
 ## Glossaire

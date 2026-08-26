@@ -1,6 +1,6 @@
 # noyau
 
-Monorepo TypeScript du LifeOS Noyau. Voir [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour la
+Monorepo TypeScript de Noyau, orchestrateur d'agents local. Voir [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour la
 vision, les décisions d'architecture et l'ordre de construction.
 
 ## Modèle produit

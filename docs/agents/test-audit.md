@@ -1,7 +1,7 @@
 # Audit des tests Noyau
 
 Audit fichier par fichier de tout le monorepo hors `repos/`. Notation 1–5 selon
-l’intérêt **réel** au scale actuel (LifeOS personnel, local-first v0.1) : un test
+l’intérêt **réel** au scale actuel (orchestrateur d'agents local, local-first v0.1) : un test
 vaut s’il protège un invariant facile à casser et coûteux, pas s’il photographie
 un mapping, un libellé, une préférence booléenne ou un Schema déjà garanti par
 TypeScript.
