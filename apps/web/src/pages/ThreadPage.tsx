@@ -403,15 +403,29 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
     restoredFailedTurnRef.current = retryMandate.turnId
     const mandateText = retryMandate.text ?? ""
-    setText(mandateText)
-    if (retryMandate.attachments === undefined || retryMandate.attachments.length === 0) {
-      return
-    }
-    void loadComposerImagesFromAttachments(retryMandate.attachments).then((nextImages) => {
-      setImages(nextImages)
+    const attachments = retryMandate.attachments
+    let cancelled = false
+    void (
+      attachments === undefined || attachments.length === 0
+        ? Promise.resolve([])
+        : loadComposerImagesFromAttachments(attachments)
+    ).then((nextImages) => {
+      if (cancelled) {
+        revokeComposerImages(nextImages)
+        return undefined
+      }
+      replaceDraft({
+        projectId,
+        threadId,
+        text: mandateText,
+        images: nextImages,
+      })
       return undefined
     })
-  }, [images.length, retryMandate, setImages, setText, text, threadId])
+    return () => {
+      cancelled = true
+    }
+  }, [images.length, projectId, replaceDraft, retryMandate, text, threadId])
 
   const dispatchTurn = (
     submittedText: string,
