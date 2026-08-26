@@ -4,16 +4,18 @@ import type { ReactElement, ReactNode } from "react"
 import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
 import {
   SettingsPage,
-  SettingsRow,
   SettingsSection,
   SettingsTarget,
 } from "@/components/settings/settings-layout"
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useCodex, useCursor } from "@/hooks/use-control-plane"
+import { useClaude, useCodex, useCursor } from "@/hooks/use-control-plane"
 import { resolveCursorReadiness } from "@/lib/cursor-readiness"
 import {
+  presentClaudeConnection,
+  presentClaudePlan,
+  presentClaudeVersion,
   presentCodexConnection,
   presentCodexPlan,
   presentCodexVersion,
@@ -144,12 +146,18 @@ function HarnessProviderRow({
 
 export function ProvidersSettingsPanel(): ReactElement {
   const cursor = useCursor()
+  const claude = useClaude()
   const codex = useCodex()
   const cursorConnection = presentCursorConnection(cursor)
   const cursorReadiness = resolveCursorReadiness(cursor)
   const cursorVersion = presentCursorVersion(cursor?.version)
   const cursorPlan = presentCursorPlan(cursor?.plan)
   const cursorUnknown = cursorReadiness === "unknown"
+  const claudeConnection = presentClaudeConnection(claude)
+  const claudeReadiness = resolveCursorReadiness(claude)
+  const claudeVersion = presentClaudeVersion(claude?.version)
+  const claudePlan = presentClaudePlan(claude?.plan)
+  const claudeUnknown = claudeReadiness === "unknown"
   const codexConnection = presentCodexConnection(codex)
   const codexReadiness = resolveCursorReadiness(codex)
   const codexVersion = presentCodexVersion(codex?.version)
@@ -160,53 +168,53 @@ export function ProvidersSettingsPanel(): ReactElement {
     <SettingsPage>
       <SettingsSection id="providers" title="Providers">
         {PROVIDER_CATALOG.map((provider) => {
-          if (provider.id === "cursor") {
-            return (
-              <HarnessProviderRow
-                key={provider.id}
-                provider={provider}
-                connection={cursorConnection}
-                version={cursorVersion}
-                plan={cursorPlan}
-                binaryPath={cursor?.binaryPath}
-                isUnknown={cursorUnknown}
-                binaryId="cursor-binary-path"
-                binaryPlaceholder="cursor-agent"
-                binaryHint="Chemin vers le binaire de l’agent Cursor."
-              />
-            )
+          switch (provider.id) {
+            case "cursor":
+              return (
+                <HarnessProviderRow
+                  key={provider.id}
+                  provider={provider}
+                  connection={cursorConnection}
+                  version={cursorVersion}
+                  plan={cursorPlan}
+                  binaryPath={cursor?.binaryPath}
+                  isUnknown={cursorUnknown}
+                  binaryId="cursor-binary-path"
+                  binaryPlaceholder="cursor-agent"
+                  binaryHint="Chemin vers le binaire de l’agent Cursor."
+                />
+              )
+            case "claude-code":
+              return (
+                <HarnessProviderRow
+                  key={provider.id}
+                  provider={provider}
+                  connection={claudeConnection}
+                  version={claudeVersion}
+                  plan={claudePlan}
+                  binaryPath={claude?.binaryPath}
+                  isUnknown={claudeUnknown}
+                  binaryId="claude-binary-path"
+                  binaryPlaceholder="claude"
+                  binaryHint="Chemin vers le binaire Claude Code."
+                />
+              )
+            case "codex":
+              return (
+                <HarnessProviderRow
+                  key={provider.id}
+                  provider={provider}
+                  connection={codexConnection}
+                  version={codexVersion}
+                  plan={codexPlan}
+                  binaryPath={codex?.binaryPath}
+                  isUnknown={codexUnknown}
+                  binaryId="codex-binary-path"
+                  binaryPlaceholder="codex"
+                  binaryHint="Chemin vers le binaire Codex."
+                />
+              )
           }
-          if (provider.id === "codex") {
-            return (
-              <HarnessProviderRow
-                key={provider.id}
-                provider={provider}
-                connection={codexConnection}
-                version={codexVersion}
-                plan={codexPlan}
-                binaryPath={codex?.binaryPath}
-                isUnknown={codexUnknown}
-                binaryId="codex-binary-path"
-                binaryPlaceholder="codex"
-                binaryHint="Chemin vers le binaire Codex."
-              />
-            )
-          }
-
-          const Icon = providerIcons[provider.id]
-
-          return (
-            <SettingsRow
-              key={provider.id}
-              id={`provider-${provider.id}`}
-              className="opacity-70"
-              title={
-                <ProviderTitle icon={Icon} statusDot="disabled">
-                  {provider.title}
-                </ProviderTitle>
-              }
-            />
-          )
         })}
       </SettingsSection>
     </SettingsPage>

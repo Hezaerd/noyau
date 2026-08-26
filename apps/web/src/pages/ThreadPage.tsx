@@ -37,7 +37,7 @@ import {
 } from "@/components/thread/ThreadTurnDiffPanel"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
-import { useCodex, useCursor, useProjects } from "@/hooks/use-control-plane"
+import { useClaude, useCodex, useCursor, useProjects } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useThreadSnapshot } from "@/hooks/use-thread-snapshot"
@@ -110,6 +110,7 @@ interface ThreadPageProps {
 
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
   const cursor = useCursor()
+  const claude = useClaude()
   const codex = useCodex()
   const projects = useProjects()
   const navigate = useNavigate()
@@ -142,28 +143,48 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [composerDockHeight, setComposerDockHeight] = useState(208)
   const restoredFailedTurnRef = useRef<string>(undefined)
   const cursorReady = isCursorReady(cursor)
+  const claudeReady = isCursorReady(claude)
   const codexReady = isCursorReady(codex)
   const lockedProvider = snapshot?.thread.provider
   const selectedProvider = lockedProvider ?? draftProvider
-  const providerReady = selectedProvider === "codex" ? codexReady : cursorReady
+  const providerReady =
+    selectedProvider === "claude"
+      ? claudeReady
+      : selectedProvider === "codex"
+        ? codexReady
+        : cursorReady
   const cursorModels = cursor?.models ?? []
+  const claudeModels = claude?.models ?? []
   const codexModels = codex?.models ?? []
-  const selectedModels = selectedProvider === "codex" ? codexModels : cursorModels
+  const selectedModels =
+    selectedProvider === "claude"
+      ? claudeModels
+      : selectedProvider === "codex"
+        ? codexModels
+        : cursorModels
 
   useEffect(() => {
     if (lockedProvider !== undefined) {
       return
     }
     setDraftProvider((current) => {
-      if (current === "cursor" && !cursorReady && codexReady) {
-        return "codex"
+      const currentReady =
+        current === "claude" ? claudeReady : current === "codex" ? codexReady : cursorReady
+      if (currentReady) {
+        return current
       }
-      if (current === "codex" && !codexReady && cursorReady) {
+      if (cursorReady) {
         return "cursor"
+      }
+      if (claudeReady) {
+        return "claude"
+      }
+      if (codexReady) {
+        return "codex"
       }
       return current
     })
-  }, [lockedProvider, cursorReady, codexReady])
+  }, [lockedProvider, cursorReady, claudeReady, codexReady])
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
     (query: string) =>
@@ -801,6 +822,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       runtimeMode={runtimeMode}
       models={selectedModels}
       cursorModels={cursorModels}
+      claudeModels={claudeModels}
       codexModels={codexModels}
       lockedProvider={lockedProvider}
       selectedProvider={selectedProvider}

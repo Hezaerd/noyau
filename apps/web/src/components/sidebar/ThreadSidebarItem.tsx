@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
 
-import { CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
+import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
 import { ThreadArchiveConfirmDialog } from "@/components/sidebar/ThreadArchiveConfirmDialog"
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarStatus } from "@/components/sidebar/ThreadSidebarStatus"
@@ -51,6 +51,7 @@ import { toggleThreadPinned } from "@/state/thread-pins"
 
 const providerIcons = {
   cursor: CursorIcon,
+  claude: ClaudeIcon,
   codex: CodexIcon,
 } as const satisfies Record<ThreadShell["provider"], ProviderIcon>
 

@@ -88,6 +88,7 @@ export function ThreadComposer({
   runtimeMode,
   models,
   cursorModels,
+  claudeModels,
   codexModels,
   lockedProvider,
   selectedProvider,
@@ -115,6 +116,7 @@ export function ThreadComposer({
   readonly runtimeMode: RuntimeMode
   readonly models: ReadonlyArray<CursorModel>
   readonly cursorModels: ReadonlyArray<CursorModel>
+  readonly claudeModels: ReadonlyArray<CursorModel>
   readonly codexModels: ReadonlyArray<CursorModel>
   readonly lockedProvider?: Provider | undefined
   readonly selectedProvider?: Provider | undefined
@@ -375,12 +377,16 @@ export function ThreadComposer({
             <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
               <ThreadModelPicker
                 cursorModels={cursorModels}
+                claudeModels={claudeModels}
                 codexModels={codexModels}
                 lockedProvider={lockedProvider}
                 selectedProvider={selectedProvider}
                 modelSelection={modelSelection}
                 disabled={
-                  controlsDisabled || (cursorModels.length === 0 && codexModels.length === 0)
+                  controlsDisabled ||
+                  (cursorModels.length === 0 &&
+                    claudeModels.length === 0 &&
+                    codexModels.length === 0)
                 }
                 onModelSelectionChange={onModelSelectionChange}
                 onProviderChange={onProviderChange}

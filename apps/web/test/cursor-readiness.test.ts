@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { isCursorReady, resolveCursorReadiness } from "../src/lib/cursor-readiness"
 import {
+  presentClaudePlan,
   presentCodexPlan,
   presentCursorConnection,
   presentCursorPlan,
@@ -72,6 +73,12 @@ describe("provider connection copy", () => {
     expect(presentCursorPlan("Pro")).toBe("Cursor Pro")
     expect(presentCursorPlan("Cursor Ultra Subscription")).toBe("Cursor Ultra Subscription")
     expect(presentCursorPlan(null)).toBeNull()
+  })
+
+  it("renders the Claude plan without inventing an email", () => {
+    expect(presentClaudePlan("Pro")).toBe("Claude Pro")
+    expect(presentClaudePlan("Claude Max")).toBe("Claude Max")
+    expect(presentClaudePlan(null)).toBeNull()
   })
 
   it("renders the Codex plan without inventing an email", () => {

@@ -32,6 +32,14 @@ const makeSnapshot = (threads: ReadonlyArray<ThreadShell>) => ({
         binaryPath: null,
         models: [],
       },
+      claude: {
+        installed: false,
+        handshakeOk: false,
+        version: null,
+        plan: null,
+        binaryPath: null,
+        models: [],
+      },
       codex: {
         installed: false,
         handshakeOk: false,
