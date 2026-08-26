@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import * as connection from "@noyau/client-runtime/connection"
 import * as platform from "@noyau/client-runtime/platform"
 import * as rpc from "@noyau/client-runtime/rpc"
+import * as runtime from "@noyau/client-runtime/state/runtime"
 import * as stream from "@noyau/client-runtime/state/stream"
 import * as testing from "@noyau/client-runtime/testing"
 import { Effect, Schema } from "effect"
@@ -51,6 +52,10 @@ describe("frontière @noyau/client-runtime", () => {
     expect(stream.reduceSequencedFrame).toBeTypeOf("function")
     expect(stream.makeSequencedProjection).toBeTypeOf("function")
 
+    expect(runtime.createQueryAtomFamily).toBeTypeOf("function")
+    expect(runtime.createSubscriptionAtomFamily).toBeTypeOf("function")
+    expect(runtime.createAtomCommandScheduler).toBeTypeOf("function")
+
     expect(testing.makeTestRegistry).toBeTypeOf("function")
     expect(testing.makeRecordingTechnicalReporter).toBeTypeOf("function")
     expect(testing.rpcBootstrapLayer).toBeTypeOf("function")
@@ -67,6 +72,7 @@ describe("frontière @noyau/client-runtime", () => {
           "./connection/model",
           "./platform",
           "./rpc",
+          "./state/runtime",
           "./state/stream",
           "./testing",
         ].toSorted(),

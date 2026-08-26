@@ -9,6 +9,7 @@
     "./connection": "./src/connection/supervisor.ts",
     "./connection/model": "./src/connection/model.ts",
     "./state/stream": "./src/state/stream-reducer.ts",
+    "./state/runtime": "./src/state/runtime.ts",
     "./testing": "./src/testing/layers.ts"
   },
   "scripts": {
