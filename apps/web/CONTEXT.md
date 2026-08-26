@@ -164,8 +164,8 @@ L'envoi lie aussi le Ticket au Thread.
 _À éviter_ : attachment, Resource, Command
 
 **Brouillon**:
-Texte du Composer isolé par Thread — ou par Project tant que le Thread n'est pas créé. Chrome
-renderer persisté localement ; survit au restart. Pas une Préférence du catalogue ni une Command.
+Texte (persisté, survit au restart) et images (mémoire de session) du Composer, isolés par Thread
+— ou par Project tant que le Thread n'est pas créé. Pas une Préférence du catalogue ni une Command.
 _À éviter_ : draft serveur, journal, Préférence, état de page
 
 **Palette**:
@@ -287,8 +287,8 @@ _À éviter_ : FilePreviewPanel, Tooltip de chemin, lecture Desktop
 
 **Pièce jointe**:
 Image jointe à un Turn depuis le Composer (paste, drop ou fichier). Le snapshot ne porte que la
-meta ; l'aperçu passe par `previewAttachment`.
-_À éviter_ : FilePreview, dataUrl dans le transcript, brouillon persisté
+meta ; l'aperçu passe par `previewAttachment`. Vit dans le Brouillon le temps de la session.
+_À éviter_ : FilePreview, dataUrl dans le transcript, images persistées
 
 **Keybinding**:
 Association persistée entre une Action et un Raccourci, surchargeable depuis les Paramètres.

@@ -92,7 +92,7 @@ import {
   isFailingCiOpenPullRequest,
   vcsScopeForThread,
 } from "@/lib/vcs-status"
-import { writeComposerDraft } from "@/state/composer-drafts"
+import { writeComposerDraft, writeComposerDraftImages } from "@/state/composer-drafts"
 import { getThreadEnvModePreference } from "@/state/preferences"
 import { publishCreatedThread } from "@/state/shell"
 import {
@@ -120,7 +120,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [actionFailure, setActionFailure] = useState<FailurePresentation>()
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
-  const { text, setText, clear: clearDraft } = useComposerDraft(projectId, threadId)
+  const {
+    text,
+    images,
+    setText,
+    setImages,
+    clear: clearDraft,
+  } = useComposerDraft(projectId, threadId)
   const createdThreadIdRef = useRef<ThreadId>(undefined)
   const [envMode, setEnvMode] = useState<ThreadEnvMode>(() =>
     threadId === undefined ? getThreadEnvModePreference() : "local",
@@ -129,7 +135,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [startFromOrigin, setStartFromOrigin] = useState(
     () => threadId === undefined && getThreadEnvModePreference() === "worktree",
   )
-  const [images, setImages] = useState<ReadonlyArray<ComposerImage>>([])
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [draftProvider, setDraftProvider] = useState<Provider>("cursor")
@@ -340,10 +345,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     return () => {
       unsubscribe()
       clearAssistantPaint(threadId)
-      setImages((current) => {
-        revokeComposerImages(current)
-        return []
-      })
     }
   }, [threadId])
 
@@ -408,7 +409,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setImages(nextImages)
       return undefined
     })
-  }, [images.length, retryMandate, setText, text, threadId])
+  }, [images.length, retryMandate, setImages, setText, text, threadId])
 
   const dispatchTurn = (
     submittedText: string,
@@ -441,7 +442,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       return
     }
     clearDraft()
-    setImages([])
     setComposerFailure(undefined)
     setOptimisticSend({ threadId, startedAtMs: Date.now() })
     setFollowLatestKey((current) => current + 1)
@@ -464,7 +464,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     ).then((result) => {
       if (result.kind === "composer-error") {
         writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
-        setImages(submittedImages)
+        writeComposerDraftImages(submittedProjectId, submittedThreadId, submittedImages)
         setOptimisticSend(null)
         setComposerFailure(
           presentFailure(result.failure, {
@@ -478,7 +478,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }
       if (result.kind === "error") {
         writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
-        setImages(submittedImages)
+        writeComposerDraftImages(submittedProjectId, submittedThreadId, submittedImages)
         setOptimisticSend(null)
         setActionFailure(
           presentFailure(result.failure, {
@@ -822,13 +822,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       onPaste={acceptImages}
       onDrop={acceptImages}
       onImageRemove={(localId) => {
-        setImages((current) => {
-          const removed = current.find((image) => image.localId === localId)
-          if (removed !== undefined) {
-            URL.revokeObjectURL(removed.previewUrl)
-          }
-          return current.filter((image) => image.localId !== localId)
-        })
+        const removed = images.find((image) => image.localId === localId)
+        if (removed !== undefined) {
+          URL.revokeObjectURL(removed.previewUrl)
+        }
+        setImages(images.filter((image) => image.localId !== localId))
         setComposerFailure(undefined)
       }}
       onInterrupt={() => interruptTurn()}
