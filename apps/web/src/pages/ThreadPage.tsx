@@ -1,3 +1,4 @@
+import { useAtomSet } from "@effect/atom-react"
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
 import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
 import type { Provider } from "@noyau/protocol/entities/environment"
@@ -92,7 +93,7 @@ import {
   isFailingCiOpenPullRequest,
   vcsScopeForThread,
 } from "@/lib/vcs-status"
-import { writeComposerDraft, writeComposerDraftImages } from "@/state/composer-drafts"
+import { replaceComposerDraftAtom } from "@/state/composer-drafts"
 import { getThreadEnvModePreference } from "@/state/preferences"
 import { publishCreatedThread } from "@/state/shell"
 import {
@@ -127,6 +128,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     setImages,
     clear: clearDraft,
   } = useComposerDraft(projectId, threadId)
+  const replaceDraft = useAtomSet(replaceComposerDraftAtom)
   const createdThreadIdRef = useRef<ThreadId>(undefined)
   const [envMode, setEnvMode] = useState<ThreadEnvMode>(() =>
     threadId === undefined ? getThreadEnvModePreference() : "local",
@@ -463,8 +465,12 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       ),
     ).then((result) => {
       if (result.kind === "composer-error") {
-        writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
-        writeComposerDraftImages(submittedProjectId, submittedThreadId, submittedImages)
+        replaceDraft({
+          projectId: submittedProjectId,
+          threadId: submittedThreadId,
+          text: submittedText,
+          images: submittedImages,
+        })
         setOptimisticSend(null)
         setComposerFailure(
           presentFailure(result.failure, {
@@ -477,8 +483,12 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return undefined
       }
       if (result.kind === "error") {
-        writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
-        writeComposerDraftImages(submittedProjectId, submittedThreadId, submittedImages)
+        replaceDraft({
+          projectId: submittedProjectId,
+          threadId: submittedThreadId,
+          text: submittedText,
+          images: submittedImages,
+        })
         setOptimisticSend(null)
         setActionFailure(
           presentFailure(result.failure, {
@@ -535,9 +545,12 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
     void loadComposerImagesFromAttachments(retryMandate.attachments).then((nextImages) => {
       const mandateText = retryMandate.text ?? ""
-      setText(mandateText)
-      setImages(nextImages)
-      writeComposerDraft(projectId, threadId, mandateText)
+      replaceDraft({
+        projectId,
+        threadId,
+        text: mandateText,
+        images: nextImages,
+      })
       dispatchTurn(mandateText, nextImages, threadId)
       return undefined
     })

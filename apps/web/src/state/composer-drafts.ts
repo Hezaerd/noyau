@@ -80,12 +80,35 @@ const writeDraft = (
   appAtomRegistry.set(composerDraftsAtom, next)
 }
 
+export type ComposerDraftReplacement = {
+  readonly projectId: ProjectId
+  readonly threadId: ThreadId | undefined
+  readonly text: string
+  readonly images: ReadonlyArray<ComposerImage>
+}
+
+export const replaceComposerDraft = (input: ComposerDraftReplacement): void => {
+  writeDraft(input.projectId, input.threadId, { text: input.text, images: input.images })
+}
+
+export const replaceComposerDraftAtom = Atom.writable(
+  (_get): undefined => undefined,
+  (_ctx, input: ComposerDraftReplacement) => {
+    replaceComposerDraft(input)
+  },
+).pipe(Atom.keepAlive, Atom.withLabel("chrome:replace-composer-draft"))
+
 export const writeComposerDraft = (
   projectId: ProjectId,
   threadId: ThreadId | undefined,
   text: string,
 ): void => {
-  writeDraft(projectId, threadId, { text, images: readDraft(projectId, threadId).images })
+  replaceComposerDraft({
+    projectId,
+    threadId,
+    text,
+    images: readDraft(projectId, threadId).images,
+  })
 }
 
 export const writeComposerDraftImages = (
@@ -93,11 +116,21 @@ export const writeComposerDraftImages = (
   threadId: ThreadId | undefined,
   images: ReadonlyArray<ComposerImage>,
 ): void => {
-  writeDraft(projectId, threadId, { text: readDraft(projectId, threadId).text, images })
+  replaceComposerDraft({
+    projectId,
+    threadId,
+    text: readDraft(projectId, threadId).text,
+    images,
+  })
 }
 
 export const clearComposerDraft = (projectId: ProjectId, threadId: ThreadId | undefined): void => {
-  writeDraft(projectId, threadId, emptyComposerDraft)
+  replaceComposerDraft({
+    projectId,
+    threadId,
+    text: emptyComposerDraft.text,
+    images: emptyComposerDraft.images,
+  })
 }
 
 /** Move a leftover new-Thread Brouillon onto the created Thread. */

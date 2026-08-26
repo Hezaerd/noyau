@@ -14,6 +14,7 @@ import {
   promoteComposerDraft,
   readComposerDraft,
   readComposerDraftImages,
+  replaceComposerDraft,
   resetComposerDrafts,
   writeComposerDraft,
   writeComposerDraftImages,
@@ -119,6 +120,21 @@ describe("composer drafts", () => {
     expect(sessionDraftsFromStoredTexts(storedTextsFromSessionDrafts(session))).toEqual(
       new Map([[composerDraftStoreKey(projectA, threadA), { text: "caption A", images: [] }]]),
     )
+  })
+
+  it("replaces text and images in a single draft write", () => {
+    writeComposerDraft(projectA, threadA, "old")
+    writeComposerDraftImages(projectA, threadA, [draftImage("old")])
+    const image = draftImage("next")
+    replaceComposerDraft({
+      projectId: projectA,
+      threadId: threadA,
+      text: "restored",
+      images: [image],
+    })
+
+    expect(readComposerDraft(projectA, threadA)).toBe("restored")
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([image])
   })
 
   it("promotes leftover new-Thread images onto the created Thread", () => {
