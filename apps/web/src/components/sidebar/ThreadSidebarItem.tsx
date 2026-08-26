@@ -6,8 +6,8 @@ import {
   CircleCheckIcon,
   CircleDotIcon,
   FolderGit2Icon,
+  FolderIcon,
   GitBranchIcon,
-  MessageCircleIcon,
   PencilIcon,
   PinIcon,
   PinOffIcon,
@@ -157,8 +157,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
 
   if (renaming) {
     return (
-      <div className="flex h-8 items-center gap-2 rounded-lg px-2">
-        <MessageCircleIcon className="size-4 shrink-0 text-sidebar-foreground/58" />
+      <div className="flex h-8 items-center rounded-lg px-2">
         <Input
           ref={titleInputRef}
           size="sm"
@@ -175,7 +174,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
               setRenaming(false)
             }
           }}
-          className="h-7 min-w-0 flex-1 border-transparent bg-transparent px-1 text-sm shadow-none"
+          className="h-7 min-w-0 flex-1 border-transparent bg-transparent px-0 text-sm shadow-none"
         />
       </div>
     )
@@ -211,9 +210,9 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
                 : "h-auto min-h-16 items-start py-2 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
             }
           >
-            <MessageCircleIcon className="mt-0.5" />
             <ThreadSidebarItemContent
               title={thread.title}
+              projectName={project.name}
               pinned={pinned}
               branch={branch}
               worktreePath={threadWorktreePathOf(thread)}
@@ -272,6 +271,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
 
 function ThreadSidebarItemContent({
   title,
+  projectName,
   pinned,
   branch,
   worktreePath,
@@ -282,6 +282,7 @@ function ThreadSidebarItemContent({
   provider,
 }: {
   readonly title: string
+  readonly projectName: string
   readonly pinned: boolean
   readonly branch: string | null
   readonly worktreePath: string | null
@@ -298,18 +299,20 @@ function ThreadSidebarItemContent({
         data-slot="thread-sidebar-activity"
         className="flex min-h-4 min-w-0 items-center gap-1.5"
       >
-        {activity === null ? (
-          <span className="min-w-0 flex-1" />
-        ) : (
-          <span className="min-w-0 flex-1 truncate">
-            <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
-          </span>
-        )}
+        <span
+          data-slot="thread-sidebar-project"
+          className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-sidebar-foreground/45"
+        >
+          <FolderIcon aria-hidden className="size-3 shrink-0 opacity-70" />
+          <span className="min-w-0 truncate">{projectName}</span>
+        </span>
         <span className="ml-auto flex shrink-0 items-center gap-1">
           {pinned ? (
             <PinIcon aria-label="Épinglé" className="size-3 shrink-0 text-sidebar-foreground/55" />
           ) : null}
-          {lastActivityAtMs === null ? null : (
+          {activity !== null ? (
+            <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
+          ) : lastActivityAtMs === null ? null : (
             <span data-slot="thread-sidebar-last-activity" title="Dernière activité">
               <span className="sr-only">Dernière activité : </span>
               <LiveElapsed
