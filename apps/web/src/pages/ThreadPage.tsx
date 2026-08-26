@@ -76,6 +76,7 @@ import {
 import { makeOptimisticThreadShell } from "@/lib/control-plane-state"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
+import { resolveDraftDefaultModelSelection } from "@/lib/model-picker-preferences"
 import { makeProjectDefaultModelUpdateRequest } from "@/lib/project-commands"
 import { resolveOpenThreadWorking, type OptimisticSend } from "@/lib/thread-activity"
 import { seedTitleFromTurn } from "@/lib/thread-commands"
@@ -119,6 +120,16 @@ interface ThreadPageProps {
   readonly onSelectProject: (projectId: ProjectId) => void
 }
 
+const sameDefaultModelSelection = (
+  left: DefaultModelSelection | null,
+  right: DefaultModelSelection | null,
+): boolean =>
+  left?.provider === right?.provider &&
+  left?.modelSelection.modelId === right?.modelSelection.modelId &&
+  left?.modelSelection.reasoningEffort === right?.modelSelection.reasoningEffort &&
+  left?.modelSelection.serviceTier === right?.modelSelection.serviceTier &&
+  left?.modelSelection.thinking === right?.modelSelection.thinking
+
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
   const cursor = useCursor()
   const claude = useClaude()
@@ -154,6 +165,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [defaultModelSelection, setDefaultModelSelection] = useState<DefaultModelSelection | null>(
     null,
   )
+  const defaultModelMutationRevisionRef = useRef(0)
+  const pendingDefaultModelSelectionRef = useRef<DefaultModelSelection | null | undefined>(
+    undefined,
+  )
+  const persistedDefaultModelSelectionRef = useRef<DefaultModelSelection | null>(null)
   const [draftProvider, setDraftProvider] = useState<Provider>("cursor")
   const [draftByRequest, setDraftByRequest] = useState<Record<string, DraftAnswers>>({})
   const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
@@ -193,7 +209,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         : cursorModels
 
   useEffect(() => {
-    setDefaultModelSelection(project?.defaultModelSelection ?? null)
+    const persisted = project?.defaultModelSelection ?? null
+    persistedDefaultModelSelectionRef.current = persisted
+    const pending = pendingDefaultModelSelectionRef.current
+    if (pending === undefined || sameDefaultModelSelection(pending, persisted)) {
+      pendingDefaultModelSelectionRef.current = undefined
+      setDefaultModelSelection(persisted)
+    }
   }, [project?.defaultModelSelection])
 
   const initializedDraftModelRef = useRef<ProjectId>(undefined)
@@ -205,31 +227,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     ) {
       return
     }
-    const stored = project.defaultModelSelection
-    const provider =
-      stored !== null && availableProviders.includes(stored.provider)
-        ? stored.provider
-        : availableProviders[0]
-    if (provider === undefined) return
+    const resolved = resolveDraftDefaultModelSelection({
+      stored: project.defaultModelSelection,
+      availableProviders,
+      modelsByProvider: { cursor: cursorModels, claude: claudeModels, codex: codexModels },
+    })
+    if (resolved === null) return
     initializedDraftModelRef.current = projectId
-    setDraftProvider(provider)
-    setModelSelection(
-      stored?.provider === provider
-        ? stored.modelSelection
-        : (provider === "cursor"
-              ? cursorModels
-              : provider === "claude"
-                ? claudeModels
-                : codexModels)[0] === undefined
-          ? null
-          : {
-              modelId: (provider === "cursor"
-                ? cursorModels
-                : provider === "claude"
-                  ? claudeModels
-                  : codexModels)[0]!.modelId,
-            },
-    )
+    setDraftProvider(resolved.provider)
+    setModelSelection(resolved.modelSelection)
   }, [availableProviders, claudeModels, codexModels, cursorModels, project, projectId, threadId])
 
   useEffect(() => {
@@ -806,13 +812,17 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   }
 
   const changeDefaultModelSelection = (nextSelection: DefaultModelSelection | null) => {
+    const revision = defaultModelMutationRevisionRef.current + 1
+    defaultModelMutationRevisionRef.current = revision
+    pendingDefaultModelSelectionRef.current = nextSelection
     setDefaultModelSelection(nextSelection)
     setComposerFailure(undefined)
     void buildAndDispatchCommand(
       makeProjectDefaultModelUpdateRequest({ projectId, defaultModelSelection: nextSelection }),
     ).then((result) => {
-      if (!result.ok) {
-        setDefaultModelSelection(project?.defaultModelSelection ?? null)
+      if (!result.ok && revision === defaultModelMutationRevisionRef.current) {
+        pendingDefaultModelSelectionRef.current = undefined
+        setDefaultModelSelection(persistedDefaultModelSelectionRef.current)
         setComposerFailure(
           presentFailure(result.failure, {
             operation: "project.meta.update",

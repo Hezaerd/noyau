@@ -1,4 +1,5 @@
-import type { Provider } from "@noyau/protocol/entities/environment"
+import type { CursorModel, Provider } from "@noyau/protocol/entities/environment"
+import type { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"
 import { Option, Schema } from "effect"
 
 export interface FavoriteModel {
@@ -18,6 +19,22 @@ const encodeFavoriteModels = Schema.encodeSync(FavoriteModelsJson)
 
 export const favoriteModelKey = (favorite: FavoriteModel): string =>
   `${favorite.provider}:${favorite.modelId}`
+
+/** Résout le défaut d'un Brouillon sans réécrire la préférence durable du Project. */
+export const resolveDraftDefaultModelSelection = (input: {
+  readonly stored: DefaultModelSelection | null
+  readonly availableProviders: ReadonlyArray<Provider>
+  readonly modelsByProvider: Readonly<Record<Provider, ReadonlyArray<CursorModel>>>
+}): DefaultModelSelection | null => {
+  const provider =
+    input.stored !== null && input.availableProviders.includes(input.stored.provider)
+      ? input.stored.provider
+      : input.availableProviders[0]
+  if (provider === undefined) return null
+  if (input.stored?.provider === provider) return input.stored
+  const model = input.modelsByProvider[provider][0]
+  return model === undefined ? null : { provider, modelSelection: { modelId: model.modelId } }
+}
 
 export const parseFavoriteModels = (value: string | null): ReadonlyArray<FavoriteModel> =>
   Option.getOrElse(decodeFavoriteModels(value ?? "[]"), () => [])
