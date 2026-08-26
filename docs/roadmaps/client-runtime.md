@@ -592,7 +592,7 @@ nécessaire à la suite doit finir ici, dans un ADR, un `CONTEXT.md`, un test ou
 | 1 — Package | Terminé | #272 / #273 | 16 tests package + 46 tests Phase 0 Web verts | Phase 2 : Session RPC / superviseur |
 | 2 — Session/superviseur | Terminé | #273 | 29 tests package + 61 tests Phase 0 Web verts | Phase 3 : primitives Atom |
 | 3 — Primitives Atom | Terminé | #273 | families + scheduler package verts | Phase 4 : tranche Shell |
-| 4 — Shell | À faire | — | — | Bloqué par phase 3 |
+| 4 — Shell | Terminé | #273 | ressource Shell + hooks Web verts | Phase 5 hors scope de cette PR |
 | 5 — Tableau | À faire | — | — | Bloqué par phase 4 |
 | 6 — Thread | À faire | — | — | Bloqué par phase 4 |
 | 7 — Queries/commands/VCS | À faire | — | — | Bloqué par phase 4 |
@@ -606,6 +606,24 @@ critères de sortie de la phase, pas seulement du code présent.
 ## 14. Journal des sessions
 
 Ajouter les entrées les plus récentes en premier.
+
+### 2026-08-26 — Phase 4 terminée (tranche verticale Shell)
+
+- Issue / PR de continuité : [#272](https://github.com/Hezaerd/noyau/issues/272) /
+  [#273](https://github.com/Hezaerd/noyau/pull/273).
+- Subpath `@noyau/client-runtime/state/shell` : `applyShellEvent`,
+  `indexThreadShells`, `createShellResourceAtom`. Phases
+  `empty → synchronizing → live`. `synchronized` = live, pas Connected.
+- Web : `ControlPlaneProvider` monte l'atom Shell. Un seul
+  `ManagedRuntime` partagé (`apps/web/src/client-runtime/runtime.ts`).
+  `lastProjectId` reste local. Overlay optimiste pour create Thread ;
+  prune quand le snapshot distant contient l'id.
+- `subscribeShell` web reste pour la caractérisation Project/Thread
+  (`Connected` sur toute frame). Le chemin Shell ne l'utilise plus.
+- Preuves : package Shell + Phase 0 Web (streams, inventaire 59,
+  control-plane-state, chrome-atoms). Sidebar conservée à la
+  reconnexion (value + phase synchronizing).
+- Prochain pas hors PR : Phase 5 Tableau.
 
 ### 2026-08-26 — Phase 3 terminée (primitives Atom)
 
