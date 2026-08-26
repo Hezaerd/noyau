@@ -2,6 +2,7 @@ import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
 import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
+import type { Provider } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
@@ -76,6 +77,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
   readonly threadId: ThreadId | undefined
   readonly prompt: string
   readonly runtimeMode: RuntimeMode
+  readonly provider?: Provider
   readonly modelSelection: ModelSelection | null
   readonly branch?: string
   readonly worktreePath?: string | null
@@ -101,6 +103,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
               runtimeMode: input.runtimeMode,
               modelSelection: input.modelSelection,
             },
+            input.provider === undefined ? {} : { provider: input.provider },
             input.branch === undefined ? {} : { branch: input.branch },
             input.worktreePath === undefined || input.worktreePath === null
               ? {}
@@ -185,6 +188,7 @@ export const submitTurn = (input: {
   readonly threadId: ThreadId | undefined
   readonly prompt: string
   readonly runtimeMode: RuntimeMode
+  readonly provider?: Provider
   readonly modelSelection: ModelSelection | null
   readonly envMode?: ThreadEnvMode
   readonly baseBranch?: string
@@ -213,6 +217,7 @@ export const submitTurn = (input: {
           runtimeMode: input.runtimeMode,
           modelSelection: input.modelSelection,
         },
+        input.provider === undefined ? {} : { provider: input.provider },
         input.baseBranch === undefined ? {} : { branch: input.baseBranch },
         input.worktreePath === undefined ? {} : { worktreePath: input.worktreePath },
         prepareWorktree === undefined ? {} : { prepareWorktree },

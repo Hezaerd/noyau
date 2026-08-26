@@ -1,7 +1,7 @@
 # Server
 
 Frontière de confiance de l'Environment local : elle transforme les intentions du renderer en
-commandes durables, possède SQLite et Cursor, et expose les streams RPC.
+commandes durables, possède SQLite, Cursor et Codex, et expose les streams RPC.
 
 ## Langage
 
@@ -37,10 +37,10 @@ restent ici.
 _À éviter_ : schémas ACP maison, JSON-RPC maison
 
 **SessionRuntime**:
-Runtime Cursor ACP vivant et volatil attaché à une Session : processus `cursor-agent`,
-`AcpClient` et `Scope` possédés par le Server. Il est réutilisé entre Turns, puis recréé
-paresseusement avec `session/load` après restart, crash, arrêt ou reaper ; aucun prompt historique
-n'est rejoué.
+Runtime provider vivant et volatil attaché à une Session : processus `cursor-agent` ou
+`codex app-server`, client JSON-RPC et `Scope` possédés par le Server. Il est réutilisé entre
+Turns, puis recréé paresseusement (`session/load` Cursor ou `thread/resume` Codex) après restart,
+crash, arrêt ou reaper ; aucun prompt historique n'est rejoué.
 _À éviter_ : subprocess par Turn, Execution, sweep d'orphelins
 
 **MCP Noyau**:

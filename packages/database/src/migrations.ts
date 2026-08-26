@@ -9,6 +9,18 @@ import ThreadThinkingMigration from "./migrations/005_thread_thinking.ts"
 import ThreadCheckoutMigration from "./migrations/006_thread_checkout.ts"
 import ThreadSettledMigration from "./migrations/007_thread_settled.ts"
 import TurnDiffMigration from "./migrations/008_turn_diff.ts"
+import ThreadProviderCodexMigration from "./migrations/009_thread_provider_codex.ts"
+
+export const migrationsThroughTurnDiff: Migrator.Loader = Migrator.fromRecord({
+  "1_journal": JournalMigration,
+  "2_projections": ProjectionsMigration,
+  "3_thread_model_selection": ThreadModelSelectionMigration,
+  "4_thread_service_tier": ThreadServiceTierMigration,
+  "5_thread_thinking": ThreadThinkingMigration,
+  "6_thread_checkout": ThreadCheckoutMigration,
+  "7_thread_settled": ThreadSettledMigration,
+  "8_turn_diff": TurnDiffMigration,
+})
 
 export const migrations: Migrator.Loader = Migrator.fromRecord({
   "1_journal": JournalMigration,
@@ -19,7 +31,10 @@ export const migrations: Migrator.Loader = Migrator.fromRecord({
   "6_thread_checkout": ThreadCheckoutMigration,
   "7_thread_settled": ThreadSettledMigration,
   "8_turn_diff": TurnDiffMigration,
+  "9_thread_provider_codex": ThreadProviderCodexMigration,
 })
+
+export { default as threadProviderCodexMigration } from "./migrations/009_thread_provider_codex.ts"
 
 const migrate = Migrator.make({})
 

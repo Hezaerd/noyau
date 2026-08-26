@@ -8,6 +8,7 @@ import {
   turnHasPrompt,
 } from "@noyau/protocol/entities/attachment"
 import { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
+import { Provider } from "@noyau/protocol/entities/environment"
 import { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { Session } from "@noyau/protocol/entities/session"
@@ -71,6 +72,7 @@ const threadCreatePayload = {
   threadId: ThreadId,
   projectId: ProjectId,
   title: Schema.NonEmptyString,
+  provider: Schema.optionalKey(Provider),
   runtimeMode: Schema.optionalKey(RuntimeMode),
   modelSelection: Schema.optionalKey(ModelSelection),
   branch: Schema.optionalKey(ThreadBranch),

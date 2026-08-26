@@ -299,6 +299,7 @@ export const makeProviderReactor = (
               projectId: ProjectId.make(persisted.projectId),
               threadId: threadEvent.threadId,
               turnId: threadEvent.turnId,
+              provider: snapshot.value.thread.provider,
               text: mandate.text,
               workspaceRoot: cwd,
               runtimeMode,

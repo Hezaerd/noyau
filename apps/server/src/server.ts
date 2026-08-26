@@ -20,7 +20,7 @@ import { authenticateBearer, rpcIdentityLayer } from "./identity.ts"
 import { mcpHttpServerLayer } from "./mcp/mcp-http-server.ts"
 import { mcpSessionRegistryLayer } from "./mcp/mcp-session-registry.ts"
 import { loggerLayer } from "./observability.ts"
-import { cursorProviderLayer } from "./provider/cursor-acp.ts"
+import { providerRuntimeLayer } from "./provider/provider-runtime.ts"
 import { rpcHandlersLayer } from "./rpc-handlers.ts"
 import { cursorTextGenerationLayer } from "./text-generation/cursor-text-generation.ts"
 import { workspaceRootAccessLayer } from "./workspace-root.ts"
@@ -175,7 +175,7 @@ export const nodeServerLayer = Layer.unwrap(
 
 export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(agentSkillInstallerLayer.pipe(Layer.provide(Path.layer))),
-  Layer.provideMerge(cursorProviderLayer()),
+  Layer.provideMerge(providerRuntimeLayer()),
   Layer.provideMerge(gitPlaneLayer),
   Layer.provideMerge(editorOpenLayer),
   Layer.provideMerge(cursorTextGenerationLayer()),

@@ -7,11 +7,14 @@ import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
-import { threadModelLabel } from "../src/lib/thread-sidebar-popover"
+import { catalogModels, threadModelLabel } from "../src/lib/thread-sidebar-popover"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
 
-const makeSnapshot = (models: ShellSnapshot["environment"]["cursor"]["models"]) =>
+const makeSnapshot = (
+  cursorModels: ShellSnapshot["environment"]["cursor"]["models"],
+  codexModels: ShellSnapshot["environment"]["codex"]["models"] = [],
+) =>
   Schema.decodeSync(ShellSnapshot)({
     snapshotSequence: 1,
     environment: {
@@ -22,7 +25,15 @@ const makeSnapshot = (models: ShellSnapshot["environment"]["cursor"]["models"]) 
         version: null,
         plan: null,
         binaryPath: null,
-        models,
+        models: cursorModels,
+      },
+      codex: {
+        installed: false,
+        handshakeOk: false,
+        version: null,
+        plan: null,
+        binaryPath: null,
+        models: codexModels,
       },
       createdAt: "2026-08-25T12:00:00.000Z",
     },
@@ -58,6 +69,31 @@ describe("threadModelLabel", () => {
   })
 })
 
+describe("catalogModels", () => {
+  it("prend le catalogue du provider du Thread", () => {
+    expect(
+      catalogModels(
+        "cursor",
+        [{ modelId: "composer-2.5", label: "Composer 2.5" }],
+        [{ modelId: "gpt-5", label: "GPT-5" }],
+      ),
+    ).toEqual([{ modelId: "composer-2.5", label: "Composer 2.5" }])
+    expect(
+      catalogModels(
+        "codex",
+        [{ modelId: "composer-2.5", label: "Composer 2.5" }],
+        [{ modelId: "gpt-5", label: "GPT-5" }],
+      ),
+    ).toEqual([{ modelId: "gpt-5", label: "GPT-5" }])
+  })
+
+  it("tolère un catalogue manquant", () => {
+    expect(catalogModels("codex", undefined, [{ modelId: "gpt-5", label: "GPT-5" }])).toEqual([
+      { modelId: "gpt-5", label: "GPT-5" },
+    ])
+  })
+})
+
 describe("ThreadSidebarPopover", () => {
   it("shows title, project, branch and provider icon with the model label", () => {
     replaceAppliedShell(
@@ -89,6 +125,44 @@ describe("ThreadSidebarPopover", () => {
     expect(screen.getByText("Grok 4.6")).toBeTruthy()
     expect(screen.queryByText("Cursor")).toBeNull()
     expect(screen.queryByText("MacBook Air de Yanne")).toBeNull()
+  })
+
+  it("résout le label via le catalogue du provider du Thread", () => {
+    replaceAppliedShell(
+      makeSnapshot(
+        [
+          {
+            modelId: "gpt-5",
+            label: "GPT-5 Cursor",
+            reasoningEfforts: [],
+            serviceTiers: [],
+          },
+        ],
+        [
+          {
+            modelId: "gpt-5",
+            label: "GPT-5 Codex",
+            reasoningEfforts: [],
+            serviceTiers: [],
+          },
+        ],
+      ),
+    )
+
+    renderPopover(
+      <ThreadSidebarPopover
+        thread={{
+          title: "Thread Codex",
+          provider: "codex",
+          modelSelection: { modelId: "gpt-5" },
+        }}
+        project={{ name: "noyau" }}
+        branch={null}
+      />,
+    )
+
+    expect(screen.getByText("GPT-5 Codex")).toBeTruthy()
+    expect(screen.queryByText("GPT-5 Cursor")).toBeNull()
   })
 
   it("omits the branch row and falls back to Auto without a selection", () => {

@@ -93,6 +93,7 @@ const input = (
   projectId,
   threadId,
   turnId,
+  provider: "cursor",
   text: "Implement the adapter",
   workspaceRoot: process.cwd(),
   runtimeMode,
@@ -257,7 +258,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
+              assert.deepStrictEqual(status.cursor, {
                 installed: true,
                 handshakeOk: true,
                 version: null,
@@ -308,7 +309,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
+              assert.deepStrictEqual(status.cursor, {
                 installed: true,
                 handshakeOk: false,
                 version: null,
@@ -324,7 +325,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
+              assert.deepStrictEqual(status.cursor, {
                 installed: true,
                 handshakeOk: false,
                 version: null,
@@ -340,7 +341,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
+              assert.deepStrictEqual(status.cursor, {
                 installed: true,
                 handshakeOk: false,
                 version: null,
@@ -356,7 +357,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status, {
+              assert.deepStrictEqual(status.cursor, {
                 installed: true,
                 handshakeOk: false,
                 version: null,
@@ -559,7 +560,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
       provider.status.pipe(
         Effect.tap((status) =>
           Effect.sync(() => {
-            assert.deepStrictEqual(status.models, [
+            assert.deepStrictEqual(status.cursor.models, [
               {
                 modelId: "composer-2.5",
                 label: "Composer 2.5",

@@ -1,15 +1,13 @@
-import type { CursorModel } from "@noyau/protocol/entities/environment"
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import { GitBranchIcon, LayersIcon } from "lucide-react"
 
-import { CursorIcon, type ProviderIcon } from "@/components/provider-icons"
-import { useCursor } from "@/hooks/use-control-plane"
-import { threadModelLabel } from "@/lib/thread-sidebar-popover"
-
-const EMPTY_MODELS: ReadonlyArray<CursorModel> = []
+import { CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
+import { useCodex, useCursor } from "@/hooks/use-control-plane"
+import { catalogModels, threadModelLabel } from "@/lib/thread-sidebar-popover"
 
 const providerIcons = {
   cursor: CursorIcon,
+  codex: CodexIcon,
 } as const satisfies Record<ThreadShell["provider"], ProviderIcon>
 
 export function ThreadSidebarPopover({
@@ -22,7 +20,8 @@ export function ThreadSidebarPopover({
   readonly branch: string | null
 }) {
   const cursor = useCursor()
-  const models = cursor?.models ?? EMPTY_MODELS
+  const codex = useCodex()
+  const models = catalogModels(thread.provider, cursor?.models, codex?.models)
   const ProviderIcon = providerIcons[thread.provider]
 
   return (

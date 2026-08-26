@@ -16,8 +16,8 @@ export const WorkspaceRoot = Schema.NonEmptyString.check(
 ).pipe(Schema.brand("WorkspaceRoot"))
 export type WorkspaceRoot = (typeof WorkspaceRoot)["Type"]
 
-/** Unique provider réel de la v0.1. */
-export const Provider = Schema.Literal("cursor")
+/** Provider réel d'un Thread. Immuable après `thread.create`. */
+export const Provider = Schema.Literals(["cursor", "codex"])
 export type Provider = (typeof Provider)["Type"]
 
 export const CursorReasoningEffort = Schema.Struct({
@@ -71,9 +71,16 @@ export const emptyCursorProviderStatus: CursorProviderStatus = {
   models: [],
 }
 
+/** Statut live Codex : même forme de catalogue que Cursor. */
+export const CodexProviderStatus = CursorProviderStatus
+export type CodexProviderStatus = CursorProviderStatus
+
+export const emptyCodexProviderStatus: CodexProviderStatus = emptyCursorProviderStatus
+
 /** Racine locale durable à identité stable, non administrable depuis l'UI. */
 export class Environment extends Schema.Class<Environment>("@noyau/protocol/entities/Environment")({
   id: EnvironmentId,
   cursor: CursorProviderStatus,
+  codex: CodexProviderStatus,
   createdAt: Schema.DateTimeUtcFromString,
 }) {}

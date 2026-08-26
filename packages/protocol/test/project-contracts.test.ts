@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
   CursorProviderStatus,
+  Environment,
+  emptyCodexProviderStatus,
   emptyCursorProviderStatus,
   WorkspaceRoot,
 } from "@noyau/protocol/entities/environment"
@@ -138,5 +140,27 @@ describe("CursorProviderStatus", () => {
       binaryPath: null,
       models: [],
     })
+    expect(emptyCodexProviderStatus).toEqual(emptyCursorProviderStatus)
+  })
+})
+
+describe("Environment", () => {
+  it("exige cursor et codex", () => {
+    const decoded = Schema.decodeSync(Environment)({
+      id: "90000000-0000-4000-8000-000000000001",
+      cursor: emptyCursorProviderStatus,
+      codex: emptyCodexProviderStatus,
+      createdAt: "2026-08-20T00:00:00.000Z",
+    })
+
+    expect(decoded.cursor.installed).toBe(false)
+    expect(decoded.codex.installed).toBe(false)
+    expect(() =>
+      Schema.decodeUnknownSync(Environment)({
+        id: "90000000-0000-4000-8000-000000000001",
+        cursor: emptyCursorProviderStatus,
+        createdAt: "2026-08-20T00:00:00.000Z",
+      }),
+    ).toThrow()
   })
 })

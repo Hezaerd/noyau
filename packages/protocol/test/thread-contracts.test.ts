@@ -94,6 +94,26 @@ describe("Thread and Session entities", () => {
     expect(thread).not.toHaveProperty("channelId")
   })
 
+  it("décode un Thread provider Codex", () => {
+    const thread = Schema.decodeSync(Thread)({
+      id: ids.thread,
+      projectId: ids.project,
+      title: "Relier le dossier",
+      provider: "codex",
+      runtimeMode: "full-access",
+      modelSelection: null,
+      status: "active",
+      session: null,
+      latestTurn: null,
+      createdAt: "2026-08-19T12:00:00.000Z",
+      updatedAt: "2026-08-19T12:00:00.000Z",
+    })
+
+    expect(thread.provider).toBe("codex")
+    expect(thread).not.toHaveProperty("permissionMode")
+    expect(thread).not.toHaveProperty("channelId")
+  })
+
   it("décode une Session projetée sans id métier", () => {
     const session = Schema.decodeSync(Session)({
       threadId: ids.thread,

@@ -1,5 +1,6 @@
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
 import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
+import type { Provider } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
@@ -36,7 +37,7 @@ import {
 } from "@/components/thread/ThreadTurnDiffPanel"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
-import { useCursor, useProjects } from "@/hooks/use-control-plane"
+import { useCodex, useCursor, useProjects } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useThreadSnapshot } from "@/hooks/use-thread-snapshot"
@@ -109,6 +110,7 @@ interface ThreadPageProps {
 
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
   const cursor = useCursor()
+  const codex = useCodex()
   const projects = useProjects()
   const navigate = useNavigate()
   const tickets = useProjectComposerTickets(projectId)
@@ -130,6 +132,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [images, setImages] = useState<ReadonlyArray<ComposerImage>>([])
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
+  const [draftProvider, setDraftProvider] = useState<Provider>("cursor")
   const [draftByRequest, setDraftByRequest] = useState<Record<string, DraftAnswers>>({})
   const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
   const [optimisticSend, setOptimisticSend] = useState<OptimisticSend | null>(null)
@@ -139,6 +142,28 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [composerDockHeight, setComposerDockHeight] = useState(208)
   const restoredFailedTurnRef = useRef<string>(undefined)
   const cursorReady = isCursorReady(cursor)
+  const codexReady = isCursorReady(codex)
+  const lockedProvider = snapshot?.thread.provider
+  const selectedProvider = lockedProvider ?? draftProvider
+  const providerReady = selectedProvider === "codex" ? codexReady : cursorReady
+  const cursorModels = cursor?.models ?? []
+  const codexModels = codex?.models ?? []
+  const selectedModels = selectedProvider === "codex" ? codexModels : cursorModels
+
+  useEffect(() => {
+    if (lockedProvider !== undefined) {
+      return
+    }
+    setDraftProvider((current) => {
+      if (current === "cursor" && !cursorReady && codexReady) {
+        return "codex"
+      }
+      if (current === "codex" && !codexReady && cursorReady) {
+        return "cursor"
+      }
+      return current
+    })
+  }, [lockedProvider, cursorReady, codexReady])
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
     (query: string) =>
@@ -395,7 +420,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       (prompt === "" && submittedImages.length === 0) ||
       isRunning ||
       project?.available !== true ||
-      !cursorReady
+      !providerReady
     ) {
       return
     }
@@ -427,6 +452,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           threadId,
           prompt,
           runtimeMode,
+          provider: selectedProvider,
           modelSelection,
           envMode,
           startFromOrigin,
@@ -486,6 +512,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               submittedImages.map((image) => image.upload),
             ),
             runtimeMode,
+            provider: selectedProvider,
             branch: baseBranch,
           }),
         )
@@ -517,7 +544,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   }
 
   const submitPresentedTurn = (presentation: TurnPresentation, prompt: string) => {
-    if (threadId === undefined || isRunning || project?.available !== true || !cursorReady) {
+    if (threadId === undefined || isRunning || project?.available !== true || !providerReady) {
       return
     }
     setComposerFailure(undefined)
@@ -768,11 +795,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     <ThreadComposer
       key={threadId ?? "new"}
       isRunning={isRunning}
-      disabled={awaitingThread || project?.available !== true || !cursorReady}
+      disabled={awaitingThread || project?.available !== true || !providerReady}
       text={text}
       images={images}
       runtimeMode={runtimeMode}
-      models={cursor?.models ?? []}
+      models={selectedModels}
+      cursorModels={cursorModels}
+      codexModels={codexModels}
+      lockedProvider={lockedProvider}
+      selectedProvider={selectedProvider}
       modelSelection={modelSelection}
       placement={isNewThread ? "hero" : "docked"}
       error={
@@ -787,6 +818,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }}
       onRuntimeModeChange={setRuntimeMode}
       onModelSelectionChange={changeModelSelection}
+      onProviderChange={setDraftProvider}
       onPaste={acceptImages}
       onDrop={acceptImages}
       onImageRemove={(localId) => {
@@ -808,7 +840,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
             {conflictingPr === null ? null : (
               <FixMergeConflictsButton
                 disabled={
-                  awaitingThread || project?.available !== true || !cursorReady || isRunning
+                  awaitingThread || project?.available !== true || !providerReady || isRunning
                 }
                 onClick={submitFixMergeConflicts}
               />
@@ -816,7 +848,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
             {failingCiPr === null ? null : (
               <FixCiButton
                 disabled={
-                  awaitingThread || project?.available !== true || !cursorReady || isRunning
+                  awaitingThread || project?.available !== true || !providerReady || isRunning
                 }
                 onClick={submitFixCi}
               />

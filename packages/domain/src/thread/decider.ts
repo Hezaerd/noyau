@@ -164,7 +164,7 @@ export const decide = (
             threadId: command.payload.threadId,
             projectId: command.payload.projectId,
             title: command.payload.title,
-            provider: "cursor",
+            provider: command.payload.provider ?? "cursor",
             runtimeMode: command.payload.runtimeMode ?? DEFAULT_RUNTIME_MODE,
           }
           if (command.payload.modelSelection !== undefined) {

@@ -739,10 +739,11 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const textGeneration = yield* TextGeneration
       const git = yield* GitRuntime
       const presence = yield* makePresenceController()
-      const cursorStatus = yield* provider.status
+      const providerStatuses = yield* provider.status
       const environment = new Environment({
         id: config.environmentId,
-        cursor: cursorStatus,
+        cursor: providerStatuses.cursor,
+        codex: providerStatuses.codex,
         createdAt: config.environmentCreatedAt,
       })
       const processProviderEvent = yield* makeProviderReactor(

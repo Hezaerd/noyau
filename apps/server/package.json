@@ -21,6 +21,8 @@
     "./observability": "./src/observability.ts",
     "./provider/assistant-delivery": "./src/provider/assistant-delivery.ts",
     "./provider/cursor-acp": "./src/provider/cursor-acp.ts",
+    "./provider/codex-app-server": "./src/provider/codex-app-server.ts",
+    "./provider/provider-runtime": "./src/provider/provider-runtime.ts",
     "./provider/cursor-about": "./src/provider/cursor-about.ts",
     "./provider/tool-call-presentation": "./src/provider/tool-call-presentation.ts",
     "./provider/prompt-blocks": "./src/provider/prompt-blocks.ts",
@@ -61,6 +63,7 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@noyau/acp": "workspace:*",
+    "@noyau/codex": "workspace:*",
     "@noyau/database": "workspace:*",
     "@noyau/domain": "workspace:*",
     "@noyau/protocol": "workspace:*",
