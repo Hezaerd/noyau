@@ -121,6 +121,50 @@ export const resolveOpenThreadWorking = (input: {
   }
 }
 
+/**
+ * Compact reverse-timer buckets for sidebar last-activity, aligned with
+ * t3code's compact sidebar clock (`now` / `2m` / `3h` / `5d`).
+ */
+export const formatAgoCompactLabel = (elapsedMs: number): string => {
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 5_000) {
+    return "now"
+  }
+  if (elapsedMs < 60_000) {
+    return `${String(Math.floor(elapsedMs / 1_000))}s`
+  }
+  const minutes = Math.floor(elapsedMs / 60_000)
+  if (minutes < 60) {
+    return `${String(minutes)}m`
+  }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) {
+    return `${String(hours)}h`
+  }
+  return `${String(Math.floor(hours / 24))}d`
+}
+
+export const resolveSidebarLastActivityAtMs = (input: {
+  readonly latestTurn: Pick<LatestTurn, "requestedAt" | "startedAt" | "completedAt"> | null
+  readonly updatedAt: DateTime.Utc
+  readonly createdAt: DateTime.Utc
+}): number | null => {
+  const candidates = [
+    input.latestTurn?.completedAt,
+    input.latestTurn?.startedAt,
+    input.latestTurn?.requestedAt,
+    input.updatedAt,
+    input.createdAt,
+  ]
+  let latest = Number.NEGATIVE_INFINITY
+  for (const candidate of candidates) {
+    const ms = epochMsOf(candidate)
+    if (ms !== null && ms > latest) {
+      latest = ms
+    }
+  }
+  return Number.isFinite(latest) && latest !== Number.NEGATIVE_INFINITY ? latest : null
+}
+
 /** Whole-second elapsed label for live and settled Turn timers. */
 export const formatElapsedLabel = (elapsedMs: number): string => {
   const totalSeconds =

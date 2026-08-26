@@ -4,11 +4,13 @@ import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  formatAgoCompactLabel,
   formatElapsedLabel,
   hasUnseenCompletion,
   isOptimisticSendActive,
   isThreadWorking,
   resolveOpenThreadWorking,
+  resolveSidebarLastActivityAtMs,
   resolveThreadActivity,
   resolveWorkingStartedAtMs,
   sendStartedAtMsForThread,
@@ -105,6 +107,40 @@ describe("thread activity", () => {
     expect(formatElapsedLabel(90 * 60_000)).toBe("90m")
     expect(formatElapsedLabel(Number.NaN)).toBe("0s")
     expect(formatElapsedLabel(-5_000)).toBe("0s")
+  })
+
+  it("formats a compact reverse timer for sidebar last-activity", () => {
+    expect(formatAgoCompactLabel(0)).toBe("now")
+    expect(formatAgoCompactLabel(4_999)).toBe("now")
+    expect(formatAgoCompactLabel(5_000)).toBe("5s")
+    expect(formatAgoCompactLabel(42_000)).toBe("42s")
+    expect(formatAgoCompactLabel(5 * 60_000)).toBe("5m")
+    expect(formatAgoCompactLabel(3 * 60 * 60_000)).toBe("3h")
+    expect(formatAgoCompactLabel(5 * 24 * 60 * 60_000)).toBe("5d")
+    expect(formatAgoCompactLabel(Number.NaN)).toBe("now")
+    expect(formatAgoCompactLabel(-5_000)).toBe("now")
+  })
+
+  it("picks the latest turn or shell clock for sidebar last-activity", () => {
+    const createdAt = Schema.decodeSync(Schema.DateTimeUtcFromString)("2026-08-20T12:00:00.000Z")
+    const updatedAt = Schema.decodeSync(Schema.DateTimeUtcFromString)("2026-08-23T11:00:00.000Z")
+    expect(
+      resolveSidebarLastActivityAtMs({
+        latestTurn: null,
+        updatedAt,
+        createdAt,
+      }),
+    ).toBe(Date.parse("2026-08-23T11:00:00.000Z"))
+    expect(
+      resolveSidebarLastActivityAtMs({
+        latestTurn: latestTurn({
+          state: "completed",
+          completedAt: "2026-08-23T12:05:00.000Z",
+        }),
+        updatedAt,
+        createdAt,
+      }),
+    ).toBe(Date.parse("2026-08-23T12:05:00.000Z"))
   })
 
   it("hides historical completions until the Thread has been visited", () => {
