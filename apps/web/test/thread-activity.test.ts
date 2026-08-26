@@ -95,17 +95,18 @@ describe("thread activity", () => {
     ).toBeNull()
   })
 
-  it("formats elapsed with t3code duration buckets", () => {
-    expect(formatElapsedLabel(0)).toBe("1ms")
-    expect(formatElapsedLabel(1)).toBe("1ms")
-    expect(formatElapsedLabel(4_200)).toBe("4.2s")
-    expect(formatElapsedLabel(9_950)).toBe("10s")
+  it("formats elapsed in whole seconds", () => {
+    expect(formatElapsedLabel(0)).toBe("0s")
+    expect(formatElapsedLabel(1)).toBe("0s")
+    expect(formatElapsedLabel(871)).toBe("0s")
+    expect(formatElapsedLabel(4_200)).toBe("4s")
+    expect(formatElapsedLabel(9_950)).toBe("9s")
     expect(formatElapsedLabel(42_000)).toBe("42s")
     expect(formatElapsedLabel(5 * 60_000)).toBe("5m")
     expect(formatElapsedLabel(5 * 60_000 + 12_000)).toBe("5m 12s")
     expect(formatElapsedLabel(90 * 60_000)).toBe("90m")
-    expect(formatElapsedLabel(Number.NaN)).toBe("0ms")
-    expect(formatElapsedLabel(-5_000)).toBe("0ms")
+    expect(formatElapsedLabel(Number.NaN)).toBe("0s")
+    expect(formatElapsedLabel(-5_000)).toBe("0s")
   })
 
   it("formats a compact reverse timer for sidebar last-activity", () => {
@@ -273,7 +274,7 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:00:08.000Z",
         }),
       ),
-    ).toBe("Interrompu après 8.0s")
+    ).toBe("Interrompu après 8s")
     expect(settledTranscriptLabel(latestTurn({ state: "running" }))).toBeNull()
     expect(
       settledTranscriptLabel(
@@ -283,7 +284,7 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:00:08.000Z",
         }),
       ),
-    ).toBe("A travaillé 8.0s")
+    ).toBe("A travaillé 8s")
     expect(
       settledTranscriptLabel(
         latestTurn({

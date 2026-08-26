@@ -165,28 +165,17 @@ export const resolveSidebarLastActivityAtMs = (input: {
   return Number.isFinite(latest) && latest !== Number.NEGATIVE_INFINITY ? latest : null
 }
 
-/** Same buckets as t3code `formatDuration` (session-logic / orchestrationTiming). */
+/** Whole-second elapsed label for live and settled Turn timers. */
 export const formatElapsedLabel = (elapsedMs: number): string => {
-  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
-    return "0ms"
+  const totalSeconds =
+    !Number.isFinite(elapsedMs) || elapsedMs < 0 ? 0 : Math.floor(elapsedMs / 1_000)
+  if (totalSeconds < 60) {
+    return `${String(totalSeconds)}s`
   }
-  if (elapsedMs < 1_000) {
-    return `${String(Math.max(1, Math.round(elapsedMs)))}ms`
-  }
-  if (elapsedMs < 10_000) {
-    const tenths = Math.round(elapsedMs / 100) / 10
-    return tenths >= 10 ? "10s" : `${tenths.toFixed(1)}s`
-  }
-  if (elapsedMs < 60_000) {
-    return `${String(Math.round(elapsedMs / 1_000))}s`
-  }
-  const minutes = Math.floor(elapsedMs / 60_000)
-  const seconds = Math.round((elapsedMs % 60_000) / 1_000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
   if (seconds === 0) {
     return `${String(minutes)}m`
-  }
-  if (seconds === 60) {
-    return `${String(minutes + 1)}m`
   }
   return `${String(minutes)}m ${String(seconds)}s`
 }
