@@ -125,6 +125,19 @@
         "vitest": "catalog:",
       },
     },
+    "packages/client-runtime": {
+      "name": "@noyau/client-runtime",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noyau/protocol": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@effect/vitest": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
     "packages/config": {
       "name": "@noyau/config",
     },
@@ -421,6 +434,8 @@
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
     "@noyau/acp": ["@noyau/acp@workspace:packages/acp"],
+
+    "@noyau/client-runtime": ["@noyau/client-runtime@workspace:packages/client-runtime"],
 
     "@noyau/config": ["@noyau/config@workspace:packages/config"],
 
