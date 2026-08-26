@@ -45,8 +45,10 @@ Cible de sortie : macOS et Windows natif. Linux, WSL, client web distribué et m
   Le fil de fer ACP est `@noyau/acp` ([ADR-0014](adr/0014-fil-de-fer-acp.md)), pas un port
   multi-harnais.
 
-Effect.gen n'est pas imposé au rendu React. L'état renderer (projections `subscribe*` et
-chrome) vit dans Effect Atom ([ADR-0020](adr/0020-effect-atom-etat-renderer.md)).
+Effect.gen n'est pas imposé au rendu React. Le Client Runtime porte les ressources RPC et les
+projections `subscribe*` dans Effect Atom ; le chrome possédé par l'interface vit dans Zustand
+([ADR-0021](adr/0021-client-runtime-hybride.md)). Son port incrémental depuis t3code est décrit par
+la [roadmap Client Runtime](roadmaps/client-runtime.md).
 
 ## Principe d'architecture
 

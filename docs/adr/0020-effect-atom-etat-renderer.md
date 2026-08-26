@@ -1,6 +1,7 @@
 # Effect Atom pour l’état renderer
 
-> **Statut : accepté.** Complète [ADR-0003](0003-frontiere-client-effect-rpc-websocket.md).
+> **Statut : supersédé par [ADR-0021](0021-client-runtime-hybride.md).** Complétait
+> [ADR-0003](0003-frontiere-client-effect-rpc-websocket.md).
 > La frontière RPC ne change pas : Atom est le cache client, pas le transport.
 
 Le renderer tient son état dans un `AtomRegistry` unique (`@effect/atom-react` +

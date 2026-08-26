@@ -32,6 +32,9 @@ Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision struct
 | **Command**           | Entrée typée (`commandId`, acteur hors payload) persistée avant effet.                                                                   |
 | **Event**             | Fait immuable produit par un decider pur.                                                                                                |
 | **Projection**        | Vue dérivée reconstruite depuis le journal.                                                                                              |
+| **Projection distante** | Copie renderer non autoritative d'une Projection du Server, synchronisée par RPC.                                                      |
+| **État client**       | État possédé par l'interface, sans snapshot autoritatif du Server.                                                                        |
+| **Client Runtime**    | Frontière non visuelle qui possède Session RPC, ressources et Projections distantes du renderer.                                         |
 | **Receipt**           | Preuve d'idempotence d'une commande ; réponse stable aux retries.                                                                        |
 | **TxQueue**           | File mémoire post-commit pour les reactors ; vide au boot, pas une outbox de reprise.                                                    |
 | **Reactor**           | Consommateur de la `TxQueue` pour un effet externe (Cursor).                                                                             |
@@ -66,6 +69,7 @@ packages/
   database/             # journal SQLite, receipts, projections
   acp/                  # fil de fer ACP (codegen spec + AcpClient)
   shared/               # helpers purs composer (trigger, mentions)
+  client-runtime/       # cible : RPC, synchronisation et projections distantes Effect Atom
   …                     # voir docs/ARCHITECTURE.md — un package seulement si frontière réelle
 
 docs/
@@ -167,9 +171,11 @@ git subtree pull \
 - Modéliser les erreurs attendues dans le canal d'erreur, avec des erreurs taguées.
 - Exposer les capacités externes comme services ; construire les implémentations avec des `Layer`.
 - Garder les appels `run*` aux points d'entrée de l'application seulement.
-- Ne pas forcer Effect.gen / `run*` dans le rendu React. L'état renderer passe par Effect
-  Atom (`apps/web/src/state/`, ADR-0020) ; les composants n'utilisent que `useAtomValue` /
-  `useAtomSet` / `useAtom`. `Atom.make(stream | effect)` est interdit hors frontière RPC.
+- Ne pas forcer Effect.gen / `run*` dans le rendu React. Les ressources RPC et Projections
+  distantes passent par Effect Atom dans `packages/client-runtime`; l'État client possédé par
+  l'interface passe par Zustand dans `apps/web` (ADR-0021). Les composants consomment ces états par
+  des hooks étroits. `Atom.make(stream | effect)` reste borné au Client Runtime et aucun bridge
+  bidirectionnel Atom ↔ Zustand n'est admis.
 - Imports `effect/unstable/*` permis s'ils apportent une vraie valeur, mais isolés derrière un port ou module interne.
 - Un `Context.Tag` par provider ne convient pas aux instances multiples : registry = service singleton, adaptateur = valeur scopée.
 
@@ -215,7 +221,9 @@ Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `Dr
 | Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`                                          |
 | `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                                                      |
 | `Context.Tag` par instance dynamique          | Registry singleton + adaptateur en valeur                                          |
-| Effect.gen dans un composant React            | `useAtomValue` / `useAtomSet` / `useAtom` ; `Atom.make(stream \| effect)` hors RPC |
+| Effect.gen dans un composant React            | Hooks étroits ; Effect Atom reste dans le Client Runtime                           |
+| Atom pour un état possédé par l'interface     | Store Zustand local                                                                |
+| Bridge bidirectionnel Atom ↔ Zustand           | Composition pure dans un hook React                                                |
 | Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements                                           |
 | Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`                                           |
 | Checklist ou todolist dans un Ticket          | Tickets liés par un DAG                                                            |
@@ -244,4 +252,5 @@ Ne pas faire sans instruction explicite de l'humain :
 ## Références
 
 - Architecture : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- Client Runtime : [`docs/roadmaps/client-runtime.md`](docs/roadmaps/client-runtime.md)
 - README (install, scripts, subtree) : [`README.md`](README.md)
