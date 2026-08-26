@@ -1,3 +1,4 @@
+import { useAtomSet } from "@effect/atom-react"
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
 import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
 import type { Provider } from "@noyau/protocol/entities/environment"
@@ -92,7 +93,7 @@ import {
   isFailingCiOpenPullRequest,
   vcsScopeForThread,
 } from "@/lib/vcs-status"
-import { writeComposerDraft } from "@/state/composer-drafts"
+import { removeComposerDraftImageAtom, replaceComposerDraftAtom } from "@/state/composer-drafts"
 import { getThreadEnvModePreference } from "@/state/preferences"
 import { publishCreatedThread } from "@/state/shell"
 import {
@@ -120,7 +121,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [actionFailure, setActionFailure] = useState<FailurePresentation>()
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
-  const { text, setText, clear: clearDraft } = useComposerDraft(projectId, threadId)
+  const {
+    text,
+    images,
+    setText,
+    setImages,
+    clear: clearDraft,
+  } = useComposerDraft(projectId, threadId)
+  const replaceDraft = useAtomSet(replaceComposerDraftAtom)
+  const removeDraftImage = useAtomSet(removeComposerDraftImageAtom)
   const createdThreadIdRef = useRef<ThreadId>(undefined)
   const [envMode, setEnvMode] = useState<ThreadEnvMode>(() =>
     threadId === undefined ? getThreadEnvModePreference() : "local",
@@ -129,7 +138,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [startFromOrigin, setStartFromOrigin] = useState(
     () => threadId === undefined && getThreadEnvModePreference() === "worktree",
   )
-  const [images, setImages] = useState<ReadonlyArray<ComposerImage>>([])
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [draftProvider, setDraftProvider] = useState<Provider>("cursor")
@@ -340,10 +348,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     return () => {
       unsubscribe()
       clearAssistantPaint(threadId)
-      setImages((current) => {
-        revokeComposerImages(current)
-        return []
-      })
     }
   }, [threadId])
 
@@ -400,15 +404,29 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
     restoredFailedTurnRef.current = retryMandate.turnId
     const mandateText = retryMandate.text ?? ""
-    setText(mandateText)
-    if (retryMandate.attachments === undefined || retryMandate.attachments.length === 0) {
-      return
-    }
-    void loadComposerImagesFromAttachments(retryMandate.attachments).then((nextImages) => {
-      setImages(nextImages)
+    const attachments = retryMandate.attachments
+    let cancelled = false
+    void (
+      attachments === undefined || attachments.length === 0
+        ? Promise.resolve([])
+        : loadComposerImagesFromAttachments(attachments)
+    ).then((nextImages) => {
+      if (cancelled) {
+        revokeComposerImages(nextImages)
+        return undefined
+      }
+      replaceDraft({
+        projectId,
+        threadId,
+        text: mandateText,
+        images: nextImages,
+      })
       return undefined
     })
-  }, [images.length, retryMandate, setText, text, threadId])
+    return () => {
+      cancelled = true
+    }
+  }, [images.length, projectId, replaceDraft, retryMandate, text, threadId])
 
   const dispatchTurn = (
     submittedText: string,
@@ -441,7 +459,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       return
     }
     clearDraft()
-    setImages([])
     setComposerFailure(undefined)
     setOptimisticSend({ threadId, startedAtMs: Date.now() })
     setFollowLatestKey((current) => current + 1)
@@ -463,8 +480,12 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       ),
     ).then((result) => {
       if (result.kind === "composer-error") {
-        writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
-        setImages(submittedImages)
+        replaceDraft({
+          projectId: submittedProjectId,
+          threadId: submittedThreadId,
+          text: submittedText,
+          images: submittedImages,
+        })
         setOptimisticSend(null)
         setComposerFailure(
           presentFailure(result.failure, {
@@ -477,8 +498,12 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return undefined
       }
       if (result.kind === "error") {
-        writeComposerDraft(submittedProjectId, submittedThreadId, submittedText)
-        setImages(submittedImages)
+        replaceDraft({
+          projectId: submittedProjectId,
+          threadId: submittedThreadId,
+          text: submittedText,
+          images: submittedImages,
+        })
         setOptimisticSend(null)
         setActionFailure(
           presentFailure(result.failure, {
@@ -535,9 +560,12 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
     void loadComposerImagesFromAttachments(retryMandate.attachments).then((nextImages) => {
       const mandateText = retryMandate.text ?? ""
-      setText(mandateText)
-      setImages(nextImages)
-      writeComposerDraft(projectId, threadId, mandateText)
+      replaceDraft({
+        projectId,
+        threadId,
+        text: mandateText,
+        images: nextImages,
+      })
       dispatchTurn(mandateText, nextImages, threadId)
       return undefined
     })
@@ -822,13 +850,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       onPaste={acceptImages}
       onDrop={acceptImages}
       onImageRemove={(localId) => {
-        setImages((current) => {
-          const removed = current.find((image) => image.localId === localId)
-          if (removed !== undefined) {
-            URL.revokeObjectURL(removed.previewUrl)
-          }
-          return current.filter((image) => image.localId !== localId)
-        })
+        removeDraftImage({ projectId, threadId, localId })
         setComposerFailure(undefined)
       }}
       onInterrupt={() => interruptTurn()}

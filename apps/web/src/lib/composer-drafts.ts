@@ -9,6 +9,41 @@ const decodeUuid = Schema.decodeUnknownOption(Schema.String.check(Schema.isUUID(
 
 export type ComposerDrafts = ReadonlyMap<string, string>
 
+export type ComposerDraftSessionValue<TImage> = {
+  readonly text: string
+  readonly images: ReadonlyArray<TImage>
+}
+
+export const emptyComposerDraft = {
+  text: "",
+  images: [],
+} as const
+
+export const isComposerDraftEmpty = <TImage>(draft: ComposerDraftSessionValue<TImage>): boolean =>
+  draft.text === "" && draft.images.length === 0
+
+export const sessionDraftsFromStoredTexts = <TImage>(
+  stored: ComposerDrafts,
+): ReadonlyMap<string, ComposerDraftSessionValue<TImage>> => {
+  const drafts = new Map<string, ComposerDraftSessionValue<TImage>>()
+  for (const [key, text] of stored) {
+    drafts.set(key, { text, images: [] })
+  }
+  return drafts
+}
+
+export const storedTextsFromSessionDrafts = <TImage>(
+  drafts: ReadonlyMap<string, ComposerDraftSessionValue<TImage>>,
+): ComposerDrafts => {
+  const stored = new Map<string, string>()
+  for (const [key, draft] of drafts) {
+    if (draft.text !== "") {
+      stored.set(key, draft.text)
+    }
+  }
+  return stored
+}
+
 export const composerDraftStoreKey = (
   projectId: ProjectId,
   threadId: ThreadId | undefined,

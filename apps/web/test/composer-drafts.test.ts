@@ -5,13 +5,20 @@ import {
   composerDraftStoreKey,
   parseComposerDrafts,
   serializeComposerDrafts,
+  sessionDraftsFromStoredTexts,
+  storedTextsFromSessionDrafts,
 } from "../src/lib/composer-drafts"
+import type { ComposerImage } from "../src/lib/composer-images"
 import { resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import {
   promoteComposerDraft,
   readComposerDraft,
+  readComposerDraftImages,
+  removeComposerDraftImage,
+  replaceComposerDraft,
   resetComposerDrafts,
   writeComposerDraft,
+  writeComposerDraftImages,
 } from "../src/state/composer-drafts"
 
 const projectA = ProjectId.make("10000000-0000-4000-8000-000000000001")
@@ -20,8 +27,8 @@ const threadA = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const threadB = ThreadId.make("20000000-0000-4000-8000-000000000002")
 
 afterEach(() => {
-  resetAppAtomRegistryForTests()
   resetComposerDrafts()
+  resetAppAtomRegistryForTests()
 })
 
 describe("composer drafts", () => {
@@ -89,4 +96,92 @@ describe("composer drafts", () => {
       ),
     ).toEqual(new Map([[composerDraftStoreKey(projectA, threadA), "keep"]]))
   })
+
+  it("keeps session images isolated by Thread and drops them from persist", () => {
+    const imageA = draftImage("a")
+    const imageB = draftImage("b")
+    writeComposerDraft(projectA, threadA, "caption A")
+    writeComposerDraftImages(projectA, threadA, [imageA])
+    writeComposerDraftImages(projectA, threadB, [imageB])
+
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([imageA])
+    expect(readComposerDraftImages(projectA, threadB)).toEqual([imageB])
+    expect(readComposerDraftImages(projectA, undefined)).toEqual([])
+
+    writeComposerDraft(projectA, threadA, "")
+    expect(readComposerDraft(projectA, threadA)).toBe("")
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([imageA])
+
+    const session = new Map([
+      [composerDraftStoreKey(projectA, threadA), { text: "caption A", images: [imageA] }],
+    ])
+    expect(storedTextsFromSessionDrafts(session)).toEqual(
+      new Map([[composerDraftStoreKey(projectA, threadA), "caption A"]]),
+    )
+    expect(sessionDraftsFromStoredTexts(storedTextsFromSessionDrafts(session))).toEqual(
+      new Map([[composerDraftStoreKey(projectA, threadA), { text: "caption A", images: [] }]]),
+    )
+  })
+
+  it("replaces text and images in a single draft write", () => {
+    writeComposerDraft(projectA, threadA, "old")
+    writeComposerDraftImages(projectA, threadA, [draftImage("old")])
+    const image = draftImage("next")
+    replaceComposerDraft({
+      projectId: projectA,
+      threadId: threadA,
+      text: "restored",
+      images: [image],
+    })
+
+    expect(readComposerDraft(projectA, threadA)).toBe("restored")
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([image])
+  })
+
+  it("removes a draft image from the current session store", () => {
+    const imageA = draftImage("a")
+    const imageB = draftImage("b")
+    writeComposerDraft(projectA, threadA, "keep")
+    writeComposerDraftImages(projectA, threadA, [imageA, imageB])
+
+    removeComposerDraftImage({ projectId: projectA, threadId: threadA, localId: imageA.localId })
+    removeComposerDraftImage({ projectId: projectA, threadId: threadA, localId: imageA.localId })
+    expect(readComposerDraft(projectA, threadA)).toBe("keep")
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([imageB])
+
+    removeComposerDraftImage({ projectId: projectA, threadId: threadA, localId: imageB.localId })
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([])
+  })
+
+  it("promotes leftover new-Thread images onto the created Thread", () => {
+    const image = draftImage("new")
+    writeComposerDraftImages(projectA, undefined, [image])
+    promoteComposerDraft(projectA, threadA)
+
+    expect(readComposerDraftImages(projectA, undefined)).toEqual([])
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([image])
+  })
+
+  it("does not overwrite existing Thread images on promote", () => {
+    const leftover = draftImage("leftover")
+    const existing = draftImage("existing")
+    writeComposerDraftImages(projectA, undefined, [leftover])
+    writeComposerDraftImages(projectA, threadA, [existing])
+    promoteComposerDraft(projectA, threadA)
+
+    expect(readComposerDraftImages(projectA, undefined)).toEqual([leftover])
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([existing])
+  })
+})
+
+const draftImage = (localId: string): ComposerImage => ({
+  localId,
+  previewUrl: `blob:${localId}`,
+  upload: {
+    type: "image",
+    name: `${localId}.png`,
+    mimeType: "image/png",
+    sizeBytes: 4,
+    dataUrl: "data:image/png;base64,AAAA",
+  },
 })
