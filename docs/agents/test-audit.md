@@ -16,7 +16,7 @@ Deux fichiers homonymes `undelivered-mandate.test.ts` sont conservés : un côt�
 Server (injection Provider) et un côté Web (retry Composer). Ce ne sont pas la
 même entrée.
 
-Méthode : six subagents de lecture (domain/database/protocol, acp/shared, server,
+Méthode : six subagents de lecture (domain/protocol, acp/shared, server,
 desktop, web chrome, web métier). Notes conflictuelles relues à la source avant
 agrégation.
 
@@ -32,8 +32,8 @@ casse l’idempotence, ou ouvre une frontière d’auth.
 | `packages/domain/test/project/decider.test.ts` | Décide `project.create` / `rebind` / `meta.update` / `delete` : unicité du WorkspaceRoot, pas de doublon, delete libère le chemin. | Autorité Environment→Project. Un mauvais decider mappe le mauvais dossier. |
 | `packages/domain/test/board/decider.test.ts` | Init Tableau (colonnes, identité Done), ranks Kanban, complete/reopen/archive, gate des dépendances ouvertes, DAG (cycle/self/dup), TicketThread, updates partielles. | Autorité Tableau. Ranks, Done, DAG et gardes destructives sont catastrophiques si cassés. |
 | `packages/domain/test/thread/decider.test.ts` | Create/archive Thread, un seul Turn actif, settlement session→turn, merge transcript, recovery boot, images hors journal, title seed vs rename. | Invariants Turn/Session/transcript : le runtime agent. |
-| `packages/database/test/command-worker.test.ts` | Idempotence des receipts, conflit de `commandId`, sérialisation par agrégat, rollback journal+receipt, TxQueue vide au boot. | Contrat de durabilité ADR-0012. |
-| `packages/database/test/projections.test.ts` | Round-trip SQLite : snapshot board, recovery session vs turn terminal, cascade delete, lookup WorkspaceRoot après rebind. | Preuve que l’état survit à un restart. |
+| `apps/server/test/command-worker.test.ts` | Idempotence des receipts, conflit de `commandId`, sérialisation par agrégat, rollback journal+receipt, TxQueue vide au boot. | Contrat de durabilité ADR-0012. |
+| `apps/server/test/projections.test.ts` | Round-trip SQLite : snapshot board, recovery session vs turn terminal, cascade delete, lookup WorkspaceRoot après rebind. | Preuve que l’état survit à un restart. |
 | `packages/acp/src/protocol.test.ts` | JSON-RPC/JSONL : ids (y compris `0`), races de terminaison, redaction des secrets, pending requests au exit process. | Fil de fer Cursor. Un bug d’id ou de terminaison bloque ou corrompt la Session. |
 | `apps/server/test/control-plane.test.ts` | Dispatch + receipts, validation WorkspaceRoot, create atomique project+board, subscribe snapshot-then-events, persist Turn/Session/`resumeCursor`. | Intégration command→event→projection du Server. |
 | `apps/server/test/cursor-acp.test.ts` | Handshake, mapping signaux ACP, `session/load` vs new, attachments/mentions, modes d’approval, cancel/interrupt. | Contrat adaptateur Cursor : reprise et cycle de vie du Turn. |
@@ -50,7 +50,7 @@ coûte un cwd faux, une suppression non confirmée, ou une connexion perdue.
 
 | Fichier | Ce que fait le test | Pourquoi cette note |
 | --- | --- | --- |
-| `packages/database/test/sqlite.test.ts` | Migrations (pas d’outbox), pragmas, WAL, rollback transactionnel probe+receipt. | Bootstrap store. Moins « métier » que le worker, mais cassage coûteux. |
+| `apps/server/test/sqlite.test.ts` | Migrations (pas d’outbox), pragmas, WAL, rollback transactionnel probe+receipt. | Bootstrap store. Moins « métier » que le worker, mais cassage coûteux. |
 | `packages/acp/src/client.test.ts` | Client ACP réel sur stdio : init→session→prompt, replay des notifications, batch Grok, pas de fuite de secrets. | Corrélation d’ids et routing de notifications que le Schema seul ne voit pas. |
 | `packages/acp/src/errors.test.ts` | `callRpc` / handlers : cause privée hors message public, codes stables `-32603`. | Empêche de fuiter le fil de fer vers l’UI ou les logs. |
 | `apps/server/test/server.test.ts` | Boot + 401/403, routes legacy 404, MCP POST exige token de Turn. | Surface HTTP/MCP. Un mega-case, mais c’est la porte d’entrée. |

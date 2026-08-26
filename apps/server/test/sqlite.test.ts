@@ -4,9 +4,9 @@ import {
   migrationsThroughTurnDiff,
   runMigrations,
   threadProviderCodexMigration,
-} from "@noyau/database/migrations"
-import * as NodeSqliteClient from "@noyau/database/node-sqlite-client"
-import { layer as sqliteLayer, memoryLayer } from "@noyau/database/sqlite"
+} from "@noyau/server/persistence/migrations"
+import * as NodeSqliteClient from "@noyau/server/persistence/node-sqlite-client"
+import { layer as sqliteLayer, memoryLayer } from "@noyau/server/persistence/sqlite"
 import { Context, Effect, FileSystem, Layer, Path } from "effect"
 import * as Migrator from "effect/unstable/sql/Migrator"
 import { SqlClient } from "effect/unstable/sql/SqlClient"

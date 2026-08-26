@@ -108,9 +108,9 @@ jobs:
                 description: "packages/protocol",
               },
               {
-                name: "area:database",
+                name: "area:server",
                 color: "ededed",
-                description: "packages/database",
+                description: "apps/server",
               },
               {
                 name: "area:docs",

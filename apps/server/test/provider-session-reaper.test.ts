@@ -1,6 +1,6 @@
 import { assert, it as standaloneIt } from "@effect/vitest"
-import { memoryLayer } from "@noyau/database/sqlite"
 import { ThreadId } from "@noyau/protocol/ids"
+import { memoryLayer } from "@noyau/server/persistence/sqlite"
 import {
   emptyProviderStatuses,
   ProviderPort,

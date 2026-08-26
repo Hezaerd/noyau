@@ -2,7 +2,6 @@ import { createHash } from "node:crypto"
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it } from "@effect/vitest"
-import { memoryLayer } from "@noyau/database/sqlite"
 import { ClientCommandRequest } from "@noyau/protocol/commands"
 import { ActorId, ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { DEFAULT_THREAD_TITLE } from "@noyau/protocol/thread/title"
@@ -10,6 +9,7 @@ import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/i
 import { ControlPlane, makeControlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { GitRuntime, type GitRuntimeService } from "@noyau/server/git/git-runtime"
+import { memoryLayer } from "@noyau/server/persistence/sqlite"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import {
   TextGeneration,

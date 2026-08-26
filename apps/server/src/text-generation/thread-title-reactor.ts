@@ -1,5 +1,3 @@
-import type { PersistedEvent } from "@noyau/database/command-worker"
-import { readThreadSnapshot } from "@noyau/database/snapshots"
 import {
   InternalCommand,
   type InternalCommand as InternalCommandType,
@@ -21,6 +19,8 @@ import {
   sanitizeThreadTitle,
   seedTitleFromTurn,
 } from "@noyau/protocol/thread/title"
+import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
+import { readThreadSnapshot } from "@noyau/server/persistence/snapshots"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

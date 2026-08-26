@@ -18,9 +18,9 @@ body:
       description: Which part of the project is affected?
       options:
         - apps/web
+        - apps/server
         - packages/domain
         - packages/protocol
-        - packages/database
         - packages/config
         - CI / tooling
         - docs

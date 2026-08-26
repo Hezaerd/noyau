@@ -1,13 +1,3 @@
-import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
-import { makeDrainableWorker } from "@noyau/database/drainable-worker"
-import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/database/projections"
-import {
-  readBoardSnapshot,
-  readProjectShellById,
-  readShellSnapshot,
-  readThreadShellById,
-  readThreadSnapshot,
-} from "@noyau/database/snapshots"
 import { decide as decideBoard } from "@noyau/domain/board/decider"
 import {
   emptyBoardState,
@@ -121,6 +111,16 @@ import { readFilePreview } from "./file-preview.ts"
 import { GitRuntime } from "./git/git-runtime.ts"
 import { makeTurnDiffReactor } from "./git/turn-diff-reactor.ts"
 import { resolveTurnDiffCheckpoints } from "./git/turn-diff.ts"
+import { makeCommandWorker, type PersistedEvent } from "./persistence/command-worker.ts"
+import { makeDrainableWorker } from "./persistence/drainable-worker.ts"
+import { findWorkspaceRootOwner, projectDomainEvent } from "./persistence/projections.ts"
+import {
+  readBoardSnapshot,
+  readProjectShellById,
+  readShellSnapshot,
+  readThreadShellById,
+  readThreadSnapshot,
+} from "./persistence/snapshots.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { makeProviderSessionReaper } from "./provider/provider-session-reaper.ts"

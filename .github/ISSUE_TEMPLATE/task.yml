@@ -18,9 +18,9 @@ body:
       description: Which part of the monorepo does this touch?
       options:
         - apps/web
+        - apps/server
         - packages/domain
         - packages/protocol
-        - packages/database
         - packages/config
         - docs / ADR
         - CI / tooling
