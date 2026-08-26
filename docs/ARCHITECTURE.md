@@ -381,13 +381,12 @@ ou événement distant, le snapshot autoritatif gagne.
 ```text
 apps/
   web/       # renderer React partagé
-  server/    # frontières RPC/MCP et composition du control plane
+  server/    # frontières RPC/MCP, SQLite, composition du control plane
   desktop/   # Electron : superviseur + chrome, sans état métier
 
 packages/
   domain/    # deciders et projectors purs
   protocol/  # contrats Schema, RPC, commandes et événements
-  database/  # journal SQLite, receipts, projections
   acp/       # fil de fer ACP (codegen spec + AcpClient)
   codex/     # fil de fer Codex app-server (codegen spec + CodexAppServerClient)
   shared/    # helpers purs composer (trigger, mentions)

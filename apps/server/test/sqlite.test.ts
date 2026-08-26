@@ -4,10 +4,11 @@ import {
   migrationsThroughTurnDiff,
   runMigrations,
   threadProviderCodexMigration,
-} from "@noyau/database/migrations"
-import * as NodeSqliteClient from "@noyau/database/node-sqlite-client"
-import { layer as sqliteLayer, memoryLayer } from "@noyau/database/sqlite"
-import { Context, Effect, FileSystem, Layer, Path } from "effect"
+} from "@noyau/server/persistence/migrations"
+import * as NodeSqliteClient from "@noyau/server/persistence/node-sqlite-client"
+import { recoverSessionsAfterBoot } from "@noyau/server/persistence/session-recovery"
+import { layer as sqliteLayer, memoryLayer } from "@noyau/server/persistence/sqlite"
+import { Context, DateTime, Effect, FileSystem, Layer, Path } from "effect"
 import * as Migrator from "effect/unstable/sql/Migrator"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -80,6 +81,61 @@ describe("SQLite persistence", () => {
         `
         assert.strictEqual(projection[0]?.total, 0)
         assert.strictEqual(receipts[0]?.total, 0)
+      }),
+    )
+
+    it.effect("répare tous les turns running des sessions live au boot", () =>
+      Effect.gen(function* () {
+        const sql = yield* SqlClient
+        const recoveredAt = DateTime.makeUnsafe("2026-08-26T12:00:00.000Z")
+
+        yield* sql`
+          INSERT INTO projection_projects (
+            project_id, name, workspace_root, available, created_at, updated_at
+          ) VALUES (
+            'proj-recovery', 'noyau', '/tmp/recovery', 1,
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_threads (
+            thread_id, project_id, title, provider, runtime_mode, status, created_at, updated_at
+          ) VALUES (
+            'thread-recovery', 'proj-recovery', 'Recovery', 'cursor', 'full-access', 'active',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_turns (
+            turn_id, thread_id, ordinal, state, requested_at, completed_at
+          ) VALUES
+            (
+              'turn-completed', 'thread-recovery', 1, 'completed',
+              '2026-08-20T00:01:00.000Z', '2026-08-20T00:02:00.000Z'
+            ),
+            (
+              'turn-running', 'thread-recovery', 2, 'running',
+              '2026-08-20T00:03:00.000Z', NULL
+            )
+        `
+        yield* sql`
+          INSERT INTO projection_sessions (
+            thread_id, status, last_error, active_turn_id, runtime_mode, resume_cursor, updated_at
+          ) VALUES (
+            'thread-recovery', 'running', NULL, 'turn-completed', 'full-access', NULL,
+            '2026-08-20T00:03:00.000Z'
+          )
+        `
+
+        yield* recoverSessionsAfterBoot(recoveredAt)
+
+        const turns = yield* sql<{ turn_id: string; state: string }>`
+          SELECT turn_id, state FROM projection_turns ORDER BY ordinal
+        `
+        assert.deepStrictEqual(turns, [
+          { turn_id: "turn-completed", state: "completed" },
+          { turn_id: "turn-running", state: "error" },
+        ])
       }),
     )
   })

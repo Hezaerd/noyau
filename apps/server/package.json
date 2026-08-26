@@ -52,7 +52,15 @@
     "./git/vcs-status-broadcaster": "./src/git/vcs-status-broadcaster.ts",
     "./git/pull-request": "./src/git/pull-request.ts",
     "./editor/editor-open": "./src/editor/editor-open.ts",
-    "./host-path": "./src/host-path.ts"
+    "./host-path": "./src/host-path.ts",
+    "./persistence/command-worker": "./src/persistence/command-worker.ts",
+    "./persistence/drainable-worker": "./src/persistence/drainable-worker.ts",
+    "./persistence/migrations": "./src/persistence/migrations.ts",
+    "./persistence/node-sqlite-client": "./src/persistence/node-sqlite-client.ts",
+    "./persistence/projections": "./src/persistence/projections.ts",
+    "./persistence/session-recovery": "./src/persistence/session-recovery.ts",
+    "./persistence/snapshots": "./src/persistence/snapshots.ts",
+    "./persistence/sqlite": "./src/persistence/sqlite.ts"
   },
   "scripts": {
     "dev": "node --watch src/main.ts",
@@ -67,7 +75,6 @@
     "@effect/platform-node": "catalog:",
     "@noyau/acp": "workspace:*",
     "@noyau/codex": "workspace:*",
-    "@noyau/database": "workspace:*",
     "@noyau/domain": "workspace:*",
     "@noyau/protocol": "workspace:*",
     "@noyau/shared": "workspace:*",

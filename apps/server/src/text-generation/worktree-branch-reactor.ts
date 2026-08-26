@@ -1,5 +1,3 @@
-import type { PersistedEvent } from "@noyau/database/command-worker"
-import { readThreadSnapshot } from "@noyau/database/snapshots"
 import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
 import type { DomainEvent } from "@noyau/protocol/events"
 import {
@@ -17,6 +15,8 @@ import {
   GitRuntime,
   isTemporaryWorktreeBranch,
 } from "@noyau/server/git/git-runtime"
+import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
+import { readThreadSnapshot } from "@noyau/server/persistence/snapshots"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

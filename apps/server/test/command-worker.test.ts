@@ -1,13 +1,16 @@
 import { assert, describe, layer } from "@effect/vitest"
+import { CommandIdConflict } from "@noyau/protocol/errors"
+import { ActorId, CommandId, CorrelationId, ProjectId, SchemaVersion } from "@noyau/protocol/ids"
 import {
   type DurableReceipt,
   makeCommandWorker,
   type PersistedEvent,
-} from "@noyau/database/command-worker"
-import { type DrainableWorker, makeDrainableWorker } from "@noyau/database/drainable-worker"
-import { memoryLayer } from "@noyau/database/sqlite"
-import { CommandIdConflict } from "@noyau/protocol/errors"
-import { ActorId, CommandId, CorrelationId, ProjectId, SchemaVersion } from "@noyau/protocol/ids"
+} from "@noyau/server/persistence/command-worker"
+import {
+  type DrainableWorker,
+  makeDrainableWorker,
+} from "@noyau/server/persistence/drainable-worker"
+import { memoryLayer } from "@noyau/server/persistence/sqlite"
 import { Crypto, Effect, Fiber, Layer, PubSub, Result, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

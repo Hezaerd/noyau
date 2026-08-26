@@ -25,13 +25,12 @@ export class UnsupportedNodeSqliteOperation extends Schema.TaggedError<Unsupport
 ) {}
 
 // `StatementSync.columns()` exists on Node 22.16+ / 23.11+ / 24.
-const checkCompatibility = Effect.sync(() => {
+const checkCompatibility = Effect.gen(function* () {
   const [major = 0, minor = 0] = process.versions.node.split(".").map(Number)
   const supported = (major === 22 && minor >= 16) || (major === 23 && minor >= 11) || major >= 24
-  if (supported) {
-    return
+  if (!supported) {
+    return yield* new UnsupportedNodeSqliteVersion({ nodeVersion: process.versions.node })
   }
-  throw new UnsupportedNodeSqliteVersion({ nodeVersion: process.versions.node })
 })
 
 const sqlError = (message: string, operation: string, cause: unknown) =>
@@ -172,12 +171,14 @@ const make = Effect.fn("NodeSqliteClient.make")(function* (config: NodeSqliteCli
   })
 })
 
-export const layer = (config: NodeSqliteClientConfig): Layer.Layer<SqlClient.SqlClient, SqlError> =>
+export const layer = (
+  config: NodeSqliteClientConfig,
+): Layer.Layer<SqlClient.SqlClient, SqlError | UnsupportedNodeSqliteVersion> =>
   Layer.effect(SqlClient.SqlClient, make(config)).pipe(Layer.provide(Reactivity.layer))
 
 export const layerConfig = (
   config: Config.Wrap<NodeSqliteClientConfig>,
-): Layer.Layer<SqlClient.SqlClient, Config.ConfigError | SqlError> =>
+): Layer.Layer<SqlClient.SqlClient, Config.ConfigError | SqlError | UnsupportedNodeSqliteVersion> =>
   Layer.effect(SqlClient.SqlClient, Config.unwrap(config).pipe(Effect.flatMap(make))).pipe(
     Layer.provide(Reactivity.layer),
   )

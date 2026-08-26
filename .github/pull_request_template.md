@@ -7,9 +7,9 @@ Closes #<!-- issue number, or remove -->
 ## Workspaces touched
 
 - [ ] apps/web
+- [ ] apps/server
 - [ ] packages/domain
 - [ ] packages/protocol
-- [ ] packages/database
 - [ ] docs / ADR
 - [ ] CI / tooling only
 

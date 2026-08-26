@@ -1,5 +1,3 @@
-import type { PersistedEvent } from "@noyau/database/command-worker"
-import { readThreadSnapshot } from "@noyau/database/snapshots"
 import { type InternalCommand as InternalCommandType } from "@noyau/protocol/commands"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import { checkpointRefForTurn, type TurnDiffFile } from "@noyau/protocol/entities/turn"
@@ -14,6 +12,8 @@ import {
 } from "@noyau/protocol/ids"
 import { ThreadTurnDiffComplete } from "@noyau/protocol/thread/commands"
 import { ThreadEvent } from "@noyau/protocol/thread/events"
+import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
+import { readThreadSnapshot } from "@noyau/server/persistence/snapshots"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

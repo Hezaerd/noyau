@@ -3,7 +3,36 @@
 Frontière de confiance de l'Environment local : elle transforme les intentions du renderer en
 commandes durables, possède SQLite, Cursor, Claude et Codex, et expose les streams RPC.
 
+Le journal, les receipts et les projections vivent dans `src/persistence/` sur `node:sqlite`.
+Le SQL explicite passe par le `SqlClient` Effect, décodé par `Schema`
+([ADR-0012](../../docs/adr/0012-sqlite-locale-et-txqueue.md)). Pas de package dédié, pas de
+dialecte PostgreSQL, pas d'outbox durable.
+
 ## Langage
+
+**Journal d'événements**:
+Suite append-only des faits autoritatifs de Noyau.
+_À éviter_ : log applicatif, file de messages
+
+**Receipt**:
+Résultat durable d'une commande, rendu de façon stable à ses retries identiques.
+_À éviter_ : réponse réseau, cache
+
+**TxQueue**:
+File mémoire des effets à remettre aux reactors **après** commit. Vide au boot.
+_À éviter_ : outbox SQL, Queue comme source de vérité, PubSub
+
+**Tête d'agrégat**:
+Version durable qui ordonne et sérialise les décisions visant le même agrégat.
+_À éviter_ : verrou applicatif, compteur global
+
+**Projection Tableau**:
+Vue SQL dérivée des colonnes, Tickets et dépendances d'un Project.
+_À éviter_ : source de décision indépendante, état React
+
+**Projection Thread**:
+Vue SQL dérivée du Thread, de sa Session, de ses Turns et du transcript.
+_À éviter_ : Channel, table de Message
 
 **CommandGateway**:
 Frontière qui reçoit une identité vérifiée par le transport, enrichit et remet une

@@ -1,5 +1,3 @@
-import type { PersistedEvent } from "@noyau/database/command-worker"
-import { readBoardSnapshot, readThreadSnapshot } from "@noyau/database/snapshots"
 import {
   InternalCommand,
   type InternalCommand as InternalCommandType,
@@ -22,6 +20,8 @@ import { ThreadMetaUpdate } from "@noyau/protocol/thread/commands"
 import { ThreadEvent } from "@noyau/protocol/thread/events"
 import { ServerConfig } from "@noyau/server/config"
 import { buildTemporaryWorktreeBranchName, GitRuntime } from "@noyau/server/git/git-runtime"
+import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
+import { readBoardSnapshot, readThreadSnapshot } from "@noyau/server/persistence/snapshots"
 import { Crypto, DateTime, Effect, Option, Result, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

@@ -1,15 +1,5 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { makeCommandWorker, type PersistedEvent } from "@noyau/database/command-worker"
-import { makeDrainableWorker } from "@noyau/database/drainable-worker"
-import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/database/projections"
-import {
-  readBoardSnapshot,
-  readShellSnapshot,
-  readThreadShellById,
-  readThreadSnapshot,
-} from "@noyau/database/snapshots"
-import { layer as sqliteLayer } from "@noyau/database/sqlite"
 import { decide } from "@noyau/domain/board/decider"
 import { emptyBoardState, evolve } from "@noyau/domain/board/projector"
 import { BoardSnapshot } from "@noyau/protocol/board"
@@ -46,6 +36,16 @@ import {
   TicketEvent,
   TicketThreadLinked,
 } from "@noyau/protocol/ticket/events"
+import { makeCommandWorker, type PersistedEvent } from "@noyau/server/persistence/command-worker"
+import { makeDrainableWorker } from "@noyau/server/persistence/drainable-worker"
+import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/server/persistence/projections"
+import {
+  readBoardSnapshot,
+  readShellSnapshot,
+  readThreadShellById,
+  readThreadSnapshot,
+} from "@noyau/server/persistence/snapshots"
+import { layer as sqliteLayer } from "@noyau/server/persistence/sqlite"
 import { Context, Crypto, DateTime, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

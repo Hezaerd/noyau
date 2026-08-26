@@ -42,7 +42,6 @@
         "@effect/platform-node": "catalog:",
         "@noyau/acp": "workspace:*",
         "@noyau/codex": "workspace:*",
-        "@noyau/database": "workspace:*",
         "@noyau/domain": "workspace:*",
         "@noyau/protocol": "workspace:*",
         "@noyau/shared": "workspace:*",
@@ -145,22 +144,6 @@
     },
     "packages/config": {
       "name": "@noyau/config",
-    },
-    "packages/database": {
-      "name": "@noyau/database",
-      "version": "0.0.0",
-      "dependencies": {
-        "@noyau/domain": "workspace:*",
-        "@noyau/protocol": "workspace:*",
-        "effect": "catalog:",
-      },
-      "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:",
-        "@types/node": "^24.13.3",
-        "vite-plus": "catalog:",
-        "vitest": "catalog:",
-      },
     },
     "packages/domain": {
       "name": "@noyau/domain",
@@ -463,8 +446,6 @@
     "@noyau/codex": ["@noyau/codex@workspace:packages/codex"],
 
     "@noyau/config": ["@noyau/config@workspace:packages/config"],
-
-    "@noyau/database": ["@noyau/database@workspace:packages/database"],
 
     "@noyau/desktop": ["@noyau/desktop@workspace:apps/desktop"],
 
