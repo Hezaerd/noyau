@@ -18,7 +18,7 @@ export const emptyRemoteResourceState = <A, E = unknown>(): RemoteResourceState<
 })
 
 export const withRemoteResourceValue = <A, E>(
-  state: RemoteResourceState<A, E>,
+  _previous: RemoteResourceState<A, E>,
   value: A,
   phase: SyncPhase = "live",
 ): RemoteResourceState<A, E> => ({
