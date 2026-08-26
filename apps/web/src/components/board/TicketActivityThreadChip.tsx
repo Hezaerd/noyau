@@ -7,6 +7,7 @@ import {
   FILE_CHIP_LABEL_CLASS_NAME,
   TRANSCRIPT_FILE_CHIP_CLASS_NAME,
 } from "@/lib/file-chip"
+import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
 import { isTicketActivityThreadJumpable, type TicketActivityThreadRef } from "@/lib/ticket-activity"
 import { cn } from "@/lib/utils"
 
@@ -40,6 +41,8 @@ export function TicketActivityThreadChip({
         className={cn(TRANSCRIPT_FILE_CHIP_CLASS_NAME, "max-w-40 align-middle text-[11px]")}
         data-ticket-activity-thread-chip=""
         aria-label={`Ouvrir le Thread ${thread.title}`}
+        onPointerEnter={() => prefetchThreadSnapshot(ThreadId.make(thread.threadId))}
+        onFocus={() => prefetchThreadSnapshot(ThreadId.make(thread.threadId))}
         onClick={() => onOpenThread(ThreadId.make(thread.threadId))}
       >
         <MessageCircleIcon aria-hidden className={FILE_CHIP_ICON_CLASS_NAME} />

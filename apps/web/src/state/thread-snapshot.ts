@@ -23,8 +23,22 @@ export const threadSnapshotAtom = Atom.family((threadId: ThreadId) =>
 export const getThreadSnapshot = (threadId: ThreadId): ThreadSnapshot | undefined =>
   appAtomRegistry.get(threadSnapshotAtom(threadId))
 
-export const replaceThreadSnapshot = (snapshot: ThreadSnapshot): void => {
+export const threadSnapshotNeedsLoad = (threadId: ThreadId | undefined): boolean =>
+  threadId !== undefined && getThreadSnapshot(threadId) === undefined
+
+/** Keep a newer live snapshot when a slower prefetch lands late. */
+export const canReplaceThreadSnapshot = (
+  current: ThreadSnapshot | undefined,
+  incoming: ThreadSnapshot,
+): boolean => current === undefined || incoming.snapshotSequence >= current.snapshotSequence
+
+export const replaceThreadSnapshot = (snapshot: ThreadSnapshot): boolean => {
+  const current = appAtomRegistry.get(threadSnapshotAtom(snapshot.thread.id))
+  if (!canReplaceThreadSnapshot(current, snapshot)) {
+    return false
+  }
   appAtomRegistry.set(threadSnapshotAtom(snapshot.thread.id), snapshot)
+  return true
 }
 
 export const reduceThreadSnapshotEnvelope = (
