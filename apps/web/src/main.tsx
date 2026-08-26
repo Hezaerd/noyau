@@ -6,6 +6,7 @@ import { AnchoredToastProvider, ToastProvider } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
 import { AppAtomRegistryProvider } from "@/state/atom-registry"
+import { initializeComposerDrafts } from "@/state/composer-drafts"
 import { initializeKeybindings } from "@/state/keybindings"
 import { initializeNowMinuteClock } from "@/state/now"
 import {
@@ -41,6 +42,7 @@ initializeTurnNotificationPreference()
 initializeTranscriptPaintPreference()
 initializeThreadPins()
 initializeThreadVisits()
+initializeComposerDrafts()
 initializeNowMinuteClock()
 
 const router = createRouter({ routeTree })

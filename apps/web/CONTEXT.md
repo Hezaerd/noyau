@@ -164,9 +164,9 @@ L'envoi lie aussi le Ticket au Thread.
 _À éviter_ : attachment, Resource, Command
 
 **Brouillon**:
-Texte du Composer gardé en mémoire renderer pendant la session, isolé par Thread — ou par Project
-tant que le Thread n'est pas créé. Perdu au restart. Ce n'est pas une Préférence.
-_À éviter_ : draft persisté, localStorage, état de page
+Texte du Composer isolé par Thread — ou par Project tant que le Thread n'est pas créé. Chrome
+renderer persisté localement ; survit au restart. Pas une Préférence du catalogue ni une Command.
+_À éviter_ : draft serveur, journal, Préférence, état de page
 
 **Palette**:
 Overlay clavier searchable de l'app qui propose navigation, Actions et résultats contextuels.

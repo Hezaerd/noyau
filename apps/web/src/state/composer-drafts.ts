@@ -1,8 +1,13 @@
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { Atom } from "effect/unstable/reactivity"
 
-import { composerDraftStoreKey } from "@/lib/composer-drafts"
+import {
+  composerDraftStoreKey,
+  persistComposerDrafts,
+  readStoredComposerDrafts,
+} from "@/lib/composer-drafts"
 import { appAtomRegistry } from "@/state/atom-registry"
+import { persistWritableAtom } from "@/state/persist"
 
 export const composerDraftsAtom = Atom.make<ReadonlyMap<string, string>>(new Map()).pipe(
   Atom.keepAlive,
@@ -14,6 +19,19 @@ export const draftAtom = Atom.family((key: string) =>
     Atom.withLabel(`chrome:draft:${key}`),
   ),
 )
+
+let initialized = false
+
+export const initializeComposerDrafts = (): void => {
+  if (initialized) {
+    return
+  }
+  initialized = true
+  persistWritableAtom(composerDraftsAtom, {
+    read: readStoredComposerDrafts,
+    write: persistComposerDrafts,
+  })
+}
 
 export const readComposerDraft = (projectId: ProjectId, threadId: ThreadId | undefined): string =>
   appAtomRegistry.get(draftAtom(composerDraftStoreKey(projectId, threadId)))

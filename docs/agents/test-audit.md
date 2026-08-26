@@ -121,7 +121,7 @@ restent moins chers à garder qu’à redécouvrir.
 | `apps/web/test/thread-visits.test.ts` | Parse ISO valides ; `lastVisitedAt` ne recule jamais. | Évite l’inondation de badges « non lus ». |
 | `apps/web/test/delayed-subscription-failure.test.tsx` | Échec reconnect masqué 750 ms ; clear si `Connected`. | Debounce UX, évite flicker de bannière. |
 | `apps/web/test/thread-transcript-catch-up.test.ts` | Catch-up seulement si snapshot du bon Thread, pas loading, pas draft. | Empêche d’afficher le mauvais transcript. |
-| `apps/web/test/composer-drafts.test.ts` | Brouillons isolés par Thread et par Project « nouveau Thread ». | Règle produit : pas de localStorage, isolation mémoire. |
+| `apps/web/test/composer-drafts.test.ts` | Brouillons isolés par Thread / Project « nouveau Thread » ; parse/serialize local. | Chrome persisté, pas une Command. |
 | `apps/web/test/code-fence.test.ts` | Parse fences + citations Cursor `line:line:path`. | Format provider facile à casser. |
 | `apps/web/test/composer-prompt-field.test.ts` | contenteditable → `@source` plat ; copie et caret après mention. | Fidélité texte soumis au Provider. |
 | `apps/web/test/composer-images.test.ts` | PNG→dataUrl ; refuse SVG ; cap 8 images. | Allowlist avant `thread.turn.start`. |
