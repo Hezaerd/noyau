@@ -14,11 +14,11 @@ function BrandBlobatar(): ReactElement {
   const palette = brandBlobatarPalette(DESKTOP_RELEASE_CHANNEL)
 
   return (
-    <span className="brand-blobatar no-drag inline-flex size-8 shrink-0 overflow-hidden rounded-md">
+    <span className="brand-blobatar no-drag inline-flex size-8 shrink-0">
       <Blobatar
         name={BRAND_BLOBATAR_NAME}
         size={32}
-        background="square"
+        background={false}
         contrast={false}
         palette={palette}
         animate="hover"
