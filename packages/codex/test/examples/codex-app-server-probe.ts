@@ -1,5 +1,6 @@
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import * as NodeServices from "@effect/platform-node/NodeServices"
+import * as Config from "effect/Config"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
@@ -8,8 +9,9 @@ import * as CodexClient from "../../src/client.ts"
 
 const program = Effect.gen(function* () {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+  const command = yield* Config.string("CODEX_BIN").pipe(Config.withDefault("codex"))
   const handle = yield* spawner.spawn(
-    ChildProcess.make(process.env.CODEX_BIN ?? "codex", ["app-server"], {
+    ChildProcess.make(command, ["app-server"], {
       cwd: process.cwd(),
       shell: false,
     }),

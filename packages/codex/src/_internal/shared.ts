@@ -3,10 +3,10 @@ import * as Schema from "effect/Schema"
 
 import * as CodexError from "../errors.ts"
 
-export const JsonRpcId = Schema.Union([Schema.Number, Schema.String])
+export const JsonRpcId = Schema.Union([Schema.Finite, Schema.String])
 
 export const JsonRpcError = Schema.Struct({
-  code: Schema.Number,
+  code: Schema.Finite,
   message: Schema.String,
   data: Schema.optional(Schema.Unknown),
 })
@@ -24,7 +24,7 @@ export const decodeOptionalPayload = <A, I>(
 ): Effect.Effect<A, CodexError.CodexAppServerRequestError> => {
   if (!schema) {
     if (raw === undefined) {
-      return Effect.sync(() => undefined as A)
+      return Effect.succeed(undefined as A)
     }
     return Effect.fail(
       CodexError.CodexAppServerRequestError.unexpectedPayload(method, "decode-payload", raw),
@@ -45,7 +45,7 @@ export const encodeOptionalPayload = <A, I>(
 ): Effect.Effect<I | undefined, CodexError.CodexAppServerRequestError> => {
   if (!schema) {
     if (payload === undefined) {
-      return Effect.sync(() => undefined)
+      return Effect.succeed(payload as I | undefined)
     }
     return Effect.fail(
       CodexError.CodexAppServerRequestError.unexpectedPayload(method, "encode-payload", payload),

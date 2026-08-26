@@ -1,18 +1,32 @@
 /// <reference types="node" />
+/// <reference types="vite/client" />
 
-import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
 
-import { RELEASE_BRANDS, RELEASE_CHANNELS } from "@noyau/shared/release-brand"
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import { RELEASE_BRANDS, RELEASE_CHANNELS, type ReleaseChannel } from "@noyau/shared/release-brand"
+import { Effect, FileSystem, ManagedRuntime } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
+import developmentSplash from "../public/boot-splash-development.svg?raw"
+import latestSplash from "../public/boot-splash-latest.svg?raw"
+import nightlySplash from "../public/boot-splash-nightly.svg?raw"
 import { renderBootSplashSvg } from "../src/lib/boot-splash-svg"
 
 const require = createRequire(import.meta.url)
-const motionCss = readFileSync(require.resolve("blobatar/motion.css"), "utf8")
-const publicDirectory = join(dirname(fileURLToPath(import.meta.url)), "..", "public")
+const fileRuntime = ManagedRuntime.make(NodeFileSystem.layer)
+const motionCss = await fileRuntime.runPromise(
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem
+    return yield* fileSystem.readFileString(require.resolve("blobatar/motion.css"))
+  }),
+)
+
+const publicSplashes = {
+  development: developmentSplash,
+  latest: latestSplash,
+  nightly: nightlySplash,
+} as const satisfies Record<ReleaseChannel, string>
 
 describe("boot splash svg", () => {
   it("bake motion.css, always et thinking dans un SVG autonome", () => {
@@ -31,8 +45,7 @@ describe("boot splash svg", () => {
   it("garde un SVG par canal aligné sur le renderer", () => {
     for (const channel of RELEASE_CHANNELS) {
       const expected = renderBootSplashSvg(channel, motionCss)
-      const actual = readFileSync(join(publicDirectory, `boot-splash-${channel}.svg`), "utf8")
-      expect(actual).toBe(expected)
+      expect(publicSplashes[channel]).toBe(expected)
     }
   })
 })
