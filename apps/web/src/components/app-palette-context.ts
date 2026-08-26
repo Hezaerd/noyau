@@ -7,6 +7,7 @@ export interface AppPaletteAction {
   readonly category?: "action" | "ticket" | "thread"
   readonly shortcut?: string
   readonly icon?: ReactNode
+  readonly prefetch?: () => void
   readonly execute: () => void | Promise<void>
 }
 

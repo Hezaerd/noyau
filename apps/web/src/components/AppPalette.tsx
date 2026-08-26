@@ -1,3 +1,4 @@
+import { ThreadId } from "@noyau/protocol/ids"
 import { useNavigate, useRouterState } from "@tanstack/react-router"
 import {
   LayoutGridIcon,
@@ -47,6 +48,7 @@ import {
   paletteItemModifierPressed,
 } from "@/lib/keyboard-shortcut"
 import { DEFAULT_SETTINGS_TAB, isSettingsPath } from "@/lib/settings-catalog"
+import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
 import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 
 const RECENT_ACTIONS_STORAGE_KEY = "noyau.palette.recent-actions"
@@ -247,6 +249,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
         searchValue: thread.searchValue,
         category: "thread" as const,
         icon: <MessageCircleIcon />,
+        prefetch: () => prefetchThreadSnapshot(ThreadId.make(thread.threadId)),
         execute: () => {
           if (lastProjectId === undefined) {
             return
@@ -274,6 +277,16 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     () => groups.flatMap((group) => group.items).slice(0, 9),
     [groups],
   )
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    const firstThread = groups
+      .flatMap((group) => group.items)
+      .find((action) => action.prefetch !== undefined)
+    firstThread?.prefetch?.()
+  }, [groups, open])
   const hotkeysPlatform = getHotkeysPlatform()
   const shortcutByActionId = useMemo(
     () =>
@@ -349,6 +362,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
                           key={action.id}
                           className="gap-2"
                           value={action.searchValue}
+                          onMouseEnter={() => action.prefetch?.()}
                           onClick={() => executeAction(action)}
                         >
                           <span className="grid size-4 shrink-0 place-items-center [&>svg]:size-4">

@@ -47,6 +47,7 @@ import {
 import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle } from "@/lib/thread-settled"
+import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
 import { toggleThreadPinned } from "@/state/thread-pins"
 
 const providerIcons = {
@@ -192,6 +193,16 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
                 to="/projects/$projectId/thread/$threadId"
                 params={{ projectId: project.id, threadId: thread.id }}
                 onClick={onSelect}
+                onPointerEnter={() => {
+                  if (!isActive) {
+                    prefetchThreadSnapshot(thread.id)
+                  }
+                }}
+                onFocus={() => {
+                  if (!isActive) {
+                    prefetchThreadSnapshot(thread.id)
+                  }
+                }}
               />
             }
             isActive={isActive}

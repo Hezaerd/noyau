@@ -7,7 +7,7 @@ import {
   ThreadShell,
   type ThreadShell as ThreadShellType,
 } from "@noyau/protocol/shell"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
@@ -18,15 +18,36 @@ import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/st
 import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
 import { setThreadPinned } from "../src/state/thread-pins"
 
+const prefetchThreadSnapshot = vi.hoisted(() => vi.fn())
+
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children }: { readonly children?: ReactNode }) => <a href="#thread">{children}</a>,
+  Link: ({
+    children,
+    onPointerEnter,
+    onFocus,
+    onClick,
+  }: {
+    readonly children?: ReactNode
+    readonly onPointerEnter?: () => void
+    readonly onFocus?: () => void
+    readonly onClick?: () => void
+  }) => (
+    <a href="#thread" onPointerEnter={onPointerEnter} onFocus={onFocus} onClick={onClick}>
+      {children}
+    </a>
+  ),
   useNavigate: () => vi.fn(),
+}))
+
+vi.mock("../src/lib/thread-snapshot-prefetch", () => ({
+  prefetchThreadSnapshot,
 }))
 
 afterEach(() => {
   cleanup()
   resetAppAtomRegistryForTests()
   resetAppliedShell()
+  prefetchThreadSnapshot.mockClear()
 })
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
@@ -193,5 +214,38 @@ describe("ThreadSidebarItem", () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
     expect(status.textContent).toMatch(/En cours/)
+  })
+
+  it("prefetches a cold Thread on pointer enter, not the open one", () => {
+    const renderItem = (isActive: boolean) =>
+      render(
+        <AppAtomRegistryProvider>
+          <SidebarProvider>
+            <ThreadSidebarItem
+              thread={thread}
+              project={{
+                id: projectId,
+                name: "noyau",
+                workspaceRoot,
+              }}
+              pullRequest={null}
+              liveBranch={null}
+              isActive={isActive}
+              settled={false}
+              onSelect={vi.fn()}
+            />
+          </SidebarProvider>
+        </AppAtomRegistryProvider>,
+      )
+
+    renderItem(false)
+    fireEvent.pointerEnter(screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ }))
+    expect(prefetchThreadSnapshot).toHaveBeenCalledWith(threadId)
+
+    prefetchThreadSnapshot.mockClear()
+    cleanup()
+    renderItem(true)
+    fireEvent.pointerEnter(screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ }))
+    expect(prefetchThreadSnapshot).not.toHaveBeenCalled()
   })
 })

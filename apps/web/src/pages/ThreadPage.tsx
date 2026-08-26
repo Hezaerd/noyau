@@ -100,6 +100,7 @@ import {
   getThreadSnapshot,
   reduceThreadSnapshotEnvelope,
   replaceThreadSnapshot,
+  threadSnapshotNeedsLoad,
 } from "@/state/thread-snapshot"
 
 interface ThreadPageProps {
@@ -118,7 +119,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const tickets = useProjectComposerTickets(projectId)
   const project = projects.find((candidate) => candidate.id === projectId)
   const snapshot = useThreadSnapshot(threadId)
-  const [loading, setLoading] = useState(threadId !== undefined)
+  const [loading, setLoading] = useState(() => threadSnapshotNeedsLoad(threadId))
   const [actionFailure, setActionFailure] = useState<FailurePresentation>()
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>()
