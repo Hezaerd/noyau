@@ -1,7 +1,11 @@
 import { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
-import { composerDraftStoreKey } from "../src/lib/composer-drafts"
+import {
+  composerDraftStoreKey,
+  parseComposerDrafts,
+  serializeComposerDrafts,
+} from "../src/lib/composer-drafts"
 import { resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import {
   promoteComposerDraft,
@@ -62,5 +66,27 @@ describe("composer drafts", () => {
 
     expect(readComposerDraft(projectA, undefined)).toBe("new leftover")
     expect(readComposerDraft(projectA, threadA)).toBe("already there")
+  })
+
+  it("round-trips valid drafts and drops empty or unknown keys", () => {
+    const drafts = new Map([
+      [composerDraftStoreKey(projectA, threadA), "from A"],
+      [composerDraftStoreKey(projectA, undefined), "new A"],
+    ])
+
+    expect(parseComposerDrafts(serializeComposerDrafts(drafts))).toEqual(drafts)
+    expect(parseComposerDrafts(null)).toEqual(new Map())
+    expect(parseComposerDrafts("")).toEqual(new Map())
+    expect(parseComposerDrafts("{")).toEqual(new Map())
+    expect(
+      parseComposerDrafts(
+        JSON.stringify({
+          [composerDraftStoreKey(projectA, threadA)]: "keep",
+          [composerDraftStoreKey(projectA, threadB)]: "",
+          "thread:not-a-uuid": "nope",
+          leftover: "nope",
+        }),
+      ),
+    ).toEqual(new Map([[composerDraftStoreKey(projectA, threadA), "keep"]]))
   })
 })
