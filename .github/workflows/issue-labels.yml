@@ -168,3 +168,64 @@ jobs:
                 });
               }
             }
+
+            const retiredLabels = [{ from: "area:database", to: "area:server" }];
+
+            for (const { from, to } of retiredLabels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: from,
+                });
+              } catch (error) {
+                if (error.status === 404) {
+                  continue;
+                }
+                throw error;
+              }
+
+              for (let page = 1; ; page++) {
+                const { data: issues } = await github.rest.issues.listForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  labels: from,
+                  state: "all",
+                  per_page: 100,
+                  page,
+                });
+                if (issues.length === 0) {
+                  break;
+                }
+
+                for (const issue of issues) {
+                  const names = issue.labels.map((label) =>
+                    typeof label === "string" ? label : label.name,
+                  );
+                  if (!names.includes(to)) {
+                    await github.rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      labels: [to],
+                    });
+                  }
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    name: from,
+                  });
+                }
+
+                if (issues.length < 100) {
+                  break;
+                }
+              }
+
+              await github.rest.issues.deleteLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: from,
+              });
+            }

@@ -36,20 +36,10 @@ export const recoverSessionsAfterBoot = Effect.fn("recoverSessionsAfterBoot")(fu
         UPDATE projection_turns
         SET state = 'error', completed_at = COALESCE(completed_at, ${updatedAt})
         WHERE state = 'running'
-          AND turn_id IN (
-            SELECT COALESCE(
-              session.active_turn_id,
-              (
-                SELECT turn.turn_id
-                FROM projection_turns AS turn
-                WHERE turn.thread_id = session.thread_id
-                  AND turn.state = 'running'
-                ORDER BY turn.ordinal DESC
-                LIMIT 1
-              )
-            )
-            FROM projection_sessions AS session
-            WHERE session.status IN ('starting', 'running')
+          AND thread_id IN (
+            SELECT thread_id
+            FROM projection_sessions
+            WHERE status IN ('starting', 'running')
           )
       `
       yield* sql`

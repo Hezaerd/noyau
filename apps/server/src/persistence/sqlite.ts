@@ -28,7 +28,10 @@ const setupLayer = Layer.effectDiscard(
  */
 export const layer = ({
   filename,
-}: SqlitePersistenceConfig): Layer.Layer<SqlClient, MigrationError | SqlError> => {
+}: SqlitePersistenceConfig): Layer.Layer<
+  SqlClient,
+  MigrationError | SqlError | NodeSqliteClient.UnsupportedNodeSqliteVersion
+> => {
   const clientLayer = NodeSqliteClient.layer({ filename })
   return setupLayer.pipe(Layer.provideMerge(clientLayer))
 }
