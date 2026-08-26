@@ -22,7 +22,7 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
-import { Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Schema } from "effect"
+import { Clock, Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { TestClock } from "effect/testing"
 
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
@@ -203,26 +203,21 @@ const resumeFrom = (signals: ReadonlyArray<ProviderSignal>) => {
   return session?._tag === "session" ? session.resumeCursor : null
 }
 
-const waitForLog = Effect.fn("CursorAdapterTest.waitForLog")(function* (
-  filePath: string,
-  snippet: string,
-) {
-  // Wall-clock poll: the fake ACP child writes the request log outside TestClock.
-  const deadline = Date.now() + 2_000
-  while (Date.now() < deadline) {
-    const log = yield* readLog(filePath).pipe(Effect.orElseSucceed(() => ""))
-    if (log.includes(snippet)) {
-      return log
-    }
-    yield* Effect.promise(
-      () =>
-        new Promise<void>((resolve) => {
-          setTimeout(resolve, 20)
-        }),
-    )
-  }
-  return yield* Effect.die(`request log never contained ${snippet}`)
-})
+const waitForLog = Effect.fn("CursorAdapterTest.waitForLog")((filePath: string, snippet: string) =>
+  TestClock.withLive(
+    Effect.gen(function* () {
+      const deadline = (yield* Clock.currentTimeMillis) + 2_000
+      while ((yield* Clock.currentTimeMillis) < deadline) {
+        const log = yield* readLog(filePath).pipe(Effect.orElseSucceed(() => ""))
+        if (log.includes(snippet)) {
+          return log
+        }
+        yield* Effect.sleep("20 millis")
+      }
+      return yield* Effect.die(`request log never contained ${snippet}`)
+    }),
+  ),
+)
 
 layer(platformLayer)("Cursor ACP adapter", (it) => {
   it.effect("prefers an explicit configured path, then PATH, then a bare fallback", () =>
@@ -1077,12 +1072,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
               }),
           )
           yield* waitForLog(evidence.requestLog, '"method":"session/load"')
-          yield* Effect.promise(
-            () =>
-              new Promise<void>((resolve) => {
-                setTimeout(resolve, 50)
-              }),
-          )
+          yield* TestClock.withLive(Effect.sleep("50 millis"))
           yield* TestClock.adjust("2 seconds")
           yield* provider.drain
           const log = yield* readLog(evidence.requestLog)

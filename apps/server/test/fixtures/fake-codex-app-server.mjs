@@ -4,7 +4,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { Config, Effect, FileSystem, ManagedRuntime, Option } from "effect"
 
 const runtime = ManagedRuntime.make(NodeFileSystem.layer)
-const { exitLog, fileSystem, requestLog, scenario, threadId } = await runtime.runPromise(
+const { envToken, exitLog, fileSystem, requestLog, scenario, threadId } = await runtime.runPromise(
   Effect.gen(function* () {
     return {
       scenario: yield* Config.string("NOYAU_FAKE_CODEX_SCENARIO").pipe(
@@ -15,6 +15,7 @@ const { exitLog, fileSystem, requestLog, scenario, threadId } = await runtime.ru
       threadId: yield* Config.string("NOYAU_FAKE_CODEX_THREAD_ID").pipe(
         Config.withDefault("fake-codex-thread"),
       ),
+      envToken: yield* Config.option(Config.string("NOYAU_MCP_BEARER_TOKEN")),
       fileSystem: yield* FileSystem.FileSystem,
     }
   }),
@@ -118,7 +119,7 @@ await Effect.runPromise(
   logRequest({
     method: "_spawn",
     argv: process.argv.slice(2),
-    envToken: process.env.NOYAU_MCP_BEARER_TOKEN ?? null,
+    envToken: Option.getOrNull(envToken),
   }),
 )
 

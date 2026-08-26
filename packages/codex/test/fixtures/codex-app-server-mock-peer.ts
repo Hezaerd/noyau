@@ -1,5 +1,7 @@
 import * as NodeOS from "node:os"
 
+import { Config, Effect } from "effect"
+
 let nextServerRequestId = 10_000
 let pendingSkillsListRequestId: number | string | null = null
 let pendingUserInputRequestId: number | null = null
@@ -38,7 +40,11 @@ const handleMethod = (message: Record<string, unknown>) => {
     case "initialize": {
       // oxlint-disable-next-line t3code/no-global-process-runtime -- Standalone mock peer process has no Effect runtime.
       const platform = NodeOS.platform()
-      const stderrBytes = Number(process.env.CODEX_APP_SERVER_TEST_STDERR_BYTES ?? 0)
+      const stderrBytes = Number(
+        Effect.runSync(
+          Config.string("CODEX_APP_SERVER_TEST_STDERR_BYTES").pipe(Config.withDefault("0")),
+        ),
+      )
       if (Number.isFinite(stderrBytes) && stderrBytes > 0) {
         process.stderr.write("x".repeat(stderrBytes), () => {
           respond(message.id as number | string, {

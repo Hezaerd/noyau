@@ -16,7 +16,8 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
-import { Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
+import { Clock, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
+import { TestClock } from "effect/testing"
 
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
 const fakeCodex = fileURLToPath(new URL("./fixtures/fake-codex-app-server.mjs", import.meta.url))
@@ -141,25 +142,21 @@ const resumeFrom = (signals: ReadonlyArray<ProviderSignal>) => {
   return session?._tag === "session" ? session.resumeCursor : null
 }
 
-const waitForLog = Effect.fn("CodexAdapterTest.waitForLog")(function* (
-  filePath: string,
-  snippet: string,
-) {
-  const deadline = Date.now() + 2_000
-  while (Date.now() < deadline) {
-    const log = yield* readLog(filePath).pipe(Effect.orElseSucceed(() => ""))
-    if (log.includes(snippet)) {
-      return log
-    }
-    yield* Effect.promise(
-      () =>
-        new Promise<void>((resolve) => {
-          setTimeout(resolve, 20)
-        }),
-    )
-  }
-  return yield* Effect.die(`request log never contained ${snippet}`)
-})
+const waitForLog = Effect.fn("CodexAdapterTest.waitForLog")((filePath: string, snippet: string) =>
+  TestClock.withLive(
+    Effect.gen(function* () {
+      const deadline = (yield* Clock.currentTimeMillis) + 2_000
+      while ((yield* Clock.currentTimeMillis) < deadline) {
+        const log = yield* readLog(filePath).pipe(Effect.orElseSucceed(() => ""))
+        if (log.includes(snippet)) {
+          return log
+        }
+        yield* Effect.sleep("20 millis")
+      }
+      return yield* Effect.die(`request log never contained ${snippet}`)
+    }),
+  ),
+)
 
 layer(platformLayer)("Codex app-server adapter", (it) => {
   it.effect("prefers an explicit configured path, then PATH, then a bare fallback", () =>

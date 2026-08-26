@@ -31,7 +31,8 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
-import { Effect, FileSystem, Layer, Path } from "effect"
+import { Clock, Deferred, Effect, FileSystem, Layer, Path } from "effect"
+import { TestClock } from "effect/testing"
 
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
@@ -58,10 +59,7 @@ const testMcpSessionsLayer = (onRevoke: () => void = () => undefined) =>
 
 class FakeClaudeQuery implements ClaudeQueryRuntime {
   private readonly queue: Array<SDKMessage> = []
-  private readonly waiters: Array<{
-    readonly resolve: (value: IteratorResult<SDKMessage>) => void
-    readonly reject: (reason: Error) => void
-  }> = []
+  private readonly waiters: Array<Deferred.Deferred<IteratorResult<SDKMessage>>> = []
   private done = false
   public readonly interruptCalls: Array<void> = []
   public closeCalls = 0
@@ -72,7 +70,7 @@ class FakeClaudeQuery implements ClaudeQueryRuntime {
     }
     const waiter = this.waiters.shift()
     if (waiter) {
-      waiter.resolve({ done: false, value: message })
+      Deferred.doneUnsafe(waiter, Effect.succeed({ done: false, value: message }))
       return
     }
     this.queue.push(message)
@@ -84,12 +82,13 @@ class FakeClaudeQuery implements ClaudeQueryRuntime {
     }
     this.done = true
     for (const waiter of this.waiters.splice(0)) {
-      waiter.resolve({ done: true, value: undefined })
+      Deferred.doneUnsafe(waiter, Effect.succeed({ done: true, value: undefined }))
     }
   }
 
-  readonly interrupt = async (): Promise<void> => {
+  readonly interrupt = (): Promise<void> => {
     this.interruptCalls.push(undefined)
+    return Promise.resolve()
   }
 
   readonly close = (): void => {
@@ -109,9 +108,9 @@ class FakeClaudeQuery implements ClaudeQueryRuntime {
         if (this.done) {
           return Promise.resolve({ done: true, value: undefined })
         }
-        return new Promise((resolve, reject) => {
-          this.waiters.push({ resolve, reject })
-        })
+        const deferred = Deferred.makeUnsafe<IteratorResult<SDKMessage>>()
+        this.waiters.push(deferred)
+        return Effect.runPromise(Deferred.await(deferred))
       },
     }
   }
@@ -232,27 +231,24 @@ const withProvider = <A, E, R>(
     }),
   )
 
-const waitForQuery = Effect.fn("ClaudeAdapterTest.waitForQuery")(function* (
-  queries: Array<FakeClaudeQuery>,
-  minimum = 1,
-) {
-  const deadline = Date.now() + 2_000
-  while (Date.now() < deadline) {
-    if (queries.length >= minimum) {
-      const query = queries[queries.length - 1]
-      if (query !== undefined) {
-        return query
-      }
-    }
-    yield* Effect.promise(
-      () =>
-        new Promise<void>((resolve) => {
-          setTimeout(resolve, 10)
-        }),
-    )
-  }
-  return yield* Effect.die("Claude query was never created")
-})
+const waitForQuery = Effect.fn("ClaudeAdapterTest.waitForQuery")(
+  (queries: Array<FakeClaudeQuery>, minimum = 1) =>
+    TestClock.withLive(
+      Effect.gen(function* () {
+        const deadline = (yield* Clock.currentTimeMillis) + 2_000
+        while ((yield* Clock.currentTimeMillis) < deadline) {
+          if (queries.length >= minimum) {
+            const query = queries[queries.length - 1]
+            if (query !== undefined) {
+              return query
+            }
+          }
+          yield* Effect.sleep("10 millis")
+        }
+        return yield* Effect.die("Claude query was never created")
+      }),
+    ),
+)
 
 const capture = Effect.fn("ClaudeAdapterTest.capture")(function* (
   provider: ProviderPort["Service"],
@@ -411,10 +407,7 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
         }
         const prompt = harness.lastPrompt()
         assert.isDefined(prompt)
-        const first = yield* Effect.promise(async () => {
-          const iterator = prompt[Symbol.asyncIterator]()
-          return iterator.next()
-        })
+        const first = yield* Effect.promise(() => prompt[Symbol.asyncIterator]().next())
         assert.isFalse(first.done)
         const content = first.value.message.content
         assert.isTrue(
@@ -494,29 +487,34 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
         const canUseTool = harness.lastOptions()?.canUseTool
         assert.isDefined(canUseTool)
         const requestId = "tool-approval-1"
+        const abortSignal = yield* Effect.abortSignal
         const pending = canUseTool(
           "Bash",
           { command: "ls" },
           {
-            signal: new AbortController().signal,
+            signal: abortSignal,
             toolUseID: requestId,
             requestId,
           },
         )
-        const deadline = Date.now() + 2_000
-        while (Date.now() < deadline) {
-          if (
-            signals.some(
-              (signal) =>
-                signal._tag === "transcript" &&
-                signal.item._tag === "transcript.permission" &&
-                signal.item.status === "pending",
-            )
-          ) {
-            break
-          }
-          yield* Effect.sleep("10 millis")
-        }
+        yield* TestClock.withLive(
+          Effect.gen(function* () {
+            const deadline = (yield* Clock.currentTimeMillis) + 2_000
+            while ((yield* Clock.currentTimeMillis) < deadline) {
+              if (
+                signals.some(
+                  (signal) =>
+                    signal._tag === "transcript" &&
+                    signal.item._tag === "transcript.permission" &&
+                    signal.item.status === "pending",
+                )
+              ) {
+                return
+              }
+              yield* Effect.sleep("10 millis")
+            }
+          }),
+        )
         yield* provider.respondApproval(threadId, ApprovalRequestId.make(requestId), "accept")
         const result = yield* Effect.promise(() => pending)
         assert.isNotNull(result)
