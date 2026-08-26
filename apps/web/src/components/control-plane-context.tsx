@@ -13,13 +13,13 @@ import {
 } from "@/state/shell"
 
 export function ControlPlaneProvider({ children }: { readonly children: ReactNode }) {
-  enableLiveShell()
   useAtomValue(shellResourceAtom)
   const shell = useAppliedShell()
   const subscriptionStatus = useSubscriptionStatus()
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
 
   useEffect(() => {
+    enableLiveShell()
     hydrateLastProjectId()
   }, [])
 

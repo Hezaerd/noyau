@@ -156,6 +156,19 @@ describe("executeAtomQuery", () => {
 
     registry.dispose()
   })
+
+  it("interrompt une query abandonnée via AbortSignal", async () => {
+    const registry = makeTestRegistry()
+    const controller = new AbortController()
+    const result = executeAtomQuery(registry, Atom.make(Effect.never), {
+      signal: controller.signal,
+    })
+
+    controller.abort()
+
+    expect(isAtomCommandInterrupted(await result)).toBe(true)
+    registry.dispose()
+  })
 })
 
 describe("runtime command scheduler", () => {
@@ -227,6 +240,7 @@ describe("runtime command scheduler", () => {
 
   it("serializes commands that share a scheduler and lane", async () => {
     const firstLatch = Latch.makeUnsafe()
+    const firstStarted = Latch.makeUnsafe()
     const events: Array<string> = []
     const runtime = Atom.runtime(Layer.empty)
     const scheduler = createAtomCommandScheduler()
@@ -236,7 +250,10 @@ describe("runtime command scheduler", () => {
       scheduler,
       concurrency,
       execute: () =>
-        Effect.sync(() => events.push("first:start")).pipe(
+        Effect.sync(() => {
+          events.push("first:start")
+          firstStarted.openUnsafe()
+        }).pipe(
           Effect.andThen(firstLatch.await),
           Effect.tap(() => Effect.sync(() => events.push("first:end"))),
         ),
@@ -250,8 +267,8 @@ describe("runtime command scheduler", () => {
     const registry = makeTestRegistry()
 
     const first = firstCommand.run(registry, undefined)
+    await Effect.runPromise(firstStarted.await)
     const second = secondCommand.run(registry, undefined)
-    await Promise.resolve()
     expect(events).toEqual(["first:start"])
 
     firstLatch.openUnsafe()
@@ -332,21 +349,24 @@ describe("runtime command scheduler", () => {
 
   it("coalesces pending latest-value commands without interrupting the active call", async () => {
     const firstLatch = Latch.makeUnsafe()
+    const firstStarted = Latch.makeUnsafe()
     const executed: Array<number> = []
     const runtime = Atom.runtime(Layer.empty)
     const command = createRuntimeCommand(runtime, {
       label: "test.latest",
       concurrency: { mode: "latest", key: () => "shared" },
       execute: (value: number) =>
-        Effect.sync(() => executed.push(value)).pipe(
-          Effect.andThen(value === 1 ? firstLatch.await : Effect.void),
-          Effect.as(value),
-        ),
+        Effect.sync(() => {
+          executed.push(value)
+          if (value === 1) {
+            firstStarted.openUnsafe()
+          }
+        }).pipe(Effect.andThen(value === 1 ? firstLatch.await : Effect.void), Effect.as(value)),
     })
     const registry = makeTestRegistry()
 
     const first = command.run(registry, 1)
-    await Promise.resolve()
+    await Effect.runPromise(firstStarted.await)
     const second = command.run(registry, 2)
     const third = command.run(registry, 3)
     firstLatch.openUnsafe()

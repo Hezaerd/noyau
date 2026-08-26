@@ -134,16 +134,12 @@ export const shellSubscriptionStatus = (
         ? failureFromControlPlaneError(connection.failure)
         : resource?.error !== undefined
           ? failureFromControlPlaneError(resource.error)
-          : {
-              _tag: "TransportFailure" as const,
-              phase: "stream" as const,
-              reason: "failed" as const,
-            }
-    return {
-      _tag: "Reconnecting",
+          : undefined
+    const reconnecting = {
+      _tag: "Reconnecting" as const,
       attempt: Math.max(1, connection?.attempt ?? 1),
-      failure,
     }
+    return failure === undefined ? reconnecting : { ...reconnecting, failure }
   }
 
   if (resource?.phase === "live") {

@@ -22,6 +22,7 @@ export interface AtomCommandOptions {
   readonly label?: string
   readonly reportFailure?: boolean
   readonly reportDefect?: boolean
+  readonly signal?: AbortSignal
 }
 
 export interface AtomCommandReporter {
@@ -31,7 +32,11 @@ export interface AtomCommandReporter {
 
 export interface AtomCommand<W, A, E> {
   readonly label: string
-  readonly run: (registry: AtomRegistry.AtomRegistry, input: W) => Promise<AtomCommandResult<A, E>>
+  readonly run: (
+    registry: AtomRegistry.AtomRegistry,
+    input: W,
+    options?: { readonly signal?: AbortSignal },
+  ) => Promise<AtomCommandResult<A, E>>
 }
 
 export type AtomCommandConcurrency<W> =
@@ -137,6 +142,15 @@ const applyQueryPolicies = <A, E>(
 
 const applyIdleTtl = <A>(atom: Atom.Atom<A>, idleTtlMs: number | undefined): Atom.Atom<A> =>
   idleTtlMs === undefined ? atom : atom.pipe(Atom.setIdleTTL(idleTtlMs))
+
+const effectLogReporter: AtomCommandReporter = {
+  warn: (message, cause) => {
+    Effect.runFork(Effect.logWarning(message, Cause.pretty(cause)))
+  },
+  error: (message, cause) => {
+    Effect.runFork(Effect.logError(message, Cause.pretty(cause)))
+  },
+}
 
 async function settleAtomCommandResult<A, E>(
   execute: () => Promise<AtomCommandResult<A, E>>,
@@ -287,9 +301,15 @@ export const runAtomCommand = async <W, A, E>(
   command: AtomCommand<W, A, E>,
   input: W,
   options: AtomCommandOptions = {},
-  reporter: AtomCommandReporter = console,
+  reporter: AtomCommandReporter = effectLogReporter,
 ): Promise<AtomCommandResult<A, E>> => {
-  const result = await settleAtomCommandResult(() => command.run(registry, input))
+  const result = await settleAtomCommandResult(() =>
+    command.run(
+      registry,
+      input,
+      options.signal === undefined ? undefined : { signal: options.signal },
+    ),
+  )
   reportAtomCommandResult(result, { ...options, label: options.label ?? command.label }, reporter)
   return result
 }
@@ -321,20 +341,18 @@ export const settleAsyncResult = async <A, E>(
 export const executeAtomCommand = async <A, E>(
   execute: () => Promise<Exit.Exit<A, E>>,
   options: AtomCommandOptions = {},
-  reporter: AtomCommandReporter = console,
+  reporter: AtomCommandReporter = effectLogReporter,
 ): Promise<AtomCommandResult<A, E>> => {
   const result = await settleAsyncResult(execute)
   reportAtomCommandResult(result, options, reporter)
   return result
 }
 
-export const executeAtomQuery = async <A, E>(
+export const executeAtomQueryEffect = <A, E>(
   registry: AtomRegistry.AtomRegistry,
   atom: Atom.Atom<AsyncResult.AsyncResult<A, E>>,
-  options: AtomCommandOptions = {},
-  reporter: AtomCommandReporter = console,
-): Promise<AtomCommandResult<A, E>> => {
-  const query = Effect.scoped(
+): Effect.Effect<A, E> =>
+  Effect.scoped(
     Effect.gen(function* () {
       yield* AtomRegistry.mount(registry, atom)
       return yield* AtomRegistry.getResult(registry, atom, {
@@ -342,7 +360,19 @@ export const executeAtomQuery = async <A, E>(
       })
     }),
   )
-  return executeAtomCommand(() => Effect.runPromiseExit(query), options, reporter)
+
+export const executeAtomQuery = async <A, E>(
+  registry: AtomRegistry.AtomRegistry,
+  atom: Atom.Atom<AsyncResult.AsyncResult<A, E>>,
+  options: AtomCommandOptions = {},
+  reporter: AtomCommandReporter = effectLogReporter,
+): Promise<AtomCommandResult<A, E>> => {
+  const query = executeAtomQueryEffect(registry, atom)
+  return executeAtomCommand(
+    () => Effect.runPromiseExit(query, { signal: options.signal }),
+    options,
+    reporter,
+  )
 }
 
 export const createRuntimeCommand = <R, ER, W, A, E>(
@@ -358,13 +388,17 @@ export const createRuntimeCommand = <R, ER, W, A, E>(
   const concurrency = options.concurrency ?? { mode: "parallel" as const }
   return {
     label: options.label,
-    run: (registry, input) =>
+    run: (registry, input, runOptions) =>
       settleAtomCommandResult(() =>
         scheduler.schedule(registry, concurrency, input, () => {
           const atom = runtime
             .atom(options.execute(input, registry))
             .pipe(Atom.withLabel(options.label))
-          return executeAtomQuery(registry, atom, { reportDefect: false, reportFailure: false })
+          const queryOptions: AtomCommandOptions =
+            runOptions?.signal === undefined
+              ? { reportDefect: false, reportFailure: false }
+              : { reportDefect: false, reportFailure: false, signal: runOptions.signal }
+          return executeAtomQuery(registry, atom, queryOptions)
         }),
       ),
   }
@@ -373,7 +407,7 @@ export const createRuntimeCommand = <R, ER, W, A, E>(
 export const reportAtomCommandResult = (
   result: AtomCommandResult<unknown, unknown>,
   options: AtomCommandOptions = {},
-  reporter: AtomCommandReporter = console,
+  reporter: AtomCommandReporter = effectLogReporter,
 ): void => {
   if (AsyncResult.isSuccess(result) || Cause.hasInterruptsOnly(result.cause)) {
     return
@@ -399,8 +433,49 @@ export const settlePromise = async <A>(
   }
 }
 
+type JsonReplacerValue =
+  | { readonly [key: string]: JsonReplacerValue }
+  | ReadonlyArray<JsonReplacerValue>
+  | string
+  | number
+  | boolean
+  | null
+
+const createKeyedAtomFamily = <Input, A extends object>(
+  create: (input: Input, key: string) => A,
+): ((input: Input) => A) => {
+  const pendingInputs = new Map<string, { readonly input: Input }>()
+  const stableInputKey = (input: Input): string =>
+    JSON.stringify(input, (_key, value: JsonReplacerValue) => {
+      if (!(value instanceof Object) || Array.isArray(value)) {
+        return value
+      }
+      return Object.fromEntries(
+        Object.entries(value).toSorted(([left], [right]) => left.localeCompare(right)),
+      )
+    }) ?? "null"
+  const family = Atom.family((key: string) => {
+    const pending = pendingInputs.get(key)
+    if (pending === undefined) {
+      throw new Error(`Missing Atom family input for key ${key}`)
+    }
+    pendingInputs.delete(key)
+    return create(pending.input, key)
+  })
+
+  return (input) => {
+    const key = stableInputKey(input)
+    pendingInputs.set(key, { input })
+    try {
+      return family(key)
+    } finally {
+      pendingInputs.delete(key)
+    }
+  }
+}
+
 /**
- * Family de query mono-Environment. La clé est `JSON.stringify(input)`.
+ * Family de query mono-Environment. La clé est une sérialisation JSON stable de l'input.
  * `staleTime`, `idleTTL` et refresh ne s'appliquent que s'ils sont demandés.
  */
 export const createQueryAtomFamily = <R, ER, Input, A, E>(
@@ -420,21 +495,20 @@ export const createQueryAtomFamily = <R, ER, Input, A, E>(
     { initialValue: null },
   )
 
-  const family = Atom.family((key: string) => {
-    // SAFETY: `key` is produced by JSON.stringify(input) for this family's Input.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const input = JSON.parse(key) as Input
-    const queryAtom = runtime.atom((get) => {
-      const generation = Option.getOrNull(AsyncResult.value(get(generationAtom)))
-      if (generation === null) {
-        return Effect.never
-      }
-      return publishIfCurrentGeneration(generation, options.execute(input))
-    })
-    return applyQueryPolicies(queryAtom, options).pipe(Atom.withLabel(`${options.label}:${key}`))
-  })
+  const family = createKeyedAtomFamily<Input, Atom.Atom<AsyncResult.AsyncResult<A, E | ER>>>(
+    (input, key) => {
+      const queryAtom = runtime.atom((get) => {
+        const generation = Option.getOrNull(AsyncResult.value(get(generationAtom)))
+        if (generation === null) {
+          return Effect.never
+        }
+        return publishIfCurrentGeneration(generation, options.execute(input))
+      })
+      return applyQueryPolicies(queryAtom, options).pipe(Atom.withLabel(`${options.label}:${key}`))
+    },
+  )
 
-  return (input) => family(JSON.stringify(input) ?? "null")
+  return family
 }
 
 /**
@@ -446,10 +520,10 @@ export const createSubscriptionAtomFamily = <R, ER, Input, A, E>(
   runtime: Atom.AtomRuntime<ConnectionSupervisor | R, ER>,
   options: SubscriptionAtomFamilyOptions<Input, A, E, ConnectionSupervisor | R>,
 ): ((input: Input) => Atom.Atom<AsyncResult.AsyncResult<A, E | ER | Cause.NoSuchElementError>>) => {
-  const family = Atom.family((key: string) => {
-    // SAFETY: `key` is produced by JSON.stringify(input) for this family's Input.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const input = JSON.parse(key) as Input
+  const family = createKeyedAtomFamily<
+    Input,
+    Atom.Atom<AsyncResult.AsyncResult<A, E | ER | Cause.NoSuchElementError>>
+  >((input, key) => {
     const atom = runtime.atom(
       Stream.unwrap(
         ConnectionSupervisor.pipe(
@@ -464,5 +538,5 @@ export const createSubscriptionAtomFamily = <R, ER, Input, A, E>(
     return applyIdleTtl(atom, options.idleTtlMs).pipe(Atom.withLabel(`${options.label}:${key}`))
   })
 
-  return (input) => family(JSON.stringify(input) ?? "null")
+  return family
 }

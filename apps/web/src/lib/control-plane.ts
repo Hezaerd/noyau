@@ -74,7 +74,7 @@ export type ControlPlaneResult<A> =
 
 export type SubscriptionStatus =
   | { readonly _tag: "Connected" }
-  | { readonly _tag: "Reconnecting"; readonly attempt: number; readonly failure: AppFailure }
+  | { readonly _tag: "Reconnecting"; readonly attempt: number; readonly failure?: AppFailure }
   | { readonly _tag: "Failed"; readonly failure: AppFailure }
 
 class ControlPlaneClient extends Context.Service<
@@ -153,12 +153,6 @@ const runOnCurrentSession = <A, E>(
   )
 
 const runOperation = <A, E>(
-  operation: Effect.Effect<A, E, ControlPlaneClient>,
-  phase: FailurePhase,
-): Promise<ControlPlaneResult<A>> =>
-  runOnCurrentSession(operation).then((exit) => matchOperationExit(exit, phase))
-
-const runOperationWithCrypto = <A, E>(
   operation: Effect.Effect<A, E, ControlPlaneClient | Crypto.Crypto>,
   phase: FailurePhase,
 ): Promise<ControlPlaneResult<A>> =>
@@ -432,13 +426,11 @@ export const openInEditor = (
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,
 ): Promise<ControlPlaneResult<DispatchResult>> =>
-  runOperationWithCrypto(request, "input").then((built) =>
-    built.ok ? dispatchCommand(built.value) : built,
-  )
+  runOperation(request, "input").then((built) => (built.ok ? dispatchCommand(built.value) : built))
 
 export const buildCommand = <A, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,
-): Promise<ControlPlaneResult<A>> => runOperationWithCrypto(request, "input")
+): Promise<ControlPlaneResult<A>> => runOperation(request, "input")
 
 type StreamCallbacks<Snapshot, Event> = {
   readonly onSnapshot: (snapshot: Snapshot) => void
@@ -576,7 +568,21 @@ export const superviseSubscription = <Session>({
     }
     const resolved = currentSession()
     if (resolved instanceof Promise) {
-      void resolved.then(beginAttempt)
+      void resolved.then(beginAttempt, () => {
+        if (stopped) {
+          return
+        }
+        attempt += 1
+        onStatus({
+          _tag: "Reconnecting",
+          attempt,
+          failure: { _tag: "TransportFailure", phase: "stream", reason: "failed" },
+        })
+        cancelReconnect = schedule(() => {
+          cancelReconnect = undefined
+          connect()
+        }, attempt)
+      })
       return
     }
     beginAttempt(resolved)

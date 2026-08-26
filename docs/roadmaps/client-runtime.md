@@ -588,7 +588,7 @@ nécessaire à la suite doit finir ici, dans un ADR, un `CONTEXT.md`, un test ou
 
 | Phase | Statut | Issue/PR | Dernière preuve | Prochain pas |
 | --- | --- | --- | --- | --- |
-| 0 — Baseline | Terminé | #272 | tests streams + inventaire 58 | Phase 1 : squelette `@noyau/client-runtime` |
+| 0 — Baseline | Terminé | #272 | tests streams + inventaire 59 | Phase 1 : squelette `@noyau/client-runtime` |
 | 1 — Package | Terminé | #272 / #273 | 16 tests package + 46 tests Phase 0 Web verts | Phase 2 : Session RPC / superviseur |
 | 2 — Session/superviseur | Terminé | #273 | 29 tests package + 61 tests Phase 0 Web verts | Phase 3 : primitives Atom |
 | 3 — Primitives Atom | Terminé | #273 | families + scheduler package verts | Phase 4 : tranche Shell |
@@ -606,6 +606,19 @@ critères de sortie de la phase, pas seulement du code présent.
 ## 14. Journal des sessions
 
 Ajouter les entrées les plus récentes en premier.
+
+### 2026-08-26 — Cleanup review de la PR #273
+
+- Session/superviseur : sérialisation atomique de `installSession` / `stop`, timeout de handshake
+  10 s avec disposal, fermeture du scope RPC sur échec de construction et reprise après rejet de
+  `currentSession`.
+- Runtime Atom : clés JSON stables sans `JSON.parse`, reporter Effect par défaut, query exposée en
+  `Effect` et annulation `AbortSignal`. Tests TTL, resynchronisation post-`live` et scheduler
+  synchronisés par `Latch`.
+- Web : activation Shell hors render, resynchronisation saine sans fausse panne transport,
+  documentation alignée sur les 59 consommateurs.
+- Preuves : `vp check --fix` ciblé sans erreur ; package Client Runtime 74 tests verts ; Web ciblé
+  51 tests verts.
 
 ### 2026-08-26 — Phase 4 terminée (tranche verticale Shell)
 
@@ -681,7 +694,7 @@ Ajouter les entrées les plus récentes en premier.
 - `synchronized` actuel verrouillé : toute frame publie `Connected` ; le marqueur n'avance pas le
   curseur, n'active pas le live et ne mute pas le snapshot. Ambiguïté transport vs Projection live
   à éliminer en Phase 3–4 — pas corrigée ici.
-- Inventaire : `apps/web/test/client-runtime-consumers.test.ts` — 58 fichiers `apps/web/src`,
+- Inventaire : `apps/web/test/client-runtime-consumers.test.ts` — 59 fichiers `apps/web/src`,
   scan filesystem = table. Seuils : 1 Shell, 1 Project/Thread retenu, 0 write après disposal.
 - Aucune modification fonctionnelle. Phase 1 peut créer `@noyau/client-runtime`.
 

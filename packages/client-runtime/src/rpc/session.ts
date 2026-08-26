@@ -83,10 +83,16 @@ const make = Effect.gen(function* () {
         ),
       ),
     )
-    const protocolContext = yield* Layer.buildWithScope(protocolLayer, sessionScope)
-    const client = yield* RpcClient.make(ControlPlaneRpcs).pipe(
-      Effect.provide(protocolContext),
-      Scope.provide(sessionScope),
+    const client = yield* Effect.gen(function* () {
+      const protocolContext = yield* Layer.buildWithScope(protocolLayer, sessionScope)
+      return yield* RpcClient.make(ControlPlaneRpcs).pipe(
+        Effect.provide(protocolContext),
+        Scope.provide(sessionScope),
+      )
+    }).pipe(
+      Effect.onExit((exit) =>
+        Exit.isSuccess(exit) ? Effect.void : Scope.close(sessionScope, Exit.void),
+      ),
     )
     const dispose = Ref.getAndSet(disposed, true).pipe(
       Effect.flatMap((already) => (already ? Effect.void : Scope.close(sessionScope, Exit.void))),

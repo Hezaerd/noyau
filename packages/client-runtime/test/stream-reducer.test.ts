@@ -148,6 +148,20 @@ describe("reduceSequencedFrame — doublons et anciens", () => {
     expect(projection.value()).toEqual({ snapshotSequence: seq(5), label: "snap-5" })
     expect(projection.phase()).toBe("synchronizing")
   })
+
+  it("repasse en synchronizing sur un snapshot plus récent après live", () => {
+    const projection = makeSequencedProjection<TestSnapshot, TestEvent>(undefined)
+    projection.consume(snapshotFrame(5, "initial"))
+    projection.consume(synchronizedFrame)
+    expect(projection.phase()).toBe("live")
+
+    const resync = projection.consume(snapshotFrame(8, "resync"))
+
+    expect(resync.accepted).toBe("snapshot")
+    expect(projection.phase()).toBe("synchronizing")
+    expect(projection.afterSequence()).toBe(seq(8))
+    expect(projection.value()).toEqual({ snapshotSequence: seq(8), label: "resync" })
+  })
 })
 
 describe("reduceSequencedFrame — applyEvent optionnel", () => {

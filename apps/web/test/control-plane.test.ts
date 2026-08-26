@@ -165,4 +165,41 @@ describe("control plane stream cursor", () => {
         expect(statuses).toHaveLength(1)
       }),
     ))
+
+  it("replanifie la résolution quand currentSession rejette", async () => {
+    interface Session {
+      readonly id: number
+    }
+    let resolutions = 0
+    const attempts: Array<Session> = []
+    const reconnects: Array<() => void> = []
+    const statuses: Array<SubscriptionStatus> = []
+    const stop = superviseSubscription<Session>({
+      afterSequence: () => undefined,
+      currentSession: () =>
+        resolutions++ === 0 ? Promise.reject(new Error("session unavailable")) : { id: 2 },
+      startAttempt: (session) => {
+        attempts.push(session)
+        return () => undefined
+      },
+      replaceSession: () => Promise.resolve(),
+      onStatus: (status) => statuses.push(status),
+      schedule: (reconnect) => {
+        reconnects.push(reconnect)
+        return () => undefined
+      },
+    })
+
+    await Promise.resolve()
+    expect(statuses).toEqual([
+      {
+        _tag: "Reconnecting",
+        attempt: 1,
+        failure: { _tag: "TransportFailure", phase: "stream", reason: "failed" },
+      },
+    ])
+    reconnects[0]?.()
+    expect(attempts).toEqual([{ id: 2 }])
+    stop()
+  })
 })

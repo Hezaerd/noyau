@@ -3,7 +3,7 @@ import { ConnectionSupervisor, TransportRupture } from "@noyau/client-runtime/co
 import { RpcSessionFactory } from "@noyau/client-runtime/rpc"
 import { makeFakeRpcSession } from "@noyau/client-runtime/testing"
 import { Forbidden } from "@noyau/protocol/errors"
-import { Effect, Layer, SubscriptionRef } from "effect"
+import { Effect, Fiber, Layer, SubscriptionRef } from "effect"
 import { TestClock } from "effect/testing"
 
 const makeRecordingFactory = () => {
@@ -145,6 +145,54 @@ describe("ConnectionSupervisor", () => {
           yield* TestClock.adjust(1)
           yield* Effect.yieldNow
           expect(recording.connects).toEqual([1, 2])
+          yield* supervisor.stop
+        }),
+      )
+    }),
+  )
+
+  it.effect("borne l'ouverture pendante et dispose la tentative avant le retry", () =>
+    Effect.gen(function* () {
+      const connects: Array<number> = []
+      const disposes: Array<number> = []
+      const recording = {
+        connects,
+        disposes,
+        layer: Layer.succeed(RpcSessionFactory)({
+          connect: (generation) =>
+            Effect.sync(() => {
+              connects.push(generation)
+              const session = makeFakeRpcSession(generation, () => disposes.push(generation))
+              return {
+                generation,
+                get client() {
+                  return session.client
+                },
+                ready: Effect.never,
+                closed: session.closed,
+                dispose: session.dispose,
+              }
+            }),
+        }),
+      }
+
+      yield* withSupervisor(
+        recording,
+        Effect.gen(function* () {
+          const supervisor = yield* ConnectionSupervisor
+          const startFiber = yield* supervisor.start.pipe(Effect.forkChild)
+          yield* Effect.yieldNow
+          expect(connects).toEqual([1])
+          yield* Effect.yieldNow
+
+          yield* TestClock.adjust("10 seconds")
+          yield* Fiber.await(startFiber)
+
+          expect(disposes).toEqual([1])
+          expect(yield* SubscriptionRef.get(supervisor.state)).toMatchObject({
+            phase: "reconnecting",
+            attempt: 1,
+          })
           yield* supervisor.stop
         }),
       )

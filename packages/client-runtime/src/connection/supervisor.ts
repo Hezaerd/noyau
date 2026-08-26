@@ -1,5 +1,16 @@
 import { RpcSessionFactory, type RpcSession } from "@noyau/client-runtime/rpc"
-import { Context, Effect, Exit, Layer, Option, Ref, Scope, Stream, SubscriptionRef } from "effect"
+import {
+  Context,
+  Effect,
+  Exit,
+  Layer,
+  Option,
+  Ref,
+  Scope,
+  Semaphore,
+  Stream,
+  SubscriptionRef,
+} from "effect"
 
 import {
   asTransportRupture,
@@ -64,6 +75,7 @@ const make = Effect.fn("ConnectionSupervisor.make")(function* () {
   const generationRef = yield* Ref.make(0)
   const gate = yield* Ref.make(initialGate)
   const lifetime = yield* Ref.make<Scope.Closeable | undefined>(undefined)
+  const transition = yield* Semaphore.make(1)
 
   const setState = (next: ConnectionState): Effect.Effect<void> => SubscriptionRef.set(state, next)
 
@@ -122,24 +134,26 @@ const make = Effect.fn("ConnectionSupervisor.make")(function* () {
     })
 
   const installSession = (session: RpcSession, nextGeneration: number): Effect.Effect<void> =>
-    Effect.gen(function* () {
-      const afterConnect = yield* Ref.get(gate)
-      if (afterConnect.stopped) {
-        yield* session.dispose
-        return
-      }
-      yield* Ref.set(sessionRef, session)
-      yield* Ref.update(gate, (current) => ({ ...current, replacing: false }))
-      yield* setState(connectionState("connected", nextGeneration, 0))
-      const scope = yield* ensureLifetime
-      yield* session.closed.pipe(
-        Effect.matchEffect({
-          onFailure: (rupture): Effect.Effect<void> => notifyTransportRupture(session, rupture),
-          onSuccess: (): Effect.Effect<void> => Effect.void,
-        }),
-        Effect.forkIn(scope),
-      )
-    })
+    transition.withPermits(1)(
+      Effect.gen(function* () {
+        const afterConnect = yield* Ref.get(gate)
+        if (afterConnect.stopped) {
+          yield* session.dispose
+          return
+        }
+        yield* Ref.set(sessionRef, session)
+        yield* Ref.update(gate, (current) => ({ ...current, replacing: false }))
+        yield* setState(connectionState("connected", nextGeneration, 0))
+        const scope = yield* ensureLifetime
+        yield* session.closed.pipe(
+          Effect.matchEffect({
+            onFailure: (rupture): Effect.Effect<void> => notifyTransportRupture(session, rupture),
+            onSuccess: (): Effect.Effect<void> => Effect.void,
+          }),
+          Effect.forkIn(scope),
+        )
+      }),
+    )
 
   const openSession = (): Effect.Effect<void> =>
     Effect.gen(function* () {
@@ -153,7 +167,16 @@ const make = Effect.fn("ConnectionSupervisor.make")(function* () {
         previous.phase === "reconnecting" || previous.attempt > 0 ? "reconnecting" : "connecting"
       yield* setState(connectionState(phase, nextGeneration, previous.attempt, previous.failure))
       yield* factory.connect(nextGeneration).pipe(
-        Effect.flatMap((opened) => opened.ready.pipe(Effect.as(opened))),
+        Effect.flatMap((opened) =>
+          opened.ready.pipe(
+            Effect.timeout("10 seconds"),
+            Effect.catchTag("TimeoutError", () =>
+              Effect.fail(new TransportRupture({ reason: "failed" })),
+            ),
+            Effect.onExit((exit) => (Exit.isSuccess(exit) ? Effect.void : opened.dispose)),
+            Effect.as(opened),
+          ),
+        ),
         Effect.matchEffect({
           onFailure: (rupture): Effect.Effect<void> => scheduleReplace(rupture),
           onSuccess: (session): Effect.Effect<void> => installSession(session, nextGeneration),
@@ -227,19 +250,23 @@ const make = Effect.fn("ConnectionSupervisor.make")(function* () {
   }).pipe(Effect.withSpan("ConnectionSupervisor.start"))
 
   const stop: Effect.Effect<void> = Effect.gen(function* () {
-    yield* Ref.update(gate, (current) => ({
-      ...current,
-      started: false,
-      stopped: true,
-      replacing: false,
-    }))
-    const session = yield* Ref.getAndSet(sessionRef, undefined)
-    if (session !== undefined) {
-      yield* session.dispose
-    }
+    yield* transition.withPermits(1)(
+      Effect.gen(function* () {
+        yield* Ref.update(gate, (current) => ({
+          ...current,
+          started: false,
+          stopped: true,
+          replacing: false,
+        }))
+        const session = yield* Ref.getAndSet(sessionRef, undefined)
+        if (session !== undefined) {
+          yield* session.dispose
+        }
+        const previous = yield* SubscriptionRef.get(state)
+        yield* setState(connectionState("unavailable", previous.generation, 0))
+      }),
+    )
     yield* interruptLifetime
-    const previous = yield* SubscriptionRef.get(state)
-    yield* setState(connectionState("unavailable", previous.generation, 0))
   }).pipe(Effect.withSpan("ConnectionSupervisor.stop"))
 
   return ConnectionSupervisor.of({

@@ -54,4 +54,13 @@ describe("delayed subscription failure", () => {
     )
     expect(result.current).toEqual(failed.failure)
   })
+
+  it("garde une resynchronisation saine silencieuse", () => {
+    const { result } = renderHook<AppFailure | undefined, HookProps>(
+      ({ status }) => useDelayedSubscriptionFailure(status, 750),
+      { initialProps: { status: { _tag: "Reconnecting", attempt: 1 } } },
+    )
+
+    expect(result.current).toBeUndefined()
+  })
 })

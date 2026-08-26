@@ -40,7 +40,8 @@ Aucune source t3code n'est copiée. Référence lue seulement.
 
 `createQueryAtomFamily` et `createSubscriptionAtomFamily` reçoivent un
 `Atom.runtime(layer)` qui fournit `ConnectionSupervisor`. La clé de family est
-`JSON.stringify(input)` ; pas d'`EnvironmentId`. Une query attend
+une sérialisation JSON stable de l'input, dont l'instance originale est conservée ;
+pas d'`EnvironmentId`. Une query attend
 `phase === "connected"`, se revalide quand la génération change, et ignore un
 résultat plus ancien. Une subscription commute via `Stream.switchMap` sur la
 nouvelle génération. `staleTime`, `idleTTL` et refresh ne s'appliquent que s'ils

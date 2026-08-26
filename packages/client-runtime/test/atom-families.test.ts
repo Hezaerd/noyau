@@ -5,6 +5,7 @@ import {
   createSubscriptionAtomFamily,
 } from "@noyau/client-runtime/state/runtime"
 import { makeTestRegistry } from "@noyau/client-runtime/testing"
+import type { Cause } from "effect"
 import { Effect, Latch, Stream } from "effect"
 import { AsyncResult, Atom, AtomRegistry } from "effect/unstable/reactivity"
 
@@ -13,7 +14,40 @@ import { makeControllableSupervisor } from "./fake-supervisor.ts"
 const successValue = <A, E>(result: AsyncResult.AsyncResult<A, E>): A | undefined =>
   AsyncResult.isSuccess(result) ? result.value : undefined
 
+class FamilyInputMarker {
+  readonly value = "original"
+}
+
+const familyInputMarker = new FamilyInputMarker()
+const noopCancel = (): void => undefined
+
 describe("createQueryAtomFamily", () => {
+  it.effect("normalise l'ordre des clés et conserve l'input d'origine", () =>
+    Effect.gen(function* () {
+      const supervisor = yield* makeControllableSupervisor()
+      const runtime = Atom.runtime(supervisor.layer)
+      const observed: Array<FamilyInputMarker> = []
+      const family = createQueryAtomFamily(runtime, {
+        label: "test.query.key",
+        execute: (input: { readonly id: string; readonly marker: FamilyInputMarker }) =>
+          Effect.sync(() => {
+            observed.push(input.marker)
+            return input.id
+          }),
+      })
+      const first = family({ id: "a", marker: familyInputMarker })
+      const second = family({ marker: familyInputMarker, id: "a" })
+      const registry = makeTestRegistry()
+      const unmount = registry.mount(first)
+
+      expect(second).toBe(first)
+      expect(yield* AtomRegistry.getResult(registry, first, { suspendOnWaiting: true })).toBe("a")
+      expect(observed).toEqual([familyInputMarker])
+      unmount()
+      registry.dispose()
+    }),
+  )
+
   it.effect("partage une exécution entre deux mounts du même input", () =>
     Effect.gen(function* () {
       const supervisor = yield* makeControllableSupervisor()
@@ -181,9 +215,56 @@ describe("createQueryAtomFamily idleTTL", () => {
     remount()
     registry.dispose()
   })
+
+  it("réexécute la query après l'expiration de idleTTL", async () => {
+    const supervisor = await Effect.runPromise(
+      makeControllableSupervisor(connectionState("connected", 1, 0)),
+    )
+    const runtime = Atom.runtime(supervisor.layer)
+    let executions = 0
+    const family = createQueryAtomFamily(runtime, {
+      label: "test.query.idle-expired",
+      idleTtlMs: 10_000,
+      execute: () =>
+        Effect.sync(() => {
+          executions += 1
+          return "cached"
+        }),
+    })
+    const registry = makeTestRegistry()
+    const atom = family({ id: "idle-expired" })
+    const unmount = registry.mount(atom)
+    expect(await executeMounted(registry, atom)).toBe("cached")
+    expect(executions).toBe(1)
+    unmount()
+    await Effect.runPromise(Effect.yieldNow)
+
+    // AtomRegistry buckets TTLs by its timer resolution and expires on the next sweep.
+    await vitest.advanceTimersByTimeAsync(20_000)
+    await Effect.runPromise(Effect.yieldNow)
+    const remount = registry.mount(atom)
+    expect(await executeMounted(registry, atom)).toBe("cached")
+    expect(executions).toBe(2)
+    remount()
+    registry.dispose()
+  })
 })
 
 describe("createSubscriptionAtomFamily", () => {
+  it.effect("partage la subscription pour deux inputs dont les clés sont réordonnées", () =>
+    Effect.gen(function* () {
+      const supervisor = yield* makeControllableSupervisor()
+      const runtime = Atom.runtime(supervisor.layer)
+      const family = createSubscriptionAtomFamily(runtime, {
+        label: "test.subscription.key",
+        subscribe: (input: { readonly projectId: string; readonly cursor: number }) =>
+          Stream.succeed(`${input.projectId}:${input.cursor}`),
+      })
+
+      expect(family({ projectId: "p1", cursor: 2 })).toBe(family({ cursor: 2, projectId: "p1" }))
+    }),
+  )
+
   it.effect("partage une subscription et suit une nouvelle génération", () =>
     Effect.gen(function* () {
       const supervisor = yield* makeControllableSupervisor(connectionState("connected", 1, 0))
@@ -256,18 +337,19 @@ const awaitSuccess = <A, E>(
   registry: AtomRegistry.AtomRegistry,
   atom: Atom.Atom<AsyncResult.AsyncResult<A, E>>,
   expected: A,
-): Effect.Effect<void> =>
+): Effect.Effect<void, Cause.TimeoutError> =>
   Effect.callback<void>((resume) => {
     let settled = false
-    const done = (cancel: () => void) => {
+    let cancel = noopCancel
+    const done = (cancelNow: () => void) => {
       if (settled) {
         return
       }
       settled = true
-      cancel()
+      cancelNow()
       resume(Effect.void)
     }
-    const cancel = registry.subscribe(atom, (result) => {
+    cancel = registry.subscribe(atom, (result) => {
       if (successValue(result) === expected) {
         done(cancel)
       }
@@ -275,4 +357,10 @@ const awaitSuccess = <A, E>(
     if (successValue(registry.get(atom)) === expected) {
       done(cancel)
     }
-  })
+    return Effect.sync(() => {
+      if (!settled) {
+        settled = true
+        cancel()
+      }
+    })
+  }).pipe(Effect.timeout("5 seconds"))

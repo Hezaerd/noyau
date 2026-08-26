@@ -522,10 +522,13 @@ describe("boot and reconnect visible Shell state", () => {
     ).toBe(undefined)
     expect(
       shellSubscriptionStatus(synchronizing, { phase: "connected", generation: 2, attempt: 0 }),
-    ).toMatchObject({ _tag: "Reconnecting" })
+    ).toEqual({ _tag: "Reconnecting", attempt: 1 })
     expect(
       shellSubscriptionStatus(live, { phase: "reconnecting", generation: 1, attempt: 1 })?._tag,
     ).toBe("Reconnecting")
-    expect(shellSubscriptionStatus(synchronizing, undefined)?._tag).toBe("Reconnecting")
+    expect(shellSubscriptionStatus(synchronizing, undefined)).toEqual({
+      _tag: "Reconnecting",
+      attempt: 1,
+    })
   })
 })

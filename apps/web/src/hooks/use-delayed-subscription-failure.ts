@@ -18,6 +18,10 @@ export const useDelayedSubscriptionFailure = (
       setFailure(undefined)
       return
     }
+    if (status.failure === undefined) {
+      setFailure(undefined)
+      return
+    }
     const timeout = window.setTimeout(() => setFailure(status.failure), delay)
     return () => window.clearTimeout(timeout)
   }, [delay, status])

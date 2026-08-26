@@ -49,7 +49,7 @@ packages/shared ──ne dépend de rien──
 - `shared` ne dépend de rien. Helpers purs consommés par `web` et `server`.
 - `client-runtime` dépend de `protocol` et Effect seulement. Pas de React, DOM, Electron,
   Zustand, `@effect/atom-react`, `domain` ni `apps/web`. Web consomme les subpaths
-  `rpc`, `connection` et `state/shell` pour le transport et la Projection Shell.
+  `platform`, `rpc`, `connection` et `state/shell` pour le transport et la Projection Shell.
 - `server` enrichit les commandes, possède SQLite, spawn Cursor, pousse les streams RPC et expose
   le Tableau aux agents par MCP HTTP.
 - `desktop` supervise le process serveur (fd3, token de lancement, PID). Aucun état métier.
