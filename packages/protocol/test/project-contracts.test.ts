@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import {
   CursorProviderStatus,
   Environment,
+  emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
   emptyCursorProviderStatus,
   WorkspaceRoot,
@@ -140,25 +141,29 @@ describe("CursorProviderStatus", () => {
       binaryPath: null,
       models: [],
     })
+    expect(emptyClaudeProviderStatus).toEqual(emptyCursorProviderStatus)
     expect(emptyCodexProviderStatus).toEqual(emptyCursorProviderStatus)
   })
 })
 
 describe("Environment", () => {
-  it("exige cursor et codex", () => {
+  it("exige cursor, claude et codex", () => {
     const decoded = Schema.decodeSync(Environment)({
       id: "90000000-0000-4000-8000-000000000001",
       cursor: emptyCursorProviderStatus,
+      claude: emptyClaudeProviderStatus,
       codex: emptyCodexProviderStatus,
       createdAt: "2026-08-20T00:00:00.000Z",
     })
 
     expect(decoded.cursor.installed).toBe(false)
+    expect(decoded.claude.installed).toBe(false)
     expect(decoded.codex.installed).toBe(false)
     expect(() =>
       Schema.decodeUnknownSync(Environment)({
         id: "90000000-0000-4000-8000-000000000001",
         cursor: emptyCursorProviderStatus,
+        codex: emptyCodexProviderStatus,
         createdAt: "2026-08-20T00:00:00.000Z",
       }),
     ).toThrow()

@@ -78,6 +78,13 @@ const environment = Schema.decodeSync(Environment)({
     plan: null,
     binaryPath: null,
   },
+  claude: {
+    installed: false,
+    handshakeOk: false,
+    version: null,
+    plan: null,
+    binaryPath: null,
+  },
   codex: {
     installed: false,
     handshakeOk: false,

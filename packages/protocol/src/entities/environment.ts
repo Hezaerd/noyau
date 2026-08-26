@@ -17,7 +17,7 @@ export const WorkspaceRoot = Schema.NonEmptyString.check(
 export type WorkspaceRoot = (typeof WorkspaceRoot)["Type"]
 
 /** Provider réel d'un Thread. Immuable après `thread.create`. */
-export const Provider = Schema.Literals(["cursor", "codex"])
+export const Provider = Schema.Literals(["cursor", "claude", "codex"])
 export type Provider = (typeof Provider)["Type"]
 
 export const CursorReasoningEffort = Schema.Struct({
@@ -71,6 +71,12 @@ export const emptyCursorProviderStatus: CursorProviderStatus = {
   models: [],
 }
 
+/** Statut live Claude : même forme de catalogue que Cursor. */
+export const ClaudeProviderStatus = CursorProviderStatus
+export type ClaudeProviderStatus = CursorProviderStatus
+
+export const emptyClaudeProviderStatus: ClaudeProviderStatus = emptyCursorProviderStatus
+
 /** Statut live Codex : même forme de catalogue que Cursor. */
 export const CodexProviderStatus = CursorProviderStatus
 export type CodexProviderStatus = CursorProviderStatus
@@ -81,6 +87,7 @@ export const emptyCodexProviderStatus: CodexProviderStatus = emptyCursorProvider
 export class Environment extends Schema.Class<Environment>("@noyau/protocol/entities/Environment")({
   id: EnvironmentId,
   cursor: CursorProviderStatus,
+  claude: ClaudeProviderStatus,
   codex: CodexProviderStatus,
   createdAt: Schema.DateTimeUtcFromString,
 }) {}
