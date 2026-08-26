@@ -303,12 +303,20 @@ meta ; l'aperçu passe par `previewAttachment`. Vit dans le Brouillon le temps d
 _À éviter_ : FilePreview, dataUrl dans le transcript, images persistées
 
 **Keybinding**:
-Association persistée entre une Action et un Raccourci, surchargeable depuis les Paramètres.
+Association persistée entre une Action, un Raccourci et une Condition, surchargeable depuis les Paramètres.
 _À éviter_ : shortcut, hotkey, binding
 
 **Raccourci**:
 Combinaison de touches au format tanstack (`Mod+K`).
 _À éviter_ : shortcut, hotkey
+
+**Condition de Keybinding**:
+Contrainte fermée évaluée au moment du Raccourci (Surface, sélection, Dialog). Distincte du Contexte d'activation de la Palette.
+_À éviter_ : when clause, context key, contexte, mode
+
+**Surface de Keybinding**:
+Page qui borne une Condition (`tableau` | `thread` | `settings`). Distincte du ShellFocus : les Paramètres sont une Surface, pas sticky.
+_À éviter_ : ShellFocus, route, contexte
 
 **Écran de démarrage**:
 SVG blobatar autonome (`public/boot-splash-*.svg`) affiché par `index.html` avant le chrome,

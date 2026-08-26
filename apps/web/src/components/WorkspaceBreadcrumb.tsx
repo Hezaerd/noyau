@@ -2,12 +2,12 @@ import type { ThreadId } from "@noyau/protocol/ids"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import { Input } from "@/components/ui/input"
+import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
 import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 import { cn } from "@/lib/utils"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 import { toggleThreadPinned } from "@/state/thread-pins"
 
 export function WorkspaceBreadcrumb({
@@ -101,32 +101,20 @@ function EditableThreadTitle({
     return () => cancelAnimationFrame(frame)
   }, [renaming])
 
-  useEffect(() => {
-    if (threadId === undefined) {
-      return
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        isKeybindingRecorderActive() ||
-        renaming ||
-        document.querySelector('[role="dialog"]') !== null
-      ) {
-        return
-      }
-      if (matchesKeybinding(event, "thread.rename")) {
-        event.preventDefault()
-        setRenaming(true)
-        return
-      }
-      if (matchesKeybinding(event, "thread.pin")) {
-        event.preventDefault()
+  useKeybindingHandler(
+    "thread.rename",
+    () => setRenaming(true),
+    threadId !== undefined && !renaming,
+  )
+  useKeybindingHandler(
+    "thread.pin",
+    () => {
+      if (threadId !== undefined) {
         toggleThreadPinned(threadId)
       }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [renaming, threadId])
+    },
+    threadId !== undefined && !renaming,
+  )
 
   const commitRename = () => {
     const nextTitle = title.trim()

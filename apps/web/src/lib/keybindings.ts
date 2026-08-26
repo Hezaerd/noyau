@@ -7,6 +7,12 @@ import {
 import { Option, Schema } from "effect"
 
 import {
+  keybindingConditionSpecificity,
+  keybindingConditionsOverlap,
+  matchKeybindingCondition,
+  type KeybindingConditionSnapshot,
+} from "@/lib/keybinding-when"
+import {
   defaultKeybinding,
   getKeybindingDefinition,
   isKeybindingId,
@@ -133,14 +139,35 @@ export const keybindingConflicts = (
   if (canonical === undefined) {
     return []
   }
-  const group = getKeybindingDefinition(id).group
+  const when = getKeybindingDefinition(id).when
   return KEYBINDING_IDS.filter((candidate) => {
     if (candidate === id || resolved[candidate] !== canonical) {
       return false
     }
-    const candidateGroup = getKeybindingDefinition(candidate).group
-    return group === candidateGroup || group === "global" || candidateGroup === "global"
+    return keybindingConditionsOverlap(when, getKeybindingDefinition(candidate).when)
   })
+}
+
+export const resolveMatchingKeybinding = (
+  event: KeyboardEvent,
+  resolved: ResolvedKeybindings,
+  snapshot: KeybindingConditionSnapshot,
+  platform: HotkeysPlatform = currentPlatform(),
+): KeybindingId | undefined => {
+  const matches = KEYBINDING_IDS.filter((id) => {
+    if (!matchesKeyboardEvent(event, resolved[id], platform)) {
+      return false
+    }
+    return matchKeybindingCondition(getKeybindingDefinition(id).when, snapshot)
+  })
+  if (matches.length === 0) {
+    return undefined
+  }
+  return matches.toSorted(
+    (left, right) =>
+      keybindingConditionSpecificity(getKeybindingDefinition(right).when) -
+      keybindingConditionSpecificity(getKeybindingDefinition(left).when),
+  )[0]
 }
 
 export const matchesKeybinding = (

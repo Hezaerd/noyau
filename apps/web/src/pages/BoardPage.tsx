@@ -22,7 +22,6 @@ import type { TicketActivity } from "@noyau/protocol/board"
 import type { ClientCommandRequest } from "@noyau/protocol/commands"
 import type { TicketPriority } from "@noyau/protocol/entities/ticket"
 import { KanbanColumnId, type ProjectId, type ThreadId, TicketId } from "@noyau/protocol/ids"
-import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
 import type { Crypto } from "effect"
@@ -79,7 +78,8 @@ import {
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
-import { useKeybindingRecorderActive, useKeybindings } from "@/hooks/use-keybindings"
+import { useKeybindingHandlers } from "@/hooks/use-keybinding-handler"
+import { useKeybindings } from "@/hooks/use-keybindings"
 import { useProjectBoard } from "@/hooks/use-project-board"
 import {
   createBoardActions,
@@ -124,6 +124,7 @@ import {
   makeTicketUpdateRequest,
 } from "@/lib/ticket-commands"
 import { cn } from "@/lib/utils"
+import { setKeybindingSelection } from "@/state/keybinding-context"
 const priorityLabels = {
   none: "Sans priorité",
   low: "Basse",
@@ -651,7 +652,6 @@ export function BoardPage({
 }: BoardPageProps) {
   const projectThreads = useProjectThreads(projectId)
   const { resolved: keybindings } = useKeybindings()
-  const recorderActive = useKeybindingRecorderActive()
   const { snapshot: boardSnapshot, status: subscriptionStatus } = useProjectBoard(projectId)
   const [state, setState] = useState<BoardState>({
     columns: [],
@@ -899,53 +899,45 @@ export function BoardPage({
     )
   }
 
-  useHotkeys(
-    [
-      { hotkey: keybindings["board.navigate.up"], callback: () => navigateVertical(-1) },
-      { hotkey: keybindings["board.navigate.down"], callback: () => navigateVertical(1) },
-      { hotkey: keybindings["board.navigate.left"], callback: () => navigateHorizontal(-1) },
-      { hotkey: keybindings["board.navigate.right"], callback: () => navigateHorizontal(1) },
-      {
-        hotkey: keybindings["board.ticket.open"],
-        callback: () => {
-          if (activeTicketId !== undefined) {
-            onOpenTicket(activeTicketId)
-          }
-        },
-      },
-      {
-        hotkey: keybindings["board.ticket.create"],
-        callback: () => {
-          const active = state.tickets.find((ticket) => ticket.id === activeTicketId)
-          const fallback = state.columns.find((column) => !column.done)
-          const columnId = active?.columnId ?? fallback?.id
-          const column = state.columns.find((candidate) => candidate.id === columnId)
-          if (column !== undefined && !column.done) {
-            setCreatingColumnId(column.id)
-          }
-        },
-      },
-      {
-        hotkey: keybindings["board.ticket.rename"],
-        callback: () => {
-          if (activeTicketId !== undefined) {
-            setRenamingTicketId(activeTicketId)
-            onOpenTicket(activeTicketId)
-          }
-        },
-      },
-      { hotkey: keybindings["board.search"], callback: () => searchRef.current?.focus() },
-      { hotkey: keybindings["board.move.up"], callback: () => keyboardMove(-1, false) },
-      { hotkey: keybindings["board.move.down"], callback: () => keyboardMove(1, false) },
-      { hotkey: keybindings["board.move.left"], callback: () => keyboardMove(-1, true) },
-      { hotkey: keybindings["board.move.right"], callback: () => keyboardMove(1, true) },
-    ],
-    {
-      target: boardRef,
-      enabled: selectedTicket === undefined && !recorderActive,
-      preventDefault: true,
+  useEffect(() => {
+    setKeybindingSelection({
+      ticketSelected: activeTicketId !== undefined,
+      columnSelected: false,
+    })
+    return () => setKeybindingSelection({ ticketSelected: false, columnSelected: false })
+  }, [activeTicketId])
+
+  useKeybindingHandlers({
+    "board.navigate.up": () => navigateVertical(-1),
+    "board.navigate.down": () => navigateVertical(1),
+    "board.navigate.left": () => navigateHorizontal(-1),
+    "board.navigate.right": () => navigateHorizontal(1),
+    "board.ticket.open": () => {
+      if (activeTicketId !== undefined) {
+        onOpenTicket(activeTicketId)
+      }
     },
-  )
+    "board.ticket.create": () => {
+      const active = state.tickets.find((ticket) => ticket.id === activeTicketId)
+      const fallback = state.columns.find((column) => !column.done)
+      const columnId = active?.columnId ?? fallback?.id
+      const column = state.columns.find((candidate) => candidate.id === columnId)
+      if (column !== undefined && !column.done) {
+        setCreatingColumnId(column.id)
+      }
+    },
+    "board.ticket.rename": () => {
+      if (activeTicketId !== undefined) {
+        setRenamingTicketId(activeTicketId)
+        onOpenTicket(activeTicketId)
+      }
+    },
+    "board.search": () => searchRef.current?.focus(),
+    "board.move.up": () => keyboardMove(-1, false),
+    "board.move.down": () => keyboardMove(1, false),
+    "board.move.left": () => keyboardMove(-1, true),
+    "board.move.right": () => keyboardMove(1, true),
+  })
 
   const handleDragStart = ({ active }: DragStartEvent) => {
     dragStartStateRef.current = state

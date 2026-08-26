@@ -17,6 +17,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
+import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { composerOverlayGlassClassName } from "@/lib/composer-glass"
 import {
@@ -26,7 +27,6 @@ import {
   type FavoriteModel,
 } from "@/lib/model-picker-preferences"
 import { cn } from "@/lib/utils"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 
 type ProviderTab = "favorites" | Provider
 type ModelPickerItem = {
@@ -108,17 +108,7 @@ export function ThreadModelPicker({
     }
   }, [activeTab, allowedProviders])
 
-  useEffect(() => {
-    if (disabled) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isKeybindingRecorderActive()) return
-      if (!matchesKeybinding(event, "thread.model-picker.open")) return
-      event.preventDefault()
-      setOpen(true)
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [disabled, modelPickerHotkey])
+  useKeybindingHandler("thread.model-picker.open", () => setOpen(true), !disabled)
 
   const allItems = useMemo(() => {
     const items = allowedProviders.flatMap((provider) =>

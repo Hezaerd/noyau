@@ -6,6 +6,7 @@ import { SettingsPage, SettingsRow, SettingsSection } from "@/components/setting
 import { Button } from "@/components/ui/button"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { useKeybindings, useSetKeybindingRecorderActive } from "@/hooks/use-keybindings"
+import { describeKeybindingCondition } from "@/lib/keybinding-when"
 import { keybindingConflicts } from "@/lib/keybindings"
 import {
   KEYBINDING_GROUP_IDS,
@@ -71,6 +72,7 @@ export function KeybindingsSettingsPanel(): ReactElement {
               const customized = isCustom(keybinding.id)
               const conflicts = keybindingConflicts(keybinding.id, hotkey, resolved)
               const conflictLabels = conflicts.map((id) => getKeybindingDefinition(id).title)
+              const whenLabel = describeKeybindingCondition(keybinding.when)
 
               return (
                 <SettingsRow
@@ -80,6 +82,9 @@ export function KeybindingsSettingsPanel(): ReactElement {
                   description={
                     <>
                       {keybinding.description}
+                      {whenLabel === undefined ? null : (
+                        <span className="mt-1 block text-muted-foreground">{whenLabel}</span>
+                      )}
                       {conflictLabels.length === 0 ? null : (
                         <span className="mt-1 block text-destructive">
                           Même Raccourci que {conflictLabels.join(", ")}.

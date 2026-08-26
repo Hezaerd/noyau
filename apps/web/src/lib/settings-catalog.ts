@@ -1,3 +1,4 @@
+import { describeKeybindingCondition } from "@/lib/keybinding-when"
 import { KEYBINDINGS } from "@/lib/keybindings-catalog"
 import { PROVIDER_SETTINGS_ITEMS } from "@/lib/providers-catalog"
 
@@ -173,13 +174,21 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     description: "Keybindings personnalisables de l’app.",
     keywords: ["clavier", "hotkey", "shortcut", "keybind", "raccourci"],
   },
-  ...KEYBINDINGS.map((keybinding) => ({
-    id: keybinding.id,
-    tab: "keybindings" as const,
-    title: keybinding.title,
-    description: keybinding.description,
-    keywords: ["raccourci", "clavier", keybinding.defaultHotkey],
-  })),
+  ...KEYBINDINGS.map((keybinding) => {
+    const whenLabel = describeKeybindingCondition(keybinding.when)
+    return {
+      id: keybinding.id,
+      tab: "keybindings" as const,
+      title: keybinding.title,
+      description: keybinding.description,
+      keywords: [
+        "raccourci",
+        "clavier",
+        keybinding.defaultHotkey,
+        ...(whenLabel === undefined ? [] : [whenLabel]),
+      ],
+    }
+  }),
 ]
 
 export interface SettingsSearchHit {

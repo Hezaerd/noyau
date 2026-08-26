@@ -1,5 +1,7 @@
 import type { Hotkey } from "@tanstack/react-hotkeys"
 
+import type { KeybindingCondition } from "@/lib/keybinding-when"
+
 export const KEYBINDING_GROUP_IDS = ["global", "board", "thread", "settings"] as const
 
 export type KeybindingGroupId = (typeof KEYBINDING_GROUP_IDS)[number]
@@ -36,6 +38,7 @@ export interface KeybindingDefinition {
   readonly title: string
   readonly description: string
   readonly defaultHotkey: Hotkey
+  readonly when: KeybindingCondition
 }
 
 export const KEYBINDING_GROUP_LABELS = {
@@ -45,6 +48,49 @@ export const KEYBINDING_GROUP_LABELS = {
   settings: "Paramètres",
 } as const satisfies Record<KeybindingGroupId, string>
 
+const WHEN_GLOBAL = {
+  dialogOpen: false,
+  editableFocused: false,
+} as const satisfies KeybindingCondition
+
+const WHEN_THREAD = {
+  surface: "thread",
+  dialogOpen: false,
+} as const satisfies KeybindingCondition
+
+const WHEN_THREAD_CHROME = {
+  surface: "thread",
+  dialogOpen: false,
+  editableFocused: false,
+} as const satisfies KeybindingCondition
+
+const WHEN_TABLEAU = {
+  surface: "tableau",
+  dialogOpen: false,
+  editableFocused: false,
+} as const satisfies KeybindingCondition
+
+const WHEN_TABLEAU_TICKET = {
+  surface: "tableau",
+  ticketSelected: true,
+  dialogOpen: false,
+  editableFocused: false,
+} as const satisfies KeybindingCondition
+
+const WHEN_TABLEAU_COLUMN = {
+  surface: "tableau",
+  columnSelected: true,
+  ticketSelected: false,
+  dialogOpen: false,
+  editableFocused: false,
+} as const satisfies KeybindingCondition
+
+const WHEN_SETTINGS = {
+  surface: "settings",
+  dialogOpen: false,
+  editableFocused: false,
+} as const satisfies KeybindingCondition
+
 export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
   {
     id: "palette.open",
@@ -52,6 +98,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Ouvrir la Palette",
     description: "Ouvre la Palette depuis n’importe quelle page.",
     defaultHotkey: "Mod+K",
+    when: WHEN_GLOBAL,
   },
   {
     id: "settings.open",
@@ -59,6 +106,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Ouvrir les Paramètres",
     description: "Ouvre les Paramètres depuis n’importe quelle page.",
     defaultHotkey: "Mod+,",
+    when: {},
   },
   {
     id: "thread.create",
@@ -66,6 +114,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Nouveau Thread",
     description: "Ouvre un nouveau Thread dans le Project courant.",
     defaultHotkey: "Mod+N",
+    when: { dialogOpen: false },
   },
   {
     id: "thread.rename",
@@ -73,6 +122,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Renommer le Thread",
     description: "Renomme le Thread ouvert dans le chrome.",
     defaultHotkey: "F2",
+    when: WHEN_THREAD_CHROME,
   },
   {
     id: "thread.pin",
@@ -80,6 +130,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Épingler le Thread",
     description: "Épingle ou désépingle le Thread ouvert en haut de la sidebar.",
     defaultHotkey: "Mod+P",
+    when: WHEN_THREAD_CHROME,
   },
   {
     id: "thread.model-picker.open",
@@ -87,6 +138,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Choisir un modèle",
     description: "Ouvre le sélecteur de modèle du Composer.",
     defaultHotkey: "Mod+;",
+    when: WHEN_THREAD,
   },
   {
     id: "thread.settle",
@@ -94,6 +146,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Classer le Thread",
     description: "Classe ou déclasse le Thread ouvert dans la queue Classés.",
     defaultHotkey: "Mod+E",
+    when: WHEN_THREAD,
   },
   {
     id: "board.search",
@@ -101,6 +154,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Rechercher dans le Tableau",
     description: "Place le focus dans la recherche du Tableau.",
     defaultHotkey: "/",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.ticket.create",
@@ -108,6 +162,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Créer un ticket",
     description: "Ouvre la création d’un ticket dans la colonne active.",
     defaultHotkey: "C",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.ticket.open",
@@ -115,6 +170,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Ouvrir le ticket",
     description: "Ouvre le Dialog du ticket sélectionné.",
     defaultHotkey: "Enter",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.ticket.rename",
@@ -122,6 +178,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Renommer le ticket",
     description: "Renomme le ticket ciblé.",
     defaultHotkey: "F2",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.column.rename",
@@ -129,6 +186,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Renommer la colonne",
     description: "Renomme la colonne ciblée.",
     defaultHotkey: "F2",
+    when: WHEN_TABLEAU_COLUMN,
   },
   {
     id: "board.navigate.up",
@@ -136,6 +194,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Ticket précédent",
     description: "Sélectionne le ticket au-dessus.",
     defaultHotkey: "ArrowUp",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.navigate.down",
@@ -143,6 +202,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Ticket suivant",
     description: "Sélectionne le ticket en dessous.",
     defaultHotkey: "ArrowDown",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.navigate.left",
@@ -150,6 +210,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Colonne précédente",
     description: "Sélectionne le ticket dans la colonne de gauche.",
     defaultHotkey: "ArrowLeft",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.navigate.right",
@@ -157,6 +218,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Colonne suivante",
     description: "Sélectionne le ticket dans la colonne de droite.",
     defaultHotkey: "ArrowRight",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.move.up",
@@ -164,6 +226,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Monter le ticket",
     description: "Déplace le ticket sélectionné vers le haut.",
     defaultHotkey: "Alt+Shift+ArrowUp",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.move.down",
@@ -171,6 +234,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Descendre le ticket",
     description: "Déplace le ticket sélectionné vers le bas.",
     defaultHotkey: "Alt+Shift+ArrowDown",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.move.left",
@@ -178,6 +242,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Ticket vers la gauche",
     description: "Déplace le ticket sélectionné dans la colonne de gauche.",
     defaultHotkey: "Alt+Shift+ArrowLeft",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.move.right",
@@ -185,6 +250,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Ticket vers la droite",
     description: "Déplace le ticket sélectionné dans la colonne de droite.",
     defaultHotkey: "Alt+Shift+ArrowRight",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "settings.search",
@@ -192,6 +258,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Rechercher dans les Paramètres",
     description: "Place le focus dans la recherche des Paramètres.",
     defaultHotkey: "/",
+    when: WHEN_SETTINGS,
   },
 ]
 
