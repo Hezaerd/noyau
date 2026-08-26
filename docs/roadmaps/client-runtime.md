@@ -590,7 +590,7 @@ nécessaire à la suite doit finir ici, dans un ADR, un `CONTEXT.md`, un test ou
 | --- | --- | --- | --- | --- |
 | 0 — Baseline | Terminé | #272 | tests streams + inventaire 58 | Phase 1 : squelette `@noyau/client-runtime` |
 | 1 — Package | Terminé | #272 / #273 | 16 tests package + 46 tests Phase 0 Web verts | Phase 2 : Session RPC / superviseur |
-| 2 — Session/superviseur | À faire | — | — | Bloqué par phase 1 |
+| 2 — Session/superviseur | Terminé | #273 | 29 tests package + 61 tests Phase 0 Web verts | Phase 3 : primitives Atom |
 | 3 — Primitives Atom | À faire | — | — | Bloqué par phase 2 |
 | 4 — Shell | À faire | — | — | Bloqué par phase 3 |
 | 5 — Tableau | À faire | — | — | Bloqué par phase 4 |
@@ -606,6 +606,24 @@ critères de sortie de la phase, pas seulement du code présent.
 ## 14. Journal des sessions
 
 Ajouter les entrées les plus récentes en premier.
+
+### 2026-08-26 — Phase 2 terminée (Session RPC + ConnectionSupervisor)
+
+- Issue / PR de continuité : [#272](https://github.com/Hezaerd/noyau/issues/272) /
+  [#273](https://github.com/Hezaerd/noyau/pull/273).
+- `RpcSessionFactory` : une tentative, `retryTransientErrors: false`, URL
+  `rpcUrl` + `token`. `ConnectionSupervisor` : coalesce des ruptures, backoff
+  `min(100 * 2^(attempt-1), 2000)` via `Effect.sleep` / TestClock, génération
+  monotone, `stop` tue les retries.
+- Web : `control-plane.ts` attend `currentSession` et notifie le superviseur.
+  Une erreur métier publie `SubscriptionStatus.Failed` sans remplacer le
+  transport. `makeSequencedFrameConsumer` inchangé (`synchronized` = Connected).
+- Preuves : `vp test run packages/client-runtime` (29) ; `vp check --fix
+  packages/client-runtime` ; Phase 0 Web `control-plane` + `client-runtime-streams`
+  + `client-runtime-consumers` + `control-plane-state` + `chrome-atoms` (61).
+  10 ruptures → 1 replace ; stop → 0 connect ; dispose une fois ; TestClock
+  100 ms ; génération 1 puis 2 ; métier ignore.
+- Prochain pas : Phase 3 primitives Atom query/subscription.
 
 ### 2026-08-26 — Phase 1 terminée (squelette `@noyau/client-runtime`)
 
