@@ -10,13 +10,15 @@ export type ThreadSnapshotLoader = (
   threadId: ThreadId,
 ) => Promise<ControlPlaneResult<ThreadSnapshot>>
 
-let loadSnapshot: ThreadSnapshotLoader = loadThreadSnapshot
+let loadSnapshot: ThreadSnapshotLoader | undefined
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
 let hoverTarget: ThreadId | undefined
 let queued: ThreadId | undefined
 let inflightThreadId: ThreadId | undefined
 let inflight: Promise<void> | undefined
 let generation = 0
+
+const resolveLoader = (): ThreadSnapshotLoader => loadSnapshot ?? loadThreadSnapshot
 
 const clearDebounce = (): void => {
   if (debounceTimer === undefined) {
@@ -36,7 +38,7 @@ const startLoad = (threadId: ThreadId): void => {
   }
   const started = generation
   inflightThreadId = threadId
-  inflight = loadSnapshot(threadId)
+  inflight = resolveLoader()(threadId)
     .then((result) => {
       if (started === generation && result.ok) {
         replaceThreadSnapshot(result.value)
@@ -88,5 +90,5 @@ export const resetThreadSnapshotPrefetchForTests = (): void => {
   queued = undefined
   inflightThreadId = undefined
   inflight = undefined
-  loadSnapshot = loadThreadSnapshot
+  loadSnapshot = undefined
 }

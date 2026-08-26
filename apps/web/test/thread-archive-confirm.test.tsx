@@ -19,6 +19,7 @@ const buildAndDispatchCommand = vi.hoisted(() =>
 
 vi.mock("@/lib/control-plane", () => ({
   buildAndDispatchCommand,
+  loadThreadSnapshot: vi.fn(),
 }))
 
 vi.mock("@tanstack/react-router", () => ({
