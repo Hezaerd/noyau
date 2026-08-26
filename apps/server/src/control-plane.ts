@@ -743,6 +743,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const environment = new Environment({
         id: config.environmentId,
         cursor: providerStatuses.cursor,
+        claude: providerStatuses.claude,
         codex: providerStatuses.codex,
         createdAt: config.environmentCreatedAt,
       })

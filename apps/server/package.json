@@ -21,6 +21,7 @@
     "./observability": "./src/observability.ts",
     "./provider/assistant-delivery": "./src/provider/assistant-delivery.ts",
     "./provider/cursor-acp": "./src/provider/cursor-acp.ts",
+    "./provider/claude-agent": "./src/provider/claude-agent.ts",
     "./provider/codex-app-server": "./src/provider/codex-app-server.ts",
     "./provider/provider-runtime": "./src/provider/provider-runtime.ts",
     "./provider/cursor-about": "./src/provider/cursor-about.ts",
@@ -61,6 +62,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.170",
     "@effect/platform-node": "catalog:",
     "@noyau/acp": "workspace:*",
     "@noyau/codex": "workspace:*",

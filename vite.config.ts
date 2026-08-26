@@ -159,6 +159,27 @@ export default defineConfig({
         },
       },
       {
+        // Adaptateur Claude : le SDK n'expose pas de spec JSON-RPC à piner. Les
+        // messages `SDKMessage` se décodent à cette frontière avant ProviderPort.
+        files: [
+          "apps/server/src/provider/claude-agent.ts",
+          "apps/server/test/claude-agent.test.ts",
+        ],
+        rules: {
+          "no-shadow": "off",
+          "typescript/no-unsafe-type-assertion": "off",
+          "anti-slop/no-object-parameters": "off",
+          "anti-slop/no-unknown-parameters": "off",
+          "anti-slop/no-unknown-returns": "off",
+          "anti-slop/no-runtime-typeof": "off",
+          "anti-slop/no-conditional-empty-object-spread": "off",
+          "anti-slop/require-safety-comment-for-type-assertion": "off",
+          "anti-slop/no-unsafe-dictionary-type": "off",
+          "anti-slop/no-known-value-widening": "off",
+          "anti-slop/no-chained-type-assertions": "off",
+        },
+      },
+      {
         files: ["apps/web/**"],
         plugins: ["react"],
         rules: {
