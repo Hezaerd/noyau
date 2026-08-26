@@ -19,6 +19,7 @@ import { CursorIcon, type ProviderIcon } from "@/components/provider-icons"
 import { ThreadArchiveConfirmDialog } from "@/components/sidebar/ThreadArchiveConfirmDialog"
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarStatus } from "@/components/sidebar/ThreadSidebarStatus"
+import { LiveElapsed } from "@/components/thread/LiveElapsed"
 import { ThreadPullRequestBadge } from "@/components/thread/ThreadPullRequestBadge"
 import {
   ContextMenu,
@@ -37,7 +38,12 @@ import { resolveSidebarCheckoutBranch } from "@/lib/checkout"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
-import { resolveWorkingStartedAtMs, type ThreadActivity } from "@/lib/thread-activity"
+import {
+  formatAgoCompactLabel,
+  resolveSidebarLastActivityAtMs,
+  resolveWorkingStartedAtMs,
+  type ThreadActivity,
+} from "@/lib/thread-activity"
 import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle } from "@/lib/thread-settled"
@@ -73,6 +79,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
     activity?.kind === "working"
       ? resolveWorkingStartedAtMs({ latestTurn: thread.latestTurn })
       : null
+  const lastActivityAtMs = resolveSidebarLastActivityAtMs(thread)
   const branch = resolveSidebarCheckoutBranch({
     threadBranch: threadBranchOf(thread),
     liveBranch,
@@ -200,8 +207,8 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
             }}
             className={
               settled && !isActive
-                ? "h-auto min-h-8 items-start py-1.5 text-sidebar-foreground/38 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
-                : "h-auto min-h-8 items-start py-1.5 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+                ? "h-auto min-h-16 items-start py-2 text-sidebar-foreground/38 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+                : "h-auto min-h-16 items-start py-2 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
             }
           >
             <MessageCircleIcon className="mt-0.5" />
@@ -212,6 +219,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
               worktreePath={threadWorktreePathOf(thread)}
               activity={activity}
               workingStartedAtMs={workingStartedAtMs}
+              lastActivityAtMs={lastActivityAtMs}
               pullRequest={pullRequest}
               provider={thread.provider}
             />
@@ -269,6 +277,7 @@ function ThreadSidebarItemContent({
   worktreePath,
   activity,
   workingStartedAtMs,
+  lastActivityAtMs,
   pullRequest,
   provider,
 }: {
@@ -278,21 +287,41 @@ function ThreadSidebarItemContent({
   readonly worktreePath: string | null
   readonly activity: ThreadActivity | null
   readonly workingStartedAtMs: number | null
+  readonly lastActivityAtMs: number | null
   readonly pullRequest: VcsStatusPullRequest | null
   readonly provider: ThreadShell["provider"]
 }) {
   const ProviderIcon = providerIcons[provider]
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="min-w-0 flex-1 truncate">{title}</span>
-        {pinned ? (
-          <PinIcon aria-label="Épinglé" className="size-3 shrink-0 text-sidebar-foreground/55" />
-        ) : null}
-        {activity === null ? null : (
-          <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
+      <span
+        data-slot="thread-sidebar-activity"
+        className="flex min-h-4 min-w-0 items-center gap-1.5"
+      >
+        {activity === null ? (
+          <span className="min-w-0 flex-1" />
+        ) : (
+          <span className="min-w-0 flex-1 truncate">
+            <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
+          </span>
         )}
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          {pinned ? (
+            <PinIcon aria-label="Épinglé" className="size-3 shrink-0 text-sidebar-foreground/55" />
+          ) : null}
+          {lastActivityAtMs === null ? null : (
+            <span data-slot="thread-sidebar-last-activity" title="Dernière activité">
+              <LiveElapsed
+                startedAtMs={lastActivityAtMs}
+                format={formatAgoCompactLabel}
+                hidden
+                className="font-mono text-[11px] tabular-nums text-sidebar-foreground/45"
+              />
+            </span>
+          )}
+        </span>
       </span>
+      <span className="min-w-0 truncate">{title}</span>
       <span
         data-slot="thread-sidebar-checkout"
         className="flex min-h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-foreground/45"
