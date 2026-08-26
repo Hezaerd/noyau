@@ -52,6 +52,7 @@ export const presenceIdentity = (activity: PresenceActivity | null): string =>
 export const journalEventTouchesPresence = (event: DomainEvent): boolean => {
   switch (event._tag) {
     case "thread.title-seeded":
+    case "thread.deleted":
     case "project.created":
     case "project.meta-updated":
     case "project.deleted":

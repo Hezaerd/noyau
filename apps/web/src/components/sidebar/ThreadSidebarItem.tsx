@@ -16,7 +16,7 @@ import {
 import { memo, useEffect, useRef, useState } from "react"
 
 import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
-import { ThreadArchiveConfirmDialog } from "@/components/sidebar/ThreadArchiveConfirmDialog"
+import { ThreadDeleteConfirmDialog } from "@/components/sidebar/ThreadDeleteConfirmDialog"
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarStatus } from "@/components/sidebar/ThreadSidebarStatus"
 import { LiveElapsed } from "@/components/thread/LiveElapsed"
@@ -44,7 +44,7 @@ import {
   resolveWorkingStartedAtMs,
   type ThreadActivity,
 } from "@/lib/thread-activity"
-import { makeThreadArchiveRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
+import { makeThreadDeleteRequest, makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle } from "@/lib/thread-settled"
 import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
@@ -89,7 +89,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
   })
   const titleInputRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [title, setTitle] = useState(thread.title)
 
@@ -133,13 +133,13 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
     })
   }
 
-  const archiveThread = () => {
-    void buildAndDispatchCommand(makeThreadArchiveRequest({ threadId: thread.id })).then(
+  const deleteThread = () => {
+    void buildAndDispatchCommand(makeThreadDeleteRequest({ threadId: thread.id })).then(
       (result) => {
         if (!result.ok) {
           showFailureToast(
             presentFailure(result.failure, {
-              operation: "thread.archive",
+              operation: "thread.delete",
               scope: "project",
               initiatedByUser: true,
               hasUsableData: true,
@@ -265,18 +265,18 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
           <ContextMenuItem
             closeOnClick
             variant="destructive"
-            onClick={() => requestAnimationFrame(() => setArchiveConfirmOpen(true))}
+            onClick={() => requestAnimationFrame(() => setDeleteConfirmOpen(true))}
           >
             <Trash2Icon />
-            Archiver
+            Supprimer
           </ContextMenuItem>
         </ContextMenuPopup>
       </ContextMenu>
-      <ThreadArchiveConfirmDialog
-        open={archiveConfirmOpen}
+      <ThreadDeleteConfirmDialog
+        open={deleteConfirmOpen}
         threadTitle={thread.title}
-        onOpenChange={setArchiveConfirmOpen}
-        onConfirm={archiveThread}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirm={deleteThread}
       />
     </>
   )

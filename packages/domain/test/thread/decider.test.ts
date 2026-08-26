@@ -441,15 +441,15 @@ describe("Thread lifecycle", () => {
     expect(next.threads[0]?.title).toBe("Reprendre la Session")
   })
 
-  it("archive, refuse un nouveau Turn, puis restaure", () => {
+  it("supprime le Thread et refuse tout nouveau Turn", () => {
     const state = withThread()
-    const archived = apply(
+    const deleted = apply(
       state,
       success(
         decide(
           state,
           command({
-            _tag: "thread.archive",
+            _tag: "thread.delete",
             ...meta,
             payload: { threadId: ids.thread },
           }),
@@ -457,10 +457,11 @@ describe("Thread lifecycle", () => {
       ),
     )
 
+    expect(deleted.threads).toHaveLength(0)
     expect(
       failure(
         decide(
-          archived,
+          deleted,
           command({
             _tag: "thread.turn.start",
             ...meta,
@@ -469,34 +470,20 @@ describe("Thread lifecycle", () => {
           }),
         ),
       )._tag,
-    ).toBe("ThreadArchived")
-
-    const restored = apply(
-      archived,
-      success(
+    ).toBe("ThreadNotFound")
+    expect(
+      failure(
         decide(
-          archived,
+          deleted,
           command({
-            _tag: "thread.restore",
+            _tag: "thread.delete",
             ...meta,
+            commandId: ids.command2,
             payload: { threadId: ids.thread },
           }),
         ),
-      ),
-    )
-    expect(
-      success(
-        decide(
-          restored,
-          command({
-            _tag: "thread.turn.start",
-            ...meta,
-            commandId: ids.turn1,
-            payload: { threadId: ids.thread, text: "Reprise" },
-          }),
-        ),
-      )[0]?._tag,
-    ).toBe("thread.turn.started")
+      )._tag,
+    ).toBe("ThreadNotFound")
   })
 
   it("refuse la création et un nouveau Turn lorsque le Project est indisponible", () => {

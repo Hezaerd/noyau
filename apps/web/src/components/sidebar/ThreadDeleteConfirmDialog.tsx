@@ -9,27 +9,27 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 
-interface ThreadArchiveConfirmDialogProps {
+interface ThreadDeleteConfirmDialogProps {
   readonly open: boolean
   readonly threadTitle: string
   readonly onOpenChange: (open: boolean) => void
   readonly onConfirm: () => void
 }
 
-export function ThreadArchiveConfirmDialog({
+export function ThreadDeleteConfirmDialog({
   open,
   threadTitle,
   onOpenChange,
   onConfirm,
-}: ThreadArchiveConfirmDialogProps) {
+}: ThreadDeleteConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogPopup>
         <AlertDialogHeader>
-          <AlertDialogTitle>Archiver le Thread ?</AlertDialogTitle>
+          <AlertDialogTitle>Supprimer le Thread ?</AlertDialogTitle>
           <AlertDialogDescription>
-            « {threadTitle} » quittera la sidebar du Project. Son transcript reste disponible.
-            Restaure-le avant un nouveau Turn.
+            « {threadTitle} » sera définitivement retiré du Project. Transcript, Turns et Session
+            disparaissent. Cette action est irréversible.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -40,7 +40,7 @@ export function ThreadArchiveConfirmDialog({
             render={<Button type="button" variant="destructive" />}
             onClick={onConfirm}
           >
-            Archiver
+            Supprimer
           </AlertDialogClose>
         </AlertDialogFooter>
       </AlertDialogPopup>

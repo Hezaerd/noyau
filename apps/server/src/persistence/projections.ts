@@ -550,6 +550,12 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         )
       `
       return
+    case "thread.deleted":
+      yield* sql`
+        DELETE FROM projection_threads
+        WHERE thread_id = ${event.threadId}
+      `
+      return
     case "thread.archived":
       yield* sql`
         UPDATE projection_threads

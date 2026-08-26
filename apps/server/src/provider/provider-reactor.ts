@@ -323,6 +323,8 @@ export const makeProviderReactor = (
           })
         case "thread.turn.interrupted":
           return provider.interrupt(threadEvent.threadId)
+        case "thread.deleted":
+          return provider.stop(threadEvent.threadId)
         case "session.stop-requested":
           return Effect.gen(function* () {
             const snapshot = yield* readThreadSnapshot(threadEvent.threadId).pipe(

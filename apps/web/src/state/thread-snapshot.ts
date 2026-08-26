@@ -51,6 +51,10 @@ export const reduceThreadSnapshotEnvelope = (
   }
   const next = applyThreadEnvelope(current, envelope)
   if (next === undefined) {
+    if (envelope.event._tag === "thread.deleted" && envelope.event.threadId === threadId) {
+      appAtomRegistry.set(threadSnapshotAtom(threadId), undefined)
+      return undefined
+    }
     return current
   }
   appAtomRegistry.set(threadSnapshotAtom(threadId), next)

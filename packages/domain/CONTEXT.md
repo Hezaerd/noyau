@@ -50,6 +50,11 @@ _À éviter_ : sourceThreadId, Thread dédié, Workbench
 Conversation provider d'un Project, titrée, au Provider immuable.
 _À éviter_ : Channel, Message, forum, Workbench
 
+**Suppression de Thread**:
+Retrait définitif d'un Thread du Project. Transcript, Turns, Session projetée et
+TicketThreads disparaissent. Pas de restauration.
+_À éviter_ : archive, soft delete, status archived
+
 **Settle**:
 Cycle qui recule un Thread de l'inbox. Override durable `settled | active` via
 `thread.settle` / `thread.unsettle`. L'activité réelle (Turn start, Session
