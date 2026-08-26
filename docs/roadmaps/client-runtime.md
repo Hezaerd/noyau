@@ -1,6 +1,6 @@
 # Roadmap — Client Runtime hybride
 
-> **Statut global : prêt à implémenter.** Dernière mise à jour : 2026-08-25.
+> **Statut global : prêt à implémenter.** Dernière mise à jour : 2026-08-26.
 >
 > Décision : [ADR-0021](../adr/0021-client-runtime-hybride.md). Référence étudiée : subtree
 > `repos/t3code` importé par le commit Noyau `34fcc6b22337dbe512f38ccd39a128b584cfd2c6`, depuis le
@@ -589,7 +589,7 @@ nécessaire à la suite doit finir ici, dans un ADR, un `CONTEXT.md`, un test ou
 | Phase | Statut | Issue/PR | Dernière preuve | Prochain pas |
 | --- | --- | --- | --- | --- |
 | 0 — Baseline | Terminé | #272 | tests streams + inventaire 58 | Phase 1 : squelette `@noyau/client-runtime` |
-| 1 — Package | À faire | — | — | Bloqué par phase 0 |
+| 1 — Package | Terminé | #272 / #273 | 16 tests package + 46 tests Phase 0 Web verts | Phase 2 : Session RPC / superviseur |
 | 2 — Session/superviseur | À faire | — | — | Bloqué par phase 1 |
 | 3 — Primitives Atom | À faire | — | — | Bloqué par phase 2 |
 | 4 — Shell | À faire | — | — | Bloqué par phase 3 |
@@ -606,6 +606,19 @@ critères de sortie de la phase, pas seulement du code présent.
 ## 14. Journal des sessions
 
 Ajouter les entrées les plus récentes en premier.
+
+### 2026-08-26 — Phase 1 terminée (squelette `@noyau/client-runtime`)
+
+- Issue / PR de continuité : [#272](https://github.com/Hezaerd/noyau/issues/272) /
+  [#273](https://github.com/Hezaerd/noyau/pull/273).
+- Package `packages/client-runtime` : subpaths `platform`, `state/stream`, `testing`. Pas
+  d'export racine. Dépendances : `@noyau/protocol`, `effect`.
+- Reducer cible : `synchronized` avant snapshot reste `empty` ; après snapshot ou cursor
+  chaud → `live` sans muter value/cursor. Web inchangé (`control-plane.ts`).
+- Preuves : `vp test run packages/client-runtime` (16) ; `vp check --fix packages/client-runtime` ;
+  Phase 0 Web `client-runtime-streams` + `client-runtime-consumers` + `control-plane` (46).
+- `bun install` a lié le workspace et mis à jour `bun.lock`.
+- Prochain pas : Phase 2 Session RPC et superviseur mono-Environment.
 
 ### 2026-08-26 — Phase 0 terminée (caractérisation + inventaire)
 

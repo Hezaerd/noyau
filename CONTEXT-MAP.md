@@ -7,16 +7,17 @@ les formes précédentes : ne pas les étendre.
 
 ## Contextes
 
-| Contexte | Chemin               | Rôle                                                                    |
-| -------- | -------------------- | ----------------------------------------------------------------------- |
-| Protocol | `packages/protocol/` | Contrat : schémas des IDs, commandes, événements et RPC.                |
-| Domain   | `packages/domain/`   | Décision : deciders et projectors purs sur le journal.                  |
-| Database | `packages/database/` | Durabilité : journal SQLite, receipts, projections.                     |
-| ACP      | `packages/acp/`      | Fil de fer ACP : codegen spec, JSON-RPC stdio, `AcpClient`.             |
-| Shared   | `packages/shared/`   | Helpers purs : marque de release, ComposerTrigger et Mention.           |
-| Server   | `apps/server/`       | Frontières RPC/MCP, composition, adaptateur Cursor, reactors `TxQueue`. |
-| Web      | `apps/web/`          | UI React (TanStack Router, Vite) : Tableau, Threads, Dialog Ticket.     |
-| Desktop  | `apps/desktop/`      | Electron : superviseur du serveur enfant et chrome hôte.                |
+| Contexte       | Chemin                     | Rôle                                                                                                 |
+| -------------- | -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Protocol       | `packages/protocol/`       | Contrat : schémas des IDs, commandes, événements et RPC.                                             |
+| Domain         | `packages/domain/`         | Décision : deciders et projectors purs sur le journal.                                               |
+| Database       | `packages/database/`       | Durabilité : journal SQLite, receipts, projections.                                                  |
+| ACP            | `packages/acp/`            | Fil de fer ACP : codegen spec, JSON-RPC stdio, `AcpClient`.                                          |
+| Shared         | `packages/shared/`         | Helpers purs : marque de release, ComposerTrigger et Mention.                                        |
+| Client Runtime | `packages/client-runtime/` | Runtime renderer : tags plateforme et discipline snapshot / synchronized. Pas encore câblé dans Web. |
+| Server         | `apps/server/`             | Frontières RPC/MCP, composition, adaptateur Cursor, reactors `TxQueue`.                              |
+| Web            | `apps/web/`                | UI React (TanStack Router, Vite) : Tableau, Threads, Dialog Ticket.                                  |
+| Desktop        | `apps/desktop/`            | Electron : superviseur du serveur enfant et chrome hôte.                                             |
 
 ## Relations
 
@@ -33,8 +34,10 @@ apps/web     ──(Effect RPC WS loopback)──> apps/server
 apps/desktop ──enveloppe──> apps/web
 apps/web     ──consomme──> packages/shared
 apps/web     ──consomme──> packages/protocol
+apps/web     ──consommera──> packages/client-runtime   (futur ; pas encore câblé)
 
 packages/database ──dépend de──> packages/domain ──dépend de──> packages/protocol
+packages/client-runtime ──dépend de──> packages/protocol
 packages/shared ──ne dépend de rien──
 ```
 
@@ -44,6 +47,8 @@ packages/shared ──ne dépend de rien──
   l'app ou le test, jamais choisi par le package comme « PG ou PGlite ».
 - `acp` ne dépend de rien (hors `effect`). Fil de fer spec, pas un port multi-provider.
 - `shared` ne dépend de rien. Helpers purs consommés par `web` et `server`.
+- `client-runtime` dépend de `protocol` et Effect seulement. Pas de React, DOM, Electron,
+  Zustand, `@effect/atom-react`, `domain` ni `apps/web`. Web le consommera plus tard.
 - `server` enrichit les commandes, possède SQLite, spawn Cursor, pousse les streams RPC et expose
   le Tableau aux agents par MCP HTTP.
 - `desktop` supervise le process serveur (fd3, token de lancement, PID). Aucun état métier.
