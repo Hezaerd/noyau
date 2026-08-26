@@ -311,10 +311,10 @@ function ThreadSidebarItemContent({
           ) : null}
           {lastActivityAtMs === null ? null : (
             <span data-slot="thread-sidebar-last-activity" title="Dernière activité">
+              <span className="sr-only">Dernière activité : </span>
               <LiveElapsed
                 startedAtMs={lastActivityAtMs}
                 format={formatAgoCompactLabel}
-                hidden
                 className="font-mono text-[11px] tabular-nums text-sidebar-foreground/45"
               />
             </span>

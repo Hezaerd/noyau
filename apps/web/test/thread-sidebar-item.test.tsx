@@ -83,5 +83,7 @@ describe("ThreadSidebarItem", () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
     expect(activity?.nextElementSibling?.textContent).toBe("Stores Zustand t3code vs shell")
+    expect(lastActivity?.querySelector("[aria-hidden='true']")).toBeNull()
+    expect(lastActivity?.textContent).toMatch(/^Dernière activité : /)
   })
 })
