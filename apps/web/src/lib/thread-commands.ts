@@ -1,6 +1,7 @@
 import type { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
 import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
 import type { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
+import type { Provider } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode as RuntimeModeType } from "@noyau/protocol/entities/runtime-mode"
 import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
@@ -41,6 +42,7 @@ type ThreadCreatePayload = {
   readonly threadId: ThreadId
   readonly projectId: ProjectId
   readonly title: string
+  readonly provider?: Provider
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection
   readonly branch?: ThreadBranch
@@ -75,6 +77,7 @@ export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
   readonly projectId: ProjectId
   readonly title: string
+  readonly provider?: Provider
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection | null
   readonly branch?: ThreadBranch
@@ -84,6 +87,9 @@ export const makeThreadCreateRequest = Effect.fnUntraced(function* (input: {
     threadId: input.threadId,
     projectId: input.projectId,
     title: input.title.trim(),
+  }
+  if (input.provider !== undefined) {
+    payload = Object.assign(payload, { provider: input.provider })
   }
   if (input.runtimeMode !== undefined) {
     payload = Object.assign(payload, { runtimeMode: input.runtimeMode })

@@ -1,3 +1,4 @@
+import type { Provider } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { Session, SessionStatus } from "@noyau/protocol/entities/session"
@@ -23,7 +24,7 @@ export interface ThreadProjection {
   readonly threadId: ThreadId
   readonly projectId: ProjectId
   readonly title: string
-  readonly provider: "cursor"
+  readonly provider: Provider
   readonly runtimeMode: RuntimeMode
   readonly modelSelection: ModelSelection | null
   readonly branch: string | null

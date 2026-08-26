@@ -13,3 +13,8 @@ export const threadModelLabel = (
     modelSelection.modelId
   )
 }
+
+export const catalogModels = (
+  cursor: ReadonlyArray<Pick<CursorModel, "modelId" | "label">> | undefined,
+  codex: ReadonlyArray<Pick<CursorModel, "modelId" | "label">> | undefined,
+): ReadonlyArray<Pick<CursorModel, "modelId" | "label">> => [...(cursor ?? []), ...(codex ?? [])]

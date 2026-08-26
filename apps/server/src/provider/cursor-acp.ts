@@ -6,7 +6,11 @@ import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
-import { emptyCursorProviderStatus, type CursorModel } from "@noyau/protocol/entities/environment"
+import {
+  emptyCodexProviderStatus,
+  emptyCursorProviderStatus,
+  type CursorModel,
+} from "@noyau/protocol/entities/environment"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
@@ -617,7 +621,7 @@ const initialize = Effect.fn("CursorAdapter.initialize")(function* (
   return response
 })
 
-const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
+export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   options: CursorAdapterOptions = {},
 ) {
   const threadLive = yield* ThreadLive
@@ -1527,7 +1531,7 @@ const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   yield* Effect.addFinalizer(() => stopAll)
 
   return ProviderPort.of({
-    status: Effect.succeed(providerStatus),
+    status: Effect.succeed({ cursor: providerStatus, codex: emptyCodexProviderStatus }),
     startTurn,
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

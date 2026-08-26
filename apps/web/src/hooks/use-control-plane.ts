@@ -1,5 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
+import type {
+  CodexProviderStatus,
+  CursorProviderStatus,
+} from "@noyau/protocol/entities/environment"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import type { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
 
@@ -7,6 +10,7 @@ import type { SubscriptionStatus } from "@/lib/control-plane"
 import {
   appliedShellAtom,
   cursorAtom,
+  codexAtom,
   emptyThreadIdsAtom,
   emptyThreadShellAtom,
   emptyThreadShellsAtom,
@@ -26,6 +30,8 @@ export const useAppliedShell = (): ShellSnapshot | undefined => useAtomValue(app
 export const useProjects = (): ReadonlyArray<ProjectShell> => useAtomValue(projectsAtom)
 
 export const useCursor = (): CursorProviderStatus | undefined => useAtomValue(cursorAtom)
+
+export const useCodex = (): CodexProviderStatus | undefined => useAtomValue(codexAtom)
 
 export const useThreads = (): ReadonlyArray<ThreadShell> => useAtomValue(threadsAtom)
 

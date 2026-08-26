@@ -366,7 +366,7 @@ ou événement distant, le snapshot autoritatif gagne.
 
 - Studio Server, Runtime Nodes, VPS, connexion distante, fédération d'Environments ;
 - comptes, pairing, permissions projet, présence ;
-- Claude, Codex, harnais générique, usage promis ;
+- Claude, harnais générique, usage promis ;
 - revert de Checkpoint, provenance Git au-delà du TurnDiff, inbox PR / reviews / checks t3code ;
 - n8n, terminal intégré ;
 - Linux, WSL, client web distribué, mobile ;
@@ -386,6 +386,7 @@ packages/
   protocol/  # contrats Schema, RPC, commandes et événements
   database/  # journal SQLite, receipts, projections
   acp/       # fil de fer ACP (codegen spec + AcpClient)
+  codex/     # fil de fer Codex app-server (codegen spec + CodexAppServerClient)
   shared/    # helpers purs composer (trigger, mentions)
   config/    # configuration TypeScript partagée
 ```
@@ -401,8 +402,10 @@ Un package n'est créé que lorsqu'une frontière réelle et testée le justifie
 4. RPC : `dispatchCommand`, `subscribeShell` / `subscribeProject` / `subscribeThread`.
 5. Adaptateur Cursor ACP : runtime porté par la Session, handshake, `session/new` / `load`,
    `startTurn` réutilisé, reaper et mapping `runtimeMode`.
-6. MCP HTTP : capacités bornées, outils Tableau et injection Cursor.
-7. UI Tableau-first, sidebar Threads, `lastError`, lien Ticket–Thread, reprise après restart.
+6. Adaptateur Codex app-server : même `ProviderPort`, handshake, `thread/start` / `resume`,
+   MCP Noyau via `-c`, mapping `runtimeMode`.
+7. MCP HTTP : capacités bornées, outils Tableau et injection Cursor.
+8. UI Tableau-first, sidebar Threads, `lastError`, lien Ticket–Thread, reprise après restart.
 
 ## Choix encore ouverts
 

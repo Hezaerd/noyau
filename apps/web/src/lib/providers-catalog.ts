@@ -39,10 +39,10 @@ export const PROVIDER_CATALOG: ReadonlyArray<ProviderCatalogEntry> = [
   {
     id: "codex",
     title: "Codex",
-    availability: "soon",
+    availability: "available",
     cli: "codex",
-    summary: "Conversations OpenAI.",
-    keywords: ["openai", "gpt"],
+    summary: "Adaptateur app-server local. Détection PATH et handshake.",
+    keywords: ["openai", "gpt", "app-server"],
   },
 ]
 
@@ -68,7 +68,7 @@ const cursorConnectionPresentation = {
   },
   ready: {
     headline: "Disponible",
-    detail: "PATH · handshake ACP OK",
+    detail: "PATH · handshake OK",
     statusDot: "ready",
   },
   "not-installed": {
@@ -77,7 +77,7 @@ const cursorConnectionPresentation = {
     statusDot: "warning",
   },
   "handshake-failed": {
-    headline: "Handshake ACP échoué",
+    headline: "Handshake échoué",
     detail: "Détecté dans le PATH",
     statusDot: "error",
   },
@@ -99,6 +99,17 @@ export const presentCursorPlan = (plan: string | null | undefined): string | nul
     return null
   }
   return /^cursor\b/i.test(plan) ? plan : `Cursor ${plan}`
+}
+
+export const presentCodexConnection = presentCursorConnection
+
+export const presentCodexVersion = presentCursorVersion
+
+export const presentCodexPlan = (plan: string | null | undefined): string | null => {
+  if (plan === undefined || plan === null) {
+    return null
+  }
+  return /^codex\b/i.test(plan) ? plan : `Codex ${plan}`
 }
 
 export const PROVIDER_STATUS_DOT_CLASS = {

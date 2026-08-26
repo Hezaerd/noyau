@@ -1,4 +1,7 @@
-import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
+import type {
+  CodexProviderStatus,
+  CursorProviderStatus,
+} from "@noyau/protocol/entities/environment"
 import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import type {
   ProjectShell,
@@ -71,6 +74,10 @@ export const selectedProjectAtom = Atom.make((get): ProjectShell | undefined => 
 export const cursorAtom = Atom.make(
   (get): CursorProviderStatus | undefined => get(appliedShellAtom)?.environment.cursor,
 ).pipe(Atom.withLabel("shell:cursor"))
+
+export const codexAtom = Atom.make(
+  (get): CodexProviderStatus | undefined => get(appliedShellAtom)?.environment.codex,
+).pipe(Atom.withLabel("shell:codex"))
 
 export const threadsAtom = Atom.make(
   (get): ReadonlyArray<ThreadShell> => get(appliedShellAtom)?.threads ?? EMPTY_THREAD_SHELLS,

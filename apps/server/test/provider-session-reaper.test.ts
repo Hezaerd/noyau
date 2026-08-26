@@ -1,8 +1,11 @@
 import { assert, it as standaloneIt } from "@effect/vitest"
 import { memoryLayer } from "@noyau/database/sqlite"
-import { emptyCursorProviderStatus } from "@noyau/protocol/entities/environment"
 import { ThreadId } from "@noyau/protocol/ids"
-import { ProviderPort, type ProviderPortService } from "@noyau/server/provider/provider-port"
+import {
+  emptyProviderStatuses,
+  ProviderPort,
+  type ProviderPortService,
+} from "@noyau/server/provider/provider-port"
 import {
   makeProviderSessionReaper,
   type ProviderSessionReaperService,
@@ -20,7 +23,7 @@ const orphanThreadId = ThreadId.make("20000000-0000-4000-8000-000000000004")
 
 const providerLayer = (stopped: Array<ThreadId>, liveSessions: ReadonlySet<ThreadId>) => {
   const provider: ProviderPortService = {
-    status: Effect.succeed(emptyCursorProviderStatus),
+    status: Effect.succeed(emptyProviderStatuses),
     startTurn: () => Effect.void,
     interrupt: () => Effect.void,
     stop: (threadId) => Effect.sync(() => void stopped.push(threadId)),

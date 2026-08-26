@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { isCursorReady, resolveCursorReadiness } from "../src/lib/cursor-readiness"
 import {
+  presentCodexPlan,
   presentCursorConnection,
   presentCursorPlan,
   presentCursorVersion,
@@ -43,7 +44,7 @@ describe("provider connection copy", () => {
     })
     expect(presentCursorConnection(cursorStatus(true, true))).toEqual({
       headline: "Disponible",
-      detail: "PATH · handshake ACP OK",
+      detail: "PATH · handshake OK",
       statusDot: "ready",
     })
     expect(presentCursorConnection(cursorStatus(false, false))).toEqual({
@@ -52,7 +53,7 @@ describe("provider connection copy", () => {
       statusDot: "warning",
     })
     expect(presentCursorConnection(cursorStatus(true, false))).toEqual({
-      headline: "Handshake ACP échoué",
+      headline: "Handshake échoué",
       detail: "Détecté dans le PATH",
       statusDot: "error",
     })
@@ -71,5 +72,11 @@ describe("provider connection copy", () => {
     expect(presentCursorPlan("Pro")).toBe("Cursor Pro")
     expect(presentCursorPlan("Cursor Ultra Subscription")).toBe("Cursor Ultra Subscription")
     expect(presentCursorPlan(null)).toBeNull()
+  })
+
+  it("renders the Codex plan without inventing an email", () => {
+    expect(presentCodexPlan("plus")).toBe("Codex plus")
+    expect(presentCodexPlan("Codex Pro")).toBe("Codex Pro")
+    expect(presentCodexPlan(null)).toBeNull()
   })
 })

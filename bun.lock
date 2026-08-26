@@ -40,6 +40,7 @@
       "dependencies": {
         "@effect/platform-node": "catalog:",
         "@noyau/acp": "workspace:*",
+        "@noyau/codex": "workspace:*",
         "@noyau/database": "workspace:*",
         "@noyau/domain": "workspace:*",
         "@noyau/protocol": "workspace:*",
@@ -112,6 +113,21 @@
     },
     "packages/acp": {
       "name": "@noyau/acp",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@effect/openapi-generator": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@types/node": "^24.13.3",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
+    "packages/codex": {
+      "name": "@noyau/codex",
       "version": "0.0.0",
       "dependencies": {
         "effect": "catalog:",
@@ -421,6 +437,8 @@
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
     "@noyau/acp": ["@noyau/acp@workspace:packages/acp"],
+
+    "@noyau/codex": ["@noyau/codex@workspace:packages/codex"],
 
     "@noyau/config": ["@noyau/config@workspace:packages/config"],
 

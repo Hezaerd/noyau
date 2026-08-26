@@ -1,4 +1,4 @@
-import type { CursorModel } from "@noyau/protocol/entities/environment"
+import type { CursorModel, Provider } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { WorkspacePathEntry } from "@noyau/protocol/entities/workspace-path"
@@ -87,6 +87,9 @@ export function ThreadComposer({
   images,
   runtimeMode,
   models,
+  cursorModels,
+  codexModels,
+  lockedProvider,
   modelSelection,
   error,
   placement = "docked",
@@ -94,6 +97,7 @@ export function ThreadComposer({
   onTextChange,
   onRuntimeModeChange,
   onModelSelectionChange,
+  onProviderChange,
   onPaste,
   onDrop,
   onImageRemove,
@@ -109,6 +113,9 @@ export function ThreadComposer({
   readonly images: ReadonlyArray<ComposerImage>
   readonly runtimeMode: RuntimeMode
   readonly models: ReadonlyArray<CursorModel>
+  readonly cursorModels: ReadonlyArray<CursorModel>
+  readonly codexModels: ReadonlyArray<CursorModel>
+  readonly lockedProvider?: Provider | undefined
   readonly modelSelection: ModelSelection | null
   readonly error: ReactNode
   readonly placement?: "docked" | "hero"
@@ -116,14 +123,15 @@ export function ThreadComposer({
   readonly onTextChange: (value: string) => void
   readonly onRuntimeModeChange: (runtimeMode: RuntimeMode) => void
   readonly onModelSelectionChange: (modelSelection: ModelSelection | null) => void
+  readonly onProviderChange?: ((provider: Provider) => void) | undefined
   readonly onPaste: (event: ClipboardEvent<HTMLElement>) => void
   readonly onDrop: (event: DragEvent<HTMLElement>) => void
   readonly onImageRemove: (localId: string) => void
   readonly onInterrupt: () => void
-  readonly searchPaths?: (query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>
+  readonly searchPaths?: ((query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>) | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly context?: ReactNode
-  readonly toolbar?: ReactNode
+  readonly toolbar?: ReactNode | undefined
 }) {
   const listboxId = useId()
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
@@ -364,10 +372,15 @@ export function ThreadComposer({
             </span>
             <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
               <ThreadModelPicker
-                models={models}
+                cursorModels={cursorModels}
+                codexModels={codexModels}
+                lockedProvider={lockedProvider}
                 modelSelection={modelSelection}
-                disabled={controlsDisabled || models.length === 0}
+                disabled={
+                  controlsDisabled || (cursorModels.length === 0 && codexModels.length === 0)
+                }
                 onModelSelectionChange={onModelSelectionChange}
+                onProviderChange={onProviderChange}
               />
 
               <Separator orientation="vertical" className="mx-0.5 h-4" />

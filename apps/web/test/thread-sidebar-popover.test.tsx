@@ -7,7 +7,7 @@ import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
-import { threadModelLabel } from "../src/lib/thread-sidebar-popover"
+import { catalogModels, threadModelLabel } from "../src/lib/thread-sidebar-popover"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
 
@@ -23,6 +23,14 @@ const makeSnapshot = (models: ShellSnapshot["environment"]["cursor"]["models"]) 
         plan: null,
         binaryPath: null,
         models,
+      },
+      codex: {
+        installed: false,
+        handshakeOk: false,
+        version: null,
+        plan: null,
+        binaryPath: null,
+        models: [],
       },
       createdAt: "2026-08-25T12:00:00.000Z",
     },
@@ -55,6 +63,26 @@ describe("threadModelLabel", () => {
 
   it("falls back to Auto when no selection", () => {
     expect(threadModelLabel(null, [{ modelId: "grok-4.6", label: "Grok 4.6" }])).toBe("Auto")
+  })
+})
+
+describe("catalogModels", () => {
+  it("concatène les catalogues Cursor et Codex", () => {
+    expect(
+      catalogModels(
+        [{ modelId: "composer-2.5", label: "Composer 2.5" }],
+        [{ modelId: "gpt-5", label: "GPT-5" }],
+      ),
+    ).toEqual([
+      { modelId: "composer-2.5", label: "Composer 2.5" },
+      { modelId: "gpt-5", label: "GPT-5" },
+    ])
+  })
+
+  it("tolère un catalogue manquant", () => {
+    expect(catalogModels(undefined, [{ modelId: "gpt-5", label: "GPT-5" }])).toEqual([
+      { modelId: "gpt-5", label: "GPT-5" },
+    ])
   })
 })
 

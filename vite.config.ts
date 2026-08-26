@@ -31,6 +31,7 @@ const ignorePatterns = [
 // Codegen ACP : hors lint (anti-slop / type-aware sur ~10k lignes), mais dans fmt
 // pour que `vp run generate` puisse formater après écriture.
 const generatedAcpIgnore = "packages/acp/src/_generated/**"
+const generatedCodexIgnore = "packages/codex/src/_generated/**"
 // Copie embarquée et déterministe du skill canonique. Le générateur compare le
 // fichier octet pour octet afin de ne pas invalider le cache Vite Task.
 const generatedAgentSkillIgnore = "apps/server/src/agent-skill/generated.ts"
@@ -69,7 +70,13 @@ export default defineConfig({
     trailingComma: "all",
     arrowParens: "always",
     sortImports: true,
-    ignorePatterns: [...ignorePatterns, generatedAgentSkillIgnore, "bun.lock", "docs/**"],
+    ignorePatterns: [
+      ...ignorePatterns,
+      generatedAgentSkillIgnore,
+      generatedCodexIgnore,
+      "bun.lock",
+      "docs/**",
+    ],
   },
   lint: {
     plugins: ["typescript", "unicorn", "oxc", "import", "promise", "effecttsgo"],
@@ -82,7 +89,7 @@ export default defineConfig({
       builtin: true,
       es2024: true,
     },
-    ignorePatterns: [...ignorePatterns, generatedAcpIgnore],
+    ignorePatterns: [...ignorePatterns, generatedAcpIgnore, generatedCodexIgnore],
     rules: {
       ...effectRecommended.rules,
       ...antiSlopRules,
@@ -121,6 +128,43 @@ export default defineConfig({
           "anti-slop/require-safety-comment-for-type-assertion": "off",
           "anti-slop/no-unsafe-dictionary-type": "off",
           "anti-slop/no-known-value-widening": "off",
+        },
+      },
+      {
+        // Fil de fer Codex app-server : codegen + JSON-RPC stdio calqué sur t3code.
+        files: ["packages/codex/**"],
+        rules: {
+          "import/no-relative-parent-imports": "off",
+          "no-shadow": "off",
+          "unicorn/consistent-function-scoping": "off",
+          "typescript/no-unsafe-type-assertion": "off",
+          "effecttsgo/strict-effect-provide": "off",
+          "effecttsgo/any-unknown-in-error-context": "off",
+          "effecttsgo/missing-effect-context": "off",
+          "anti-slop/no-object-parameters": "off",
+          "anti-slop/no-unknown-parameters": "off",
+          "anti-slop/no-unknown-returns": "off",
+          "anti-slop/no-runtime-typeof": "off",
+          "anti-slop/no-conditional-empty-object-spread": "off",
+          "anti-slop/require-safety-comment-for-type-assertion": "off",
+          "anti-slop/no-unsafe-dictionary-type": "off",
+          "anti-slop/no-known-value-widening": "off",
+          "anti-slop/no-shape-in-symbol-names": "off",
+        },
+      },
+      {
+        // Adaptateur Codex : le fil de fer embarque Schema.Defect (unknown) dans E.
+        // Les appels sont ramenés à CodexAdapterFailure avant de quitter l'adaptateur.
+        files: ["apps/server/src/provider/codex-app-server.ts"],
+        rules: {
+          "effecttsgo/any-unknown-in-error-context": "off",
+        },
+      },
+      {
+        // Adaptateur Codex : le client app-server typé fuit `unknown` dans E.
+        files: ["apps/server/src/provider/codex-app-server.ts"],
+        rules: {
+          "effecttsgo/any-unknown-in-error-context": "off",
         },
       },
       {

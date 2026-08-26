@@ -73,6 +73,7 @@ export const makeOptimisticThreadShell = (input: {
   readonly projectId: ProjectId
   readonly title: string
   readonly runtimeMode: RuntimeMode
+  readonly provider?: ThreadShell["provider"]
   readonly branch?: string | null
   readonly createdAt?: DateTime.Utc
 }): ThreadShell => {
@@ -81,7 +82,7 @@ export const makeOptimisticThreadShell = (input: {
     id: input.id,
     projectId: input.projectId,
     title: input.title,
-    provider: "cursor",
+    provider: input.provider ?? "cursor",
     modelSelection: null,
     runtimeMode: input.runtimeMode,
     status: "active",

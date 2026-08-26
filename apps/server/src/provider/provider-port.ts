@@ -3,8 +3,11 @@ import type {
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
 import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
+import type { Provider } from "@noyau/protocol/entities/environment"
 import {
+  emptyCodexProviderStatus,
   emptyCursorProviderStatus,
+  type CodexProviderStatus,
   type CursorProviderStatus,
 } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
@@ -21,10 +24,21 @@ export interface ProviderTurnAttachment extends TurnImageAttachment {
   readonly data: Uint8Array
 }
 
+export interface ProviderStatuses {
+  readonly cursor: CursorProviderStatus
+  readonly codex: CodexProviderStatus
+}
+
+export const emptyProviderStatuses: ProviderStatuses = {
+  cursor: emptyCursorProviderStatus,
+  codex: emptyCodexProviderStatus,
+}
+
 export interface ProviderTurnInput {
   readonly projectId: ProjectId
   readonly threadId: ThreadId
   readonly turnId: TurnId
+  readonly provider: Provider
   readonly text: string
   readonly workspaceRoot: string
   readonly runtimeMode: RuntimeMode
@@ -58,7 +72,7 @@ export type ProviderSignal =
 export type ProviderEmit = (signal: ProviderSignal) => Effect.Effect<void>
 
 export interface ProviderPortService {
-  readonly status: Effect.Effect<CursorProviderStatus>
+  readonly status: Effect.Effect<ProviderStatuses>
   /** Starts a Turn, reusing the live provider Session for its Thread when one exists. */
   readonly startTurn: (input: ProviderTurnInput, emit: ProviderEmit) => Effect.Effect<void>
   readonly interrupt: (threadId: ThreadId) => Effect.Effect<void>
@@ -87,7 +101,7 @@ export class ProviderPort extends Context.Service<ProviderPort, ProviderPortServ
 ) {}
 
 export const unavailableProviderLayer = Layer.succeed(ProviderPort)({
-  status: Effect.succeed(emptyCursorProviderStatus),
+  status: Effect.succeed(emptyProviderStatuses),
   startTurn: (_input, _emit) => Effect.void,
   interrupt: (_threadId) => Effect.void,
   stop: (_threadId) => Effect.void,

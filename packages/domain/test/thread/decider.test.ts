@@ -189,6 +189,36 @@ describe("Thread lifecycle", () => {
     })
   })
 
+  it("crée un Thread avec provider Codex immuable", () => {
+    const events = success(
+      decide(
+        available(),
+        command({
+          _tag: "thread.create",
+          ...meta,
+          payload: {
+            threadId: ids.thread,
+            projectId: ids.project,
+            title: DEFAULT_THREAD_TITLE,
+            provider: "codex",
+          },
+        }),
+      ),
+    )
+
+    expect(events).toEqual([
+      {
+        _tag: "thread.created",
+        threadId: ids.thread,
+        projectId: ids.project,
+        title: DEFAULT_THREAD_TITLE,
+        provider: "codex",
+        runtimeMode: "full-access",
+      },
+    ])
+    expect(apply(available(), events).threads[0]?.provider).toBe("codex")
+  })
+
   it.each(["approval-required", "auto-accept-edits", "auto", "full-access"] as const)(
     "projette le runtimeMode %s",
     (runtimeMode) => {

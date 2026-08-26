@@ -5,7 +5,7 @@ import { Schema } from "effect"
 export const ResumeCursorSchemaVersion = Schema.Literal(1)
 export type ResumeCursorSchemaVersion = (typeof ResumeCursorSchemaVersion)["Type"]
 
-/** Curseur opaque pour `session/load`. Pas de `cwdLastBound`. */
+/** Curseur opaque pour reprendre le runtime provider. `sessionId` = ACP session ou thread Codex. */
 export const ResumeCursor = Schema.Struct({
   schemaVersion: ResumeCursorSchemaVersion,
   sessionId: ProviderSessionId,
