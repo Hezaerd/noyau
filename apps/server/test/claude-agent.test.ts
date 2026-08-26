@@ -20,6 +20,7 @@ import {
 import type { McpInvocationScope } from "@noyau/server/mcp/mcp-invocation-context"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import {
+  claudeModelsForVersion,
   claudeProviderLayer,
   resolveClaudeExecutable,
   type ClaudeAdapterOptions,
@@ -44,21 +45,22 @@ const staticMcpCredential = {
     authorizationHeader: "Bearer test-mcp-token",
   },
 }
-const testMcpSessionsLayer = Layer.succeed(McpSessionRegistry)({
-  issue: () => Effect.succeed(staticMcpCredential),
-  resolve: () => Effect.succeed(missingMcpScope),
-  activateTurn: () => Effect.void,
-  deactivateTurn: () => Effect.void,
-  touchSession: () => Effect.succeed(true),
-  revokeSession: () => Effect.void,
-  revokeAll: Effect.void,
-})
+const testMcpSessionsLayer = (onRevoke: () => void = () => undefined) =>
+  Layer.succeed(McpSessionRegistry)({
+    issue: () => Effect.succeed(staticMcpCredential),
+    resolve: () => Effect.succeed(missingMcpScope),
+    activateTurn: () => Effect.void,
+    deactivateTurn: () => Effect.void,
+    touchSession: () => Effect.succeed(true),
+    revokeSession: () => Effect.sync(onRevoke),
+    revokeAll: Effect.void,
+  })
 
 class FakeClaudeQuery implements ClaudeQueryRuntime {
   private readonly queue: Array<SDKMessage> = []
   private readonly waiters: Array<{
     readonly resolve: (value: IteratorResult<SDKMessage>) => void
-    readonly reject: (reason: unknown) => void
+    readonly reject: (reason: Error) => void
   }> = []
   private done = false
   public readonly interruptCalls: Array<void> = []
@@ -129,6 +131,7 @@ const input = (extras: Partial<ProviderTurnInput> = {}): ProviderTurnInput => ({
 })
 
 const assistantMessage = (text: string, sessionId = "11111111-1111-4111-8111-111111111111") =>
+  // SAFETY: fixture partiel ; les extracteurs Schema ne lisent que type / session_id / content.
   ({
     type: "assistant",
     session_id: sessionId,
@@ -143,6 +146,7 @@ const toolUseMessage = (
   name: string,
   sessionId = "11111111-1111-4111-8111-111111111111",
 ) =>
+  // SAFETY: fixture partiel ; extractToolUses ne lit que type / id / name.
   ({
     type: "assistant",
     session_id: sessionId,
@@ -156,6 +160,7 @@ const resultMessage = (
   subtype: "success" | "error_during_execution" = "success",
   sessionId = "11111111-1111-4111-8111-111111111111",
 ) =>
+  // SAFETY: fixture partiel ; extractResultMessage ne lit que subtype / is_error / result / errors.
   ({
     type: "result",
     subtype,
@@ -172,34 +177,48 @@ const withProvider = <A, E, R>(
       readonly queries: Array<FakeClaudeQuery>
       readonly lastOptions: () => ClaudeQueryOptions | undefined
       readonly lastPrompt: () => AsyncIterable<SDKUserMessage> | undefined
+      readonly revoked: () => number
     },
   ) => Effect.Effect<A, E, R>,
+  extras: {
+    readonly handshakeOk?: boolean
+    readonly createQuery?: ClaudeAdapterOptions["createQuery"]
+  } = {},
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
       const queries: Array<FakeClaudeQuery> = []
       let lastOptions: ClaudeQueryOptions | undefined
       let lastPrompt: AsyncIterable<SDKUserMessage> | undefined
+      let revoked = 0
       const options: ClaudeAdapterOptions = {
         binaryPath: "/usr/local/bin/claude",
         environment: { PATH: "" },
-        createQuery: (created) => {
-          lastOptions = created.options
-          lastPrompt = created.prompt
-          const fake = new FakeClaudeQuery()
-          queries.push(fake)
-          return fake
-        },
+        createQuery:
+          extras.createQuery ??
+          ((created) => {
+            lastOptions = created.options
+            lastPrompt = created.prompt
+            const fake = new FakeClaudeQuery()
+            queries.push(fake)
+            return fake
+          }),
         probeStatus: {
           installed: true,
-          handshakeOk: true,
-          version: "2.1.0",
+          handshakeOk: extras.handshakeOk ?? true,
+          version: "2.1.245",
           plan: "Pro",
           binaryPath: "/usr/local/bin/claude",
         },
       }
       const services = yield* Layer.build(
-        claudeProviderLayer(options).pipe(Layer.provide(testMcpSessionsLayer)),
+        claudeProviderLayer(options).pipe(
+          Layer.provide(
+            testMcpSessionsLayer(() => {
+              revoked += 1
+            }),
+          ),
+        ),
       )
       return yield* Effect.gen(function* () {
         const provider = yield* ProviderPort
@@ -207,6 +226,7 @@ const withProvider = <A, E, R>(
           queries,
           lastOptions: () => lastOptions,
           lastPrompt: () => lastPrompt,
+          revoked: () => revoked,
         })
       }).pipe(Effect.provide(services))
     }),
@@ -214,12 +234,15 @@ const withProvider = <A, E, R>(
 
 const waitForQuery = Effect.fn("ClaudeAdapterTest.waitForQuery")(function* (
   queries: Array<FakeClaudeQuery>,
+  minimum = 1,
 ) {
   const deadline = Date.now() + 2_000
   while (Date.now() < deadline) {
-    const query = queries[queries.length - 1]
-    if (query !== undefined) {
-      return query
+    if (queries.length >= minimum) {
+      const query = queries[queries.length - 1]
+      if (query !== undefined) {
+        return query
+      }
     }
     yield* Effect.promise(
       () =>
@@ -236,6 +259,7 @@ const capture = Effect.fn("ClaudeAdapterTest.capture")(function* (
   turnInput: ProviderTurnInput,
   queries: Array<FakeClaudeQuery>,
   emit: (query: FakeClaudeQuery) => void,
+  minimumQueries = 1,
 ) {
   const signals: Array<ProviderSignal> = []
   yield* provider.startTurn(turnInput, (signal) =>
@@ -243,13 +267,38 @@ const capture = Effect.fn("ClaudeAdapterTest.capture")(function* (
       signals.push(signal)
     }),
   )
-  const query = yield* waitForQuery(queries)
+  const query = yield* waitForQuery(queries, minimumQueries)
   emit(query)
   yield* provider.drain
   return signals
 })
 
 layer(platformLayer)("Claude Agent SDK adapter", (it) => {
+  it("exposes the t3code Claude catalog and hides models the CLI cannot run", () => {
+    assert.deepStrictEqual(
+      claudeModelsForVersion(null).map((model) => model.modelId),
+      [
+        "claude-fable-5",
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-opus-4-5",
+        "claude-sonnet-5",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5",
+      ],
+    )
+    const oldCli = claudeModelsForVersion("2.1.0").map((model) => model.modelId)
+    assert.deepStrictEqual(oldCli, [
+      "claude-opus-4-6",
+      "claude-opus-4-5",
+      "claude-sonnet-5",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+    ])
+  })
+
   it.effect("prefers an explicit configured path, then PATH, then a bare fallback", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem
@@ -286,9 +335,22 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
             assert.deepStrictEqual(status.codex, emptyCodexProviderStatus)
             assert.strictEqual(status.claude.installed, true)
             assert.strictEqual(status.claude.handshakeOk, true)
-            assert.strictEqual(status.claude.version, "2.1.0")
+            assert.strictEqual(status.claude.version, "2.1.245")
             assert.strictEqual(status.claude.plan, "Pro")
-            assert.isTrue(status.claude.models?.some((model) => model.modelId === "claude-opus-5"))
+            assert.deepStrictEqual(
+              status.claude.models?.map((model) => model.modelId),
+              [
+                "claude-fable-5",
+                "claude-opus-5",
+                "claude-opus-4-8",
+                "claude-opus-4-7",
+                "claude-opus-4-6",
+                "claude-opus-4-5",
+                "claude-sonnet-5",
+                "claude-sonnet-4-6",
+                "claude-haiku-4-5",
+              ],
+            )
           }),
         ),
       ),
@@ -357,13 +419,7 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
         const content = first.value.message.content
         assert.isTrue(
           Array.isArray(content) &&
-            content.some(
-              (block) =>
-                typeof block === "object" &&
-                block !== null &&
-                "type" in block &&
-                block.type === "image",
-            ),
+            content.some((block) => "type" in block && block.type === "image"),
         )
       }),
     ),
@@ -493,6 +549,72 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
           signals.some((signal) => signal._tag === "turn-ended" && signal.state === "interrupted"),
         )
       }),
+    ),
+  )
+
+  it.effect("recreates the query when the model or runtime mode changes", () =>
+    withProvider((provider, harness) =>
+      Effect.gen(function* () {
+        yield* capture(provider, input(), harness.queries, (query) => {
+          query.emit(assistantMessage("one"))
+          query.emit(resultMessage())
+        })
+        yield* capture(
+          provider,
+          {
+            ...input(),
+            turnId: secondTurnId,
+            text: "Continue",
+            modelSelection: { modelId: "claude-sonnet-5" },
+          },
+          harness.queries,
+          (query) => {
+            query.emit(assistantMessage("two"))
+            query.emit(resultMessage())
+            query.finish()
+          },
+          2,
+        )
+        assert.strictEqual(harness.queries.length, 2)
+        assert.strictEqual(harness.lastOptions()?.model, "claude-sonnet-5")
+        assert.strictEqual(harness.lastOptions()?.resume, "11111111-1111-4111-8111-111111111111")
+      }),
+    ),
+  )
+
+  it.effect("rejects a turn when handshake failed", () =>
+    withProvider(
+      (provider) =>
+        Effect.gen(function* () {
+          const signals: Array<ProviderSignal> = []
+          yield* provider.startTurn(input(), (signal) =>
+            Effect.sync(() => {
+              signals.push(signal)
+            }),
+          )
+          yield* provider.drain
+          assert.isTrue(
+            signals.some((signal) => signal._tag === "turn-ended" && signal.state === "error"),
+          )
+        }),
+      { handshakeOk: false },
+    ),
+  )
+
+  it.effect("revokes MCP when the query fails to start", () =>
+    withProvider(
+      (provider, harness) =>
+        Effect.gen(function* () {
+          yield* provider.startTurn(input(), () => Effect.void)
+          yield* provider.drain
+          assert.strictEqual(harness.queries.length, 0)
+          assert.isTrue(harness.revoked() >= 1)
+        }),
+      {
+        createQuery: () => {
+          throw new Error("boom")
+        },
+      },
     ),
   )
 })

@@ -406,9 +406,11 @@ Un package n'est créé que lorsqu'une frontière réelle et testée le justifie
 5. Adaptateur Cursor ACP : runtime porté par la Session, handshake, `session/new` / `load`,
    `startTurn` réutilisé, reaper et mapping `runtimeMode`.
 6. MCP HTTP : capacités bornées, outils Tableau et injection Cursor.
-7. Adaptateur Codex app-server : même `ProviderPort`, handshake, `thread/start` / `resume`,
+7. Adaptateur Claude Agent SDK : même `ProviderPort`, probe CLI, `query()` / `resume`,
+   images, approvals et branchement MCP HTTP ([ADR-0021](adr/0021-runtime-claude-via-agent-sdk.md)).
+8. Adaptateur Codex app-server : même `ProviderPort`, handshake, `thread/start` / `resume`,
    branchement MCP Noyau via `-c`, mapping `runtimeMode`.
-8. UI Tableau-first, sidebar Threads, `lastError`, lien Ticket–Thread, reprise après restart.
+9. UI Tableau-first, sidebar Threads, `lastError`, lien Ticket–Thread, reprise après restart.
 
 ## Choix encore ouverts
 

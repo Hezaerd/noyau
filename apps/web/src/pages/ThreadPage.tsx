@@ -167,24 +167,28 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     if (lockedProvider !== undefined) {
       return
     }
-    setDraftProvider((current) => {
-      const currentReady =
-        current === "claude" ? claudeReady : current === "codex" ? codexReady : cursorReady
-      if (currentReady) {
-        return current
-      }
-      if (cursorReady) {
-        return "cursor"
-      }
-      if (claudeReady) {
-        return "claude"
-      }
-      if (codexReady) {
-        return "codex"
-      }
-      return current
-    })
-  }, [lockedProvider, cursorReady, claudeReady, codexReady])
+    const currentReady =
+      draftProvider === "claude"
+        ? claudeReady
+        : draftProvider === "codex"
+          ? codexReady
+          : cursorReady
+    if (currentReady) {
+      return
+    }
+    const next = cursorReady ? "cursor" : claudeReady ? "claude" : codexReady ? "codex" : undefined
+    if (next === undefined || next === draftProvider) {
+      return
+    }
+    const catalog =
+      (next === "claude" ? claude?.models : next === "codex" ? codex?.models : cursor?.models) ?? []
+    setDraftProvider(next)
+    setModelSelection((selection) =>
+      selection !== null && catalog.some((model) => model.modelId === selection.modelId)
+        ? selection
+        : null,
+    )
+  }, [lockedProvider, draftProvider, cursorReady, claudeReady, codexReady, cursor, claude, codex])
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
     (query: string) =>

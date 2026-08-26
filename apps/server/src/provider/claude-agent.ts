@@ -11,14 +11,16 @@ import * as NodeServices from "@effect/platform-node/NodeServices"
 import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
-  UserInputQuestion,
 } from "@noyau/protocol/entities/approvals"
 import {
   emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
   emptyCursorProviderStatus,
   type CursorModel,
+  type CursorReasoningEffort,
+  type CursorServiceTier,
 } from "@noyau/protocol/entities/environment"
+import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type {
   TranscriptToolAction,
@@ -40,8 +42,20 @@ import {
   Scope,
   Stream,
 } from "effect"
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import { takeBufferedAssistantSpill } from "./assistant-delivery.ts"
+import {
+  extractAssistantText,
+  extractPlanMarkdown,
+  extractResultMessage,
+  extractStreamText,
+  extractToolResults,
+  extractToolUses,
+  mapAskUserQuestions,
+  parseClaudeCliVersion,
+  sessionIdOf,
+} from "./claude-sdk-messages.ts"
 import { promptContentBlocks } from "./prompt-blocks.ts"
 import {
   ProviderPort,
@@ -57,30 +71,122 @@ class ClaudeAdapterFailure extends Data.TaggedError("ClaudeAdapterFailure")<{
 
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"])
 
-const CLAUDE_MODELS: ReadonlyArray<CursorModel> = [
+const MINIMUM_CLAUDE_OPUS_5_VERSION = "2.1.219"
+const MINIMUM_CLAUDE_FABLE_5_VERSION = "2.1.169"
+const MINIMUM_CLAUDE_OPUS_4_8_VERSION = "2.1.154"
+const MINIMUM_CLAUDE_OPUS_4_7_VERSION = "2.1.111"
+
+const XHIGH_MODELS = new Set([
+  "claude-fable-5",
+  "claude-opus-5",
+  "claude-opus-4-8",
+  "claude-sonnet-5",
+])
+
+const lowToMaxWithUltracode: ReadonlyArray<CursorReasoningEffort> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High", isDefault: true },
+  { value: "xhigh", label: "Extra High" },
+  { value: "max", label: "Max" },
+  {
+    value: "ultracode",
+    label: "Ultracode",
+    description: "xhigh effort plus multi-agent workflow orchestration",
+  },
+  { value: "ultrathink", label: "Ultrathink" },
+]
+
+const opus47Efforts: ReadonlyArray<CursorReasoningEffort> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "xhigh", label: "Extra High", isDefault: true },
+  { value: "max", label: "Max" },
+  { value: "ultrathink", label: "Ultrathink" },
+]
+
+const opus46Efforts: ReadonlyArray<CursorReasoningEffort> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High", isDefault: true },
+  { value: "max", label: "Max" },
+  { value: "ultrathink", label: "Ultrathink" },
+]
+
+const opus45Efforts: ReadonlyArray<CursorReasoningEffort> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High", isDefault: true },
+  { value: "max", label: "Max" },
+]
+
+const sonnet5Efforts: ReadonlyArray<CursorReasoningEffort> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High", isDefault: true },
+  { value: "xhigh", label: "Extra High" },
+  { value: "max", label: "Max" },
+  { value: "ultrathink", label: "Ultrathink" },
+]
+
+const contextWindow = (defaultValue: "200k" | "1m"): ReadonlyArray<CursorServiceTier> => [
+  defaultValue === "200k"
+    ? { value: "200k", label: "200k", isDefault: true }
+    : { value: "200k", label: "200k" },
+  defaultValue === "1m"
+    ? { value: "1m", label: "1M", isDefault: true }
+    : { value: "1m", label: "1M" },
+]
+
+const CLAUDE_MODEL_CATALOG: ReadonlyArray<CursorModel> = [
+  {
+    modelId: "claude-fable-5",
+    label: "Claude Fable 5",
+    reasoningEfforts: lowToMaxWithUltracode,
+    serviceTiers: contextWindow("1m"),
+  },
   {
     modelId: "claude-opus-5",
     label: "Claude Opus 5",
-    reasoningEfforts: [
-      { value: "low", label: "Low" },
-      { value: "medium", label: "Medium" },
-      { value: "high", label: "High", isDefault: true },
-      { value: "xhigh", label: "Extra High" },
-      { value: "max", label: "Max" },
-    ],
+    reasoningEfforts: lowToMaxWithUltracode,
+    serviceTiers: contextWindow("1m"),
+  },
+  {
+    modelId: "claude-opus-4-8",
+    label: "Claude Opus 4.8",
+    reasoningEfforts: lowToMaxWithUltracode,
+    serviceTiers: [],
+  },
+  {
+    modelId: "claude-opus-4-7",
+    label: "Claude Opus 4.7",
+    reasoningEfforts: opus47Efforts,
+    serviceTiers: [],
+  },
+  {
+    modelId: "claude-opus-4-6",
+    label: "Claude Opus 4.6",
+    reasoningEfforts: opus46Efforts,
+    serviceTiers: contextWindow("1m"),
+  },
+  {
+    modelId: "claude-opus-4-5",
+    label: "Claude Opus 4.5",
+    reasoningEfforts: opus45Efforts,
     serviceTiers: [],
   },
   {
     modelId: "claude-sonnet-5",
     label: "Claude Sonnet 5",
-    reasoningEfforts: [
-      { value: "low", label: "Low" },
-      { value: "medium", label: "Medium" },
-      { value: "high", label: "High", isDefault: true },
-      { value: "xhigh", label: "Extra High" },
-      { value: "max", label: "Max" },
-    ],
-    serviceTiers: [],
+    reasoningEfforts: sonnet5Efforts,
+    serviceTiers: contextWindow("200k"),
+  },
+  {
+    modelId: "claude-sonnet-4-6",
+    label: "Claude Sonnet 4.6",
+    reasoningEfforts: opus46Efforts,
+    serviceTiers: contextWindow("200k"),
   },
   {
     modelId: "claude-haiku-4-5",
@@ -90,6 +196,53 @@ const CLAUDE_MODELS: ReadonlyArray<CursorModel> = [
     thinking: { label: "Thinking", defaultValue: false },
   },
 ]
+
+const semverParts = (value: string): ReadonlyArray<number> =>
+  value.split(".").map((part) => Number.parseInt(part, 10) || 0)
+
+const compareSemver = (left: string, right: string): number => {
+  const leftParts = semverParts(left)
+  const rightParts = semverParts(right)
+  for (let index = 0; index < 3; index += 1) {
+    const delta = (leftParts[index] ?? 0) - (rightParts[index] ?? 0)
+    if (delta !== 0) {
+      return delta
+    }
+  }
+  return 0
+}
+
+const meetsMinimum = (version: string | null | undefined, minimum: string): boolean =>
+  version === undefined || version === null || version.length === 0
+    ? true
+    : compareSemver(version, minimum) >= 0
+
+export const claudeModelsForVersion = (
+  version: string | null | undefined,
+): ReadonlyArray<CursorModel> =>
+  CLAUDE_MODEL_CATALOG.filter((model) => {
+    if (model.modelId === "claude-opus-5") {
+      return meetsMinimum(version, MINIMUM_CLAUDE_OPUS_5_VERSION)
+    }
+    if (model.modelId === "claude-fable-5") {
+      return meetsMinimum(version, MINIMUM_CLAUDE_FABLE_5_VERSION)
+    }
+    if (model.modelId === "claude-opus-4-8") {
+      return meetsMinimum(version, MINIMUM_CLAUDE_OPUS_4_8_VERSION)
+    }
+    if (model.modelId === "claude-opus-4-7") {
+      return meetsMinimum(version, MINIMUM_CLAUDE_OPUS_4_7_VERSION)
+    }
+    return true
+  })
+
+const resolveClaudeModelId = (selection: ModelSelection | null | undefined): string | undefined => {
+  const modelId = selection?.modelId
+  if (modelId === undefined) {
+    return undefined
+  }
+  return selection?.serviceTier === "1m" ? `${modelId}[1m]` : modelId
+}
 
 export interface ClaudeQueryRuntime extends AsyncIterable<SDKMessage> {
   readonly interrupt: () => Promise<void>
@@ -120,10 +273,18 @@ interface PendingApproval {
   readonly decision: Deferred.Deferred<ProviderApprovalDecision>
 }
 
+interface ClaudeSessionConfig {
+  readonly runtimeMode: ProviderTurnInput["runtimeMode"]
+  readonly model: string | null
+  readonly effort: ClaudeQueryOptions["effort"] | null
+  readonly thinking: boolean | null
+}
+
 interface ClaudeSession {
   readonly threadId: ProviderTurnInput["threadId"]
   readonly projectId: ProviderTurnInput["projectId"]
   readonly workspaceRoot: string
+  readonly config: ClaudeSessionConfig
   readonly scope: Scope.Closeable
   readonly promptQueue: Queue.Queue<SDKUserMessage | null>
   readonly query: ClaudeQueryRuntime
@@ -289,16 +450,79 @@ const effortForModel = (
     return undefined
   }
   const normalized = effort === "ultracode" ? "xhigh" : effort
-  if (
-    normalized === "xhigh" &&
-    modelId !== "claude-opus-5" &&
-    modelId !== "claude-sonnet-5" &&
-    modelId !== "claude-fable-5"
-  ) {
+  if (normalized === "xhigh" && (modelId === undefined || !XHIGH_MODELS.has(modelId))) {
     return "max"
+  }
+  if (normalized === "max" && modelId === "claude-sonnet-4-6") {
+    return "high"
   }
   return normalized as ClaudeQueryOptions["effort"]
 }
+
+const sessionConfigOf = (input: ProviderTurnInput): ClaudeSessionConfig => ({
+  runtimeMode: input.runtimeMode,
+  model: resolveClaudeModelId(input.modelSelection) ?? null,
+  effort:
+    effortForModel(input.modelSelection?.modelId, input.modelSelection?.reasoningEffort) ?? null,
+  thinking: input.modelSelection?.thinking ?? null,
+})
+
+const sameSessionConfig = (left: ClaudeSessionConfig, right: ClaudeSessionConfig): boolean =>
+  left.runtimeMode === right.runtimeMode &&
+  left.model === right.model &&
+  left.effort === right.effort &&
+  left.thinking === right.thinking
+
+const collectProcessText = <E>(stream: Stream.Stream<Uint8Array, E>) =>
+  Stream.runCollect(stream).pipe(
+    Effect.map((chunks) => {
+      const total = chunks.reduce((size, part) => size + part.length, 0)
+      const bytes = new Uint8Array(total)
+      let offset = 0
+      for (const part of chunks) {
+        bytes.set(part, offset)
+        offset += part.length
+      }
+      return new TextDecoder().decode(bytes)
+    }),
+  )
+
+const probeClaudeCli = Effect.fn("ClaudeAdapter.probeCli")(function* (
+  executable: string,
+  environment: NodeJS.ProcessEnv,
+) {
+  const failed = {
+    handshakeOk: false,
+    version: null as string | null,
+  }
+  const probed = yield* Effect.scoped(
+    Effect.gen(function* () {
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+      const handle = yield* spawner.spawn(
+        ChildProcess.make(executable, ["--version"], {
+          detached: false,
+          windowsHide: true,
+          env: environment,
+          extendEnv: true,
+        }),
+      )
+      const [stdout, stderr, code] = yield* Effect.all(
+        [
+          collectProcessText(handle.stdout),
+          collectProcessText(handle.stderr),
+          handle.exitCode.pipe(Effect.map(Number)),
+        ],
+        { concurrency: "unbounded" },
+      )
+      const version = parseClaudeCliVersion(`${stdout}\n${stderr}`)
+      return code === 0 ? { handshakeOk: true, version } : { handshakeOk: false, version }
+    }).pipe(
+      Effect.timeout("5 seconds"),
+      Effect.catchCause(() => Effect.succeed(failed)),
+    ),
+  )
+  return probed
+})
 
 const toolAction = (toolName: string): TranscriptToolAction => {
   const normalized = toolName.toLowerCase()
@@ -390,141 +614,40 @@ const withActiveTurn = <A>(
   return control === undefined ? fallback : run(control)
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null
-
-const sessionIdOf = (message: SDKMessage): string | undefined => {
-  if (!("session_id" in message) || typeof message.session_id !== "string") {
-    return undefined
-  }
-  return message.session_id.length > 0 ? message.session_id : undefined
-}
-
-const extractAssistantText = (message: SDKMessage): string => {
-  if (message.type !== "assistant") {
-    return ""
-  }
-  const content = message.message.content
-  if (!Array.isArray(content)) {
-    return typeof content === "string" ? content : ""
-  }
-  return content
-    .flatMap((block) =>
-      isRecord(block) && block.type === "text" && typeof block.text === "string"
-        ? [block.text]
-        : [],
-    )
-    .join("")
-}
-
-const extractStreamText = (message: SDKMessage): string => {
-  if (message.type !== "stream_event") {
-    return ""
-  }
-  const event = "event" in message ? message.event : undefined
-  if (!isRecord(event) || event.type !== "content_block_delta") {
-    return ""
-  }
-  const delta = event.delta
-  if (!isRecord(delta) || delta.type !== "text_delta" || typeof delta.text !== "string") {
-    return ""
-  }
-  return delta.text
-}
-
-const extractToolUses = (
-  message: SDKMessage,
-): ReadonlyArray<{ readonly id: string; readonly name: string }> => {
-  if (message.type !== "assistant") {
-    return []
-  }
-  const content = message.message.content
-  if (!Array.isArray(content)) {
-    return []
-  }
-  return content.flatMap((block) => {
-    if (!isRecord(block) || block.type !== "tool_use") {
-      return []
-    }
-    const id = typeof block.id === "string" ? block.id : undefined
-    const name = typeof block.name === "string" ? block.name : undefined
-    return id !== undefined && name !== undefined ? [{ id, name }] : []
-  })
-}
-
-const extractToolResults = (
-  message: SDKMessage,
-): ReadonlyArray<{ readonly id: string; readonly isError: boolean }> => {
-  if (message.type !== "user") {
-    return []
-  }
-  const content = message.message.content
-  if (!Array.isArray(content)) {
-    return []
-  }
-  return content.flatMap((block) => {
-    if (!isRecord(block) || block.type !== "tool_result") {
-      return []
-    }
-    const id = typeof block.tool_use_id === "string" ? block.tool_use_id : undefined
-    return id !== undefined ? [{ id, isError: block.is_error === true }] : []
-  })
-}
-
-const extractPlanMarkdown = (toolInput: Record<string, unknown>): string | undefined => {
-  if (typeof toolInput.plan === "string" && toolInput.plan.trim().length > 0) {
-    return toolInput.plan
-  }
-  return undefined
-}
-
-const mapAskUserQuestions = (
-  toolInput: Record<string, unknown>,
-): ReadonlyArray<UserInputQuestion> => {
-  const rawQuestions = Array.isArray(toolInput.questions) ? toolInput.questions : []
-  return rawQuestions.flatMap((raw, index) => {
-    if (!isRecord(raw)) {
-      return []
-    }
-    const prompt = typeof raw.question === "string" ? raw.question : ""
-    const options = (Array.isArray(raw.options) ? raw.options : []).flatMap((option) => {
-      if (!isRecord(option) || typeof option.label !== "string" || option.label.length === 0) {
-        return []
-      }
-      return [{ id: option.label, label: option.label }]
-    })
-    if (prompt.length === 0 || options.length < 2) {
-      return []
-    }
-    const question: UserInputQuestion = {
-      id: prompt.length > 0 ? prompt : `q-${index}`,
-      prompt,
-      options,
-    }
-    return raw.multiSelect === true
-      ? [Object.assign(question, { allowMultiple: true })]
-      : [question]
-  })
-}
-
-const mapAskUserAnswers = (answers: ProviderUserInputAnswers): Record<string, string> => {
-  const mapped: Record<string, string> = {}
+const mapAskUserAnswers = (answers: ProviderUserInputAnswers) => {
+  const entries: Array<readonly [string, string]> = []
   for (const [questionId, answer] of Object.entries(answers)) {
     const label = answer.optionIds[0] ?? answer.freeform
     if (label !== undefined && label.length > 0) {
-      mapped[questionId] = label
+      entries.push([questionId, label])
     }
   }
-  return mapped
+  return Object.fromEntries(entries)
 }
 
-const buildUserMessage = (content: Array<Record<string, unknown>>): SDKUserMessage => ({
+type ClaudeUserTextBlock = {
+  readonly type: "text"
+  readonly text: string
+}
+
+type ClaudeUserImageBlock = {
+  readonly type: "image"
+  readonly source: {
+    readonly type: "base64"
+    readonly media_type: string
+    readonly data: string
+  }
+}
+
+type ClaudeUserContentBlock = ClaudeUserTextBlock | ClaudeUserImageBlock
+
+const buildUserMessage = (content: ReadonlyArray<ClaudeUserContentBlock>): SDKUserMessage => ({
   type: "user",
   session_id: "",
   parent_tool_use_id: null,
   message: {
     role: "user",
-    content: content as unknown as SDKUserMessage["message"]["content"],
+    content: content as SDKUserMessage["message"]["content"],
   },
 })
 
@@ -540,7 +663,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
   const environment = options.environment ?? process.env
   const platform = options.platform ?? process.platform
   const configuredPath = options.binaryPath ?? environment.NOYAU_CLAUDE_PATH
-  const active = new Map<string, ActiveTurn>()
+  const activeTurns = new Map<string, ActiveTurn>()
   const queued = new Map<string, ActiveTurn>()
   const sessions = new Map<string, ClaudeSession>()
   const turnFibers = new Map<string, Fiber.Fiber<void>>()
@@ -566,18 +689,20 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
           version: options.probeStatus.version,
           plan: options.probeStatus.plan,
           binaryPath: options.probeStatus.binaryPath,
-          models: options.probeStatus.models ?? CLAUDE_MODELS,
+          models: options.probeStatus.models ?? claudeModelsForVersion(options.probeStatus.version),
         }
       : executable === null
         ? emptyClaudeProviderStatus
-        : {
-            installed: true,
-            handshakeOk: true,
-            version: null,
-            plan: null,
-            binaryPath: executable,
-            models: CLAUDE_MODELS,
-          }
+        : yield* probeClaudeCli(executable, environment).pipe(
+            Effect.map((probed) => ({
+              installed: true,
+              handshakeOk: probed.handshakeOk,
+              version: probed.version,
+              plan: null,
+              binaryPath: executable,
+              models: claudeModelsForVersion(probed.version),
+            })),
+          )
 
   const emitPermission = Effect.fn("ClaudeAdapter.emitPermission")(function* (
     control: ActiveTurn,
@@ -663,6 +788,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     yield* emitSignal(control, turnEndedSignal(control, state, errorMessage))
     yield* Deferred.succeed(control.promptSettled, undefined)
     yield* userInputs.unbindTurn(control.input.threadId)
+    yield* threadLive.clear(control.input.threadId)
   })
 
   const handleMessage = Effect.fn("ClaudeAdapter.handleMessage")(function* (
@@ -707,22 +833,22 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
               ),
             })
           }
-          if (message.type !== "result") {
+          const result = extractResultMessage(message)
+          if (result === undefined) {
             return
           }
-          const errors = message.subtype === "success" ? [] : message.errors
           const interrupted =
             control.cancelRequested ||
             control.stopRequested ||
-            (message.subtype === "error_during_execution" &&
-              errors.some((error) => error.toLowerCase().includes("interrupt")))
-          const failed = message.subtype !== "success" && !interrupted
+            (result.subtype === "error_during_execution" &&
+              result.errors.some((error) => error.toLowerCase().includes("interrupt")))
+          const failed = result.subtype !== "success" && !interrupted
           const errorMessage =
-            message.subtype === "success"
-              ? message.is_error
-                ? message.result
+            result.subtype === "success"
+              ? result.isError
+                ? result.result
                 : undefined
-              : errors[0]
+              : result.errors[0]
           yield* settleTurn(
             control,
             interrupted ? "interrupted" : failed ? "error" : "completed",
@@ -759,7 +885,22 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     if (executable === null && options.createQuery === undefined) {
       return yield* new ClaudeAdapterFailure({ message: "Claude executable missing" })
     }
+    if (!providerStatus.handshakeOk) {
+      return yield* new ClaudeAdapterFailure({ message: "Claude handshake failed" })
+    }
     const scope = yield* Scope.make("sequential")
+    let transferred = false
+    let released = false
+    const releaseUntransferred = Effect.suspend(() => {
+      if (transferred || released) {
+        return Effect.void
+      }
+      released = true
+      return mcpSessions
+        .revokeSession(control.input.threadId)
+        .pipe(Effect.andThen(Scope.close(scope, Exit.void)), Effect.ignore)
+    })
+    yield* Effect.addFinalizer(() => releaseUntransferred)
     const credential = yield* mcpSessions.issue({
       projectId: control.input.projectId,
       threadId: control.input.threadId,
@@ -771,8 +912,11 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
       Stream.toAsyncIterable,
     )
     const permissionMode = runtimeModeToPermission(control.input.runtimeMode)
-    const modelId = control.input.modelSelection?.modelId
-    const effort = effortForModel(modelId, control.input.modelSelection?.reasoningEffort)
+    const modelId = resolveClaudeModelId(control.input.modelSelection)
+    const effort = effortForModel(
+      control.input.modelSelection?.modelId,
+      control.input.modelSelection?.reasoningEffort,
+    )
     const queryOptions: ClaudeQueryOptions = {
       cwd: control.input.workspaceRoot,
       ...(executable !== null ? { pathToClaudeCodeExecutable: executable } : {}),
@@ -813,12 +957,13 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
         new ClaudeAdapterFailure({
           message: `Failed to start Claude runtime session: ${String(cause)}`,
         }),
-    })
+    }).pipe(Effect.onError(() => releaseUntransferred))
 
     const session: ClaudeSession = {
       threadId: control.input.threadId,
       projectId: control.input.projectId,
       workspaceRoot: control.input.workspaceRoot,
+      config: sessionConfigOf(control.input),
       scope,
       promptQueue,
       query: queryRuntime,
@@ -828,6 +973,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
       stopped: false,
     }
     sessions.set(control.input.threadId, session)
+    transferred = true
 
     const streamFiber = yield* Effect.forkIn(
       Stream.fromAsyncIterable(
@@ -838,19 +984,19 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
         Effect.catchCause((cause) =>
           withActiveTurn(
             session,
-            (active) => settleTurn(active, "error", cause.toString()),
+            (turn) => settleTurn(turn, "error", cause.toString()),
             Effect.void,
           ),
         ),
         Effect.ensuring(
           withActiveTurn(
             session,
-            (active) =>
-              active.terminalEmitted
+            (turn) =>
+              turn.terminalEmitted
                 ? Effect.void
                 : settleTurn(
-                    active,
-                    active.cancelRequested ? "interrupted" : "error",
+                    turn,
+                    turn.cancelRequested ? "interrupted" : "error",
                     "Claude stream ended.",
                   ),
             Effect.void,
@@ -962,10 +1108,18 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
       session !== undefined &&
       !session.stopped &&
       (session.projectId !== control.input.projectId ||
-        session.workspaceRoot !== control.input.workspaceRoot)
+        session.workspaceRoot !== control.input.workspaceRoot ||
+        !sameSessionConfig(session.config, sessionConfigOf(control.input)))
     ) {
+      const resumeCursor = session.resumeCursor
       yield* closeSession(session)
-      session = undefined
+      session = yield* openSession({
+        ...control,
+        input: {
+          ...control.input,
+          resumeCursor: resumeCursor ?? control.input.resumeCursor,
+        },
+      })
     }
 
     if (session === undefined) {
@@ -979,7 +1133,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     control.mcpActivated = true
 
     const prompt = yield* flattenPrompt(control.input).pipe(Effect.provideService(Path.Path, path))
-    const content: Array<Record<string, unknown>> = []
+    const content: Array<ClaudeUserContentBlock> = []
     if (prompt.length > 0) {
       content.push({ type: "text", text: prompt })
     }
@@ -1044,7 +1198,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
         return
       }
       queued.delete(input.threadId)
-      active.set(input.threadId, control)
+      activeTurns.set(input.threadId, control)
       yield* emitSignal(control, {
         _tag: "session",
         threadId: input.threadId,
@@ -1056,8 +1210,8 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
         Effect.catchCause((cause) => settleTurn(control, "error", cause.toString())),
         Effect.ensuring(
           Effect.sync(() => {
-            if (active.get(input.threadId) === control) {
-              active.delete(input.threadId)
+            if (activeTurns.get(input.threadId) === control) {
+              activeTurns.delete(input.threadId)
             }
           }),
         ),
@@ -1076,7 +1230,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     threadId: ProviderTurnInput["threadId"],
     stop: boolean,
   ) {
-    const control = active.get(threadId) ?? queued.get(threadId)
+    const control = activeTurns.get(threadId) ?? queued.get(threadId)
     if (control === undefined) {
       if (stop) {
         const session = sessions.get(threadId)
@@ -1107,7 +1261,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     requestId: ApprovalRequestId,
     decision: ProviderApprovalDecision,
   ) {
-    const control = active.get(threadId)
+    const control = activeTurns.get(threadId)
     const pending = control?.pendingApprovals.get(requestId)
     if (pending === undefined) {
       return
@@ -1151,7 +1305,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
       session.stopped ||
       session.activeTurn !== undefined ||
       queued.has(threadId) ||
-      active.has(threadId)
+      activeTurns.has(threadId)
     ) {
       return false
     }
