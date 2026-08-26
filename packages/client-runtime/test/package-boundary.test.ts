@@ -3,6 +3,7 @@ import * as connection from "@noyau/client-runtime/connection"
 import * as platform from "@noyau/client-runtime/platform"
 import * as rpc from "@noyau/client-runtime/rpc"
 import * as runtime from "@noyau/client-runtime/state/runtime"
+import * as shell from "@noyau/client-runtime/state/shell"
 import * as stream from "@noyau/client-runtime/state/stream"
 import * as testing from "@noyau/client-runtime/testing"
 import { Effect, Schema } from "effect"
@@ -56,6 +57,11 @@ describe("frontière @noyau/client-runtime", () => {
     expect(runtime.createSubscriptionAtomFamily).toBeTypeOf("function")
     expect(runtime.createAtomCommandScheduler).toBeTypeOf("function")
 
+    expect(shell.applyShellEvent).toBeTypeOf("function")
+    expect(shell.upsertOptimisticThread).toBeTypeOf("function")
+    expect(shell.indexThreadShells).toBeTypeOf("function")
+    expect(shell.createShellResourceAtom).toBeTypeOf("function")
+
     expect(testing.makeTestRegistry).toBeTypeOf("function")
     expect(testing.makeRecordingTechnicalReporter).toBeTypeOf("function")
     expect(testing.rpcBootstrapLayer).toBeTypeOf("function")
@@ -73,6 +79,7 @@ describe("frontière @noyau/client-runtime", () => {
           "./platform",
           "./rpc",
           "./state/runtime",
+          "./state/shell",
           "./state/stream",
           "./testing",
         ].toSorted(),

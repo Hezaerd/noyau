@@ -48,3 +48,10 @@ _À éviter_ : EnvironmentId, Map de ref-count, défauts t3code 30s / 5 min
 Family Atom de subscription RPC. L'ownership reste sur l'Atom (`mount` /
 `unmount` / `idleTTL`). Un changement de génération commute le Stream.
 _À éviter_ : Map de ref-count, retry par subscription, followStream multi-Environment
+
+**Shell resource**:
+Projection distante unique de l'Environment. Phases `empty → synchronizing →
+live`. `synchronized` après snapshot ou cursor chaud passe à `live` sans muter
+value ni cursor. Une reconnexion garde `value` et expose `synchronizing`
+séparément. Une seule subscription app-wide (input singleton).
+_À éviter_ : Connected, appliedShellAtom, writer impératif, EnvironmentId
