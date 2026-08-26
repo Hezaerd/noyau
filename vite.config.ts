@@ -95,6 +95,17 @@ export default defineConfig({
       // exhaustif ; la règle réclame un return final inatteignable.
       "typescript/consistent-return": "off",
       "vite-plus/prefer-vite-plus-imports": "error",
+      "eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@noyau/client-runtime",
+              message: "Import from an explicit @noyau/client-runtime/* subpath.",
+            },
+          ],
+        },
+      ],
     },
     options: {
       typeAware: true,

@@ -5,7 +5,17 @@ export default {
     "scope-enum": [
       2,
       "always",
-      ["tooling", "server", "web", "domain", "protocol", "database", "ci", "github"],
+      [
+        "tooling",
+        "server",
+        "web",
+        "domain",
+        "protocol",
+        "database",
+        "client-runtime",
+        "ci",
+        "github",
+      ],
     ],
     "scope-empty": [0, "never"],
   },
