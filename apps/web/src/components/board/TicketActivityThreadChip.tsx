@@ -15,7 +15,7 @@ const CHIP_CLASS_NAME = `${FILE_CHIP_CLASS_NAME} max-w-40 align-middle text-[11p
 const availabilityHint = (availability: TicketActivityThreadRef["availability"]): string => {
   switch (availability) {
     case "archived":
-      return "Thread archivé — ouverture impossible"
+      return "Thread supprimé — ouverture impossible"
     case "missing":
       return "Thread supprimé — ouverture impossible"
     case "active":

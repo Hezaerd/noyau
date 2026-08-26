@@ -704,6 +704,11 @@ export const applyThreadEnvelope = (
         transcript: snapshot.transcript,
       })
     }
+    case "thread.deleted":
+      if (event.threadId !== snapshot.thread.id) {
+        return withEnvelope(snapshot, envelope, snapshot)
+      }
+      return undefined
     case "thread.archived": {
       if (event.threadId !== snapshot.thread.id) {
         return withEnvelope(snapshot, envelope, snapshot)

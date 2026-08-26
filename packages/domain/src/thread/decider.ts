@@ -9,7 +9,6 @@ import {
   SessionNotRunning,
   ThreadAlreadyExists,
   ThreadArchived as ThreadArchivedError,
-  ThreadNotArchived,
   ThreadNotFound,
   ThreadNotSettleable,
   TurnAlreadyActive,
@@ -18,14 +17,13 @@ import {
 import {
   ApprovalResponded,
   SessionStopRequested,
-  ThreadArchived,
   ThreadCreated,
+  ThreadDeleted,
   type ThreadEvent,
   ThreadMetaUpdated,
   ThreadSettled,
   ThreadUnsettled,
   ThreadModelSelectionSet,
-  ThreadRestored,
   ThreadRuntimeModeSet,
   ThreadSessionSet,
   ThreadTitleSeeded,
@@ -48,7 +46,6 @@ export type ThreadDecisionError =
   | SessionNotRunning
   | ThreadAlreadyExists
   | ThreadArchivedError
-  | ThreadNotArchived
   | ThreadNotFound
   | ThreadNotSettleable
   | TurnAlreadyActive
@@ -180,21 +177,9 @@ export const decide = (
         }),
       )
     }
-    case "thread.archive":
+    case "thread.delete":
       return requireThread(state, command.payload.threadId).pipe(
-        Result.flatMap((thread) =>
-          thread.status === "archived"
-            ? Result.fail(new ThreadArchivedError({ threadId: thread.threadId }))
-            : Result.succeed([ThreadArchived.make({ threadId: thread.threadId })]),
-        ),
-      )
-    case "thread.restore":
-      return requireThread(state, command.payload.threadId).pipe(
-        Result.flatMap((thread) =>
-          thread.status !== "archived"
-            ? Result.fail(new ThreadNotArchived({ threadId: thread.threadId }))
-            : Result.succeed([ThreadRestored.make({ threadId: thread.threadId })]),
-        ),
+        Result.map((thread) => [ThreadDeleted.make({ threadId: thread.threadId })]),
       )
     case "thread.settle":
       return requireThread(state, command.payload.threadId).pipe(

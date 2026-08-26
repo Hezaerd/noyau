@@ -31,11 +31,18 @@ export const ThreadCreated = Schema.TaggedStruct("thread.created", {
 })
 export type ThreadCreated = (typeof ThreadCreated)["Type"]
 
+export const ThreadDeleted = Schema.TaggedStruct("thread.deleted", {
+  threadId: ThreadId,
+})
+export type ThreadDeleted = (typeof ThreadDeleted)["Type"]
+
+/** Ancien soft-delete. Conservé pour décoder le journal existant. */
 export const ThreadArchived = Schema.TaggedStruct("thread.archived", {
   threadId: ThreadId,
 })
 export type ThreadArchived = (typeof ThreadArchived)["Type"]
 
+/** Ancienne restauration. Conservé pour décoder le journal existant. */
 export const ThreadRestored = Schema.TaggedStruct("thread.restored", {
   threadId: ThreadId,
 })
@@ -151,6 +158,7 @@ export type ThreadTurnDiffCompleted = (typeof ThreadTurnDiffCompleted)["Type"]
 
 export const ThreadEvent = Schema.Union([
   ThreadCreated,
+  ThreadDeleted,
   ThreadArchived,
   ThreadRestored,
   ThreadSettled,

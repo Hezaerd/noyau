@@ -7,7 +7,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { acceptsSequence } from "../src/lib/control-plane"
 import {
   DEFAULT_THREAD_TITLE,
-  makeThreadArchiveRequest,
+  makeThreadDeleteRequest,
   makeThreadCreateRequest,
   makeThreadMetaUpdateRequest,
   makeThreadModelSelectionSetRequest,
@@ -169,19 +169,19 @@ describe("Thread and TicketThread UI acceptance contract", () => {
     expect(unlinkRequest._tag).toBe("ticket.thread.unlink")
   })
 
-  it("renames and archives a Thread from the sidebar actions", () => {
+  it("renames and deletes a Thread from the sidebar actions", () => {
     const renamed = runBuilder(
       makeThreadMetaUpdateRequest({
         threadId: ids.threadId,
         title: "  Titre mis à jour  ",
       }),
     )
-    const archived = runBuilder(makeThreadArchiveRequest({ threadId: ids.threadId }))
+    const deleted = runBuilder(makeThreadDeleteRequest({ threadId: ids.threadId }))
 
     expect(renamed._tag).toBe("thread.meta.update")
     expect(renamed.payload.title).toBe("Titre mis à jour")
-    expect(archived._tag).toBe("thread.archive")
-    expect(archived.payload.threadId).toBe(ids.threadId)
+    expect(deleted._tag).toBe("thread.delete")
+    expect(deleted.payload.threadId).toBe(ids.threadId)
   })
 
   it("uses the snapshot-first Thread stream and only accepts newer deltas", () => {

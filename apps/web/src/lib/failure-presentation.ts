@@ -10,7 +10,7 @@ export type FailureOperation =
   | "project.agent-integration"
   | "project.subscribe"
   | "shell.subscribe"
-  | "thread.archive"
+  | "thread.delete"
   | "thread.settle"
   | "thread.unsettle"
   | "thread.model-selection.set"
@@ -120,9 +120,7 @@ const rejectionMessage = (rejection: Rejection): string => {
     case "ThreadNotFound":
       return "Ce Thread n’existe plus."
     case "ThreadArchived":
-      return "Restaure ce Thread avant de poursuivre."
-    case "ThreadNotArchived":
-      return "Ce Thread n’est pas archivé."
+      return "Ce Thread n’est plus disponible."
     case "ThreadNotSettleable":
       return "Ce Thread a encore une activité en cours et ne peut pas être classé."
     case "TurnAlreadyActive":

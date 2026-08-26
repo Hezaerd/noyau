@@ -14,13 +14,6 @@ export class ThreadArchived extends Schema.TaggedError<ThreadArchived>()("Thread
   threadId: ThreadId,
 }) {}
 
-export class ThreadNotArchived extends Schema.TaggedError<ThreadNotArchived>()(
-  "ThreadNotArchived",
-  {
-    threadId: ThreadId,
-  },
-) {}
-
 export class ThreadNotSettleable extends Schema.TaggedError<ThreadNotSettleable>()(
   "ThreadNotSettleable",
   {
@@ -65,7 +58,6 @@ export const ThreadRejection = Schema.Union([
   ThreadAlreadyExists,
   ThreadNotFound,
   ThreadArchived,
-  ThreadNotArchived,
   ThreadNotSettleable,
   TurnAlreadyActive,
   TurnNotFound,

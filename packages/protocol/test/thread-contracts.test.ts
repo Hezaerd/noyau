@@ -466,8 +466,7 @@ describe("Thread commands", () => {
 
   it.each([
     "thread.create",
-    "thread.archive",
-    "thread.restore",
+    "thread.delete",
     "thread.settle",
     "thread.unsettle",
     "thread.meta.update",
@@ -485,8 +484,7 @@ describe("Thread commands", () => {
         title: "Nouveau thread",
         runtimeMode: "full-access",
       },
-      "thread.archive": { threadId: ids.thread },
-      "thread.restore": { threadId: ids.thread },
+      "thread.delete": { threadId: ids.thread },
       "thread.settle": { threadId: ids.thread },
       "thread.unsettle": { threadId: ids.thread, reason: "user" },
       "thread.meta.update": { threadId: ids.thread, title: "Titre" },

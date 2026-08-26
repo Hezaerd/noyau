@@ -181,6 +181,6 @@ describe("ticket activity thread chip", () => {
 
     expect(screen.getByText("Thread de reprise")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Ouvrir le Thread Thread de reprise" })).toBeNull()
-    expect(screen.getByTitle("Thread archivé — ouverture impossible")).toBeTruthy()
+    expect(screen.getByTitle("Thread supprimé — ouverture impossible")).toBeTruthy()
   })
 })

@@ -219,6 +219,11 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
           },
         ],
       }
+    case "thread.deleted":
+      return {
+        ...state,
+        threads: state.threads.filter((thread) => thread.threadId !== event.threadId),
+      }
     case "thread.archived":
       return updateThread(state, event.threadId, (thread) => ({ ...thread, status: "archived" }))
     case "thread.restored":

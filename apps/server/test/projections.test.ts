@@ -22,6 +22,7 @@ import {
 import { ProjectCreated, ProjectDeleted } from "@noyau/protocol/project/events"
 import {
   ThreadCreated,
+  ThreadDeleted,
   ThreadModelSelectionSet,
   ThreadSessionSet,
   ThreadTranscriptAppended,
@@ -699,6 +700,96 @@ layer(platformLayer)("SQL projections", (it) => {
       }),
     )
   })
+
+  it.effect("retire le Thread et ses projections enfants", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              KanbanColumnCreated.make({
+                columnId: ids.backlog,
+                name: "Backlog",
+                color: columnColor,
+                rank: ranks.backlog,
+                done: false,
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              TicketCreated.make({
+                ticketId: ids.ticket,
+                columnId: ids.backlog,
+                rank: ranks.ticket,
+                title: "Lié au Thread",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "À supprimer",
+                provider: "cursor",
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              TicketThreadLinked.make({
+                ticketId: ids.ticket,
+                threadId: ids.recoveryThread,
+              }),
+            ),
+          )
+
+          const before = yield* readThreadSnapshot(ids.recoveryThread)
+          assert.isTrue(Option.isSome(before), "Thread should exist before delete")
+
+          yield* projectDomainEvent(
+            persisted(5, ThreadDeleted.make({ threadId: ids.recoveryThread })),
+          )
+
+          const thread = yield* readThreadSnapshot(ids.recoveryThread)
+          const shell = yield* readThreadShellById(ids.recoveryThread)
+          const leftovers = yield* sql<{
+            threads: number
+            sessions: number
+            turns: number
+            transcript: number
+            links: number
+          }>`
+            SELECT
+              (SELECT COUNT(*) FROM projection_threads) AS threads,
+              (SELECT COUNT(*) FROM projection_sessions) AS sessions,
+              (SELECT COUNT(*) FROM projection_turns) AS turns,
+              (SELECT COUNT(*) FROM projection_transcript) AS transcript,
+              (SELECT COUNT(*) FROM projection_ticket_threads) AS links
+          `
+
+          assert.deepStrictEqual(thread, Option.none())
+          assert.deepStrictEqual(shell, Option.none())
+          assert.deepStrictEqual(leftovers[0], {
+            threads: 0,
+            sessions: 0,
+            turns: 0,
+            transcript: 0,
+            links: 0,
+          })
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    ),
+  )
 
   it.effect("retire le Project et ses projections enfants malgré les FK colonnes", () =>
     Effect.scoped(

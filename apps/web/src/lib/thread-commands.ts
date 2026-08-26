@@ -15,8 +15,8 @@ import {
 } from "@noyau/protocol/ids"
 import {
   ApprovalRespondRequest,
-  ThreadArchiveRequest,
   ThreadCreateRequest,
+  ThreadDeleteRequest,
   ThreadSettleRequest,
   ThreadUnsettleRequest,
   ThreadMetaUpdateRequest,
@@ -204,10 +204,10 @@ export const makeThreadTitleRegenerateRequest = Effect.fnUntraced(function* (inp
   })
 })
 
-export const makeThreadArchiveRequest = Effect.fnUntraced(function* (input: {
+export const makeThreadDeleteRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
 }) {
-  return ThreadArchiveRequest.make({
+  return ThreadDeleteRequest.make({
     commandId: CommandId.make(yield* uuid()),
     payload: { threadId: input.threadId },
   })

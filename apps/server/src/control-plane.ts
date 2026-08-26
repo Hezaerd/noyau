@@ -300,8 +300,7 @@ const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
     case "ticket.thread.link":
     case "ticket.thread.unlink":
       return yield* projectForTicket(request.payload.ticketId)
-    case "thread.archive":
-    case "thread.restore":
+    case "thread.delete":
     case "thread.settle":
     case "thread.unsettle":
     case "thread.meta.update":

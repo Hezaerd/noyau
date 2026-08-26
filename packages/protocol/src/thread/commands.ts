@@ -167,8 +167,7 @@ const threadUnsettlePayload = {
 } as const
 
 export const ThreadCreateRequest = request("thread.create", Schema.Struct(threadCreatePayload))
-export const ThreadArchiveRequest = request("thread.archive", Schema.Struct(threadIdPayload))
-export const ThreadRestoreRequest = request("thread.restore", Schema.Struct(threadIdPayload))
+export const ThreadDeleteRequest = request("thread.delete", Schema.Struct(threadIdPayload))
 export const ThreadSettleRequest = request("thread.settle", Schema.Struct(threadIdPayload))
 export const ThreadUnsettleRequest = request(
   "thread.unsettle",
@@ -200,8 +199,7 @@ export const SessionStopRequest = request("session.stop", Schema.Struct(threadId
 
 export const ThreadCommandRequest = Schema.Union([
   ThreadCreateRequest,
-  ThreadArchiveRequest,
-  ThreadRestoreRequest,
+  ThreadDeleteRequest,
   ThreadSettleRequest,
   ThreadUnsettleRequest,
   ThreadMetaUpdateRequest,
@@ -217,8 +215,7 @@ export type ThreadCommandRequest = (typeof ThreadCommandRequest)["Type"]
 export const decodeThreadCommandRequest = Schema.decodeUnknownEffect(ThreadCommandRequest)
 
 export const ThreadCreate = command("thread.create", Schema.Struct(threadCreatePayload))
-export const ThreadArchive = command("thread.archive", Schema.Struct(threadIdPayload))
-export const ThreadRestore = command("thread.restore", Schema.Struct(threadIdPayload))
+export const ThreadDelete = command("thread.delete", Schema.Struct(threadIdPayload))
 export const ThreadSettle = command("thread.settle", Schema.Struct(threadIdPayload))
 export const ThreadUnsettle = command("thread.unsettle", Schema.Struct(threadUnsettlePayload))
 export const ThreadMetaUpdate = command("thread.meta.update", threadMetaPayload)
@@ -244,8 +241,7 @@ export const SessionStop = command("session.stop", Schema.Struct(threadIdPayload
 
 export const ClientThreadCommand = Schema.Union([
   ThreadCreate,
-  ThreadArchive,
-  ThreadRestore,
+  ThreadDelete,
   ThreadSettle,
   ThreadUnsettle,
   ThreadMetaUpdate,

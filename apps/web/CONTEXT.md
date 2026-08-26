@@ -103,14 +103,14 @@ auto via PR live ou inactivité. Le Pin local sort le Thread de la queue.
 _À éviter_ : archive, snooze
 
 **Queue Classés**:
-Queue de la sidebar pour les Threads effectiveSettled, distincte de l'archive.
+Queue de la sidebar pour les Threads effectiveSettled, distincte de la suppression.
 _À éviter_ : Done, archive Thread
 
 **Cleanup worktree**:
 Suppression live d'un worktree lié (`vcs.removeWorktree`) puis déliaison du Checkout
 (`worktreePath: null`). Auto opt-in (Préférence, off par défaut) quand la PR live passe à
 `merged` ; manuel via ⌘⇧ clic dans le sélecteur de branche. Jamais le WorkspaceRoot.
-_À éviter_ : archive Thread, suppression de branche
+_À éviter_ : suppression de Thread, suppression de branche
 
 **Présentation de Turn**:
 Comment le prompt utilisateur d'un Turn est montré dans le transcript : même Message / Bubble

@@ -9,7 +9,7 @@ import { Effect, Schema } from "effect"
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { ThreadArchiveConfirmDialog } from "../src/components/sidebar/ThreadArchiveConfirmDialog"
+import { ThreadDeleteConfirmDialog } from "../src/components/sidebar/ThreadDeleteConfirmDialog"
 import { ThreadSidebarItem } from "../src/components/sidebar/ThreadSidebarItem"
 import { SidebarProvider } from "../src/components/ui/sidebar"
 
@@ -57,14 +57,14 @@ const thread = Schema.decodeSync(ThreadShell)({
   updatedAt: "2026-08-20T00:00:00.000Z",
 }) satisfies ThreadShellType
 
-describe("thread archive confirmation", () => {
-  it("does not archive until the confirmation is accepted", () =>
+describe("thread delete confirmation", () => {
+  it("does not delete until the confirmation is accepted", () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const user = userEvent.setup()
         const onConfirm = vi.fn()
         render(
-          <ThreadArchiveConfirmDialog
+          <ThreadDeleteConfirmDialog
             open
             threadTitle={threadTitle}
             onOpenChange={vi.fn()}
@@ -73,16 +73,16 @@ describe("thread archive confirmation", () => {
         )
 
         expect(screen.getByRole("alertdialog")).toBeTruthy()
-        expect(screen.getByText(/quittera la sidebar/)).toBeTruthy()
+        expect(screen.getByText(/définitivement retiré/)).toBeTruthy()
         yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Annuler" })))
         expect(onConfirm).not.toHaveBeenCalled()
 
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archiver" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Supprimer" })))
         expect(onConfirm).toHaveBeenCalledTimes(1)
       }),
     ))
 
-  it("opens the confirmation from the sidebar before archiving", () =>
+  it("opens the confirmation from the sidebar before deleting", () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const user = userEvent.setup()
@@ -111,10 +111,10 @@ describe("thread archive confirmation", () => {
             target: threadLink(),
           }),
         )
-        const archiveItem = yield* Effect.promise(() =>
-          screen.findByRole("menuitem", { name: "Archiver" }),
+        const deleteItem = yield* Effect.promise(() =>
+          screen.findByRole("menuitem", { name: "Supprimer" }),
         )
-        yield* Effect.promise(() => user.click(archiveItem))
+        yield* Effect.promise(() => user.click(deleteItem))
 
         const confirmation = yield* Effect.promise(() =>
           waitFor(() => screen.getByRole("alertdialog")),
@@ -133,15 +133,15 @@ describe("thread archive confirmation", () => {
             target: threadLink(),
           }),
         )
-        const secondArchiveItem = yield* Effect.promise(() =>
-          screen.findByRole("menuitem", { name: "Archiver" }),
+        const secondDeleteItem = yield* Effect.promise(() =>
+          screen.findByRole("menuitem", { name: "Supprimer" }),
         )
-        yield* Effect.promise(() => user.click(secondArchiveItem))
+        yield* Effect.promise(() => user.click(secondDeleteItem))
         const secondConfirmation = yield* Effect.promise(() =>
           waitFor(() => screen.getByRole("alertdialog")),
         )
         yield* Effect.promise(() =>
-          user.click(within(secondConfirmation).getByRole("button", { name: "Archiver" })),
+          user.click(within(secondConfirmation).getByRole("button", { name: "Supprimer" })),
         )
         yield* Effect.promise(() =>
           waitFor(() => {
