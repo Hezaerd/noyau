@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as connection from "@noyau/client-runtime/connection"
 import * as platform from "@noyau/client-runtime/platform"
+import * as rpc from "@noyau/client-runtime/rpc"
 import * as stream from "@noyau/client-runtime/state/stream"
 import * as testing from "@noyau/client-runtime/testing"
 import { Effect, Schema } from "effect"
@@ -39,6 +41,12 @@ describe("frontière @noyau/client-runtime", () => {
     expect(platform.WebSocketConstructor).toBeDefined()
     expect(platform.TechnicalReporter).toBeTypeOf("function")
 
+    expect(rpc.RpcSessionFactory).toBeTypeOf("function")
+    expect(rpc.rpcSessionProtocolOptions.retryTransientErrors).toBe(false)
+    expect(connection.ConnectionSupervisor).toBeTypeOf("function")
+    expect(connection.classifyControlPlaneError).toBeTypeOf("function")
+    expect(connection.TransportRupture).toBeTypeOf("function")
+
     expect(stream.acceptsSequence).toBeTypeOf("function")
     expect(stream.reduceSequencedFrame).toBeTypeOf("function")
     expect(stream.makeSequencedProjection).toBeTypeOf("function")
@@ -46,6 +54,7 @@ describe("frontière @noyau/client-runtime", () => {
     expect(testing.makeTestRegistry).toBeTypeOf("function")
     expect(testing.makeRecordingTechnicalReporter).toBeTypeOf("function")
     expect(testing.rpcBootstrapLayer).toBeTypeOf("function")
+    expect(testing.makeFakeRpcSession).toBeTypeOf("function")
   })
 
   it.effect("n'a pas d'export racine \".\"", () =>
@@ -53,7 +62,14 @@ describe("frontière @noyau/client-runtime", () => {
       const packageJson = yield* loadPackageManifest()
       expect(Object.hasOwn(packageJson.exports, ".")).toBe(false)
       expect(Object.keys(packageJson.exports).toSorted()).toEqual(
-        ["./platform", "./state/stream", "./testing"].toSorted(),
+        [
+          "./connection",
+          "./connection/model",
+          "./platform",
+          "./rpc",
+          "./state/stream",
+          "./testing",
+        ].toSorted(),
       )
     }),
   )

@@ -4,6 +4,7 @@ import {
   TechnicalReporter,
   type TechnicalReportAnnotations,
 } from "@noyau/client-runtime/platform"
+import type { RpcSession } from "@noyau/client-runtime/rpc"
 import { Effect, Layer } from "effect"
 import { AtomRegistry } from "effect/unstable/reactivity"
 
@@ -38,3 +39,25 @@ export const makeRecordingTechnicalReporter = (): RecordingTechnicalReporter => 
  * `@effect/atom-react`). Équivalent t3code : `AtomRegistry.make()`.
  */
 export const makeTestRegistry = (): AtomRegistry.AtomRegistry => AtomRegistry.make()
+
+export const makeFakeRpcSession = (
+  generation: number,
+  onDispose: () => void = () => undefined,
+): RpcSession => {
+  let disposed = false
+  return {
+    generation,
+    get client(): RpcSession["client"] {
+      throw new Error("fake RpcSession has no RPC client")
+    },
+    ready: Effect.void,
+    closed: Effect.never,
+    dispose: Effect.sync(() => {
+      if (disposed) {
+        return
+      }
+      disposed = true
+      onDispose()
+    }),
+  }
+}
