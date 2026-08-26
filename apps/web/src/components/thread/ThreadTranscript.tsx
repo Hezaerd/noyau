@@ -36,17 +36,22 @@ const transcriptTurnDiffProps = (
   index: number,
   turns: ReadonlyArray<Turn>,
   lastAssistantByTurn: ReadonlyMap<Turn["id"], number>,
+  latestTurnId: LatestTurn["turnId"] | undefined,
   onOpenTurnDiff: ((turnId: Turn["id"], filePath?: string) => void) | undefined,
 ): {
   readonly turnDiff?: ReturnType<typeof turnDiffForTranscriptItem>
   readonly onOpenTurnDiff?: (filePath?: string) => void
+  readonly isLatestTurn?: boolean
 } => {
   const turnDiff = turnDiffForTranscriptItem(item, index, turns, lastAssistantByTurn)
+  const isLatestTurn = latestTurnId !== undefined && item.turnId === latestTurnId
   if (onOpenTurnDiff === undefined) {
-    return turnDiff === undefined ? {} : { turnDiff }
+    return turnDiff === undefined ? {} : { turnDiff, isLatestTurn }
   }
   const open = (filePath?: string) => onOpenTurnDiff(item.turnId, filePath)
-  return turnDiff === undefined ? { onOpenTurnDiff: open } : { turnDiff, onOpenTurnDiff: open }
+  return turnDiff === undefined
+    ? { onOpenTurnDiff: open, isLatestTurn }
+    : { turnDiff, onOpenTurnDiff: open, isLatestTurn }
 }
 
 export function ThreadTranscript({
@@ -160,6 +165,7 @@ export function ThreadTranscript({
                       row.index,
                       turns,
                       lastAssistantByTurn,
+                      latestTurn?.turnId,
                       onOpenTurnDiff,
                     )}
                     workspaceRoot={
