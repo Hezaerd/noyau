@@ -8,6 +8,7 @@ import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useMergedWorktreeCleanup } from "@/hooks/use-merged-worktree-cleanup"
 import { useThreadChangeRequests } from "@/hooks/use-thread-change-requests"
+import { threadIdFromPathname } from "@/lib/page-titlebar"
 
 export function ProjectSidebarItem({
   project,
@@ -21,9 +22,8 @@ export function ProjectSidebarItem({
   const threads = useProjectThreads(project.id)
   const { pullRequests, liveBranches } = useThreadChangeRequests(project.id, threads)
   useMergedWorktreeCleanup(project.id, threads, pullRequests)
-  const threadPathPrefix = `/projects/${project.id}/thread/`
-  const openThreadId = pathname.startsWith(threadPathPrefix)
-    ? pathname.slice(threadPathPrefix.length)
+  const openThreadId = pathname.startsWith(`/projects/${project.id}/thread/`)
+    ? (threadIdFromPathname(pathname) ?? null)
     : null
   return (
     <SidebarMenuItem>

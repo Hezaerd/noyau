@@ -18,9 +18,8 @@ describe("parseSettledShelfExpanded", () => {
 })
 
 describe("settledShelfLabel", () => {
-  it("shows the count only while collapsed", () => {
-    expect(settledShelfLabel(182, false)).toBe("Classés (182)")
-    expect(settledShelfLabel(182, true)).toBe("Classés")
+  it("keeps the count in both shelf states", () => {
+    expect(settledShelfLabel(182)).toBe("Classés (182)")
   })
 })
 

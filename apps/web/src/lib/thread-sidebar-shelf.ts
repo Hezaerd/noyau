@@ -36,8 +36,7 @@ export const persistSettledShelfExpanded = (expanded: boolean): void => {
   }
 }
 
-export const settledShelfLabel = (count: number, expanded: boolean): string =>
-  expanded ? "Classés" : `Classés (${count})`
+export const settledShelfLabel = (count: number): string => `Classés (${count})`
 
 /** Collapsed shelf hides rows, except the Thread already open. */
 export const settledThreadsVisibleInShelf = <T extends { readonly id: string }>(

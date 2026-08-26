@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import type { ThreadShell } from "@noyau/protocol/shell"
 import { ChevronDownIcon } from "lucide-react"
 import { Fragment, type ReactNode } from "react"
@@ -15,7 +15,7 @@ export function ThreadSidebarSection({
   renderThread,
 }: {
   readonly projectId: ProjectId
-  readonly openThreadId: string | null
+  readonly openThreadId: ThreadId | null
   readonly renderThread: (thread: ThreadShell, settled: boolean) => ReactNode
 }) {
   const { active, settled } = useSidebarQueues(projectId)
@@ -50,7 +50,7 @@ export function ThreadSidebarSection({
             className="mb-1 flex w-full cursor-pointer items-center gap-2 px-2 text-left"
           >
             <span className="text-[0.65rem] font-medium uppercase tracking-wide text-sidebar-foreground/45">
-              {settledShelfLabel(settled.length, settledShelfExpanded)}
+              {settledShelfLabel(settled.length)}
             </span>
             <span aria-hidden className="h-px flex-1 bg-sidebar-border/60" />
             <ChevronDownIcon
