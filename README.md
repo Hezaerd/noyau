@@ -13,7 +13,6 @@ Noyau v0.1 est un Environment desktop local : un Tableau Kanban par Project, des
 
 - [Bun](https://bun.com) (package manager)
 - Node 24 (provisionné par `vp` via [`.node-version`](.node-version) ; runtime serveur et desktop)
-- Docker (uniquement si tu touches encore l'ancien store Postgres — la cible v0.1 est `node:sqlite`)
 - [Vite+](https://viteplus.dev) pour la CLI `vp` globale — optionnel mais recommandé :
 
 ```bash
@@ -61,8 +60,7 @@ bun run dev:desktop
 ```
 
 `bun run dev:server` et `bun run dev:web` restent utiles en hot-reload, avec le même contrat RPC
-loopback. Le compose Postgres et `X-Noyau-Actor-Id` appartiennent à l'arbre précédent : ne pas
-les étendre.
+loopback. `X-Noyau-Actor-Id` appartient à l'arbre précédent : ne pas l'étendre.
 
 ## Effect
 
