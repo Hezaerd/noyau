@@ -1,4 +1,5 @@
 import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"
 import {
   ActorId,
   CommandId,
@@ -40,6 +41,7 @@ const projectCreatePayload = {
 const projectMetaPayload = {
   projectId: ProjectId,
   name: Schema.optionalKey(Schema.NonEmptyString),
+  defaultModelSelection: Schema.optionalKey(Schema.NullOr(DefaultModelSelection)),
 } as const
 
 const projectRebindPayload = {

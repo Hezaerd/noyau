@@ -1,0 +1,43 @@
+import type { Provider } from "@noyau/protocol/entities/environment"
+import { Option, Schema } from "effect"
+
+export interface FavoriteModel {
+  readonly provider: Provider
+  readonly modelId: string
+}
+
+export const MODEL_FAVORITES_STORAGE_KEY = "noyau:model-favorites"
+
+const FavoriteModelSchema = Schema.Struct({
+  provider: Schema.Literals(["cursor", "claude", "codex"]),
+  modelId: Schema.NonEmptyString,
+})
+const FavoriteModelsJson = Schema.fromJsonString(Schema.Array(FavoriteModelSchema))
+const decodeFavoriteModels = Schema.decodeUnknownOption(FavoriteModelsJson)
+const encodeFavoriteModels = Schema.encodeSync(FavoriteModelsJson)
+
+export const favoriteModelKey = (favorite: FavoriteModel): string =>
+  `${favorite.provider}:${favorite.modelId}`
+
+export const parseFavoriteModels = (value: string | null): ReadonlyArray<FavoriteModel> =>
+  Option.getOrElse(decodeFavoriteModels(value ?? "[]"), () => [])
+
+export const readStoredFavoriteModels = (): ReadonlyArray<FavoriteModel> => {
+  try {
+    return parseFavoriteModels(window.localStorage.getItem(MODEL_FAVORITES_STORAGE_KEY))
+  } catch {
+    return []
+  }
+}
+
+export const persistFavoriteModels = (favorites: ReadonlyArray<FavoriteModel>): void => {
+  try {
+    if (favorites.length === 0) {
+      window.localStorage.removeItem(MODEL_FAVORITES_STORAGE_KEY)
+      return
+    }
+    window.localStorage.setItem(MODEL_FAVORITES_STORAGE_KEY, encodeFavoriteModels(favorites))
+  } catch {
+    // Les favoris restent actifs pour cette session renderer si le stockage est indisponible.
+  }
+}

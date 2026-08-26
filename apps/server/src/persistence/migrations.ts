@@ -10,6 +10,7 @@ import ThreadCheckoutMigration from "./migrations/006_thread_checkout.ts"
 import ThreadSettledMigration from "./migrations/007_thread_settled.ts"
 import TurnDiffMigration from "./migrations/008_turn_diff.ts"
 import ThreadProviderCodexMigration from "./migrations/009_thread_provider_codex.ts"
+import ProjectDefaultModelMigration from "./migrations/010_project_default_model.ts"
 
 export const migrationsThroughTurnDiff: Migrator.Loader = Migrator.fromRecord({
   "1_journal": JournalMigration,
@@ -32,6 +33,7 @@ export const migrations: Migrator.Loader = Migrator.fromRecord({
   "7_thread_settled": ThreadSettledMigration,
   "8_turn_diff": TurnDiffMigration,
   "9_thread_provider_codex": ThreadProviderCodexMigration,
+  "10_project_default_model": ProjectDefaultModelMigration,
 })
 
 export { default as threadProviderCodexMigration } from "./migrations/009_thread_provider_codex.ts"

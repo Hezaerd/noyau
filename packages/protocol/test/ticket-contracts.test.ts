@@ -50,6 +50,7 @@ const project = {
   id: ids.project,
   name: "Noyau",
   workspaceRoot: "/Users/hezaerd/noyau",
+  defaultModelSelection: null,
   available: true,
   createdAt: "2026-08-13T12:00:00.000Z",
   updatedAt: "2026-08-13T12:00:00.000Z",

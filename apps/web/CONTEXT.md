@@ -156,6 +156,11 @@ Choix durable du Composer attaché au Thread : modèle, Effort, Vitesse et Réfl
 retrouve son dernier choix indépendamment des autres Threads.
 _À éviter_ : choix global, modèle de Session
 
+**Modèle par défaut**:
+Préférence durable d'un Project, composée d'un Provider et d'une sélection de modèle, utilisée
+pour initialiser ses nouveaux Threads. Un fallback live ne réécrit jamais la préférence.
+_À éviter_ : modèle global, modèle de Session, fallback persisté
+
 **Mention**:
 Référence `@path` ou `@ticket:<id>` insérée depuis le Composer, affichée comme chip
 fichier (Pierre + basename) ou chip Ticket (titre). Le texte soumis reste plat ; Noyau

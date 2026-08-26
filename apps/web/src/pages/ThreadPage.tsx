@@ -2,7 +2,10 @@ import { useAtomSet } from "@effect/atom-react"
 import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
 import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
 import type { Provider } from "@noyau/protocol/entities/environment"
-import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
+import type {
+  DefaultModelSelection,
+  ModelSelection,
+} from "@noyau/protocol/entities/model-selection"
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
 import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
@@ -13,6 +16,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type DragEvent,
@@ -63,10 +67,16 @@ import {
   type ComposerImage,
 } from "@/lib/composer-images"
 import { loadComposerImagesFromAttachments } from "@/lib/composer-images-from-attachments"
-import { searchWorkspacePaths, subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
+import {
+  buildAndDispatchCommand,
+  searchWorkspacePaths,
+  subscribeThread,
+  type SubscriptionStatus,
+} from "@/lib/control-plane"
 import { makeOptimisticThreadShell } from "@/lib/control-plane-state"
 import { isCursorReady } from "@/lib/cursor-readiness"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
+import { makeProjectDefaultModelUpdateRequest } from "@/lib/project-commands"
 import { resolveOpenThreadWorking, type OptimisticSend } from "@/lib/thread-activity"
 import { seedTitleFromTurn } from "@/lib/thread-commands"
 import {
@@ -141,6 +151,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   )
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
+  const [defaultModelSelection, setDefaultModelSelection] = useState<DefaultModelSelection | null>(
+    null,
+  )
   const [draftProvider, setDraftProvider] = useState<Provider>("cursor")
   const [draftByRequest, setDraftByRequest] = useState<Record<string, DraftAnswers>>({})
   const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
@@ -161,15 +174,63 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       : selectedProvider === "codex"
         ? codexReady
         : cursorReady
-  const cursorModels = cursor?.models ?? []
-  const claudeModels = claude?.models ?? []
-  const codexModels = codex?.models ?? []
+  const cursorModels = useMemo(() => cursor?.models ?? [], [cursor?.models])
+  const claudeModels = useMemo(() => claude?.models ?? [], [claude?.models])
+  const codexModels = useMemo(() => codex?.models ?? [], [codex?.models])
+  const availableProviders = useMemo<ReadonlyArray<Provider>>(
+    () => [
+      ...(cursorReady ? (["cursor"] as const) : []),
+      ...(claudeReady ? (["claude"] as const) : []),
+      ...(codexReady ? (["codex"] as const) : []),
+    ],
+    [claudeReady, codexReady, cursorReady],
+  )
   const selectedModels =
     selectedProvider === "claude"
       ? claudeModels
       : selectedProvider === "codex"
         ? codexModels
         : cursorModels
+
+  useEffect(() => {
+    setDefaultModelSelection(project?.defaultModelSelection ?? null)
+  }, [project?.defaultModelSelection])
+
+  const initializedDraftModelRef = useRef<ProjectId>(undefined)
+  useEffect(() => {
+    if (
+      threadId !== undefined ||
+      project === undefined ||
+      initializedDraftModelRef.current === projectId
+    ) {
+      return
+    }
+    const stored = project.defaultModelSelection
+    const provider =
+      stored !== null && availableProviders.includes(stored.provider)
+        ? stored.provider
+        : availableProviders[0]
+    if (provider === undefined) return
+    initializedDraftModelRef.current = projectId
+    setDraftProvider(provider)
+    setModelSelection(
+      stored?.provider === provider
+        ? stored.modelSelection
+        : (provider === "cursor"
+              ? cursorModels
+              : provider === "claude"
+                ? claudeModels
+                : codexModels)[0] === undefined
+          ? null
+          : {
+              modelId: (provider === "cursor"
+                ? cursorModels
+                : provider === "claude"
+                  ? claudeModels
+                  : codexModels)[0]!.modelId,
+            },
+    )
+  }, [availableProviders, claudeModels, codexModels, cursorModels, project, projectId, threadId])
 
   useEffect(() => {
     if (lockedProvider !== undefined) {
@@ -744,6 +805,27 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     )
   }
 
+  const changeDefaultModelSelection = (nextSelection: DefaultModelSelection | null) => {
+    setDefaultModelSelection(nextSelection)
+    setComposerFailure(undefined)
+    void buildAndDispatchCommand(
+      makeProjectDefaultModelUpdateRequest({ projectId, defaultModelSelection: nextSelection }),
+    ).then((result) => {
+      if (!result.ok) {
+        setDefaultModelSelection(project?.defaultModelSelection ?? null)
+        setComposerFailure(
+          presentFailure(result.failure, {
+            operation: "project.meta.update",
+            scope: "field",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
+      }
+      return undefined
+    })
+  }
+
   const respondToApproval = (requestId: string, decision: "accept" | "decline") => {
     if (threadId === undefined) {
       return
@@ -856,9 +938,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       cursorModels={cursorModels}
       claudeModels={claudeModels}
       codexModels={codexModels}
+      availableProviders={availableProviders}
       lockedProvider={lockedProvider}
       selectedProvider={selectedProvider}
       modelSelection={modelSelection}
+      defaultModelSelection={defaultModelSelection}
       placement={isNewThread ? "hero" : "docked"}
       error={
         composerError === undefined ? undefined : (
@@ -872,6 +956,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       }}
       onRuntimeModeChange={setRuntimeMode}
       onModelSelectionChange={changeModelSelection}
+      onDefaultModelSelectionChange={changeDefaultModelSelection}
       onProviderChange={setDraftProvider}
       onPaste={acceptImages}
       onDrop={acceptImages}

@@ -55,6 +55,7 @@ const makeSnapshot = (threads: ReadonlyArray<ThreadShell>) => ({
         id: projectId,
         name: "Noyau",
         workspaceRoot: "/tmp/noyau",
+        defaultModelSelection: null,
         available: true,
         createdAt: "2026-08-25T12:00:00.000Z",
         updatedAt: "2026-08-25T12:00:00.000Z",

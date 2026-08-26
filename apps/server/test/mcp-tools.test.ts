@@ -46,6 +46,7 @@ const snapshot = Schema.decodeSync(BoardSnapshot)({
     id: projectId,
     name: "Noyau",
     workspaceRoot: "/tmp/noyau",
+    defaultModelSelection: null,
     available: true,
     createdAt: "2026-08-20T00:00:00.000Z",
     updatedAt: "2026-08-20T00:00:00.000Z",

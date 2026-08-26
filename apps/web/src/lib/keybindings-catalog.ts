@@ -11,6 +11,7 @@ export const KEYBINDING_IDS = [
   "thread.rename",
   "thread.pin",
   "thread.settle",
+  "thread.model-picker.open",
   "board.search",
   "board.ticket.create",
   "board.ticket.open",
@@ -79,6 +80,13 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Épingler le Thread",
     description: "Épingle ou désépingle le Thread ouvert en haut de la sidebar.",
     defaultHotkey: "Mod+P",
+  },
+  {
+    id: "thread.model-picker.open",
+    group: "thread",
+    title: "Choisir un modèle",
+    description: "Ouvre le sélecteur de modèle du Composer.",
+    defaultHotkey: "Mod+;",
   },
   {
     id: "thread.settle",
