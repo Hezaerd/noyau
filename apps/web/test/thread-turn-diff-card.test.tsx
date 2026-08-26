@@ -115,4 +115,26 @@ describe("ThreadTurnDiffCard", () => {
     await user.click(screen.getByRole("button", { name: /index\.ts/ }))
     expect(onOpen).toHaveBeenCalledWith("apps/web/src/index.ts")
   })
+
+  it("replie la carte quand le Turn cesse d'être le dernier", () => {
+    const turnDiff = decodeTurnDiff([
+      { path: "README.md", kind: "modified", additions: 2, deletions: 1 },
+    ])
+    const { rerender } = renderCard(
+      <ThreadTurnDiffCard turnDiff={turnDiff} isLatestTurn onOpen={vi.fn()} />,
+    )
+
+    expect(document.querySelector('[data-changed-files-state="expanded"]')).toBeTruthy()
+
+    rerender(
+      <AppAtomRegistryProvider>
+        <TooltipProvider>
+          <ThreadTurnDiffCard turnDiff={turnDiff} onOpen={vi.fn()} />
+        </TooltipProvider>
+      </AppAtomRegistryProvider>,
+    )
+
+    expect(document.querySelector('[data-changed-files-state="collapsed"]')).toBeTruthy()
+    expect(screen.queryByText("README.md")).toBeNull()
+  })
 })

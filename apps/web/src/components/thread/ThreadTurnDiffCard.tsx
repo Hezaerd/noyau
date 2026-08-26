@@ -7,7 +7,7 @@ import {
   FolderClosedIcon,
   FolderIcon,
 } from "lucide-react"
-import { memo, useCallback, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 
 import { PierreEntryIcon } from "@/components/PierreEntryIcon"
 import { TurnDiffStatLabel } from "@/components/thread/TurnDiffStatLabel"
@@ -194,6 +194,11 @@ export function ThreadTurnDiffCard({
   const [autoExpanded] = useState(() => shouldAutoExpandChangedFiles(files, isLatestTurn))
   const [expanded, setExpanded] = useState(autoExpanded)
   const [allDirectoriesExpanded, setAllDirectoriesExpanded] = useState(autoExpanded)
+  useEffect(() => {
+    if (!isLatestTurn) {
+      setExpanded(false)
+    }
+  }, [isLatestTurn])
   const summaryStat = useMemo(() => summarizeTurnDiffStats(files), [files])
   const scopeSummary = useMemo(() => summarizeChangedFileScopes(files), [files])
   const previewFiles = useMemo(() => selectChangedFilePreview(files), [files])

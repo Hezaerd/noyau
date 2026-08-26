@@ -62,4 +62,20 @@ describe("présentation TurnDiff", () => {
     ])
     expect(changedFileName("apps\\web\\src\\App.tsx")).toBe("App.tsx")
   })
+
+  it("ne fusionne pas README.md avec un dossier root/", () => {
+    const files = [
+      { path: "README.md", additions: 1, deletions: 0 },
+      { path: "root/index.ts", additions: 2, deletions: 0 },
+    ]
+
+    expect(summarizeChangedFileScopes(files)).toEqual([
+      { label: "root", fileCount: 1 },
+      { label: "root", fileCount: 1 },
+    ])
+    expect(selectChangedFilePreview(files).map((file) => file.path)).toEqual([
+      "README.md",
+      "root/index.ts",
+    ])
+  })
 })

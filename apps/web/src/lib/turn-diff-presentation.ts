@@ -16,12 +16,24 @@ const pathSegments = (pathValue: string): string[] =>
     .split("/")
     .filter((segment) => segment.length > 0)
 
+const ROOT_SCOPE_KEY = ""
+const ROOT_SCOPE_LABEL = "root"
+
+type ChangedFileScope = {
+  readonly key: string
+  readonly label: string
+}
+
 export const changedFileName = (pathValue: string): string =>
   pathSegments(pathValue).at(-1) ?? pathValue
 
-const changedFileScope = (pathValue: string): string => {
+const changedFileScope = (pathValue: string): ChangedFileScope => {
   const segments = pathSegments(pathValue)
-  return segments.length > 1 ? (segments[0] ?? "root") : "root"
+  if (segments.length > 1) {
+    const label = segments[0] ?? ROOT_SCOPE_LABEL
+    return { key: label, label }
+  }
+  return { key: ROOT_SCOPE_KEY, label: ROOT_SCOPE_LABEL }
 }
 
 export const shouldAutoExpandChangedFiles = (
@@ -39,18 +51,19 @@ export const summarizeChangedFileScopes = (
   files: ReadonlyArray<TurnDiffTreeFile>,
   limit = CHANGED_FILES_PREVIEW_SCOPE_LIMIT,
 ): ReadonlyArray<ChangedFilesScopeSummary> => {
-  const scopes = new Map<string, { fileCount: number; firstIndex: number }>()
+  const scopes = new Map<string, { label: string; fileCount: number; firstIndex: number }>()
   files.forEach((file, index) => {
-    const label = changedFileScope(file.path)
-    const current = scopes.get(label)
-    scopes.set(label, {
+    const scope = changedFileScope(file.path)
+    const current = scopes.get(scope.key)
+    scopes.set(scope.key, {
+      label: scope.label,
       fileCount: (current?.fileCount ?? 0) + 1,
       firstIndex: current?.firstIndex ?? index,
     })
   })
 
-  return Array.from(scopes, ([label, scope]) => ({
-    label,
+  return Array.from(scopes, ([, scope]) => ({
+    label: scope.label,
     fileCount: scope.fileCount,
     firstIndex: scope.firstIndex,
   }))
@@ -74,12 +87,12 @@ export const selectChangedFilePreview = (
 
   for (const file of files) {
     const scope = changedFileScope(file.path)
-    if (selectedScopes.has(scope)) {
+    if (selectedScopes.has(scope.key)) {
       continue
     }
     selected.push(file)
     selectedPaths.add(file.path)
-    selectedScopes.add(scope)
+    selectedScopes.add(scope.key)
     if (selected.length === limit) {
       return selected
     }
