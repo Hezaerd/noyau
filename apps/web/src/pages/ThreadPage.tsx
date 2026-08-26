@@ -93,7 +93,7 @@ import {
   isFailingCiOpenPullRequest,
   vcsScopeForThread,
 } from "@/lib/vcs-status"
-import { replaceComposerDraftAtom } from "@/state/composer-drafts"
+import { removeComposerDraftImageAtom, replaceComposerDraftAtom } from "@/state/composer-drafts"
 import { getThreadEnvModePreference } from "@/state/preferences"
 import { publishCreatedThread } from "@/state/shell"
 import {
@@ -129,6 +129,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     clear: clearDraft,
   } = useComposerDraft(projectId, threadId)
   const replaceDraft = useAtomSet(replaceComposerDraftAtom)
+  const removeDraftImage = useAtomSet(removeComposerDraftImageAtom)
   const createdThreadIdRef = useRef<ThreadId>(undefined)
   const [envMode, setEnvMode] = useState<ThreadEnvMode>(() =>
     threadId === undefined ? getThreadEnvModePreference() : "local",
@@ -849,11 +850,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       onPaste={acceptImages}
       onDrop={acceptImages}
       onImageRemove={(localId) => {
-        const removed = images.find((image) => image.localId === localId)
-        if (removed !== undefined) {
-          URL.revokeObjectURL(removed.previewUrl)
-        }
-        setImages(images.filter((image) => image.localId !== localId))
+        removeDraftImage({ projectId, threadId, localId })
         setComposerFailure(undefined)
       }}
       onInterrupt={() => interruptTurn()}

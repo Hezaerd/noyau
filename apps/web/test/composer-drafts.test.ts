@@ -14,6 +14,7 @@ import {
   promoteComposerDraft,
   readComposerDraft,
   readComposerDraftImages,
+  removeComposerDraftImage,
   replaceComposerDraft,
   resetComposerDrafts,
   writeComposerDraft,
@@ -135,6 +136,21 @@ describe("composer drafts", () => {
 
     expect(readComposerDraft(projectA, threadA)).toBe("restored")
     expect(readComposerDraftImages(projectA, threadA)).toEqual([image])
+  })
+
+  it("removes a draft image from the current session store", () => {
+    const imageA = draftImage("a")
+    const imageB = draftImage("b")
+    writeComposerDraft(projectA, threadA, "keep")
+    writeComposerDraftImages(projectA, threadA, [imageA, imageB])
+
+    removeComposerDraftImage({ projectId: projectA, threadId: threadA, localId: imageA.localId })
+    removeComposerDraftImage({ projectId: projectA, threadId: threadA, localId: imageA.localId })
+    expect(readComposerDraft(projectA, threadA)).toBe("keep")
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([imageB])
+
+    removeComposerDraftImage({ projectId: projectA, threadId: threadA, localId: imageB.localId })
+    expect(readComposerDraftImages(projectA, threadA)).toEqual([])
   })
 
   it("promotes leftover new-Thread images onto the created Thread", () => {

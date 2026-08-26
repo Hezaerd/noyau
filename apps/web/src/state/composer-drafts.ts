@@ -133,6 +133,34 @@ export const clearComposerDraft = (projectId: ProjectId, threadId: ThreadId | un
   })
 }
 
+export type ComposerDraftImageRemoval = {
+  readonly projectId: ProjectId
+  readonly threadId: ThreadId | undefined
+  readonly localId: string
+}
+
+export const removeComposerDraftImage = (input: ComposerDraftImageRemoval): void => {
+  const current = readDraft(input.projectId, input.threadId)
+  const removed = current.images.find((image) => image.localId === input.localId)
+  if (removed === undefined) {
+    return
+  }
+  revokeComposerImages([removed])
+  replaceComposerDraft({
+    projectId: input.projectId,
+    threadId: input.threadId,
+    text: current.text,
+    images: current.images.filter((image) => image.localId !== input.localId),
+  })
+}
+
+export const removeComposerDraftImageAtom = Atom.writable(
+  (_get): undefined => undefined,
+  (_ctx, input: ComposerDraftImageRemoval) => {
+    removeComposerDraftImage(input)
+  },
+).pipe(Atom.keepAlive, Atom.withLabel("chrome:remove-composer-draft-image"))
+
 /** Move a leftover new-Thread Brouillon onto the created Thread. */
 export const promoteComposerDraft = (projectId: ProjectId, threadId: ThreadId): void => {
   const fromKey = composerDraftStoreKey(projectId, undefined)
