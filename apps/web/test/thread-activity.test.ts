@@ -4,6 +4,7 @@ import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  countWaitingThreads,
   formatAgoCompactLabel,
   formatElapsedLabel,
   hasUnseenCompletion,
@@ -396,5 +397,45 @@ describe("thread activity", () => {
         sendStartedAtMs: 1_000,
       }),
     ).toBe(Date.parse("2026-08-23T12:00:05.000Z"))
+  })
+
+  it("counts active unseen completed or interrupted Threads", () => {
+    const completed = latestTurn({
+      state: "completed",
+      completedAt: "2026-08-23T12:05:00.000Z",
+    })
+    const visitedAt = Date.parse("2026-08-23T12:00:00.000Z")
+    expect(
+      countWaitingThreads(
+        [
+          {
+            id: openThreadId,
+            status: "active",
+            sessionStatus: "ready",
+            latestTurn: completed,
+          },
+          {
+            id: otherThreadId,
+            status: "archived",
+            sessionStatus: "ready",
+            latestTurn: completed,
+          },
+        ],
+        (threadId) => (threadId === openThreadId ? visitedAt : undefined),
+      ),
+    ).toBe(1)
+    expect(
+      countWaitingThreads(
+        [
+          {
+            id: openThreadId,
+            status: "active",
+            sessionStatus: "ready",
+            latestTurn: completed,
+          },
+        ],
+        () => Date.parse("2026-08-23T12:06:00.000Z"),
+      ),
+    ).toBe(0)
   })
 })

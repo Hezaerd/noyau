@@ -1,3 +1,4 @@
+import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
 import {
   DEFAULT_RELEASE_CHANNEL,
   releaseBrand,
@@ -61,6 +62,16 @@ export interface NoyauDesktopBridge {
   readonly openDesktopInstaller?: (
     channel?: DesktopUpdatePackagedChannel,
   ) => Promise<DesktopUpdateOpenResult>
+  readonly setBadgeCount?: (count: number) => Promise<void>
+  readonly showTurnNotification?: (input: {
+    readonly projectId: ProjectId
+    readonly threadId: ThreadId
+    readonly title: string
+    readonly body: string
+  }) => Promise<void>
+  readonly onOpenThreadFromNotification?: (
+    listener: (input: { readonly projectId: ProjectId; readonly threadId: ThreadId }) => void,
+  ) => () => void
 }
 
 const DesktopReleaseChannelSchema = Schema.Literals(["development", "latest", "nightly"])

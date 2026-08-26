@@ -45,6 +45,11 @@ import {
   DEFAULT_TURN_CUE_ENABLED,
   type TurnCuePreference,
 } from "@/lib/turn-cue-preference"
+import {
+  persistTurnNotificationEnabled,
+  readStoredTurnNotificationEnabled,
+  DEFAULT_TURN_NOTIFICATION_ENABLED,
+} from "@/lib/turn-notification-preference"
 import { appAtomRegistry } from "@/state/atom-registry"
 import { persistWritableAtom } from "@/state/persist"
 
@@ -87,6 +92,11 @@ export const turnCuePreferenceAtom = Atom.make<TurnCuePreference>({
   sound: DEFAULT_TURN_CUE_SOUND,
 }).pipe(Atom.keepAlive, Atom.withLabel("pref:turn-cue"))
 
+export const turnNotificationEnabledAtom = Atom.make(DEFAULT_TURN_NOTIFICATION_ENABLED).pipe(
+  Atom.keepAlive,
+  Atom.withLabel("pref:turn-notification"),
+)
+
 const once = (flag: { current: boolean }, initialize: () => void): void => {
   if (flag.current) {
     return
@@ -103,6 +113,7 @@ const updateChannelReady = { current: false }
 const folderReady = { current: false }
 const transcriptPaintReady = { current: false }
 const turnCueReady = { current: false }
+const turnNotificationReady = { current: false }
 
 export const initializeAppearance = (): void => {
   once(appearanceReady, () => {
@@ -179,6 +190,15 @@ export const initializeTurnCuePreference = (): void => {
     persistWritableAtom(turnCuePreferenceAtom, {
       read: readStoredTurnCuePreference,
       write: persistTurnCuePreference,
+    })
+  })
+}
+
+export const initializeTurnNotificationPreference = (): void => {
+  once(turnNotificationReady, () => {
+    persistWritableAtom(turnNotificationEnabledAtom, {
+      read: readStoredTurnNotificationEnabled,
+      write: persistTurnNotificationEnabled,
     })
   })
 }
@@ -283,4 +303,18 @@ export const resetTurnCuePreference = (): void => {
     enabled: DEFAULT_TURN_CUE_ENABLED,
     sound: DEFAULT_TURN_CUE_SOUND,
   })
+}
+
+export const getTurnNotificationEnabled = (): boolean =>
+  appAtomRegistry.get(turnNotificationEnabledAtom)
+
+export const setTurnNotificationEnabled = (enabled: boolean): void => {
+  if (enabled === appAtomRegistry.get(turnNotificationEnabledAtom)) {
+    return
+  }
+  appAtomRegistry.set(turnNotificationEnabledAtom, enabled)
+}
+
+export const resetTurnNotificationPreference = (): void => {
+  setTurnNotificationEnabled(DEFAULT_TURN_NOTIFICATION_ENABLED)
 }

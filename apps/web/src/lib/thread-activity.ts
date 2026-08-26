@@ -1,4 +1,5 @@
 import type { SessionStatus } from "@noyau/protocol/entities/session"
+import type { ThreadStatus } from "@noyau/protocol/entities/thread"
 import type { LatestTurn } from "@noyau/protocol/entities/turn"
 import type { ThreadId } from "@noyau/protocol/ids"
 import { DateTime } from "effect"
@@ -231,6 +232,38 @@ export const resolveThreadActivity = (input: {
       : { kind: "completed", label: "Terminé" }
   }
   return null
+}
+
+export const isWaitingThreadActivity = (activity: ThreadActivity | null): boolean =>
+  activity?.kind === "completed" || activity?.kind === "interrupted"
+
+export const countWaitingThreads = (
+  threads: ReadonlyArray<{
+    readonly id: ThreadId
+    readonly status: ThreadStatus
+    readonly sessionStatus: SessionStatus | null
+    readonly latestTurn: LatestTurn | null
+  }>,
+  lastVisitedAtMsOf: (threadId: ThreadId) => number | undefined,
+): number => {
+  let count = 0
+  for (const thread of threads) {
+    if (thread.status !== "active") {
+      continue
+    }
+    if (
+      isWaitingThreadActivity(
+        resolveThreadActivity({
+          sessionStatus: thread.sessionStatus,
+          latestTurn: thread.latestTurn,
+          lastVisitedAtMs: lastVisitedAtMsOf(thread.id),
+        }),
+      )
+    ) {
+      count += 1
+    }
+  }
+  return count
 }
 
 export const workingTranscriptLabel = (startedAtMs: number | null, nowMs: number): string => {

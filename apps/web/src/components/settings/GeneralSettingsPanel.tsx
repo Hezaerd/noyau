@@ -18,6 +18,7 @@ import {
   useAutoSettleOnMergeEnabled,
 } from "@/hooks/use-thread-settle-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
+import { useTurnNotificationEnabled } from "@/hooks/use-turn-notification"
 import { THREAD_ENV_MODE_ITEMS } from "@/lib/checkout"
 import { isThreadEnvMode } from "@/lib/thread-env-mode-preference"
 import { DEFAULT_AUTO_SETTLE_AFTER_DAYS } from "@/lib/thread-settle-preference"
@@ -34,6 +35,7 @@ import {
   setThreadEnvModePreference,
   setTurnCueEnabled,
   setTurnCueSound,
+  setTurnNotificationEnabled,
 } from "@/state/preferences"
 import { setAutoSettleAfterDays, setAutoSettleOnMergeEnabled } from "@/state/thread-settle"
 
@@ -50,6 +52,7 @@ export function GeneralSettingsPanel(): ReactElement {
   const autoSettleAfterDays = useAutoSettleAfterDays()
   const discordPresenceEnabled = useDiscordPresenceEnabled()
   const turnCue = useTurnCuePreference()
+  const turnNotificationEnabled = useTurnNotificationEnabled()
   const discordPresenceSwitchId = useId()
   const autoRemoveMergedWorktreeSwitchId = useId()
   const autoSettleOnMergeSwitchId = useId()
@@ -58,6 +61,7 @@ export function GeneralSettingsPanel(): ReactElement {
   const threadEnvModeSelectId = useId()
   const turnCueSwitchId = useId()
   const turnCueSoundSelectId = useId()
+  const turnNotificationSwitchId = useId()
   const [draft, setDraft] = useState<string | undefined>()
   const value = draft ?? startDirectory
 
@@ -268,6 +272,19 @@ export function GeneralSettingsPanel(): ReactElement {
             />
           </CollapsiblePanel>
         </Collapsible>
+        <SettingsRow
+          id="turn-notification"
+          title="Notifications de fin de Turn"
+          description="Bannière OS quand un Turn se termine hors du Thread ouvert, ou si la fenêtre est en arrière-plan. Le badge compte les Threads en attente."
+          control={
+            <Switch
+              id={turnNotificationSwitchId}
+              checked={turnNotificationEnabled}
+              aria-label="Activer les notifications de fin de Turn"
+              onCheckedChange={(checked) => setTurnNotificationEnabled(checked)}
+            />
+          }
+        />
         <SettingsRow
           id="discord-rich-presence"
           title="Discord Rich Presence"

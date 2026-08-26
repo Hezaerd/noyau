@@ -17,6 +17,7 @@ import {
   initializeThreadEnvModePreference,
   initializeTranscriptPaintPreference,
   initializeTurnCuePreference,
+  initializeTurnNotificationPreference,
 } from "@/state/preferences"
 import { initializeThreadPins } from "@/state/thread-pins"
 import { initializeThreadSettlePreference } from "@/state/thread-settle"
@@ -36,6 +37,7 @@ initializeThreadEnvModePreference()
 initializeAutoRemoveMergedWorktreePreference()
 initializeThreadSettlePreference()
 initializeTurnCuePreference()
+initializeTurnNotificationPreference()
 initializeTranscriptPaintPreference()
 initializeThreadPins()
 initializeThreadVisits()

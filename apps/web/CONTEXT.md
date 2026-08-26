@@ -226,8 +226,18 @@ _À éviter_ : option, config, setting
 
 **Son de Turn**:
 Cue Cuelume joué quand un Turn passe de `running` à un état terminal. Préférence renderer
-(toggle + son). Pas une notification OS.
-_À éviter_ : notification système, événement de journal, fichier audio embarqué
+(toggle + son). Distinct de la Notification de Turn.
+_À éviter_ : Notification de Turn, événement de journal, fichier audio embarqué
+
+**Notification de Turn**:
+Bannière OS quand un Turn passe à un état terminal et que le Thread n'est pas au premier
+plan. Préférence renderer. Chrome Desktop, pas un événement de journal.
+_À éviter_ : Son de Turn, Notification web du renderer, toast
+
+**Thread en attente**:
+Thread actif dont le dernier Turn est Terminé ou Interrompu après `lastVisitedAt`. Unité
+du Badge d’attente.
+_À éviter_ : unread mail, inbox, mention
 
 **TurnDiff**:
 Carte de fichiers changés sous le dernier message assistant d'un Turn. Jointe depuis
@@ -245,13 +255,13 @@ et settled partent de `startedAt` d'un Turn ouvert (puis `requestedAt`, puis sen
 origine sidebar et transcript, comme t3code. Le send local et le snapshot ne comptent que s'ils
 appartiennent au Thread ouvert. Libellé : ms, dixièmes sous 10s, secondes arrondies. Pas une
 Command.
-_À éviter_ : badge lost, notification OS, champ du journal, `updatedAt` ou `session.updatedAt` comme
+_À éviter_ : badge lost, Notification de Turn, champ du journal, `updatedAt` ou `session.updatedAt` comme
 horloge live, timer d'un autre Thread
 
 **lastVisitedAt**:
-Horloge locale renderer de la dernière visite d'un Thread. Un Terminé n'apparaît que si
-`completedAt` est postérieur. Jamais visité = déjà lu, pour ne pas inonder les Threads
-historiques. Pas une Préférence du catalogue.
+Horloge locale renderer de la dernière visite d'un Thread au premier plan. Un Terminé
+n'apparaît que si `completedAt` est postérieur. Jamais visité = déjà lu, pour ne pas
+inonder les Threads historiques. Pas une Préférence du catalogue.
 _À éviter_ : présence, ShellFocus, événement de journal
 
 **Pin**:
