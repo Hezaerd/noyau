@@ -21,6 +21,10 @@ export function ProjectSidebarItem({
   const threads = useProjectThreads(project.id)
   const { pullRequests, liveBranches } = useThreadChangeRequests(project.id, threads)
   useMergedWorktreeCleanup(project.id, threads, pullRequests)
+  const threadPathPrefix = `/projects/${project.id}/thread/`
+  const openThreadId = pathname.startsWith(threadPathPrefix)
+    ? pathname.slice(threadPathPrefix.length)
+    : null
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -40,6 +44,7 @@ export function ProjectSidebarItem({
       </SidebarMenuButton>
       <ThreadSidebarSection
         projectId={project.id}
+        openThreadId={openThreadId}
         renderThread={(thread, settled) => (
           <ThreadSidebarItem
             thread={thread}

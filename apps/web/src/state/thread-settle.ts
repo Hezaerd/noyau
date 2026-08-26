@@ -9,6 +9,11 @@ import {
   readStoredAutoSettleAfterDays,
   readStoredAutoSettleOnMerge,
 } from "@/lib/thread-settle-preference"
+import {
+  DEFAULT_SETTLED_SHELF_EXPANDED,
+  persistSettledShelfExpanded,
+  readStoredSettledShelfExpanded,
+} from "@/lib/thread-sidebar-shelf"
 import { appAtomRegistry } from "@/state/atom-registry"
 import { persistWritableAtom } from "@/state/persist"
 
@@ -20,6 +25,11 @@ export const autoSettleOnMergeAtom = Atom.make(DEFAULT_AUTO_SETTLE_ON_MERGE).pip
 export const autoSettleAfterDaysAtom = Atom.make<number | null>(
   DEFAULT_AUTO_SETTLE_AFTER_DAYS,
 ).pipe(Atom.keepAlive, Atom.withLabel("chrome:auto-settle-after-days"))
+
+export const settledShelfExpandedAtom = Atom.make(DEFAULT_SETTLED_SHELF_EXPANDED).pipe(
+  Atom.keepAlive,
+  Atom.withLabel("chrome:settled-shelf-expanded"),
+)
 
 let initialized = false
 
@@ -35,6 +45,10 @@ export const initializeThreadSettlePreference = (): void => {
   persistWritableAtom(autoSettleAfterDaysAtom, {
     read: readStoredAutoSettleAfterDays,
     write: persistAutoSettleAfterDays,
+  })
+  persistWritableAtom(settledShelfExpandedAtom, {
+    read: readStoredSettledShelfExpanded,
+    write: persistSettledShelfExpanded,
   })
 }
 
@@ -57,6 +71,13 @@ export const setAutoSettleAfterDays = (days: number | null): void => {
     return
   }
   appAtomRegistry.set(autoSettleAfterDaysAtom, next)
+}
+
+export const setSettledShelfExpanded = (expanded: boolean): void => {
+  if (expanded === appAtomRegistry.get(settledShelfExpandedAtom)) {
+    return
+  }
+  appAtomRegistry.set(settledShelfExpandedAtom, expanded)
 }
 
 export const resetThreadSettlePreference = (): void => {

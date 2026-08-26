@@ -106,6 +106,11 @@ _À éviter_ : archive, snooze
 Queue de la sidebar pour les Threads effectiveSettled, distincte de l'archive.
 _À éviter_ : Done, archive Thread
 
+**Shelf Classés**:
+Présentation repliable de la Queue Classés. Replié par défaut ; le compte reste dans le header.
+Le Thread ouvert reste visible même replié.
+_À éviter_ : archive, Done, liste toujours ouverte
+
 **Cleanup worktree**:
 Suppression live d'un worktree lié (`vcs.removeWorktree`) puis déliaison du Checkout
 (`worktreePath: null`). Auto opt-in (Préférence, off par défaut) quand la PR live passe à
