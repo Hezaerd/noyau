@@ -1,8 +1,14 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it as standaloneIt, layer } from "@effect/vitest"
-import { runMigrations } from "@noyau/database/migrations"
+import {
+  migrationsThroughTurnDiff,
+  runMigrations,
+  threadProviderCodexMigration,
+} from "@noyau/database/migrations"
+import * as NodeSqliteClient from "@noyau/database/node-sqlite-client"
 import { layer as sqliteLayer, memoryLayer } from "@noyau/database/sqlite"
 import { Context, Effect, FileSystem, Layer, Path } from "effect"
+import * as Migrator from "effect/unstable/sql/Migrator"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
@@ -96,4 +102,120 @@ describe("SQLite persistence", () => {
   standaloneIt.effect("ferme la connexion avec son Scope", () =>
     Layer.build(sqliteLayer({ filename: ":memory:" })).pipe(Effect.scoped, Effect.asVoid),
   )
+
+  layer(NodeSqliteClient.layer({ filename: ":memory:" }))((it) => {
+    it.effect("009 rebuild les threads sans cascade sur les enfants", () =>
+      Effect.gen(function* () {
+        const sql = yield* SqlClient
+        yield* sql`PRAGMA foreign_keys = ON`
+        yield* Migrator.make({})({
+          loader: migrationsThroughTurnDiff,
+        })
+
+        yield* sql`
+          INSERT INTO projection_projects (
+            project_id, name, workspace_root, available, created_at, updated_at
+          ) VALUES (
+            'proj-1', 'noyau', '/tmp/noyau', 1, '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_threads (
+            thread_id, project_id, title, provider, runtime_mode, status, created_at, updated_at
+          ) VALUES (
+            'thread-1', 'proj-1', 'Cascade', 'cursor', 'full-access', 'active',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_sessions (
+            thread_id, status, last_error, active_turn_id, runtime_mode, resume_cursor, updated_at
+          ) VALUES (
+            'thread-1', 'idle', NULL, NULL, 'full-access', '{"schemaVersion":1,"sessionId":"s1"}',
+            '2026-08-20T00:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_turns (
+            turn_id, thread_id, ordinal, state, requested_at, checkpoint_ref, checkpoint_status
+          ) VALUES (
+            'turn-1', 'thread-1', 1, 'completed', '2026-08-20T00:00:00.000Z',
+            'refs/noyau/checkpoint/thread-1/1', 'ready'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_transcript (
+            transcript_id, thread_id, turn_id, ordinal, kind, item, event_sequence
+          ) VALUES (
+            'tx-1', 'thread-1', 'turn-1', 1, 'assistant', '{}', 1
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_columns (
+            column_id, project_id, name, color, rank, done, created_at, updated_at
+          ) VALUES (
+            'col-1', 'proj-1', 'Backlog', '#000', 'a', 0, '2026-08-20T00:00:00.000Z',
+            '2026-08-20T00:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_tickets (
+            ticket_id, project_id, column_id, rank, title, priority, done, created_at, updated_at
+          ) VALUES (
+            'ticket-1', 'proj-1', 'col-1', 'a', 'Ticket', 'none', 0,
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_ticket_threads (ticket_id, thread_id)
+          VALUES ('ticket-1', 'thread-1')
+        `
+
+        yield* threadProviderCodexMigration
+
+        const leftovers = yield* sql<{
+          sessions: number
+          turns: number
+          transcript: number
+          links: number
+          provider: string
+          checkpoint: string | null
+        }>`
+          SELECT
+            (SELECT COUNT(*) FROM projection_sessions) AS sessions,
+            (SELECT COUNT(*) FROM projection_turns) AS turns,
+            (SELECT COUNT(*) FROM projection_transcript) AS transcript,
+            (SELECT COUNT(*) FROM projection_ticket_threads) AS links,
+            (SELECT provider FROM projection_threads WHERE thread_id = 'thread-1') AS provider,
+            (SELECT checkpoint_ref FROM projection_turns WHERE turn_id = 'turn-1') AS checkpoint
+        `
+        assert.deepStrictEqual(leftovers[0], {
+          sessions: 1,
+          turns: 1,
+          transcript: 1,
+          links: 1,
+          provider: "cursor",
+          checkpoint: "refs/noyau/checkpoint/thread-1/1",
+        })
+
+        yield* sql`
+          INSERT INTO projection_threads (
+            thread_id, project_id, title, provider, runtime_mode, status, created_at, updated_at
+          ) VALUES (
+            'thread-2', 'proj-1', 'Codex', 'codex', 'full-access', 'active',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+
+        yield* sql`DELETE FROM projection_projects WHERE project_id = 'proj-1'`
+        const afterDelete = yield* sql<{ threads: number; sessions: number; turns: number }>`
+          SELECT
+            (SELECT COUNT(*) FROM projection_threads) AS threads,
+            (SELECT COUNT(*) FROM projection_sessions) AS sessions,
+            (SELECT COUNT(*) FROM projection_turns) AS turns
+        `
+        assert.deepStrictEqual(afterDelete[0], { threads: 0, sessions: 0, turns: 0 })
+      }),
+    )
+  })
 })

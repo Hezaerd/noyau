@@ -1,4 +1,4 @@
-import type { CursorModel } from "@noyau/protocol/entities/environment"
+import type { CursorModel, Provider } from "@noyau/protocol/entities/environment"
 import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 
 export const threadModelLabel = (
@@ -15,6 +15,8 @@ export const threadModelLabel = (
 }
 
 export const catalogModels = (
+  provider: Provider,
   cursor: ReadonlyArray<Pick<CursorModel, "modelId" | "label">> | undefined,
   codex: ReadonlyArray<Pick<CursorModel, "modelId" | "label">> | undefined,
-): ReadonlyArray<Pick<CursorModel, "modelId" | "label">> => [...(cursor ?? []), ...(codex ?? [])]
+): ReadonlyArray<Pick<CursorModel, "modelId" | "label">> =>
+  provider === "codex" ? (codex ?? []) : (cursor ?? [])

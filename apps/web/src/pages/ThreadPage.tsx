@@ -155,9 +155,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     if (lockedProvider !== undefined) {
       return
     }
-    if (!cursorReady && codexReady) {
-      setDraftProvider("codex")
-    }
+    setDraftProvider((current) => {
+      if (current === "cursor" && !cursorReady && codexReady) {
+        return "codex"
+      }
+      if (current === "codex" && !codexReady && cursorReady) {
+        return "cursor"
+      }
+      return current
+    })
   }, [lockedProvider, cursorReady, codexReady])
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
@@ -810,6 +816,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       cursorModels={cursorModels}
       codexModels={codexModels}
       lockedProvider={lockedProvider}
+      selectedProvider={selectedProvider}
       modelSelection={modelSelection}
       placement={isNewThread ? "hero" : "docked"}
       error={

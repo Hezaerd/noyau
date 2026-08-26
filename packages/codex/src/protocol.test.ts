@@ -368,19 +368,30 @@ it.layer(NodeServices.layer)("effect-codex-app-server protocol", (it) => {
       const secret = "codex-wire-secret-sentinel"
       const { stdio, input } = yield* makeInMemoryStdio()
       const events: Array<CodexProtocol.CodexAppServerProtocolLogEvent> = []
-      const termination = yield* Deferred.make<CodexError.CodexAppServerError>()
-      yield* CodexProtocol.makeCodexAppServerPatchedProtocol({
+      const received =
+        yield* Deferred.make<ReadonlyArray<CodexProtocol.CodexAppServerIncomingNotification>>()
+      const transport = yield* CodexProtocol.makeCodexAppServerPatchedProtocol({
         stdio,
         logIncoming: true,
         logger: (event) =>
           Effect.sync(() => {
             events.push(event)
           }),
-        onTermination: (error) => Deferred.succeed(termination, error).pipe(Effect.asVoid),
       })
 
+      yield* transport.incomingNotifications.pipe(
+        Stream.take(1),
+        Stream.runCollect,
+        Effect.flatMap((notifications) => Deferred.succeed(received, notifications)),
+        Effect.forkScoped,
+      )
+
       yield* Queue.offer(input, encoder.encode(`{"secret":"${secret}"\n`))
-      yield* Deferred.await(termination)
+      yield* Queue.offer(input, encodeJsonl({ method: "thread/started", params: { id: "t1" } }))
+
+      assert.deepEqual(yield* Deferred.await(received), [
+        { method: "thread/started", params: { id: "t1" } },
+      ])
 
       const event = events.find(({ stage }) => stage === "decode_failed")
       assert.exists(event)
@@ -400,29 +411,57 @@ it.layer(NodeServices.layer)("effect-codex-app-server protocol", (it) => {
     Effect.gen(function* () {
       const secret = "codex-unroutable-secret-sentinel"
       const { stdio, input } = yield* makeInMemoryStdio()
-      const termination = yield* Deferred.make<CodexError.CodexAppServerError>()
-      yield* CodexProtocol.makeCodexAppServerPatchedProtocol({
+      const events: Array<CodexProtocol.CodexAppServerProtocolLogEvent> = []
+      const received =
+        yield* Deferred.make<ReadonlyArray<CodexProtocol.CodexAppServerIncomingNotification>>()
+      const transport = yield* CodexProtocol.makeCodexAppServerPatchedProtocol({
         stdio,
-        onTermination: (error) => Deferred.succeed(termination, error).pipe(Effect.asVoid),
+        logIncoming: true,
+        logger: (event) =>
+          Effect.sync(() => {
+            events.push(event)
+          }),
       })
+
+      yield* transport.incomingNotifications.pipe(
+        Stream.take(1),
+        Stream.runCollect,
+        Effect.flatMap((notifications) => Deferred.succeed(received, notifications)),
+        Effect.forkScoped,
+      )
 
       yield* Queue.offer(
         input,
         encodeJsonl({ id: true, method: "thread/start", params: { token: secret } }),
       )
+      yield* Queue.offer(input, encodeJsonl({ method: "thread/started", params: { id: "t1" } }))
 
-      const error = yield* Deferred.await(termination)
-      assert.instanceOf(error, CodexError.CodexAppServerProtocolParseError)
-      assert.deepInclude(error, {
+      assert.deepEqual(yield* Deferred.await(received), [
+        { method: "thread/started", params: { id: "t1" } },
+      ])
+
+      const event = events.find(({ stage }) => stage === "decode_failed")
+      assert.exists(event)
+      assert.deepInclude(event.payload as Record<string, unknown>, {
         operation: "route-wire-message",
         method: "thread/start",
         payloadKind: "object",
         presentFields: ["id", "method", "params"],
       })
-      assert.isUndefined(error.requestId)
-      assert.notProperty(error, "detail")
-      assert.notProperty(error, "cause")
-      assert.notInclude(error.message, secret)
+      assert.equal("requestId" in (event.payload as Record<string, unknown>), false)
+      assert.equal("detail" in (event.payload as Record<string, unknown>), false)
+      assert.equal("cause" in (event.payload as Record<string, unknown>), false)
+      assert.notInclude(encodeUnknownJsonString(event), secret)
+    }),
+  )
+
+  it.effect("emits result null when a response has no payload", () =>
+    Effect.gen(function* () {
+      const { stdio, output } = yield* makeInMemoryStdio()
+      const transport = yield* CodexProtocol.makeCodexAppServerPatchedProtocol({ stdio })
+
+      yield* transport.respond(3, undefined)
+      assert.deepEqual(yield* decodeJson(yield* Queue.take(output)), { id: 3, result: null })
     }),
   )
 

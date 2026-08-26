@@ -20,7 +20,7 @@ La v0.1 vise ce parcours durable :
 
 1. relier un dossier existant à un Project ;
 2. atterrir sur le Tableau du projet ;
-3. créer un Thread titré, choisir Cursor, streamer un Turn ;
+3. créer un Thread titré, choisir Cursor ou Codex, streamer un Turn ;
 4. lier optionnellement ce Thread à un Ticket ;
 5. redémarrer l'application et retrouver le Tableau, le Thread, le transcript et `lastError` ;
 6. poursuivre par un nouveau Turn (`session/load`), sans rejouer le prompt.
@@ -41,9 +41,10 @@ Cible de sortie : macOS et Windows natif. Linux, WSL, client web distribué et m
   ([ADR-0015](adr/0015-tableau-accessible-aux-agents-par-mcp.md)) ;
 - skill `noyau` installable explicitement dans chaque WorkspaceRoot pour enseigner aux agents les
   pratiques du Tableau ([ADR-0016](adr/0016-skill-noyau-installe-par-project.md)) ;
-- Cursor ACP local comme unique provider réel ([ADR-0018](adr/0018-runtime-cursor-porte-par-la-session.md)).
-  Le fil de fer ACP est `@noyau/acp` ([ADR-0014](adr/0014-fil-de-fer-acp.md)), pas un port
-  multi-harnais.
+- Cursor ACP local et Codex app-server comme providers réels
+  ([ADR-0018](adr/0018-runtime-cursor-porte-par-la-session.md)). Le fil de fer ACP est
+  `@noyau/acp` ([ADR-0014](adr/0014-fil-de-fer-acp.md)) ; le fil de fer Codex est
+  `@noyau/codex`. Le runtime Session reste unique par Thread.
 
 Effect.gen n'est pas imposé au rendu React. L'état renderer (projections `subscribe*` et
 chrome) vit dans Effect Atom ([ADR-0020](adr/0020-effect-atom-etat-renderer.md)).
@@ -402,9 +403,9 @@ Un package n'est créé que lorsqu'une frontière réelle et testée le justifie
 4. RPC : `dispatchCommand`, `subscribeShell` / `subscribeProject` / `subscribeThread`.
 5. Adaptateur Cursor ACP : runtime porté par la Session, handshake, `session/new` / `load`,
    `startTurn` réutilisé, reaper et mapping `runtimeMode`.
-6. Adaptateur Codex app-server : même `ProviderPort`, handshake, `thread/start` / `resume`,
-   MCP Noyau via `-c`, mapping `runtimeMode`.
-7. MCP HTTP : capacités bornées, outils Tableau et injection Cursor.
+6. MCP HTTP : capacités bornées, outils Tableau et injection Cursor.
+7. Adaptateur Codex app-server : même `ProviderPort`, handshake, `thread/start` / `resume`,
+   branchement MCP Noyau via `-c`, mapping `runtimeMode`.
 8. UI Tableau-first, sidebar Threads, `lastError`, lien Ticket–Thread, reprise après restart.
 
 ## Choix encore ouverts

@@ -90,6 +90,7 @@ export function ThreadComposer({
   cursorModels,
   codexModels,
   lockedProvider,
+  selectedProvider,
   modelSelection,
   error,
   placement = "docked",
@@ -116,6 +117,7 @@ export function ThreadComposer({
   readonly cursorModels: ReadonlyArray<CursorModel>
   readonly codexModels: ReadonlyArray<CursorModel>
   readonly lockedProvider?: Provider | undefined
+  readonly selectedProvider?: Provider | undefined
   readonly modelSelection: ModelSelection | null
   readonly error: ReactNode
   readonly placement?: "docked" | "hero"
@@ -375,6 +377,7 @@ export function ThreadComposer({
                 cursorModels={cursorModels}
                 codexModels={codexModels}
                 lockedProvider={lockedProvider}
+                selectedProvider={selectedProvider}
                 modelSelection={modelSelection}
                 disabled={
                   controlsDisabled || (cursorModels.length === 0 && codexModels.length === 0)

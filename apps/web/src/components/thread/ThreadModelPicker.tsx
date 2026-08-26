@@ -31,15 +31,18 @@ const toItems = (
   models: ReadonlyArray<CursorModel>,
   provider: Provider,
   modelSelection: ModelSelection | null,
+  activeProvider: Provider,
 ): ReadonlyArray<ModelPickerItem> => {
   const selected = models.find((model) => model.modelId === modelSelection?.modelId)
+  const injectUnknown =
+    modelSelection !== null && selected === undefined && provider === activeProvider
   return [
     ...models.map((model) => ({
       value: model.modelId,
       label: model.label,
       searchValue: `${model.label} ${model.modelId} ${provider}`,
     })),
-    ...(modelSelection !== null && selected === undefined
+    ...(injectUnknown
       ? [
           {
             value: modelSelection.modelId,
@@ -55,6 +58,7 @@ export function ThreadModelPicker({
   cursorModels,
   codexModels,
   lockedProvider,
+  selectedProvider,
   modelSelection,
   disabled,
   onModelSelectionChange,
@@ -63,6 +67,7 @@ export function ThreadModelPicker({
   readonly cursorModels: ReadonlyArray<CursorModel>
   readonly codexModels: ReadonlyArray<CursorModel>
   readonly lockedProvider?: Provider | undefined
+  readonly selectedProvider?: Provider | undefined
   readonly modelSelection: ModelSelection | null
   readonly disabled: boolean
   readonly onModelSelectionChange: (modelSelection: ModelSelection | null) => void
@@ -72,9 +77,8 @@ export function ThreadModelPicker({
   const [query, setQuery] = useState("")
   const selectedCursor = cursorModels.find((model) => model.modelId === modelSelection?.modelId)
   const selectedCodex = codexModels.find((model) => model.modelId === modelSelection?.modelId)
-  const selectedProvider: Provider =
-    lockedProvider ?? (selectedCodex !== undefined ? "codex" : "cursor")
-  const SelectedIcon = selectedProvider === "codex" ? CodexIcon : CursorIcon
+  const activeProvider: Provider = lockedProvider ?? selectedProvider ?? "cursor"
+  const SelectedIcon = activeProvider === "codex" ? CodexIcon : CursorIcon
   const automaticItem: ModelPickerItem = {
     value: automaticModelId,
     label: "Auto",
@@ -82,8 +86,10 @@ export function ThreadModelPicker({
   }
   const showCursor = lockedProvider !== "codex"
   const showCodex = lockedProvider !== "cursor"
-  const cursorItems = showCursor ? toItems(cursorModels, "cursor", modelSelection) : []
-  const codexItems = showCodex ? toItems(codexModels, "codex", modelSelection) : []
+  const cursorItems = showCursor
+    ? toItems(cursorModels, "cursor", modelSelection, activeProvider)
+    : []
+  const codexItems = showCodex ? toItems(codexModels, "codex", modelSelection, activeProvider) : []
   const groups = [
     { id: "automatic", label: "Sélection", items: [automaticItem] },
     ...(cursorItems.length > 0
@@ -152,7 +158,9 @@ export function ThreadModelPicker({
       >
         <SelectedIcon aria-hidden="true" data-icon="inline-start" />
         <span className="truncate">
-          {selectedCursor?.label ?? selectedCodex?.label ?? modelSelection?.modelId ?? "Auto"}
+          {(activeProvider === "codex" ? selectedCodex : selectedCursor)?.label ??
+            modelSelection?.modelId ??
+            "Auto"}
         </span>
         <ChevronsUpDownIcon data-icon="inline-end" />
       </PopoverTrigger>

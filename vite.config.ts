@@ -139,8 +139,6 @@ export default defineConfig({
           "unicorn/consistent-function-scoping": "off",
           "typescript/no-unsafe-type-assertion": "off",
           "effecttsgo/strict-effect-provide": "off",
-          "effecttsgo/any-unknown-in-error-context": "off",
-          "effecttsgo/missing-effect-context": "off",
           "anti-slop/no-object-parameters": "off",
           "anti-slop/no-unknown-parameters": "off",
           "anti-slop/no-unknown-returns": "off",
@@ -155,13 +153,6 @@ export default defineConfig({
       {
         // Adaptateur Codex : le fil de fer embarque Schema.Defect (unknown) dans E.
         // Les appels sont ramenés à CodexAdapterFailure avant de quitter l'adaptateur.
-        files: ["apps/server/src/provider/codex-app-server.ts"],
-        rules: {
-          "effecttsgo/any-unknown-in-error-context": "off",
-        },
-      },
-      {
-        // Adaptateur Codex : le client app-server typé fuit `unknown` dans E.
         files: ["apps/server/src/provider/codex-app-server.ts"],
         rules: {
           "effecttsgo/any-unknown-in-error-context": "off",

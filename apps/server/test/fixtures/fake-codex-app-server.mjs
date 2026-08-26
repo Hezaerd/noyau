@@ -114,7 +114,7 @@ const models = [
   },
 ]
 
-void Effect.runPromise(
+await Effect.runPromise(
   logRequest({
     method: "_spawn",
     argv: process.argv.slice(2),

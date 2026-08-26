@@ -142,11 +142,10 @@ const toProtocolMessage = (
     readonly result?: unknown
     readonly error?: CodexError.CodexAppServerProtocolErrorShape
   },
-): { readonly [key: string]: unknown } => ({
-  id: requestId,
-  ...(fields.result !== undefined ? { result: fields.result } : {}),
-  ...(fields.error !== undefined ? { error: fields.error } : {}),
-})
+): { readonly [key: string]: unknown } =>
+  fields.error !== undefined
+    ? { id: requestId, error: fields.error }
+    : { id: requestId, result: fields.result ?? null }
 
 export const makeCodexAppServerPatchedProtocol = Effect.fn("makeCodexAppServerPatchedProtocol")(
   function* (
@@ -270,32 +269,25 @@ export const makeCodexAppServerPatchedProtocol = Effect.fn("makeCodexAppServerPa
     }
 
     const handleRequest = (request: CodexAppServerIncomingRequest) =>
-      Queue.offer(incomingRequests, request).pipe(
-        Effect.andThen(
-          options.onRequest
-            ? options.onRequest(request).pipe(
-                Effect.matchEffect({
-                  onFailure: (error) =>
-                    respondError(
-                      request.id,
-                      CodexError.CodexAppServerRequestError.fromAppServerError(
-                        error,
-                        request.method,
-                      ),
-                    ),
-                  onSuccess: (result) => respond(request.id, result),
-                }),
-              )
-            : Effect.void,
-        ),
-        Effect.asVoid,
-      )
+      (options.onRequest === undefined
+        ? Queue.offer(incomingRequests, request)
+        : options.onRequest(request).pipe(
+            Effect.matchEffect({
+              onFailure: (error) =>
+                respondError(
+                  request.id,
+                  CodexError.CodexAppServerRequestError.fromAppServerError(error, request.method),
+                ),
+              onSuccess: (result) => respond(request.id, result),
+            }),
+          )
+      ).pipe(Effect.asVoid)
 
     const handleNotification = (notification: CodexAppServerIncomingNotification) =>
-      Queue.offer(incomingNotifications, notification).pipe(
-        Effect.andThen(options.onNotification ? options.onNotification(notification) : Effect.void),
-        Effect.asVoid,
-      )
+      (options.onNotification === undefined
+        ? Queue.offer(incomingNotifications, notification)
+        : options.onNotification(notification)
+      ).pipe(Effect.asVoid)
 
     const routeMessage = (
       message: unknown,
@@ -329,6 +321,7 @@ export const makeCodexAppServerPatchedProtocol = Effect.fn("makeCodexAppServerPa
             payload: decoded,
           }),
         ),
+        Effect.flatMap(routeMessage),
         Effect.tapErrorTag("CodexAppServerProtocolParseError", (error) =>
           logProtocol({
             direction: "incoming",
@@ -342,12 +335,22 @@ export const makeCodexAppServerPatchedProtocol = Effect.fn("makeCodexAppServerPa
               ...(error.maximumPathDepth === undefined
                 ? {}
                 : { maximumPathDepth: error.maximumPathDepth }),
+              ...(error.payloadKind === undefined ? {} : { payloadKind: error.payloadKind }),
+              ...(error.presentFields === undefined ? {} : { presentFields: error.presentFields }),
             },
           }),
         ),
-        Effect.flatMap(routeMessage),
       )
     }
+
+    const isolateLine = (line: string) =>
+      handleLine(line).pipe(
+        Effect.catchCause(() =>
+          Effect.logWarning("Codex App Server dropped an incoming line").pipe(
+            Effect.annotateLogs({ operation: "handle-line" }),
+          ),
+        ),
+      )
 
     yield* options.stdio.stdin.pipe(
       Stream.decodeText(),
@@ -357,7 +360,7 @@ export const makeCodexAppServerPatchedProtocol = Effect.fn("makeCodexAppServerPa
           const lines = combined.split("\n")
           const nextRemainder = lines.pop() ?? ""
           return [lines.map((line) => line.replace(/\r$/, "")), nextRemainder] as const
-        }).pipe(Effect.flatMap((lines) => Effect.forEach(lines, handleLine, { discard: true }))),
+        }).pipe(Effect.flatMap((lines) => Effect.forEach(lines, isolateLine, { discard: true }))),
       ),
       Effect.matchEffect({
         onFailure: (error) =>
@@ -366,16 +369,14 @@ export const makeCodexAppServerPatchedProtocol = Effect.fn("makeCodexAppServerPa
           ),
         onSuccess: () =>
           Ref.get(remainder).pipe(
-            Effect.flatMap((line) => (line.trim().length === 0 ? Effect.void : handleLine(line))),
-            Effect.matchEffect({
-              onFailure: (error) => handleTermination(() => Effect.succeed(error)),
-              onSuccess: () =>
-                handleTermination(
-                  () =>
-                    options.terminationError ??
-                    Effect.succeed(new CodexError.CodexAppServerInputStreamEndedError({})),
-                ),
-            }),
+            Effect.flatMap((line) => (line.trim().length === 0 ? Effect.void : isolateLine(line))),
+            Effect.andThen(
+              handleTermination(
+                () =>
+                  options.terminationError ??
+                  Effect.succeed(new CodexError.CodexAppServerInputStreamEndedError({})),
+              ),
+            ),
           ),
       }),
       Effect.forkScoped,

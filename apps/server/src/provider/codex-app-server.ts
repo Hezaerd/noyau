@@ -558,6 +558,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
                 models: mapCodexModels(listed.data),
               }
             }).pipe(
+              Effect.timeout("10 seconds"),
               Effect.catchCause(() =>
                 Effect.succeed({
                   handshakeOk: false,
