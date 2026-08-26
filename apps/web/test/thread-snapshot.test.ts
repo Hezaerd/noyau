@@ -4,7 +4,11 @@ import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { resetAppAtomRegistryForTests } from "../src/state/atom-registry"
-import { getThreadSnapshot, replaceThreadSnapshot } from "../src/state/thread-snapshot"
+import {
+  getThreadSnapshot,
+  replaceThreadSnapshot,
+  threadSnapshotNeedsLoad,
+} from "../src/state/thread-snapshot"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 
@@ -40,5 +44,21 @@ describe("thread snapshot atom", () => {
     replaceThreadSnapshot(makeSnapshot(threadId, 2))
 
     expect(getThreadSnapshot(threadId)?.snapshotSequence).toBe(2)
+  })
+
+  it("keeps a newer snapshot when an older one lands late", () => {
+    const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
+    replaceThreadSnapshot(makeSnapshot(threadId, 5))
+    expect(replaceThreadSnapshot(makeSnapshot(threadId, 2))).toBe(false)
+
+    expect(getThreadSnapshot(threadId)?.snapshotSequence).toBe(5)
+  })
+
+  it("treats a draft or missing snapshot as needing a load", () => {
+    const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
+    expect(threadSnapshotNeedsLoad(undefined)).toBe(false)
+    expect(threadSnapshotNeedsLoad(threadId)).toBe(true)
+    replaceThreadSnapshot(makeSnapshot(threadId, 1))
+    expect(threadSnapshotNeedsLoad(threadId)).toBe(false)
   })
 })
