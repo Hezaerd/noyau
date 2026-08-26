@@ -588,7 +588,7 @@ nécessaire à la suite doit finir ici, dans un ADR, un `CONTEXT.md`, un test ou
 
 | Phase | Statut | Issue/PR | Dernière preuve | Prochain pas |
 | --- | --- | --- | --- | --- |
-| 0 — Baseline | En cours | — | ADR et roadmap créées | Ajouter les tests de caractérisation |
+| 0 — Baseline | Terminé | #272 | tests streams + inventaire 58 | Phase 1 : squelette `@noyau/client-runtime` |
 | 1 — Package | À faire | — | — | Bloqué par phase 0 |
 | 2 — Session/superviseur | À faire | — | — | Bloqué par phase 1 |
 | 3 — Primitives Atom | À faire | — | — | Bloqué par phase 2 |
@@ -606,6 +606,19 @@ critères de sortie de la phase, pas seulement du code présent.
 ## 14. Journal des sessions
 
 Ajouter les entrées les plus récentes en premier.
+
+### 2026-08-26 — Phase 0 terminée (caractérisation + inventaire)
+
+- Issue : [#272](https://github.com/Hezaerd/noyau/issues/272).
+- Streams : `apps/web/test/client-runtime-streams.test.ts` + fixtures. Matrice Shell / Project /
+  Thread : snapshot initial, reprise chaude, anciens/doublons, `synchronized`, fin de stream,
+  erreur métier et rupture transport. Boot/reconnexion : snapshot conservé, statut séparé.
+- `synchronized` actuel verrouillé : toute frame publie `Connected` ; le marqueur n'avance pas le
+  curseur, n'active pas le live et ne mute pas le snapshot. Ambiguïté transport vs Projection live
+  à éliminer en Phase 3–4 — pas corrigée ici.
+- Inventaire : `apps/web/test/client-runtime-consumers.test.ts` — 58 fichiers `apps/web/src`,
+  scan filesystem = table. Seuils : 1 Shell, 1 Project/Thread retenu, 0 write après disposal.
+- Aucune modification fonctionnelle. Phase 1 peut créer `@noyau/client-runtime`.
 
 ### 2026-08-25 — Cadrage initial
 
