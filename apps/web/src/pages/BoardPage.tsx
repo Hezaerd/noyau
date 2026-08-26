@@ -759,7 +759,7 @@ export function BoardPage({
   }, [boardSnapshot])
 
   useEffect(() => {
-    if (subscriptionStatus?._tag === "Reconnecting") {
+    if (subscriptionStatus?._tag === "Reconnecting" || subscriptionStatus?._tag === "Failed") {
       setLoading(false)
     }
   }, [subscriptionStatus])

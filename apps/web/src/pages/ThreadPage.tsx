@@ -310,7 +310,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       },
       onStatus: (status) => {
         setSubscriptionStatus(status)
-        if (status._tag === "Reconnecting") setLoading(false)
+        if (status._tag === "Reconnecting" || status._tag === "Failed") setLoading(false)
       },
     })
     return () => {

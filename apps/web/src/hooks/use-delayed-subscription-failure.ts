@@ -10,6 +10,10 @@ export const useDelayedSubscriptionFailure = (
   const [failure, setFailure] = useState<AppFailure>()
 
   useEffect(() => {
+    if (status?._tag === "Failed") {
+      setFailure(status.failure)
+      return
+    }
     if (status?._tag !== "Reconnecting") {
       setFailure(undefined)
       return

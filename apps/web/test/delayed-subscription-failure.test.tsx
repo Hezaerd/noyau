@@ -42,4 +42,16 @@ describe("delayed subscription failure", () => {
         expect(result.current).toBeUndefined()
       }),
     ))
+
+  it("surfaces a Failed subscription immediately", () => {
+    const failed: SubscriptionStatus = {
+      _tag: "Failed",
+      failure: invalidInputFailure("forbidden"),
+    }
+    const { result } = renderHook<AppFailure | undefined, HookProps>(
+      ({ status }) => useDelayedSubscriptionFailure(status, 750),
+      { initialProps: { status: failed } },
+    )
+    expect(result.current).toEqual(failed.failure)
+  })
 })

@@ -290,7 +290,7 @@ describe.each(STREAM_HARNESSES)("$name stream", (harness: StreamHarness) => {
       }),
     ))
 
-  it("does not distinguish business errors from transport rupture on reconnect", () =>
+  it("does not replace the transport session for a business error", () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const business = yield* observeSupervisorFailure({ _tag: "Unauthorized" })
@@ -304,20 +304,29 @@ describe.each(STREAM_HARNESSES)("$name stream", (harness: StreamHarness) => {
           reason: "failed",
         })
         const ended = yield* observeSupervisorFailure(subscriptionEnded())
-        const expected = reconnectPathOf(
-          business.replaced,
-          business.statuses,
-          business.reconnects.length,
-          business.nextAttempt,
-        )
-
-        expect(expected).toEqual({
+        const businessPath = {
+          replaced: [],
+          statusTags: ["Failed"],
+          reconnects: 0,
+          nextSessionId: undefined,
+          nextAfterSequence: undefined,
+        }
+        const transportPath = {
           replaced: [1],
           statusTags: ["Reconnecting"],
           reconnects: 1,
           nextSessionId: 2,
           nextAfterSequence: 7,
-        })
+        }
+
+        expect(
+          reconnectPathOf(
+            business.replaced,
+            business.statuses,
+            business.reconnects.length,
+            business.nextAttempt,
+          ),
+        ).toEqual(businessPath)
         expect(
           reconnectPathOf(
             unavailable.replaced,
@@ -325,7 +334,7 @@ describe.each(STREAM_HARNESSES)("$name stream", (harness: StreamHarness) => {
             unavailable.reconnects.length,
             unavailable.nextAttempt,
           ),
-        ).toEqual(expected)
+        ).toEqual(businessPath)
         expect(
           reconnectPathOf(
             transport.replaced,
@@ -333,7 +342,7 @@ describe.each(STREAM_HARNESSES)("$name stream", (harness: StreamHarness) => {
             transport.reconnects.length,
             transport.nextAttempt,
           ),
-        ).toEqual(expected)
+        ).toEqual(transportPath)
         expect(
           reconnectPathOf(
             ended.replaced,
@@ -341,7 +350,7 @@ describe.each(STREAM_HARNESSES)("$name stream", (harness: StreamHarness) => {
             ended.reconnects.length,
             ended.nextAttempt,
           ),
-        ).toEqual(expected)
+        ).toEqual(transportPath)
       }),
     ))
 })
@@ -388,7 +397,7 @@ describe("thread live frames (outside makeSequencedFrameConsumer)", () => {
   })
 })
 
-describe("stream error classification (current, not distinguished by supervisor)", () => {
+describe("stream error classification", () => {
   it("maps protocol business errors and transport defects through normalizeCause", () => {
     expect(normalizeCause(Cause.fail(new Forbidden()), "stream")).toEqual({ _tag: "Unauthorized" })
     expect(normalizeCause(Cause.fail(new MissingIdentity()), "stream")).toEqual({

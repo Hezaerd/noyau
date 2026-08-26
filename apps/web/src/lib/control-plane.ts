@@ -1,3 +1,6 @@
+import { ConnectionSupervisor, TransportRupture } from "@noyau/client-runtime/connection"
+import { RpcBootstrap } from "@noyau/client-runtime/platform"
+import { RpcSessionFactory, type RpcSession } from "@noyau/client-runtime/rpc"
 import type {
   ProjectAgentIntegration,
   ProjectAgentIntegrationInput,
@@ -39,8 +42,8 @@ import type {
 } from "@noyau/protocol/git"
 import type { ProjectId, Sequence } from "@noyau/protocol/ids"
 import type { DispatchResult } from "@noyau/protocol/receipts"
+import type { ControlPlaneRpcs } from "@noyau/protocol/rpc"
 import {
-  ControlPlaneRpcs,
   RPC_METHODS,
   type ProjectStreamItem,
   type ShellStreamItem,
@@ -51,7 +54,7 @@ import type { ThreadAssistantLive } from "@noyau/protocol/thread/live"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
 import type { Cause } from "effect"
 import { Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Option, Stream } from "effect"
-import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
+import type { RpcClient } from "effect/unstable/rpc"
 import type { RpcClientError } from "effect/unstable/rpc/RpcClientError"
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup"
 import { Socket } from "effect/unstable/socket"
@@ -64,7 +67,7 @@ import {
   type AppFailure,
   type FailurePhase,
 } from "./app-failure"
-import { controlPlaneConfig, type ControlPlaneConfig } from "./control-plane-config"
+import { controlPlaneConfig } from "./control-plane-config"
 
 export type ControlPlaneResult<A> =
   | { readonly ok: true; readonly value: A }
@@ -73,25 +76,12 @@ export type ControlPlaneResult<A> =
 export type SubscriptionStatus =
   | { readonly _tag: "Connected" }
   | { readonly _tag: "Reconnecting"; readonly attempt: number; readonly failure: AppFailure }
+  | { readonly _tag: "Failed"; readonly failure: AppFailure }
 
 class ControlPlaneClient extends Context.Service<
   ControlPlaneClient,
   RpcClient.RpcClient<RpcGroup.Rpcs<typeof ControlPlaneRpcs>, RpcClientError>
->()("@noyau/web/ControlPlaneClient") {
-  static layer(config: ControlPlaneConfig) {
-    const rpcUrl = new URL(config.rpcUrl)
-    rpcUrl.searchParams.set("token", config.bearerToken)
-    const socketLayer = Layer.effect(Socket.Socket, Socket.makeWebSocket(rpcUrl.toString())).pipe(
-      Layer.provide(Socket.layerWebSocketConstructorGlobal),
-    )
-
-    return Layer.effect(ControlPlaneClient, RpcClient.make(ControlPlaneRpcs)).pipe(
-      Layer.provide(RpcClient.layerProtocolSocket({ retryTransientErrors: true })),
-      Layer.provide(socketLayer),
-      Layer.provide(RpcSerialization.layerJson),
-    )
-  }
-}
+>()("@noyau/web/ControlPlaneClient") {}
 
 const browserCrypto = Crypto.make({
   randomBytes: (size) => globalThis.crypto.getRandomValues(new Uint8Array(size)),
@@ -103,32 +93,46 @@ const browserCrypto = Crypto.make({
   },
 })
 
-const makeTransportSession = () =>
-  ManagedRuntime.make(
-    Layer.merge(
-      ControlPlaneClient.layer(controlPlaneConfig),
-      Layer.succeed(Crypto.Crypto)(browserCrypto),
+const controlPlaneLayer = ConnectionSupervisor.layer.pipe(
+  Layer.provideMerge(RpcSessionFactory.layer),
+  Layer.provideMerge(
+    RpcBootstrap.layer({
+      rpcUrl: controlPlaneConfig.rpcUrl,
+      bearerToken: controlPlaneConfig.bearerToken,
+    }),
+  ),
+  Layer.provideMerge(Socket.layerWebSocketConstructorGlobal),
+  Layer.provideMerge(Layer.succeed(Crypto.Crypto)(browserCrypto)),
+)
+
+const controlPlaneRuntime = ManagedRuntime.make(controlPlaneLayer)
+
+const withSupervisor = <A, E, R = never>(
+  use: (supervisor: ConnectionSupervisor["Service"]) => Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R | ConnectionSupervisor> =>
+  Effect.gen(function* () {
+    const supervisor = yield* ConnectionSupervisor
+    yield* supervisor.start
+    return yield* use(supervisor)
+  })
+
+const waitCurrentSession = (): Promise<RpcSession> =>
+  controlPlaneRuntime.runPromise(withSupervisor((supervisor) => supervisor.currentSession))
+
+const notifySessionRupture = (session: RpcSession, failure: AppFailure): Promise<void> =>
+  controlPlaneRuntime.runPromise(
+    withSupervisor((supervisor) =>
+      supervisor.notifyTransportRupture(
+        session,
+        new TransportRupture({
+          reason: failure._tag === "TransportFailure" ? failure.reason : "failed",
+        }),
+      ),
     ),
   )
 
-type TransportSession = ReturnType<typeof makeTransportSession>
-
-let activeTransportSession = makeTransportSession()
-const retiredSessions = new WeakMap<TransportSession, Promise<void>>()
-
-const replaceTransportSession = (failedSession: TransportSession): Promise<void> => {
-  const retired = retiredSessions.get(failedSession)
-  if (retired !== undefined) {
-    return retired
-  }
-  if (activeTransportSession !== failedSession) {
-    return Promise.resolve()
-  }
-  activeTransportSession = makeTransportSession()
-  const disposal = failedSession.dispose()
-  retiredSessions.set(failedSession, disposal)
-  return disposal
-}
+const isTransportSubscriptionFailure = (failure: AppFailure): boolean =>
+  failure._tag === "TransportFailure"
 
 type ControlPlaneStreamError =
   | RpcClientError
@@ -160,17 +164,30 @@ const matchOperationExit = <A>(
     onSuccess: (value) => ({ ok: true, value }),
   })
 
+const runOnCurrentSession = <A, E>(
+  operation: Effect.Effect<A, E, ControlPlaneClient | Crypto.Crypto>,
+): Promise<Exit.Exit<A, E | TransportRupture>> =>
+  controlPlaneRuntime.runPromiseExit(
+    withSupervisor((supervisor) =>
+      supervisor.currentSession.pipe(
+        Effect.flatMap((session) =>
+          operation.pipe(Effect.provideService(ControlPlaneClient, session.client)),
+        ),
+      ),
+    ),
+  )
+
 const runOperation = <A, E>(
   operation: Effect.Effect<A, E, ControlPlaneClient>,
   phase: FailurePhase,
 ): Promise<ControlPlaneResult<A>> =>
-  activeTransportSession.runPromiseExit(operation).then((exit) => matchOperationExit(exit, phase))
+  runOnCurrentSession(operation).then((exit) => matchOperationExit(exit, phase))
 
 const runOperationWithCrypto = <A, E>(
   operation: Effect.Effect<A, E, ControlPlaneClient | Crypto.Crypto>,
   phase: FailurePhase,
 ): Promise<ControlPlaneResult<A>> =>
-  activeTransportSession.runPromiseExit(operation).then((exit) => matchOperationExit(exit, phase))
+  runOnCurrentSession(operation).then((exit) => matchOperationExit(exit, phase))
 
 const dispatch = Effect.fn("ControlPlaneClient.dispatchCommand")(function* (
   request: ClientCommandRequest,
@@ -519,13 +536,13 @@ const scheduleReconnect: ReconnectSchedule = (reconnect, attempt) => {
 
 export interface SubscriptionSupervisorOptions<Session> {
   readonly afterSequence: () => Sequence | undefined
-  readonly currentSession: () => Session
+  readonly currentSession: () => Session | Promise<Session>
   readonly startAttempt: (
     session: Session,
     afterSequence: Sequence | undefined,
     onFailure: (failure: AppFailure) => void,
   ) => () => void
-  readonly replaceSession: (failedSession: Session) => Promise<void>
+  readonly replaceSession: (failedSession: Session, failure: AppFailure) => Promise<void>
   readonly onStatus: (status: SubscriptionStatus) => void
   readonly schedule?: ReconnectSchedule
 }
@@ -544,13 +561,19 @@ export const superviseSubscription = <Session>({
   let stopAttempt: (() => void) | undefined
   let cancelReconnect: (() => void) | undefined
 
-  const connect = (): void => {
+  const beginAttempt = (session: Session): void => {
     if (stopped) {
       return
     }
-    const session = currentSession()
     stopAttempt = startAttempt(session, afterSequence(), (failure) => {
       if (stopped || retrying) {
+        return
+      }
+      if (failure._tag === "Interrupted") {
+        return
+      }
+      if (!isTransportSubscriptionFailure(failure)) {
+        onStatus({ _tag: "Failed", failure })
         return
       }
       retrying = true
@@ -558,7 +581,7 @@ export const superviseSubscription = <Session>({
       stopAttempt?.()
       stopAttempt = undefined
       onStatus({ _tag: "Reconnecting", attempt, failure })
-      void replaceSession(session).then(() => {
+      void replaceSession(session, failure).then(() => {
         if (stopped) {
           return
         }
@@ -572,6 +595,18 @@ export const superviseSubscription = <Session>({
     })
   }
 
+  const connect = (): void => {
+    if (stopped) {
+      return
+    }
+    const resolved = currentSession()
+    if (resolved instanceof Promise) {
+      void resolved.then(beginAttempt)
+      return
+    }
+    beginAttempt(resolved)
+  }
+
   connect()
   return () => {
     stopped = true
@@ -581,12 +616,13 @@ export const superviseSubscription = <Session>({
 }
 
 const startSubscriptionAttempt = (
-  session: TransportSession,
+  session: RpcSession,
   stream: Effect.Effect<void, ControlPlaneStreamError, ControlPlaneClient>,
   onFailure: (failure: AppFailure) => void,
 ) => {
-  const fiber = session.runFork(
+  const fiber = Effect.runFork(
     stream.pipe(
+      Effect.provideService(ControlPlaneClient, session.client),
       Effect.matchCauseEffect({
         onFailure: (cause) => {
           const failure = normalizeCause(cause, "stream")
@@ -598,7 +634,7 @@ const startSubscriptionAttempt = (
     ),
   )
   return () => {
-    session.runFork(Fiber.interrupt(fiber))
+    Effect.runFork(Fiber.interrupt(fiber))
   }
 }
 
@@ -624,8 +660,12 @@ export const subscribeShell = (
   const consumer = makeSequencedFrameConsumer(afterSequence, callbacks)
   return superviseSubscription({
     afterSequence: consumer.afterSequence,
-    currentSession: () => activeTransportSession,
-    replaceSession: replaceTransportSession,
+    currentSession: waitCurrentSession,
+    replaceSession: notifySessionRupture,
+    schedule: (reconnect) => {
+      reconnect()
+      return () => undefined
+    },
     onStatus: callbacks.onStatus,
     startAttempt: (session, resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
@@ -650,8 +690,12 @@ export const subscribeProject = (
   const consumer = makeSequencedFrameConsumer(afterSequence, callbacks)
   return superviseSubscription({
     afterSequence: consumer.afterSequence,
-    currentSession: () => activeTransportSession,
-    replaceSession: replaceTransportSession,
+    currentSession: waitCurrentSession,
+    replaceSession: notifySessionRupture,
+    schedule: (reconnect) => {
+      reconnect()
+      return () => undefined
+    },
     onStatus: callbacks.onStatus,
     startAttempt: (session, resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
@@ -694,8 +738,12 @@ export const subscribeVcsStatus = (
 ) =>
   superviseSubscription({
     afterSequence: () => undefined,
-    currentSession: () => activeTransportSession,
-    replaceSession: replaceTransportSession,
+    currentSession: waitCurrentSession,
+    replaceSession: notifySessionRupture,
+    schedule: (reconnect) => {
+      reconnect()
+      return () => undefined
+    },
     onStatus,
     startAttempt: (session, _resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
@@ -716,8 +764,12 @@ export const subscribeThread = (
   const consumer = makeSequencedFrameConsumer(afterSequence, callbacks)
   return superviseSubscription({
     afterSequence: consumer.afterSequence,
-    currentSession: () => activeTransportSession,
-    replaceSession: replaceTransportSession,
+    currentSession: waitCurrentSession,
+    replaceSession: notifySessionRupture,
+    schedule: (reconnect) => {
+      reconnect()
+      return () => undefined
+    },
     onStatus: callbacks.onStatus,
     startAttempt: (session, resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {

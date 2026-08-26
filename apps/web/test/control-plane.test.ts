@@ -136,8 +136,13 @@ describe("control plane stream cursor", () => {
           },
         })
 
+        const transportFailure: AppFailure = {
+          _tag: "TransportFailure",
+          phase: "stream",
+          reason: "failed",
+        }
         cursor = Sequence.make(42)
-        attempts[0]?.fail(invalidInputFailure("socket closed"))
+        attempts[0]?.fail(transportFailure)
         yield* Effect.promise(() => Promise.resolve())
 
         expect(replaced).toEqual([1])
@@ -145,7 +150,7 @@ describe("control plane stream cursor", () => {
           {
             _tag: "Reconnecting",
             attempt: 1,
-            failure: invalidInputFailure("socket closed"),
+            failure: transportFailure,
           },
         ])
         expect(reconnects).toHaveLength(1)
