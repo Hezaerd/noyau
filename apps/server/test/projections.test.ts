@@ -701,12 +701,38 @@ layer(platformLayer)("SQL projections", (it) => {
     )
   })
 
-  it.effect("retire le Thread et ses projections enfants", () =>
-    Effect.scoped(
+  it.effect("retire le Thread et ses projections enfants", () => {
+    const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000010")
+    const session = Schema.decodeSync(Session)({
+      threadId: ids.recoveryThread,
+      status: "running",
+      lastError: null,
+      activeTurnId: turnId,
+      runtimeMode: "full-access",
+      resumeCursor: { schemaVersion: 1, sessionId: "cursor-session-delete" },
+      updatedAt: "2026-08-20T00:03:00.000Z",
+    })
+    return Effect.scoped(
       Effect.gen(function* () {
         const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
         const sql = Context.get(context, SqlClient)
         return yield* Effect.gen(function* () {
+          const countProjectionRows = () =>
+            sql<{
+              threads: number
+              sessions: number
+              turns: number
+              transcript: number
+              links: number
+            }>`
+              SELECT
+                (SELECT COUNT(*) FROM projection_threads) AS threads,
+                (SELECT COUNT(*) FROM projection_sessions) AS sessions,
+                (SELECT COUNT(*) FROM projection_turns) AS turns,
+                (SELECT COUNT(*) FROM projection_transcript) AS transcript,
+                (SELECT COUNT(*) FROM projection_ticket_threads) AS links
+            `
+
           yield* projectFixture()
           yield* projectDomainEvent(
             persisted(
@@ -752,34 +778,59 @@ layer(platformLayer)("SQL projections", (it) => {
               }),
             ),
           )
+          yield* projectDomainEvent(
+            persisted(
+              5,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId,
+                text: "Travaille",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              6,
+              ThreadSessionSet.make({
+                threadId: ids.recoveryThread,
+                session,
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              7,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: "hello",
+                },
+              }),
+            ),
+          )
 
           const before = yield* readThreadSnapshot(ids.recoveryThread)
           assert.isTrue(Option.isSome(before), "Thread should exist before delete")
+          assert.deepStrictEqual((yield* countProjectionRows())[0], {
+            threads: 1,
+            sessions: 1,
+            turns: 1,
+            transcript: 2,
+            links: 1,
+          })
 
           yield* projectDomainEvent(
-            persisted(5, ThreadDeleted.make({ threadId: ids.recoveryThread })),
+            persisted(8, ThreadDeleted.make({ threadId: ids.recoveryThread })),
           )
 
           const thread = yield* readThreadSnapshot(ids.recoveryThread)
           const shell = yield* readThreadShellById(ids.recoveryThread)
-          const leftovers = yield* sql<{
-            threads: number
-            sessions: number
-            turns: number
-            transcript: number
-            links: number
-          }>`
-            SELECT
-              (SELECT COUNT(*) FROM projection_threads) AS threads,
-              (SELECT COUNT(*) FROM projection_sessions) AS sessions,
-              (SELECT COUNT(*) FROM projection_turns) AS turns,
-              (SELECT COUNT(*) FROM projection_transcript) AS transcript,
-              (SELECT COUNT(*) FROM projection_ticket_threads) AS links
-          `
 
           assert.deepStrictEqual(thread, Option.none())
           assert.deepStrictEqual(shell, Option.none())
-          assert.deepStrictEqual(leftovers[0], {
+          assert.deepStrictEqual((yield* countProjectionRows())[0], {
             threads: 0,
             sessions: 0,
             turns: 0,
@@ -788,8 +839,8 @@ layer(platformLayer)("SQL projections", (it) => {
           })
         }).pipe(Effect.provideService(SqlClient, sql))
       }),
-    ),
-  )
+    )
+  })
 
   it.effect("retire le Project et ses projections enfants malgré les FK colonnes", () =>
     Effect.scoped(
