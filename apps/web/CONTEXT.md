@@ -246,8 +246,10 @@ _À éviter_ : unread mail, inbox, mention
 
 **TurnDiff**:
 Carte de fichiers changés sous le dernier message assistant d'un Turn. Jointe depuis
-`turns[].turnDiff`, pas un item de transcript. Le clic ouvre le Panneau TurnDiff.
-_À éviter_ : hunk inline, item de transcript, diff ACP
+`turns[].turnDiff`, pas un item de transcript. Arbre compacté (dossiers fusionnés, stats
+agrégées) ; le dernier Turn auto-expand si le diff est petit, sinon preview de scopes.
+Le clic ouvre le Panneau TurnDiff.
+_À éviter_ : hunk inline, item de transcript, diff ACP, FileTree Pierre
 
 **Panneau TurnDiff**:
 Sheet Pierre qui rend le patch unifié d'un Turn via `thread.getTurnDiff`.
