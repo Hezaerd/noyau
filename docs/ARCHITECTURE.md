@@ -20,7 +20,7 @@ La v0.1 vise ce parcours durable :
 
 1. relier un dossier existant à un Project ;
 2. atterrir sur le Tableau du projet ;
-3. créer un Thread titré, choisir Cursor ou Codex, streamer un Turn ;
+3. créer un Thread titré, choisir Cursor, Claude ou Codex, streamer un Turn ;
 4. lier optionnellement ce Thread à un Ticket ;
 5. redémarrer l'application et retrouver le Tableau, le Thread, le transcript et `lastError` ;
 6. poursuivre par un nouveau Turn (`session/load`), sans rejouer le prompt.
@@ -41,10 +41,12 @@ Cible de sortie : macOS et Windows natif. Linux, WSL, client web distribué et m
   ([ADR-0015](adr/0015-tableau-accessible-aux-agents-par-mcp.md)) ;
 - skill `noyau` installable explicitement dans chaque WorkspaceRoot pour enseigner aux agents les
   pratiques du Tableau ([ADR-0016](adr/0016-skill-noyau-installe-par-project.md)) ;
-- Cursor ACP local et Codex app-server comme providers réels
-  ([ADR-0018](adr/0018-runtime-cursor-porte-par-la-session.md)). Le fil de fer ACP est
+- Cursor ACP local, Claude Agent SDK et Codex app-server comme providers réels
+  ([ADR-0018](adr/0018-runtime-cursor-porte-par-la-session.md),
+  [ADR-0021](adr/0021-runtime-claude-via-agent-sdk.md)). Le fil de fer ACP est
   `@noyau/acp` ([ADR-0014](adr/0014-fil-de-fer-acp.md)) ; le fil de fer Codex est
-  `@noyau/codex`. Le runtime Session reste unique par Thread.
+  `@noyau/codex`. Claude n’a pas de package fil de fer : le SDK vit dans l’adaptateur
+  Server. Le runtime Session reste unique par Thread.
 
 Effect.gen n'est pas imposé au rendu React. L'état renderer (projections `subscribe*` et
 chrome) vit dans Effect Atom ([ADR-0020](adr/0020-effect-atom-etat-renderer.md)).
@@ -59,7 +61,7 @@ Noyau Desktop (Electron main)
   └─ Noyau Server enfant (Node)
        ├─ SQLite (journal, receipts, projections)
        ├─ WorkspaceRoot des Projects
-       ├─ runtimes Cursor ACP des Sessions (un processus par Session live, handle + Scope)
+       ├─ runtimes provider des Sessions (Cursor ACP, Claude SDK ou Codex ; un processus par Session live, handle + Scope)
        ├─ MCP HTTP (capacités agent bornées)
        └─ transcripts et resumeCursor
 
@@ -114,7 +116,7 @@ Noyau Server possède :
 - les Projects, leur `WorkspaceRoot`, le Tableau et les Tickets ;
 - les Threads, Turns, Sessions projetées et transcripts ;
 - les commandes enrichies, événements, receipts et projections ;
-- l'adaptateur Cursor et les runtimes Cursor des Sessions (processus, `AcpClient`, handle +
+- les adaptateurs Cursor / Claude / Codex et les runtimes Session (processus, client, handle +
   `Scope`) ;
 - le serveur MCP HTTP, ses capacités volatiles bornées et ses toolkits Tableau ;
 - les reactors `TxQueue` pour les effets provider.
@@ -157,7 +159,7 @@ Environment
    │       └─ TicketDependency*
    └─ Thread*
       ├─ title
-      ├─ Provider (immuable, cursor)
+      ├─ Provider (immuable, cursor | claude | codex)
       ├─ runtimeMode
       ├─ Session?
       └─ Turn* (append-only, latestTurn)
@@ -367,7 +369,7 @@ ou événement distant, le snapshot autoritatif gagne.
 
 - Studio Server, Runtime Nodes, VPS, connexion distante, fédération d'Environments ;
 - comptes, pairing, permissions projet, présence ;
-- Claude, harnais générique, usage promis ;
+- harnais générique, usage promis ;
 - revert de Checkpoint, provenance Git au-delà du TurnDiff, inbox PR / reviews / checks t3code ;
 - n8n, terminal intégré ;
 - Linux, WSL, client web distribué, mobile ;

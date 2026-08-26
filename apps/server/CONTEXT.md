@@ -1,7 +1,7 @@
 # Server
 
 Frontière de confiance de l'Environment local : elle transforme les intentions du renderer en
-commandes durables, possède SQLite, Cursor et Codex, et expose les streams RPC.
+commandes durables, possède SQLite, Cursor, Claude et Codex, et expose les streams RPC.
 
 ## Langage
 
@@ -36,11 +36,16 @@ Fil de fer `@noyau/acp` utilisé par l'adaptateur Cursor. Les extensions (`curso
 restent ici.
 _À éviter_ : schémas ACP maison, JSON-RPC maison
 
+**Claude Agent SDK**:
+`@anthropic-ai/claude-agent-sdk` utilisé par l'adaptateur Claude. Pas un package `@noyau/claude`.
+_À éviter_ : fil de fer JSON-RPC, AcpClient, CodexAppServerClient
+
 **SessionRuntime**:
-Runtime provider vivant et volatil attaché à une Session : processus `cursor-agent` ou
-`codex app-server`, client JSON-RPC et `Scope` possédés par le Server. Il est réutilisé entre
-Turns, puis recréé paresseusement (`session/load` Cursor ou `thread/resume` Codex) après restart,
-crash, arrêt ou reaper ; aucun prompt historique n'est rejoué.
+Runtime provider vivant et volatil attaché à une Session : processus `cursor-agent`, session
+Claude Agent SDK ou `codex app-server`, client et `Scope` possédés par le Server. Il est
+réutilisé entre Turns, puis recréé paresseusement (`session/load` Cursor, `query({ resume })`
+Claude ou `thread/resume` Codex) après restart, crash, arrêt ou reaper ; aucun prompt
+historique n'est rejoué.
 _À éviter_ : subprocess par Turn, Execution, sweep d'orphelins
 
 **MCP Noyau**:
