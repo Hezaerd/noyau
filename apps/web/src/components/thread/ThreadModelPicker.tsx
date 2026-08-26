@@ -3,7 +3,7 @@ import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react"
 import { useState } from "react"
 
-import { CodexIcon, CursorIcon } from "@/components/provider-icons"
+import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -54,8 +54,25 @@ const toItems = (
   ]
 }
 
+const providerIcons = {
+  cursor: CursorIcon,
+  claude: ClaudeIcon,
+  codex: CodexIcon,
+} as const satisfies Record<Provider, ProviderIcon>
+
+const modelsFor = (
+  provider: Provider,
+  catalogs: {
+    readonly cursor: ReadonlyArray<CursorModel>
+    readonly claude: ReadonlyArray<CursorModel>
+    readonly codex: ReadonlyArray<CursorModel>
+  },
+): ReadonlyArray<CursorModel> =>
+  provider === "claude" ? catalogs.claude : provider === "codex" ? catalogs.codex : catalogs.cursor
+
 export function ThreadModelPicker({
   cursorModels,
+  claudeModels,
   codexModels,
   lockedProvider,
   selectedProvider,
@@ -65,6 +82,7 @@ export function ThreadModelPicker({
   onProviderChange,
 }: {
   readonly cursorModels: ReadonlyArray<CursorModel>
+  readonly claudeModels: ReadonlyArray<CursorModel>
   readonly codexModels: ReadonlyArray<CursorModel>
   readonly lockedProvider?: Provider | undefined
   readonly selectedProvider?: Provider | undefined
@@ -75,25 +93,35 @@ export function ThreadModelPicker({
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const selectedCursor = cursorModels.find((model) => model.modelId === modelSelection?.modelId)
-  const selectedCodex = codexModels.find((model) => model.modelId === modelSelection?.modelId)
+  const catalogs = { cursor: cursorModels, claude: claudeModels, codex: codexModels }
   const activeProvider: Provider = lockedProvider ?? selectedProvider ?? "cursor"
-  const SelectedIcon = activeProvider === "codex" ? CodexIcon : CursorIcon
+  const selectedModel = modelsFor(activeProvider, catalogs).find(
+    (model) => model.modelId === modelSelection?.modelId,
+  )
+  const SelectedIcon = providerIcons[activeProvider]
   const automaticItem: ModelPickerItem = {
     value: automaticModelId,
     label: "Auto",
     searchValue: "Auto automatique",
   }
-  const showCursor = lockedProvider !== "codex"
-  const showCodex = lockedProvider !== "cursor"
-  const cursorItems = showCursor
+  const showProvider = (provider: Provider) =>
+    lockedProvider === undefined || lockedProvider === provider
+  const cursorItems = showProvider("cursor")
     ? toItems(cursorModels, "cursor", modelSelection, activeProvider)
     : []
-  const codexItems = showCodex ? toItems(codexModels, "codex", modelSelection, activeProvider) : []
+  const claudeItems = showProvider("claude")
+    ? toItems(claudeModels, "claude", modelSelection, activeProvider)
+    : []
+  const codexItems = showProvider("codex")
+    ? toItems(codexModels, "codex", modelSelection, activeProvider)
+    : []
   const groups = [
     { id: "automatic", label: "Sélection", items: [automaticItem] },
     ...(cursorItems.length > 0
       ? [{ id: "cursor" as const, label: "Cursor", items: cursorItems }]
+      : []),
+    ...(claudeItems.length > 0
+      ? [{ id: "claude" as const, label: "Claude", items: claudeItems }]
       : []),
     ...(codexItems.length > 0 ? [{ id: "codex" as const, label: "Codex", items: codexItems }] : []),
   ]
@@ -105,10 +133,12 @@ export function ThreadModelPicker({
       onModelSelectionChange(null)
       return
     }
-    if (groupId === "codex" || groupId === "cursor") {
+    if (groupId === "cursor" || groupId === "claude" || groupId === "codex") {
       onProviderChange?.(groupId)
     }
-    const models = groupId === "codex" ? codexModels : cursorModels
+    const provider =
+      groupId === "cursor" || groupId === "claude" || groupId === "codex" ? groupId : activeProvider
+    const models = modelsFor(provider, catalogs)
     const model = models.find((candidate) => candidate.modelId === value)
     const reasoningEffort = model?.reasoningEfforts.some(
       (effort) => effort.value === modelSelection?.reasoningEffort,
@@ -158,9 +188,7 @@ export function ThreadModelPicker({
       >
         <SelectedIcon aria-hidden="true" data-icon="inline-start" />
         <span className="truncate">
-          {(activeProvider === "codex" ? selectedCodex : selectedCursor)?.label ??
-            modelSelection?.modelId ??
-            "Auto"}
+          {selectedModel?.label ?? modelSelection?.modelId ?? "Auto"}
         </span>
         <ChevronsUpDownIcon data-icon="inline-end" />
       </PopoverTrigger>
@@ -178,6 +206,7 @@ export function ThreadModelPicker({
               <CommandGroup key={group.id} items={group.items}>
                 <CommandGroupLabel className="flex items-center gap-1.5">
                   {group.id === "cursor" ? <CursorIcon className="size-3" /> : null}
+                  {group.id === "claude" ? <ClaudeIcon className="size-3" /> : null}
                   {group.id === "codex" ? <CodexIcon className="size-3" /> : null}
                   {group.label}
                 </CommandGroupLabel>

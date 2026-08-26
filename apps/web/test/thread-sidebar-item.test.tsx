@@ -131,6 +131,22 @@ describe("ThreadSidebarItem", () => {
             binaryPath: null,
             models: [],
           },
+          claude: {
+            installed: false,
+            handshakeOk: false,
+            version: null,
+            plan: null,
+            binaryPath: null,
+            models: [],
+          },
+          codex: {
+            installed: false,
+            handshakeOk: false,
+            version: null,
+            plan: null,
+            binaryPath: null,
+            models: [],
+          },
           createdAt: "2026-08-25T12:00:00.000Z",
         },
         projects: [

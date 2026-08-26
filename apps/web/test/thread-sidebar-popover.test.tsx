@@ -27,6 +27,14 @@ const makeSnapshot = (
         binaryPath: null,
         models: cursorModels,
       },
+      claude: {
+        installed: false,
+        handshakeOk: false,
+        version: null,
+        plan: null,
+        binaryPath: null,
+        models: [],
+      },
       codex: {
         installed: false,
         handshakeOk: false,
@@ -72,23 +80,30 @@ describe("threadModelLabel", () => {
 describe("catalogModels", () => {
   it("prend le catalogue du provider du Thread", () => {
     expect(
-      catalogModels(
-        "cursor",
-        [{ modelId: "composer-2.5", label: "Composer 2.5" }],
-        [{ modelId: "gpt-5", label: "GPT-5" }],
-      ),
+      catalogModels("cursor", {
+        cursor: [{ modelId: "composer-2.5", label: "Composer 2.5" }],
+        claude: [{ modelId: "claude-opus-5", label: "Claude Opus 5" }],
+        codex: [{ modelId: "gpt-5", label: "GPT-5" }],
+      }),
     ).toEqual([{ modelId: "composer-2.5", label: "Composer 2.5" }])
     expect(
-      catalogModels(
-        "codex",
-        [{ modelId: "composer-2.5", label: "Composer 2.5" }],
-        [{ modelId: "gpt-5", label: "GPT-5" }],
-      ),
+      catalogModels("claude", {
+        cursor: [{ modelId: "composer-2.5", label: "Composer 2.5" }],
+        claude: [{ modelId: "claude-opus-5", label: "Claude Opus 5" }],
+        codex: [{ modelId: "gpt-5", label: "GPT-5" }],
+      }),
+    ).toEqual([{ modelId: "claude-opus-5", label: "Claude Opus 5" }])
+    expect(
+      catalogModels("codex", {
+        cursor: [{ modelId: "composer-2.5", label: "Composer 2.5" }],
+        claude: [{ modelId: "claude-opus-5", label: "Claude Opus 5" }],
+        codex: [{ modelId: "gpt-5", label: "GPT-5" }],
+      }),
     ).toEqual([{ modelId: "gpt-5", label: "GPT-5" }])
   })
 
   it("tolère un catalogue manquant", () => {
-    expect(catalogModels("codex", undefined, [{ modelId: "gpt-5", label: "GPT-5" }])).toEqual([
+    expect(catalogModels("codex", { codex: [{ modelId: "gpt-5", label: "GPT-5" }] })).toEqual([
       { modelId: "gpt-5", label: "GPT-5" },
     ])
   })

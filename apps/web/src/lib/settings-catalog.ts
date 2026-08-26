@@ -162,7 +162,7 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     id: "providers",
     tab: "providers",
     title: "Providers",
-    description: "Providers IA branchés à Noyau : Cursor maintenant, les autres bientôt.",
+    description: "Providers IA branchés à Noyau : Cursor, Claude Code et Codex.",
     keywords: ["ia", "ai", "agent", "provider", "cursor", "claude", "codex"],
   },
   ...PROVIDER_SETTINGS_ITEMS,

@@ -7,6 +7,7 @@ import type {
   ProviderUserInputAnswers,
 } from "@noyau/protocol/entities/approvals"
 import {
+  emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
   emptyCursorProviderStatus,
   type CursorModel,
@@ -1531,7 +1532,11 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   yield* Effect.addFinalizer(() => stopAll)
 
   return ProviderPort.of({
-    status: Effect.succeed({ cursor: providerStatus, codex: emptyCodexProviderStatus }),
+    status: Effect.succeed({
+      cursor: providerStatus,
+      claude: emptyClaudeProviderStatus,
+      codex: emptyCodexProviderStatus,
+    }),
     startTurn,
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

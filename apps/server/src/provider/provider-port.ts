@@ -5,8 +5,10 @@ import type {
 import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
 import type { Provider } from "@noyau/protocol/entities/environment"
 import {
+  emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
   emptyCursorProviderStatus,
+  type ClaudeProviderStatus,
   type CodexProviderStatus,
   type CursorProviderStatus,
 } from "@noyau/protocol/entities/environment"
@@ -26,11 +28,13 @@ export interface ProviderTurnAttachment extends TurnImageAttachment {
 
 export interface ProviderStatuses {
   readonly cursor: CursorProviderStatus
+  readonly claude: ClaudeProviderStatus
   readonly codex: CodexProviderStatus
 }
 
 export const emptyProviderStatuses: ProviderStatuses = {
   cursor: emptyCursorProviderStatus,
+  claude: emptyClaudeProviderStatus,
   codex: emptyCodexProviderStatus,
 }
 

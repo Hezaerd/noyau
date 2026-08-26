@@ -1,4 +1,5 @@
 import type {
+  ClaudeProviderStatus,
   CodexProviderStatus,
   CursorProviderStatus,
 } from "@noyau/protocol/entities/environment"
@@ -74,6 +75,10 @@ export const selectedProjectAtom = Atom.make((get): ProjectShell | undefined => 
 export const cursorAtom = Atom.make(
   (get): CursorProviderStatus | undefined => get(appliedShellAtom)?.environment.cursor,
 ).pipe(Atom.withLabel("shell:cursor"))
+
+export const claudeAtom = Atom.make(
+  (get): ClaudeProviderStatus | undefined => get(appliedShellAtom)?.environment.claude,
+).pipe(Atom.withLabel("shell:claude"))
 
 export const codexAtom = Atom.make(
   (get): CodexProviderStatus | undefined => get(appliedShellAtom)?.environment.codex,

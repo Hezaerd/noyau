@@ -7,6 +7,7 @@ import type {
   UserInputQuestion,
 } from "@noyau/protocol/entities/approvals"
 import {
+  emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
   emptyCursorProviderStatus,
   type CursorModel,
@@ -1059,7 +1060,11 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
   yield* Effect.addFinalizer(() => stopAll)
 
   return ProviderPort.of({
-    status: Effect.succeed({ cursor: emptyCursorProviderStatus, codex: providerStatus }),
+    status: Effect.succeed({
+      cursor: emptyCursorProviderStatus,
+      claude: emptyClaudeProviderStatus,
+      codex: providerStatus,
+    }),
     startTurn: (input, emit) => startTurn(input, emit).pipe(Effect.provideService(Path.Path, path)),
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

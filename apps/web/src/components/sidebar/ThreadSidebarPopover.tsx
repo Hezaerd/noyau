@@ -1,12 +1,13 @@
 import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
 import { GitBranchIcon, LayersIcon } from "lucide-react"
 
-import { CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
-import { useCodex, useCursor } from "@/hooks/use-control-plane"
+import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
+import { useClaude, useCodex, useCursor } from "@/hooks/use-control-plane"
 import { catalogModels, threadModelLabel } from "@/lib/thread-sidebar-popover"
 
 const providerIcons = {
   cursor: CursorIcon,
+  claude: ClaudeIcon,
   codex: CodexIcon,
 } as const satisfies Record<ThreadShell["provider"], ProviderIcon>
 
@@ -20,8 +21,13 @@ export function ThreadSidebarPopover({
   readonly branch: string | null
 }) {
   const cursor = useCursor()
+  const claude = useClaude()
   const codex = useCodex()
-  const models = catalogModels(thread.provider, cursor?.models, codex?.models)
+  const models = catalogModels(thread.provider, {
+    cursor: cursor?.models,
+    claude: claude?.models,
+    codex: codex?.models,
+  })
   const ProviderIcon = providerIcons[thread.provider]
 
   return (

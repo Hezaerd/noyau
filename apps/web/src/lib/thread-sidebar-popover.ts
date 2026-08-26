@@ -16,7 +16,14 @@ export const threadModelLabel = (
 
 export const catalogModels = (
   provider: Provider,
-  cursor: ReadonlyArray<Pick<CursorModel, "modelId" | "label">> | undefined,
-  codex: ReadonlyArray<Pick<CursorModel, "modelId" | "label">> | undefined,
+  catalogs: {
+    readonly cursor?: ReadonlyArray<Pick<CursorModel, "modelId" | "label">>
+    readonly claude?: ReadonlyArray<Pick<CursorModel, "modelId" | "label">>
+    readonly codex?: ReadonlyArray<Pick<CursorModel, "modelId" | "label">>
+  },
 ): ReadonlyArray<Pick<CursorModel, "modelId" | "label">> =>
-  provider === "codex" ? (codex ?? []) : (cursor ?? [])
+  provider === "claude"
+    ? (catalogs.claude ?? [])
+    : provider === "codex"
+      ? (catalogs.codex ?? [])
+      : (catalogs.cursor ?? [])

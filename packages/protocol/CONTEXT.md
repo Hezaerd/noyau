@@ -31,8 +31,9 @@ remplaçable, pas un Event.
 _À éviter_ : transcript-appended, delta durable, Command
 
 **resumeCursor**:
-`{ schemaVersion: 1, sessionId }` opaque pour reprendre le runtime provider (ACP `session/load`
-ou thread Codex). Il ne commande jamais le rejeu d'un prompt ; la Session n'a pas d'id métier.
+`{ schemaVersion: 1, sessionId }` opaque pour reprendre le runtime provider (ACP `session/load`,
+session Claude Agent SDK ou thread Codex). Il ne commande jamais le rejeu d'un prompt ; la
+Session n'a pas d'id métier.
 _À éviter_ : cwdLastBound, ProviderBinding
 
 **modelSelection**:

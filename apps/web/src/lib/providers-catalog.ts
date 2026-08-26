@@ -31,9 +31,9 @@ export const PROVIDER_CATALOG: ReadonlyArray<ProviderCatalogEntry> = [
   {
     id: "claude-code",
     title: "Claude Code",
-    availability: "soon",
+    availability: "available",
     cli: "claude",
-    summary: "Conversations Anthropic.",
+    summary: "Adaptateur Agent SDK local. Détection PATH.",
     keywords: ["claude", "anthropic"],
   },
   {
@@ -99,6 +99,17 @@ export const presentCursorPlan = (plan: string | null | undefined): string | nul
     return null
   }
   return /^cursor\b/i.test(plan) ? plan : `Cursor ${plan}`
+}
+
+export const presentClaudeConnection = presentCursorConnection
+
+export const presentClaudeVersion = presentCursorVersion
+
+export const presentClaudePlan = (plan: string | null | undefined): string | null => {
+  if (plan === undefined || plan === null) {
+    return null
+  }
+  return /^claude\b/i.test(plan) ? plan : `Claude ${plan}`
 }
 
 export const presentCodexConnection = presentCursorConnection
