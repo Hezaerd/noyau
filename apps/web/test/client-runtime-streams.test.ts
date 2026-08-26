@@ -34,9 +34,10 @@ import { appAtomRegistry, resetAppAtomRegistryForTests } from "../src/state/atom
 import {
   appliedShellAtom,
   getAppliedShell,
-  replaceAppliedShell,
   resetAppliedShell,
+  seedShellForTests,
   setSubscriptionStatus,
+  shellSubscriptionStatus,
   subscriptionStatusAtom,
 } from "../src/state/shell"
 import {
@@ -452,14 +453,14 @@ describe("boot and reconnect visible Shell state", () => {
     expect(providerWouldDismissSplash(undefined, undefined)).toBe(false)
     expect(providerWouldDismissSplash(undefined, delayed)).toBe(true)
 
-    replaceAppliedShell(makeShellSnapshotFixture(1))
+    seedShellForTests(makeShellSnapshotFixture(1))
     expect(providerWouldDismissSplash(getAppliedShell(), undefined)).toBe(true)
     expect(providerWouldDismissSplash(getAppliedShell(), delayed)).toBe(true)
   })
 
-  it("keeps appliedShellAtom when subscription status becomes Reconnecting", () => {
+  it("keeps the Shell snapshot when subscription status becomes Reconnecting", () => {
     const snapshot = makeShellSnapshotFixture(4)
-    replaceAppliedShell(snapshot)
+    seedShellForTests(snapshot)
     expect(getAppliedShell()).toBe(snapshot)
 
     setSubscriptionStatus({
@@ -478,9 +479,9 @@ describe("boot and reconnect visible Shell state", () => {
     expect(providerWouldDismissSplash(getAppliedShell(), undefined)).toBe(true)
   })
 
-  it("flips Connected ↔ Reconnecting without calling replaceAppliedShell", () => {
+  it("flips Connected ↔ Reconnecting without replacing the snapshot", () => {
     const snapshot = makeShellSnapshotFixture(5)
-    replaceAppliedShell(snapshot)
+    seedShellForTests(snapshot)
 
     setSubscriptionStatus({ _tag: "Connected" })
     expect(getAppliedShell()).toBe(snapshot)
@@ -497,5 +498,34 @@ describe("boot and reconnect visible Shell state", () => {
     setSubscriptionStatus({ _tag: "Connected" })
     expect(getAppliedShell()).toBe(snapshot)
     expect(appAtomRegistry.get(subscriptionStatusAtom)).toEqual(connected)
+  })
+
+  it("maps projection live to Connected and never treats synchronized as transport Connected", () => {
+    const snapshot = makeShellSnapshotFixture(6)
+    const live = { value: snapshot, phase: "live" as const, error: undefined }
+    const synchronizing = {
+      value: snapshot,
+      phase: "synchronizing" as const,
+      error: undefined,
+    }
+    const emptySync = {
+      value: undefined,
+      phase: "empty" as const,
+      error: undefined,
+    }
+
+    expect(
+      shellSubscriptionStatus(live, { phase: "connected", generation: 1, attempt: 0 }),
+    ).toEqual(connected)
+    expect(
+      shellSubscriptionStatus(emptySync, { phase: "connected", generation: 1, attempt: 0 }),
+    ).toBe(undefined)
+    expect(
+      shellSubscriptionStatus(synchronizing, { phase: "connected", generation: 2, attempt: 0 }),
+    ).toMatchObject({ _tag: "Reconnecting" })
+    expect(
+      shellSubscriptionStatus(live, { phase: "reconnecting", generation: 1, attempt: 1 })?._tag,
+    ).toBe("Reconnecting")
+    expect(shellSubscriptionStatus(synchronizing, undefined)?._tag).toBe("Reconnecting")
   })
 })

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { appAtomRegistry, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { nowMinuteAtom } from "../src/state/now"
-import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
+import { resetAppliedShell, seedShellForTests } from "../src/state/shell"
 import { sidebarQueuesAtom, threadActivityAtom, threadUnreadAtom } from "../src/state/sidebar"
 import { pinAtom, setThreadPinned } from "../src/state/thread-pins"
 import { markThreadVisited, visitAtom } from "../src/state/thread-visits"
@@ -86,7 +86,7 @@ describe("pinAtom / visitAtom", () => {
 
 describe("threadUnreadAtom", () => {
   it("is unread only when completedAt is after lastVisitedAt", () => {
-    replaceAppliedShell(
+    seedShellForTests(
       makeSnapshot([
         makeThread({
           latestTurn: {
@@ -111,7 +111,7 @@ describe("threadUnreadAtom", () => {
 
 describe("sidebarQueuesAtom", () => {
   it("keeps a pinned Thread in the active queue", () => {
-    replaceAppliedShell(
+    seedShellForTests(
       makeSnapshot([
         makeThread({
           settledOverride: "settled",

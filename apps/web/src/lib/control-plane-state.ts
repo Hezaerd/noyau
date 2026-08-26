@@ -1,7 +1,9 @@
 import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
 import { ProjectId, type ThreadId } from "@noyau/protocol/ids"
-import type { ShellLiveEvent, ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
+import type { ThreadShell } from "@noyau/protocol/shell"
 import { DateTime } from "effect"
+
+export { applyShellEvent } from "@noyau/client-runtime/state/shell"
 
 export const LAST_PROJECT_STORAGE_KEY = "noyau.last-project-id"
 
@@ -25,48 +27,6 @@ export const writeLastProjectId = (projectId: ProjectId | undefined): void => {
     // Persistence is best effort; the server remains authoritative.
   }
 }
-
-const withSequence = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnapshot => {
-  switch (event._tag) {
-    case "project-upserted":
-      return {
-        ...snapshot,
-        snapshotSequence: event.sequence,
-        projects: snapshot.projects.some((project) => project.id === event.project.id)
-          ? snapshot.projects.map((project) =>
-              project.id === event.project.id ? event.project : project,
-            )
-          : [...snapshot.projects, event.project],
-      }
-    case "project-removed":
-      return {
-        ...snapshot,
-        snapshotSequence: event.sequence,
-        projects: snapshot.projects.filter((project) => project.id !== event.projectId),
-        threads: snapshot.threads.filter((thread) => thread.projectId !== event.projectId),
-      }
-    case "thread-upserted":
-      return {
-        ...snapshot,
-        snapshotSequence: event.sequence,
-        threads: snapshot.threads.some((thread) => thread.id === event.thread.id)
-          ? snapshot.threads.map((thread) =>
-              thread.id === event.thread.id ? event.thread : thread,
-            )
-          : [...snapshot.threads, event.thread],
-      }
-    case "thread-removed":
-      return {
-        ...snapshot,
-        snapshotSequence: event.sequence,
-        threads: snapshot.threads.filter((thread) => thread.id !== event.threadId),
-      }
-  }
-}
-
-/** Reduce a live shell event. Stale or duplicate sequences keep the current snapshot. */
-export const applyShellEvent = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnapshot =>
-  event.sequence <= snapshot.snapshotSequence ? snapshot : withSequence(snapshot, event)
 
 export const makeOptimisticThreadShell = (input: {
   readonly id: ThreadId

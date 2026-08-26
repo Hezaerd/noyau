@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test"
 import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
 import { threadModelLabel } from "../src/lib/thread-sidebar-popover"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
-import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
+import { resetAppliedShell, seedShellForTests } from "../src/state/shell"
 
 const makeSnapshot = (models: ShellSnapshot["environment"]["cursor"]["models"]) =>
   Schema.decodeSync(ShellSnapshot)({
@@ -60,7 +60,7 @@ describe("threadModelLabel", () => {
 
 describe("ThreadSidebarPopover", () => {
   it("shows title, project, branch and provider icon with the model label", () => {
-    replaceAppliedShell(
+    seedShellForTests(
       makeSnapshot([
         {
           modelId: "grok-4.6",

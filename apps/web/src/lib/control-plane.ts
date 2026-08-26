@@ -1,6 +1,5 @@
 import { ConnectionSupervisor, TransportRupture } from "@noyau/client-runtime/connection"
-import { RpcBootstrap } from "@noyau/client-runtime/platform"
-import { RpcSessionFactory, type RpcSession } from "@noyau/client-runtime/rpc"
+import { type RpcSession } from "@noyau/client-runtime/rpc"
 import type {
   ProjectAgentIntegration,
   ProjectAgentIntegrationInput,
@@ -52,12 +51,13 @@ import {
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
 import type { ThreadAssistantLive } from "@noyau/protocol/thread/live"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
-import type { Cause } from "effect"
-import { Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Option, Stream } from "effect"
+import type { Cause, Crypto } from "effect"
+import { Context, Effect, Exit, Fiber, Option, Stream } from "effect"
 import type { RpcClient } from "effect/unstable/rpc"
 import type { RpcClientError } from "effect/unstable/rpc/RpcClientError"
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup"
-import { Socket } from "effect/unstable/socket"
+
+import { controlPlaneRuntime } from "@/client-runtime/runtime"
 
 import {
   normalizeCause,
@@ -67,7 +67,6 @@ import {
   type AppFailure,
   type FailurePhase,
 } from "./app-failure"
-import { controlPlaneConfig } from "./control-plane-config"
 
 export type ControlPlaneResult<A> =
   | { readonly ok: true; readonly value: A }
@@ -82,30 +81,6 @@ class ControlPlaneClient extends Context.Service<
   ControlPlaneClient,
   RpcClient.RpcClient<RpcGroup.Rpcs<typeof ControlPlaneRpcs>, RpcClientError>
 >()("@noyau/web/ControlPlaneClient") {}
-
-const browserCrypto = Crypto.make({
-  randomBytes: (size) => globalThis.crypto.getRandomValues(new Uint8Array(size)),
-  digest: (algorithm, data) => {
-    const input = new Uint8Array(data)
-    return Effect.promise(() =>
-      globalThis.crypto.subtle.digest(algorithm, input).then((digest) => new Uint8Array(digest)),
-    )
-  },
-})
-
-const controlPlaneLayer = ConnectionSupervisor.layer.pipe(
-  Layer.provideMerge(RpcSessionFactory.layer),
-  Layer.provideMerge(
-    RpcBootstrap.layer({
-      rpcUrl: controlPlaneConfig.rpcUrl,
-      bearerToken: controlPlaneConfig.bearerToken,
-    }),
-  ),
-  Layer.provideMerge(Socket.layerWebSocketConstructorGlobal),
-  Layer.provideMerge(Layer.succeed(Crypto.Crypto)(browserCrypto)),
-)
-
-const controlPlaneRuntime = ManagedRuntime.make(controlPlaneLayer)
 
 const withSupervisor = <A, E, R = never>(
   use: (supervisor: ConnectionSupervisor["Service"]) => Effect.Effect<A, E, R>,

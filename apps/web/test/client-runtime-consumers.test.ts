@@ -41,7 +41,7 @@ export type ClientRuntimeConsumerEntry = {
 }
 
 /**
- * Inventaire Phase 0 — 58 consommateurs applicatifs de control-plane, state/* ou Effect Atom.
+ * Inventaire Phase 0 — 59 consommateurs applicatifs de control-plane, state/* ou Effect Atom.
  * Autorité d'allocation : docs/roadmaps/client-runtime.md §2 et §4.
  */
 export const CLIENT_RUNTIME_CONSUMER_INVENTORY: ReadonlyArray<ClientRuntimeConsumerEntry> = [
@@ -83,9 +83,15 @@ export const CLIENT_RUNTIME_CONSUMER_INVENTORY: ReadonlyArray<ClientRuntimeConsu
   },
   {
     path: "apps/web/src/state/shell.ts",
-    currentRole: "Projection Shell writable (appliedShell, index, selectors)",
+    currentRole: "Atoms dérivés Shell (resource, overlay, lastProjectId, selectors)",
     futureOwner: "client-runtime",
     futureForm: "subscription Atom unique (Shell)",
+  },
+  {
+    path: "apps/web/src/client-runtime/runtime.ts",
+    currentRole: "ManagedRuntime partagé et Atom.runtime (un seul superviseur)",
+    futureOwner: "web-adapter",
+    futureForm: "runtime web : Layer + ManagedRuntime + Atom.runtime",
   },
   {
     path: "apps/web/src/state/preferences.ts",
@@ -365,7 +371,7 @@ export const CLIENT_RUNTIME_CONSUMER_INVENTORY: ReadonlyArray<ClientRuntimeConsu
   },
   {
     path: "apps/web/src/components/control-plane-context.tsx",
-    currentRole: "Provider unique subscribeShell et boot splash",
+    currentRole: "Provider : mount Shell resource atom et boot splash",
     futureOwner: "client-runtime",
     futureForm: "subscription Atom unique (Shell)",
   },
@@ -471,10 +477,10 @@ const countCallSites = (
 }
 
 describe("client-runtime consumer inventory (phase 0)", () => {
-  it("lists exactly 58 unique consumer paths", () => {
+  it("lists exactly 59 unique consumer paths", () => {
     const paths = CLIENT_RUNTIME_CONSUMER_INVENTORY.map((entry) => entry.path)
-    expect(new Set(paths).size).toBe(58)
-    expect(paths).toHaveLength(58)
+    expect(new Set(paths).size).toBe(59)
+    expect(paths).toHaveLength(59)
   })
 
   it("maps every inventoried path to an existing file", () => {
@@ -487,7 +493,7 @@ describe("client-runtime consumer inventory (phase 0)", () => {
     const scanned = scanClientRuntimeConsumers()
     const inventoried = sortedStrings(CLIENT_RUNTIME_CONSUMER_INVENTORY.map((entry) => entry.path))
     expect(scanned).toEqual(inventoried)
-    expect(scanned).toHaveLength(58)
+    expect(scanned).toHaveLength(59)
   })
 
   it("assigns a future owner to every entry", () => {
@@ -540,10 +546,8 @@ describe("client-runtime migration thresholds (target contract)", () => {
 })
 
 describe("client-runtime subscription call sites (current baseline)", () => {
-  it("calls subscribeShell in exactly one production file besides control-plane.ts", () => {
-    expect(countCallSites("subscribeShell(", CONTROL_PLANE_LIB)).toEqual([
-      "apps/web/src/components/control-plane-context.tsx",
-    ])
+  it("does not call subscribeShell from production files besides control-plane.ts", () => {
+    expect(countCallSites("subscribeShell(", CONTROL_PLANE_LIB)).toEqual([])
   })
 
   it("calls subscribeProject in exactly one production file besides control-plane.ts", () => {

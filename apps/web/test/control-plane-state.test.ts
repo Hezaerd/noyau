@@ -8,10 +8,11 @@ import { appAtomRegistry, resetAppAtomRegistryForTests } from "../src/state/atom
 import { readComposerDraft, writeComposerDraft } from "../src/state/composer-drafts"
 import {
   getAppliedShell,
+  pruneOptimisticThreads,
   publishCreatedThread,
   reduceAppliedShellEvent,
-  replaceAppliedShell,
   resetAppliedShell,
+  seedShellForTests,
   threadIndexAtom,
   threadShellAtom,
   upsertAppliedShellThread,
@@ -118,7 +119,7 @@ describe("reduceAppliedShellEvent", () => {
   })
 
   it("applies a live event onto the in-memory snapshot without waiting for React", () => {
-    replaceAppliedShell(makeSnapshot(10))
+    seedShellForTests(makeSnapshot(10))
     const thread = makeThread(threadId)
 
     expect(
@@ -141,7 +142,7 @@ describe("upsertAppliedShellThread", () => {
   })
 
   it("inserts a Thread without moving the stream cursor", () => {
-    replaceAppliedShell(makeSnapshot(10))
+    seedShellForTests(makeSnapshot(10))
     const thread = makeOptimisticThreadShell({
       id: threadId,
       projectId,
@@ -159,7 +160,7 @@ describe("upsertAppliedShellThread", () => {
   })
 
   it("keeps the next live event applyable after an optimistic insert", () => {
-    replaceAppliedShell(makeSnapshot(10))
+    seedShellForTests(makeSnapshot(10))
     const optimistic = makeOptimisticThreadShell({
       id: threadId,
       projectId,
@@ -181,7 +182,7 @@ describe("upsertAppliedShellThread", () => {
   })
 
   it("keeps the authoritative Thread when the receipt arrives after the live event", () => {
-    replaceAppliedShell(makeSnapshot(10))
+    seedShellForTests(makeSnapshot(10))
     const authoritative: ThreadShell = {
       ...makeThread(threadId),
       title: "Authoritative title",
@@ -224,7 +225,7 @@ describe("upsertAppliedShellThread", () => {
 
 describe("publishCreatedThread", () => {
   it("upserts the optimistic shell and promotes the new-Thread Brouillon", () => {
-    replaceAppliedShell(makeSnapshot(10))
+    seedShellForTests(makeSnapshot(10))
     writeComposerDraft(projectId, undefined, "continue after create")
     const thread = makeOptimisticThreadShell({
       id: threadId,
@@ -237,5 +238,19 @@ describe("publishCreatedThread", () => {
     expect(getAppliedShell()?.threads).toEqual([thread])
     expect(readComposerDraft(projectId, undefined)).toBe("")
     expect(readComposerDraft(projectId, threadId)).toBe("continue after create")
+  })
+
+  it("drops the overlay once the remote snapshot contains the Thread", () => {
+    seedShellForTests(makeSnapshot(10))
+    const thread = makeOptimisticThreadShell({
+      id: threadId,
+      projectId,
+      title: "Nouveau thread",
+      runtimeMode: "full-access",
+    })
+    expect(publishCreatedThread(thread)).toBe(true)
+    seedShellForTests(makeSnapshot(11, [thread]))
+    pruneOptimisticThreads()
+    expect(getAppliedShell()?.threads).toEqual([thread])
   })
 })
