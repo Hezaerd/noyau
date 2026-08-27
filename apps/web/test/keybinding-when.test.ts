@@ -1,24 +1,26 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
-  describeKeybindingCondition,
-  keybindingConditionSpecificity,
-  keybindingConditionsOverlap,
-  matchKeybindingCondition,
+  evaluateWhenNode,
+  keybindingContextFromSurface,
+  matchesWhenClause,
+  parseKeybindingWhenExpression,
+  parseWhenExpressionDraft,
   resolveKeybindingSurface,
-  type KeybindingConditionSnapshot,
+  unknownWhenVariables,
+  whenAstToExpression,
+  whenExpressionsConflict,
+  type KeybindingContext,
 } from "../src/lib/keybinding-when"
 
-const snapshot = (
-  extra: Partial<KeybindingConditionSnapshot> = {},
-): KeybindingConditionSnapshot => ({
-  surface: "thread",
-  ticketSelected: false,
-  columnSelected: false,
-  dialogOpen: false,
-  editableFocused: false,
-  ...extra,
-})
+const context = (extra: Partial<KeybindingContext> = {}): KeybindingContext =>
+  keybindingContextFromSurface("thread", {
+    ticketSelected: false,
+    columnSelected: false,
+    dialogOpen: false,
+    editableFocused: false,
+    ...extra,
+  })
 
 describe("resolveKeybindingSurface", () => {
   it("maps Tableau, Thread and Paramètres without treating settings as sticky", () => {
@@ -33,54 +35,80 @@ describe("resolveKeybindingSurface", () => {
   })
 })
 
-describe("matchKeybindingCondition", () => {
-  it("treats an empty Condition as always true", () => {
-    expect(matchKeybindingCondition({}, snapshot({ surface: "settings", dialogOpen: true }))).toBe(
-      true,
-    )
+describe("parseKeybindingWhenExpression", () => {
+  it("parses !, &&, || and parentheses", () => {
+    expect(parseWhenExpressionDraft("")).toEqual({ ok: true, value: undefined })
+    expect(parseWhenExpressionDraft("thread && (!dialogOpen || ticketSelected)")).toEqual({
+      ok: true,
+      value: parseKeybindingWhenExpression("thread && (!dialogOpen || ticketSelected)"),
+    })
+    expect(parseWhenExpressionDraft("thread &&")).toEqual({
+      ok: false,
+      message: "Utilise des variables avec !, &&, || et des parenthèses.",
+    })
+    expect(
+      whenAstToExpression(parseKeybindingWhenExpression("!(thread || settings)") ?? undefined),
+    ).toBe("!(thread || settings)")
   })
 
-  it("requires every specified key to match", () => {
-    const when = { surface: "thread" as const, dialogOpen: false }
-    expect(matchKeybindingCondition(when, snapshot())).toBe(true)
-    expect(matchKeybindingCondition(when, snapshot({ surface: "tableau" }))).toBe(false)
-    expect(matchKeybindingCondition(when, snapshot({ dialogOpen: true }))).toBe(false)
+  it("keeps unknown identifiers for later runtime false", () => {
+    const parsed = parseWhenExpressionDraft("!thread && terminalFocus")
+    expect(parsed.ok).toBe(true)
+    expect(unknownWhenVariables(parsed.ok ? parsed.value : undefined)).toEqual(["terminalFocus"])
   })
 })
 
-describe("keybindingConditionsOverlap", () => {
-  it("overlaps when no key contradicts", () => {
-    expect(keybindingConditionsOverlap({ surface: "thread" }, { dialogOpen: false })).toBe(true)
-    expect(keybindingConditionsOverlap({}, { surface: "tableau" })).toBe(true)
+describe("matchesWhenClause", () => {
+  it("treats a missing Condition as always true", () => {
+    expect(matchesWhenClause(undefined, context({ dialogOpen: true }))).toBe(true)
   })
 
-  it("does not overlap when surfaces or selections disagree", () => {
-    expect(keybindingConditionsOverlap({ surface: "thread" }, { surface: "tableau" })).toBe(false)
-    expect(keybindingConditionsOverlap({ ticketSelected: true }, { ticketSelected: false })).toBe(
-      false,
-    )
+  it("evaluates boolean identifiers against the snapshot", () => {
+    const when = parseKeybindingWhenExpression("thread && !dialogOpen")
+    expect(when).not.toBeNull()
+    if (when === null) {
+      return
+    }
+    expect(evaluateWhenNode(when, context())).toBe(true)
+    expect(
+      evaluateWhenNode(
+        when,
+        keybindingContextFromSurface("tableau", {
+          ticketSelected: false,
+          columnSelected: false,
+          dialogOpen: false,
+          editableFocused: false,
+        }),
+      ),
+    ).toBe(false)
+    expect(evaluateWhenNode(when, context({ dialogOpen: true }))).toBe(false)
+  })
+
+  it("supports or groups", () => {
+    const when = parseKeybindingWhenExpression("tableau || thread")
+    expect(when).not.toBeNull()
+    if (when === null) {
+      return
+    }
+    expect(evaluateWhenNode(when, context())).toBe(true)
+    expect(
+      evaluateWhenNode(
+        when,
+        keybindingContextFromSurface("settings", {
+          ticketSelected: false,
+          columnSelected: false,
+          dialogOpen: false,
+          editableFocused: false,
+        }),
+      ),
+    ).toBe(false)
   })
 })
 
-describe("describeKeybindingCondition", () => {
-  it("names the Surface and the sélection, ignores chrome keys", () => {
-    expect(describeKeybindingCondition({ surface: "thread", dialogOpen: false })).toBe(
-      "dans un Thread",
-    )
-    expect(
-      describeKeybindingCondition({
-        surface: "tableau",
-        ticketSelected: true,
-        editableFocused: false,
-      }),
-    ).toBe("sur le Tableau · ticket sélectionné")
-    expect(
-      describeKeybindingCondition({ dialogOpen: false, editableFocused: false }),
-    ).toBeUndefined()
-  })
-
-  it("counts specified keys for specificity", () => {
-    expect(keybindingConditionSpecificity({})).toBe(0)
-    expect(keybindingConditionSpecificity({ surface: "thread", dialogOpen: false })).toBe(2)
+describe("whenExpressionsConflict", () => {
+  it("conflicts when one side is always or both expressions are equal", () => {
+    expect(whenExpressionsConflict("", "thread")).toBe(true)
+    expect(whenExpressionsConflict("thread", "thread")).toBe(true)
+    expect(whenExpressionsConflict("thread", "tableau")).toBe(false)
   })
 })

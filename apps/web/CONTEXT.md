@@ -303,20 +303,24 @@ meta ; l'aperçu passe par `previewAttachment`. Vit dans le Brouillon le temps d
 _À éviter_ : FilePreview, dataUrl dans le transcript, images persistées
 
 **Keybinding**:
-Association persistée entre une Action, un Raccourci et une Condition, surchargeable depuis les Paramètres.
-_À éviter_ : shortcut, hotkey, binding
+Règle `{ key, command, when? }`. Une Action peut avoir plusieurs Keybindings. La dernière règle dont le Raccourci et la Condition matchent gagne.
+_À éviter_ : shortcut, hotkey, binding, override, custom
+
+**Fichier de Keybindings**:
+Tableau JSON (`keybindings.json`) des règles. Aujourd’hui dans `localStorage` ; le home data le portera plus tard. Vide = defaults en mémoire.
+_À éviter_ : keybinds.json, keymap, document versionné
 
 **Raccourci**:
-Combinaison de touches au format tanstack (`Mod+K`).
+Combinaison de touches au format `mod+k`. L’affichage chrome peut encore passer par tanstack (`Mod+K`).
 _À éviter_ : shortcut, hotkey
 
 **Condition de Keybinding**:
-Contrainte fermée évaluée au moment du Raccourci (Surface, sélection, Dialog). Distincte du Contexte d'activation de la Palette.
-_À éviter_ : when clause, context key, contexte, mode
+Expression booléenne (`!`, `&&`, `||`, parenthèses) sur des identifiants (`tableau`, `thread`, `settings`, `ticketSelected`, `dialogOpen`, …). Identifiant inconnu = false. Distincte du Contexte d'activation de la Palette.
+_À éviter_ : when clause fermée, `surface ==`, context key, contexte, mode
 
 **Surface de Keybinding**:
-Page qui borne une Condition (`tableau` | `thread` | `settings`). Distincte du ShellFocus : les Paramètres sont une Surface, pas sticky.
-_À éviter_ : ShellFocus, route, contexte
+Identifiant booléen de page (`tableau` | `thread` | `settings`). Distincte du ShellFocus : les Paramètres sont une Surface, pas sticky.
+_À éviter_ : ShellFocus, route, contexte, `surface ==`
 
 **Écran de démarrage**:
 SVG blobatar autonome (`public/boot-splash-*.svg`) affiché par `index.html` avant le chrome,

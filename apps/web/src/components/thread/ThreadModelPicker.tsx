@@ -19,7 +19,6 @@ import {
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
-import { composerOverlayGlassClassName } from "@/lib/composer-glass"
 import {
   favoriteModelKey,
   persistFavoriteModels,
@@ -196,11 +195,7 @@ export function ThreadModelPicker({
         </span>
         <ChevronsUpDownIcon data-icon="inline-end" />
       </PopoverTrigger>
-      <PopoverPopup
-        side="top"
-        align="start"
-        className={cn("w-96 [&>[data-slot=popover-viewport]]:p-0", composerOverlayGlassClassName)}
-      >
+      <PopoverPopup side="top" align="start" className="w-96 [&>[data-slot=popover-viewport]]:p-0">
         <PopoverTitle className="sr-only">Choisir un modèle</PopoverTitle>
         <Command items={visibleItems} value={query} onValueChange={setQuery}>
           <CommandInput placeholder="Rechercher un modèle…" aria-label="Rechercher un modèle" />

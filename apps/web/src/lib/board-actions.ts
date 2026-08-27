@@ -69,7 +69,7 @@ const targetsMatch = (
 export const createBoardActions = (
   state: BoardState,
   actions: BoardActions,
-  keybindings: ResolvedKeybindings = resolveKeybindings(new Map()),
+  keybindings: ResolvedKeybindings = resolveKeybindings(),
 ): ReadonlyArray<ExecutableBoardAction> => [
   {
     id: "ticket.create",

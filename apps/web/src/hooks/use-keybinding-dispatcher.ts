@@ -1,18 +1,20 @@
 import { useEffect } from "react"
 
-import { resolveMatchingKeybinding } from "@/lib/keybindings"
-import { readKeybindingConditionSnapshot } from "@/state/keybinding-context"
+import { resolveShortcutCommand } from "@/lib/keybindings"
+import { getHotkeysPlatform } from "@/lib/keyboard-shortcut"
+import { readKeybindingContext } from "@/state/keybinding-context"
 import { invokeKeybindingHandler } from "@/state/keybinding-handlers"
-import { getResolvedKeybindings, isKeybindingRecorderActive } from "@/state/keybindings"
+import { getResolvedKeybindingsConfig, isKeybindingRecorderActive } from "@/state/keybindings"
 
 export const dispatchKeybindingEvent = (event: KeyboardEvent): boolean => {
   if (event.defaultPrevented || isKeybindingRecorderActive()) {
     return false
   }
-  const id = resolveMatchingKeybinding(
+  const id = resolveShortcutCommand(
     event,
-    getResolvedKeybindings(),
-    readKeybindingConditionSnapshot(event),
+    getResolvedKeybindingsConfig(),
+    readKeybindingContext(event.target),
+    getHotkeysPlatform(),
   )
   if (id === undefined) {
     return false
@@ -28,6 +30,8 @@ export const useKeybindingDispatcher = (): void => {
       dispatchKeybindingEvent(event)
     }
     window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
   }, [])
 }

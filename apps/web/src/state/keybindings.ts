@@ -1,29 +1,35 @@
-import type { Hotkey } from "@tanstack/react-hotkeys"
 import { Atom } from "effect/unstable/reactivity"
 
 import {
-  canonicalizeHotkey,
-  emptyKeybindingOverrides,
-  hasCustomKeybindings as hasCustomKeybindingsIn,
-  isCustomKeybinding as isCustomKeybindingIn,
-  matchesKeybinding as matchesResolvedKeybinding,
-  persistKeybindingOverrides,
-  readStoredKeybindingOverrides,
+  compileAndMergeKeybindings,
+  removeKeybindingRule,
   resolveKeybindings,
-  type KeybindingOverrides,
+  upsertKeybindingRule,
+  type KeybindingRule,
   type ResolvedKeybindings,
+  type ResolvedKeybindingsConfig,
 } from "@/lib/keybindings"
-import { defaultKeybinding, type KeybindingId } from "@/lib/keybindings-catalog"
-import { getHotkeysPlatform } from "@/lib/keyboard-shortcut"
+import { type KeybindingId } from "@/lib/keybindings-catalog"
+import { persistedRulesOrDefaults } from "@/lib/keybindings-settings"
+import {
+  hasKeybindingsEdits,
+  persistKeybindingsRules,
+  readStoredKeybindingsRules,
+} from "@/lib/keybinds-file"
 import { appAtomRegistry } from "@/state/atom-registry"
 import { persistWritableAtom } from "@/state/persist"
 
-export const keybindingOverridesAtom = Atom.make<KeybindingOverrides>(
-  emptyKeybindingOverrides(),
-).pipe(Atom.keepAlive, Atom.withLabel("pref:keybinding-overrides"))
+export const keybindingsRulesAtom = Atom.make<ReadonlyArray<KeybindingRule>>([]).pipe(
+  Atom.keepAlive,
+  Atom.withLabel("pref:keybindings-rules"),
+)
+
+export const resolvedKeybindingsConfigAtom = Atom.make((get): ResolvedKeybindingsConfig =>
+  compileAndMergeKeybindings(get(keybindingsRulesAtom)),
+).pipe(Atom.withLabel("pref:keybindings-resolved-config"))
 
 export const resolvedKeybindingsAtom = Atom.make((get): ResolvedKeybindings =>
-  resolveKeybindings(get(keybindingOverridesAtom)),
+  resolveKeybindings(get(keybindingsRulesAtom)),
 ).pipe(Atom.withLabel("pref:keybindings-resolved"))
 
 export const keybindingRecorderActiveAtom = Atom.make(false).pipe(
@@ -38,26 +44,23 @@ export const initializeKeybindings = (): void => {
     return
   }
   initialized = true
-  persistWritableAtom(keybindingOverridesAtom, {
-    read: readStoredKeybindingOverrides,
-    write: persistKeybindingOverrides,
+  persistWritableAtom(keybindingsRulesAtom, {
+    read: readStoredKeybindingsRules,
+    write: persistKeybindingsRules,
   })
 }
 
-export const getKeybindingOverrides = (): KeybindingOverrides =>
-  appAtomRegistry.get(keybindingOverridesAtom)
+export const getKeybindingsRules = (): ReadonlyArray<KeybindingRule> =>
+  appAtomRegistry.get(keybindingsRulesAtom)
+
+export const getResolvedKeybindingsConfig = (): ResolvedKeybindingsConfig =>
+  appAtomRegistry.get(resolvedKeybindingsConfigAtom)
 
 export const getResolvedKeybindings = (): ResolvedKeybindings =>
   appAtomRegistry.get(resolvedKeybindingsAtom)
 
 export const hasCustomKeybindings = (): boolean =>
-  hasCustomKeybindingsIn(appAtomRegistry.get(keybindingOverridesAtom))
-
-export const isCustomKeybinding = (id: KeybindingId): boolean =>
-  isCustomKeybindingIn(id, appAtomRegistry.get(keybindingOverridesAtom))
-
-export const matchesKeybinding = (event: KeyboardEvent, id: KeybindingId): boolean =>
-  matchesResolvedKeybinding(event, id, appAtomRegistry.get(resolvedKeybindingsAtom))
+  hasKeybindingsEdits(appAtomRegistry.get(keybindingsRulesAtom))
 
 export const isKeybindingRecorderActive = (): boolean =>
   appAtomRegistry.get(keybindingRecorderActiveAtom)
@@ -69,36 +72,68 @@ export const setKeybindingRecorderActive = (active: boolean): void => {
   appAtomRegistry.set(keybindingRecorderActiveAtom, active)
 }
 
-export const setKeybinding = (id: KeybindingId, hotkey: string): void => {
-  const canonical = canonicalizeHotkey(hotkey, getHotkeysPlatform())
-  if (canonical === undefined) {
-    return
-  }
-  const current = appAtomRegistry.get(keybindingOverridesAtom)
-  const next = new Map(current)
-  if (canonical === defaultKeybinding(id)) {
-    next.delete(id)
-  } else {
-    next.set(id, canonical)
-  }
-  appAtomRegistry.set(keybindingOverridesAtom, next)
+const writeRules = (rules: ReadonlyArray<KeybindingRule>): void => {
+  appAtomRegistry.set(keybindingsRulesAtom, rules)
 }
 
-export const resetKeybinding = (id: KeybindingId): void => {
-  const current = appAtomRegistry.get(keybindingOverridesAtom)
-  if (!current.has(id)) {
+export const upsertKeybinding = (input: {
+  readonly command: KeybindingId
+  readonly key: string
+  readonly when?: string
+  readonly replace?: KeybindingRule
+}): void => {
+  const current = persistedRulesOrDefaults(appAtomRegistry.get(keybindingsRulesAtom))
+  const next: KeybindingRule =
+    input.when === undefined || input.when.length === 0
+      ? { key: input.key, command: input.command }
+      : { key: input.key, command: input.command, when: input.when }
+  writeRules(upsertKeybindingRule(current, next, input.replace))
+}
+
+export const removeKeybinding = (target: KeybindingRule): void => {
+  const current = persistedRulesOrDefaults(appAtomRegistry.get(keybindingsRulesAtom))
+  writeRules(removeKeybindingRule(current, target))
+}
+
+export const resetKeybinding = (row: {
+  readonly command: KeybindingId
+  readonly key: string
+  readonly when: string
+  readonly defaultKey: string | null
+  readonly defaultWhen: string
+}): void => {
+  if (row.defaultKey === null) {
     return
   }
-  const next = new Map(current)
-  next.delete(id)
-  appAtomRegistry.set(keybindingOverridesAtom, next)
+  const replace: KeybindingRule =
+    row.when.length > 0
+      ? { command: row.command, key: row.key, when: row.when }
+      : { command: row.command, key: row.key }
+  if (row.defaultWhen.length > 0) {
+    upsertKeybinding({
+      command: row.command,
+      key: row.defaultKey,
+      when: row.defaultWhen,
+      replace,
+    })
+    return
+  }
+  upsertKeybinding({
+    command: row.command,
+    key: row.defaultKey,
+    replace,
+  })
 }
 
 export const resetAllKeybindings = (): void => {
   if (!hasCustomKeybindings()) {
     return
   }
-  appAtomRegistry.set(keybindingOverridesAtom, emptyKeybindingOverrides())
+  writeRules([])
 }
 
-export type { Hotkey, KeybindingOverrides, ResolvedKeybindings }
+export const replaceKeybindingsRules = (rules: ReadonlyArray<KeybindingRule>): void => {
+  writeRules(rules)
+}
+
+export type { KeybindingRule, ResolvedKeybindings, ResolvedKeybindingsConfig }

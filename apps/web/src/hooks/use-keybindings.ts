@@ -1,31 +1,41 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { useMemo } from "react"
 
-import { isCustomKeybinding as isCustomKeybindingIn } from "@/lib/keybindings"
-import type { KeybindingId } from "@/lib/keybindings-catalog"
+import { type KeybindingId } from "@/lib/keybindings-catalog"
+import { buildKeybindingRows, type KeybindingRow } from "@/lib/keybindings-settings"
 import {
-  keybindingOverridesAtom,
   keybindingRecorderActiveAtom,
+  keybindingsRulesAtom,
+  removeKeybinding,
+  replaceKeybindingsRules,
   resetAllKeybindings,
   resetKeybinding,
   resolvedKeybindingsAtom,
-  setKeybinding,
+  resolvedKeybindingsConfigAtom,
+  upsertKeybinding,
   type ResolvedKeybindings,
+  type ResolvedKeybindingsConfig,
 } from "@/state/keybindings"
 
 export const useKeybindings = () => {
+  const rules = useAtomValue(keybindingsRulesAtom)
   const resolved = useAtomValue(resolvedKeybindingsAtom)
-  const overrides = useAtomValue(keybindingOverridesAtom)
+  const resolvedConfig = useAtomValue(resolvedKeybindingsConfigAtom)
+  const rows = useMemo(() => buildKeybindingRows(resolvedConfig, ""), [resolvedConfig])
 
   return useMemo(
     () => ({
+      rules,
       resolved,
-      setKeybinding,
+      resolvedConfig,
+      rows,
+      upsertKeybinding,
+      removeKeybinding,
       resetKeybinding,
       resetAll: resetAllKeybindings,
-      isCustom: (id: KeybindingId) => isCustomKeybindingIn(id, overrides),
+      replaceKeybindingsRules,
     }),
-    [overrides, resolved],
+    [resolved, resolvedConfig, rows, rules],
   )
 }
 
@@ -38,4 +48,4 @@ export const useKeybindingRecorderActive = (): boolean => useAtomValue(keybindin
 
 export const useSetKeybindingRecorderActive = () => useAtomSet(keybindingRecorderActiveAtom)
 
-export type { ResolvedKeybindings }
+export type { KeybindingRow, ResolvedKeybindings, ResolvedKeybindingsConfig }

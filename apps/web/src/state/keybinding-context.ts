@@ -3,8 +3,9 @@ import { Atom } from "effect/unstable/reactivity"
 import {
   isDialogOpen,
   isEditableTarget,
+  keybindingContextFromSurface,
   resolveKeybindingSurface,
-  type KeybindingConditionSnapshot,
+  type KeybindingContext,
 } from "@/lib/keybinding-when"
 import { appAtomRegistry } from "@/state/atom-registry"
 
@@ -42,13 +43,13 @@ export const setKeybindingSelection = (selection: {
   }
 }
 
-export const readKeybindingConditionSnapshot = (
-  event: KeyboardEvent,
+export const readKeybindingContext = (
+  target: EventTarget | null = document.activeElement,
   pathname: string = window.location.pathname,
-): KeybindingConditionSnapshot => ({
-  surface: resolveKeybindingSurface(pathname),
-  ticketSelected: appAtomRegistry.get(keybindingTicketSelectedAtom),
-  columnSelected: appAtomRegistry.get(keybindingColumnSelectedAtom),
-  dialogOpen: isDialogOpen() && !appAtomRegistry.get(keybindingPaletteOpenAtom),
-  editableFocused: isEditableTarget(event.target),
-})
+): KeybindingContext =>
+  keybindingContextFromSurface(resolveKeybindingSurface(pathname), {
+    ticketSelected: appAtomRegistry.get(keybindingTicketSelectedAtom),
+    columnSelected: appAtomRegistry.get(keybindingColumnSelectedAtom),
+    dialogOpen: isDialogOpen() && !appAtomRegistry.get(keybindingPaletteOpenAtom),
+    editableFocused: isEditableTarget(target),
+  })
