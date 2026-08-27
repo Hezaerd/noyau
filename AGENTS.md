@@ -1,246 +1,116 @@
-# Noyau — guide agents
+# Noyau
 
-Control plane durable pour un orchestrateur d'agents local : Environment, Tableau et Threads Cursor.
-Lire [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) avant toute décision structurante.
+Noyau is a ADE "Agentic Development Environment", think of it as a GUI for coding agents "bring-your-own-subscription" alternative to apps like Claude Desktop, Codex App, Cursor Glass and Conductor.
+A Node WebSocket server wraps provider CLIs (Codex, Claude Code, Cursor) and serves web and desktop clients.
 
-## Glossaire
+## A small glossary
 
-| Terme                 | Sens                                                                                                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Noyau**             | Control plane : état, commandes, événements et projections.                                                                                           |
-| **Environment**       | Autorité locale unique d'une installation.                                                                                                            |
-| **Noyau Desktop**     | Client Electron et superviseur ; aucun état métier autoritatif.                                                                                       |
-| **Noyau Server**      | Processus Node local ; unique autorité durable de sa base SQLite.                                                                                     |
-| **Project**           | Dossier existant relié, avec un Tableau et des Threads.                                                                                               |
-| **WorkspaceRoot**     | Chemin du dossier où Noyau et Cursor travaillent.                                                                                                     |
-| **Checkout**          | Liaison Thread → cwd : `worktreePath` (`null` = WorkspaceRoot) + `branch` (snapshot).                                                                 |
-| **threadEnvMode**     | Intention de draft `local \| worktree`. Matérialisée au premier Turn.                                                                                 |
-| **Settle**            | Cycle qui recule un Thread de l'inbox (`settledOverride` + auto PR/inactivité).                                                                       |
-| **GitRuntime**        | Capacité live `git`/`gh` du Server ; hors journal.                                                                                                    |
-| **Tableau**           | Projection Kanban unique d'un Project ; colonnes libres et ordre partagé.                                                                             |
-| **Ticket**            | Élément de travail durable : titre, détails, cycle Kanban, audit et dépendances.                                                                      |
-| **Responsable**       | Acteur durable optionnel d'un Ticket ; masqué de l'UI v0.1.                                                                                           |
-| **Dépendance Ticket** | Relation orientée « dépend de » ; l'ensemble forme un DAG.                                                                                            |
-| **TicketThread**      | Lien optionnel plusieurs-à-plusieurs entre un Ticket et un Thread.                                                                                    |
-| **Thread**            | Conversation provider titrée d'un Project (`Project → Thread → Turn`).                                                                                |
-| **Session**           | Projection `0..1` du runtime provider sur un Thread ; tant qu'elle est live, elle réutilise un runtime Cursor / Claude / Codex entre plusieurs Turns. |
-| **Turn**              | Unité append-only de travail agent. `latestTurn` : running, interrupted, completed, error.                                                            |
-| **TurnDiff**          | Résumé durable des fichiers touchés par un Turn (`files`, `checkpointRef`, `status`).                                                                 |
-| **Checkpoint**        | Snapshot git hors journal, ref `refs/noyau/checkpoint/<threadId>/<ordinal>`.                                                                          |
-| **resumeCursor**      | `{ schemaVersion, sessionId }` opaque pour `session/load`.                                                                                            |
-| **runtimeMode**       | Politique d'outils t3code du Thread.                                                                                                                  |
-| **Command**           | Entrée typée (`commandId`, acteur hors payload) persistée avant effet.                                                                                |
-| **Event**             | Fait immuable produit par un decider pur.                                                                                                             |
-| **Projection**        | Vue dérivée reconstruite depuis le journal.                                                                                                           |
-| **Receipt**           | Preuve d'idempotence d'une commande ; réponse stable aux retries.                                                                                     |
-| **TxQueue**           | File mémoire post-commit pour les reactors ; vide au boot, pas une outbox de reprise.                                                                 |
-| **Reactor**           | Consommateur de la `TxQueue` pour un effet externe (Cursor).                                                                                          |
+We need to be on the same page with terminology. When communicating, use this language:
 
-Modèle v0.1 : `Environment → Project → (Tableau → Ticket) + (Thread → Session? → Turn)`. Lien
-optionnel `TicketThread`. Pas de `Channel`, `Message`, Workbench, `Execution`, `Attempt`, outbox
-SQL, Hermes ni PGlite (ADR-0011, ADR-0018 ; modèle durable issu d'ADR-0013).
+- **you** means the agent reading this file and changing Noyau.
+- **we, us and maintainers** means Hezaerd and the people building Noyau. These are who you are talking to now.
+- **user** means the person using Noyau to direct coding agents.
+- **agent** means the coding agent a user runs inside Noyau. Depending of context, theat may also include you.
+- **provider** means the agent runtime or harness Noyau talks to, such as Codex, Claude Code, Cursor, etc.
+- **client** means the web or desktop ui.
+- **environment** means one running Noyau server and the machine, filesystem, provider credentials, and state it owns.
+- **project** means an environment-local workspace record rooted at a directory.
+- **thread** means the durable conversation and work history for a project.
+- **turn** means one user-to-agent cycle, including follow-up work such as checkpointing.
+- **board** means a project's unique Kanban surface: ordered columns that hold its tickets.
+- **ticket** means a durable, flat unit of work on a project's board.
+- **Noyau home** means the base data directory. Runtime state normally lives below its userdata directory.
 
-## Flux cible
+## The two ways to hurt yourself
 
-```text
-Command (Schema) → Decider pur → Transaction SQLite (event + receipt + projection)
-  → Reactors TxQueue (effets provider, après commit)
-  → Snapshot + deltas (subscribeShell / subscribeProject / subscribeThread — ADR-0003)
-```
+1. **Killing by pattern.** Never `pkill -f`, `pgrep | kill`, or `kill` a PID you found by matching a name, path or worktree string. Your own agent process has this worktree's path in its argv, and this machine run several other dev servers at once. Kill only a PID you captured at spawn, or the owner of your port from `ss -H -ltnp` after confirming `/proc/<pid>/cwd` is your worktree.
+2. **Writing to the live install.** `~/.noyau/userdata` is the developer's real Noyau database, in use while you work. Reading it and copying from it are fine, and a good way to get real test data (see Test data). Never start a server against it, never open it read-write, never clean it up.
 
-Le store `node:sqlite` porte la durabilité (ADR-0012). Une `Queue` n'est jamais une source de
-vérité. La reprise Session est une passe de projection au boot, pas le rejeu d'une file.
+## Hit every surface
 
-## Carte du repo
+The most common defect in this repo is a change that works on the path you tested and is missing everywhere else. Before calling frontend work done, walk this list and say which entries applied:
 
-```text
-apps/
-  web/                  # renderer React partagé — Atom pour l'état, pas d'Effect.gen dans le render
-  server/               # Noyau Server local (SQLite + Cursor)
-  desktop/              # Electron : superviseur et chrome, sans état métier
+- **Entry points.** A behavior reachable from the chat view is usually also reachable from Settings, the command palette, and a keybinding. Fixing one is not fixing the feature.
+- **Clients.** Web and desktop (wraps web, adds Electron shell/IPC). Shared logic lives in `packages/client-runtime`.
+- **Providers.** Codex, Claude, Cursor, Grok, and OpenCode each have an adapter. Provider-shaped features need a decision per adapter, even if the decision is "not supported here".
+- **Contracts.** Anything crossing the wire is typed in `packages/contracts`. Change the schema and the server, web, and desktop all follow.
+- **Reverse states.** If you added a way in, add the way out and the way to see it. Settle need unsettle. Close needs reopen. A one-way door is a bug.
+- **Docs.** `docs/` splits by audiance. Behavior changes that a user would notice belong in `docs/users/` (shipped-product voice, no repo tooling or source paths); architecture and contributor changes in `docs/internals`; runbooks in  `docs/operations/`; new vocabulary in `docs/internals/glossary.md`
 
-packages/
-  config/               # tsconfig.base.json partagé, diagnostics @effect/tsgo
-  domain/               # deciders et projectors purs
-  protocol/             # Schemas commandes/événements, contrat RPC, exports subpath
-  acp/                  # fil de fer ACP (codegen spec + AcpClient)
-  shared/               # helpers purs composer (trigger, mentions)
-  …                     # voir docs/ARCHITECTURE.md — un package seulement si frontière réelle
+## Dev servers
 
-docs/
-  ARCHITECTURE.md       # Vision, invariants, ordre de construction
-  agents/               # Issue tracker, domain docs
-  adr/                  # Décisions système (quand elles existent)
+- `vp i` installs. Worktrees get this from the `noyau.json` setup scripts; if module resolution looks broken, it probably did not run.
+- `vp run dev` starts server and web. In a worktree, state defaults to that worktree's gitignored `.noyau`, which deliberately outranks an ambient `NOYAU_HOME` so you cannot land on shared state by accident. An explicit `--home-dir` still wins.
+- Ports derive from the worktree path and are stable across restarts, but read the real ones from the `[dev-runner]` line since occupied ports shift.
+- Stop what you started, by the PID you tracked. See rule 1.
 
-repos/effect/           # Subtree Effect v4 — lecture seule, jamais importé
-repos/t3code/           # Subtree T3 Code — patterns Effect applicatifs, lecture seule
-.agents/skills/         # Skills Cursor du repo
+## Test data
 
-vite.config.ts          # Config unique fmt / lint / test / staged + tâches Vite Task
-```
+An empty database is a bad test. Seed your worktree's `.noyau` with a copy of real data instead of pointing at live state:
 
-Workspaces Bun : `apps/*`, `packages/*`. Stack : Bun, Vite+, Effect v4, TypeScript 7.
+- Copy from `~/.noyau/userdata` (the developer's real data, the most realistic test set) or `~/.noyau/dev`. Worktree state lives at `<worktree>/.noyau/userdata`.
+- Snapshot the database with `VACUUM INTO`, which is safe even while a server has the source open and yields one consistent file:
 
-Les recherches (ripgrep, Grep, glob) portent sur `apps/` et `packages/` par défaut. Exclure
-`repos/` — les subtrees vendored noient les hits. N'y chercher que si la tâche l'exige
-(signatures Effect, patterns t3code).
+ ```bash
+  mkdir -p .noyau/userdata
+  rm -f .noyau/userdata/state.sqlite*  # VACUUM INTO refuses to overwrite
+  bun -e "new (require('bun:sqlite').Database)(process.env.HOME + '/.noyau/userdata/state.sqlite', { readonly: true }).run(\"VACUUM INTO '.noyau/userdata/state.sqlite'\")"
+  ```
 
-## Toolchain Vite+
+    A plain `cp` is only safe when no server has the source open, and must bring the `-wal` and `-shm` siblings along. A live file copy is a corrupt copy.
 
-Un seul paquet, `vite-plus`, fournit Vite, Rolldown, Vitest, Oxlint, Oxfmt, tsdown et Vite Task,
-tous épinglés ensemble. La CLI est `vp` ; sans installation globale, le binaire local est dans
-`node_modules/.bin`.
+- Bring `secrets` and `settings.json` only if the flow under test needs them.
+- Copy in, never symlink. Data flows one way: into your sandbox, never back out.
 
-- Toute la config de lint, de format, de test et de tâches vit dans le `vite.config.ts` racine.
-  Ne pas recréer de `.oxlintrc.json`, `.oxfmtrc.json`, `vitest.config.ts` ni `turbo.json`.
-- La config de lint par workspace passe par `lint.overrides` à la racine. Un bloc `lint` dans le
-  `vite.config.ts` d'un package est **silencieusement ignoré** par `vp lint`.
-- Un nom de tâche ne peut pas exister à la fois dans `run.tasks` et dans les scripts d'un
-  `package.json`.
-- Les tâches tournent dans un environnement propre : seules `PATH`, `HOME`, `CI` passent. Toute
-  variable nécessaire doit être déclarée en `env` (comptée dans l'empreinte de cache) ou en
-  `untrackedEnv`.
-- Ne pas déclarer d'`inputs`/`outputs` par réflexe : le suivi automatique observe les lectures et
-  écritures réelles. N'ajouter un `input` que pour corriger un cas constaté, avec le motif en
-  commentaire.
-- Les diagnostics Effect sont appliqués par Oxlint via le preset `@effect/tsgo`. Ce montage exige
-  que `vite-plus` fournisse exactement l'Oxlint et l'`oxlint-tsgolint` supportés par
-  `@effect/tsgo` : vérifier `vp toolchain` avant tout bump de `vite-plus`.
-- `vp migrate` réécrit les imports dans tout l'arbre, `repos/effect/` compris. Si la commande doit
-  être relancée, faire suivre d'un `git checkout -- repos/`.
+## Verifying
 
-## Agent skills
+- Smallest proof that the change works. `vp test run <files>` for the tests you touched, targeted lint and typecheck for the scope you changed.
+- **Do not run repo-wide checks." No `vp check`, no `vp run -r typecheck` unless I ask. CI owns the big picture.
+- Backend behaviour changes ship with focused tests for that behavior.
+- The server is event-sourced and it's async flows emit typed receipts. Wait a receipts and worker drains, never on sleep or polling. A test that need a timeout to pass is wrong and is a bug.
+- Upon request, user-visible frontend changes should get one integrated pass with a real client. The primary agent does this once after integrating. Subagents do not launch their own dev servers. Ask permission before doing computer use or spinning up browsers.
 
-### Issue tracker
+## Pull requests
 
-Issues et specs dans GitHub Issues ; utiliser `gh`. Voir [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+- Never make a PR unless the developer explicitly asks you to do so.
+- Conventional commit titles, plain language: `fix(web): new threads no longer spike CPU`.
+- Body: the problem in a sentence or two, then how you fixed it. End with the model and harness that did the work.
+- UI changes need before/after images. Motion or timing needs a short video.
+- Upload PR evidence to GitHub. Never commit PR-only screenshots or assets such as `.github/pr-assets/`.
+- One concern per PR. If the description says "also", split it.
+- When babysitting: poll checks and comments newer than the last push, verify each bot finding against the source, fix real ones, dismiss false positives with a written reason. Stay quiet when nothing is new. Stop when the bots are green on the latest commit.
 
-### Domain docs
+## Plans and work artifacts
 
-Monorepo multi-contexte : lire `CONTEXT-MAP.md`, le `CONTEXT.md` de l'app ou du package touché, et les ADR applicables. Voir [`docs/agents/domain.md`](docs/agents/domain.md).
+- Do not commit implementation plans, research notes, or agent scratch files. Keep temporary working material outside the worktree. `.plans/` is gitignored only as a safety net for legacy tooling.
+- Track active maintainer work in the GitHub issue or project item that owns it.
+- Put durable architecture, constraints, and decisions in `docs/internals/`. Update those docs when the product changes so agents find current facts instead of abandoned intentions.
+- A merged PR is the implementation record. Close or update its tracking item when the work lands; do not preserve a second checklist in the repository.
 
-### Stacked pull requests
+## How it works
 
-- Qualifier une stack lorsqu'un changement forme au moins deux couches dépendantes, cohésives et indépendamment révisables.
-- Avant de coder, expliciter l'ordre des couches du trunk vers le sommet ; placer les fondations dans les branches basses et leurs dépendants dans les branches hautes.
-- Utiliser [`.agents/skills/gh-stack/SKILL.md`](.agents/skills/gh-stack/SKILL.md) pour les commandes et contraintes CLI.
-- Préférer une PR classique pour un changement atomique, une correction isolée, des travaux indépendants ou des couches artificielles.
-- Ne jamais merger une stack sans demande explicite ; utiliser `gh stack merge`.
-- GitHub stacked PRs est en public preview et ne demande pas d'activation supplémentaire côté repository.
+Clients send typed WebSocket requests. The server turns them into _commands_, a pure _decider_ turns commands into persisted _events_, and a _projector_ derives the read model the UI renders. Provider CLIs run as subprocesses; per-provider _adapters_ translate their native protocols into orchestration events. Side effects run in queue-backed _reactors_ that emit _receipts_ when milestones land. Each turn ends with a _checkpoint_, a hidden git ref, so the app can diff and restore.
 
-## Effect — conventions
+Full glossary with file links: `docs/internals/glossary.md`
 
-Conventions détaillées : [`.cursor/rules/effect-v4.mdc`](.cursor/rules/effect-v4.mdc).
+## Where code lives
 
-- Version unique via le catalogue Bun : `"effect": "catalog:"` dans chaque workspace ; pin exact dans `package.json` (`catalog.effect`).
-- Ajouter une entrée catalogue seulement à l'usage réel d'un package Effect.
-- API v4 correspondant à la version pin ; vérifier les signatures dans `repos/effect/` avant toute transposition d'API unstable.
-- Lire `repos/effect/LLMS.md` en premier pour la doc Effect ; **ne jamais modifier ni importer depuis `repos/`**.
-- Pour les patterns Effect applicatifs (command → decider → event → projector → reactor, Schema aux
-  frontières, Layers testables), s'inspirer de `repos/t3code/` — en particulier `apps/server` et
-  `packages/contracts`. Lire `repos/t3code/AGENTS.md` et `repos/t3code/docs/internals/` avant
-  d'inventer une architecture parallèle.
-- Sync subtree Effect après bump catalogue :
+- `apps/server` - WebSocket, orchestration, providers, checkpointing. Effect-heavy: read `repos/effect/LLMS.md` before writing Effect code.
+- `apps/web` - React/Vite UI. `apps/desktop` wraps it, `apps/marketing` is the future marketing site (https://noyau.hezaerd.com), `apps/docs` is the future documentation site
+- `packages/contracts` - Effect/Schema contracts plus small dervied helpers. No heavy runtime logic.
+- `packages/shared` - shared runtime utils, subpath exports, no barrel.
+- `packages/client-runtime` - client code shared.
+- `.repos/` - vendored read-only references. Prefer their patterns over invented ones. Never edit or import from them. Sync with `vpr sync:repos` when bumping the matching dependancy.
 
-```bash
-git subtree pull \
-  --prefix=repos/effect \
-  https://github.com/Effect-TS/effect.git \
-  effect@<version-catalogue> \
-  --squash
-```
+## Taste
 
-Sync subtree t3code :
+- Complexity belongs at the adapter boundary. Orchestration stays pure, UI stays dumb.
+- Inferred types over annotations. `any` is the enemy.
+- Comments describe how a thing is used, and move when the code moves. To be used mostly to describe functions, not to annotate every line of behavior.
+- Our users drive agents all day and notice a dropped frame, a lying spinner, and a stale label. No continuously repainting animations; they peg the GPU on high-refresh displays.
+- If a rule here fights the task in front of you, say so loudly and get a human sign-off before breaking it.
 
-```bash
-git fetch https://github.com/pingdotgg/t3code.git main:refs/remotes/t3code-upstream/main
-git subtree pull \
-  --prefix=repos/t3code \
-  refs/remotes/t3code-upstream/main \
-  --squash
-```
+## Additional tips
 
-### Workflow Effect
-
-- Décoder avec `Schema` toute donnée qui traverse une frontière de processus ou de confiance.
-- Modéliser les erreurs attendues dans le canal d'erreur, avec des erreurs taguées.
-- Exposer les capacités externes comme services ; construire les implémentations avec des `Layer`.
-- Garder les appels `run*` aux points d'entrée de l'application seulement.
-- Ne pas forcer Effect.gen / `run*` dans le rendu React. L'état renderer passe par Effect
-  Atom (`apps/web/src/state/`, ADR-0020) ; les composants n'utilisent que `useAtomValue` /
-  `useAtomSet` / `useAtom`. `Atom.make(stream | effect)` est interdit hors frontière RPC.
-- Imports `effect/unstable/*` permis s'ils apportent une vraie valeur, mais isolés derrière un port ou module interne.
-- Un `Context.Tag` par provider ne convient pas aux instances multiples : registry = service singleton, adaptateur = valeur scopée.
-
-### Diagnostics tsgo
-
-Ne pas désactiver pour contourner un problème de design :
-
-- `anyUnknownInErrorContext` — canaux E/R explicites
-- `missingEffectServiceDependency` — Layers complets
-- `leakingRequirements` — requirements cachés dans l'implémentation
-- `preferSchemaOverJson` — frontières décodées
-- `globalFetchInEffect` — client HTTP injecté
-- `cryptoRandomUUIDInEffect` — `Crypto` testable
-- `schemaSyncInEffect` — erreurs Schema dans le canal
-
-## Vérifications
-
-Pendant le travail, `vp check` sur les fichiers touchés. Avant commit ou PR, suite complète :
-
-| Commande        | Effet                                                         |
-| --------------- | ------------------------------------------------------------- |
-| `bun run check` | `vp check` (format + lint type-aware + type check) puis `tsc` |
-| `bun run test`  | Vitest par workspace via Vite Task                            |
-| `bun run build` | build par workspace via Vite Task                             |
-
-`vp check` est la boucle courte : une passe pour le formatage, le lint type-aware, les règles
-Effect et un type check. `--fix` corrige format et lint. Les suggestions du preset Effect sortent
-en `warn` et ne font pas échouer la commande ; les règles de correction sortent en `error`.
-
-Vite Task cache `test`, `typecheck` et `build`. `vp run --last-details` explique chaque hit et
-chaque miss ; `vp cache clean` vide le cache quand un résultat paraît faux.
-
-Les subtrees `repos/effect/` et `repos/t3code/` n'ont pas besoin d'être typecheckés ni testés par la CI Noyau.
-
-Avec `packages/domain`, utiliser `@effect/vitest` : `it.layer`, `TestClock`, `DrainableWorker.drain` pour les reactors éphémères. La reprise Session est une passe de projection au boot ; la `TxQueue` ne se rejoue pas.
-
-## Pièges fréquents
-
-| Piège                                         | Choix Noyau                                                                        |
-| --------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `Queue` / `PubSub` comme source de vérité     | Journal SQLite + receipts ; `TxQueue` n'est pas une reprise                        |
-| Decider qui touche IO ou l'état mutable       | Decider pur ; IO dans les reactors                                                 |
-| Barrels et imports circulaires                | Exports subpath dès `protocol` / `domain`                                          |
-| `fetch` / `crypto.randomUUID` en dur          | Services injectés via `Layer`                                                      |
-| `Context.Tag` par instance dynamique          | Registry singleton + adaptateur en valeur                                          |
-| Effect.gen dans un composant React            | `useAtomValue` / `useAtomSet` / `useAtom` ; `Atom.make(stream \| effect)` hors RPC |
-| Snapshot et subscribe en parallèle sans ordre | Snapshot d'abord, puis flux d'événements                                           |
-| Métriques avec IDs libres                     | Labels bornés : `commandType`, `outcome`                                           |
-| Checklist ou todolist dans un Ticket          | Tickets liés par un DAG                                                            |
-| Thread dédié ou Workbench par Ticket          | `TicketThread` optionnel N-N                                                       |
-| `Execution` / `Attempt` / `Channel` / Hermes  | Thread + Session projetée + runtime Cursor de Session (ADR-0018)                   |
-| Sweep d'orphelins `cursor-agent`              | Handle + `Scope` seulement                                                         |
-| Forge Git autre que GitHub                    | GitHub seulement (ADR-0006)                                                        |
-| Package ou workspace sans frontière testée    | Attendre une frontière réelle                                                      |
-| Config lint dans le vite.config d'un package  | `lint.overrides` à la racine                                                       |
-| `inputs`/`outputs` déclarés par réflexe       | Suivi automatique de Vite Task                                                     |
-
-## Opérations dangereuses
-
-Ne pas faire sans instruction explicite de l'humain :
-
-- modifier, committer ou importer depuis `repos/effect/` ou `repos/t3code/` ;
-- bump Effect sans sync subtree et sans vérifier les breaking changes beta ;
-- désactiver un diagnostic `@effect/tsgo` ou `--no-verify` sur un hook ;
-- bump `vite-plus` sans vérifier `vp toolchain` contre les versions Oxlint supportées par
-  `@effect/tsgo` — un décalage fait sauter les diagnostics Effect en silence ;
-- relancer `vp migrate` sans restaurer `repos/` derrière ;
-- créer un workspace ou un package sans frontière testée ;
-- secrets, tokens ou credentials dans le code ou les commits ;
-- IDs non brandés ou payloads non décodés aux frontières.
-
-## Références
-
-- Architecture : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- README (install, scripts, subtree) : [`README.md`](README.md)
+- Don't verify with browsers or computer use unless the user explicitly agrees or requests it.
+- Security is important, but should not be over-indexed on, especially for dev mode/maintainer-only features.
