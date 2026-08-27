@@ -1,31 +1,20 @@
-## What changed
+## What Changed
+
+<!-- Describe the change clearly and keep scope tight. -->
 
 ## Why
 
-Closes #<!-- issue number, or remove -->
+<!-- Explain the problem being solved and why this approach is the right one. -->
 
-## Workspaces touched
+## UI Changes
 
-- [ ] apps/web
-- [ ] apps/server
-- [ ] packages/domain
-- [ ] packages/protocol
-- [ ] docs / ADR
-- [ ] CI / tooling only
+<!-- If this PR changes UI, include clear before/after screenshots.
+     If the change involves motion or interaction, include a short video.
+     Delete this section if not applicable. -->
 
-## Verification
+## Checklist
 
-- [ ] `bun run check`
-- [ ] `bun run test`
-- [ ] `bun run build`
-
-## Domain / docs
-
-- [ ] CONTEXT.md or ADR updated if the model changed
-- [ ] No changes under `repos/effect/` or `repos/t3code/` (subtree sync only)
-
-## UI (if applicable)
-
-## Agent context (optional)
-
-<!-- Cursor run link, commands run, known limits -->
+- [ ] This PR is small and focused
+- [ ] I explained what changed and why
+- [ ] I included before/after screenshots for any UI changes
+- [ ] I included a video for animation/interaction changes
