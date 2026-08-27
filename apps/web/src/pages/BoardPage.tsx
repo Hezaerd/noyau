@@ -706,6 +706,10 @@ export function BoardPage({
     [ticketActivityByTicket, selectedTicketId],
   )
   const draggedTicket = state.tickets.find((ticket) => ticket.id === draggedTicketId)
+  const selectedColumnId =
+    activeColumnId !== undefined && state.columns.some((column) => column.id === activeColumnId)
+      ? activeColumnId
+      : undefined
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -930,12 +934,24 @@ export function BoardPage({
   }
 
   useEffect(() => {
+    if (activeColumnId !== undefined && selectedColumnId === undefined) {
+      setActiveColumnId(undefined)
+    }
+    if (
+      editingColumnId !== undefined &&
+      !state.columns.some((column) => column.id === editingColumnId)
+    ) {
+      setEditingColumnId(undefined)
+    }
+  }, [activeColumnId, editingColumnId, selectedColumnId, state.columns])
+
+  useEffect(() => {
     setKeybindingSelection({
       ticketSelected: activeTicketId !== undefined,
-      columnSelected: activeColumnId !== undefined && activeTicketId === undefined,
+      columnSelected: selectedColumnId !== undefined && activeTicketId === undefined,
     })
     return () => setKeybindingSelection({ ticketSelected: false, columnSelected: false })
-  }, [activeColumnId, activeTicketId])
+  }, [activeTicketId, selectedColumnId])
 
   useKeybindingHandlers({
     "board.navigate.up": () => navigateVertical(-1),
@@ -963,8 +979,8 @@ export function BoardPage({
       }
     },
     "board.column.rename": () => {
-      if (activeColumnId !== undefined && activeTicketId === undefined) {
-        setEditingColumnId(activeColumnId)
+      if (selectedColumnId !== undefined && activeTicketId === undefined) {
+        setEditingColumnId(selectedColumnId)
       }
     },
     "board.search": () => searchRef.current?.focus(),
@@ -1112,6 +1128,12 @@ export function BoardPage({
     let next = state
     for (const ticket of ticketsInColumn(state, column.id)) {
       next = moveTicket(next, ticket.id, destination.id)
+    }
+    if (activeColumnId === column.id) {
+      setActiveColumnId(undefined)
+    }
+    if (editingColumnId === column.id) {
+      setEditingColumnId(undefined)
     }
     setState({ ...next, columns: next.columns.filter((candidate) => candidate.id !== column.id) })
     runCommand(
@@ -1311,7 +1333,7 @@ export function BoardPage({
                 actions={boardActions}
                 filters={filters}
                 activeTicketId={activeTicketId}
-                selected={activeColumnId === column.id && activeTicketId === undefined}
+                selected={selectedColumnId === column.id && activeTicketId === undefined}
                 creating={creatingColumnId === column.id}
                 editing={editingColumnId === column.id}
                 onActiveTicket={selectTicket}
