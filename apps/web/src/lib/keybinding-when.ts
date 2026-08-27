@@ -333,5 +333,41 @@ export const unknownWhenVariables = (
   return [...identifiers].filter((identifier) => !isKnownWhenVariable(identifier)).toSorted()
 }
 
-export const whenExpressionsConflict = (leftWhen: string, rightWhen: string): boolean =>
-  leftWhen.length === 0 || rightWhen.length === 0 || leftWhen === rightWhen
+const WHEN_CONFLICT_SURFACES: ReadonlyArray<KeybindingSurface | undefined> = [
+  undefined,
+  "tableau",
+  "thread",
+  "settings",
+]
+const WHEN_CONFLICT_FLAGS = [false, true] as const
+
+export const whenExpressionsConflict = (leftWhen: string, rightWhen: string): boolean => {
+  if (leftWhen.length === 0 || rightWhen.length === 0 || leftWhen === rightWhen) {
+    return true
+  }
+  const leftAst = parseKeybindingWhenExpression(leftWhen)
+  const rightAst = parseKeybindingWhenExpression(rightWhen)
+  if (leftAst === null || rightAst === null) {
+    return false
+  }
+  for (const surface of WHEN_CONFLICT_SURFACES) {
+    for (const ticketSelected of WHEN_CONFLICT_FLAGS) {
+      for (const columnSelected of WHEN_CONFLICT_FLAGS) {
+        for (const dialogOpen of WHEN_CONFLICT_FLAGS) {
+          for (const editableFocused of WHEN_CONFLICT_FLAGS) {
+            const context = keybindingContextFromSurface(surface, {
+              ticketSelected,
+              columnSelected,
+              dialogOpen,
+              editableFocused,
+            })
+            if (evaluateWhenNode(leftAst, context) && evaluateWhenNode(rightAst, context)) {
+              return true
+            }
+          }
+        }
+      }
+    }
+  }
+  return false
+}

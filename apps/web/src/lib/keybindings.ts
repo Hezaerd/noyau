@@ -2,6 +2,7 @@ import {
   matchesWhenClause,
   parseKeybindingWhenExpression,
   whenAstToExpression,
+  whenExpressionsConflict,
   type KeybindingContext,
   type KeybindingWhenNode,
 } from "@/lib/keybinding-when"
@@ -60,6 +61,7 @@ export interface ResolvedKeybindings {
   readonly "board.move.left": string
   readonly "board.move.right": string
   readonly "settings.search": string
+  readonly "settings.keybindings.search": string
 }
 
 export interface ShortcutEventLike {
@@ -295,7 +297,32 @@ export const mergeWithDefaultKeybindings = (
 
 export const compileAndMergeKeybindings = (
   rules: ReadonlyArray<KeybindingRule>,
-): ResolvedKeybindingsConfig => mergeWithDefaultKeybindings(compileResolvedKeybindingsConfig(rules))
+): ResolvedKeybindingsConfig => {
+  if (rules.length === 0) {
+    return [...DEFAULT_RESOLVED_KEYBINDINGS]
+  }
+  const compiled = compileResolvedKeybindingsConfig(rules)
+  const overriddenCommands = new Set(rules.map((rule) => rule.command))
+  const retainedDefaults = DEFAULT_RESOLVED_KEYBINDINGS.filter(
+    (binding) => !overriddenCommands.has(binding.command),
+  )
+  const merged = [...retainedDefaults, ...compiled]
+  if (merged.length <= MAX_KEYBINDINGS_COUNT) {
+    return merged
+  }
+  return merged.slice(-MAX_KEYBINDINGS_COUNT)
+}
+
+export const KEYBINDING_TOMBSTONE_WHEN = "false"
+
+export const isKeybindingTombstone = (rule: KeybindingRule): boolean =>
+  rule.key.trim() === "" && rule.when === KEYBINDING_TOMBSTONE_WHEN
+
+export const keybindingTombstone = (command: KeybindingId): KeybindingRule => ({
+  command,
+  key: "",
+  when: KEYBINDING_TOMBSTONE_WHEN,
+})
 
 const normalizeEventKey = (key: string): string => {
   const normalized = key.toLowerCase()
@@ -503,6 +530,12 @@ export const resolveKeybindings = (
     "board.move.left": tanstackLabelForCommand(merged, "board.move.left", context, platform),
     "board.move.right": tanstackLabelForCommand(merged, "board.move.right", context, platform),
     "settings.search": tanstackLabelForCommand(merged, "settings.search", context, platform),
+    "settings.keybindings.search": tanstackLabelForCommand(
+      merged,
+      "settings.keybindings.search",
+      context,
+      platform,
+    ),
   }
 }
 
@@ -524,6 +557,9 @@ export const upsertKeybindingRule = (
   replace?: KeybindingRule,
 ): ReadonlyArray<KeybindingRule> => {
   const filtered = rules.filter((entry) => {
+    if (isKeybindingTombstone(entry) && entry.command === next.command) {
+      return false
+    }
     if (replace !== undefined) {
       return !isSameKeybindingRule(entry, replace) && !isSameKeybindingRule(entry, next)
     }
@@ -555,7 +591,7 @@ export const keybindingConflicts = (
       continue
     }
     const candidateWhen = whenAstToExpression(candidate.whenAst)
-    if (when.length === 0 || candidateWhen.length === 0 || when === candidateWhen) {
+    if (whenExpressionsConflict(when, candidateWhen)) {
       commands.add(candidate.command)
     }
   }

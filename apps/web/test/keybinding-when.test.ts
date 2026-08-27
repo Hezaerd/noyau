@@ -111,4 +111,9 @@ describe("whenExpressionsConflict", () => {
     expect(whenExpressionsConflict("thread", "thread")).toBe(true)
     expect(whenExpressionsConflict("thread", "tableau")).toBe(false)
   })
+
+  it("conflicts when two different Conditions can be true together", () => {
+    expect(whenExpressionsConflict("thread", "!dialogOpen")).toBe(true)
+    expect(whenExpressionsConflict("thread && dialogOpen", "thread && !dialogOpen")).toBe(false)
+  })
 })

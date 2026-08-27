@@ -19,8 +19,10 @@ export const dispatchKeybindingEvent = (event: KeyboardEvent): boolean => {
   if (id === undefined) {
     return false
   }
+  if (!invokeKeybindingHandler(id)) {
+    return false
+  }
   event.preventDefault()
-  invokeKeybindingHandler(id)
   return true
 }
 

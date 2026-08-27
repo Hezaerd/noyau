@@ -9,6 +9,7 @@ import {
 } from "@/lib/keybinding-when"
 import {
   DEFAULT_RESOLVED_KEYBINDINGS,
+  parseKeybindingShortcut,
   shortcutToKeybindingInput,
   type KeybindingRule,
   type ResolvedKeybindingRule,
@@ -42,10 +43,12 @@ for (const binding of DEFAULT_RESOLVED_KEYBINDINGS) {
   collectWhenIdentifiers(binding.whenAst, DEFAULT_WHEN_VARIABLES)
 }
 
-export const DEFAULT_WHEN_VARIABLE =
-  [...DEFAULT_WHEN_VARIABLES].find(
-    (identifier) => identifier !== "true" && identifier !== "false",
-  ) ?? "tableau"
+export const DEFAULT_WHEN_VARIABLE = "tableau"
+
+const normalizeRowKey = (key: string): string => {
+  const shortcut = parseKeybindingShortcut(key)
+  return shortcut === null ? key.trim().toLowerCase() : shortcutToKeybindingInput(shortcut)
+}
 
 const sourceForBinding = (binding: ResolvedKeybindingRule): KeybindingSource => {
   const bindingKey = shortcutToKeybindingInput(binding.shortcut)
@@ -89,11 +92,12 @@ export const keybindingConflictLabels = (
   if (input.key.trim().length === 0) {
     return []
   }
+  const normalizedKey = normalizeRowKey(input.key)
   const conflicts: string[] = []
   for (const candidate of rows) {
     if (
       candidate.id !== input.rowId &&
-      candidate.key === input.key &&
+      candidate.key === normalizedKey &&
       whenExpressionsConflict(candidate.when, input.when)
     ) {
       conflicts.push(commandLabel(candidate.command))

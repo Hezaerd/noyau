@@ -32,6 +32,7 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu"
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybindings, useSetKeybindingRecorderActive } from "@/hooks/use-keybindings"
 import { type KeybindingWhenNode } from "@/lib/keybinding-when"
 import { type KeybindingRule } from "@/lib/keybindings"
@@ -596,38 +597,19 @@ export function KeybindingsSettingsPanel(): ReactElement {
   const commandOptions = useMemo(() => buildKeybindingCommandOptions(), [])
   const whenVariables = useMemo(() => buildWhenVariableOptions(), [])
 
-  useEffect(() => {
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      const isMod = event.metaKey || event.ctrlKey
-      if (!isMod || event.altKey || event.key.toLowerCase() !== "f") {
-        return
-      }
-      const target = event.target
-      if (
-        target !== searchInputRef.current &&
-        target instanceof HTMLElement &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
-      ) {
-        return
-      }
-      event.preventDefault()
-      setIsSearchOpen(true)
-      requestAnimationFrame(() => {
-        searchInputRef.current?.focus()
-        searchInputRef.current?.select()
-      })
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [])
+  useKeybindingHandler("settings.keybindings.search", () => {
+    setIsSearchOpen(true)
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    })
+  })
 
   useEffect(() => {
     const handleFocus = (event: FocusEvent) => {
-      const target = event.target
+      const focused = event.type === "focusout" ? event.relatedTarget : event.target
       setRecorderActive(
-        target instanceof HTMLElement && target.hasAttribute("data-keybinding-capture"),
+        focused instanceof HTMLElement && focused.hasAttribute("data-keybinding-capture"),
       )
     }
     window.addEventListener("focusin", handleFocus)

@@ -1,7 +1,8 @@
 import { Option, Schema } from "effect"
 
-import { parseKeybindingWhenExpression } from "@/lib/keybinding-when"
+import { MAX_KEYBINDING_WHEN_LENGTH, parseKeybindingWhenExpression } from "@/lib/keybinding-when"
 import {
+  isKeybindingTombstone,
   parseKeybindingShortcut,
   shortcutToKeybindingInput,
   type KeybindingRule,
@@ -26,6 +27,13 @@ const decodeStoredRule = (entry: typeof KeybindingRuleJson.Type): KeybindingRule
   if (!isKeybindingId(entry.command)) {
     return undefined
   }
+  const raw: KeybindingRule =
+    entry.when === undefined
+      ? { key: entry.key, command: entry.command }
+      : { key: entry.key, command: entry.command, when: entry.when }
+  if (isKeybindingTombstone(raw)) {
+    return raw
+  }
   const shortcut = parseKeybindingShortcut(entry.key)
   if (shortcut === null) {
     return undefined
@@ -34,7 +42,10 @@ const decodeStoredRule = (entry: typeof KeybindingRuleJson.Type): KeybindingRule
   if (entry.when === undefined) {
     return { key, command: entry.command }
   }
-  if (parseKeybindingWhenExpression(entry.when) === null) {
+  if (
+    entry.when.length > MAX_KEYBINDING_WHEN_LENGTH ||
+    parseKeybindingWhenExpression(entry.when) === null
+  ) {
     return undefined
   }
   return { key, command: entry.command, when: entry.when }
@@ -88,5 +99,7 @@ export const downloadKeybindingsRules = (rules: ReadonlyArray<KeybindingRule>): 
   link.href = url
   link.download = KEYBINDINGS_FILE_NAME
   link.click()
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url)
+  }, 0)
 }

@@ -24,6 +24,7 @@ export const KEYBINDING_IDS = [
   "board.move.left",
   "board.move.right",
   "settings.search",
+  "settings.keybindings.search",
 ] as const
 
 export type KeybindingId = (typeof KEYBINDING_IDS)[number]
@@ -219,6 +220,14 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Rechercher dans les Paramètres",
     description: "Place le focus dans la recherche des Paramètres.",
     defaultHotkey: "/",
+    when: WHEN_SETTINGS,
+  },
+  {
+    id: "settings.keybindings.search",
+    group: "settings",
+    title: "Rechercher dans les Raccourcis",
+    description: "Place le focus dans la recherche de la table des Keybindings.",
+    defaultHotkey: "mod+f",
     when: WHEN_SETTINGS,
   },
 ]

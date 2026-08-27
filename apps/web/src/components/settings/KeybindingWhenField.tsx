@@ -539,44 +539,49 @@ export function WhenExpressionBuilder({
       </div>
 
       <div className="relative">
-        {value === undefined ? (
-          <div className="rounded-md border border-dashed border-border/80 bg-muted/15 p-3">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="xs"
-                onClick={() => {
-                  updateExpressionValue(defaultWhenCondition())
-                }}
-              >
-                <PlusIcon />
-                Condition
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                onClick={() => {
-                  updateExpressionValue(defaultWhenGroup("or"))
-                }}
-              >
-                <PlusIcon />
-                Groupe
-              </Button>
+        <div inert={parseError !== null ? true : undefined}>
+          {value === undefined ? (
+            <div className="rounded-md border border-dashed border-border/80 bg-muted/15 p-3">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="xs"
+                  onClick={() => {
+                    updateExpressionValue(defaultWhenCondition())
+                  }}
+                >
+                  <PlusIcon />
+                  Condition
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => {
+                    updateExpressionValue(defaultWhenGroup("or"))
+                  }}
+                >
+                  <PlusIcon />
+                  Groupe
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <WhenExpressionNodeEditor
-            node={value}
-            variables={variables}
-            onChange={updateExpressionValue}
-            onRemove={() => {
-              updateExpressionValue(undefined)
-            }}
-          />
-        )}
+          ) : (
+            <WhenExpressionNodeEditor
+              node={value}
+              variables={variables}
+              onChange={updateExpressionValue}
+              onRemove={() => {
+                updateExpressionValue(undefined)
+              }}
+            />
+          )}
+        </div>
         {parseError === null ? null : (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg border border-destructive/30 bg-background/75 p-4 text-center text-xs text-destructive backdrop-blur-[1px]">
+          <div
+            aria-hidden
+            className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border border-destructive/30 bg-background/75 p-4 text-center text-xs text-destructive backdrop-blur-[1px]"
+          >
             Corrige l’expression pour continuer l’édition visuelle.
           </div>
         )}

@@ -8,6 +8,7 @@ import {
   compileAndMergeKeybindings,
   DEFAULT_RESOLVED_KEYBINDINGS,
   keybindingConflicts,
+  keybindingTombstone,
   resolveKeybindings,
   resolveMatchingKeybinding,
   upsertKeybindingRule,
@@ -189,6 +190,17 @@ describe("dispatchKeybindingEvent", () => {
     expect(event.defaultPrevented).toBe(true)
   })
 
+  it("does not swallow the event when no handler is registered", () => {
+    Object.defineProperty(window, "noyauDesktop", {
+      configurable: true,
+      value: { platform: "darwin" },
+    })
+    const event = keyEvent({ key: "k", metaKey: true, bubbles: true, cancelable: true })
+    Object.defineProperty(event, "target", { value: document.body })
+    expect(dispatchKeybindingEvent(event)).toBe(false)
+    expect(event.defaultPrevented).toBe(false)
+  })
+
   it("does nothing while the recorder is active", () => {
     let opened = false
     registerKeybindingHandler("palette.open", () => {
@@ -239,6 +251,20 @@ describe("keybindings.json", () => {
         ]),
       ),
     ).toEqual([{ key: "mod+j", command: "palette.open" }])
+  })
+
+  it("drops a persisted when that exceeds the length limit", () => {
+    const when = `${"tableau && ".repeat(40)}tableau`
+    expect(when.length).toBeGreaterThan(256)
+    expect(
+      parseKeybindingsRules(JSON.stringify([{ key: "mod+j", command: "palette.open", when }])),
+    ).toEqual([])
+  })
+
+  it("keeps a tombstone from restoring the default command", () => {
+    const compiled = compileAndMergeKeybindings([keybindingTombstone("palette.open")])
+    expect(compiled.some((binding) => binding.command === "palette.open")).toBe(false)
+    expect(compiled.length).toBe(DEFAULT_RESOLVED_KEYBINDINGS.length - 1)
   })
 
   it("dispatches an extra rule when the default does not match", () => {

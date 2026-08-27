@@ -2,6 +2,7 @@ import { Atom } from "effect/unstable/reactivity"
 
 import {
   compileAndMergeKeybindings,
+  keybindingTombstone,
   removeKeybindingRule,
   resolveKeybindings,
   upsertKeybindingRule,
@@ -92,7 +93,12 @@ export const upsertKeybinding = (input: {
 
 export const removeKeybinding = (target: KeybindingRule): void => {
   const current = persistedRulesOrDefaults(appAtomRegistry.get(keybindingsRulesAtom))
-  writeRules(removeKeybindingRule(current, target))
+  const without = removeKeybindingRule(current, target)
+  if (without.some((entry) => entry.command === target.command)) {
+    writeRules(without)
+    return
+  }
+  writeRules([...without, keybindingTombstone(target.command)])
 }
 
 export const resetKeybinding = (row: {
