@@ -68,31 +68,6 @@ jobs:
                 description: "Actively being worked on.",
               },
               {
-                name: "wayfinder:map",
-                color: "006b75",
-                description: "Wayfinder map issue holding notes and child tickets.",
-              },
-              {
-                name: "wayfinder:task",
-                color: "006b75",
-                description: "Wayfinder child ticket for implementation work.",
-              },
-              {
-                name: "wayfinder:research",
-                color: "006b75",
-                description: "Wayfinder child ticket for research or spikes.",
-              },
-              {
-                name: "wayfinder:prototype",
-                color: "006b75",
-                description: "Wayfinder child ticket for prototypes.",
-              },
-              {
-                name: "wayfinder:grilling",
-                color: "006b75",
-                description: "Wayfinder child ticket for plan stress-testing.",
-              },
-              {
                 name: "area:web",
                 color: "ededed",
                 description: "apps/web",
