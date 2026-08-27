@@ -1,8 +1,1 @@
 blank_issues_enabled: false
-contact_links:
-  - name: Architecture
-    url: https://github.com/Hezaerd/noyau/blob/main/docs/ARCHITECTURE.md
-  - name: Agent guide
-    url: https://github.com/Hezaerd/noyau/blob/main/AGENTS.md
-  - name: Issue tracker conventions
-    url: https://github.com/Hezaerd/noyau/blob/main/docs/agents/issue-tracker.md

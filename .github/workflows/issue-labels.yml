@@ -23,11 +23,6 @@ jobs:
           script: |
             const managedLabels = [
               {
-                name: "task",
-                color: "1d76db",
-                description: "Scoped implementation or refactor work.",
-              },
-              {
                 name: "bug",
                 color: "d73a4a",
                 description: "Something is broken or behaving incorrectly.",
@@ -38,74 +33,9 @@ jobs:
                 description: "Requested improvement or new capability.",
               },
               {
-                name: "research",
-                color: "c5def5",
-                description: "Spike, investigation, or discovery work.",
-              },
-              {
-                name: "adr:candidate",
-                color: "5319e7",
-                description: "Architectural decision to capture in docs/adr/.",
-              },
-              {
                 name: "needs-triage",
                 color: "fbca04",
-                description: "Needs review and initial categorization.",
-              },
-              {
-                name: "ready",
-                color: "0e8a16",
-                description: "Ready to be picked up.",
-              },
-              {
-                name: "blocked",
-                color: "b60205",
-                description: "Blocked by another issue or external dependency.",
-              },
-              {
-                name: "in-progress",
-                color: "1d76db",
-                description: "Actively being worked on.",
-              },
-              {
-                name: "area:web",
-                color: "ededed",
-                description: "apps/web",
-              },
-              {
-                name: "area:domain",
-                color: "ededed",
-                description: "packages/domain",
-              },
-              {
-                name: "area:protocol",
-                color: "ededed",
-                description: "packages/protocol",
-              },
-              {
-                name: "area:server",
-                color: "ededed",
-                description: "apps/server",
-              },
-              {
-                name: "area:docs",
-                color: "ededed",
-                description: "Documentation or ADRs",
-              },
-              {
-                name: "area:ci",
-                color: "ededed",
-                description: "CI, tooling, or repository automation",
-              },
-              {
-                name: "agent:cursor",
-                color: "7057ff",
-                description: "Opened or driven by a Cursor cloud agent.",
-              },
-              {
-                name: "agent:human",
-                color: "7057ff",
-                description: "Opened or driven by a human contributor.",
+                description: "Issue needs maintainer review and initial categorization.",
               },
             ];
 
@@ -142,65 +72,4 @@ jobs:
                   description: label.description,
                 });
               }
-            }
-
-            const retiredLabels = [{ from: "area:database", to: "area:server" }];
-
-            for (const { from, to } of retiredLabels) {
-              try {
-                await github.rest.issues.getLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name: from,
-                });
-              } catch (error) {
-                if (error.status === 404) {
-                  continue;
-                }
-                throw error;
-              }
-
-              for (let page = 1; ; page++) {
-                const { data: issues } = await github.rest.issues.listForRepo({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  labels: from,
-                  state: "all",
-                  per_page: 100,
-                  page,
-                });
-                if (issues.length === 0) {
-                  break;
-                }
-
-                for (const issue of issues) {
-                  const names = issue.labels.map((label) =>
-                    typeof label === "string" ? label : label.name,
-                  );
-                  if (!names.includes(to)) {
-                    await github.rest.issues.addLabels({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      issue_number: issue.number,
-                      labels: [to],
-                    });
-                  }
-                  await github.rest.issues.removeLabel({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: issue.number,
-                    name: from,
-                  });
-                }
-
-                if (issues.length < 100) {
-                  break;
-                }
-              }
-
-              await github.rest.issues.deleteLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: from,
-              });
             }
