@@ -35,7 +35,7 @@ The most common defect in this repo is a change that works on the path you teste
 - **Providers.** Codex, Claude, Cursor, Grok, and OpenCode each have an adapter. Provider-shaped features need a decision per adapter, even if the decision is "not supported here".
 - **Contracts.** Anything crossing the wire is typed in `packages/contracts`. Change the schema and the server, web, and desktop all follow.
 - **Reverse states.** If you added a way in, add the way out and the way to see it. Settle need unsettle. Close needs reopen. A one-way door is a bug.
-- **Docs.** `docs/` splits by audiance. Behavior changes that a user would notice belong in `docs/users/` (shipped-product voice, no repo tooling or source paths); architecture and contributor changes in `docs/internals`; runbooks in  `docs/operations/`; new vocabulary in `docs/internals/glossary.md`
+- **Docs.** `docs/` splits by audiance. Behavior changes that a user would notice belong in `docs/users/` (shipped-product voice, no repo tooling or source paths); architecture and contributor changes in `docs/internals`; runbooks in `docs/operations/`; new vocabulary in `docs/internals/glossary.md`
 
 ## Dev servers
 
@@ -51,11 +51,11 @@ An empty database is a bad test. Seed your worktree's `.noyau` with a copy of re
 - Copy from `~/.noyau/userdata` (the developer's real data, the most realistic test set) or `~/.noyau/dev`. Worktree state lives at `<worktree>/.noyau/userdata`.
 - Snapshot the database with `VACUUM INTO`, which is safe even while a server has the source open and yields one consistent file:
 
- ```bash
-  mkdir -p .noyau/userdata
-  rm -f .noyau/userdata/state.sqlite*  # VACUUM INTO refuses to overwrite
-  bun -e "new (require('bun:sqlite').Database)(process.env.HOME + '/.noyau/userdata/state.sqlite', { readonly: true }).run(\"VACUUM INTO '.noyau/userdata/state.sqlite'\")"
-  ```
+```bash
+ mkdir -p .noyau/userdata
+ rm -f .noyau/userdata/state.sqlite*  # VACUUM INTO refuses to overwrite
+ bun -e "new (require('bun:sqlite').Database)(process.env.HOME + '/.noyau/userdata/state.sqlite', { readonly: true }).run(\"VACUUM INTO '.noyau/userdata/state.sqlite'\")"
+```
 
     A plain `cp` is only safe when no server has the source open, and must bring the `-wal` and `-shm` siblings along. A live file copy is a corrupt copy.
 

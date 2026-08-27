@@ -10,7 +10,7 @@ Noyau is an ADE "Agentic Development Environment". It enables control of the age
 
 > [!IMPORTANT]
 > Noyau is currently in ultra-early development. The API and desktop app are subject to change.
-> 
+>
 > Please report any issues you encounter or feature requests you have via [GitHub Issues](https://github.com/hezaerd/noyau/issues).
 
 ### Installation
