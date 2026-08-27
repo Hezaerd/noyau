@@ -1,0 +1,60 @@
+# Write internals
+
+Target tree: `docs/internals/`.
+
+Voice: current system for maintainers and agents. Point at files. Do not
+preserve abandoned intentions.
+
+## What belongs
+
+How a layer works today: workspace layout, providers, domain flow, persistence,
+checkpointing, client/server boundary.
+
+A page explains one concern. If the description says "also", split the page.
+
+Durable decisions already taken live in `docs/adr/`. Internals describe the
+resulting system. Do not file a new ADR unless the maintainer asked.
+
+## What does not belong
+
+- User-facing how-tos (those go in `docs/users/`).
+- Plans, research, or "we should".
+- A second glossary. New words go in `docs/internals/glossary.md`, then this
+  page links the term.
+- Empty scaffolds you cannot fill from source.
+
+## Page shape
+
+```markdown
+# Concern name
+
+> For maintainers. Using Noyau? See [docs/users](../users/).
+
+One paragraph: what this layer is for.
+
+## How it works
+
+The moving parts and the invariant that matters.
+
+## Where it lives
+
+Footnotes to protocol, domain, and server files you opened.
+
+## Related
+
+- [Glossary](./glossary.md)
+```
+
+Prefer a few accurate file links over a tour of the monorepo. Wire types are
+in `packages/protocol`. Decision and projection logic is in
+`packages/domain/src/{project,board,thread}`. Side effects are reactors in
+`apps/server`.
+
+## Checklist
+
+- [ ] Every file link opens a real path.
+- [ ] Names match protocol and domain exports.
+- [ ] The page describes current code, not a future cut.
+- [ ] New vocabulary was added to the glossary or already existed there.
+- [ ] Linked from `docs/README.md` under *Working on Noyau* when the page
+      should be found.

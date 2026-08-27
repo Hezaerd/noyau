@@ -35,7 +35,7 @@ The most common defect in this repo is a change that works on the path you teste
 - **Providers.** Codex, Claude, Cursor, Grok, and OpenCode each have an adapter. Provider-shaped features need a decision per adapter, even if the decision is "not supported here".
 - **Contracts.** Anything crossing the wire is typed in `packages/contracts`. Change the schema and the server, web, and desktop all follow.
 - **Reverse states.** If you added a way in, add the way out and the way to see it. Settle need unsettle. Close needs reopen. A one-way door is a bug.
-- **Docs.** `docs/` splits by audiance. Behavior changes that a user would notice belong in `docs/users/` (shipped-product voice, no repo tooling or source paths); architecture and contributor changes in `docs/internals`; runbooks in `docs/operations/`; new vocabulary in `docs/internals/glossary.md`
+- **Docs.** `docs/` splits by audience. Behavior changes that a user would notice belong in `docs/users/` (shipped-product voice, no repo tooling or source paths); architecture and contributor changes in `docs/internals`; runbooks in `docs/operations/`; new vocabulary in `docs/internals/glossary.md`. Writing or updating those pages: `.agents/skills/write-docs`.
 
 ## Dev servers
 
