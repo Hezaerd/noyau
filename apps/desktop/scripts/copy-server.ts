@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url"
 
+import { findBareRuntimeImports } from "@noyau/server/pack-deps"
 import { Effect, FileSystem, Path, Schema } from "effect"
 
-import { findBareRuntimeImports } from "../../server/scripts/pack-deps.ts"
 import { scriptRuntime } from "./runtime.ts"
 
 class ServerBundleNotSelfContained extends Schema.TaggedError<ServerBundleNotSelfContained>()(

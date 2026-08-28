@@ -47,5 +47,5 @@ export const findBareRuntimeImports = (source: string): ReadonlyArray<string> =>
       }
     }
   }
-  return [...found].sort()
+  return [...found].toSorted()
 }

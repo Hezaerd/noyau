@@ -1,11 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
-
 import {
   findBareRuntimeImports,
   isExternalServerDependency,
   SERVER_NATIVE_EXTERNAL_PREFIXES,
   shouldBundleServerDependency,
-} from "../scripts/pack-deps.ts"
+} from "@noyau/server/pack-deps"
 
 describe("server pack deps", () => {
   it("inlines ordinary JS runtime dependencies", () => {

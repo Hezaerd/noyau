@@ -1,6 +1,6 @@
 import { defineConfig } from "vite-plus"
 
-import { isExternalServerDependency, shouldBundleServerDependency } from "./scripts/pack-deps.ts"
+import { isExternalServerDependency, shouldBundleServerDependency } from "./src/pack-deps.ts"
 
 export default defineConfig({
   pack: {
