@@ -19,6 +19,8 @@ files:
   - "!**/node_modules/**"
   - "!**/*.map"
 # Serveur enfant hors ASAR : ELECTRON_RUN_AS_NODE charge un vrai fichier ESM.
+# Ce `main.mjs` doit être autonome (plus de bare import npm) : le `.app`
+# n'embarque pas node_modules.
 extraResources:
   - from: dist-electron/server
     to: server
