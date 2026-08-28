@@ -1,6 +1,6 @@
-import { ProjectId, TicketId } from "@noyau/protocol/ids"
-import { ProjectUnavailable } from "@noyau/protocol/project/errors"
-import { TicketDependencyCycle } from "@noyau/protocol/ticket/errors"
+import { ProjectId, TicketId } from "@noyau/contracts/ids"
+import { ProjectUnavailable } from "@noyau/contracts/project/errors"
+import { TicketDependencyCycle } from "@noyau/contracts/ticket/errors"
 import { describe, expect, it } from "vite-plus/test"
 
 import { invalidInputFailure, type AppFailure } from "../src/lib/app-failure"

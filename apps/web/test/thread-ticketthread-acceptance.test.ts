@@ -1,6 +1,6 @@
-import { CommandId, ProjectId, Sequence, ThreadId, TicketId } from "@noyau/protocol/ids"
-import { RPC_METHODS, SubscribeThreadInput } from "@noyau/protocol/rpc"
-import { ThreadTurnStartRequest } from "@noyau/protocol/thread/commands"
+import { CommandId, ProjectId, Sequence, ThreadId, TicketId } from "@noyau/contracts/ids"
+import { RPC_METHODS, SubscribeThreadInput } from "@noyau/contracts/rpc"
+import { ThreadTurnStartRequest } from "@noyau/contracts/thread/commands"
 import { Crypto, Effect, Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 

@@ -1,6 +1,6 @@
-import type { SettledOverride } from "@noyau/protocol/entities/thread"
-import type { VcsStatusPullRequestState } from "@noyau/protocol/git"
-import type { ThreadShell } from "@noyau/protocol/shell"
+import type { SettledOverride } from "@noyau/contracts/entities/thread"
+import type { VcsStatusPullRequestState } from "@noyau/contracts/git"
+import type { ThreadShell } from "@noyau/contracts/shell"
 import { DateTime } from "effect"
 
 import { epochMsOf } from "@/lib/thread-activity"

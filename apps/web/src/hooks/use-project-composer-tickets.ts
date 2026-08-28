@@ -1,5 +1,5 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { useMemo } from "react"
 
 import { useProjectBoardSnapshot } from "@/hooks/use-project-board"

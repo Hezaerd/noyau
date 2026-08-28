@@ -2,8 +2,8 @@ import type {
   GitPublishRepositoryResult,
   GitRepositoryVisibility,
   GitStackedAction,
-} from "@noyau/protocol/git"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/git"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { Crypto, Effect } from "effect"
 import {
   ChevronDownIcon,

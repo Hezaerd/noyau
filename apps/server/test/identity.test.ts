@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Forbidden, MissingIdentity } from "@noyau/protocol/errors"
+import { Forbidden, MissingIdentity } from "@noyau/contracts/errors"
 import { authenticateBearer, decodeConfiguredActor } from "@noyau/server/identity"
 import { Effect, Redacted } from "effect"
 

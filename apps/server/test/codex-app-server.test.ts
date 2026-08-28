@@ -2,8 +2,8 @@ import { fileURLToPath } from "node:url"
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { emptyCursorProviderStatus } from "@noyau/protocol/entities/environment"
-import { ProjectId, ProviderSessionId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import { emptyCursorProviderStatus } from "@noyau/contracts/entities/environment"
+import { ProjectId, ProviderSessionId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import type { McpInvocationScope } from "@noyau/server/mcp/mcp-invocation-context"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import {

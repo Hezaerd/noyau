@@ -1,4 +1,4 @@
-import { GitCommandError } from "@noyau/protocol/git"
+import { GitCommandError } from "@noyau/contracts/git"
 import { Effect, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 

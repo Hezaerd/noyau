@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { describe, expect, it } from "vite-plus/test"
 
 import { resolveShellFocus } from "../src/lib/shell-focus"

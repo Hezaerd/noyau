@@ -13,7 +13,7 @@ import {
   type VcsStatusResult,
   type VcsSwitchRefResult,
   type VcsWorktree,
-} from "@noyau/protocol/git"
+} from "@noyau/contracts/git"
 import { Context, Effect, FileSystem, Layer, Path, Schema, type Scope } from "effect"
 import { ChildProcessSpawner } from "effect/unstable/process"
 

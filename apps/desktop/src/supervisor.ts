@@ -1,6 +1,6 @@
 import { createServer } from "node:net"
 
-import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/protocol/rpc"
+import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/contracts/rpc"
 import type { PlatformError } from "effect"
 import {
   Clock,

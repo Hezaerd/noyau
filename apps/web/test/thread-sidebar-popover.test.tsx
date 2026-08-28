@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
-import { EnvironmentId } from "@noyau/protocol/ids"
-import { ShellSnapshot } from "@noyau/protocol/shell"
+import { EnvironmentId } from "@noyau/contracts/ids"
+import { ShellSnapshot } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"

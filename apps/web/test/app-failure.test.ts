@@ -1,7 +1,7 @@
-import { ServiceUnavailable } from "@noyau/protocol/errors"
-import { FilePreviewFailed } from "@noyau/protocol/file-preview"
-import { TicketId } from "@noyau/protocol/ids"
-import { TicketDependencyCycle } from "@noyau/protocol/ticket/errors"
+import { ServiceUnavailable } from "@noyau/contracts/errors"
+import { FilePreviewFailed } from "@noyau/contracts/file-preview"
+import { TicketId } from "@noyau/contracts/ids"
+import { TicketDependencyCycle } from "@noyau/contracts/ticket/errors"
 import { Cause } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 

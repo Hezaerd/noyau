@@ -1,4 +1,4 @@
-import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
+import type { TurnPresentation } from "@noyau/contracts/entities/transcript"
 import { GitMergeIcon } from "lucide-react"
 
 import { Bubble, BubbleContent } from "@/components/ui/bubble"

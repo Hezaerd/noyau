@@ -1,7 +1,7 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import type { ClientCommandRequest } from "@noyau/protocol/commands"
-import type { ProjectId } from "@noyau/protocol/ids"
-import type { DispatchResult } from "@noyau/protocol/receipts"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import type { ClientCommandRequest } from "@noyau/contracts/commands"
+import type { ProjectId } from "@noyau/contracts/ids"
+import type { DispatchResult } from "@noyau/contracts/receipts"
 import { type Crypto, Effect } from "effect"
 
 import {

@@ -11,7 +11,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices"
 import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
-} from "@noyau/protocol/entities/approvals"
+} from "@noyau/contracts/entities/approvals"
 import {
   emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
@@ -19,14 +19,14 @@ import {
   type CursorModel,
   type CursorReasoningEffort,
   type CursorServiceTier,
-} from "@noyau/protocol/entities/environment"
-import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
-import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
+} from "@noyau/contracts/entities/environment"
+import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
+import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import type {
   TranscriptToolAction,
   TranscriptToolStatus,
-} from "@noyau/protocol/entities/transcript"
-import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/entities/transcript"
+import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/contracts/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { ThreadLive, threadLiveLayer } from "@noyau/server/thread-live"
 import {

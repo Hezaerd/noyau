@@ -20,7 +20,7 @@ lancement, pas du renderer.
 | -------------------- | ------------------------------------ |
 | `VITE_NOYAU_RPC_URL` | `ws://127.0.0.1:3001/rpc` (loopback) |
 
-Les valeurs sont décodées au démarrage avec les schémas de `@noyau/protocol`.
+Les valeurs sont décodées au démarrage avec les schémas de `@noyau/contracts`.
 
 ## Configuration
 

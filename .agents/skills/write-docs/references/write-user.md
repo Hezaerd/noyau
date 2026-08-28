@@ -45,7 +45,7 @@ plain language on the page. Do not send users to the glossary.
 
 - [ ] A user who never cloned the repo can follow the page.
 - [ ] No source paths, package names, or maintainer tooling.
-- [ ] Providers listed match `packages/protocol` (check, then write the
+- [ ] Providers listed match `packages/contracts` (check, then write the
       product names only).
 - [ ] Reverse action is documented when the feature has one.
 - [ ] Linked from `docs/README.md` under *Using Noyau*.

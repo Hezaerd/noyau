@@ -1,14 +1,14 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import { ClientCommandRequest } from "@noyau/protocol/commands"
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/protocol/errors"
-import { CommandId, ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import { ClientCommandRequest } from "@noyau/contracts/commands"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/contracts/errors"
+import { CommandId, ProjectId, ThreadId } from "@noyau/contracts/ids"
 import {
   ControlPlaneRpcs,
   RPC_METHODS,
   type ProjectStreamItem,
   type ThreadStreamItem,
-} from "@noyau/protocol/rpc"
+} from "@noyau/contracts/rpc"
 import { Context, Crypto, Effect, Layer, ManagedRuntime, Option, Schema, Stream } from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"
 import type { RpcClientError } from "effect/unstable/rpc/RpcClientError"

@@ -1,5 +1,5 @@
-import type { CursorModel, Provider } from "@noyau/protocol/entities/environment"
-import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
+import type { CursorModel, Provider } from "@noyau/contracts/entities/environment"
+import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 
 export const threadModelLabel = (
   modelSelection: ModelSelection | null,

@@ -8,7 +8,7 @@ import { assert, layer } from "@effect/vitest"
 import {
   emptyCodexProviderStatus,
   emptyCursorProviderStatus,
-} from "@noyau/protocol/entities/environment"
+} from "@noyau/contracts/entities/environment"
 import {
   ApprovalRequestId,
   AttachmentId,
@@ -16,7 +16,7 @@ import {
   ProviderSessionId,
   ThreadId,
   TurnId,
-} from "@noyau/protocol/ids"
+} from "@noyau/contracts/ids"
 import type { McpInvocationScope } from "@noyau/server/mcp/mcp-invocation-context"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import {

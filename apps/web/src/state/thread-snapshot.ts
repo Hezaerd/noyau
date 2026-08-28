@@ -1,6 +1,6 @@
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import type { EventEnvelope } from "@noyau/protocol/events"
-import type { ThreadId } from "@noyau/protocol/ids"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import type { EventEnvelope } from "@noyau/contracts/events"
+import type { ThreadId } from "@noyau/contracts/ids"
 import { Atom } from "effect/unstable/reactivity"
 
 import { applyThreadEnvelope } from "@/lib/thread-transcript"

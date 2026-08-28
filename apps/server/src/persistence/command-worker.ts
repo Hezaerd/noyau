@@ -1,11 +1,11 @@
-import { CommandIdConflict } from "@noyau/protocol/errors"
+import { CommandIdConflict } from "@noyau/contracts/errors"
 import type {
   ActorId,
   CommandId,
   CorrelationId,
   ProjectId,
   SchemaVersion,
-} from "@noyau/protocol/ids"
+} from "@noyau/contracts/ids"
 import type { Scope } from "effect"
 import { Crypto, DateTime, Deferred, Effect, PubSub, Queue, Result, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"

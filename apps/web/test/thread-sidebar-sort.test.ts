@@ -1,5 +1,5 @@
-import { ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
-import { ThreadShell } from "@noyau/protocol/shell"
+import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ThreadShell } from "@noyau/contracts/shell"
 import type { DateTime } from "effect"
 import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"

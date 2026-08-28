@@ -1,5 +1,5 @@
-import { EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
-import { ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
+import { EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 

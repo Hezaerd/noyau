@@ -1,4 +1,4 @@
-import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import type { TicketPriority } from "@noyau/contracts/entities/ticket"
 
 import type { BoardState } from "@/lib/board-model"
 import { resolveKeybindings, type ResolvedKeybindings } from "@/lib/keybindings"

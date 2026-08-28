@@ -1,6 +1,6 @@
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import type { LatestTurn, Turn } from "@noyau/protocol/entities/turn"
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import type { LatestTurn, Turn } from "@noyau/contracts/entities/turn"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { ArrowDownIcon } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 

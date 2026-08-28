@@ -1,15 +1,15 @@
 import { useAtomSet } from "@effect/atom-react"
-import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
-import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
-import type { Provider } from "@noyau/protocol/entities/environment"
+import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
+import { threadBranchOf, threadWorktreePathOf } from "@noyau/contracts/entities/checkout"
+import type { Provider } from "@noyau/contracts/entities/environment"
 import type {
   DefaultModelSelection,
   ModelSelection,
-} from "@noyau/protocol/entities/model-selection"
-import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/entities/model-selection"
+import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import type { TurnPresentation } from "@noyau/contracts/entities/transcript"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { isResumePrompt } from "@noyau/shared/resume-prompt"
 import { useNavigate } from "@tanstack/react-router"
 import {

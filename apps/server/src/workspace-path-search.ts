@@ -1,4 +1,4 @@
-import type { WorkspacePathEntry } from "@noyau/protocol/entities/workspace-path"
+import type { WorkspacePathEntry } from "@noyau/contracts/entities/workspace-path"
 import { Effect, FileSystem, Path } from "effect"
 
 export const SEARCH_WORKSPACE_PATHS_LIMIT = 50

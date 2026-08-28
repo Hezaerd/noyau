@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
-import { DomainEvent, EventEnvelope } from "@noyau/protocol/events"
-import { ProjectId, ThreadId, TicketId } from "@noyau/protocol/ids"
-import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
+import { DomainEvent, EventEnvelope } from "@noyau/contracts/events"
+import { ProjectId, ThreadId, TicketId } from "@noyau/contracts/ids"
+import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect, Schema } from "effect"

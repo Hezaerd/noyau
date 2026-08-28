@@ -1,5 +1,5 @@
-import { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
+import { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import type { ProjectShell, ThreadShell } from "@noyau/contracts/shell"
 import { Option, Schema } from "effect"
 
 import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"

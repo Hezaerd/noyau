@@ -1,5 +1,5 @@
-import type { UserInputAnswer, UserInputQuestion } from "@noyau/protocol/entities/approvals"
-import type { TranscriptUserInput } from "@noyau/protocol/entities/transcript"
+import type { UserInputAnswer, UserInputQuestion } from "@noyau/contracts/entities/approvals"
+import type { TranscriptUserInput } from "@noyau/contracts/entities/transcript"
 import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"

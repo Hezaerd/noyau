@@ -1,4 +1,4 @@
-import type { VcsStatusResult } from "@noyau/protocol/git"
+import type { VcsStatusResult } from "@noyau/contracts/git"
 import { describe, expect, it } from "vite-plus/test"
 
 import {

@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import { SearchIcon, SettingsIcon, SquarePenIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"

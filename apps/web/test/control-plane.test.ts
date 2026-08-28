@@ -1,4 +1,4 @@
-import { Sequence } from "@noyau/protocol/ids"
+import { Sequence } from "@noyau/contracts/ids"
 import { Effect } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 

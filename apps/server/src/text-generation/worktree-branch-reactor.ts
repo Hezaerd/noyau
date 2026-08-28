@@ -1,5 +1,5 @@
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import type { DomainEvent } from "@noyau/protocol/events"
+import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import type { DomainEvent } from "@noyau/contracts/events"
 import {
   ActorId,
   CommandId,
@@ -7,9 +7,9 @@ import {
   EventId,
   ProjectId,
   type ThreadId,
-} from "@noyau/protocol/ids"
-import { ThreadMetaUpdate } from "@noyau/protocol/thread/commands"
-import { ThreadEvent } from "@noyau/protocol/thread/events"
+} from "@noyau/contracts/ids"
+import { ThreadMetaUpdate } from "@noyau/contracts/thread/commands"
+import { ThreadEvent } from "@noyau/contracts/thread/events"
 import {
   buildGeneratedWorktreeBranchName,
   GitRuntime,

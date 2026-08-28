@@ -9,7 +9,7 @@ import {
   ProviderSessionId,
   ThreadId,
   TurnId,
-} from "@noyau/protocol/ids"
+} from "@noyau/contracts/ids"
 import type { McpInvocationScope } from "@noyau/server/mcp/mcp-invocation-context"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import {

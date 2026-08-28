@@ -1,6 +1,6 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import type { EventEnvelope } from "@noyau/protocol/events"
-import type { TicketId } from "@noyau/protocol/ids"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import type { EventEnvelope } from "@noyau/contracts/events"
+import type { TicketId } from "@noyau/contracts/ids"
 import { DateTime } from "effect"
 
 export type TicketActivityThreadAvailability = "active" | "archived" | "missing"

@@ -95,9 +95,9 @@ Full glossary with file links: `docs/internals/glossary.md`
 
 ## Where code lives
 
-- `apps/server` - WebSocket, orchestration, providers, checkpointing. Effect-heavy: read `repos/effect/LLMS.md` before writing Effect code.
+- `apps/server` - WebSocket, orchestration (`src/orchestration/{project,board,thread}`), providers, checkpointing. Effect-heavy: read `repos/effect/LLMS.md` before writing Effect code.
 - `apps/web` - React/Vite UI. `apps/desktop` wraps it, `apps/marketing` is the future marketing site (https://noyau.hezaerd.com), `apps/docs` is the future documentation site
-- `packages/contracts` - Effect/Schema contracts plus small derived helpers. No heavy runtime logic.
+- `packages/contracts` - Effect/Schema contracts plus small derived helpers. No decide / evolve / recover.
 - `packages/shared` - shared runtime utils, subpath exports, no barrel.
 - `packages/client-runtime` - client code shared.
 - `.repos/` - vendored read-only references. Prefer their patterns over invented ones. Never edit or import from them. Sync with `vpr sync:repos` when bumping the matching dependency.

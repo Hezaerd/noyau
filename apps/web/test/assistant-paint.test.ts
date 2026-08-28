@@ -1,4 +1,4 @@
-import { ThreadId, TurnId } from "@noyau/protocol/ids"
+import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { describe, expect, it } from "vite-plus/test"
 
 import {

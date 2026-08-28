@@ -1,5 +1,5 @@
-import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 

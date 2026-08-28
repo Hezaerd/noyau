@@ -1,5 +1,5 @@
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import type { ThreadShell } from "@noyau/protocol/shell"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import type { ThreadShell } from "@noyau/contracts/shell"
 import { ChevronDownIcon } from "lucide-react"
 import { Fragment, type ReactNode } from "react"
 

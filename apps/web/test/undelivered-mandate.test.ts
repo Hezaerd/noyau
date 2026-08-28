@@ -1,4 +1,4 @@
-import { ProviderSessionId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import { ProviderSessionId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { describe, expect, it } from "vite-plus/test"
 
 import { retryableFailedTurnMandate } from "../src/lib/undelivered-mandate"

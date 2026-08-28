@@ -1,5 +1,5 @@
-import type { ThreadId, TurnId } from "@noyau/protocol/ids"
-import type { ThreadAssistantLive } from "@noyau/protocol/thread/live"
+import type { ThreadId, TurnId } from "@noyau/contracts/ids"
+import type { ThreadAssistantLive } from "@noyau/contracts/thread/live"
 
 import type { TranscriptPaintMode } from "@/lib/transcript-paint-preference"
 

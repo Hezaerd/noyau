@@ -1,6 +1,6 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import { ProviderUserInputAnswers, UserInputQuestion } from "@noyau/protocol/entities/approvals"
-import { TicketPriority } from "@noyau/protocol/entities/ticket"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import { ProviderUserInputAnswers, UserInputQuestion } from "@noyau/contracts/entities/approvals"
+import { TicketPriority } from "@noyau/contracts/entities/ticket"
 import {
   ApprovalRequestId,
   CommandId,
@@ -8,8 +8,8 @@ import {
   ProjectId,
   Sequence,
   TicketId,
-} from "@noyau/protocol/ids"
-import type { Rejection } from "@noyau/protocol/receipts"
+} from "@noyau/contracts/ids"
+import type { Rejection } from "@noyau/contracts/receipts"
 import {
   TicketArchiveRequest,
   TicketCompleteRequest,
@@ -22,7 +22,7 @@ import {
   TicketThreadLinkRequest,
   TicketThreadUnlinkRequest,
   TicketUpdateRequest,
-} from "@noyau/protocol/ticket/commands"
+} from "@noyau/contracts/ticket/commands"
 import { ControlPlane } from "@noyau/server/control-plane"
 import {
   TurnUserInputRegistry,

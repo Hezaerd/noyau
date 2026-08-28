@@ -1,6 +1,6 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import { WorkspaceRoot } from "@noyau/contracts/entities/environment"
 import { WorkspaceRootAccess, workspaceRootAccessLayer } from "@noyau/server/workspace-root"
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect"
 

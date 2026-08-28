@@ -1,46 +1,25 @@
-import { decide as decideBoard } from "@noyau/domain/board/decider"
-import {
-  emptyBoardState,
-  evolve as evolveBoard,
-  type BoardState,
-  withProjectThreads,
-} from "@noyau/domain/board/projector"
-import { decide as decideProject } from "@noyau/domain/project/decider"
-import {
-  emptyProjectCatalog,
-  evolve as evolveProject,
-  type ProjectCatalog,
-} from "@noyau/domain/project/projector"
-import { decide as decideThread } from "@noyau/domain/thread/decider"
-import {
-  emptyThreadState,
-  evolve as evolveThread,
-  type ThreadState,
-  withAvailableProjects,
-} from "@noyau/domain/thread/projector"
-import { recoverAfterBoot } from "@noyau/domain/thread/recovery"
 import type {
   AgentIntegrationFailed,
   ProjectAgentIntegration,
   ProjectAgentIntegrationInput,
-} from "@noyau/protocol/agent-integration"
-import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/attachment-preview"
-import type { AttachmentPreviewFailed } from "@noyau/protocol/attachment-preview"
-import type { ClientCommandRequest, Command as CommandType } from "@noyau/protocol/commands"
-import { Command } from "@noyau/protocol/commands"
-import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import { Project } from "@noyau/protocol/entities/project"
-import type { WorkspacePathSearchResult } from "@noyau/protocol/entities/workspace-path"
-import type { CommandIdConflict } from "@noyau/protocol/errors"
-import { ServiceUnavailable } from "@noyau/protocol/errors"
+} from "@noyau/contracts/agent-integration"
+import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/contracts/attachment-preview"
+import type { AttachmentPreviewFailed } from "@noyau/contracts/attachment-preview"
+import type { ClientCommandRequest, Command as CommandType } from "@noyau/contracts/commands"
+import { Command } from "@noyau/contracts/commands"
+import { Environment, WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import { Project } from "@noyau/contracts/entities/project"
+import type { WorkspacePathSearchResult } from "@noyau/contracts/entities/workspace-path"
+import type { CommandIdConflict } from "@noyau/contracts/errors"
+import { ServiceUnavailable } from "@noyau/contracts/errors"
 import {
   decodeEventEnvelope,
   DomainEvent,
   type DomainEvent as DomainEventType,
-} from "@noyau/protocol/events"
-import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
-import type { FilePreviewFailed } from "@noyau/protocol/file-preview"
-import type { GitCommandError } from "@noyau/protocol/git"
+} from "@noyau/contracts/events"
+import type { FilePreview, PreviewFileInput } from "@noyau/contracts/file-preview"
+import type { FilePreviewFailed } from "@noyau/contracts/file-preview"
+import type { GitCommandError } from "@noyau/contracts/git"
 import {
   type ActorId,
   CorrelationId,
@@ -50,21 +29,21 @@ import {
   Sequence,
   type Sequence as SequenceType,
   type ThreadId,
-} from "@noyau/protocol/ids"
-import { ProjectCommand } from "@noyau/protocol/project/commands"
+} from "@noyau/contracts/ids"
+import { ProjectCommand } from "@noyau/contracts/project/commands"
 import {
   ProjectNotFound,
   ProjectUnavailable,
   WorkspaceRootConflict,
   WorkspaceRootNotDirectory,
   WorkspaceRootNotFound,
-} from "@noyau/protocol/project/errors"
-import { ProjectEvent } from "@noyau/protocol/project/events"
+} from "@noyau/contracts/project/errors"
+import { ProjectEvent } from "@noyau/contracts/project/events"
 import {
   type DispatchResult,
   Rejection,
   type Rejection as RejectionType,
-} from "@noyau/protocol/receipts"
+} from "@noyau/contracts/receipts"
 import {
   requiresFreshSnapshot,
   type ProjectStreamItem,
@@ -74,14 +53,35 @@ import {
   type SubscribeShellInput,
   type SubscribeThreadInput,
   type ThreadStreamItem,
-} from "@noyau/protocol/rpc"
-import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
-import { ThreadCommand } from "@noyau/protocol/thread/commands"
-import { ThreadEvent } from "@noyau/protocol/thread/events"
-import { BoardInitialize, TicketCommand } from "@noyau/protocol/ticket/commands"
-import { TicketEvent } from "@noyau/protocol/ticket/events"
-import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
-import { TurnDiffUnavailable } from "@noyau/protocol/turn-diff"
+} from "@noyau/contracts/rpc"
+import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
+import { ThreadCommand } from "@noyau/contracts/thread/commands"
+import { ThreadEvent } from "@noyau/contracts/thread/events"
+import { BoardInitialize, TicketCommand } from "@noyau/contracts/ticket/commands"
+import { TicketEvent } from "@noyau/contracts/ticket/events"
+import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/contracts/turn-diff"
+import { TurnDiffUnavailable } from "@noyau/contracts/turn-diff"
+import { decide as decideBoard } from "@noyau/server/orchestration/board/decider"
+import {
+  emptyBoardState,
+  evolve as evolveBoard,
+  type BoardState,
+  withProjectThreads,
+} from "@noyau/server/orchestration/board/projector"
+import { decide as decideProject } from "@noyau/server/orchestration/project/decider"
+import {
+  emptyProjectCatalog,
+  evolve as evolveProject,
+  type ProjectCatalog,
+} from "@noyau/server/orchestration/project/projector"
+import { decide as decideThread } from "@noyau/server/orchestration/thread/decider"
+import {
+  emptyThreadState,
+  evolve as evolveThread,
+  type ThreadState,
+  withAvailableProjects,
+} from "@noyau/server/orchestration/thread/projector"
+import { recoverAfterBoot } from "@noyau/server/orchestration/thread/recovery"
 import { ThreadLive } from "@noyau/server/thread-live"
 import {
   Context,

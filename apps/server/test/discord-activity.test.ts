@@ -1,11 +1,11 @@
-import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import { ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
-import { ProjectCreated, ProjectMetaUpdated } from "@noyau/protocol/project/events"
+import { WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ProjectCreated, ProjectMetaUpdated } from "@noyau/contracts/project/events"
 import {
   ThreadMetaUpdated,
   ThreadTitleSeeded,
   ThreadTranscriptAppended,
-} from "@noyau/protocol/thread/events"
+} from "@noyau/contracts/thread/events"
 import { journalEventTouchesPresence } from "@noyau/server/discord/activity"
 import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"

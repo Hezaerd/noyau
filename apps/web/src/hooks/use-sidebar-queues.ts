@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import type { ThreadShell } from "@noyau/protocol/shell"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import type { ThreadShell } from "@noyau/contracts/shell"
 
 import type { ThreadActivity } from "@/lib/thread-activity"
 import type { SidebarThreadPartition } from "@/lib/thread-sidebar-sort"

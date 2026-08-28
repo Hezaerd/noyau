@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { useEffect } from "react"
 
 import { boardSnapshotAtom, boardStatusAtom, retainProjectBoard } from "@/state/board"

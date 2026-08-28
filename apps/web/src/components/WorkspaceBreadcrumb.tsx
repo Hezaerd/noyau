@@ -1,4 +1,4 @@
-import type { ThreadId } from "@noyau/protocol/ids"
+import type { ThreadId } from "@noyau/contracts/ids"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import { Input } from "@/components/ui/input"

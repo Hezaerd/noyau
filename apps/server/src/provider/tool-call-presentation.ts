@@ -1,4 +1,4 @@
-import type { TranscriptToolAction } from "@noyau/protocol/entities/transcript"
+import type { TranscriptToolAction } from "@noyau/contracts/entities/transcript"
 import { Schema } from "effect"
 
 const FALLBACK_NAME = "Tool"

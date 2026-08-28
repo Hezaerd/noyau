@@ -4,7 +4,7 @@ import {
   type VcsStatusMergeability,
   type VcsStatusPullRequest,
   type VcsStatusPullRequestState,
-} from "@noyau/protocol/git"
+} from "@noyau/contracts/git"
 import { Effect, Schema } from "effect"
 
 const MAX_FAILED_CHECKS = 8

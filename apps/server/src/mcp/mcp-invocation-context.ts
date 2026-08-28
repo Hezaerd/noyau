@@ -1,4 +1,4 @@
-import type { ActorId, EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import type { ActorId, EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { Context, Effect, Schema } from "effect"
 
 export const McpCapability = Schema.Literals(["board:read", "board:write", "thread:ask"] as const)

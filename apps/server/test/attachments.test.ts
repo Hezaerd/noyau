@@ -1,7 +1,7 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { CommandId, ThreadId } from "@noyau/protocol/ids"
-import { ThreadTurnStartRequest } from "@noyau/protocol/thread/commands"
+import { CommandId, ThreadId } from "@noyau/contracts/ids"
+import { ThreadTurnStartRequest } from "@noyau/contracts/thread/commands"
 import {
   parseBase64DataUrl,
   persistTurnUploads,

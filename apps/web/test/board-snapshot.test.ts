@@ -1,4 +1,4 @@
-import { BoardSnapshot } from "@noyau/protocol/board"
+import { BoardSnapshot } from "@noyau/contracts/board"
 import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 

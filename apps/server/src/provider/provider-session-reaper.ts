@@ -1,4 +1,4 @@
-import { ThreadId } from "@noyau/protocol/ids"
+import { ThreadId } from "@noyau/contracts/ids"
 import { Clock, Duration, Effect, Fiber, Schedule, Schema } from "effect"
 import type { Scope } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"

@@ -1,9 +1,9 @@
 import type {
   ProviderUserInputAnswers,
   UserInputQuestion,
-} from "@noyau/protocol/entities/approvals"
-import type { TranscriptUserInput } from "@noyau/protocol/entities/transcript"
-import type { ApprovalRequestId, ThreadId, TurnId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/entities/approvals"
+import type { TranscriptUserInput } from "@noyau/contracts/entities/transcript"
+import type { ApprovalRequestId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { Context, Deferred, Effect, Layer, Schema } from "effect"
 
 import type { ProviderEmit } from "./provider-port.ts"

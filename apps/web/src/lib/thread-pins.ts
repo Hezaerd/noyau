@@ -1,4 +1,4 @@
-import type { ThreadId } from "@noyau/protocol/ids"
+import type { ThreadId } from "@noyau/contracts/ids"
 import { Option, Schema } from "effect"
 
 export const THREAD_PINS_STORAGE_KEY = "noyau:thread-pins"

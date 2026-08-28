@@ -1,8 +1,8 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import { ProjectId } from "@noyau/protocol/ids"
+import { WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import { ProjectId } from "@noyau/contracts/ids"
 import { AgentSkillInstaller, agentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import { Effect, FileSystem, Layer, Path, Schema } from "effect"
 

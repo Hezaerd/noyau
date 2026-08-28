@@ -1,10 +1,10 @@
-import { ApprovalRequestId, ThreadId, ToolCallId, TurnId } from "@noyau/protocol/ids"
+import { ApprovalRequestId, ThreadId, ToolCallId, TurnId } from "@noyau/contracts/ids"
 import {
   ThreadTitleSeeded,
   ThreadTranscriptAppended,
   ThreadTurnEnded,
   ThreadTurnStarted,
-} from "@noyau/protocol/thread/events"
+} from "@noyau/contracts/thread/events"
 import { coalescePersistedForShell, threadEventTouchesShell } from "@noyau/server/shell-live"
 import { describe, expect, it } from "vite-plus/test"
 
