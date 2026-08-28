@@ -1,7 +1,5 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { decide } from "@noyau/server/orchestration/board/decider"
-import { emptyBoardState, evolve } from "@noyau/server/orchestration/board/projector"
 import { BoardSnapshot } from "@noyau/contracts/board"
 import { Environment, WorkspaceRoot } from "@noyau/contracts/entities/environment"
 import { KanbanColumnColor, KanbanRank } from "@noyau/contracts/entities/kanban-column"
@@ -37,6 +35,8 @@ import {
   TicketEvent,
   TicketThreadLinked,
 } from "@noyau/contracts/ticket/events"
+import { decide } from "@noyau/server/orchestration/board/decider"
+import { emptyBoardState, evolve } from "@noyau/server/orchestration/board/projector"
 import { makeCommandWorker, type PersistedEvent } from "@noyau/server/persistence/command-worker"
 import { makeDrainableWorker } from "@noyau/server/persistence/drainable-worker"
 import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/server/persistence/projections"

@@ -1,14 +1,4 @@
 import { describe, expect, it } from "@effect/vitest"
-import { decide } from "@noyau/server/orchestration/thread/decider"
-import {
-  emptyThreadState,
-  evolve,
-  latestTurn,
-  settledTurnStateForSessionStatus,
-  withAvailableProjects,
-  type ThreadState,
-} from "@noyau/server/orchestration/thread/projector"
-import { BOOT_RECOVERY_LAST_ERROR, recoverAfterBoot } from "@noyau/server/orchestration/thread/recovery"
 import {
   TranscriptItem,
   type TranscriptItem as TranscriptItemType,
@@ -25,6 +15,19 @@ import {
   type ThreadEvent,
 } from "@noyau/contracts/thread/events"
 import { DEFAULT_THREAD_TITLE } from "@noyau/contracts/thread/title"
+import { decide } from "@noyau/server/orchestration/thread/decider"
+import {
+  emptyThreadState,
+  evolve,
+  latestTurn,
+  settledTurnStateForSessionStatus,
+  withAvailableProjects,
+  type ThreadState,
+} from "@noyau/server/orchestration/thread/projector"
+import {
+  BOOT_RECOVERY_LAST_ERROR,
+  recoverAfterBoot,
+} from "@noyau/server/orchestration/thread/recovery"
 import { Result, Schema } from "effect"
 
 const ids = {

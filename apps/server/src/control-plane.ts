@@ -1,24 +1,3 @@
-import { decide as decideBoard } from "@noyau/server/orchestration/board/decider"
-import {
-  emptyBoardState,
-  evolve as evolveBoard,
-  type BoardState,
-  withProjectThreads,
-} from "@noyau/server/orchestration/board/projector"
-import { decide as decideProject } from "@noyau/server/orchestration/project/decider"
-import {
-  emptyProjectCatalog,
-  evolve as evolveProject,
-  type ProjectCatalog,
-} from "@noyau/server/orchestration/project/projector"
-import { decide as decideThread } from "@noyau/server/orchestration/thread/decider"
-import {
-  emptyThreadState,
-  evolve as evolveThread,
-  type ThreadState,
-  withAvailableProjects,
-} from "@noyau/server/orchestration/thread/projector"
-import { recoverAfterBoot } from "@noyau/server/orchestration/thread/recovery"
 import type {
   AgentIntegrationFailed,
   ProjectAgentIntegration,
@@ -82,6 +61,27 @@ import { BoardInitialize, TicketCommand } from "@noyau/contracts/ticket/commands
 import { TicketEvent } from "@noyau/contracts/ticket/events"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/contracts/turn-diff"
 import { TurnDiffUnavailable } from "@noyau/contracts/turn-diff"
+import { decide as decideBoard } from "@noyau/server/orchestration/board/decider"
+import {
+  emptyBoardState,
+  evolve as evolveBoard,
+  type BoardState,
+  withProjectThreads,
+} from "@noyau/server/orchestration/board/projector"
+import { decide as decideProject } from "@noyau/server/orchestration/project/decider"
+import {
+  emptyProjectCatalog,
+  evolve as evolveProject,
+  type ProjectCatalog,
+} from "@noyau/server/orchestration/project/projector"
+import { decide as decideThread } from "@noyau/server/orchestration/thread/decider"
+import {
+  emptyThreadState,
+  evolve as evolveThread,
+  type ThreadState,
+  withAvailableProjects,
+} from "@noyau/server/orchestration/thread/projector"
+import { recoverAfterBoot } from "@noyau/server/orchestration/thread/recovery"
 import { ThreadLive } from "@noyau/server/thread-live"
 import {
   Context,

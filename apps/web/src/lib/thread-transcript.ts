@@ -6,7 +6,12 @@ import type {
   TranscriptTool,
   TranscriptToolAction,
 } from "@noyau/contracts/entities/transcript"
-import type { LatestTurn, Turn, TurnDiff, TurnSettlementState } from "@noyau/contracts/entities/turn"
+import type {
+  LatestTurn,
+  Turn,
+  TurnDiff,
+  TurnSettlementState,
+} from "@noyau/contracts/entities/turn"
 import type { EventEnvelope } from "@noyau/contracts/events"
 import { canReplaceThreadTitle } from "@noyau/contracts/thread/title"
 

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { decide } from "@noyau/server/orchestration/project/decider"
-import { emptyProjectCatalog, evolve, type ProjectCatalog } from "@noyau/server/orchestration/project/projector"
 import { ProjectCommand } from "@noyau/contracts/project/commands"
 import type { ProjectEvent } from "@noyau/contracts/project/events"
+import { decide } from "@noyau/server/orchestration/project/decider"
+import {
+  emptyProjectCatalog,
+  evolve,
+  type ProjectCatalog,
+} from "@noyau/server/orchestration/project/projector"
 import { Result, Schema } from "effect"
 
 const ids = {

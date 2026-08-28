@@ -1,4 +1,3 @@
-import { settledTurnStateForSessionStatus } from "@noyau/server/orchestration/thread/projector"
 import { ProviderUserInputAnswers } from "@noyau/contracts/entities/approvals"
 import type { WorkspaceRoot } from "@noyau/contracts/entities/environment"
 import { DefaultModelSelection } from "@noyau/contracts/entities/model-selection"
@@ -8,6 +7,7 @@ import { TurnDiffFile } from "@noyau/contracts/entities/turn"
 import type { DomainEvent } from "@noyau/contracts/events"
 import { ProjectId, type ProjectId as ProjectIdType } from "@noyau/contracts/ids"
 import { DEFAULT_THREAD_TITLE } from "@noyau/contracts/thread/title"
+import { settledTurnStateForSessionStatus } from "@noyau/server/orchestration/thread/projector"
 import { DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

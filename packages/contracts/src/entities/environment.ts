@@ -84,10 +84,12 @@ export type CodexProviderStatus = CursorProviderStatus
 export const emptyCodexProviderStatus: CodexProviderStatus = emptyCursorProviderStatus
 
 /** Racine locale durable à identité stable, non administrable depuis l'UI. */
-export class Environment extends Schema.Class<Environment>("@noyau/contracts/entities/Environment")({
-  id: EnvironmentId,
-  cursor: CursorProviderStatus,
-  claude: ClaudeProviderStatus,
-  codex: CodexProviderStatus,
-  createdAt: Schema.DateTimeUtcFromString,
-}) {}
+export class Environment extends Schema.Class<Environment>("@noyau/contracts/entities/Environment")(
+  {
+    id: EnvironmentId,
+    cursor: CursorProviderStatus,
+    claude: ClaudeProviderStatus,
+    codex: CodexProviderStatus,
+    createdAt: Schema.DateTimeUtcFromString,
+  },
+) {}

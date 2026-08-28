@@ -1,4 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
+import { KanbanRank } from "@noyau/contracts/entities/kanban-column"
+import { ThreadId, TicketId } from "@noyau/contracts/ids"
+import { TicketCommand, TicketDependencyAdd } from "@noyau/contracts/ticket/commands"
+import type { TicketEvent } from "@noyau/contracts/ticket/events"
 import { decide } from "@noyau/server/orchestration/board/decider"
 import {
   emptyBoardState,
@@ -6,10 +10,6 @@ import {
   withProjectThreads,
   type BoardState,
 } from "@noyau/server/orchestration/board/projector"
-import { KanbanRank } from "@noyau/contracts/entities/kanban-column"
-import { ThreadId, TicketId } from "@noyau/contracts/ids"
-import { TicketCommand, TicketDependencyAdd } from "@noyau/contracts/ticket/commands"
-import type { TicketEvent } from "@noyau/contracts/ticket/events"
 import { DateTime, Result, Schema } from "effect"
 
 const ids = {
