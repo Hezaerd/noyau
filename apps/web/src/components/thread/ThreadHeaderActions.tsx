@@ -5,7 +5,6 @@ import { useMemo } from "react"
 import { useAppPaletteActions, type AppPaletteAction } from "@/components/app-palette-context"
 import { GitActionsControl } from "@/components/thread/GitActionsControl"
 import { OpenInPicker } from "@/components/thread/OpenInPicker"
-import { Button } from "@/components/ui/button"
 import { useThreadShell } from "@/hooks/use-control-plane"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
@@ -13,7 +12,7 @@ import { useNowMinuteMs } from "@/hooks/use-now-minute"
 import { useProjectPullRequests } from "@/hooks/use-sidebar-queues"
 import { useAutoSettleAfterDays } from "@/hooks/use-thread-settle-preference"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
-import { canSettle, effectiveSettled } from "@/lib/thread-settled"
+import { effectiveSettled } from "@/lib/thread-settled"
 
 export function ThreadHeaderActions({
   projectId,
@@ -29,14 +28,14 @@ export function ThreadHeaderActions({
       data-thread-header-actions=""
       className="@container/header-actions no-drag ms-auto flex shrink-0 items-center justify-end gap-2"
     >
-      <ThreadSettleButton projectId={projectId} threadId={threadId} disabled={disabled} />
+      <ThreadSettleHotkey projectId={projectId} threadId={threadId} disabled={disabled} />
       <OpenInPicker projectId={projectId} threadId={threadId} disabled={disabled} />
       <GitActionsControl projectId={projectId} threadId={threadId} disabled={disabled} />
     </div>
   )
 }
 
-function ThreadSettleButton({
+function ThreadSettleHotkey({
   projectId,
   threadId,
   disabled,
@@ -87,22 +86,5 @@ function ThreadSettleButton({
     thread !== undefined && !disabled,
   )
 
-  if (thread === undefined || threadId === undefined || settled) {
-    return null
-  }
-  return (
-    <Button
-      type="button"
-      size="xs"
-      variant="outline"
-      className="no-drag"
-      disabled={disabled || !canSettle(thread)}
-      aria-keyshortcuts={settleHotkey}
-      aria-label="Settle Thread"
-      onClick={() => dispatchThreadSettle(thread, true)}
-    >
-      <CircleCheckIcon />
-      Settle
-    </Button>
-  )
+  return null
 }
