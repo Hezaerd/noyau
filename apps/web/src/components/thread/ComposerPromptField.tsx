@@ -175,14 +175,14 @@ export function ComposerPromptField({
             "pointer-events-none absolute inset-0 text-muted-foreground/72",
           )}
         >
-          Écrire un message…
+          Write a message…
         </span>
       ) : null}
       <div
         ref={editorRef}
         role="textbox"
         aria-multiline="true"
-        aria-label="Composer un message"
+        aria-label="Compose a message"
         aria-disabled={disabled}
         aria-autocomplete={pathMenuOpen ? "list" : undefined}
         aria-controls={pathMenuOpen ? listboxId : undefined}

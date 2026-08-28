@@ -55,15 +55,15 @@ export function ComposerPathMenu({
         ref={listRef}
         id={id}
         role="listbox"
-        aria-label="Fichiers du Project"
+        aria-label="Project files"
         className="max-h-56 overflow-y-auto px-1 pt-1 pb-2 text-sm"
         onScroll={syncFade}
       >
         {loading && entries.length === 0 ? (
-          <li className="px-2 py-1.5 text-muted-foreground">Recherche…</li>
+          <li className="px-2 py-1.5 text-muted-foreground">Searching…</li>
         ) : null}
         {!loading && entries.length === 0 ? (
-          <li className="px-2 py-1.5 text-muted-foreground">Aucun fichier</li>
+          <li className="px-2 py-1.5 text-muted-foreground">No files</li>
         ) : null}
         {entries.map((entry, index) => {
           const selected = index === highlightedIndex

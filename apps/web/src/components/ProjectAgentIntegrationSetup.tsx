@@ -50,12 +50,12 @@ export function ProjectAgentIntegrationSetup({
           )}
           <div className="min-w-0">
             <p className="text-sm font-medium">
-              {installed ? "Intégration agent installée" : "Rendre les agents plus efficaces"}
+              {installed ? "Agent integration installed" : "Make agents more effective"}
             </p>
             <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
               {installed
-                ? "Les agents de ce Project savent maintenant utiliser son Tableau et ses Tickets."
-                : "Installe le skill Noyau pour apprendre aux agents à lire le Tableau, choisir un Ticket actionnable et respecter ses dépendances."}
+                ? "Agents in this Project now know how to use its Board and Tickets."
+                : "Install the Noyau skill so agents can read the Board, pick an actionable Ticket, and honor its dependencies."}
             </p>
             <code className="mt-2 block break-all text-[11px] text-muted-foreground">
               .agents/skills/noyau/
@@ -67,16 +67,16 @@ export function ProjectAgentIntegrationSetup({
       <div className="flex justify-end gap-2">
         {installed ? null : (
           <Button type="button" variant="ghost" onClick={onDone}>
-            Plus tard
+            Later
           </Button>
         )}
         {installed ? (
           <Button type="button" onClick={onDone}>
-            Terminer
+            Finish
           </Button>
         ) : (
           <Button type="button" loading={installing} onClick={install}>
-            Installer le skill Noyau
+            Install the Noyau skill
           </Button>
         )}
       </div>

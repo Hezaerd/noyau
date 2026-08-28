@@ -45,7 +45,7 @@ const localAt = (year: number, monthIndex: number, day: number, hour: number, mi
   DateTime.makeUnsafe(new Date(year, monthIndex, day, hour, minute, 0).toISOString())
 
 const timeOf = (at: DateTime.Utc) =>
-  DateTime.formatLocal(at, { locale: "fr", hour: "numeric", minute: "2-digit" })
+  DateTime.formatLocal(at, { locale: "en", hour: "numeric", minute: "2-digit" })
 
 describe("transcript message at", () => {
   it("shows only the time for a message from today", () => {
@@ -53,7 +53,7 @@ describe("transcript message at", () => {
     const nowMs = new Date(2026, 7, 25, 18, 0, 0).getTime()
     expect(formatTranscriptMessageAt(at, nowMs)).toBe(
       DateTime.formatLocal(at, {
-        locale: "fr",
+        locale: "en",
         hour: "numeric",
         minute: "2-digit",
       }),
@@ -66,12 +66,12 @@ describe("transcript message at", () => {
     const lastYear = localAt(2025, 11, 31, 9, 5)
     const nowMs = new Date(2026, 7, 25, 18, 0, 0).getTime()
 
-    expect(formatTranscriptMessageAt(yesterday, nowMs)).toBe(`hier à ${timeOf(yesterday)}`)
+    expect(formatTranscriptMessageAt(yesterday, nowMs)).toBe(`yesterday at ${timeOf(yesterday)}`)
     expect(formatTranscriptMessageAt(older, nowMs)).toBe(
-      `${new Intl.DateTimeFormat("fr", { day: "numeric", month: "numeric" }).format(new Date(DateTime.toEpochMillis(older)))} ${timeOf(older)}`,
+      `${new Intl.DateTimeFormat("en", { day: "numeric", month: "numeric" }).format(new Date(DateTime.toEpochMillis(older)))} ${timeOf(older)}`,
     )
     expect(formatTranscriptMessageAt(lastYear, nowMs)).toBe(
-      `${new Intl.DateTimeFormat("fr", { day: "numeric", month: "numeric", year: "numeric" }).format(new Date(DateTime.toEpochMillis(lastYear)))} ${timeOf(lastYear)}`,
+      `${new Intl.DateTimeFormat("en", { day: "numeric", month: "numeric", year: "numeric" }).format(new Date(DateTime.toEpochMillis(lastYear)))} ${timeOf(lastYear)}`,
     )
   })
 

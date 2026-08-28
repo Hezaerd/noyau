@@ -23,8 +23,8 @@ beforeEach(() => {
       projectId,
       skillName: "noyau",
       targetPath: "/workspace/.agents/skills/noyau",
-      currentVersion: "1.1.0",
-      installedVersion: "1.1.0",
+      currentVersion: "1.1.1",
+      installedVersion: "1.1.1",
       status: "current",
     },
   })
@@ -44,15 +44,15 @@ describe("Project agent integration setup", () => {
         render(<ProjectAgentIntegrationSetup projectId={projectId} onDone={onDone} />)
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Installer le skill Noyau" })),
+          user.click(screen.getByRole("button", { name: "Install the Noyau skill" })),
         )
         expect(installProjectAgentIntegration).toHaveBeenCalledWith({ projectId })
         expect(
-          yield* Effect.promise(() => screen.findByText("Intégration agent installée")),
+          yield* Effect.promise(() => screen.findByText("Agent integration installed")),
         ).toBeTruthy()
         expect(onDone).not.toHaveBeenCalled()
 
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Terminer" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Finish" })))
         expect(onDone).toHaveBeenCalledOnce()
       }),
     ))
@@ -64,7 +64,7 @@ describe("Project agent integration setup", () => {
         const onDone = vi.fn()
         render(<ProjectAgentIntegrationSetup projectId={projectId} onDone={onDone} />)
 
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Plus tard" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Later" })))
         expect(installProjectAgentIntegration).not.toHaveBeenCalled()
         expect(onDone).toHaveBeenCalledOnce()
       }),

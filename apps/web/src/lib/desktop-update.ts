@@ -54,28 +54,28 @@ export const desktopUpdateStatusLabel = (
   packagedChannel: DesktopReleaseChannel = "latest",
 ): string => {
   if (state.phase === "checking") {
-    return "Vérification…"
+    return "Checking…"
   }
   if (state.phase === "opening") {
-    return "Ouverture de l’installeur…"
+    return "Opening the installer…"
   }
   const result = state.result
   if (result === undefined) {
-    return "Pas encore vérifié."
+    return "Not checked yet."
   }
   switch (result._tag) {
     case "unsupported":
-      return "Build locale — pas de mise à jour."
+      return "Local build — no updates."
     case "current":
-      return "À jour."
+      return "Up to date."
     case "available":
       return desktopUpdateIsChannelSwitch(result.channel, packagedChannel)
-        ? `Installeur ${result.channel} v${result.availableVersion} — app séparée.`
-        : `v${result.availableVersion} disponible.`
+        ? `${result.channel} installer v${result.availableVersion} — separate app.`
+        : `v${result.availableVersion} available.`
     case "missing":
       return result.reason === "no-installer"
-        ? "Aucun installeur pour cette machine."
-        : "Aucune Release sur ce canal."
+        ? "No installer for this machine."
+        : "No Release on this channel."
     case "failed":
       return result.message
   }
@@ -92,7 +92,7 @@ export const desktopUpdatePrimaryAction = (state: DesktopUpdateState): "open" | 
 }
 
 export const desktopUpdatePrimaryActionLabel = (action: "open" | "check"): string =>
-  action === "open" ? "Ouvrir l’installeur" : "Vérifier"
+  action === "open" ? "Open installer" : "Check"
 
 export const desktopUpdateOpenErrorMessage = (
   result: DesktopUpdateOpenResult,
@@ -101,7 +101,7 @@ export const desktopUpdateOpenErrorMessage = (
     return result.message
   }
   if (result._tag === "unavailable") {
-    return result.message ?? "Aucun installeur à ouvrir."
+    return result.message ?? "No installer to open."
   }
   return undefined
 }

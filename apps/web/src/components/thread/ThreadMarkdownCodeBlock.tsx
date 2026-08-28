@@ -40,7 +40,7 @@ function ThreadMarkdownCodeBlockTitle({
     <Tooltip>
       <TooltipTrigger
         render={
-          <span className="inline-flex shrink-0 rounded-sm" aria-label={`Langage : ${language}`} />
+          <span className="inline-flex shrink-0 rounded-sm" aria-label={`Language: ${language}`} />
         }
       >
         <PierreEntryIcon pathValue={fileName} kind="file" className="size-3.5" />
@@ -62,7 +62,7 @@ export function ThreadMarkdownCodeBlock({
   readonly children: ReactNode
 }) {
   const [wrapped, setWrapped] = useState(false)
-  const wrapLabel = wrapped ? "Désactiver le retour à la ligne" : "Ajuster les lignes"
+  const wrapLabel = wrapped ? "Disable line wrap" : "Wrap lines"
 
   return (
     <div
@@ -74,11 +74,7 @@ export function ThreadMarkdownCodeBlock({
         <span className="inline-flex min-w-0 items-center gap-1.5 font-mono text-[0.6875rem]">
           <ThreadMarkdownCodeBlockTitle fenceTitle={fenceTitle} language={language} />
         </span>
-        <span
-          className="flex items-center gap-0.5"
-          role="toolbar"
-          aria-label="Actions du bloc de code"
-        >
+        <span className="flex items-center gap-0.5" role="toolbar" aria-label="Code block actions">
           <Tooltip>
             <TooltipTrigger
               render={

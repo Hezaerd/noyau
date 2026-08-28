@@ -1,6 +1,6 @@
 ---
 name: noyau
-description: Use Noyau's MCP tools to inspect and manage the current Project's Tableau, Tickets, dependencies, and links to the current Thread. Use when planning work from Noyau, choosing an actionable Ticket, updating Ticket lifecycle or relationships, or reconciling completed agent work with the Noyau board.
+description: Use Noyau's MCP tools to inspect and manage the current Project's Board, Tickets, dependencies, and links to the current Thread. Use when planning work from Noyau, choosing an actionable Ticket, updating Ticket lifecycle or relationships, or reconciling completed agent work with the Noyau board.
 ---
 
 # Noyau
@@ -11,9 +11,9 @@ available in the current Turn; never edit Noyau's database or invent a missing t
 ## Core workflow
 
 1. The latest user message on **this** Thread is the mandate. A resume token
-   (« Reprends », « Resume ») does not replace it. Do not treat an En cours Ticket
-   linked to another Thread as work to resume.
-2. Inspect the Tableau before proposing or starting work.
+   (« Reprends », « Resume ») does not replace it. Do not treat an In progress or
+   En cours Ticket linked to another Thread as work to resume.
+2. Inspect the Board before proposing or starting work.
 3. Prefer an open actionable Ticket whose dependencies are complete **and** that is
    linked to this Thread, or that the latest user message named. Otherwise ask.
 4. Preserve the identifiers returned by Noyau. Never infer IDs from titles.

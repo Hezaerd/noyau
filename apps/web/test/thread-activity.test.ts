@@ -176,14 +176,14 @@ describe("thread activity", () => {
         latestTurn: latestTurn({ state: "running" }),
         lastVisitedAtMs: undefined,
       }),
-    ).toEqual({ kind: "error", label: "Erreur" })
+    ).toEqual({ kind: "error", label: "Error" })
     expect(
       resolveThreadActivity({
         sessionStatus: "running",
         latestTurn: latestTurn({ state: "running" }),
         lastVisitedAtMs: undefined,
       }),
-    ).toEqual({ kind: "working", label: "En cours" })
+    ).toEqual({ kind: "working", label: "In progress" })
     expect(
       resolveThreadActivity({
         sessionStatus: "ready",
@@ -193,7 +193,7 @@ describe("thread activity", () => {
         }),
         lastVisitedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
       }),
-    ).toEqual({ kind: "completed", label: "Terminé" })
+    ).toEqual({ kind: "completed", label: "Done" })
     expect(
       resolveThreadActivity({
         sessionStatus: "ready",
@@ -203,7 +203,7 @@ describe("thread activity", () => {
         }),
         lastVisitedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
       }),
-    ).toEqual({ kind: "interrupted", label: "Interrompu" })
+    ).toEqual({ kind: "interrupted", label: "Interrupted" })
     expect(
       resolveThreadActivity({
         sessionStatus: "ready",
@@ -223,7 +223,7 @@ describe("thread activity", () => {
         }),
         lastVisitedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
       }),
-    ).toEqual({ kind: "completed", label: "Terminé" })
+    ).toEqual({ kind: "completed", label: "Done" })
   })
 
   it("drops the optimistic send once the Turn that started after it has settled", () => {
@@ -251,13 +251,13 @@ describe("thread activity", () => {
   })
 
   it("labels the live and settled transcript rows", () => {
-    expect(workingTranscriptLabel(null, 0)).toBe("En cours…")
+    expect(workingTranscriptLabel(null, 0)).toBe("In progress…")
     expect(
       workingTranscriptLabel(
         Date.parse("2026-08-23T12:00:00.000Z"),
         Date.parse("2026-08-23T12:00:12.000Z"),
       ),
-    ).toBe("En cours depuis 12s")
+    ).toBe("In progress for 12s")
     expect(
       settledTranscriptLabel(
         latestTurn({
@@ -266,7 +266,7 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:01:23.000Z",
         }),
       ),
-    ).toBe("A travaillé 1m 23s")
+    ).toBe("Worked 1m 23s")
     expect(
       settledTranscriptLabel(
         latestTurn({
@@ -275,7 +275,7 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:00:08.000Z",
         }),
       ),
-    ).toBe("Interrompu après 8s")
+    ).toBe("Interrupted after 8s")
     expect(settledTranscriptLabel(latestTurn({ state: "running" }))).toBeNull()
     expect(
       settledTranscriptLabel(
@@ -285,7 +285,7 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:00:08.000Z",
         }),
       ),
-    ).toBe("A travaillé 8s")
+    ).toBe("Worked 8s")
     expect(
       settledTranscriptLabel(
         latestTurn({
@@ -295,7 +295,7 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:01:34.000Z",
         }),
       ),
-    ).toBe("A travaillé 1m 19s")
+    ).toBe("Worked 1m 19s")
   })
 
   it("ignores an optimistic send that belongs to another Thread", () => {

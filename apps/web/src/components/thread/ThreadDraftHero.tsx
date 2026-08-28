@@ -39,16 +39,16 @@ export function ThreadDraftHero({
       <div className="flex w-full max-w-3xl flex-col items-center gap-8">
         <h2 className="w-full text-center font-normal text-2xl text-foreground tracking-tight sm:text-3xl">
           {projectName === undefined ? (
-            "Qu’est-ce qu’on construit ?"
+            "What are we building?"
           ) : (
             <>
-              Qu’est-ce qu’on construit dans{" "}
+              What are we building in{" "}
               <ThreadDraftHeroProjectName
                 projectName={projectName}
                 projects={projects}
                 selectedProjectId={selectedProjectId}
                 onSelectProject={onSelectProject}
-              />{" "}
+              />
               ?
             </>
           )}
@@ -109,7 +109,7 @@ function ThreadDraftHeroProjectName({
                   <span className="min-w-0 truncate">{project.name}</span>
                   {project.available ? null : (
                     <span className="shrink-0 text-[0.65rem] font-normal text-warning">
-                      Introuvable
+                      Missing
                     </span>
                   )}
                 </span>

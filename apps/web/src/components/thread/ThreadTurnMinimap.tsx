@@ -116,7 +116,7 @@ export function ThreadTurnMinimap({ items }: { readonly items: ReadonlyArray<Tur
     >
       <div className="relative h-full w-18 select-none">
         <button
-          aria-label={`Aller au tour : ${compactTurnMinimapPreview(activeItem?.userText) ?? "Tour"}`}
+          aria-label={`Go to turn: ${compactTurnMinimapPreview(activeItem?.userText) ?? "Turn"}`}
           className={cn(
             "absolute top-1/2 left-3 -translate-y-1/2 cursor-pointer bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
             hitStripWidth > 0 ? "pointer-events-auto" : "pointer-events-none",
@@ -216,7 +216,7 @@ export function ThreadTurnMinimap({ items }: { readonly items: ReadonlyArray<Tur
                 >
                   <ThreadPreviewMarkdown
                     className="text-sm font-medium leading-5"
-                    text={clipTurnMinimapMarkdown(activeItem.userText ?? "Tour")}
+                    text={clipTurnMinimapMarkdown(activeItem.userText ?? "Turn")}
                   />
                 </div>
                 {activeItem.assistantText === null ? null : (

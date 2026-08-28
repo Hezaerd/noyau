@@ -1,4 +1,15 @@
-export const DEFAULT_THREAD_TITLE = "Nouveau thread"
+export const DEFAULT_THREAD_TITLE = "New Thread"
+
+/** Placeholders persistés avant le lock EN. Toujours remplaçables. */
+export const LEGACY_DEFAULT_THREAD_TITLES = ["Nouveau thread", "Nouveau Thread"] as const
+
+const REPLACEABLE_THREAD_TITLES = new Set<string>([
+  DEFAULT_THREAD_TITLE,
+  ...LEGACY_DEFAULT_THREAD_TITLES,
+])
+
+export const isReplaceableThreadTitle = (title: string): boolean =>
+  REPLACEABLE_THREAD_TITLES.has(title.trim())
 
 const MAX_THREAD_TITLE_LENGTH = 50
 
@@ -35,7 +46,7 @@ export const seedTitleFromTurn = (
 /** Vrai tant que le titre est encore le placeholder ou le seed du premier Turn. */
 export const canReplaceThreadTitle = (currentTitle: string, titleSeed?: string): boolean => {
   const trimmedCurrentTitle = currentTitle.trim()
-  if (trimmedCurrentTitle === DEFAULT_THREAD_TITLE) {
+  if (isReplaceableThreadTitle(trimmedCurrentTitle)) {
     return true
   }
 

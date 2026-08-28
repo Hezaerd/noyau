@@ -29,7 +29,7 @@ export function ImageThumbnail({
         <button
           type="button"
           className="size-full cursor-zoom-in"
-          aria-label={`Agrandir ${alt}`}
+          aria-label={`Enlarge ${alt}`}
           onClick={onExpand}
         >
           <img alt="" src={src} className="size-full object-cover" />

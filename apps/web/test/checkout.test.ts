@@ -115,7 +115,7 @@ describe("checkout helpers", () => {
         startFromOrigin: false,
         status: undefined,
       }),
-    ).toBe("Depuis main")
+    ).toBe("From main")
     expect(
       resolveBranchTriggerLabel({
         envMode: "worktree",
@@ -125,7 +125,7 @@ describe("checkout helpers", () => {
         startFromOrigin: true,
         status: undefined,
       }),
-    ).toBe("Depuis origin/main")
+    ).toBe("From origin/main")
     expect(
       resolveBranchTriggerLabel({
         envMode: "worktree",
@@ -135,7 +135,7 @@ describe("checkout helpers", () => {
         startFromOrigin: true,
         status: undefined,
       }),
-    ).toBe("Choisir une base")
+    ).toBe("Choose a base")
     expect(isSelectingWorktreeBase({ envMode: "worktree", worktreePath: null })).toBe(true)
     expect(isSelectingWorktreeBase({ envMode: "worktree", worktreePath: "/tmp/wt" })).toBe(false)
   })
@@ -187,8 +187,8 @@ describe("checkout helpers", () => {
   })
 
   it("libellé du trigger : pending, bindé, ou local", () => {
-    expect(resolveEnvModeLabel("worktree")).toBe("Nouveau worktree")
-    expect(resolveEnvModeLabel("local")).toBe("Checkout courant")
+    expect(resolveEnvModeLabel("worktree")).toBe("New worktree")
+    expect(resolveEnvModeLabel("local")).toBe("Current checkout")
     expect(draftCheckoutOf("local")).toEqual({ envMode: "local", startFromOrigin: false })
     expect(draftCheckoutOf("worktree")).toEqual({ envMode: "worktree", startFromOrigin: true })
     expect(
@@ -197,7 +197,7 @@ describe("checkout helpers", () => {
         worktreePath: null,
         locked: true,
       }),
-    ).toBe("Nouveau worktree")
+    ).toBe("New worktree")
     expect(
       resolveEnvModeTriggerLabel({
         envMode: "local",
@@ -211,7 +211,7 @@ describe("checkout helpers", () => {
         worktreePath: null,
         locked: true,
       }),
-    ).toBe("Checkout local")
+    ).toBe("Local checkout")
   })
 
   it("réutilise un worktree déjà extrait ailleurs", () => {

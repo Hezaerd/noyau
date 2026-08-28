@@ -58,7 +58,7 @@ describe("project switcher", () => {
         )
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Changer de Project" })),
+          user.click(screen.getByRole("button", { name: "Switch Project" })),
         )
 
         expect(screen.queryByText("All projects")).toBeNull()

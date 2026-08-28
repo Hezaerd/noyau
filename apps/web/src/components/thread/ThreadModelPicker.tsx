@@ -184,21 +184,21 @@ export function ThreadModelPicker({
             size="sm"
             variant="ghost"
             disabled={disabled}
-            aria-label={`Modèle (${modelPickerHotkey})`}
+            aria-label={`Model (${modelPickerHotkey})`}
             className="max-w-52 justify-start"
           />
         }
       >
         <SelectedIcon aria-hidden="true" data-icon="inline-start" />
         <span className="truncate">
-          {selectedModel?.label ?? modelSelection?.modelId ?? "Choisir un modèle"}
+          {selectedModel?.label ?? modelSelection?.modelId ?? "Choose a model"}
         </span>
         <ChevronsUpDownIcon data-icon="inline-end" />
       </PopoverTrigger>
       <PopoverPopup side="top" align="start" className="w-96 [&>[data-slot=popover-viewport]]:p-0">
-        <PopoverTitle className="sr-only">Choisir un modèle</PopoverTitle>
+        <PopoverTitle className="sr-only">Choose a model</PopoverTitle>
         <Command items={visibleItems} value={query} onValueChange={setQuery}>
-          <CommandInput placeholder="Rechercher un modèle…" aria-label="Rechercher un modèle" />
+          <CommandInput placeholder="Search a model…" aria-label="Search a model" />
           <div
             role="tablist"
             aria-label="Providers"
@@ -212,7 +212,7 @@ export function ThreadModelPicker({
               variant={activeTab === "favorites" ? "secondary" : "ghost"}
               onClick={() => setActiveTab("favorites")}
             >
-              <StarIcon className="size-3.5" /> Favoris
+              <StarIcon className="size-3.5" /> Favorites
             </Button>
             {allowedProviders.map((provider) => {
               const Icon = providerIcons[provider]
@@ -231,7 +231,7 @@ export function ThreadModelPicker({
               )
             })}
           </div>
-          <CommandEmpty>Aucun modèle trouvé.</CommandEmpty>
+          <CommandEmpty>No models found.</CommandEmpty>
           <CommandList className="max-h-80 p-1">
             <CommandCollection>
               {(item: ModelPickerItem) => {
@@ -256,15 +256,13 @@ export function ThreadModelPicker({
                         <Icon className="size-3.5" /> {providerLabels[item.provider]}
                       </div>
                     </div>
-                    {selected ? (
-                      <CheckIcon className="size-4" aria-label="Modèle sélectionné" />
-                    ) : null}
+                    {selected ? <CheckIcon className="size-4" aria-label="Selected model" /> : null}
                     <Button
                       type="button"
                       size="icon-xs"
                       variant="ghost"
-                      aria-label={isDefault ? "Retirer le modèle par défaut" : "Définir par défaut"}
-                      title={isDefault ? "Modèle par défaut" : "Définir par défaut"}
+                      aria-label={isDefault ? "Remove the default model" : "Set as default"}
+                      title={isDefault ? "Default model" : "Set as default"}
                       onClick={(event) => {
                         event.stopPropagation()
                         toggleDefault(item)
@@ -276,8 +274,8 @@ export function ThreadModelPicker({
                       type="button"
                       size="icon-xs"
                       variant="ghost"
-                      aria-label={item.favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-                      title={item.favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                      aria-label={item.favorite ? "Remove from favorites" : "Add to favorites"}
+                      title={item.favorite ? "Remove from favorites" : "Add to favorites"}
                       onClick={(event) => {
                         event.stopPropagation()
                         toggleFavorite(item)

@@ -267,7 +267,7 @@ describe("ControlPlane", () => {
         }
         assert.deepStrictEqual(
           first.snapshot.columns.map((column) => column.name),
-          ["Backlog", "En cours", "Done"],
+          ["Backlog", "In progress", "Done"],
         )
         const done = first.snapshot.columns.find((column) => column.done)
         assert.isDefined(done)

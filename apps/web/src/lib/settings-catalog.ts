@@ -25,13 +25,13 @@ export interface SettingsItem {
 export const SETTINGS_TABS: ReadonlyArray<SettingsTab> = [
   {
     id: "general",
-    label: "Général",
+    label: "General",
     path: "/settings/general",
     restorable: true,
   },
   {
     id: "appearance",
-    label: "Apparence",
+    label: "Appearance",
     path: "/settings/appearance",
     restorable: true,
   },
@@ -43,7 +43,7 @@ export const SETTINGS_TABS: ReadonlyArray<SettingsTab> = [
   },
   {
     id: "keybindings",
-    label: "Raccourcis",
+    label: "Keybindings",
     path: "/settings/keybindings",
     restorable: true,
   },
@@ -53,125 +53,124 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
   {
     id: "desktop-update-channel",
     tab: "general",
-    title: "Canal de mise à jour",
+    title: "Update channel",
     description:
-      "Piste GitHub latest ou nightly à vérifier. Ne change pas la marque de l’app installée.",
-    keywords: ["canal", "channel", "latest", "nightly", "update", "mise à jour"],
+      "GitHub latest or nightly track to check. Does not change the installed app brand.",
+    keywords: ["channel", "latest", "nightly", "update"],
   },
   {
     id: "desktop-update",
     tab: "general",
     title: "Version",
-    description: "Vérifie le canal de mise à jour et ouvre l’installeur GitHub unsigned.",
-    keywords: ["version", "update", "mise à jour", "installeur", "release", "nightly"],
+    description: "Check the update channel and open the unsigned GitHub installer.",
+    keywords: ["version", "update", "installer", "release", "nightly"],
   },
   {
     id: "project-folder-start-directory",
     tab: "general",
-    title: "Ajouter un Project commence dans",
-    description: "Dossier affiché à l’ouverture du navigateur pour relier un Project.",
-    keywords: ["project", "projet", "dossier", "folder", "chemin", "add project"],
+    title: "Add a Project starts in",
+    description: "Folder shown when the picker opens to link a Project.",
+    keywords: ["project", "folder", "path", "add project"],
   },
   {
     id: "project-agent-integration",
     tab: "general",
-    title: "Intégration agent Noyau",
-    description: "Installe et met à jour le skill Noyau du Project courant.",
-    keywords: ["project", "agent", "skill", "skills.sh", "mcp", "tableau", "ticket"],
+    title: "Noyau agent integration",
+    description: "Install and update the Noyau skill for the current Project.",
+    keywords: ["project", "agent", "skill", "skills.sh", "mcp", "board", "ticket"],
   },
   {
     id: "default-thread-env-mode",
     tab: "general",
-    title: "Checkout d'un nouveau Thread",
-    description:
-      "Intention de draft : nouveau worktree isolé, ou checkout courant du WorkspaceRoot.",
-    keywords: ["thread", "worktree", "checkout", "local", "nouveau thread", "git", "environnement"],
+    title: "Checkout for a new Thread",
+    description: "Draft intent: isolated new worktree, or the current WorkspaceRoot checkout.",
+    keywords: ["thread", "worktree", "checkout", "local", "new thread", "git", "environment"],
   },
   {
     id: "auto-remove-merged-worktree",
     tab: "general",
-    title: "Supprimer le worktree après merge",
-    description: "Retire le worktree lié quand la PR live est fusionnée. Désactivé par défaut.",
-    keywords: ["worktree", "merge", "pr", "cleanup", "supprimer", "git", "fusion"],
+    title: "Remove worktree after merge",
+    description: "Remove the linked worktree when the live PR is merged. Off by default.",
+    keywords: ["worktree", "merge", "pr", "cleanup", "remove", "git"],
   },
   {
     id: "auto-settle-merged-threads",
     tab: "general",
-    title: "Classer après merge de PR",
-    description: "Classe le Thread quand sa PR live est fusionnée. Une PR fermée classe toujours.",
-    keywords: ["settle", "classer", "merge", "pr", "fusion", "thread", "sidebar"],
+    title: "Settle after PR merge",
+    description: "Settle the Thread when its live PR is merged. A closed PR always settles.",
+    keywords: ["settle", "merge", "pr", "thread", "sidebar"],
   },
   {
     id: "auto-settle-inactive-threads",
     tab: "general",
-    title: "Classer après inactivité",
-    description: "Classe les Threads sans activité depuis ce nombre de jours.",
-    keywords: ["settle", "classer", "inactivité", "jours", "thread", "sidebar"],
+    title: "Settle after inactivity",
+    description: "Settle Threads with no activity for this many days.",
+    keywords: ["settle", "inactivity", "days", "thread", "sidebar"],
   },
   {
     id: "auto-settle-after-days",
     tab: "general",
-    title: "Jours d'inactivité",
-    description: "Une nouvelle activité déclasse automatiquement le Thread.",
-    keywords: ["settle", "classer", "jours", "inactivité", "seuil"],
+    title: "Inactivity days",
+    description: "New activity automatically unsettles the Thread.",
+    keywords: ["settle", "days", "inactivity", "threshold"],
   },
   {
     id: "turn-cue",
     tab: "general",
-    title: "Son de fin de Turn",
-    description: "Joue un ding quand un Turn se termine.",
-    keywords: ["son", "ding", "sound", "cuelume", "turn", "audio"],
+    title: "Turn end sound",
+    description: "Play a ding when a Turn finishes.",
+    keywords: ["sound", "ding", "cuelume", "turn", "audio"],
   },
   {
     id: "turn-cue-sound",
     tab: "general",
-    title: "Son",
-    description: "Joué à la fin d'un Turn.",
-    keywords: ["son", "cuelume", "chime", "arrival", "sparkle", "bloom"],
+    title: "Sound",
+    description: "Played at the end of a Turn.",
+    keywords: ["sound", "cuelume", "chime", "arrival", "sparkle", "bloom"],
   },
   {
     id: "turn-notification",
     tab: "general",
-    title: "Notifications de fin de Turn",
+    title: "Turn end notifications",
     description:
-      "Bannière OS quand un Turn se termine hors du Thread ouvert, ou si la fenêtre est en arrière-plan.",
-    keywords: ["notification", "badge", "dock", "système", "turn", "attente"],
+      "OS banner when a Turn finishes outside the open Thread, or if the window is in the background.",
+    keywords: ["notification", "badge", "dock", "system", "turn"],
   },
   {
     id: "discord-rich-presence",
     tab: "general",
     title: "Discord Rich Presence",
-    description: "Affiche le Project et le Thread ouverts sur ton profil Discord.",
-    keywords: ["discord", "rich presence", "status", "activité", "presence"],
+    description: "Show the open Project and Thread on your Discord profile.",
+    keywords: ["discord", "rich presence", "status", "activity", "presence"],
   },
   {
     id: "appearance",
     tab: "appearance",
-    title: "Apparence",
-    description: "Choisis comment Noyau s’affiche : système, clair ou sombre.",
-    keywords: ["thème", "theme", "clair", "sombre", "dark", "light", "système"],
+    title: "Appearance",
+    description: "Choose how Noyau looks: system, light, or dark.",
+    keywords: ["theme", "light", "dark", "system"],
   },
   {
     id: "transcript-paint",
     tab: "appearance",
-    title: "Peinture du transcript",
-    description: "Fluide peint la bulle live au rythme de l’écran. Immédiat applique chaque hint.",
-    keywords: ["streaming", "fluide", "smooth", "transcript", "bulle", "60fps", "immédiat"],
+    title: "Transcript paint",
+    description: "Smooth paints the live bubble at the display rate. Immediate applies each hint.",
+    keywords: ["streaming", "smooth", "transcript", "bubble", "60fps", "immediate"],
   },
   {
     id: "providers",
     tab: "providers",
     title: "Providers",
-    description: "Providers IA branchés à Noyau : Cursor, Claude Code et Codex.",
-    keywords: ["ia", "ai", "agent", "provider", "cursor", "claude", "codex"],
+    description: "AI providers connected to Noyau: Cursor, Claude Code, and Codex.",
+    keywords: ["ai", "agent", "provider", "cursor", "claude", "codex"],
   },
   ...PROVIDER_SETTINGS_ITEMS,
   {
     id: "keybindings",
     tab: "keybindings",
-    title: "Raccourcis",
-    description: "Keybindings personnalisables de l’app.",
-    keywords: ["clavier", "hotkey", "shortcut", "keybind", "raccourci"],
+    title: "Keybindings",
+    description: "Customizable app keybindings.",
+    keywords: ["keyboard", "hotkey", "shortcut", "keybind"],
   },
   ...KEYBINDINGS.map((keybinding) => ({
     id: keybinding.id,
@@ -179,9 +178,9 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     title: keybinding.title,
     description: keybinding.description,
     keywords: [
-      "raccourci",
-      "clavier",
-      "condition",
+      "shortcut",
+      "keyboard",
+      "when",
       keybinding.defaultHotkey,
       ...(keybinding.when === undefined ? [] : [keybinding.when]),
     ],
@@ -220,7 +219,7 @@ export const resolveSettingsTabFromPathname = (pathname: string): SettingsTab =>
 export const getSettingsTab = (id: SettingsTabId): SettingsTab => {
   const tab = settingsTabById.get(id)
   if (tab === undefined) {
-    throw new Error(`Tab Paramètres inconnu: ${id}`)
+    throw new Error(`Unknown Settings tab: ${id}`)
   }
   return tab
 }
@@ -229,7 +228,7 @@ const normalizeSettingsQuery = (value: string): string =>
   value
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("fr")
+    .toLocaleLowerCase("en")
     .trim()
 
 const itemSearchValue = (item: SettingsItem, tab: SettingsTab): string =>

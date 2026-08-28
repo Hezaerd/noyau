@@ -1,4 +1,4 @@
 interface:
   display_name: "Noyau"
-  short_description: "Piloter le Tableau et les Tickets Noyau"
-  default_prompt: "Utilise $noyau pour inspecter le Tableau du Project et gérer ses Tickets."
+  short_description: "Drive the Noyau Board and Tickets"
+  default_prompt: "Use $noyau to inspect the Project Board and manage its Tickets."

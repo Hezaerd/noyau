@@ -4,7 +4,7 @@ import type { EventEnvelope } from "@noyau/contracts/events"
 import { ThreadId } from "@noyau/contracts/ids"
 import type { ThreadShell } from "@noyau/contracts/shell"
 import { format, isValid, parseISO } from "date-fns"
-import { fr } from "date-fns/locale"
+import { enUS } from "date-fns/locale"
 import {
   ActivityIcon,
   ArchiveIcon,
@@ -52,11 +52,11 @@ import {
 import { ticketActivityItem } from "@/lib/ticket-activity"
 
 const priorityLabels = {
-  none: "Aucune",
-  low: "Basse",
-  normal: "Normale",
-  high: "Haute",
-  urgent: "Urgente",
+  none: "None",
+  low: "Low",
+  normal: "Normal",
+  high: "High",
+  urgent: "Urgent",
 } satisfies Record<TicketPriority, string>
 
 const priorityDots = {
@@ -68,9 +68,9 @@ const priorityDots = {
 } satisfies Record<TicketPriority, string>
 
 const dependencyIssueLabels = {
-  self: "Ticket courant",
-  duplicate: "Déjà lié",
-  cycle: "Créerait un cycle",
+  self: "Current ticket",
+  duplicate: "Already linked",
+  cycle: "Would create a cycle",
 } satisfies Record<TicketDependencyIssue, string>
 
 const parseTicketDueDate = (dueAt: string | undefined): Date | undefined => {
@@ -253,18 +253,18 @@ export function TicketDialog({
     >
       <DialogPopup
         bottomStickOnMobile={false}
-        closeProps={{ "aria-label": "Fermer le ticket" }}
+        closeProps={{ "aria-label": "Close ticket" }}
         className="gap-0 p-0 sm:max-h-[min(52rem,calc(100dvh-2rem))] sm:max-w-4xl"
       >
         {ticket === undefined ? null : (
           <>
             <DialogHeader className="border-b px-6 py-5 pr-14">
               <Badge variant="outline" className="mb-2 w-fit rounded-full text-[0.62rem]">
-                NOY-{ticket.id.replace("ticket-", "").slice(0, 4).toLocaleUpperCase("fr")}
+                NOY-{ticket.id.replace("ticket-", "").slice(0, 4).toLocaleUpperCase("en")}
               </Badge>
-              <DialogTitle className="sr-only">Détails du ticket {ticket.title}</DialogTitle>
+              <DialogTitle className="sr-only">Ticket details {ticket.title}</DialogTitle>
               <Label htmlFor="ticket-title" className="sr-only">
-                Titre du ticket
+                Ticket title
               </Label>
               <Input
                 id="ticket-title"
@@ -290,19 +290,17 @@ export function TicketDialog({
               />
               {titleError ? (
                 <p id="ticket-title-error" className="text-xs text-destructive">
-                  Le titre est requis.
+                  Title is required.
                 </p>
               ) : null}
-              <DialogDescription>
-                Modifie les détails sans quitter le contexte du Tableau.
-              </DialogDescription>
+              <DialogDescription>Edit the details without leaving the Board.</DialogDescription>
             </DialogHeader>
 
             <DialogPanel className="p-0">
               <div className="space-y-8 px-6 py-6">
                 <section aria-labelledby="ticket-details-title">
                   <h3 id="ticket-details-title" className="mb-4 text-sm font-medium">
-                    Détails
+                    Details
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
@@ -310,7 +308,7 @@ export function TicketDialog({
                         htmlFor="ticket-priority"
                         className="text-[0.68rem] text-muted-foreground"
                       >
-                        Priorité
+                        Priority
                       </Label>
                       <Select
                         items={priorityOptions}
@@ -347,12 +345,12 @@ export function TicketDialog({
                         htmlFor="ticket-due-at"
                         className="text-[0.68rem] text-muted-foreground"
                       >
-                        Échéance
+                        Due date
                       </Label>
                       <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
                         <PopoverTrigger
                           id="ticket-due-at"
-                          aria-label="Sélectionner une échéance"
+                          aria-label="Select a due date"
                           render={
                             <Button
                               type="button"
@@ -363,20 +361,20 @@ export function TicketDialog({
                         >
                           <CalendarIcon aria-hidden="true" />
                           {dueDate === undefined ? (
-                            <span className="text-muted-foreground">Aucune date</span>
+                            <span className="text-muted-foreground">No date</span>
                           ) : (
-                            format(dueDate, "dd/MM/yyyy")
+                            format(dueDate, "MMM d, yyyy")
                           )}
                         </PopoverTrigger>
                         <PopoverPopup align="start" className="w-auto p-0">
                           <div className="flex items-center justify-between border-b px-3 py-2">
-                            <span className="text-xs font-medium">Échéance</span>
+                            <span className="text-xs font-medium">Due date</span>
                             <PopoverClose
                               disabled={dueDate === undefined}
                               onClick={() => updateDueDate(undefined)}
                               render={
                                 <Button type="button" size="xs" variant="ghost">
-                                  Effacer
+                                  Clear
                                 </Button>
                               }
                             />
@@ -403,7 +401,7 @@ export function TicketDialog({
                           size="xs"
                           onClick={() => setEditingDescription(true)}
                         >
-                          Modifier
+                          Edit
                         </Button>
                       )}
                     </div>
@@ -412,7 +410,7 @@ export function TicketDialog({
                         <Textarea
                           id="ticket-description"
                           value={description}
-                          aria-label="Description du ticket en Markdown"
+                          aria-label="Ticket description in Markdown"
                           onChange={(event) => setDescription(event.target.value)}
                           onKeyDown={(event) => {
                             if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -436,10 +434,10 @@ export function TicketDialog({
                               setEditingDescription(false)
                             }}
                           >
-                            Annuler
+                            Cancel
                           </Button>
                           <Button type="button" size="sm" onClick={saveDescription}>
-                            Enregistrer
+                            Save
                           </Button>
                         </div>
                       </div>
@@ -451,7 +449,7 @@ export function TicketDialog({
                             className="w-full text-left text-muted-foreground"
                             onClick={() => setEditingDescription(true)}
                           >
-                            Ajouter une description…
+                            Add a description…
                           </button>
                         ) : (
                           <div className="space-y-3 break-words [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:leading-relaxed [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2 [&_ul]:list-disc">
@@ -467,16 +465,16 @@ export function TicketDialog({
 
                 <section aria-labelledby="ticket-dependencies-title">
                   <h3 id="ticket-dependencies-title" className="mb-3 text-sm font-medium">
-                    Dépendances
+                    Dependencies
                   </h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-3 rounded-xl border p-3">
                       <div className="flex items-center gap-2 text-xs font-medium">
                         <GitBranchIcon className="size-3.5 text-muted-foreground" />
-                        Bloqué par
+                        Blocked by
                       </div>
                       {blockedByIds.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">Aucun ticket.</p>
+                        <p className="text-xs text-muted-foreground">No tickets.</p>
                       ) : (
                         <ul className="space-y-1.5">
                           {blockedByIds.map((dependsOnTicketId) => (
@@ -491,7 +489,7 @@ export function TicketDialog({
                                 type="button"
                                 size="icon-xs"
                                 variant="ghost"
-                                aria-label={`Retirer ${dependencyTitle(tickets, dependsOnTicketId)} des prérequis`}
+                                aria-label={`Remove ${dependencyTitle(tickets, dependsOnTicketId)} from prerequisites`}
                                 onClick={() => onRemoveDependency(ticket.id, dependsOnTicketId)}
                               >
                                 <Trash2Icon aria-hidden="true" />
@@ -502,7 +500,7 @@ export function TicketDialog({
                       )}
                       <div className="space-y-1.5">
                         <Label htmlFor="ticket-blocked-by-add" className="sr-only">
-                          Ajouter un ticket bloquant
+                          Add a blocking ticket
                         </Label>
                         <Select
                           items={dependencyOptions}
@@ -520,7 +518,7 @@ export function TicketDialog({
                         >
                           <SelectTrigger id="ticket-blocked-by-add" size="sm" className="w-full">
                             <PlusIcon aria-hidden="true" />
-                            <SelectValue placeholder="Ajouter un prérequis" />
+                            <SelectValue placeholder="Add a prerequisite" />
                           </SelectTrigger>
                           <SelectPopup alignItemWithTrigger={false}>
                             {dependencyOptions.map((option) => (
@@ -547,10 +545,10 @@ export function TicketDialog({
                     <div className="space-y-3 rounded-xl border p-3">
                       <div className="flex items-center gap-2 text-xs font-medium">
                         <GitBranchIcon className="size-3.5 rotate-180 text-muted-foreground" />
-                        Bloque
+                        Blocks
                       </div>
                       {blocksIds.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">Aucun ticket.</p>
+                        <p className="text-xs text-muted-foreground">No tickets.</p>
                       ) : (
                         <ul className="space-y-1.5">
                           {blocksIds.map((dependentTicketId) => (
@@ -565,7 +563,7 @@ export function TicketDialog({
                                 type="button"
                                 size="icon-xs"
                                 variant="ghost"
-                                aria-label={`Ne plus bloquer ${dependencyTitle(tickets, dependentTicketId)}`}
+                                aria-label={`Stop blocking ${dependencyTitle(tickets, dependentTicketId)}`}
                                 onClick={() => onRemoveDependency(dependentTicketId, ticket.id)}
                               >
                                 <Trash2Icon aria-hidden="true" />
@@ -576,7 +574,7 @@ export function TicketDialog({
                       )}
                       <div className="space-y-1.5">
                         <Label htmlFor="ticket-blocks-add" className="sr-only">
-                          Ajouter un ticket bloqué
+                          Add a blocked ticket
                         </Label>
                         <Select
                           items={dependentOptions}
@@ -594,7 +592,7 @@ export function TicketDialog({
                         >
                           <SelectTrigger id="ticket-blocks-add" size="sm" className="w-full">
                             <PlusIcon aria-hidden="true" />
-                            <SelectValue placeholder="Ajouter un ticket bloqué" />
+                            <SelectValue placeholder="Add a blocked ticket" />
                           </SelectTrigger>
                           <SelectPopup alignItemWithTrigger={false}>
                             {dependentOptions.map((option) => (
@@ -622,10 +620,10 @@ export function TicketDialog({
 
                 <section aria-labelledby="ticket-threads-title">
                   <h3 id="ticket-threads-title" className="mb-3 text-sm font-medium">
-                    Threads liés
+                    Linked Threads
                   </h3>
                   {linkedThreadIds.length === 0 ? (
-                    <p className="mb-3 text-xs text-muted-foreground">Aucun Thread lié.</p>
+                    <p className="mb-3 text-xs text-muted-foreground">No linked Threads.</p>
                   ) : (
                     <ul className="mb-3 space-y-1.5">
                       {linkedThreadIds.map((threadId) => {
@@ -642,7 +640,7 @@ export function TicketDialog({
                               type="button"
                               size="icon-xs"
                               variant="ghost"
-                              aria-label={`Délier le Thread ${thread?.title ?? threadId}`}
+                              aria-label={`Unlink Thread ${thread?.title ?? threadId}`}
                               onClick={() => onUnlinkThread(ticket.id, threadId)}
                             >
                               <Trash2Icon aria-hidden="true" />
@@ -676,8 +674,8 @@ export function TicketDialog({
                       <SelectValue
                         placeholder={
                           linkableThreads.length === 0
-                            ? "Tous les Threads sont liés"
-                            : "Ajouter un Thread lié"
+                            ? "All Threads are linked"
+                            : "Add a linked Thread"
                         }
                       />
                     </SelectTrigger>
@@ -695,20 +693,20 @@ export function TicketDialog({
                   <div className="mb-4 flex items-center gap-2">
                     <ActivityIcon className="size-4 text-muted-foreground" aria-hidden="true" />
                     <h3 id="ticket-activity-title" className="text-sm font-medium">
-                      Activité système
+                      System activity
                     </h3>
                     <span className="ml-auto text-xs text-muted-foreground">
                       {activityItems.length}
                     </span>
                   </div>
                   {activityLoading ? (
-                    <p className="text-xs text-muted-foreground">Chargement de l’activité…</p>
+                    <p className="text-xs text-muted-foreground">Loading activity…</p>
                   ) : activityError !== undefined ? (
                     <p className="text-xs text-destructive">
-                      Activité indisponible : {activityError}
+                      Activity unavailable: {activityError}
                     </p>
                   ) : activityItems.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Aucune activité enregistrée.</p>
+                    <p className="text-xs text-muted-foreground">No activity recorded.</p>
                   ) : (
                     <ol className="space-y-4">
                       {activityItems.map((item) => (
@@ -745,8 +743,8 @@ export function TicketDialog({
                               dateTime={item.occurredAt}
                               className="mt-0.5 block text-[0.65rem] text-muted-foreground"
                             >
-                              {format(parseISO(item.occurredAt), "d MMMM yyyy 'à' HH:mm", {
-                                locale: fr,
+                              {format(parseISO(item.occurredAt), "d MMMM yyyy 'at' HH:mm", {
+                                locale: enUS,
                               })}
                             </time>
                           </div>
@@ -764,7 +762,7 @@ export function TicketDialog({
                 onClick={() => setArchiveConfirmOpen(true)}
               >
                 <ArchiveIcon />
-                Archiver
+                Archive
               </Button>
             </DialogFooter>
           </>

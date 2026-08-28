@@ -3,12 +3,12 @@ export const formatQuotedList = (titles: ReadonlyArray<string>): string => {
     return ""
   }
   if (titles.length === 1) {
-    return `« ${titles[0]} »`
+    return `"${titles[0]}"`
   }
   const last = titles[titles.length - 1]
   const rest = titles
     .slice(0, -1)
-    .map((title) => `« ${title} »`)
+    .map((title) => `"${title}"`)
     .join(", ")
-  return `${rest} et « ${last} »`
+  return `${rest} and "${last}"`
 }

@@ -9,8 +9,8 @@ export const TRANSCRIPT_PAINT_ITEMS: ReadonlyArray<{
   readonly value: TranscriptPaintMode
   readonly label: string
 }> = [
-  { value: "smooth", label: "Fluide" },
-  { value: "classic", label: "Immédiat" },
+  { value: "smooth", label: "Smooth" },
+  { value: "classic", label: "Immediate" },
 ]
 
 const TranscriptPaintPreference = Schema.Literals(TRANSCRIPT_PAINT_MODES)

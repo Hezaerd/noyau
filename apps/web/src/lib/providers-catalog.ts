@@ -25,7 +25,7 @@ export const PROVIDER_CATALOG: ReadonlyArray<ProviderCatalogEntry> = [
     title: "Cursor",
     availability: "available",
     cli: "cursor-agent",
-    summary: "Adaptateur ACP local. Détection PATH et handshake.",
+    summary: "Local ACP adapter. PATH detection and handshake.",
     keywords: ["cursor-agent", "acp", "cli"],
   },
   {
@@ -33,7 +33,7 @@ export const PROVIDER_CATALOG: ReadonlyArray<ProviderCatalogEntry> = [
     title: "Claude Code",
     availability: "available",
     cli: "claude",
-    summary: "Adaptateur Agent SDK local. Détection PATH.",
+    summary: "Local Agent SDK adapter. PATH detection.",
     keywords: ["claude", "anthropic"],
   },
   {
@@ -41,7 +41,7 @@ export const PROVIDER_CATALOG: ReadonlyArray<ProviderCatalogEntry> = [
     title: "Codex",
     availability: "available",
     cli: "codex",
-    summary: "Adaptateur app-server local. Détection PATH et handshake.",
+    summary: "Local app-server adapter. PATH detection and handshake.",
     keywords: ["openai", "gpt", "app-server"],
   },
 ]
@@ -62,23 +62,23 @@ export interface ProviderConnectionPresentation {
 
 const cursorConnectionPresentation = {
   unknown: {
-    headline: "Lecture du statut…",
+    headline: "Reading status…",
     detail: null,
     statusDot: "unknown",
   },
   ready: {
-    headline: "Disponible",
+    headline: "Available",
     detail: "PATH · handshake OK",
     statusDot: "ready",
   },
   "not-installed": {
-    headline: "CLI introuvable",
-    detail: "Absent du PATH",
+    headline: "CLI not found",
+    detail: "Not on PATH",
     statusDot: "warning",
   },
   "handshake-failed": {
-    headline: "Handshake échoué",
-    detail: "Détecté dans le PATH",
+    headline: "Handshake failed",
+    detail: "Detected on PATH",
     statusDot: "error",
   },
 } as const satisfies Record<CursorReadiness, ProviderConnectionPresentation>

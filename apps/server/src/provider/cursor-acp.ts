@@ -460,7 +460,7 @@ const cursorModels = (response: CursorListAvailableModelsResponse): ReadonlyArra
       serviceTiers,
     }
     if (thinking !== undefined) {
-      const thinkingModelOption: CursorThinkingOptionBuilder = { label: "Réflexion" }
+      const thinkingModelOption: CursorThinkingOptionBuilder = { label: "Thinking" }
       const thinkingDescription = thinking.description?.trim()
       if (thinkingDescription !== undefined && thinkingDescription !== "") {
         thinkingModelOption.description = thinkingDescription

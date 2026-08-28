@@ -1,10 +1,9 @@
 import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import type { ProjectShell, ThreadShell } from "@noyau/contracts/shell"
+import { DEFAULT_THREAD_TITLE } from "@noyau/contracts/thread/title"
 import { Option, Schema } from "effect"
 
 import { isSettingsPath, resolveSettingsTabFromPathname } from "@/lib/settings-catalog"
-
-export const NEW_THREAD_TITLE = "Nouveau Thread"
 
 const decodeProjectId = Schema.decodeUnknownOption(ProjectId)
 const decodeThreadId = Schema.decodeUnknownOption(ThreadId)
@@ -37,7 +36,7 @@ export const resolvePageTitlebar = (input: {
 }): PageTitlebar => {
   const projectMatch = /^\/projects\/([^/]+)\/board$/.exec(input.pathname)
   if (projectMatch !== null) {
-    return { kind: "plain", title: "Tableau" }
+    return { kind: "plain", title: "Board" }
   }
 
   const threadMatch = /^\/projects\/([^/]+)\/thread\/([^/]+)$/.exec(input.pathname)
@@ -64,12 +63,12 @@ export const resolvePageTitlebar = (input: {
       projectName: project?.name,
       projectAvailable: project?.available === true,
       threadId,
-      threadTitle: threadId === undefined ? NEW_THREAD_TITLE : (thread?.title ?? "Thread"),
+      threadTitle: threadId === undefined ? DEFAULT_THREAD_TITLE : (thread?.title ?? "Thread"),
     }
   }
 
   if (input.pathname === "/") {
-    return { kind: "plain", title: "Tableau" }
+    return { kind: "plain", title: "Board" }
   }
 
   if (isSettingsPath(input.pathname)) {

@@ -108,10 +108,10 @@ const reportGitFailure = (failure: Parameters<typeof presentFailure>[0]) => {
 const toastStackedResult = (action: GitStackedAction, url?: string) => {
   const title =
     action === "commit"
-      ? "Commit créé"
+      ? "Commit created"
       : action === "push" || action === "commit_push"
-        ? "Push effectué"
-        : "PR ouverte"
+        ? "Pushed"
+        : "PR opened"
   toastManager.add(
     url === undefined
       ? { type: "success", title }
@@ -119,7 +119,7 @@ const toastStackedResult = (action: GitStackedAction, url?: string) => {
           type: "success",
           title,
           actionProps: {
-            children: "Ouvrir",
+            children: "Open",
             onClick: () => {
               window.open(url, "_blank", "noopener,noreferrer")
             },
@@ -134,13 +134,13 @@ const toastStackedResult = (action: GitStackedAction, url?: string) => {
 const toastPublishResult = (result: GitPublishRepositoryResult) => {
   toastManager.add({
     type: "success",
-    title: result.status === "pushed" ? "Repo créé et poussé" : "Repo créé",
+    title: result.status === "pushed" ? "Repo created and pushed" : "Repo created",
     description:
       result.status === "pushed"
         ? result.nameWithOwner
-        : `${result.nameWithOwner} — origin câblé, rien à pousser.`,
+        : `${result.nameWithOwner} — origin wired, nothing to push.`,
     actionProps: {
-      children: "Ouvrir",
+      children: "Open",
       onClick: () => {
         window.open(result.url, "_blank", "noopener,noreferrer")
       },
@@ -415,7 +415,7 @@ export function GitActionsControl({
                 size="icon-xs"
                 variant="outline"
                 className="no-drag"
-                aria-label="Options Git"
+                aria-label="Git options"
                 disabled={busy || actionsDisabled}
               />
             }
@@ -457,19 +457,19 @@ export function GitActionsControl({
           <DialogHeader>
             <DialogTitle>
               {dialogAction !== undefined && actionNeedsPullRequest(dialogAction)
-                ? "Créer une PR"
+                ? "Create a PR"
                 : "Commit"}
             </DialogTitle>
             <DialogDescription>
               {drafting
-                ? "Draft Git en cours…"
-                : "Vérifie le texte généré avant de lancer l’action empilée."}
+                ? "Drafting Git…"
+                : "Review the generated text before running the stacked action."}
             </DialogDescription>
           </DialogHeader>
           <DialogPanel className="flex flex-col gap-4">
             {dialogAction !== undefined && actionNeedsCommit(dialogAction) ? (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="git-commit-message">Message de commit</Label>
+                <Label htmlFor="git-commit-message">Commit message</Label>
                 <Textarea
                   id="git-commit-message"
                   value={commitMessage}
@@ -480,7 +480,7 @@ export function GitActionsControl({
             {dialogAction !== undefined && actionNeedsPullRequest(dialogAction) ? (
               <>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="git-pr-title">Titre de la PR</Label>
+                  <Label htmlFor="git-pr-title">PR title</Label>
                   <Input
                     id="git-pr-title"
                     value={pullRequestTitle}
@@ -500,7 +500,7 @@ export function GitActionsControl({
           </DialogPanel>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={closeDialog}>
-              Annuler
+              Cancel
             </Button>
             <Button
               type="button"
@@ -518,8 +518,8 @@ export function GitActionsControl({
               {dialogAction === "commit"
                 ? "Commit"
                 : dialogAction === "create_pr"
-                  ? "Créer la PR"
-                  : "Lancer"}
+                  ? "Create the PR"
+                  : "Run"}
             </Button>
           </DialogFooter>
         </DialogPopup>
@@ -535,14 +535,14 @@ export function GitActionsControl({
       >
         <DialogPopup className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Créer le repo</DialogTitle>
+            <DialogTitle>Create the repo</DialogTitle>
             <DialogDescription>
-              Crée un dépôt GitHub, câble origin, puis pousse HEAD s’il existe.
+              Create a GitHub repository, wire origin, then push HEAD if it exists.
             </DialogDescription>
           </DialogHeader>
           <DialogPanel className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="git-publish-repository">Dépôt</Label>
+              <Label htmlFor="git-publish-repository">Repository</Label>
               <Input
                 id="git-publish-repository"
                 value={publishRepository}
@@ -551,7 +551,7 @@ export function GitActionsControl({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">Visibilité</span>
+              <span className="text-sm font-medium">Visibility</span>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -560,7 +560,7 @@ export function GitActionsControl({
                   onClick={() => setPublishVisibility("private")}
                 >
                   <LockIcon />
-                  Privé
+                  Private
                 </Button>
                 <Button
                   type="button"
@@ -576,14 +576,14 @@ export function GitActionsControl({
           </DialogPanel>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setPublishOpen(false)}>
-              Annuler
+              Cancel
             </Button>
             <Button
               type="button"
               disabled={busy || publishRepository.trim() === ""}
               onClick={confirmPublish}
             >
-              Créer le repo
+              Create the repo
             </Button>
           </DialogFooter>
         </DialogPopup>
@@ -604,7 +604,7 @@ export function GitActionsControl({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogClose render={<Button type="button" variant="ghost" />}>
-              Annuler
+              Cancel
             </AlertDialogClose>
             <AlertDialogClose render={<Button type="button" />} onClick={confirmDefault}>
               {pendingDefault?.copy.continueLabel}

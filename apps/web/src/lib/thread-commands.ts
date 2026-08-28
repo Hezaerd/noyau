@@ -282,23 +282,23 @@ export const makeUserInputRespondRequest = Effect.fnUntraced(function* (input: {
 export const runtimeModes = [
   {
     value: "approval-required",
-    label: "Approbation requise",
-    description: "Demande une confirmation avant les actions.",
+    label: "Approval required",
+    description: "Ask for confirmation before actions.",
   },
   {
     value: "auto-accept-edits",
-    label: "Accepter les éditions",
-    description: "Accepte les éditions, demande les autres actions.",
+    label: "Accept edits",
+    description: "Accept edits, ask for other actions.",
   },
   {
     value: "auto",
-    label: "Automatique",
-    description: "Approuve les actions courantes quand le provider le permet.",
+    label: "Automatic",
+    description: "Approve common actions when the provider allows it.",
   },
   {
     value: "full-access",
-    label: "Accès complet",
-    description: "Autorise les commandes et les éditions sans confirmation.",
+    label: "Full access",
+    description: "Allow commands and edits without confirmation.",
   },
 ] as const satisfies ReadonlyArray<{
   readonly value: RuntimeModeType

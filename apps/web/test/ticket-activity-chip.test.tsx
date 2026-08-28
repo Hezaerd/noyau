@@ -112,7 +112,7 @@ describe("ticket activity thread chip", () => {
         )
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Ouvrir le Thread Thread de reprise" })),
+          user.click(screen.getByRole("button", { name: "Open Thread Thread de reprise" })),
         )
         expect(onOpenThread).toHaveBeenCalledWith(threadId)
       }),
@@ -144,8 +144,8 @@ describe("ticket activity thread chip", () => {
           </>,
         )
 
-        expect(screen.queryByRole("button", { name: /Ouvrir le Thread/ })).toBeNull()
-        const chips = screen.getAllByTitle(/ouverture impossible/i)
+        expect(screen.queryByRole("button", { name: /Open Thread/ })).toBeNull()
+        const chips = screen.getAllByTitle(/cannot open/i)
         expect(chips).toHaveLength(2)
         yield* Effect.promise(() => user.click(chips[0] ?? chips[1]))
         expect(onOpenThread).not.toHaveBeenCalled()
@@ -161,9 +161,9 @@ describe("ticket activity thread chip", () => {
           <TicketDialog {...dialogProps} threads={[makeThread()]} onOpenThread={onOpenThread} />,
         )
 
-        expect(screen.getByText(/a lié le ticket à/)).toBeTruthy()
+        expect(screen.getByText(/linked the ticket to/)).toBeTruthy()
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Ouvrir le Thread Thread de reprise" })),
+          user.click(screen.getByRole("button", { name: "Open Thread Thread de reprise" })),
         )
         expect(onOpenThread).toHaveBeenCalledWith(threadId)
       }),
@@ -180,7 +180,7 @@ describe("ticket activity thread chip", () => {
     )
 
     expect(screen.getByText("Thread de reprise")).toBeTruthy()
-    expect(screen.queryByRole("button", { name: "Ouvrir le Thread Thread de reprise" })).toBeNull()
-    expect(screen.getByTitle("Thread supprimé — ouverture impossible")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Open Thread Thread de reprise" })).toBeNull()
+    expect(screen.getByTitle("Deleted Thread — cannot open")).toBeTruthy()
   })
 })

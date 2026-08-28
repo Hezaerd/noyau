@@ -67,32 +67,32 @@ export const resolveDefaultBranchActionCopy = (input: {
   readonly branchName: string
   readonly includesCommit: boolean
 }): DefaultBranchActionCopy => {
-  const suffix = ` sur « ${input.branchName} ».`
+  const suffix = ` on "${input.branchName}".`
   if (input.action === "push" || input.action === "commit_push") {
     if (input.includesCommit) {
       return {
-        title: "Commit & push sur la branche par défaut ?",
-        description: `Ça va committer et pousser les changements${suffix}`,
-        continueLabel: `Commit & push sur ${input.branchName}`,
+        title: "Commit & push to the default branch?",
+        description: `This will commit and push the changes${suffix}`,
+        continueLabel: `Commit & push to ${input.branchName}`,
       }
     }
     return {
-      title: "Push sur la branche par défaut ?",
-      description: `Ça va pousser les commits locaux${suffix}`,
-      continueLabel: `Push sur ${input.branchName}`,
+      title: "Push to the default branch?",
+      description: `This will push local commits${suffix}`,
+      continueLabel: `Push to ${input.branchName}`,
     }
   }
   if (input.includesCommit) {
     return {
-      title: "Commit, push & PR depuis la branche par défaut ?",
-      description: `Ça va committer, pousser et ouvrir une PR${suffix}`,
-      continueLabel: "Commit, push & créer une PR",
+      title: "Commit, push & PR from the default branch?",
+      description: `This will commit, push, and open a PR${suffix}`,
+      continueLabel: "Commit, push & create a PR",
     }
   }
   return {
-    title: "PR depuis la branche par défaut ?",
-    description: `Ça va pousser les commits locaux et ouvrir une PR${suffix}`,
-    continueLabel: "Créer une PR",
+    title: "PR from the default branch?",
+    description: `This will push local commits and open a PR${suffix}`,
+    continueLabel: "Create a PR",
   }
 }
 
@@ -138,7 +138,7 @@ export const buildMenuItems = (
   if (!gitStatus.hasPrimaryRemote) {
     items.push({
       id: "publish",
-      label: "Créer le repo",
+      label: "Create the repo",
       disabled: isBusy,
       icon: "publish",
       kind: "open_publish",
@@ -156,7 +156,7 @@ export const buildMenuItems = (
     },
     {
       id: "pr",
-      label: "Créer une PR",
+      label: "Create a PR",
       disabled: !canCreatePr,
       icon: "pr",
       kind: "open_dialog",
@@ -172,14 +172,14 @@ export const resolveQuickAction = (
   isBusy: boolean,
 ): GitQuickAction => {
   if (isBusy) {
-    return { label: "Commit", disabled: true, kind: "show_hint", hint: "Action Git en cours." }
+    return { label: "Commit", disabled: true, kind: "show_hint", hint: "Git action in progress." }
   }
   if (gitStatus === null || !gitStatus.isRepo) {
     return {
       label: "Commit",
       disabled: true,
       kind: "show_hint",
-      hint: "Git status indisponible.",
+      hint: "Git status unavailable.",
     }
   }
   const hasChanges = gitStatus.hasWorkingTreeChanges
@@ -188,7 +188,7 @@ export const resolveQuickAction = (
     if (hasChanges) {
       return { label: "Commit", disabled: false, kind: "open_dialog", action: "commit" }
     }
-    return { label: "Créer le repo", disabled: false, kind: "open_publish" }
+    return { label: "Create the repo", disabled: false, kind: "open_publish" }
   }
 
   if (gitStatus.refName === null) {
@@ -196,7 +196,7 @@ export const resolveQuickAction = (
       label: "Commit",
       disabled: true,
       kind: "show_hint",
-      hint: "Crée et checkout une branche avant de pousser ou d’ouvrir une PR.",
+      hint: "Create and check out a branch before pushing or opening a PR.",
     }
   }
 
@@ -222,7 +222,7 @@ export const resolveQuickAction = (
       label: "Push",
       disabled: true,
       kind: "show_hint",
-      hint: "Aucun commit local à pousser.",
+      hint: "No local commits to push.",
     }
   }
 
@@ -231,7 +231,7 @@ export const resolveQuickAction = (
       label: "Commit",
       disabled: true,
       kind: "show_hint",
-      hint: "La branche a divergé. Rebase ou merge d’abord.",
+      hint: "The branch has diverged. Rebase or merge first.",
     }
   }
 
@@ -240,7 +240,7 @@ export const resolveQuickAction = (
       label: "Commit",
       disabled: true,
       kind: "show_hint",
-      hint: "La branche est en retard. Rebase ou merge d’abord.",
+      hint: "The branch is behind. Rebase or merge first.",
     }
   }
 
@@ -249,7 +249,7 @@ export const resolveQuickAction = (
       return { label: "Push", disabled: false, kind: "run_action", action: "push" }
     }
     return {
-      label: "Push & créer une PR",
+      label: "Push & create a PR",
       disabled: false,
       kind: "open_dialog",
       action: "create_pr",
@@ -258,7 +258,7 @@ export const resolveQuickAction = (
 
   if (!isDefaultRef && gitStatus.hasUpstream && !hasOpenPr) {
     return {
-      label: "Créer une PR",
+      label: "Create a PR",
       disabled: false,
       kind: "open_dialog",
       action: "create_pr",
@@ -269,6 +269,6 @@ export const resolveQuickAction = (
     label: "Commit",
     disabled: true,
     kind: "show_hint",
-    hint: "Branche à jour. Rien à faire.",
+    hint: "Branch is up to date. Nothing to do.",
   }
 }

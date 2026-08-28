@@ -23,7 +23,7 @@ export function ThreadMarkdownTicketChip({
       href={href}
       className={cn(className, TRANSCRIPT_FILE_CHIP_CLASS_NAME)}
       data-thread-markdown-ticket-chip=""
-      aria-label={columnName === undefined ? `Ouvrir ${title}` : `Ouvrir ${title} · ${columnName}`}
+      aria-label={columnName === undefined ? `Open ${title}` : `Open ${title} · ${columnName}`}
       onClick={(event) => {
         if (onOpenTicket === undefined) {
           return

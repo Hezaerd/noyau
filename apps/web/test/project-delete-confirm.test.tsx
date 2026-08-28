@@ -33,13 +33,13 @@ describe("project delete confirmation", () => {
         )
 
         expect(screen.getByRole("alertdialog")).toBeTruthy()
-        expect(screen.getByText(/quittera Noyau/)).toBeTruthy()
-        expect(screen.getByText(/n’est pas modifié/)).toBeTruthy()
+        expect(screen.getByText(/will leave Noyau/)).toBeTruthy()
+        expect(screen.getByText(/is not modified/)).toBeTruthy()
         expect(screen.queryByText(/Thread/)).toBeNull()
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Annuler" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Cancel" })))
         expect(onConfirm).not.toHaveBeenCalled()
 
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Retirer" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Remove" })))
         expect(onConfirm).toHaveBeenCalledTimes(1)
       }),
     ))
@@ -54,7 +54,7 @@ describe("project delete confirmation", () => {
         onConfirm={vi.fn()}
       />,
     )
-    expect(screen.getByText(/Son Thread disparaîtra/)).toBeTruthy()
+    expect(screen.getByText(/Its Thread will disappear/)).toBeTruthy()
 
     rerender(
       <ProjectDeleteConfirmDialog
@@ -65,6 +65,6 @@ describe("project delete confirmation", () => {
         onConfirm={vi.fn()}
       />,
     )
-    expect(screen.getByText(/Ses 3 Threads disparaîtront/)).toBeTruthy()
+    expect(screen.getByText(/Its 3 Threads will disappear/)).toBeTruthy()
   })
 })

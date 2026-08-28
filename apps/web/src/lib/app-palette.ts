@@ -8,7 +8,7 @@ export interface PaletteItem {
 
 export interface PaletteGroup<TItem extends PaletteItem> {
   readonly id: "recents" | "actions" | "navigation" | "tickets" | "threads"
-  readonly label: "Récents" | "Actions" | "Navigation" | "Tickets" | "Threads"
+  readonly label: "Recents" | "Actions" | "Navigation" | "Tickets" | "Threads"
   readonly items: ReadonlyArray<TItem>
 }
 
@@ -73,7 +73,7 @@ const normalizePaletteQuery = (value: string): string =>
   value
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("fr")
+    .toLocaleLowerCase("en")
     .trim()
 
 export const filterPaletteGroups = <TItem extends SearchablePaletteItem>(
@@ -124,7 +124,7 @@ export const buildPaletteGroups = <TItem extends PaletteItem>(
   const navigation = navigationActions.filter((action) => !recentIdSet.has(action.id))
 
   const groups: ReadonlyArray<PaletteGroup<TItem>> = [
-    { id: "recents", label: "Récents", items: recents },
+    { id: "recents", label: "Recents", items: recents },
     { id: "actions", label: "Actions", items: actions },
     { id: "navigation", label: "Navigation", items: navigation },
   ]

@@ -16,9 +16,9 @@ const CHIP_CLASS_NAME = `${FILE_CHIP_CLASS_NAME} max-w-40 align-middle text-[11p
 const availabilityHint = (availability: TicketActivityThreadRef["availability"]): string => {
   switch (availability) {
     case "archived":
-      return "Thread supprimé — ouverture impossible"
+      return "Deleted Thread — cannot open"
     case "missing":
-      return "Thread supprimé — ouverture impossible"
+      return "Deleted Thread — cannot open"
     case "active":
       return ""
   }
@@ -40,7 +40,7 @@ export function TicketActivityThreadChip({
         type="button"
         className={cn(TRANSCRIPT_FILE_CHIP_CLASS_NAME, "max-w-40 align-middle text-[11px]")}
         data-ticket-activity-thread-chip=""
-        aria-label={`Ouvrir le Thread ${thread.title}`}
+        aria-label={`Open Thread ${thread.title}`}
         onPointerEnter={() => prefetchThreadSnapshot(ThreadId.make(thread.threadId))}
         onFocus={() => prefetchThreadSnapshot(ThreadId.make(thread.threadId))}
         onClick={() => onOpenThread(ThreadId.make(thread.threadId))}

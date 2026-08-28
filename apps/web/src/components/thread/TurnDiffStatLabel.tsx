@@ -32,7 +32,7 @@ export const TurnDiffStatLabel = memo(function TurnDiffStatLabel({
   return (
     <span
       role="group"
-      aria-label={`${additions} additions, ${deletions} suppressions`}
+      aria-label={`${additions} additions, ${deletions} deletions`}
       className={cn(
         layout === "inline"
           ? "inline-flex items-center gap-1 align-middle tabular-nums"

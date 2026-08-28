@@ -59,12 +59,12 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6 [-webkit-app-region:no-drag]"
       role="dialog"
       aria-modal="true"
-      aria-label="Aperçu agrandi"
+      aria-label="Enlarged preview"
     >
       <button
         type="button"
         className="absolute inset-0 z-0 cursor-zoom-out"
-        aria-label="Fermer l’aperçu"
+        aria-label="Close preview"
         onClick={onClose}
       />
       {preview.images.length > 1 ? (
@@ -73,7 +73,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
           size="icon"
           variant="ghost"
           className="absolute top-1/2 left-2 z-20 -translate-y-1/2 text-white/90 hover:bg-white/10 hover:text-white sm:left-6"
-          aria-label="Image précédente"
+          aria-label="Previous image"
           onClick={() => {
             navigateImage(-1)
           }}
@@ -88,7 +88,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
           variant="ghost"
           className="absolute top-2 right-2"
           onClick={onClose}
-          aria-label="Fermer l’aperçu"
+          aria-label="Close preview"
         >
           <XIcon />
         </Button>
@@ -109,7 +109,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
           size="icon"
           variant="ghost"
           className="absolute top-1/2 right-2 z-20 -translate-y-1/2 text-white/90 hover:bg-white/10 hover:text-white sm:right-6"
-          aria-label="Image suivante"
+          aria-label="Next image"
           onClick={() => {
             navigateImage(1)
           }}

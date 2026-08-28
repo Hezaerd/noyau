@@ -542,7 +542,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       (baseBranch === null || baseBranch.trim() === "")
     ) {
       setComposerFailure(
-        presentFailure(invalidInputFailure("Choisis une branche de base avant d'envoyer."), {
+        presentFailure(invalidInputFailure("Choose a base branch before sending."), {
           operation: "thread.turn.start",
           scope: "field",
           initiatedByUser: true,

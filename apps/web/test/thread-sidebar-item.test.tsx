@@ -108,7 +108,7 @@ describe("ThreadSidebarItem", () => {
     const activity = link.querySelector("[data-slot='thread-sidebar-activity']")
     const project = link.querySelector("[data-slot='thread-sidebar-project']")
     const lastActivity = link.querySelector("[data-slot='thread-sidebar-last-activity']")
-    const pin = screen.getByLabelText("Épinglé")
+    const pin = screen.getByLabelText("Pinned")
     expect(activity).not.toBeNull()
     expect(project).not.toBeNull()
     expect(project?.textContent).toBe("noyau")
@@ -121,7 +121,7 @@ describe("ThreadSidebarItem", () => {
     )
     expect(activity?.nextElementSibling?.textContent).toBe("Stores Zustand t3code vs shell")
     expect(lastActivity?.querySelector("[aria-hidden='true']")).toBeNull()
-    expect(lastActivity?.textContent).toMatch(/^Dernière activité : /)
+    expect(lastActivity?.textContent).toMatch(/^Last activity: /)
   })
 
   it("replaces the elapsed timer with status and keeps the pin on its left", () => {
@@ -214,14 +214,14 @@ describe("ThreadSidebarItem", () => {
 
     const link = screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ })
     const status = screen.getByRole("status")
-    const pin = screen.getByLabelText("Épinglé")
+    const pin = screen.getByLabelText("Pinned")
     expect(link.querySelector("[data-slot='thread-sidebar-last-activity']")).toBeNull()
     expect(link.querySelector("[data-slot='thread-sidebar-project']")?.contains(status)).toBe(false)
     expect(pin.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
-    expect(status.textContent).toMatch(/En cours/)
-    expect(screen.queryByRole("button", { name: "Classer le Thread" })).toBeNull()
+    expect(status.textContent).toMatch(/In progress/)
+    expect(screen.queryByRole("button", { name: "Settle Thread" })).toBeNull()
   })
 
   it("prefetches a cold Thread on pointer enter, not the open one", () => {
@@ -257,7 +257,7 @@ describe("ThreadSidebarItem", () => {
     expect(prefetchThreadSnapshot).not.toHaveBeenCalled()
   })
 
-  it("swaps last activity for Classer on a settleable Thread and does not open it", () => {
+  it("swaps last activity for Settle on a settleable Thread and does not open it", () => {
     const onSelect = vi.fn()
     render(
       <AppAtomRegistryProvider>
@@ -279,7 +279,7 @@ describe("ThreadSidebarItem", () => {
       </AppAtomRegistryProvider>,
     )
 
-    const settle = screen.getByRole("button", { name: "Classer le Thread" })
+    const settle = screen.getByRole("button", { name: "Settle Thread" })
     const lastActivity = screen
       .getByRole("link", { name: /Stores Zustand t3code vs shell/ })
       .querySelector("[data-slot='thread-sidebar-last-activity']")
@@ -293,7 +293,7 @@ describe("ThreadSidebarItem", () => {
     expect(onSelect).not.toHaveBeenCalled()
   })
 
-  it("offers Déclasser on a settled Thread", () => {
+  it("offers Unsettle on a settled Thread", () => {
     render(
       <AppAtomRegistryProvider>
         <SidebarProvider>
@@ -313,7 +313,7 @@ describe("ThreadSidebarItem", () => {
         </SidebarProvider>
       </AppAtomRegistryProvider>,
     )
-    fireEvent.click(screen.getByRole("button", { name: "Déclasser le Thread" }))
+    fireEvent.click(screen.getByRole("button", { name: "Unsettle Thread" }))
     expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, false)
   })
 })

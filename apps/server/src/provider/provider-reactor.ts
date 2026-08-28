@@ -284,7 +284,7 @@ export const makeProviderReactor = (
                 threadId: threadEvent.threadId,
                 turnId: threadEvent.turnId,
                 state: "error",
-                lastError: "Pièce jointe illisible.",
+                lastError: "Unreadable attachment.",
               }).pipe(
                 Effect.provideService(SqlClient, sql),
                 Effect.provideService(Crypto.Crypto, crypto),

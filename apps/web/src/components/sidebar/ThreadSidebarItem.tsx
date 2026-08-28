@@ -165,7 +165,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
           ref={titleInputRef}
           size="sm"
           value={title}
-          aria-label="Titre du Thread"
+          aria-label="Thread title"
           onChange={(event) => setTitle(event.target.value)}
           onBlur={commitRename}
           onKeyDown={(event) => {
@@ -248,11 +248,11 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
             }}
           >
             <PencilIcon />
-            Renommer
+            Rename
           </ContextMenuItem>
           <ContextMenuItem closeOnClick onClick={() => toggleThreadPinned(thread.id)}>
             {pinned ? <PinOffIcon /> : <PinIcon />}
-            {pinned ? "Désépingler" : "Épingler"}
+            {pinned ? "Unpin" : "Pin"}
             <ContextMenuShortcut hotkey={pinHotkey} />
           </ContextMenuItem>
           <ContextMenuItem
@@ -261,7 +261,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
             onClick={() => dispatchThreadSettle(thread, !settled)}
           >
             {settled ? <CircleDotIcon /> : <CircleCheckIcon />}
-            {settled ? "Déclasser" : "Classer"}
+            {settled ? "Unsettle" : "Settle"}
             <ContextMenuShortcut hotkey={settleHotkey} />
           </ContextMenuItem>
           <ContextMenuSeparator />
@@ -271,7 +271,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
             onClick={() => requestAnimationFrame(() => setDeleteConfirmOpen(true))}
           >
             <Trash2Icon />
-            Supprimer
+            Delete
           </ContextMenuItem>
         </ContextMenuPopup>
       </ContextMenu>
@@ -330,7 +330,7 @@ function ThreadSidebarItemContent({
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-1">
           {pinned ? (
-            <PinIcon aria-label="Épinglé" className="size-3 shrink-0 text-sidebar-foreground/55" />
+            <PinIcon aria-label="Pinned" className="size-3 shrink-0 text-sidebar-foreground/55" />
           ) : null}
           <span className="grid min-h-4 justify-items-end">
             <span
@@ -343,8 +343,8 @@ function ThreadSidebarItemContent({
               {activity !== null ? (
                 <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
               ) : lastActivityAtMs === null ? null : (
-                <span data-slot="thread-sidebar-last-activity" title="Dernière activité">
-                  <span className="sr-only">Dernière activité : </span>
+                <span data-slot="thread-sidebar-last-activity" title="Last activity">
+                  <span className="sr-only">Last activity: </span>
                   <LiveElapsed
                     startedAtMs={lastActivityAtMs}
                     format={formatAgoCompactLabel}
@@ -369,7 +369,7 @@ function ThreadSidebarItemContent({
         ) : (
           <>
             {worktreePath === null ? (
-              <GitBranchIcon aria-label="Branche" className="size-3 shrink-0 opacity-70" />
+              <GitBranchIcon aria-label="Branch" className="size-3 shrink-0 opacity-70" />
             ) : (
               <FolderGit2Icon aria-label="Worktree" className="size-3 shrink-0 opacity-70" />
             )}
@@ -397,7 +397,7 @@ function ThreadSidebarSettleButton({
       type="button"
       tabIndex={-1}
       data-slot="thread-sidebar-settle"
-      aria-label={settled ? "Déclasser le Thread" : "Classer le Thread"}
+      aria-label={settled ? "Unsettle Thread" : "Settle Thread"}
       className="col-start-1 row-start-1 inline-flex cursor-pointer items-center gap-0.5 self-center whitespace-nowrap text-[11px] font-medium text-sidebar-foreground/70 opacity-0 blur-[2px] transition-[opacity,filter] duration-150 ease-out pointer-events-none motion-reduce:transition-none [@media(hover:hover)]:group-hover/thread-item:pointer-events-auto [@media(hover:hover)]:group-hover/thread-item:opacity-100 [@media(hover:hover)]:group-hover/thread-item:blur-none"
       onClick={(event) => {
         event.preventDefault()
@@ -414,7 +414,7 @@ function ThreadSidebarSettleButton({
       ) : (
         <CircleCheckIcon aria-hidden className="size-3 shrink-0" />
       )}
-      {settled ? "Déclasser" : "Classer"}
+      {settled ? "Unsettle" : "Settle"}
     </button>
   )
 }

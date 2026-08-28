@@ -71,11 +71,11 @@ const unexpectedFailure = (): AppFailure => ({
 const turnDiffUnavailableMessage = (error: TurnDiffUnavailable): string => {
   switch (error.reason) {
     case "turn-not-found":
-      return "Ce Turn n'existe plus."
+      return "This Turn no longer exists."
     case "not-captured":
-      return "Aucun Checkpoint n'a été capturé pour ce Turn."
+      return "No Checkpoint was captured for this Turn."
     case "checkpoint-missing":
-      return "Les snapshots git de ce Turn ne sont plus disponibles."
+      return "This Turn's git snapshots are no longer available."
   }
 }
 

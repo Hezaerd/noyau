@@ -70,7 +70,7 @@ describe("thread message meta", () => {
     renderItem(userItem)
 
     expect(screen.getByText("Parfait c'est lock-in")).toBeTruthy()
-    const copy = screen.getByRole("button", { name: "Copier le message" })
+    const copy = screen.getByRole("button", { name: "Copy message" })
     expect(copy).toBeTruthy()
     expect(copy.closest("[data-slot='message-footer']")?.className).toContain(
       "group-hover/message:opacity-100",
@@ -82,10 +82,10 @@ describe("thread message meta", () => {
 
   it("keeps copy on a settled assistant and hides it while streaming", () => {
     const settled = renderItem(assistantItem)
-    expect(screen.getByRole("button", { name: "Copier le message" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Copy message" })).toBeTruthy()
     settled.unmount()
 
     renderItem(assistantItem, true)
-    expect(screen.queryByRole("button", { name: "Copier le message" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Copy message" })).toBeNull()
   })
 })

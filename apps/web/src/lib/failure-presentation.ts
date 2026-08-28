@@ -59,81 +59,81 @@ const assertNever = (value: never): never => {
 const rejectionMessage = (rejection: Rejection): string => {
   switch (rejection._tag) {
     case "ProjectAlreadyExists":
-      return "Ce Project existe déjà."
+      return "This Project already exists."
     case "ProjectNotFound":
-      return "Ce Project n’existe plus."
+      return "This Project no longer exists."
     case "WorkspaceRootConflict":
-      return "Ce dossier est déjà relié à un autre Project."
+      return "This folder is already linked to another Project."
     case "WorkspaceRootUnavailable":
-      return "Le dossier du Project n’est plus accessible."
+      return "The Project folder is no longer reachable."
     case "WorkspaceRootNotFound":
-      return "Le dossier sélectionné est introuvable."
+      return "The selected folder could not be found."
     case "WorkspaceRootNotDirectory":
-      return "Le chemin sélectionné n’est pas un dossier."
+      return "The selected path is not a folder."
     case "ProjectUnavailable":
-      return "Ce Project est indisponible tant que son dossier n’est pas relié."
+      return "This Project is unavailable until its folder is linked."
     case "TicketAlreadyExists":
-      return "Ce Ticket existe déjà."
+      return "This Ticket already exists."
     case "TicketNotFound":
-      return "Ce Ticket n’existe plus."
+      return "This Ticket no longer exists."
     case "KanbanColumnAlreadyExists":
-      return "Cette colonne existe déjà."
+      return "This column already exists."
     case "KanbanColumnNotFound":
-      return "Cette colonne n’existe plus."
+      return "This column no longer exists."
     case "InvalidTicketPlacement":
-      return "Le Ticket ne peut pas être placé à cet endroit."
+      return "The Ticket cannot be placed there."
     case "InvalidColumnPlacement":
-      return "La colonne ne peut pas être placée à cet endroit."
+      return "The column cannot be placed there."
     case "ProtectedDoneColumn":
-      return "La colonne Done est protégée."
+      return "The Done column is protected."
     case "ColumnDestinationRequired":
-      return "Choisis une colonne de destination."
+      return "Choose a destination column."
     case "DoneColumnDestinationForbidden":
-      return "Choisis une colonne active comme destination."
+      return "Choose an active column as the destination."
     case "DoneColumnCreationForbidden":
-      return "Un Ticket ne peut pas être créé directement dans Done."
+      return "A Ticket cannot be created directly in Done."
     case "TicketDependencyAlreadyExists":
-      return "Cette dépendance existe déjà."
+      return "This dependency already exists."
     case "TicketDependencyNotFound":
-      return "Cette dépendance n’existe plus."
+      return "This dependency no longer exists."
     case "TicketSelfDependency":
-      return "Un Ticket ne peut pas dépendre de lui-même."
+      return "A Ticket cannot depend on itself."
     case "TicketDependencyCycle":
-      return "Cette dépendance créerait une boucle."
+      return "This dependency would create a cycle."
     case "TicketAlreadyArchived":
-      return "Ce Ticket est déjà archivé."
+      return "This Ticket is already archived."
     case "TicketNotArchived":
-      return "Ce Ticket n’est pas archivé."
+      return "This Ticket is not archived."
     case "TicketAlreadyCompleted":
-      return "Ce Ticket est déjà terminé."
+      return "This Ticket is already completed."
     case "TicketNotCompleted":
-      return "Ce Ticket n’est pas terminé."
+      return "This Ticket is not completed."
     case "OpenDependenciesConfirmationRequired":
-      return "Ce Ticket dépend encore de Tickets ouverts. Confirme sa complétion pour continuer."
+      return "This Ticket still depends on open Tickets. Confirm completion to continue."
     case "TicketThreadAlreadyLinked":
-      return "Ce Thread est déjà lié au Ticket."
+      return "This Thread is already linked to the Ticket."
     case "TicketThreadNotLinked":
-      return "Ce Thread n’est plus lié au Ticket."
+      return "This Thread is no longer linked to the Ticket."
     case "TicketThreadProjectMismatch":
-      return "Le Ticket et le Thread n’appartiennent pas au même Project."
+      return "The Ticket and Thread do not belong to the same Project."
     case "ThreadAlreadyExists":
-      return "Ce Thread existe déjà."
+      return "This Thread already exists."
     case "ThreadNotFound":
-      return "Ce Thread n’existe plus."
+      return "This Thread no longer exists."
     case "ThreadArchived":
-      return "Ce Thread n’est plus disponible."
+      return "This Thread is no longer available."
     case "ThreadNotSettleable":
-      return "Ce Thread a encore une activité en cours et ne peut pas être classé."
+      return "This Thread still has activity in progress and cannot be settled."
     case "TurnAlreadyActive":
-      return "Un Turn est déjà en cours dans ce Thread."
+      return "A Turn is already running in this Thread."
     case "TurnNotFound":
-      return "Ce Turn n’existe plus."
+      return "This Turn no longer exists."
     case "ImageAttachmentRejected":
-      return "Cette image n’a pas pu être jointe."
+      return "This image could not be attached."
     case "ApprovalRequestNotFound":
-      return "Cette demande d’approbation n’est plus active."
+      return "This approval request is no longer active."
     case "SessionNotRunning":
-      return "La Session de ce Thread n’est pas en cours."
+      return "This Thread's Session is not running."
     default:
       return assertNever(rejection)
   }
@@ -162,10 +162,10 @@ export const presentFailure = (
         tone: "warning",
         title:
           failure.reason === "conflict"
-            ? "Le skill Noyau contient des modifications locales."
+            ? "The Noyau skill has local changes."
             : failure.reason === "unsafe-path"
-              ? "Le dossier des skills sort du Project."
-              : "Le dossier des skills n’est pas accessible.",
+              ? "The skills folder is outside the Project."
+              : "The skills folder is not reachable.",
         persistence: "until-dismissed",
         dedupeKey: dedupeKey(context),
       }
@@ -173,21 +173,21 @@ export const presentFailure = (
         ? {
             ...integrationPresentation,
             description:
-              "Noyau ne l’écrasera pas. Déplace ou réconcilie le dossier existant avant de réessayer.",
+              "Noyau will not overwrite it. Move or reconcile the existing folder before retrying.",
           }
         : integrationPresentation
     case "Interrupted":
       return {
         surface: "silent",
         tone: "warning",
-        title: "Opération interrompue",
+        title: "Operation interrupted",
         persistence: "transient",
       }
     case "InvalidInput":
       return {
         surface: surfaceFor(context),
         tone: "warning",
-        title: failure.message ?? "Vérifie les informations saisies.",
+        title: failure.message ?? "Check the information you entered.",
         persistence: "until-dismissed",
         dedupeKey: dedupeKey(context),
       }
@@ -208,25 +208,25 @@ export const presentFailure = (
         dedupeKey: dedupeKey(context),
       }
       return rebind
-        ? { ...presentation, recovery: { action: "rebind", label: "Relier le dossier" } }
+        ? { ...presentation, recovery: { action: "rebind", label: "Link folder" } }
         : presentation
     }
     case "CommandConflict":
       return {
         surface: surfaceFor(context),
         tone: "critical",
-        title: "Cette opération entre en conflit avec une tentative précédente.",
-        description: "Recharge les données avant de réessayer.",
+        title: "This operation conflicts with a previous attempt.",
+        description: "Reload the data before retrying.",
         persistence: "until-dismissed",
-        recovery: { action: "reload", label: "Recharger" },
+        recovery: { action: "reload", label: "Reload" },
         dedupeKey: dedupeKey(context),
       }
     case "Unauthorized":
       return {
         surface: context.hasUsableData ? "banner" : "page",
         tone: "critical",
-        title: "La connexion locale n’est plus autorisée.",
-        description: "Redémarre Noyau pour renouveler la session locale.",
+        title: "The local connection is no longer authorized.",
+        description: "Restart Noyau to renew the local session.",
         persistence: "until-recovered",
         dedupeKey: dedupeKey(context),
       }
@@ -235,8 +235,8 @@ export const presentFailure = (
         return {
           surface: surfaceFor(context),
           tone: "warning",
-          title: "L’opération n’a pas pu être confirmée.",
-          description: "Noyau actualise l’état avant une nouvelle tentative.",
+          title: "The operation could not be confirmed.",
+          description: "Noyau is refreshing state before another attempt.",
           persistence: "until-dismissed",
           dedupeKey: dedupeKey(context),
         }
@@ -244,10 +244,10 @@ export const presentFailure = (
       return {
         surface: context.hasUsableData ? "banner" : "page",
         tone: "warning",
-        title: "Le control plane est temporairement indisponible.",
-        description: `Service concerné : ${failure.service}.`,
+        title: "The control plane is temporarily unavailable.",
+        description: `Affected service: ${failure.service}.`,
         persistence: "until-recovered",
-        recovery: { action: "retry", label: "Réessayer" },
+        recovery: { action: "retry", label: "Retry" },
         dedupeKey: dedupeKey(context),
       }
     case "TransportFailure":
@@ -255,8 +255,8 @@ export const presentFailure = (
         return {
           surface: surfaceFor(context),
           tone: "warning",
-          title: "La connexion a été interrompue pendant l’opération.",
-          description: "Noyau actualise l’état avant une nouvelle tentative.",
+          title: "The connection dropped during the operation.",
+          description: "Noyau is refreshing state before another attempt.",
           persistence: "until-dismissed",
           dedupeKey: dedupeKey(context),
         }
@@ -264,22 +264,22 @@ export const presentFailure = (
       return {
         surface: context.hasUsableData ? "banner" : "page",
         tone: "warning",
-        title: context.hasUsableData ? "Reconnexion au control plane…" : "Connexion impossible",
+        title: context.hasUsableData ? "Reconnecting to the control plane…" : "Unable to connect",
         description: context.hasUsableData
-          ? "Les données affichées restent disponibles pendant la reconnexion."
-          : "Noyau essaie de rétablir la connexion locale.",
+          ? "Shown data stays available while reconnecting."
+          : "Noyau is trying to restore the local connection.",
         persistence: "until-recovered",
-        recovery: { action: "retry", label: "Réessayer" },
+        recovery: { action: "retry", label: "Retry" },
         dedupeKey: dedupeKey(context),
       }
     case "UnexpectedFailure":
       return {
         surface: context.hasUsableData ? "banner" : "page",
         tone: "critical",
-        title: "Une erreur inattendue est survenue.",
+        title: "An unexpected error occurred.",
         description: `Incident ${failure.incidentId}.`,
         persistence: "until-dismissed",
-        recovery: { action: "reload", label: "Recharger" },
+        recovery: { action: "reload", label: "Reload" },
         dedupeKey: dedupeKey(context),
       }
     default:

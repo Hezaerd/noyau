@@ -299,7 +299,7 @@ export function SidebarTrigger({
       variant="ghost"
     >
       {isOpen ? <PanelLeftCloseIcon /> : <PanelLeftIcon />}
-      <span className="sr-only">Basculer la sidebar</span>
+      <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
 }

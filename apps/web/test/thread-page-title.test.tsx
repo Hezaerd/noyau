@@ -56,7 +56,7 @@ describe("Thread chrome title rename", () => {
 
     await user.dblClick(screen.getByRole("heading", { name: threadTitle }))
 
-    expect(screen.getByRole("textbox", { name: "Titre du Thread" })).toBeTruthy()
+    expect(screen.getByRole("textbox", { name: "Thread title" })).toBeTruthy()
     expect(screen.queryByRole("heading", { name: threadTitle })).toBeNull()
   })
 
@@ -65,7 +65,7 @@ describe("Thread chrome title rename", () => {
 
     fireEvent.keyDown(window, { key: "F2" })
 
-    expect(screen.getByRole("textbox", { name: "Titre du Thread" })).toBeTruthy()
+    expect(screen.getByRole("textbox", { name: "Thread title" })).toBeTruthy()
   })
 
   it("commits a new title and leaves the chrome heading", async () => {
@@ -73,7 +73,7 @@ describe("Thread chrome title rename", () => {
     renderTitle()
 
     await user.dblClick(screen.getByRole("heading", { name: threadTitle }))
-    const input = screen.getByRole("textbox", { name: "Titre du Thread" })
+    const input = screen.getByRole("textbox", { name: "Thread title" })
     await user.clear(input)
     await user.type(input, "Titre mis à jour")
     await user.keyboard("{Enter}")
@@ -105,7 +105,7 @@ describe("Thread chrome title rename", () => {
     await user.dblClick(screen.getByRole("heading", { name: "Nouveau Thread" }))
     fireEvent.keyDown(window, { key: "F2" })
 
-    expect(screen.queryByRole("textbox", { name: "Titre du Thread" })).toBeNull()
+    expect(screen.queryByRole("textbox", { name: "Thread title" })).toBeNull()
     expect(buildAndDispatchCommand).not.toHaveBeenCalled()
   })
 })

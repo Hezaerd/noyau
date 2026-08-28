@@ -79,8 +79,8 @@ export function GeneralSettingsPanel(): ReactElement {
       <SettingsSection id="projects" title="Projects">
         <SettingsRow
           id="project-folder-start-directory"
-          title="Ajouter un Project commence dans"
-          description='Laisse vide pour ouvrir le navigateur de dossiers dans "~/".'
+          title="Add a Project starts in"
+          description='Leave empty to open the folder picker in "~/".'
           control={
             <div className="flex gap-1.5">
               {startDirectory !== "" ? (
@@ -88,7 +88,7 @@ export function GeneralSettingsPanel(): ReactElement {
                   type="button"
                   size="icon-xs"
                   variant="ghost"
-                  aria-label="Rétablir le dossier de départ des Projects"
+                  aria-label="Reset the Project start folder"
                   onClick={() => {
                     setProjectFolderStartDirectory("")
                     setDraft(undefined)
@@ -98,7 +98,7 @@ export function GeneralSettingsPanel(): ReactElement {
                 </Button>
               ) : null}
               <Input
-                aria-label="Dossier de départ pour ajouter un Project"
+                aria-label="Start folder when adding a Project"
                 className="w-full sm:w-72"
                 placeholder="~/"
                 spellCheck={false}
@@ -119,8 +119,8 @@ export function GeneralSettingsPanel(): ReactElement {
       <SettingsSection id="threads" title="Threads">
         <SettingsRow
           id="default-thread-env-mode"
-          title="Checkout d'un nouveau Thread"
-          description="Intention de draft au premier Turn. Le Composer peut encore la changer."
+          title="Checkout for a new Thread"
+          description="Draft intent for the first Turn. The Composer can still change it."
           control={
             <Select
               items={THREAD_ENV_MODE_ITEMS}
@@ -135,7 +135,7 @@ export function GeneralSettingsPanel(): ReactElement {
                 id={threadEnvModeSelectId}
                 size="sm"
                 className="w-full sm:w-52"
-                aria-label="Checkout d'un nouveau Thread"
+                aria-label="Checkout for a new Thread"
               >
                 <SelectValue />
               </SelectTrigger>
@@ -151,39 +151,39 @@ export function GeneralSettingsPanel(): ReactElement {
         />
         <SettingsRow
           id="auto-remove-merged-worktree"
-          title="Supprimer le worktree après merge"
-          description="Retire le worktree lié quand la PR live est fusionnée. Le ⌘⇧ clic du sélecteur reste disponible."
+          title="Remove worktree after merge"
+          description="Remove the linked worktree when the live PR is merged. ⌘⇧ click in the selector remains available."
           control={
             <Switch
               id={autoRemoveMergedWorktreeSwitchId}
               checked={autoRemoveMergedWorktree}
-              aria-label="Supprimer automatiquement le worktree après merge de PR"
+              aria-label="Automatically remove the worktree after a PR merge"
               onCheckedChange={(checked) => setAutoRemoveMergedWorktreeEnabled(checked)}
             />
           }
         />
         <SettingsRow
           id="auto-settle-merged-threads"
-          title="Classer après merge de PR"
-          description="Classe le Thread quand sa PR live est fusionnée. Une PR fermée classe toujours."
+          title="Settle after PR merge"
+          description="Settle the Thread when its live PR is merged. A closed PR always settles."
           control={
             <Switch
               id={autoSettleOnMergeSwitchId}
               checked={autoSettleOnMerge}
-              aria-label="Classer automatiquement après merge de PR"
+              aria-label="Automatically settle after a PR merge"
               onCheckedChange={(checked) => setAutoSettleOnMergeEnabled(checked)}
             />
           }
         />
         <SettingsRow
           id="auto-settle-inactive-threads"
-          title="Classer après inactivité"
-          description="Classe les Threads sans activité depuis ce nombre de jours."
+          title="Settle after inactivity"
+          description="Settle Threads with no activity for this many days."
           control={
             <Switch
               id={autoSettleAfterDaysSwitchId}
               checked={autoSettleAfterDays !== null}
-              aria-label="Classer automatiquement après inactivité"
+              aria-label="Automatically settle after inactivity"
               onCheckedChange={(checked) =>
                 setAutoSettleAfterDays(checked ? DEFAULT_AUTO_SETTLE_AFTER_DAYS : null)
               }
@@ -194,8 +194,8 @@ export function GeneralSettingsPanel(): ReactElement {
           <SettingsRow
             id="auto-settle-after-days"
             className="bg-muted/20 pl-7 sm:pl-9"
-            title="Jours d'inactivité"
-            description="Une nouvelle activité déclasse automatiquement le Thread."
+            title="Inactivity days"
+            description="New activity automatically unsettles the Thread."
             control={
               <Input
                 id={autoSettleAfterDaysInputId}
@@ -203,7 +203,7 @@ export function GeneralSettingsPanel(): ReactElement {
                 min={1}
                 max={90}
                 className="w-20"
-                aria-label="Jours d'inactivité avant classement"
+                aria-label="Inactivity days before settling"
                 value={String(autoSettleAfterDays)}
                 onChange={(event) => {
                   const next = Number.parseInt(event.target.value, 10)
@@ -216,16 +216,16 @@ export function GeneralSettingsPanel(): ReactElement {
           />
         ) : null}
       </SettingsSection>
-      <SettingsSection id="autre" title="Autre">
+      <SettingsSection id="autre" title="Other">
         <SettingsRow
           id="turn-cue"
-          title="Son de fin de Turn"
-          description="Joue un ding quand un Turn se termine."
+          title="Turn end sound"
+          description="Play a ding when a Turn finishes."
           control={
             <Switch
               id={turnCueSwitchId}
               checked={turnCue.enabled}
-              aria-label="Activer le son de fin de Turn"
+              aria-label="Enable the Turn end sound"
               onCheckedChange={(checked) => {
                 setTurnCueEnabled(checked)
                 if (checked) {
@@ -240,8 +240,8 @@ export function GeneralSettingsPanel(): ReactElement {
             <SettingsRow
               id="turn-cue-sound"
               className="bg-muted/20 pl-7 sm:pl-9"
-              title="Son"
-              description="Joué à la fin d'un Turn."
+              title="Sound"
+              description="Played at the end of a Turn."
               control={
                 <Select
                   items={TURN_CUE_SOUND_ITEMS}
@@ -256,7 +256,7 @@ export function GeneralSettingsPanel(): ReactElement {
                     id={turnCueSoundSelectId}
                     size="sm"
                     className="w-full sm:w-44"
-                    aria-label="Son de fin de Turn"
+                    aria-label="Turn end sound"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -274,13 +274,13 @@ export function GeneralSettingsPanel(): ReactElement {
         </Collapsible>
         <SettingsRow
           id="turn-notification"
-          title="Notifications de fin de Turn"
-          description="Bannière OS quand un Turn se termine hors du Thread ouvert, ou si la fenêtre est en arrière-plan. Le badge compte les Threads en attente."
+          title="Turn end notifications"
+          description="OS banner when a Turn finishes outside the open Thread, or if the window is in the background. The badge counts waiting Threads."
           control={
             <Switch
               id={turnNotificationSwitchId}
               checked={turnNotificationEnabled}
-              aria-label="Activer les notifications de fin de Turn"
+              aria-label="Enable Turn end notifications"
               onCheckedChange={(checked) => setTurnNotificationEnabled(checked)}
             />
           }
@@ -288,12 +288,12 @@ export function GeneralSettingsPanel(): ReactElement {
         <SettingsRow
           id="discord-rich-presence"
           title="Discord Rich Presence"
-          description="Affiche le Project ouvert et le Thread, ou Tableau. Discord desktop doit tourner."
+          description="Show the open Project and Thread, or Board. Discord desktop must be running."
           control={
             <Switch
               id={discordPresenceSwitchId}
               checked={discordPresenceEnabled}
-              aria-label="Activer Discord Rich Presence"
+              aria-label="Enable Discord Rich Presence"
               onCheckedChange={(checked) => setDiscordPresenceEnabled(checked)}
             />
           }

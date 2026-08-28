@@ -25,7 +25,7 @@ const normalizeMentionQuery = (value: string): string =>
   value
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("fr")
+    .toLocaleLowerCase("en")
     .trim()
 
 export const filterComposerTickets = (
@@ -45,7 +45,7 @@ export const filterComposerTickets = (
     if (left.done !== right.done) {
       return left.done ? 1 : -1
     }
-    return left.title.localeCompare(right.title, "fr")
+    return left.title.localeCompare(right.title, "en")
   })
 }
 

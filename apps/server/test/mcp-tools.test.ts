@@ -65,7 +65,7 @@ const snapshot = Schema.decodeSync(BoardSnapshot)({
     {
       id: activeColumnId,
       projectId,
-      name: "En cours",
+      name: "In progress",
       color: "#3B82F6",
       rank: "a0V",
       done: false,
@@ -240,7 +240,7 @@ layer(TestLayer)("Noyau MCP tools", (it) => {
       assert.strictEqual(actionableContent.snapshotSequence, 12)
       assert.deepEqual(
         actionableContent.columns.map((column) => column.name),
-        ["Backlog", "En cours", "Done"],
+        ["Backlog", "In progress", "Done"],
       )
       assert.isTrue(actionableContent.tickets[0]?.actionable)
       assert.isFalse(actionableContent.tickets[0]?.linkedToCurrentThread)

@@ -31,9 +31,9 @@ const ticket: BoardTicket = {
 describe("ticket archive confirmation", () => {
   it("quotes one or several titles", () => {
     expect(formatQuotedList([])).toBe("")
-    expect(formatQuotedList(["Alpha"])).toBe("« Alpha »")
-    expect(formatQuotedList(["Alpha", "Beta"])).toBe("« Alpha » et « Beta »")
-    expect(formatQuotedList(["Alpha", "Beta", "Gamma"])).toBe("« Alpha », « Beta » et « Gamma »")
+    expect(formatQuotedList(["Alpha"])).toBe('"Alpha"')
+    expect(formatQuotedList(["Alpha", "Beta"])).toBe('"Alpha" and "Beta"')
+    expect(formatQuotedList(["Alpha", "Beta", "Gamma"])).toBe('"Alpha", "Beta" and "Gamma"')
   })
 
   it("does not archive until the confirmation is accepted", () =>
@@ -52,11 +52,11 @@ describe("ticket archive confirmation", () => {
         )
 
         expect(screen.getByRole("alertdialog")).toBeTruthy()
-        expect(screen.getByText(/quittera le Tableau/)).toBeTruthy()
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Annuler" })))
+        expect(screen.getByText(/will leave the Board/)).toBeTruthy()
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Cancel" })))
         expect(onConfirm).not.toHaveBeenCalled()
 
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archiver" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archive" })))
         expect(onConfirm).toHaveBeenCalledTimes(1)
       }),
     ))
@@ -72,9 +72,7 @@ describe("ticket archive confirmation", () => {
       />,
     )
 
-    expect(
-      screen.getByText(/encore bloqué par « Définir la frontière RPC du Tableau »/),
-    ).toBeTruthy()
+    expect(screen.getByText(/still blocked by "Définir la frontière RPC du Tableau"/)).toBeTruthy()
   })
 
   it("opens the confirmation from the Ticket Dialog before archiving", () =>
@@ -113,20 +111,20 @@ describe("ticket archive confirmation", () => {
         )
 
         expect(screen.queryByRole("alertdialog")).toBeNull()
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archiver" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archive" })))
         const confirmation = screen.getByRole("alertdialog")
         expect(confirmation).toBeTruthy()
         expect(onArchive).not.toHaveBeenCalled()
 
         yield* Effect.promise(() =>
-          user.click(within(confirmation).getByRole("button", { name: "Annuler" })),
+          user.click(within(confirmation).getByRole("button", { name: "Cancel" })),
         )
         expect(onArchive).not.toHaveBeenCalled()
 
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archiver" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Archive" })))
         yield* Effect.promise(() =>
           user.click(
-            within(screen.getByRole("alertdialog")).getByRole("button", { name: "Archiver" }),
+            within(screen.getByRole("alertdialog")).getByRole("button", { name: "Archive" }),
           ),
         )
         expect(onArchive).toHaveBeenCalledWith(ticket.id)

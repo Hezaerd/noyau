@@ -28,8 +28,7 @@ export const turnNotificationBody = (
   state: TurnSettlementState,
   projectName: string | undefined,
 ): string => {
-  const status =
-    state === "completed" ? "Terminé" : state === "interrupted" ? "Interrompu" : "Erreur"
+  const status = state === "completed" ? "Done" : state === "interrupted" ? "Interrupted" : "Error"
   return projectName === undefined || projectName.length === 0
     ? status
     : `${projectName} · ${status}`

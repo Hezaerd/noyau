@@ -26,21 +26,21 @@ export function ThreadDeleteConfirmDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogPopup>
         <AlertDialogHeader>
-          <AlertDialogTitle>Supprimer le Thread ?</AlertDialogTitle>
+          <AlertDialogTitle>Delete this Thread?</AlertDialogTitle>
           <AlertDialogDescription>
-            « {threadTitle} » sera définitivement retiré du Project. Transcript, Turns et Session
-            disparaissent. Cette action est irréversible.
+            "{threadTitle}" will be permanently removed from the Project. Transcript, Turns, and
+            Session will disappear. This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogClose render={<Button type="button" variant="ghost" />}>
-            Annuler
+            Cancel
           </AlertDialogClose>
           <AlertDialogClose
             render={<Button type="button" variant="destructive" />}
             onClick={onConfirm}
           >
-            Supprimer
+            Delete
           </AlertDialogClose>
         </AlertDialogFooter>
       </AlertDialogPopup>

@@ -17,29 +17,29 @@ export function CodeCopyButton({
   const { copyToClipboard, isCopied } = useCopyToClipboard({
     onCopy: () => {
       toastManager.add({
-        description: "Le bloc de code est dans le presse-papiers.",
+        description: "The code block is on the clipboard.",
         id: CODE_COPIED_TOAST_ID,
-        title: "Copié",
+        title: "Copied",
         type: "success",
       })
     },
     onError: () => {
       toastManager.add({
-        description: "Le presse-papiers a refusé le bloc de code.",
-        title: "Copie impossible",
+        description: "The clipboard refused the code block.",
+        title: "Unable to copy",
         type: "error",
       })
     },
   })
 
-  const copyLabel = isCopied ? "Copié" : "Copier le code"
+  const copyLabel = isCopied ? "Copied" : "Copy code"
 
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <Button
-            aria-label="Copier le code"
+            aria-label="Copy code"
             className={className}
             onClick={() => {
               copyToClipboard(code)

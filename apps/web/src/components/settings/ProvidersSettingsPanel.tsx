@@ -125,7 +125,7 @@ function HarnessProviderRow({
         <CollapsiblePanel>
           <div className="px-3 pb-4 pt-2 sm:px-4">
             <label className="block" htmlFor={binaryId}>
-              <span className="text-xs font-medium text-foreground">Chemin du binaire</span>
+              <span className="text-xs font-medium text-foreground">Binary path</span>
               <Input
                 id={binaryId}
                 className="mt-1.5 font-mono"
@@ -181,7 +181,7 @@ export function ProvidersSettingsPanel(): ReactElement {
                   isUnknown={cursorUnknown}
                   binaryId="cursor-binary-path"
                   binaryPlaceholder="cursor-agent"
-                  binaryHint="Chemin vers le binaire de l’agent Cursor."
+                  binaryHint="Path to the Cursor agent binary."
                 />
               )
             case "claude-code":
@@ -196,7 +196,7 @@ export function ProvidersSettingsPanel(): ReactElement {
                   isUnknown={claudeUnknown}
                   binaryId="claude-binary-path"
                   binaryPlaceholder="claude"
-                  binaryHint="Chemin vers le binaire Claude Code."
+                  binaryHint="Path to the Claude Code binary."
                 />
               )
             case "codex":
@@ -211,7 +211,7 @@ export function ProvidersSettingsPanel(): ReactElement {
                   isUnknown={codexUnknown}
                   binaryId="codex-binary-path"
                   binaryPlaceholder="codex"
-                  binaryHint="Chemin vers le binaire Codex."
+                  binaryHint="Path to the Codex binary."
                 />
               )
           }

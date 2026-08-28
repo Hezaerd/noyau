@@ -121,7 +121,7 @@ export function ThreadTranscript({
     <MessageScrollerProvider key={scrollerKey} autoScroll>
       <ThreadTranscriptFollowLatest followLatestKey={followLatestKey} />
       <MessageScroller className="min-h-0 flex-1">
-        <MessageScrollerViewport aria-label="Transcript du Thread">
+        <MessageScrollerViewport aria-label="Thread transcript">
           <MessageScrollerContent
             aria-busy={isRunning}
             className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6"
@@ -129,7 +129,7 @@ export function ThreadTranscript({
           >
             {loading ? (
               <MessageScrollerItem messageId="thread-loading">
-                <p className="text-sm text-muted-foreground">Chargement du Thread…</p>
+                <p className="text-sm text-muted-foreground">Loading Thread…</p>
               </MessageScrollerItem>
             ) : null}
             {error === undefined ? null : (
@@ -209,7 +209,7 @@ export function ThreadTranscript({
         ) : null}
         <MessageScrollerButton style={{ bottom: composerDockHeight + 8 }}>
           <ArrowDownIcon />
-          <span className="sr-only">Aller au dernier message</span>
+          <span className="sr-only">Go to the latest message</span>
         </MessageScrollerButton>
       </MessageScroller>
     </MessageScrollerProvider>

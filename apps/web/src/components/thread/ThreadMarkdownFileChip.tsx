@@ -29,9 +29,9 @@ const openFileChip = (path: string): void => {
       toastManager.add({
         description:
           window.noyauDesktop === undefined
-            ? "Disponible dans Noyau Desktop."
-            : "Le système n'a pas pu ouvrir ce fichier.",
-        title: "Ouverture impossible",
+            ? "Available in Noyau Desktop."
+            : "The system could not open this file.",
+        title: "Unable to open",
         type: "error",
       })
     },
@@ -103,9 +103,9 @@ export function ThreadMarkdownFileChip({
   const statusLabel = pending
     ? undefined
     : textPreview?.truncated === true
-      ? "Aperçu tronqué"
+      ? "Preview truncated"
       : textPreview === undefined && !showImage
-        ? "Aperçu indisponible"
+        ? "Preview unavailable"
         : undefined
 
   return (
@@ -120,7 +120,7 @@ export function ThreadMarkdownFileChip({
         href={encodeThreadMarkdownFileHref(meta.filePath)}
         className={cn(className, TRANSCRIPT_FILE_CHIP_CLASS_NAME)}
         data-thread-markdown-file-chip=""
-        aria-label={`Ouvrir ${meta.displayPath}`}
+        aria-label={`Open ${meta.displayPath}`}
         onClick={(event) => {
           event.preventDefault()
           openFileChip(meta.filePath)
@@ -143,8 +143,8 @@ export function ThreadMarkdownFileChip({
         <div className="max-h-64 overflow-auto p-3">
           {pending ? (
             <div className="flex items-center gap-2 text-muted-foreground text-xs">
-              <Spinner aria-label="Chargement de l'aperçu" className="size-3.5" />
-              <span>Chargement de l'aperçu…</span>
+              <Spinner aria-label="Loading preview" className="size-3.5" />
+              <span>Loading preview…</span>
             </div>
           ) : null}
           {textPreview === undefined ? null : (

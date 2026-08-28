@@ -23,11 +23,11 @@ import {
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 
 const labels = {
-  absent: "Non installé",
-  current: "À jour",
-  outdated: "Mise à jour disponible",
-  conflict: "Modifications locales",
-  unavailable: "Indisponible",
+  absent: "Not installed",
+  current: "Up to date",
+  outdated: "Update available",
+  conflict: "Local changes",
+  unavailable: "Unavailable",
 } satisfies Record<ProjectAgentIntegration["status"], string>
 
 const variants = {
@@ -115,31 +115,31 @@ export function ProjectAgentIntegrationSettings() {
   }
 
   const control = (() => {
-    if (project === undefined) return <Button disabled>Aucun Project</Button>
+    if (project === undefined) return <Button disabled>No Project</Button>
     if (integration === undefined) {
       return (
         <Button type="button" variant="outline" loading={loading} onClick={inspect}>
-          Vérifier
+          Check
         </Button>
       )
     }
     if (integration.status === "current") {
       return (
         <Button type="button" variant="outline" onClick={() => setConfirmRemove(true)}>
-          Retirer
+          Remove
         </Button>
       )
     }
     if (integration.status === "absent" || integration.status === "outdated") {
       return (
         <Button type="button" loading={loading} onClick={install}>
-          {integration.status === "absent" ? "Installer" : "Mettre à jour"}
+          {integration.status === "absent" ? "Install" : "Update"}
         </Button>
       )
     }
     return (
       <Button type="button" variant="outline" loading={loading} onClick={inspect}>
-        Réessayer
+        Retry
       </Button>
     )
   })()
@@ -150,7 +150,7 @@ export function ProjectAgentIntegrationSettings() {
         id="project-agent-integration"
         title={
           <span className="inline-flex flex-wrap items-center gap-2">
-            Intégration agent Noyau
+            Noyau agent integration
             {integration === undefined ? null : (
               <Badge variant={variants[integration.status]}>{labels[integration.status]}</Badge>
             )}
@@ -158,8 +158,8 @@ export function ProjectAgentIntegrationSettings() {
         }
         description={
           project === undefined
-            ? "Ouvre un Project pour gérer son skill Noyau."
-            : `Installe le skill dans ${project.workspaceRoot}/.agents/skills/noyau/ afin que les agents comprennent le Tableau et ses Tickets.`
+            ? "Open a Project to manage its Noyau skill."
+            : `Install the skill in ${project.workspaceRoot}/.agents/skills/noyau/ so agents understand the Board and its Tickets.`
         }
         control={control}
       >
@@ -172,19 +172,18 @@ export function ProjectAgentIntegrationSettings() {
       <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
         <AlertDialogPopup>
           <AlertDialogHeader>
-            <AlertDialogTitle>Retirer le skill Noyau ?</AlertDialogTitle>
+            <AlertDialogTitle>Remove the Noyau skill?</AlertDialogTitle>
             <AlertDialogDescription>
-              Les agents de « {project?.name ?? "ce Project"} » ne recevront plus les instructions
-              pour utiliser le Tableau. Noyau ne retire que les fichiers qu’il gère et qui n’ont pas
-              été modifiés.
+              Agents in "{project?.name ?? "this Project"}" will no longer receive instructions to
+              use the Board. Noyau only removes the files it manages that have not been modified.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogClose render={<Button type="button" variant="ghost" />}>
-              Annuler
+              Cancel
             </AlertDialogClose>
             <Button type="button" variant="destructive" loading={loading} onClick={remove}>
-              Retirer le skill
+              Remove the skill
             </Button>
           </AlertDialogFooter>
         </AlertDialogPopup>

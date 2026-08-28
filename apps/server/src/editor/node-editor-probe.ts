@@ -40,7 +40,7 @@ const launch = (
     catch: (cause) =>
       new OpenInEditorFailed({
         editor: inferEditorId(command),
-        detail: cause instanceof Error ? cause.message : `Impossible de lancer ${command}`,
+        detail: cause instanceof Error ? cause.message : `Unable to launch ${command}`,
       }),
   })
 

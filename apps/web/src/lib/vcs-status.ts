@@ -143,12 +143,12 @@ export const displayedThreadPr = (input: {
 
 export const pullRequestStateLabel = (state: VcsStatusPullRequest["state"]): string => {
   if (state === "open") {
-    return "Ouverte"
+    return "Open"
   }
   if (state === "merged") {
-    return "Fusionnée"
+    return "Merged"
   }
-  return "Fermée"
+  return "Closed"
 }
 
 export const isConflictingOpenPullRequest = (pr: VcsStatusPullRequest | null): boolean =>
