@@ -20,8 +20,7 @@ Write `docs/users/`, `docs/internals/`, `docs/operations/`, and the glossary in
 English. Match `AGENTS.md` terminology (user, agent, provider, client,
 environment, project, thread, turn, board, ticket, Noyau home).
 
-Do not switch a page's language mid-file. Existing French ADRs in `docs/adr/`
-stay as they are unless a maintainer asked to rewrite one.
+Do not switch a page's language mid-file, everything should be in English.
 
 ## Facts
 

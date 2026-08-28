@@ -12,9 +12,6 @@ checkpointing, client/server boundary.
 
 A page explains one concern. If the description says "also", split the page.
 
-Durable decisions already taken live in `docs/adr/`. Internals describe the
-resulting system. Do not file a new ADR unless the maintainer asked.
-
 ## What does not belong
 
 - User-facing how-tos (those go in `docs/users/`).
