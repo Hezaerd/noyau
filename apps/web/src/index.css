@@ -195,7 +195,7 @@
   }
 
   html {
-    @apply h-svh overflow-hidden font-sans;
+    @apply h-svh overflow-hidden bg-background font-sans;
   }
 
   body {
