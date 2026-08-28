@@ -60,7 +60,7 @@ export function ComposerPathMenu({
         onScroll={syncFade}
       >
         {loading && entries.length === 0 ? (
-          <li className="px-2 py-1.5 text-muted-foreground">Recherche…</li>
+          <li className="px-2 py-1.5 text-muted-foreground">Searching…</li>
         ) : null}
         {!loading && entries.length === 0 ? (
           <li className="px-2 py-1.5 text-muted-foreground">No files</li>

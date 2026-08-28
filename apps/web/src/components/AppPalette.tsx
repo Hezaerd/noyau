@@ -333,11 +333,11 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
             <span className="inline-flex items-center gap-1">
               <KeyboardShortcut hotkey="ArrowUp" />
               <KeyboardShortcut hotkey="ArrowDown" />
-              Naviguer
+              Navigate
             </span>
             <span className="inline-flex items-center gap-1">
               <KeyboardShortcut hotkey="Enter" />
-              Choisir
+              Choose
             </span>
             <span className="inline-flex items-center gap-1">
               <KeyboardShortcut hotkey="Escape" />

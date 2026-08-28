@@ -48,7 +48,7 @@ export function ThreadDraftHero({
                 projects={projects}
                 selectedProjectId={selectedProjectId}
                 onSelectProject={onSelectProject}
-              />{" "}
+              />
               ?
             </>
           )}

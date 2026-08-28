@@ -11,8 +11,8 @@ available in the current Turn; never edit Noyau's database or invent a missing t
 ## Core workflow
 
 1. The latest user message on **this** Thread is the mandate. A resume token
-   (« Reprends », « Resume ») does not replace it. Do not treat an In progress Ticket
-   linked to another Thread as work to resume.
+   (« Reprends », « Resume ») does not replace it. Do not treat an In progress or
+   En cours Ticket linked to another Thread as work to resume.
 2. Inspect the Board before proposing or starting work.
 3. Prefer an open actionable Ticket whose dependencies are complete **and** that is
    linked to this Thread, or that the latest user message named. Otherwise ask.

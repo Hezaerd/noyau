@@ -448,7 +448,7 @@ function NewKeybindingTableRow({
     key: keyDraft,
     when: whenDraftExpression,
   })
-  const commandLabelText = commandDraft === "" ? "nouveau Keybinding" : commandLabel(commandDraft)
+  const commandLabelText = commandDraft === "" ? "New Keybinding" : commandLabel(commandDraft)
 
   const captureKeybinding = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Tab") {

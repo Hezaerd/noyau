@@ -623,7 +623,7 @@ export function TicketDialog({
                     Linked Threads
                   </h3>
                   {linkedThreadIds.length === 0 ? (
-                    <p className="mb-3 text-xs text-muted-foreground">No linked Thread.</p>
+                    <p className="mb-3 text-xs text-muted-foreground">No linked Threads.</p>
                   ) : (
                     <ul className="mb-3 space-y-1.5">
                       {linkedThreadIds.map((threadId) => {

@@ -212,7 +212,7 @@ export function ThreadModelPicker({
               variant={activeTab === "favorites" ? "secondary" : "ghost"}
               onClick={() => setActiveTab("favorites")}
             >
-              <StarIcon className="size-3.5" /> Favoris
+              <StarIcon className="size-3.5" /> Favorites
             </Button>
             {allowedProviders.map((provider) => {
               const Icon = providerIcons[provider]
