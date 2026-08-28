@@ -2,7 +2,7 @@
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import * as NodeChildProcess from "node:child_process"
 
-import { OpenInEditorFailed, type EditorId } from "@noyau/protocol/editor"
+import { OpenInEditorFailed, type EditorId } from "@noyau/contracts/editor"
 import { Effect, Layer } from "effect"
 
 import { EditorOpen, makeEditorOpen, type EditorProbe } from "./editor-open.ts"

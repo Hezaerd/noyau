@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
-import { ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
-import { ThreadShell } from "@noyau/protocol/shell"
+import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ThreadShell } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"

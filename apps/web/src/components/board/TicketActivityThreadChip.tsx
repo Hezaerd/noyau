@@ -1,4 +1,4 @@
-import { ThreadId } from "@noyau/protocol/ids"
+import { ThreadId } from "@noyau/contracts/ids"
 import { MessageCircleIcon } from "lucide-react"
 
 import {

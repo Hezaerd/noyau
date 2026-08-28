@@ -1,5 +1,5 @@
-import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
+import type { TicketPriority } from "@noyau/contracts/entities/ticket"
+import type { TicketThread } from "@noyau/contracts/entities/ticket-thread"
 import { Schema } from "effect"
 
 export interface BoardColumn {

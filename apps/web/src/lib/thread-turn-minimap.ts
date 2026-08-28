@@ -1,5 +1,5 @@
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import type { TurnId } from "@noyau/protocol/ids"
+import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import type { TurnId } from "@noyau/contracts/ids"
 
 import { transcriptRowId } from "@/lib/thread-transcript"
 import { turnPresentationLabel } from "@/lib/turn-presentation"

@@ -1,7 +1,7 @@
-import type { DomainEvent } from "@noyau/protocol/events"
-import type { ThreadId } from "@noyau/protocol/ids"
-import { ProjectEvent } from "@noyau/protocol/project/events"
-import { ThreadEvent } from "@noyau/protocol/thread/events"
+import type { DomainEvent } from "@noyau/contracts/events"
+import type { ThreadId } from "@noyau/contracts/ids"
+import { ProjectEvent } from "@noyau/contracts/project/events"
+import { ThreadEvent } from "@noyau/contracts/thread/events"
 import { Schema } from "effect"
 
 const isProjectEvent = Schema.is(ProjectEvent)

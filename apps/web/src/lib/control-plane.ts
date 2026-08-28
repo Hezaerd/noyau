@@ -1,20 +1,20 @@
 import type {
   ProjectAgentIntegration,
   ProjectAgentIntegrationInput,
-} from "@noyau/protocol/agent-integration"
-import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/attachment-preview"
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import type { ClientCommandRequest } from "@noyau/protocol/commands"
+} from "@noyau/contracts/agent-integration"
+import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/contracts/attachment-preview"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import type { ClientCommandRequest } from "@noyau/contracts/commands"
 import type {
   ListEditorsResult,
   OpenInEditorInput,
   OpenInEditorResult,
-} from "@noyau/protocol/editor"
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import type { WorkspacePathSearchResult } from "@noyau/protocol/entities/workspace-path"
-import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/protocol/errors"
-import type { EventEnvelope } from "@noyau/protocol/events"
-import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
+} from "@noyau/contracts/editor"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import type { WorkspacePathSearchResult } from "@noyau/contracts/entities/workspace-path"
+import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/contracts/errors"
+import type { EventEnvelope } from "@noyau/contracts/events"
+import type { FilePreview, PreviewFileInput } from "@noyau/contracts/file-preview"
 import type {
   GitDraftInput,
   GitDraftResult,
@@ -36,19 +36,19 @@ import type {
   VcsStatusStreamEvent,
   VcsSwitchRefInput,
   VcsSwitchRefResult,
-} from "@noyau/protocol/git"
-import type { ProjectId, Sequence } from "@noyau/protocol/ids"
-import type { DispatchResult } from "@noyau/protocol/receipts"
+} from "@noyau/contracts/git"
+import type { ProjectId, Sequence } from "@noyau/contracts/ids"
+import type { DispatchResult } from "@noyau/contracts/receipts"
 import {
   ControlPlaneRpcs,
   RPC_METHODS,
   type ProjectStreamItem,
   type ShellStreamItem,
   type ThreadStreamItem,
-} from "@noyau/protocol/rpc"
-import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
-import type { ThreadAssistantLive } from "@noyau/protocol/thread/live"
-import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
+} from "@noyau/contracts/rpc"
+import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
+import type { ThreadAssistantLive } from "@noyau/contracts/thread/live"
+import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/contracts/turn-diff"
 import type { Cause } from "effect"
 import { Context, Crypto, Effect, Exit, Fiber, Layer, ManagedRuntime, Option, Stream } from "effect"
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc"

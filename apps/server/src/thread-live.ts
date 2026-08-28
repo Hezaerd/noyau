@@ -1,5 +1,5 @@
-import type { ThreadId } from "@noyau/protocol/ids"
-import type { ThreadAssistantLive } from "@noyau/protocol/thread/live"
+import type { ThreadId } from "@noyau/contracts/ids"
+import type { ThreadAssistantLive } from "@noyau/contracts/thread/live"
 import { Context, Duration, Effect, Layer, PubSub, Queue, Ref, Stream } from "effect"
 
 export const THREAD_LIVE_COALESCE = Duration.millis(8)

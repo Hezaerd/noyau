@@ -1,18 +1,18 @@
-import { AttachmentPreviewFailed } from "@noyau/protocol/attachment-preview"
-import type { ClientCommandRequest } from "@noyau/protocol/commands"
+import { AttachmentPreviewFailed } from "@noyau/contracts/attachment-preview"
+import type { ClientCommandRequest } from "@noyau/contracts/commands"
 import type {
   TurnImageAttachment,
   TurnImageMime,
   TurnImageUpload,
-} from "@noyau/protocol/entities/attachment"
+} from "@noyau/contracts/entities/attachment"
 import {
   attachmentIdFor,
   isTurnImageMime,
   TURN_MAX_IMAGE_BYTES,
-} from "@noyau/protocol/entities/attachment"
-import { ServiceUnavailable } from "@noyau/protocol/errors"
-import { CommandId } from "@noyau/protocol/ids"
-import { ImageAttachmentRejected } from "@noyau/protocol/thread/errors"
+} from "@noyau/contracts/entities/attachment"
+import { ServiceUnavailable } from "@noyau/contracts/errors"
+import { CommandId } from "@noyau/contracts/ids"
+import { ImageAttachmentRejected } from "@noyau/contracts/thread/errors"
 import { Effect, FileSystem, Path } from "effect"
 
 import { ServerConfig } from "./config.ts"

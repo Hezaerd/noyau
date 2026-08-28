@@ -1,6 +1,6 @@
-import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import type { ActorId, KanbanColumnId, ThreadId, TicketId } from "@noyau/protocol/ids"
-import type { TicketEvent } from "@noyau/protocol/ticket/events"
+import type { TicketPriority } from "@noyau/contracts/entities/ticket"
+import type { ActorId, KanbanColumnId, ThreadId, TicketId } from "@noyau/contracts/ids"
+import type { TicketEvent } from "@noyau/contracts/ticket/events"
 import type { DateTime } from "effect"
 
 export interface ColumnState {

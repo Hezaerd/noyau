@@ -1,4 +1,4 @@
-import type { ProjectShell } from "@noyau/protocol/shell"
+import type { ProjectShell } from "@noyau/contracts/shell"
 import { Link } from "@tanstack/react-router"
 import { LayoutGridIcon } from "lucide-react"
 

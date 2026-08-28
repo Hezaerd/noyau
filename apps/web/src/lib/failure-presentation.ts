@@ -1,4 +1,4 @@
-import type { Rejection } from "@noyau/protocol/receipts"
+import type { Rejection } from "@noyau/contracts/receipts"
 
 import type { AppFailure } from "./app-failure"
 

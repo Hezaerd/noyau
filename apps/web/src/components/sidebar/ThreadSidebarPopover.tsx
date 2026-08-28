@@ -1,4 +1,4 @@
-import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
+import type { ProjectShell, ThreadShell } from "@noyau/contracts/shell"
 import { GitBranchIcon, LayersIcon } from "lucide-react"
 
 import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"

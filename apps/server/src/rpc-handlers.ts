@@ -1,5 +1,5 @@
-import { CurrentActor } from "@noyau/protocol/errors"
-import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/protocol/rpc"
+import { CurrentActor } from "@noyau/contracts/errors"
+import { ControlPlaneRpcs, RPC_METHODS } from "@noyau/contracts/rpc"
 import { Effect, Stream } from "effect"
 
 import { ControlPlane } from "./control-plane.ts"

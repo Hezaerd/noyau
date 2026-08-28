@@ -1,4 +1,4 @@
-import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
+import type { TurnImageAttachment } from "@noyau/contracts/entities/attachment"
 import { useCallback, useEffect, useState } from "react"
 
 import { ExpandedImageDialog } from "@/components/thread/ExpandedImageDialog"

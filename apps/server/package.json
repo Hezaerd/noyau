@@ -82,7 +82,7 @@
     "@effect/platform-node": "catalog:",
     "@noyau/acp": "workspace:*",
     "@noyau/codex": "workspace:*",
-    "@noyau/protocol": "workspace:*",
+    "@noyau/contracts": "workspace:*",
     "@noyau/shared": "workspace:*",
     "effect": "catalog:",
     "fractional-indexing": "^4.0.0"

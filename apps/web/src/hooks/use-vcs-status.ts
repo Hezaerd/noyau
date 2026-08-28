@@ -1,4 +1,4 @@
-import type { VcsScope, VcsStatusResult } from "@noyau/protocol/git"
+import type { VcsScope, VcsStatusResult } from "@noyau/contracts/git"
 import { useEffect, useState } from "react"
 
 import { subscribeVcsStatus } from "@/lib/control-plane"

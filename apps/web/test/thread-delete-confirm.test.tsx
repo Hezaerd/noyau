@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
-import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
+import { WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/contracts/shell"
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect, Schema } from "effect"

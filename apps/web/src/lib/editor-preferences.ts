@@ -1,4 +1,4 @@
-import type { EditorId } from "@noyau/protocol/editor"
+import type { EditorId } from "@noyau/contracts/editor"
 
 import { getHotkeysPlatform, type HotkeysPlatform } from "@/lib/keyboard-shortcut"
 

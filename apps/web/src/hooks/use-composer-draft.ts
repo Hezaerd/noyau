@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { useCallback } from "react"
 
 import { composerDraftStoreKey } from "@/lib/composer-drafts"

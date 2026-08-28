@@ -1,5 +1,5 @@
-import { ProjectId } from "@noyau/protocol/ids"
-import type { ProjectShell } from "@noyau/protocol/shell"
+import { ProjectId } from "@noyau/contracts/ids"
+import type { ProjectShell } from "@noyau/contracts/shell"
 import type { ReactNode } from "react"
 
 import {

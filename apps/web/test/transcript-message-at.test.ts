@@ -1,6 +1,6 @@
-import { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import { LatestTurn } from "@noyau/protocol/entities/turn"
-import { ThreadId, TurnId } from "@noyau/protocol/ids"
+import { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import { LatestTurn } from "@noyau/contracts/entities/turn"
+import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { DateTime, Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 

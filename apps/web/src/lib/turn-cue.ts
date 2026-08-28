@@ -1,4 +1,4 @@
-import type { TurnSettlementState } from "@noyau/protocol/entities/turn"
+import type { TurnSettlementState } from "@noyau/contracts/entities/turn"
 import { play, type SoundName } from "cuelume"
 
 export const TURN_CUE_SOUNDS = [

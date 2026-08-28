@@ -1,5 +1,5 @@
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import type { ThreadShell } from "@noyau/protocol/shell"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import type { ThreadShell } from "@noyau/contracts/shell"
 
 export const EMPTY_THREAD_IDS: ReadonlyArray<ThreadId> = Object.freeze([])
 export const EMPTY_THREAD_SHELLS: ReadonlyArray<ThreadShell> = Object.freeze([])

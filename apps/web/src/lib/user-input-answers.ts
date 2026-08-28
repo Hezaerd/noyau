@@ -2,7 +2,7 @@ import type {
   ProviderUserInputAnswers,
   UserInputAnswer,
   UserInputQuestion,
-} from "@noyau/protocol/entities/approvals"
+} from "@noyau/contracts/entities/approvals"
 
 const LEGACY_ANSWER_KEY = "answer"
 

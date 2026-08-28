@@ -1,8 +1,8 @@
-import { DEFAULT_RUNTIME_MODE } from "@noyau/protocol/entities/runtime-mode"
-import type { Session } from "@noyau/protocol/entities/session"
-import { TurnId } from "@noyau/protocol/ids"
-import { ProjectUnavailable } from "@noyau/protocol/project/errors"
-import type { ThreadCommand } from "@noyau/protocol/thread/commands"
+import { DEFAULT_RUNTIME_MODE } from "@noyau/contracts/entities/runtime-mode"
+import type { Session } from "@noyau/contracts/entities/session"
+import { TurnId } from "@noyau/contracts/ids"
+import { ProjectUnavailable } from "@noyau/contracts/project/errors"
+import type { ThreadCommand } from "@noyau/contracts/thread/commands"
 import {
   ApprovalRequestNotFound,
   ImageAttachmentRejected,
@@ -13,7 +13,7 @@ import {
   ThreadNotSettleable,
   TurnAlreadyActive,
   TurnNotFound,
-} from "@noyau/protocol/thread/errors"
+} from "@noyau/contracts/thread/errors"
 import {
   ApprovalResponded,
   SessionStopRequested,
@@ -33,8 +33,8 @@ import {
   ThreadTurnInterrupted,
   ThreadTurnStarted,
   UserInputResponded,
-} from "@noyau/protocol/thread/events"
-import { seedTitleFromTurn } from "@noyau/protocol/thread/title"
+} from "@noyau/contracts/thread/events"
+import { seedTitleFromTurn } from "@noyau/contracts/thread/title"
 import { Result } from "effect"
 
 import type { ThreadProjection, ThreadState, TurnProjection } from "./projector.ts"

@@ -1,4 +1,4 @@
-import { ThreadSessionSet, type ThreadEvent } from "@noyau/protocol/thread/events"
+import { ThreadSessionSet, type ThreadEvent } from "@noyau/contracts/thread/events"
 import type { DateTime } from "effect"
 
 import type { ThreadState } from "./projector.ts"

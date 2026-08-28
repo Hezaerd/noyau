@@ -1,4 +1,4 @@
-import type { WorkspacePathEntry } from "@noyau/protocol/entities/workspace-path"
+import type { WorkspacePathEntry } from "@noyau/contracts/entities/workspace-path"
 import { useLayoutEffect, useRef, useState } from "react"
 
 import { PierreEntryIcon } from "@/components/PierreEntryIcon"

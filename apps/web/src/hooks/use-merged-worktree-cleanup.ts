@@ -1,7 +1,7 @@
-import { threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
-import type { VcsStatusPullRequest } from "@noyau/protocol/git"
-import type { ProjectId } from "@noyau/protocol/ids"
-import type { ThreadShell } from "@noyau/protocol/shell"
+import { threadWorktreePathOf } from "@noyau/contracts/entities/checkout"
+import type { VcsStatusPullRequest } from "@noyau/contracts/git"
+import type { ProjectId } from "@noyau/contracts/ids"
+import type { ThreadShell } from "@noyau/contracts/shell"
 import { useEffect, useRef } from "react"
 
 import { useAutoRemoveMergedWorktreeEnabled } from "@/hooks/use-auto-remove-merged-worktree"

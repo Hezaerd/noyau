@@ -1,4 +1,4 @@
-import { CommandId, ProjectId } from "@noyau/protocol/ids"
+import { CommandId, ProjectId } from "@noyau/contracts/ids"
 import { Crypto, Effect } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 

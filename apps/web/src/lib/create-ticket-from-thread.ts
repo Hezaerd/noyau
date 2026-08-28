@@ -1,7 +1,7 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import type { ClientCommandRequest } from "@noyau/protocol/commands"
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import { KanbanColumnId, type ProjectId, type ThreadId, type TicketId } from "@noyau/protocol/ids"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import type { ClientCommandRequest } from "@noyau/contracts/commands"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import { KanbanColumnId, type ProjectId, type ThreadId, type TicketId } from "@noyau/contracts/ids"
 import { type Crypto, Effect } from "effect"
 
 import { invalidInputFailure, type AppFailure } from "./app-failure"

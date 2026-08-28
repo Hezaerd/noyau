@@ -1,6 +1,6 @@
 import { assert, describe, layer } from "@effect/vitest"
-import { CommandIdConflict } from "@noyau/protocol/errors"
-import { ActorId, CommandId, CorrelationId, ProjectId, SchemaVersion } from "@noyau/protocol/ids"
+import { CommandIdConflict } from "@noyau/contracts/errors"
+import { ActorId, CommandId, CorrelationId, ProjectId, SchemaVersion } from "@noyau/contracts/ids"
 import {
   type DurableReceipt,
   makeCommandWorker,

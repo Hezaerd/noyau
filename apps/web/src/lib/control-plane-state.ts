@@ -1,6 +1,6 @@
-import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import { ProjectId, type ThreadId } from "@noyau/protocol/ids"
-import type { ShellLiveEvent, ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
+import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import { ProjectId, type ThreadId } from "@noyau/contracts/ids"
+import type { ShellLiveEvent, ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { DateTime } from "effect"
 
 export const LAST_PROJECT_STORAGE_KEY = "noyau.last-project-id"

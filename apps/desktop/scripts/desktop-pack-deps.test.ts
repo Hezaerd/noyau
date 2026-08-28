@@ -10,7 +10,7 @@ describe("desktop pack deps", () => {
   })
 
   it("bundles Noyau and Effect into the desktop artifacts", () => {
-    expect(isDesktopAlwaysBundled("@noyau/protocol")).toBe(true)
+    expect(isDesktopAlwaysBundled("@noyau/contracts")).toBe(true)
     expect(isDesktopAlwaysBundled("effect")).toBe(true)
     expect(isDesktopAlwaysBundled("@effect/platform-node")).toBe(true)
     expect(isDesktopAlwaysBundled("effect/unstable/http")).toBe(true)

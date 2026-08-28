@@ -1,7 +1,7 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import { FilePreviewFailed } from "@noyau/protocol/file-preview"
+import { WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import { FilePreviewFailed } from "@noyau/contracts/file-preview"
 import {
   IMAGE_PREVIEW_BYTE_LIMIT,
   TEXT_PREVIEW_BYTE_LIMIT,

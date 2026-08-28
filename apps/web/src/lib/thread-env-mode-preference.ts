@@ -1,4 +1,4 @@
-import { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
+import { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
 import { Option, Schema } from "effect"
 
 export const THREAD_ENV_MODE_STORAGE_KEY = "noyau:default-thread-env-mode"

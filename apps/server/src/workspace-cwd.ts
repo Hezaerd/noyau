@@ -1,5 +1,5 @@
-import { ServiceUnavailable } from "@noyau/protocol/errors"
-import type { VcsScope } from "@noyau/protocol/git"
+import { ServiceUnavailable } from "@noyau/contracts/errors"
+import type { VcsScope } from "@noyau/contracts/git"
 import { Effect, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

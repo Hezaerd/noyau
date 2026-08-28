@@ -1,5 +1,5 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { Atom } from "effect/unstable/reactivity"
 
 import { loadBoardSnapshot, subscribeProject, type SubscriptionStatus } from "@/lib/control-plane"

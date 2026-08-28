@@ -4,7 +4,7 @@ import {
   TURN_MAX_IMAGE_BYTES,
   type TurnImageMime,
   type TurnImageUpload,
-} from "@noyau/protocol/entities/attachment"
+} from "@noyau/contracts/entities/attachment"
 
 import { createImagePreviewUrl } from "./image-preview-url"
 

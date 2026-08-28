@@ -2,11 +2,11 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
 import { decide } from "@noyau/server/orchestration/board/decider"
 import { emptyBoardState, evolve } from "@noyau/server/orchestration/board/projector"
-import { BoardSnapshot } from "@noyau/protocol/board"
-import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import { KanbanColumnColor, KanbanRank } from "@noyau/protocol/entities/kanban-column"
-import { Session } from "@noyau/protocol/entities/session"
-import { type DomainEvent } from "@noyau/protocol/events"
+import { BoardSnapshot } from "@noyau/contracts/board"
+import { Environment, WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import { KanbanColumnColor, KanbanRank } from "@noyau/contracts/entities/kanban-column"
+import { Session } from "@noyau/contracts/entities/session"
+import { type DomainEvent } from "@noyau/contracts/events"
 import {
   ActorId,
   ApprovalRequestId,
@@ -18,8 +18,8 @@ import {
   TicketId,
   ToolCallId,
   TurnId,
-} from "@noyau/protocol/ids"
-import { ProjectCreated, ProjectDeleted } from "@noyau/protocol/project/events"
+} from "@noyau/contracts/ids"
+import { ProjectCreated, ProjectDeleted } from "@noyau/contracts/project/events"
 import {
   ThreadCreated,
   ThreadDeleted,
@@ -27,16 +27,16 @@ import {
   ThreadSessionSet,
   ThreadTranscriptAppended,
   ThreadTurnStarted,
-} from "@noyau/protocol/thread/events"
-import { TicketCommand } from "@noyau/protocol/ticket/commands"
-import { TicketRejection } from "@noyau/protocol/ticket/errors"
+} from "@noyau/contracts/thread/events"
+import { TicketCommand } from "@noyau/contracts/ticket/commands"
+import { TicketRejection } from "@noyau/contracts/ticket/errors"
 import {
   KanbanColumnCreated,
   TicketCompleted,
   TicketCreated,
   TicketEvent,
   TicketThreadLinked,
-} from "@noyau/protocol/ticket/events"
+} from "@noyau/contracts/ticket/events"
 import { makeCommandWorker, type PersistedEvent } from "@noyau/server/persistence/command-worker"
 import { makeDrainableWorker } from "@noyau/server/persistence/drainable-worker"
 import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/server/persistence/projections"

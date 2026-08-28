@@ -1,8 +1,8 @@
-import type { TicketPriority } from "@noyau/protocol/entities/ticket"
-import type { TicketThread } from "@noyau/protocol/entities/ticket-thread"
-import type { EventEnvelope } from "@noyau/protocol/events"
-import { ThreadId } from "@noyau/protocol/ids"
-import type { ThreadShell } from "@noyau/protocol/shell"
+import type { TicketPriority } from "@noyau/contracts/entities/ticket"
+import type { TicketThread } from "@noyau/contracts/entities/ticket-thread"
+import type { EventEnvelope } from "@noyau/contracts/events"
+import { ThreadId } from "@noyau/contracts/ids"
+import type { ThreadShell } from "@noyau/contracts/shell"
 import { format, isValid, parseISO } from "date-fns"
 import { fr } from "date-fns/locale"
 import {

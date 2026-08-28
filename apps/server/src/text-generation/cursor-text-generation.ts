@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as AcpClient from "@noyau/acp/client"
 import type * as AcpSchema from "@noyau/acp/schema"
-import { sanitizeThreadTitle } from "@noyau/protocol/thread/title"
+import { sanitizeThreadTitle } from "@noyau/contracts/thread/title"
 import {
   type CursorAdapterOptions,
   resolveCursorExecutable,

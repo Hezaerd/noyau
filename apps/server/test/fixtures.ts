@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@noyau/protocol/ids"
+import { EnvironmentId } from "@noyau/contracts/ids"
 import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
 import { EditorOpen } from "@noyau/server/editor/editor-open"
 import { GitPlane } from "@noyau/server/git/git-plane"

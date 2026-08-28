@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
-import { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import { LatestTurn } from "@noyau/protocol/entities/turn"
-import { ThreadId, TurnId } from "@noyau/protocol/ids"
+import { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import { LatestTurn } from "@noyau/contracts/entities/turn"
+import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"

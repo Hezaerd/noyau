@@ -1,19 +1,19 @@
-import type { ClientCommandRequest } from "@noyau/protocol/commands"
-import type { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
-import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
-import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
-import type { Provider } from "@noyau/protocol/entities/environment"
-import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
-import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
-import type { PrepareWorktree } from "@noyau/protocol/git"
+import type { ClientCommandRequest } from "@noyau/contracts/commands"
+import type { ProviderUserInputAnswers } from "@noyau/contracts/entities/approvals"
+import type { TurnImageUpload } from "@noyau/contracts/entities/attachment"
+import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
+import type { Provider } from "@noyau/contracts/entities/environment"
+import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
+import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import type { TurnPresentation } from "@noyau/contracts/entities/transcript"
+import type { PrepareWorktree } from "@noyau/contracts/git"
 import {
   ApprovalRequestId,
   TicketId,
   type ProjectId,
   type ThreadId,
   type TurnId,
-} from "@noyau/protocol/ids"
+} from "@noyau/contracts/ids"
 import { collectComposerTicketIds } from "@noyau/shared/composer-inline-tokens"
 import { type Crypto, Effect } from "effect"
 

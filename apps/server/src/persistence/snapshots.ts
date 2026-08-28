@@ -1,15 +1,15 @@
-import { BoardSnapshot, TICKET_ACTIVITY_LIMIT } from "@noyau/protocol/board"
-import { Environment } from "@noyau/protocol/entities/environment"
+import { BoardSnapshot, TICKET_ACTIVITY_LIMIT } from "@noyau/contracts/board"
+import { Environment } from "@noyau/contracts/entities/environment"
 import {
   DefaultModelSelection,
   type ModelSelection,
-} from "@noyau/protocol/entities/model-selection"
-import { ResumeCursor } from "@noyau/protocol/entities/session"
-import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import { TurnDiffFile } from "@noyau/protocol/entities/turn"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
+} from "@noyau/contracts/entities/model-selection"
+import { ResumeCursor } from "@noyau/contracts/entities/session"
+import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import { TurnDiffFile } from "@noyau/contracts/entities/turn"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

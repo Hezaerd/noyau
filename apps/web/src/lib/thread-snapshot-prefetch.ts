@@ -1,5 +1,5 @@
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import type { ThreadId } from "@noyau/protocol/ids"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import type { ThreadId } from "@noyau/contracts/ids"
 
 import { loadThreadSnapshot, type ControlPlaneResult } from "@/lib/control-plane"
 import { getThreadSnapshot, replaceThreadSnapshot } from "@/state/thread-snapshot"

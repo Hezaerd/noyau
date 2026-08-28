@@ -1,6 +1,6 @@
-import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
-import type { VcsStatusPullRequest } from "@noyau/protocol/git"
-import type { ProjectShell, ThreadShell } from "@noyau/protocol/shell"
+import { threadBranchOf, threadWorktreePathOf } from "@noyau/contracts/entities/checkout"
+import type { VcsStatusPullRequest } from "@noyau/contracts/git"
+import type { ProjectShell, ThreadShell } from "@noyau/contracts/shell"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
   CircleCheckIcon,

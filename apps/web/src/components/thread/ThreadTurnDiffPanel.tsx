@@ -1,4 +1,4 @@
-import type { ThreadId, TurnId } from "@noyau/protocol/ids"
+import type { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { FileDiff, PatchDiff } from "@pierre/diffs/react"
 import { useEffect, useMemo, useRef, useState } from "react"
 

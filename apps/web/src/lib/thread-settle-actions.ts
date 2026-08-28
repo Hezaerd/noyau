@@ -1,4 +1,4 @@
-import type { ThreadShell } from "@noyau/protocol/shell"
+import type { ThreadShell } from "@noyau/contracts/shell"
 
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"

@@ -1,9 +1,9 @@
 import {
   KanbanRank,
   type KanbanRank as KanbanRankType,
-} from "@noyau/protocol/entities/kanban-column"
-import type { KanbanColumnId, TicketId } from "@noyau/protocol/ids"
-import type { TicketCommand } from "@noyau/protocol/ticket/commands"
+} from "@noyau/contracts/entities/kanban-column"
+import type { KanbanColumnId, TicketId } from "@noyau/contracts/ids"
+import type { TicketCommand } from "@noyau/contracts/ticket/commands"
 import {
   ColumnDestinationRequired,
   DoneColumnCreationForbidden,
@@ -27,7 +27,7 @@ import {
   TicketThreadAlreadyLinked,
   TicketThreadNotLinked,
   TicketThreadProjectMismatch,
-} from "@noyau/protocol/ticket/errors"
+} from "@noyau/contracts/ticket/errors"
 import {
   BoardInitialized,
   KanbanColumnCreated,
@@ -47,7 +47,7 @@ import {
   TicketThreadLinked,
   TicketThreadUnlinked,
   TicketUpdated,
-} from "@noyau/protocol/ticket/events"
+} from "@noyau/contracts/ticket/events"
 import { Result, Schema } from "effect"
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing"
 

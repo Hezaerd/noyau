@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
-    "@noyau/protocol": "workspace:*",
+    "@noyau/contracts": "workspace:*",
     "@noyau/shared": "workspace:*",
     "effect": "catalog:"
   },

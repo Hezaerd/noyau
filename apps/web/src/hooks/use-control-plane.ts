@@ -3,9 +3,9 @@ import type {
   ClaudeProviderStatus,
   CodexProviderStatus,
   CursorProviderStatus,
-} from "@noyau/protocol/entities/environment"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import type { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/protocol/shell"
+} from "@noyau/contracts/entities/environment"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import type { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 
 import type { SubscriptionStatus } from "@/lib/control-plane"
 import {

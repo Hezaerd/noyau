@@ -1,4 +1,4 @@
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 
 import { isDesktopRuntime } from "@/lib/desktop-bridge"
 

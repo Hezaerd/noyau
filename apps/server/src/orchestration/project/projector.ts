@@ -1,7 +1,7 @@
-import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import type { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"
-import type { ProjectId } from "@noyau/protocol/ids"
-import type { ProjectEvent } from "@noyau/protocol/project/events"
+import type { WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import type { DefaultModelSelection } from "@noyau/contracts/entities/model-selection"
+import type { ProjectId } from "@noyau/contracts/ids"
+import type { ProjectEvent } from "@noyau/contracts/project/events"
 
 export interface ProjectState {
   readonly projectId: ProjectId

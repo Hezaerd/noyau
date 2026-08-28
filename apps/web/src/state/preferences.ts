@@ -1,4 +1,4 @@
-import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
+import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
 import { Atom } from "effect/unstable/reactivity"
 
 import {

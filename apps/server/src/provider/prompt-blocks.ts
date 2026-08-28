@@ -1,5 +1,5 @@
 import type * as AcpSchema from "@noyau/acp/schema"
-import type { BoardSnapshot } from "@noyau/protocol/board"
+import type { BoardSnapshot } from "@noyau/contracts/board"
 import { composerPromptSegments } from "@noyau/shared/composer-inline-tokens"
 import { Effect, Option, Path } from "effect"
 

@@ -1,11 +1,11 @@
-import type { TicketPriority } from "@noyau/protocol/entities/ticket"
+import type { TicketPriority } from "@noyau/contracts/entities/ticket"
 import {
   CommandId,
   KanbanColumnId,
   type ProjectId,
   type ThreadId,
   TicketId,
-} from "@noyau/protocol/ids"
+} from "@noyau/contracts/ids"
 import {
   KanbanColumnCreateRequest,
   KanbanColumnDeleteRequest,
@@ -20,7 +20,7 @@ import {
   TicketThreadUnlinkRequest,
   TicketUpdateRequest,
   type TicketPlacement,
-} from "@noyau/protocol/ticket/commands"
+} from "@noyau/contracts/ticket/commands"
 import { Crypto, Effect, Schema } from "effect"
 
 const uuid = Effect.fnUntraced(function* () {

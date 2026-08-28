@@ -1,4 +1,4 @@
-import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
+import type { CursorProviderStatus } from "@noyau/contracts/entities/environment"
 
 export const CURSOR_READINESS_KINDS = [
   "unknown",

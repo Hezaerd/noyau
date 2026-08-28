@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { useState } from "react"
 
 import { InlineFailure } from "@/components/failure/FailureSurfaces"

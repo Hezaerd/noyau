@@ -1,5 +1,5 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk"
-import type { UserInputQuestion } from "@noyau/protocol/entities/approvals"
+import type { UserInputQuestion } from "@noyau/contracts/entities/approvals"
 import { Schema } from "effect"
 
 const SessionCarrier = Schema.Struct({

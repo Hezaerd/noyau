@@ -1,4 +1,4 @@
-import type { ThreadId, TurnId } from "@noyau/protocol/ids"
+import type { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 
 import { useTranscriptPaintMode } from "@/hooks/use-transcript-paint-preference"

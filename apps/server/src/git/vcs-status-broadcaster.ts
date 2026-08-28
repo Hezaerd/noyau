@@ -1,4 +1,4 @@
-import type { GitCommandError, VcsStatusResult, VcsStatusStreamEvent } from "@noyau/protocol/git"
+import type { GitCommandError, VcsStatusResult, VcsStatusStreamEvent } from "@noyau/contracts/git"
 import {
   Context,
   Duration,

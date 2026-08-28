@@ -1,4 +1,4 @@
-import type { ProjectAgentIntegration } from "@noyau/protocol/agent-integration"
+import type { ProjectAgentIntegration } from "@noyau/contracts/agent-integration"
 import { useEffect, useState } from "react"
 
 import { InlineFailure } from "@/components/failure/FailureSurfaces"

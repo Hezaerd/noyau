@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { assert, layer } from "@effect/vitest"
-import { ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { makeMcpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { Effect, Layer } from "effect"
 

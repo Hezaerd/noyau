@@ -1,18 +1,18 @@
-import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import type { ProjectId } from "@noyau/protocol/ids"
-import type { ProjectCommand } from "@noyau/protocol/project/commands"
+import type { WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import type { ProjectId } from "@noyau/contracts/ids"
+import type { ProjectCommand } from "@noyau/contracts/project/commands"
 import {
   ProjectAlreadyExists,
   ProjectNotFound,
   WorkspaceRootConflict,
-} from "@noyau/protocol/project/errors"
+} from "@noyau/contracts/project/errors"
 import {
   ProjectCreated,
   ProjectDeleted,
   type ProjectEvent,
   ProjectMetaUpdated,
   ProjectRebound,
-} from "@noyau/protocol/project/events"
+} from "@noyau/contracts/project/events"
 import { Result } from "effect"
 
 import type { ProjectCatalog, ProjectState } from "./projector.ts"

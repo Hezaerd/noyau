@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { createContext, useContext } from "react"
 
 import type { ComposerTicket } from "@/lib/composer-tickets"

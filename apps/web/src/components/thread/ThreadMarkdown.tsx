@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { memo, useCallback, useMemo } from "react"
 import { defaultUrlTransform, Streamdown, type ExtraProps } from "streamdown"
 

@@ -1,4 +1,4 @@
-import type { TurnDiff } from "@noyau/protocol/entities/turn"
+import type { TurnDiff } from "@noyau/contracts/entities/turn"
 import {
   ChevronRightIcon,
   ChevronsDownUpIcon,

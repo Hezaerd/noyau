@@ -1,7 +1,7 @@
-import { type InternalCommand as InternalCommandType } from "@noyau/protocol/commands"
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import { checkpointRefForTurn, type TurnDiffFile } from "@noyau/protocol/entities/turn"
-import type { DomainEvent } from "@noyau/protocol/events"
+import { type InternalCommand as InternalCommandType } from "@noyau/contracts/commands"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import { checkpointRefForTurn, type TurnDiffFile } from "@noyau/contracts/entities/turn"
+import type { DomainEvent } from "@noyau/contracts/events"
 import {
   ActorId,
   CommandId,
@@ -9,9 +9,9 @@ import {
   EventId,
   ProjectId,
   type ThreadId,
-} from "@noyau/protocol/ids"
-import { ThreadTurnDiffComplete } from "@noyau/protocol/thread/commands"
-import { ThreadEvent } from "@noyau/protocol/thread/events"
+} from "@noyau/contracts/ids"
+import { ThreadTurnDiffComplete } from "@noyau/contracts/thread/commands"
+import { ThreadEvent } from "@noyau/contracts/thread/events"
 import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
 import { readThreadSnapshot } from "@noyau/server/persistence/snapshots"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"

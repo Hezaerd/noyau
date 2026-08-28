@@ -1,14 +1,14 @@
-import type { Session, SessionStatus } from "@noyau/protocol/entities/session"
-import { Thread } from "@noyau/protocol/entities/thread"
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
+import type { Session, SessionStatus } from "@noyau/contracts/entities/session"
+import { Thread } from "@noyau/contracts/entities/thread"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import type {
   TranscriptItem,
   TranscriptTool,
   TranscriptToolAction,
-} from "@noyau/protocol/entities/transcript"
-import type { LatestTurn, Turn, TurnDiff, TurnSettlementState } from "@noyau/protocol/entities/turn"
-import type { EventEnvelope } from "@noyau/protocol/events"
-import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
+} from "@noyau/contracts/entities/transcript"
+import type { LatestTurn, Turn, TurnDiff, TurnSettlementState } from "@noyau/contracts/entities/turn"
+import type { EventEnvelope } from "@noyau/contracts/events"
+import { canReplaceThreadTitle } from "@noyau/contracts/thread/title"
 
 const userTranscriptFromTurnStarted = (
   event: Extract<EventEnvelope["event"], { readonly _tag: "thread.turn.started" }>,

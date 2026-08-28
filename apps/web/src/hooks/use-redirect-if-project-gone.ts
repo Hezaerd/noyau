@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
 

@@ -6,10 +6,10 @@ import {
   withProjectThreads,
   type BoardState,
 } from "@noyau/server/orchestration/board/projector"
-import { KanbanRank } from "@noyau/protocol/entities/kanban-column"
-import { ThreadId, TicketId } from "@noyau/protocol/ids"
-import { TicketCommand, TicketDependencyAdd } from "@noyau/protocol/ticket/commands"
-import type { TicketEvent } from "@noyau/protocol/ticket/events"
+import { KanbanRank } from "@noyau/contracts/entities/kanban-column"
+import { ThreadId, TicketId } from "@noyau/contracts/ids"
+import { TicketCommand, TicketDependencyAdd } from "@noyau/contracts/ticket/commands"
+import type { TicketEvent } from "@noyau/contracts/ticket/events"
 import { DateTime, Result, Schema } from "effect"
 
 const ids = {

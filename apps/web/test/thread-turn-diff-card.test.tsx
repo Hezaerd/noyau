@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
-import { checkpointRefForTurn, TurnDiff } from "@noyau/protocol/entities/turn"
-import { ThreadId } from "@noyau/protocol/ids"
+import { checkpointRefForTurn, TurnDiff } from "@noyau/contracts/entities/turn"
+import { ThreadId } from "@noyau/contracts/ids"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"

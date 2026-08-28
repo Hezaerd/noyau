@@ -1,6 +1,6 @@
-import type { DomainEvent } from "@noyau/protocol/events"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import type { ShellFocus } from "@noyau/protocol/shell"
+import type { DomainEvent } from "@noyau/contracts/events"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import type { ShellFocus } from "@noyau/contracts/shell"
 
 export interface PresenceActivity {
   readonly details: string

@@ -1,12 +1,12 @@
 import {
   InternalCommand,
   type InternalCommand as InternalCommandType,
-} from "@noyau/protocol/commands"
-import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
-import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import type { ResumeCursor } from "@noyau/protocol/entities/session"
-import type { ServiceUnavailable } from "@noyau/protocol/errors"
-import type { DomainEvent } from "@noyau/protocol/events"
+} from "@noyau/contracts/commands"
+import type { TurnImageAttachment } from "@noyau/contracts/entities/attachment"
+import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import type { ResumeCursor } from "@noyau/contracts/entities/session"
+import type { ServiceUnavailable } from "@noyau/contracts/errors"
+import type { DomainEvent } from "@noyau/contracts/events"
 import {
   ActorId,
   CommandId,
@@ -15,9 +15,9 @@ import {
   ProjectId,
   type ThreadId,
   type TurnId,
-} from "@noyau/protocol/ids"
-import { ThreadMetaUpdate } from "@noyau/protocol/thread/commands"
-import { ThreadEvent } from "@noyau/protocol/thread/events"
+} from "@noyau/contracts/ids"
+import { ThreadMetaUpdate } from "@noyau/contracts/thread/commands"
+import { ThreadEvent } from "@noyau/contracts/thread/events"
 import { ServerConfig } from "@noyau/server/config"
 import { buildTemporaryWorktreeBranchName, GitRuntime } from "@noyau/server/git/git-runtime"
 import type { PersistedEvent } from "@noyau/server/persistence/command-worker"

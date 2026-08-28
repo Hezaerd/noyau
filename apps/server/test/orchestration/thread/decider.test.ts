@@ -12,19 +12,19 @@ import { BOOT_RECOVERY_LAST_ERROR, recoverAfterBoot } from "@noyau/server/orches
 import {
   TranscriptItem,
   type TranscriptItem as TranscriptItemType,
-} from "@noyau/protocol/entities/transcript"
-import { ProjectId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/entities/transcript"
+import { ProjectId } from "@noyau/contracts/ids"
 import {
   ThreadCommand,
   ThreadTranscriptAppend,
   ThreadTurnStart,
-} from "@noyau/protocol/thread/commands"
+} from "@noyau/contracts/thread/commands"
 import {
   ThreadTranscriptAppended,
   ThreadTurnDiffCompleted,
   type ThreadEvent,
-} from "@noyau/protocol/thread/events"
-import { DEFAULT_THREAD_TITLE } from "@noyau/protocol/thread/title"
+} from "@noyau/contracts/thread/events"
+import { DEFAULT_THREAD_TITLE } from "@noyau/contracts/thread/title"
 import { Result, Schema } from "effect"
 
 const ids = {

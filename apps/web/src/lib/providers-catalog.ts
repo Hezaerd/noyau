@@ -1,4 +1,4 @@
-import type { CursorProviderStatus } from "@noyau/protocol/entities/environment"
+import type { CursorProviderStatus } from "@noyau/contracts/entities/environment"
 
 import { resolveCursorReadiness, type CursorReadiness } from "@/lib/cursor-readiness"
 

@@ -1,6 +1,6 @@
-import type { VcsStatusPullRequest } from "@noyau/protocol/git"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import type { ThreadShell } from "@noyau/protocol/shell"
+import type { VcsStatusPullRequest } from "@noyau/contracts/git"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import type { ThreadShell } from "@noyau/contracts/shell"
 import { Atom } from "effect/unstable/reactivity"
 
 import {

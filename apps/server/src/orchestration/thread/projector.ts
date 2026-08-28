@@ -1,16 +1,16 @@
-import type { Provider } from "@noyau/protocol/entities/environment"
-import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
-import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import type { Session, SessionStatus } from "@noyau/protocol/entities/session"
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import type { Provider } from "@noyau/contracts/entities/environment"
+import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
+import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import type { Session, SessionStatus } from "@noyau/contracts/entities/session"
+import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import type {
   TurnDiff,
   TurnSettlementState,
   TurnState as TurnLifecycleState,
-} from "@noyau/protocol/entities/turn"
-import type { ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
-import type { ThreadEvent } from "@noyau/protocol/thread/events"
-import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
+} from "@noyau/contracts/entities/turn"
+import type { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import type { ThreadEvent } from "@noyau/contracts/thread/events"
+import { canReplaceThreadTitle } from "@noyau/contracts/thread/title"
 import type { DateTime } from "effect"
 
 export interface TurnProjection {

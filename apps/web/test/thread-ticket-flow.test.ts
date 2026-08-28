@@ -1,6 +1,6 @@
-import type { ClientCommandRequest } from "@noyau/protocol/commands"
-import { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import { KanbanColumnId, ProjectId, ThreadId, TurnId, type TicketId } from "@noyau/protocol/ids"
+import type { ClientCommandRequest } from "@noyau/contracts/commands"
+import { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import { KanbanColumnId, ProjectId, ThreadId, TurnId, type TicketId } from "@noyau/contracts/ids"
 import { Crypto, Effect, Schema } from "effect"
 import { describe, expect, it, vi } from "vite-plus/test"
 

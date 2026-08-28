@@ -1,18 +1,18 @@
-import type { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
-import type { TurnImageUpload } from "@noyau/protocol/entities/attachment"
-import type { ThreadBranch, ThreadWorktreePath } from "@noyau/protocol/entities/checkout"
-import type { Provider } from "@noyau/protocol/entities/environment"
-import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
-import type { RuntimeMode as RuntimeModeType } from "@noyau/protocol/entities/runtime-mode"
-import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
-import type { PrepareWorktree } from "@noyau/protocol/git"
+import type { ProviderUserInputAnswers } from "@noyau/contracts/entities/approvals"
+import type { TurnImageUpload } from "@noyau/contracts/entities/attachment"
+import type { ThreadBranch, ThreadWorktreePath } from "@noyau/contracts/entities/checkout"
+import type { Provider } from "@noyau/contracts/entities/environment"
+import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
+import type { RuntimeMode as RuntimeModeType } from "@noyau/contracts/entities/runtime-mode"
+import type { TurnPresentation } from "@noyau/contracts/entities/transcript"
+import type { PrepareWorktree } from "@noyau/contracts/git"
 import {
   CommandId,
   type ApprovalRequestId,
   type ProjectId,
   ThreadId,
   type TurnId,
-} from "@noyau/protocol/ids"
+} from "@noyau/contracts/ids"
 import {
   ApprovalRespondRequest,
   ThreadCreateRequest,
@@ -25,12 +25,12 @@ import {
   ThreadTurnInterruptRequest,
   ThreadTurnStartRequest,
   UserInputRespondRequest,
-} from "@noyau/protocol/thread/commands"
+} from "@noyau/contracts/thread/commands"
 import {
   DEFAULT_THREAD_TITLE,
   seedTitleFromPrompt,
   seedTitleFromTurn,
-} from "@noyau/protocol/thread/title"
+} from "@noyau/contracts/thread/title"
 import { Crypto, Effect } from "effect"
 
 const uuid = Effect.fnUntraced(function* () {
