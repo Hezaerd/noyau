@@ -29,6 +29,7 @@ import {
   useSelectProject,
   useSelectedProject,
 } from "@/hooks/use-control-plane"
+import { useCreateDraftThread } from "@/hooks/use-create-draft-thread"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
@@ -44,6 +45,7 @@ export function AppSidebar() {
   const paletteHotkey = useKeybinding("palette.open")
   const settingsHotkey = useKeybinding("settings.open")
   const createThreadHotkey = useKeybinding("thread.create")
+  const createDraftThread = useCreateDraftThread()
   const projects = useProjects()
   const selectedProject = useSelectedProject()
   const selectProject = useSelectProject()
@@ -162,18 +164,14 @@ export function AppSidebar() {
                   aria-label="New Thread"
                   disabled={selectedProject === undefined}
                   className="size-9 shrink-0 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                  render={
-                    selectedProject === undefined ? undefined : (
-                      <Link
-                        to="/projects/$projectId/thread/$threadId"
-                        params={{ projectId: selectedProject.id, threadId: "new" }}
-                        onClick={() => {
-                          selectProject(selectedProject.id)
-                          closeMobileNavigation()
-                        }}
-                      />
-                    )
-                  }
+                  onClick={() => {
+                    if (selectedProject === undefined) {
+                      return
+                    }
+                    selectProject(selectedProject.id)
+                    closeMobileNavigation()
+                    void createDraftThread(selectedProject)
+                  }}
                 />
               }
             >

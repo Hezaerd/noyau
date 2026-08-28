@@ -30,7 +30,8 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
-import { useLastProjectId, useProjectThreads } from "@/hooks/use-control-plane"
+import { useLastProjectId, useProjects, useProjectThreads } from "@/hooks/use-control-plane"
+import { useCreateDraftThread } from "@/hooks/use-create-draft-thread"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import {
@@ -66,7 +67,9 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const lastProjectId = useLastProjectId()
+  const projects = useProjects()
   const threads = useProjectThreads(lastProjectId)
+  const createDraftThread = useCreateDraftThread()
   const threadCreateHotkey = useKeybinding("thread.create")
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -112,23 +115,18 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     })
   }, [navigate, pathname])
 
-  const newThreadPath =
-    lastProjectId === undefined ? undefined : `/projects/${lastProjectId}/thread/new`
-
   const openNewThread = useCallback(() => {
-    if (lastProjectId === undefined) {
+    const project =
+      lastProjectId === undefined
+        ? undefined
+        : projects.find((candidate) => candidate.id === lastProjectId)
+    if (project === undefined) {
       return
     }
     setOpen(false)
     setQuery("")
-    if (pathname === `/projects/${lastProjectId}/thread/new`) {
-      return
-    }
-    void navigate({
-      to: "/projects/$projectId/thread/$threadId",
-      params: { projectId: lastProjectId, threadId: "new" },
-    })
-  }, [lastProjectId, navigate, pathname])
+    void createDraftThread(project)
+  }, [createDraftThread, lastProjectId, projects])
 
   useKeybindingHandler("palette.open", () => setOpen(true))
   useKeybindingHandler("settings.open", openSettings)
@@ -171,7 +169,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     const pageVerbs = pageActions.filter(
       (action) => action.category !== "ticket" && action.category !== "thread",
     )
-    if (lastProjectId === undefined || pathname === newThreadPath) {
+    if (lastProjectId === undefined) {
       return pageVerbs
     }
     const createThread: AppPaletteAction = {
@@ -183,7 +181,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
       execute: openNewThread,
     }
     return [createThread, ...pageVerbs]
-  }, [lastProjectId, newThreadPath, openNewThread, pageActions, pathname, threadCreateHotkey])
+  }, [lastProjectId, openNewThread, pageActions, threadCreateHotkey])
   const ticketActions = useMemo(
     () => pageActions.filter((action) => action.category === "ticket"),
     [pageActions],
