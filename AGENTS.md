@@ -1,6 +1,6 @@
 # Noyau
 
-Noyau is a ADE "Agentic Development Environment", think of it as a GUI for coding agents "bring-your-own-subscription" alternative to apps like Claude Desktop, Codex App, Cursor Glass and Conductor.
+Noyau is an ADE "Agentic Development Environment", think of it as a GUI for coding agents "bring-your-own-subscription" alternative to apps like Claude Desktop, Codex App, Cursor Glass and Conductor.
 A Node WebSocket server wraps provider CLIs (Codex, Claude Code, Cursor) and serves web and desktop clients.
 
 ## A small glossary
@@ -10,9 +10,9 @@ We need to be on the same page with terminology. When communicating, use this la
 - **you** means the agent reading this file and changing Noyau.
 - **we, us and maintainers** means Hezaerd and the people building Noyau. These are who you are talking to now.
 - **user** means the person using Noyau to direct coding agents.
-- **agent** means the coding agent a user runs inside Noyau. Depending of context, theat may also include you.
+- **agent** means the coding agent a user runs inside Noyau. Depending of context, that may also include you.
 - **provider** means the agent runtime or harness Noyau talks to, such as Codex, Claude Code, Cursor, etc.
-- **client** means the web or desktop ui.
+- **client** means the web or desktop UI.
 - **environment** means one running Noyau server and the machine, filesystem, provider credentials, and state it owns.
 - **project** means an environment-local workspace record rooted at a directory.
 - **thread** means the durable conversation and work history for a project.
@@ -65,7 +65,7 @@ An empty database is a bad test. Seed your worktree's `.noyau` with a copy of re
 ## Verifying
 
 - Smallest proof that the change works. `vp test run <files>` for the tests you touched, targeted lint and typecheck for the scope you changed.
-- **Do not run repo-wide checks." No `vp check`, no `vp run -r typecheck` unless I ask. CI owns the big picture.
+- **Do not run repo-wide checks.** No `vp check`, no `vp run -r typecheck` unless I ask. CI owns the big picture.
 - Backend behaviour changes ship with focused tests for that behavior.
 - The server is event-sourced and it's async flows emit typed receipts. Wait a receipts and worker drains, never on sleep or polling. A test that need a timeout to pass is wrong and is a bug.
 - Upon request, user-visible frontend changes should get one integrated pass with a real client. The primary agent does this once after integrating. Subagents do not launch their own dev servers. Ask permission before doing computer use or spinning up browsers.
@@ -97,10 +97,10 @@ Full glossary with file links: `docs/internals/glossary.md`
 
 - `apps/server` - WebSocket, orchestration, providers, checkpointing. Effect-heavy: read `repos/effect/LLMS.md` before writing Effect code.
 - `apps/web` - React/Vite UI. `apps/desktop` wraps it, `apps/marketing` is the future marketing site (https://noyau.hezaerd.com), `apps/docs` is the future documentation site
-- `packages/contracts` - Effect/Schema contracts plus small dervied helpers. No heavy runtime logic.
+- `packages/contracts` - Effect/Schema contracts plus small derived helpers. No heavy runtime logic.
 - `packages/shared` - shared runtime utils, subpath exports, no barrel.
 - `packages/client-runtime` - client code shared.
-- `.repos/` - vendored read-only references. Prefer their patterns over invented ones. Never edit or import from them. Sync with `vpr sync:repos` when bumping the matching dependancy.
+- `.repos/` - vendored read-only references. Prefer their patterns over invented ones. Never edit or import from them. Sync with `vpr sync:repos` when bumping the matching dependency.
 
 ## Taste
 
