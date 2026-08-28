@@ -22,9 +22,6 @@ import type { FilePreviewFailed } from "@noyau/contracts/file-preview"
 import type { GitCommandError } from "@noyau/contracts/git"
 import {
   type ActorId,
-  CorrelationId,
-  KanbanColumnId,
-  ProjectId,
   type ProjectId as ProjectIdType,
   Sequence,
   type Sequence as SequenceType,
@@ -34,8 +31,6 @@ import {
   ProjectNotFound,
   ProjectUnavailable,
   WorkspaceRootConflict,
-  WorkspaceRootNotDirectory,
-  WorkspaceRootNotFound,
 } from "@noyau/contracts/project/errors"
 import { ProjectEvent } from "@noyau/contracts/project/events"
 import {
@@ -84,7 +79,8 @@ import {
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { AgentSkillInstaller } from "./agent-skill/installer.ts"
-import { loadTurnAttachments, persistTurnUploads, readAttachmentPreview } from "./attachments.ts"
+import { loadTurnAttachments, readAttachmentPreview } from "./attachments.ts"
+import { commandFromRequest, requestProjectId } from "./command-from-request.ts"
 import { ServerConfig } from "./config.ts"
 import { journalEventTouchesPresence } from "./discord/activity.ts"
 import { makePresenceController } from "./discord/presence.ts"
@@ -116,49 +112,11 @@ const isProjectEvent = Schema.is(ProjectEvent)
 const isTicketEvent = Schema.is(TicketEvent)
 const isThreadEvent = Schema.is(ThreadEvent)
 
-const ScopeRow = Schema.Struct({ project_id: Schema.String })
 const WorkspaceRootRow = Schema.Struct({ workspace_root: Schema.String })
 const MigrationRow = Schema.Struct({ migration_id: Schema.Int })
-const decodeScopeRow = Schema.decodeEffect(ScopeRow)
 const decodeWorkspaceRootRow = Schema.decodeEffect(WorkspaceRootRow)
 const decodeMigrationRow = Schema.decodeEffect(MigrationRow)
-const decodeCommand = Schema.decodeUnknownEffect(Command)
 const encodeDomainEvent = Schema.encodeUnknownEffect(DomainEvent)
-
-const fallbackProjectId = (id: string): ProjectIdType => ProjectId.make(id)
-
-const projectForTicket = Effect.fn("ControlPlane.projectForTicket")(function* (ticketId: string) {
-  const sql = yield* SqlClient
-  const rows = yield* sql<
-    (typeof ScopeRow)["Encoded"]
-  >`SELECT project_id FROM projection_tickets WHERE ticket_id = ${ticketId}`
-  const row = rows[0]
-  return row === undefined
-    ? fallbackProjectId(ticketId)
-    : ProjectId.make((yield* decodeScopeRow(row).pipe(Effect.orDie)).project_id)
-})
-
-const projectForColumn = Effect.fn("ControlPlane.projectForColumn")(function* (columnId: string) {
-  const sql = yield* SqlClient
-  const rows = yield* sql<
-    (typeof ScopeRow)["Encoded"]
-  >`SELECT project_id FROM projection_columns WHERE column_id = ${columnId}`
-  const row = rows[0]
-  return row === undefined
-    ? fallbackProjectId(columnId)
-    : ProjectId.make((yield* decodeScopeRow(row).pipe(Effect.orDie)).project_id)
-})
-
-const projectForThread = Effect.fn("ControlPlane.projectForThread")(function* (threadId: string) {
-  const sql = yield* SqlClient
-  const rows = yield* sql<
-    (typeof ScopeRow)["Encoded"]
-  >`SELECT project_id FROM projection_threads WHERE thread_id = ${threadId}`
-  const row = rows[0]
-  return row === undefined
-    ? fallbackProjectId(threadId)
-    : ProjectId.make((yield* decodeScopeRow(row).pipe(Effect.orDie)).project_id)
-})
 
 const workspaceRootForProject = Effect.fn("ControlPlane.workspaceRootForProject")(function* (
   projectId: ProjectIdType,
@@ -173,131 +131,6 @@ const workspaceRootForProject = Effect.fn("ControlPlane.workspaceRootForProject"
   }
   const workspaceRoot = (yield* decodeWorkspaceRootRow(row).pipe(Effect.orDie)).workspace_root
   return Option.some(yield* Schema.decodeEffect(WorkspaceRoot)(workspaceRoot).pipe(Effect.orDie))
-})
-
-const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
-  request: ClientCommandRequest,
-) {
-  switch (request._tag) {
-    case "project.create":
-    case "project.meta.update":
-    case "project.rebind":
-    case "project.delete":
-    case "ticket.create":
-    case "thread.create":
-      return request.payload.projectId
-    case "kanbanColumn.create":
-      return request.payload.projectId
-    case "kanbanColumn.update":
-    case "kanbanColumn.move":
-    case "kanbanColumn.delete":
-      return yield* projectForColumn(request.payload.columnId)
-    case "ticket.move":
-    case "ticket.complete":
-    case "ticket.reopen":
-    case "ticket.archive":
-    case "ticket.restore":
-    case "ticket.assign":
-    case "ticket.update":
-    case "ticket.dependency.add":
-    case "ticket.dependency.remove":
-    case "ticket.thread.link":
-    case "ticket.thread.unlink":
-      return yield* projectForTicket(request.payload.ticketId)
-    case "thread.delete":
-    case "thread.settle":
-    case "thread.unsettle":
-    case "thread.meta.update":
-    case "thread.runtime-mode.set":
-    case "thread.model-selection.set":
-    case "thread.turn.start":
-    case "thread.turn.interrupt":
-    case "approval.respond":
-    case "user-input.respond":
-    case "session.stop":
-      return yield* projectForThread(request.payload.threadId)
-  }
-})
-
-const columnIdFromDigest = (digest: Uint8Array) => {
-  const bytes = digest.slice(0, 16)
-  const versionByte = bytes[6]
-  const variantByte = bytes[8]
-  if (versionByte === undefined || variantByte === undefined) {
-    throw new Error("SHA-256 digest is shorter than 16 bytes")
-  }
-  bytes[6] = (versionByte & 0x0f) | 0x50
-  bytes[8] = (variantByte & 0x3f) | 0x80
-  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("")
-  return KanbanColumnId.make(
-    `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`,
-  )
-}
-
-const initialBoardFor = Effect.fn("ControlPlane.initialBoardFor")(function* (commandId: string) {
-  const crypto = yield* Crypto.Crypto
-  const encoder = new TextEncoder()
-  const derive = (role: "active" | "backlog" | "done") =>
-    crypto
-      .digest("SHA-256", encoder.encode(`board:${role}:${commandId}`))
-      .pipe(Effect.map(columnIdFromDigest))
-  const [backlogColumnId, activeColumnId, doneColumnId] = yield* Effect.all([
-    derive("backlog"),
-    derive("active"),
-    derive("done"),
-  ])
-  return { backlogColumnId, activeColumnId, doneColumnId }
-})
-
-const validateWorkspaceRoot = Effect.fn("ControlPlane.validateWorkspaceRoot")(function* (
-  command: CommandType,
-) {
-  if (command._tag !== "project.create" && command._tag !== "project.rebind") {
-    return null
-  }
-  const workspaceRoot = command.payload.workspaceRoot
-  const fileSystem = yield* FileSystem.FileSystem
-  const result = yield* fileSystem.stat(workspaceRoot).pipe(
-    Effect.map((info) => ({ _tag: "Found" as const, info })),
-    Effect.catchTag("PlatformError", (error) =>
-      error.reason._tag === "NotFound"
-        ? Effect.succeed({ _tag: "Missing" as const })
-        : Effect.fail(new ServiceUnavailable({ service: "filesystem" })),
-    ),
-  )
-  if (result._tag === "Missing") {
-    return new WorkspaceRootNotFound({ workspaceRoot })
-  }
-  return result.info.type === "Directory" ? null : new WorkspaceRootNotDirectory({ workspaceRoot })
-})
-
-const enrichCommand = Effect.fn("ControlPlane.enrichCommand")(function* (
-  request: ClientCommandRequest,
-  actorId: ActorId,
-) {
-  const projectId = yield* requestProjectId(request)
-  const issuedAt = yield* DateTime.now
-  const attachments =
-    request._tag === "thread.turn.start" ? yield* persistTurnUploads(request) : undefined
-  const enrichedRequest =
-    request._tag === "project.create"
-      ? {
-          ...request,
-          initialBoard: yield* initialBoardFor(request.commandId).pipe(
-            Effect.mapError(() => new ServiceUnavailable({ service: "crypto" })),
-          ),
-        }
-      : request._tag === "thread.turn.start" && attachments !== undefined
-        ? { ...request, payload: { ...request.payload, attachments } }
-        : request
-  return yield* decodeCommand({
-    ...enrichedRequest,
-    projectId,
-    actorId,
-    correlationId: CorrelationId.make(request.commandId),
-    issuedAt: DateTime.formatIso(issuedAt),
-    schemaVersion: 1,
-  }).pipe(Effect.orDie)
 })
 
 const toEnvelope = (event: PersistedEvent<DomainEventType>) =>
@@ -597,13 +430,9 @@ export interface ControlPlaneHooks {
 const workerNotReady: DispatchInternal = (_command) =>
   Effect.die("Provider reactor dispatched before the command worker was ready")
 
-const validateProjectLifecycle = Effect.fn("ControlPlane.validateProjectLifecycle")(function* (
+const validateWorkspaceRootOwner = Effect.fn("ControlPlane.validateWorkspaceRootOwner")(function* (
   command: CommandType,
 ) {
-  const workspaceRootRejection = yield* validateWorkspaceRoot(command)
-  if (workspaceRootRejection !== null) {
-    return workspaceRootRejection
-  }
   if (command._tag !== "project.create" && command._tag !== "project.rebind") {
     return null
   }
@@ -722,10 +551,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         recoverStateAfterReplay: (state) => recoverControlStateAfterBoot(state, recoveredAt),
         decide,
         evolve,
-        validate: (command) =>
-          validateProjectLifecycle(command).pipe(
-            Effect.provideService(FileSystem.FileSystem, fileSystem),
-          ),
+        validate: validateWorkspaceRootOwner,
         project: (event) => projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql)),
         reactor,
       })
@@ -804,7 +630,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               error._tag === "SqlError" ? new ServiceUnavailable({ service: "sqlite" }) : error,
             ),
           )
-          const command = yield* enrichCommand(request, actorId).pipe(
+          const command = yield* commandFromRequest(request, actorId).pipe(
             Effect.provideService(SqlClient, sql),
             Effect.provideService(Crypto.Crypto, crypto),
             Effect.provideService(FileSystem.FileSystem, fileSystem),
@@ -816,7 +642,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             .dispatch(command)
             .pipe(
               Effect.mapError((error) =>
-                error._tag === "CommandIdConflict" || error._tag === "ServiceUnavailable"
+                error._tag === "CommandIdConflict"
                   ? error
                   : new ServiceUnavailable({ service: "sqlite" }),
               ),
