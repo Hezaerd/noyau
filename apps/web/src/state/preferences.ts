@@ -7,11 +7,6 @@ import {
   persistAppearancePreference,
   watchSystemAppearance,
 } from "@/lib/appearance"
-import {
-  persistAutoRemoveMergedWorktree,
-  readStoredAutoRemoveMergedWorktree,
-  DEFAULT_AUTO_REMOVE_MERGED_WORKTREE,
-} from "@/lib/auto-remove-merged-worktree-preference"
 import type { AppearancePreference } from "@/lib/desktop-bridge"
 import type { DesktopUpdatePackagedChannel } from "@/lib/desktop-bridge"
 import {
@@ -68,11 +63,6 @@ export const discordPresenceEnabledAtom = Atom.make(DEFAULT_DISCORD_PRESENCE_ENA
   Atom.withLabel("pref:discord-presence"),
 )
 
-export const autoRemoveMergedWorktreeAtom = Atom.make(DEFAULT_AUTO_REMOVE_MERGED_WORKTREE).pipe(
-  Atom.keepAlive,
-  Atom.withLabel("pref:auto-remove-merged-worktree"),
-)
-
 export const desktopUpdateChannelAtom = Atom.make<DesktopUpdatePackagedChannel>("latest").pipe(
   Atom.keepAlive,
   Atom.withLabel("pref:desktop-update-channel"),
@@ -108,7 +98,6 @@ const once = (flag: { current: boolean }, initialize: () => void): void => {
 const appearanceReady = { current: false }
 const threadEnvReady = { current: false }
 const discordReady = { current: false }
-const worktreeReady = { current: false }
 const updateChannelReady = { current: false }
 const folderReady = { current: false }
 const transcriptPaintReady = { current: false }
@@ -145,15 +134,6 @@ export const initializeDiscordPresencePreference = (): void => {
     persistWritableAtom(discordPresenceEnabledAtom, {
       read: readStoredDiscordPresence,
       write: persistDiscordPresence,
-    })
-  })
-}
-
-export const initializeAutoRemoveMergedWorktreePreference = (): void => {
-  once(worktreeReady, () => {
-    persistWritableAtom(autoRemoveMergedWorktreeAtom, {
-      read: readStoredAutoRemoveMergedWorktree,
-      write: persistAutoRemoveMergedWorktree,
     })
   })
 }
@@ -232,16 +212,6 @@ export const setDiscordPresenceEnabled = (enabled: boolean): void => {
     return
   }
   appAtomRegistry.set(discordPresenceEnabledAtom, enabled)
-}
-
-export const getAutoRemoveMergedWorktreeEnabled = (): boolean =>
-  appAtomRegistry.get(autoRemoveMergedWorktreeAtom)
-
-export const setAutoRemoveMergedWorktreeEnabled = (enabled: boolean): void => {
-  if (enabled === appAtomRegistry.get(autoRemoveMergedWorktreeAtom)) {
-    return
-  }
-  appAtomRegistry.set(autoRemoveMergedWorktreeAtom, enabled)
 }
 
 export const getDesktopUpdateChannel = (): DesktopUpdatePackagedChannel =>

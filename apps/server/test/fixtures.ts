@@ -28,7 +28,6 @@ export const stubGitRuntimeLayer = Layer.succeed(GitRuntime)({
   createRef: (_cwd, refName) => Effect.succeed({ refName }),
   createWorktree: (input) =>
     Effect.succeed({ worktree: { path: `${input.worktreesDir}/stub`, refName: input.branch } }),
-  removeWorktree: (input) => Effect.succeed({ path: input.path }),
   renameBranch: (input) => Effect.succeed({ branch: input.newBranch }),
   isGitRepository: () => Effect.succeed(false),
   captureCheckpoint: () => Effect.void,
@@ -74,7 +73,6 @@ export const stubGitPlaneLayer = Layer.succeed(GitPlane)({
         refName: input.branch ?? input.baseBranch,
       },
     }),
-  removeWorktree: (input) => Effect.succeed({ path: input.path, releasedThreadIds: [] }),
   draft: () => Effect.succeed({ title: "stub draft" }),
   runStackedAction: (input) =>
     Effect.succeed({

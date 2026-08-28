@@ -54,8 +54,6 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     GitPlane.pipe(Effect.flatMap((git) => git.createRef(input))),
   [RPC_METHODS.vcsCreateWorktree]: (input) =>
     GitPlane.pipe(Effect.flatMap((git) => git.createWorktree(input))),
-  [RPC_METHODS.vcsRemoveWorktree]: (input) =>
-    GitPlane.pipe(Effect.flatMap((git) => git.removeWorktree(input))),
   [RPC_METHODS.gitDraft]: (input) => GitPlane.pipe(Effect.flatMap((git) => git.draft(input))),
   [RPC_METHODS.gitRunStackedAction]: (input) =>
     GitPlane.pipe(Effect.flatMap((git) => git.runStackedAction(input))),

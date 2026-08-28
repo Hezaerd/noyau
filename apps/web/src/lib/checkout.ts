@@ -184,25 +184,6 @@ export const resolveLocalCheckoutBranchMismatch = (input: {
   return { previous: input.threadBranch, current: input.liveBranch }
 }
 
-export const isWorktreeDeleteGesture = (
-  event: Pick<MouseEvent, "altKey" | "ctrlKey" | "metaKey" | "shiftKey">,
-): boolean => event.shiftKey && (event.metaKey || event.ctrlKey) && !event.altKey
-
-/** Linked worktree only — never the WorkspaceRoot / primary checkout. */
-export const isRemovableWorktreeRef = (
-  ref: Pick<VcsRef, "current" | "worktreePath">,
-  cwd: string,
-  linkedCwd: string | null,
-): boolean => {
-  if (ref.worktreePath === null) {
-    return false
-  }
-  if (ref.worktreePath !== cwd) {
-    return true
-  }
-  return linkedCwd !== null && ref.current
-}
-
 export const branchPickerBadge = (
   ref: Pick<VcsRef, "current" | "isDefault" | "isRemote" | "worktreePath">,
   cwd: string,
