@@ -107,12 +107,12 @@ export const visibleTickets = (
   columnId: string,
   filters: BoardFilters,
 ): ReadonlyArray<BoardTicket> => {
-  const normalizedQuery = filters.query.trim().toLocaleLowerCase("fr")
+  const normalizedQuery = filters.query.trim().toLocaleLowerCase("en")
 
   return ticketsInColumn(state, columnId).filter((ticket) => {
     const queryMatches =
       normalizedQuery === "" ||
-      `${ticket.title} ${ticket.description}`.toLocaleLowerCase("fr").includes(normalizedQuery)
+      `${ticket.title} ${ticket.description}`.toLocaleLowerCase("en").includes(normalizedQuery)
     const priorityMatches =
       filters.priority === undefined ||
       filters.priority === "none" ||

@@ -10,7 +10,7 @@ Discover the available `noyau_*` tools and follow their schemas.
   the active column (`noyau_ticket_move`), not by inventing a parallel todo list.
 - Prefer `noyau_ticket_complete` / `noyau_ticket_reopen` over a raw move when that is the intent.
   Moving into `Done` completes a Ticket; moving out reopens it.
-- Archive with `noyau_ticket_archive` only for work that should leave the active Tableau; restore
+- Archive with `noyau_ticket_archive` only for work that should leave the active Board; restore
   with `noyau_ticket_restore` instead of recreating it.
 - Pass a stable `operationId` (UUID) on mutations you may retry.
 - Never duplicate a Ticket merely because a mutation tool is unavailable.

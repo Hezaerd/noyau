@@ -92,7 +92,7 @@ export function ProjectFolderDialog({
     const projectName = (name.trim() || folderName(path)).trim()
     if (path === "" || projectName === "") {
       setFailure(
-        presentFailure(invalidInputFailure("Choisis un dossier existant et donne-lui un nom."), {
+        presentFailure(invalidInputFailure("Choose an existing folder and give it a name."), {
           operation: "project.folder.submit",
           scope: "field",
           initiatedByUser: true,
@@ -145,15 +145,15 @@ export function ProjectFolderDialog({
         <DialogHeader>
           <DialogTitle>
             {createdProjectId !== undefined
-              ? "Configurer les agents"
+              ? "Set up agents"
               : project === undefined
-                ? "Relier un dossier"
-                : "Relier le dossier"}
+                ? "Link a folder"
+                : "Link the folder"}
           </DialogTitle>
           <DialogDescription>
             {createdProjectId === undefined
-              ? "Noyau travaille directement dans un dossier déjà présent sur cette machine."
-              : "Le Project est relié. Tu peux maintenant installer son intégration agent recommandée."}
+              ? "Noyau works directly in a folder already on this machine."
+              : "The Project is linked. You can now install its recommended agent integration."}
           </DialogDescription>
         </DialogHeader>
         <DialogPanel className="flex flex-col gap-4">
@@ -163,7 +163,7 @@ export function ProjectFolderDialog({
             <>
               {project === undefined ? (
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="project-name">Nom du Project</Label>
+                  <Label htmlFor="project-name">Project name</Label>
                   <Input
                     id="project-name"
                     aria-describedby={failure === undefined ? undefined : "project-folder-error"}
@@ -173,12 +173,12 @@ export function ProjectFolderDialog({
                       setName(event.target.value)
                       setFailure(undefined)
                     }}
-                    placeholder="Mon Project"
+                    placeholder="My Project"
                   />
                 </div>
               ) : null}
               <div className="flex flex-col gap-2">
-                <Label htmlFor="workspace-root">Dossier existant</Label>
+                <Label htmlFor="workspace-root">Existing folder</Label>
                 <div className="flex gap-2">
                   <Input
                     id="workspace-root"
@@ -189,10 +189,10 @@ export function ProjectFolderDialog({
                       setWorkspaceRoot(event.target.value)
                       setFailure(undefined)
                     }}
-                    placeholder="/Users/moi/Projet"
+                    placeholder="/Users/me/Project"
                   />
                   <Button type="button" variant="outline" onClick={() => chooseFolder()}>
-                    Parcourir
+                    Browse
                   </Button>
                 </div>
               </div>
@@ -201,10 +201,10 @@ export function ProjectFolderDialog({
               )}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                  Annuler
+                  Cancel
                 </Button>
                 <Button type="button" disabled={submitting} onClick={() => submit()}>
-                  {project === undefined ? "Relier le dossier" : "Rebind le dossier"}
+                  {project === undefined ? "Link the folder" : "Relink the folder"}
                 </Button>
               </div>
             </>

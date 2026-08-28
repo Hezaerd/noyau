@@ -43,15 +43,13 @@ export function ProjectSwitcher({
           render={
             <button
               type="button"
-              aria-label="Changer de Project"
+              aria-label="Switch Project"
               className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 px-2.5 text-left text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:opacity-50"
             />
           }
         >
           <FolderIcon className="size-4 shrink-0 text-sidebar-foreground/70" />
-          <span className="min-w-0 flex-1 truncate">
-            {selectedProject?.name ?? "Aucun Project"}
-          </span>
+          <span className="min-w-0 flex-1 truncate">{selectedProject?.name ?? "No Project"}</span>
           <ChevronDownIcon className="size-4 shrink-0 text-sidebar-foreground/50" />
         </MenuTrigger>
         <MenuPopup align="start" className="w-(--anchor-width)">
@@ -74,7 +72,7 @@ export function ProjectSwitcher({
                 <span className="min-w-0 truncate">{project.name}</span>
                 {project.available ? null : (
                   <span className="ml-auto shrink-0 text-[0.65rem] font-normal text-warning">
-                    Introuvable
+                    Missing
                   </span>
                 )}
               </MenuRadioItem>
@@ -85,11 +83,11 @@ export function ProjectSwitcher({
               <MenuSeparator />
               <MenuItem closeOnClick onClick={onRebind}>
                 <FolderInputIcon />
-                Relier le dossier
+                Link the folder
               </MenuItem>
               <MenuItem closeOnClick variant="destructive" onClick={onRemove}>
                 <Trash2Icon />
-                Retirer le Project
+                Remove the Project
               </MenuItem>
             </>
           )}
@@ -102,7 +100,7 @@ export function ProjectSwitcher({
               type="button"
               variant="ghost"
               size="icon"
-              aria-label="Relier un dossier"
+              aria-label="Link a folder"
               className="size-9 shrink-0 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               onClick={onAdd}
             />
@@ -110,7 +108,7 @@ export function ProjectSwitcher({
         >
           <FolderPlusIcon />
         </TooltipTrigger>
-        <TooltipPopup side="right">Relier un dossier</TooltipPopup>
+        <TooltipPopup side="right">Link a folder</TooltipPopup>
       </Tooltip>
     </div>
   )

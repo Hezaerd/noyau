@@ -68,7 +68,7 @@ export const envModeLockedOf = (input: {
 }): boolean => input.worktreePath != null || input.latestTurn != null || input.isRunning === true
 
 export const resolveEnvModeLabel = (mode: ThreadEnvMode): string =>
-  mode === "worktree" ? "Nouveau worktree" : "Checkout courant"
+  mode === "worktree" ? "New worktree" : "Current checkout"
 
 export const THREAD_ENV_MODE_ITEMS: ReadonlyArray<{
   readonly value: ThreadEnvMode
@@ -93,9 +93,9 @@ export const resolveEnvModeTriggerLabel = (input: {
     return "Worktree"
   }
   if (input.envMode === "worktree") {
-    return "Nouveau worktree"
+    return "New worktree"
   }
-  return input.locked ? "Checkout local" : "Checkout courant"
+  return input.locked ? "Local checkout" : "Current checkout"
 }
 
 export const isSelectingWorktreeBase = (input: {
@@ -129,10 +129,10 @@ export const resolveBranchTriggerLabel = (input: {
   if (isSelectingWorktreeBase(input)) {
     const base = input.baseBranch ?? input.liveBranch
     if (base === null || base === "") {
-      return "Choisir une base"
+      return "Choose a base"
     }
     const ref = input.startFromOrigin && !base.startsWith("origin/") ? `origin/${base}` : base
-    return `Depuis ${ref}`
+    return `From ${ref}`
   }
   return statusLabel(input.status)
 }
@@ -227,11 +227,11 @@ export const statusLabel = (status: VcsStatusResult | undefined): string => {
     return "Git"
   }
   if (!status.isRepo) {
-    return "Pas un dépôt"
+    return "Not a repo"
   }
-  const branch = status.refName ?? "HEAD détaché"
+  const branch = status.refName ?? "Detached HEAD"
   if (!status.hasWorkingTreeChanges) {
     return branch
   }
-  return `${branch} · modifié`
+  return `${branch} · dirty`
 }

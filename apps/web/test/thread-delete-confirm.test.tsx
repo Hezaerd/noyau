@@ -74,11 +74,11 @@ describe("thread delete confirmation", () => {
         )
 
         expect(screen.getByRole("alertdialog")).toBeTruthy()
-        expect(screen.getByText(/définitivement retiré/)).toBeTruthy()
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Annuler" })))
+        expect(screen.getByText(/permanently removed/)).toBeTruthy()
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Cancel" })))
         expect(onConfirm).not.toHaveBeenCalled()
 
-        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Supprimer" })))
+        yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Delete" })))
         expect(onConfirm).toHaveBeenCalledTimes(1)
       }),
     ))
@@ -113,7 +113,7 @@ describe("thread delete confirmation", () => {
           }),
         )
         const deleteItem = yield* Effect.promise(() =>
-          screen.findByRole("menuitem", { name: "Supprimer" }),
+          screen.findByRole("menuitem", { name: "Delete" }),
         )
         yield* Effect.promise(() => user.click(deleteItem))
 
@@ -124,7 +124,7 @@ describe("thread delete confirmation", () => {
         expect(buildAndDispatchCommand).not.toHaveBeenCalled()
 
         yield* Effect.promise(() =>
-          user.click(within(confirmation).getByRole("button", { name: "Annuler" })),
+          user.click(within(confirmation).getByRole("button", { name: "Cancel" })),
         )
         expect(buildAndDispatchCommand).not.toHaveBeenCalled()
 
@@ -135,14 +135,14 @@ describe("thread delete confirmation", () => {
           }),
         )
         const secondDeleteItem = yield* Effect.promise(() =>
-          screen.findByRole("menuitem", { name: "Supprimer" }),
+          screen.findByRole("menuitem", { name: "Delete" }),
         )
         yield* Effect.promise(() => user.click(secondDeleteItem))
         const secondConfirmation = yield* Effect.promise(() =>
           waitFor(() => screen.getByRole("alertdialog")),
         )
         yield* Effect.promise(() =>
-          user.click(within(secondConfirmation).getByRole("button", { name: "Supprimer" })),
+          user.click(within(secondConfirmation).getByRole("button", { name: "Delete" })),
         )
         yield* Effect.promise(() =>
           waitFor(() => {

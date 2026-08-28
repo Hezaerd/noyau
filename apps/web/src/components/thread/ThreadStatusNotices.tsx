@@ -24,12 +24,12 @@ export function ThreadStatusNotices({
     <>
       {session?.status === "error" && session.lastError !== null ? (
         <Alert variant="error">
-          <AlertTitle>Erreur de Session</AlertTitle>
+          <AlertTitle>Session error</AlertTitle>
           <AlertDescription>{session.lastError ?? ""}</AlertDescription>
           {onRetry === undefined ? null : (
             <AlertAction>
               <Button size="sm" variant="outline" onClick={onRetry}>
-                Réessayer
+                Retry
               </Button>
             </AlertAction>
           )}
@@ -37,7 +37,7 @@ export function ThreadStatusNotices({
       ) : null}
       {latestTurn?.state === "interrupted" ? (
         <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-          {interruptedLabel} — le prochain message démarrera un nouveau Turn.
+          {interruptedLabel} — the next message will start a new Turn.
         </div>
       ) : null}
     </>

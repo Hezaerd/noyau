@@ -54,7 +54,7 @@ export function HomePage() {
     }
     return (
       <main className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        Connexion au control plane…
+        Connecting to the control plane…
       </main>
     )
   }
@@ -63,13 +63,13 @@ export function HomePage() {
     <>
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <p className="text-sm font-medium text-primary">Noyau</p>
-        <h2 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">Sur quoi on travaille ?</h2>
+        <h2 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">What are we working on?</h2>
         <p className="mt-4 max-w-lg text-sm leading-6 text-muted-foreground">
-          Relie un dossier existant pour ouvrir son Tableau. Les Projects et leurs Threads restent
-          durables dans le control plane.
+          Link an existing folder to open its Board. Projects and their Threads stay durable in the
+          control plane.
         </p>
         <Button className="mt-8" onClick={() => setLinkDialogOpen(true)}>
-          Enregistrer un dossier
+          Link a folder
         </Button>
       </main>
       <ProjectFolderDialog

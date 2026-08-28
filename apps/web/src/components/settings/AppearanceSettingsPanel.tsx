@@ -15,9 +15,9 @@ const appearanceModes: ReadonlyArray<{
   readonly label: string
   readonly ariaLabel: string
 }> = [
-  { value: "system", label: "Système", ariaLabel: "Suivre l’apparence du système" },
-  { value: "light", label: "Clair", ariaLabel: "Utiliser le thème clair" },
-  { value: "dark", label: "Sombre", ariaLabel: "Utiliser le thème sombre" },
+  { value: "system", label: "System", ariaLabel: "Follow system appearance" },
+  { value: "light", label: "Light", ariaLabel: "Use the light theme" },
+  { value: "dark", label: "Dark", ariaLabel: "Use the dark theme" },
 ]
 
 const renderWireframe = (mode: AppearancePreference) => (
@@ -41,16 +41,16 @@ export function AppearanceSettingsPanel(): ReactElement {
 
   return (
     <SettingsPage>
-      <SettingsSection id="appearance" title="Apparence">
+      <SettingsSection id="appearance" title="Appearance">
         <div className="flex flex-col gap-3">
           <p className="px-3 text-[13px] leading-[1.45] text-muted-foreground/80 sm:px-4">
-            Choisis comment Noyau s’affiche.
+            Choose how Noyau looks.
           </p>
           <h3 className="px-3 text-sm font-medium tracking-[-0.005em] text-foreground sm:px-4">
-            Thème
+            Theme
           </h3>
           <div
-            aria-label="Thème"
+            aria-label="Theme"
             className="grid w-full grid-cols-3 gap-3 px-3 sm:px-4"
             role="group"
           >
@@ -87,8 +87,8 @@ export function AppearanceSettingsPanel(): ReactElement {
         </div>
         <SettingsRow
           id="transcript-paint"
-          title="Peinture du transcript"
-          description="Fluide peint la bulle live au rythme de l’écran. Immédiat applique chaque hint tout de suite."
+          title="Transcript paint"
+          description="Smooth paints the live bubble at the display rate. Immediate applies each hint right away."
           control={
             <Select
               items={TRANSCRIPT_PAINT_ITEMS}
@@ -103,7 +103,7 @@ export function AppearanceSettingsPanel(): ReactElement {
                 id={transcriptPaintSelectId}
                 size="sm"
                 className="w-full sm:w-52"
-                aria-label="Peinture du transcript"
+                aria-label="Transcript paint"
               >
                 <SelectValue />
               </SelectTrigger>

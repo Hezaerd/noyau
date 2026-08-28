@@ -44,9 +44,9 @@ export const ticketActivityFromSnapshot = (
 ): ReadonlyArray<EventEnvelope> =>
   snapshot.ticketActivity.find((activity) => activity.ticketId === ticketId)?.events ?? []
 
-const quote = (value: string): string => `« ${value} »`
+const quote = (value: string): string => `"${value}"`
 
-const MISSING_THREAD_TITLE = "un thread"
+const MISSING_THREAD_TITLE = "a thread"
 
 export const ticketActivityThreadRef = (
   threadId: string,
@@ -91,15 +91,15 @@ const ticketLabel = (ticketId: string, context: TicketActivityContext | undefine
 const priorityLabel = (priority: string): string => {
   switch (priority) {
     case "none":
-      return "aucune"
+      return "none"
     case "low":
-      return "basse"
+      return "low"
     case "normal":
-      return "normale"
+      return "normal"
     case "high":
-      return "haute"
+      return "high"
     case "urgent":
-      return "urgente"
+      return "urgent"
     default:
       return priority
   }
@@ -112,30 +112,30 @@ const ticketUpdatedAction = (
   if ("title" in event && event.title !== undefined) {
     parts.push(
       event.previousTitle === undefined
-        ? `a renommé le ticket en ${quote(event.title)}`
-        : `a renommé le ticket de ${quote(event.previousTitle)} → ${quote(event.title)}`,
+        ? `renamed the ticket to ${quote(event.title)}`
+        : `renamed the ticket from ${quote(event.previousTitle)} → ${quote(event.title)}`,
     )
   }
   if ("description" in event) {
-    parts.push(event.description === null ? "a effacé la description" : "a modifié la description")
+    parts.push(event.description === null ? "cleared the description" : "updated the description")
   }
   if ("priority" in event && event.priority !== undefined) {
     parts.push(
       event.previousPriority === undefined
-        ? `a modifié la priorité (${priorityLabel(event.priority)})`
-        : `a modifié la priorité de ${priorityLabel(event.previousPriority)} → ${priorityLabel(event.priority)}`,
+        ? `changed the priority (${priorityLabel(event.priority)})`
+        : `changed the priority from ${priorityLabel(event.previousPriority)} → ${priorityLabel(event.priority)}`,
     )
   }
   if ("dueAt" in event) {
-    parts.push(event.dueAt === null ? "a retiré l’échéance" : "a modifié l’échéance")
+    parts.push(event.dueAt === null ? "cleared the due date" : "changed the due date")
   }
   if (parts.length === 0) {
-    return "a mis à jour le ticket"
+    return "updated the ticket"
   }
   if (parts.length === 1) {
-    return parts[0] ?? "a mis à jour le ticket"
+    return parts[0] ?? "updated the ticket"
   }
-  return new Intl.ListFormat("fr", { style: "long", type: "conjunction" }).format(parts)
+  return new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(parts)
 }
 
 export const ticketActivityAction = (
@@ -144,47 +144,47 @@ export const ticketActivityAction = (
 ): string => {
   switch (envelope.event._tag) {
     case "ticket.created":
-      return `a créé le ticket ${quote(envelope.event.title)}`
+      return `created the ticket ${quote(envelope.event.title)}`
     case "ticket.moved": {
       const destination = columnLabel(envelope.event.columnId, context)
       if (envelope.event.previousColumnId === undefined) {
-        return `a déplacé le ticket vers ${quote(destination)}`
+        return `moved the ticket to ${quote(destination)}`
       }
       const source = columnLabel(envelope.event.previousColumnId, context)
-      return `a déplacé le ticket de ${quote(source)} → ${quote(destination)}`
+      return `moved the ticket from ${quote(source)} → ${quote(destination)}`
     }
     case "ticket.completed": {
       const from = columnLabel(envelope.event.previousColumnId, context)
       const to = columnLabel(envelope.event.doneColumnId, context)
-      return `a terminé le ticket (${quote(from)} → ${quote(to)})`
+      return `completed the ticket (${quote(from)} → ${quote(to)})`
     }
     case "ticket.reopened":
-      return `a rouvert le ticket vers ${quote(columnLabel(envelope.event.columnId, context))}`
+      return `reopened the ticket to ${quote(columnLabel(envelope.event.columnId, context))}`
     case "ticket.archived":
-      return "a archivé le ticket"
+      return "archived the ticket"
     case "ticket.restored":
-      return `a restauré le ticket vers ${quote(columnLabel(envelope.event.columnId, context))}`
+      return `restored the ticket to ${quote(columnLabel(envelope.event.columnId, context))}`
     case "ticket.assigned":
-      return "a modifié l’attribution"
+      return "changed the assignment"
     case "ticket.updated":
       return ticketUpdatedAction(envelope.event)
     case "ticket.dependency.added":
-      return `a ajouté une dépendance vers ${quote(ticketLabel(envelope.event.dependsOnTicketId, context))}`
+      return `added a dependency on ${quote(ticketLabel(envelope.event.dependsOnTicketId, context))}`
     case "ticket.dependency.removed":
-      return `a retiré une dépendance vers ${quote(ticketLabel(envelope.event.dependsOnTicketId, context))}`
+      return `removed a dependency on ${quote(ticketLabel(envelope.event.dependsOnTicketId, context))}`
     case "ticket.thread.linked":
     case "ticket.thread.unlinked":
       return flattenTicketActivityParts(ticketActivityParts(envelope, context))
     case "kanbanColumn.created":
-      return "a créé une colonne"
+      return "created a column"
     case "kanbanColumn.updated":
-      return "a modifié une colonne"
+      return "updated a column"
     case "kanbanColumn.moved":
-      return "a déplacé une colonne"
+      return "moved a column"
     case "kanbanColumn.deleted":
-      return "a supprimé une colonne"
+      return "deleted a column"
     default:
-      return "a enregistré une activité"
+      return "recorded activity"
   }
 }
 
@@ -194,9 +194,9 @@ export const ticketActivityParts = (
 ): ReadonlyArray<TicketActivityPart> => {
   switch (envelope.event._tag) {
     case "ticket.thread.linked":
-      return threadActionParts("a lié le ticket à ", envelope.event.threadId, context)
+      return threadActionParts("linked the ticket to ", envelope.event.threadId, context)
     case "ticket.thread.unlinked":
-      return threadActionParts("a retiré le lien vers ", envelope.event.threadId, context)
+      return threadActionParts("unlinked ", envelope.event.threadId, context)
     default:
       return [{ kind: "text", text: ticketActivityAction(envelope, context) }]
   }
@@ -211,7 +211,7 @@ const actorThreadId = (actorId: string): string | undefined =>
 /** Label d'affichage : humain local, thread agent, ou acteur technique. */
 export const ticketActivityActor = (actorId: string, context?: TicketActivityContext): string => {
   if (actorId.startsWith("human:")) {
-    return "Vous"
+    return "You"
   }
   const threadId = actorThreadId(actorId)
   if (threadId !== undefined) {

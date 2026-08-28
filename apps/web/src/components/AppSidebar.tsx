@@ -139,13 +139,13 @@ export function AppSidebar() {
               render={
                 <button
                   type="button"
-                  aria-label="Ouvrir la Palette"
+                  aria-label="Open Palette"
                   className={sidebarSearchChromeClassName}
                 />
               }
             >
               <SearchIcon className="size-3.5 shrink-0" />
-              <span className="group-data-[collapsible=icon]:hidden">Rechercher</span>
+              <span className="group-data-[collapsible=icon]:hidden">Search</span>
               <KeyboardShortcut
                 hotkey={paletteHotkey}
                 className="ml-auto group-data-[collapsible=icon]:hidden"
@@ -159,7 +159,7 @@ export function AppSidebar() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label="Nouveau Thread"
+                  aria-label="New Thread"
                   disabled={selectedProject === undefined}
                   className="size-9 shrink-0 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                   render={
@@ -180,7 +180,7 @@ export function AppSidebar() {
               <SquarePenIcon />
             </TooltipTrigger>
             <TooltipPopup side="right" className="inline-flex items-center gap-1.5">
-              Nouveau Thread
+              New Thread
               <KeyboardShortcut hotkey={createThreadHotkey} />
             </TooltipPopup>
           </Tooltip>
@@ -230,7 +230,7 @@ export function AppSidebar() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label="Ouvrir les Paramètres"
+                aria-label="Open Settings"
                 className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                 render={
                   <Link
@@ -245,7 +245,7 @@ export function AppSidebar() {
             }
           />
           <TooltipPopup side="top" className="inline-flex items-center gap-1.5">
-            Paramètres
+            Settings
             <KeyboardShortcut hotkey={settingsHotkey} />
           </TooltipPopup>
         </Tooltip>
@@ -269,7 +269,7 @@ export function AppSidebar() {
         <ProjectDeleteConfirmDialog
           open
           projectName={
-            projects.find((project) => project.id === deleteProjectId)?.name ?? "ce Project"
+            projects.find((project) => project.id === deleteProjectId)?.name ?? "this Project"
           }
           threadCount={deleteThreadCount}
           onOpenChange={(open) => {

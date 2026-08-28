@@ -78,8 +78,8 @@ function ThreadSettleButton({
     return [
       {
         id: "thread.settle",
-        label: settled ? "Déclasser le Thread" : "Classer le Thread",
-        searchValue: "Classer Déclasser settle unsettle Thread",
+        label: settled ? "Unsettle Thread" : "Settle Thread",
+        searchValue: "Settle Unsettle settle unsettle Thread",
         shortcut: settleHotkey,
         icon: settled ? <CircleDotIcon /> : <CircleCheckIcon />,
         execute: () => dispatchThreadSettle(thread, !settled),
@@ -108,11 +108,11 @@ function ThreadSettleButton({
       variant="ghost"
       disabled={disabled || settleBlocked}
       aria-keyshortcuts={settleHotkey}
-      aria-label={settled ? "Déclasser le Thread" : "Classer le Thread"}
+      aria-label={settled ? "Unsettle Thread" : "Settle Thread"}
       onClick={() => dispatchThreadSettle(thread, !settled)}
     >
       {settled ? <CircleDotIcon /> : <CircleCheckIcon />}
-      {settled ? "Déclasser" : "Classer"}
+      {settled ? "Unsettle" : "Settle"}
     </Button>
   )
 }

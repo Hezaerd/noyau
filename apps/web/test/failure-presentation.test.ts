@@ -40,7 +40,7 @@ describe("failure presentation policy", () => {
 
     expect(presentFailure(failure, context())).toMatchObject({
       surface: "toast",
-      title: "Cette dépendance créerait une boucle.",
+      title: "This dependency would create a cycle.",
       dedupeKey: "ticket.command:project",
     })
   })
@@ -54,7 +54,7 @@ describe("failure presentation policy", () => {
     expect(presentFailure(failure, context({ initiatedByUser: false }))).toMatchObject({
       surface: "banner",
       persistence: "until-recovered",
-      recovery: { action: "rebind", label: "Relier le dossier" },
+      recovery: { action: "rebind", label: "Link folder" },
     })
   })
 

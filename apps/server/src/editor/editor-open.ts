@@ -105,7 +105,7 @@ export const makeEditorOpen = (probe: EditorProbe, platform: NodeJS.Platform) =>
             if (command === undefined) {
               return yield* new OpenInEditorFailed({
                 editor: input.editor,
-                detail: `${editor.label} n’est pas installé.`,
+                detail: `${editor.label} is not installed.`,
               })
             }
             const launch = resolveEditorLaunch(editor, command, cwd)

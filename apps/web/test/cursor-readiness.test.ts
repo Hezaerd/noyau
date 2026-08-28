@@ -39,23 +39,23 @@ describe("cursor readiness", () => {
 describe("provider connection copy", () => {
   it("maps Cursor readiness to a headline, PATH/handshake detail, and status dot", () => {
     expect(presentCursorConnection(undefined)).toMatchObject({
-      headline: "Lecture du statut…",
+      headline: "Reading status…",
       detail: null,
       statusDot: "unknown",
     })
     expect(presentCursorConnection(cursorStatus(true, true))).toEqual({
-      headline: "Disponible",
+      headline: "Available",
       detail: "PATH · handshake OK",
       statusDot: "ready",
     })
     expect(presentCursorConnection(cursorStatus(false, false))).toEqual({
-      headline: "CLI introuvable",
-      detail: "Absent du PATH",
+      headline: "CLI not found",
+      detail: "Not on PATH",
       statusDot: "warning",
     })
     expect(presentCursorConnection(cursorStatus(true, false))).toEqual({
-      headline: "Handshake échoué",
-      detail: "Détecté dans le PATH",
+      headline: "Handshake failed",
+      detail: "Detected on PATH",
       statusDot: "error",
     })
   })

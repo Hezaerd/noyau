@@ -67,8 +67,8 @@ function QuestionChoices({
         onChange={(event) => {
           onChange(withOptionalFreeform(answer.optionIds, event.target.value))
         }}
-        placeholder="Autre réponse…"
-        aria-label={`Autre réponse pour : ${question.prompt}`}
+        placeholder="Other answer…"
+        aria-label={`Other answer for: ${question.prompt}`}
       />
     </fieldset>
   )
@@ -110,7 +110,7 @@ export function ThreadUserInputQuestionnaire({
           ))
         ) : (
           <p className="text-sm text-muted-foreground">
-            {item.answers?.[LEGACY_ANSWER_KEY]?.freeform ?? item.prompt ?? "Réponse envoyée."}
+            {item.answers?.[LEGACY_ANSWER_KEY]?.freeform ?? item.prompt ?? "Answer sent."}
           </p>
         )}
       </div>
@@ -121,16 +121,16 @@ export function ThreadUserInputQuestionnaire({
     return (
       <div className="flex flex-col gap-2">
         <p className="text-sm text-muted-foreground">
-          {item.prompt ?? "L'agent attend une réponse."}
+          {item.prompt ?? "The agent is waiting for an answer."}
         </p>
         <div className="flex gap-2">
           <Input
             value={legacyFreeform}
             onChange={(event) => onLegacyFreeformChange(item.requestId, event.target.value)}
-            aria-label="Réponse à l'agent"
+            aria-label="Answer to the agent"
           />
           <Button disabled={!complete} onClick={() => onSubmit(item.requestId)}>
-            Répondre
+            Reply
           </Button>
         </div>
       </div>
@@ -158,7 +158,7 @@ export function ThreadUserInputQuestionnaire({
       ))}
       <div className="flex justify-end">
         <Button disabled={!complete} onClick={() => onSubmit(item.requestId)}>
-          Envoyer les réponses
+          Send answers
         </Button>
       </div>
     </div>

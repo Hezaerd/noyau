@@ -6,7 +6,7 @@ import { TranscriptItem as TranscriptItemSchema } from "@noyau/contracts/entitie
 import { TurnDiffFile } from "@noyau/contracts/entities/turn"
 import type { DomainEvent } from "@noyau/contracts/events"
 import { ProjectId, type ProjectId as ProjectIdType } from "@noyau/contracts/ids"
-import { DEFAULT_THREAD_TITLE } from "@noyau/contracts/thread/title"
+import { DEFAULT_THREAD_TITLE, LEGACY_DEFAULT_THREAD_TITLES } from "@noyau/contracts/thread/title"
 import { settledTurnStateForSessionStatus } from "@noyau/server/orchestration/thread/projector"
 import { DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
@@ -674,7 +674,12 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
             UPDATE projection_threads
             SET title = ${titleSeed}
             WHERE thread_id = ${event.threadId}
-              AND (title = ${DEFAULT_THREAD_TITLE} OR title = ${titleSeed})
+              AND (
+                title = ${DEFAULT_THREAD_TITLE}
+                OR title = ${LEGACY_DEFAULT_THREAD_TITLES[0]}
+                OR title = ${LEGACY_DEFAULT_THREAD_TITLES[1]}
+                OR title = ${titleSeed}
+              )
           `
         }
       }

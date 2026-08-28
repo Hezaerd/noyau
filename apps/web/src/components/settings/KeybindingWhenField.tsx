@@ -106,8 +106,8 @@ function UnknownWhenVariableWarning({
   }
   const label =
     identifiers.length === 1
-      ? `Condition inconnue : ${identifiers[0]}`
-      : `Conditions inconnues : ${identifiers.join(", ")}`
+      ? `Unknown Condition: ${identifiers[0]}`
+      : `Unknown Conditions: ${identifiers.join(", ")}`
 
   return (
     <Tooltip>
@@ -123,8 +123,8 @@ function UnknownWhenVariableWarning({
         <TriangleAlertIcon className="size-3.5" />
       </TooltipTrigger>
       <TooltipPopup side="top" className="max-w-72 whitespace-normal leading-relaxed">
-        Noyau ne reconnaît pas encore cette Condition. Elle peut être enregistrée, mais elle ne
-        matchera que si le runtime la fournit.
+        Noyau does not recognize this Condition yet. It can be saved, but it will only match if the
+        runtime provides it.
       </TooltipPopup>
     </Tooltip>
   )
@@ -195,7 +195,7 @@ function WhenExpressionNodeEditor({
           onPressedChange={(pressed) => {
             onChange(setConditionNegated(node, pressed))
           }}
-          aria-label={`Nier ${condition.identifier}`}
+          aria-label={`Negate ${condition.identifier}`}
           variant="outline"
           size="compact"
           className={notToggleClassName}
@@ -216,7 +216,7 @@ function WhenExpressionNodeEditor({
             variant="ghost"
             size="icon-sm"
             className="size-7"
-            aria-label="Retirer la Condition"
+            aria-label="Remove the Condition"
             onClick={onRemove}
           >
             <MinusIcon />
@@ -240,7 +240,7 @@ function WhenExpressionNodeEditor({
             onPressedChange={(pressed) => {
               onChange(pressed ? node : node.node)
             }}
-            aria-label="Nier le groupe"
+            aria-label="Negate the group"
             variant="outline"
             size="compact"
             className={notToggleClassName}
@@ -253,7 +253,7 @@ function WhenExpressionNodeEditor({
               variant="ghost"
               size="icon-sm"
               className="ms-auto size-7"
-              aria-label="Retirer le groupe nié"
+              aria-label="Remove the negated group"
               onClick={onRemove}
             >
               <MinusIcon />
@@ -387,7 +387,7 @@ function WhenExpressionNodeEditor({
           }}
         >
           <PlusIcon />
-          Groupe
+          Group
         </Button>
         {onRemove === undefined ? null : (
           <Button
@@ -395,7 +395,7 @@ function WhenExpressionNodeEditor({
             variant="ghost"
             size="icon-sm"
             className="ms-auto size-7"
-            aria-label="Retirer le groupe"
+            aria-label="Remove the group"
             onClick={onRemove}
           >
             <MinusIcon />
@@ -503,7 +503,7 @@ export function WhenExpressionBuilder({
             }}
           >
             <PlusIcon />
-            Groupe
+            Group
           </Button>
         </div>
       </div>
@@ -515,9 +515,9 @@ export function WhenExpressionBuilder({
             onChange={(event) => {
               updateExpressionDraft(event.currentTarget.value)
             }}
-            placeholder="Toujours"
+            placeholder="Always"
             aria-invalid={Boolean(parseError)}
-            aria-label="Expression de Condition"
+            aria-label="Condition expression"
             className={cn(
               "h-7 rounded-md font-mono text-[12px] leading-7 sm:h-7 sm:leading-7",
               unknownIdentifiers.length > 0 && "pe-9",
@@ -562,7 +562,7 @@ export function WhenExpressionBuilder({
                   }}
                 >
                   <PlusIcon />
-                  Groupe
+                  Group
                 </Button>
               </div>
             </div>
@@ -582,7 +582,7 @@ export function WhenExpressionBuilder({
             aria-hidden
             className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border border-destructive/30 bg-background/75 p-4 text-center text-xs text-destructive backdrop-blur-[1px]"
           >
-            Corrige l’expression pour continuer l’édition visuelle.
+            Fix the expression to continue visual editing.
           </div>
         )}
       </div>

@@ -13,7 +13,7 @@ export function ThreadWorkingMarker({ startedAtMs }: { readonly startedAtMs: num
         {startedAtMs === null ? (
           workingTranscriptLabel(null, Date.now())
         ) : (
-          <LiveElapsed startedAtMs={startedAtMs} prefix="En cours depuis " />
+          <LiveElapsed startedAtMs={startedAtMs} prefix="In progress for " />
         )}
       </MarkerContent>
     </Marker>

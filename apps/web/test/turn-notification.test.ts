@@ -71,9 +71,9 @@ describe("turn notification", () => {
   })
 
   it("labels the banner with the Project and settlement", () => {
-    expect(turnNotificationBody("completed", "Noyau")).toBe("Noyau · Terminé")
-    expect(turnNotificationBody("interrupted", undefined)).toBe("Interrompu")
-    expect(turnNotificationBody("error", "")).toBe("Erreur")
+    expect(turnNotificationBody("completed", "Noyau")).toBe("Noyau · Done")
+    expect(turnNotificationBody("interrupted", undefined)).toBe("Interrupted")
+    expect(turnNotificationBody("error", "")).toBe("Error")
   })
 
   it("detects a Turn leaving running", () => {

@@ -59,8 +59,8 @@ export function WorkspaceBreadcrumbSeparator() {
 
 export function SettingsPageTitle({ tabLabel }: { readonly tabLabel: string }) {
   return (
-    <WorkspaceBreadcrumb ariaLabel="Fil d’Ariane">
-      <WorkspaceBreadcrumbItem>Paramètres</WorkspaceBreadcrumbItem>
+    <WorkspaceBreadcrumb ariaLabel="Breadcrumb">
+      <WorkspaceBreadcrumbItem>Settings</WorkspaceBreadcrumbItem>
       <WorkspaceBreadcrumbSeparator />
       <WorkspaceBreadcrumbItem current className="min-w-0">
         <h1 className="min-w-0 truncate">{tabLabel}</h1>
@@ -147,7 +147,7 @@ function EditableThreadTitle({
         ref={titleInputRef}
         size="sm"
         value={title}
-        aria-label="Titre du Thread"
+        aria-label="Thread title"
         onChange={(event) => setTitle(event.target.value)}
         onBlur={commitRename}
         onKeyDown={(event) => {
@@ -205,7 +205,7 @@ export function ThreadPageTitle({
   }
 
   return (
-    <WorkspaceBreadcrumb ariaLabel="Fil d’Ariane du Thread">
+    <WorkspaceBreadcrumb ariaLabel="Thread breadcrumb">
       <WorkspaceBreadcrumbItem>
         <span className="max-w-40 truncate">{projectName}</span>
       </WorkspaceBreadcrumbItem>

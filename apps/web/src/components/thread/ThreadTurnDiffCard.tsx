@@ -238,10 +238,7 @@ export function ThreadTurnDiffCard({
               )}
             />
             <span className="flex shrink-0 items-center gap-1 whitespace-nowrap font-medium text-foreground text-xs leading-4">
-              <span>
-                {files.length} fichier{files.length === 1 ? "" : "s"} modifié
-                {files.length === 1 ? "" : "s"}
-              </span>
+              <span>{files.length === 1 ? "1 changed file" : `${files.length} changed files`}</span>
               {hasNonZeroStat(summaryStat) ? (
                 <TurnDiffStatLabel
                   additions={summaryStat.additions}
@@ -252,7 +249,7 @@ export function ThreadTurnDiffCard({
               ) : null}
             </span>
             <span className="ml-1 hidden min-w-0 flex-1 truncate text-[11px] text-muted-foreground group-hover:text-foreground/80 @[24rem]/changed-files:inline">
-              {expanded ? "Masquer les fichiers" : "Afficher les fichiers"}
+              {expanded ? "Hide files" : "Show files"}
             </span>
           </span>
         </button>
@@ -266,9 +263,7 @@ export function ThreadTurnDiffCard({
                     size="icon-xs"
                     variant="outline"
                     className="!size-[22px]"
-                    aria-label={
-                      allDirectoriesExpanded ? "Réduire les dossiers" : "Déplier les dossiers"
-                    }
+                    aria-label={allDirectoriesExpanded ? "Collapse folders" : "Expand folders"}
                     onClick={() => setAllDirectoriesExpanded((current) => !current)}
                   />
                 }
@@ -280,7 +275,7 @@ export function ThreadTurnDiffCard({
                 )}
               </TooltipTrigger>
               <TooltipPopup side="top">
-                {allDirectoriesExpanded ? "Réduire les dossiers" : "Déplier les dossiers"}
+                {allDirectoriesExpanded ? "Collapse folders" : "Expand folders"}
               </TooltipPopup>
             </Tooltip>
           ) : null}
@@ -292,15 +287,15 @@ export function ThreadTurnDiffCard({
                     type="button"
                     size="xs"
                     variant="outline"
-                    aria-label="Ouvrir le patch"
+                    aria-label="Open patch"
                     onClick={() => onOpen(files[0]?.path)}
                   />
                 }
               >
                 <FileDiffIcon className="size-3" />
-                <span className="hidden @[24rem]/changed-files:inline">Ouvrir le patch</span>
+                <span className="hidden @[24rem]/changed-files:inline">Open patch</span>
               </TooltipTrigger>
-              <TooltipPopup side="top">Ouvrir le patch complet</TooltipPopup>
+              <TooltipPopup side="top">Open the full patch</TooltipPopup>
             </Tooltip>
           )}
         </div>
@@ -318,9 +313,7 @@ export function ThreadTurnDiffCard({
               <span key={scope.label} className="inline-flex items-center gap-1">
                 {index > 0 ? <span aria-hidden="true">·</span> : null}
                 <span className="font-mono text-foreground/75">{scope.label}</span>
-                <span>
-                  {scope.fileCount} fichier{scope.fileCount === 1 ? "" : "s"}
-                </span>
+                <span>{scope.fileCount === 1 ? "1 file" : `${scope.fileCount} files`}</span>
               </span>
             ))}
           </p>
@@ -361,7 +354,7 @@ export function ThreadTurnDiffCard({
               className="rounded-md px-1.5 py-1 font-medium text-[11px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => setExpanded(true)}
             >
-              Afficher les {files.length} fichiers
+              {files.length === 1 ? "Show 1 file" : `Show ${files.length} files`}
             </button>
           </div>
         </div>

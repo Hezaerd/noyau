@@ -45,10 +45,10 @@ describe("ThreadTurnDiffCard", () => {
       />,
     )
 
-    expect(screen.getByText("1 fichier modifié")).toBeTruthy()
-    expect(screen.queryByText("1 fichiers modifiés")).toBeNull()
-    expect(screen.getByRole("button", { name: "Réduire les dossiers" })).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Ouvrir le patch" })).toBeTruthy()
+    expect(screen.getByText("1 changed file")).toBeTruthy()
+    expect(screen.queryByText("1 changed files")).toBeNull()
+    expect(screen.getByRole("button", { name: "Collapse folders" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Open patch" })).toBeTruthy()
     expect(document.querySelector('[data-changed-files-state="expanded"]')).toBeTruthy()
   })
 
@@ -68,13 +68,13 @@ describe("ThreadTurnDiffCard", () => {
 
     expect(document.querySelector('[data-changed-files-state="preview"]')).toBeTruthy()
     expect(screen.getByText("apps")).toBeTruthy()
-    expect(screen.getByText("2 fichiers")).toBeTruthy()
+    expect(screen.getByText("2 files")).toBeTruthy()
     expect(screen.getByText("packages")).toBeTruthy()
     expect(screen.getByText("root")).toBeTruthy()
     expect(screen.getByText("App.tsx")).toBeTruthy()
     expect(screen.getByText("git.ts")).toBeTruthy()
     expect(screen.getByText("README.md")).toBeTruthy()
-    expect(screen.getByText("Afficher les 4 fichiers")).toBeTruthy()
+    expect(screen.getByText("Show 4 files")).toBeTruthy()
     expect(screen.queryByText("App.test.tsx")).toBeNull()
   })
 
@@ -89,8 +89,8 @@ describe("ThreadTurnDiffCard", () => {
     )
 
     expect(document.querySelector('[data-changed-files-state="collapsed"]')).toBeTruthy()
-    expect(screen.getByText("1 fichier modifié")).toBeTruthy()
-    expect(screen.queryByText("Afficher les 1 fichiers")).toBeNull()
+    expect(screen.getByText("1 changed file")).toBeTruthy()
+    expect(screen.queryByText("Show 1 file")).toBeNull()
     expect(screen.queryByText("App.tsx")).toBeNull()
   })
 

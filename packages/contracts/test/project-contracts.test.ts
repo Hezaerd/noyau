@@ -102,7 +102,7 @@ describe("CursorProviderStatus", () => {
               description: "1.5x speed, increased usage",
             },
           ],
-          thinking: { label: "Réflexion", defaultValue: true },
+          thinking: { label: "Thinking", defaultValue: true },
         },
       ],
     })

@@ -98,12 +98,12 @@ export function OpenInPicker({
       onClick={() => open(preferred)}
     >
       <EditorGlyph editor={preferred} />
-      <span className="hidden @3xl/header-actions:inline">Ouvrir</span>
+      <span className="hidden @3xl/header-actions:inline">Open</span>
     </Button>
   )
 
   return (
-    <Group aria-label="Ouvrir dans l’éditeur" className="shrink-0">
+    <Group aria-label="Open in editor" className="shrink-0">
       {primaryTrigger}
       <GroupSeparator className="hidden @3xl/header-actions:block" />
       <Menu>
@@ -114,7 +114,7 @@ export function OpenInPicker({
               size="icon-xs"
               variant="outline"
               className="no-drag"
-              aria-label="Choisir l’éditeur"
+              aria-label="Choose editor"
               disabled={disabled || busy}
             />
           }

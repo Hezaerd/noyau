@@ -49,8 +49,8 @@ export function DesktopUpdateSettings(): ReactElement | null {
       {showChannelPicker ? (
         <SettingsRow
           id="desktop-update-channel"
-          title="Canal de mise à jour"
-          description="Piste GitHub à vérifier. L’autre canal installe une app séparée, ça ne remplace pas celle-ci."
+          title="Update channel"
+          description="GitHub track to check. The other channel installs a separate app; it does not replace this one."
           control={
             <Select
               items={DESKTOP_UPDATE_CHANNEL_ITEMS}
@@ -66,7 +66,7 @@ export function DesktopUpdateSettings(): ReactElement | null {
                 id={channelSelectId}
                 size="sm"
                 className="w-full sm:w-36"
-                aria-label="Canal de mise à jour"
+                aria-label="Update channel"
                 disabled={state.phase !== "idle"}
               >
                 <SelectValue />

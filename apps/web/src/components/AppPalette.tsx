@@ -138,9 +138,8 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     const actions: Array<AppPaletteAction & { readonly path: string }> = [
       {
         id: "navigate.settings",
-        label: "Paramètres",
-        searchValue:
-          "Aller aux Paramètres settings général apparence providers raccourcis keybindings",
+        label: "Settings",
+        searchValue: "Go to Settings settings general appearance providers shortcuts keybindings",
         path: `/settings/${DEFAULT_SETTINGS_TAB}`,
         icon: <SettingsIcon />,
         execute: openSettings,
@@ -149,8 +148,8 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     if (lastProjectId !== undefined) {
       actions.push({
         id: "navigate.board",
-        label: "Tableau",
-        searchValue: "Aller au Tableau",
+        label: "Board",
+        searchValue: "Go to Board",
         path: `/projects/${lastProjectId}/board`,
         icon: <LayoutGridIcon />,
         execute: () =>
@@ -177,8 +176,8 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     }
     const createThread: AppPaletteAction = {
       id: "thread.create",
-      label: "Nouveau Thread",
-      searchValue: "Nouveau Thread créer conversation",
+      label: "New Thread",
+      searchValue: "New Thread create conversation",
       shortcut: threadCreateHotkey,
       icon: <MessageCirclePlusIcon />,
       execute: openNewThread,
@@ -298,8 +297,8 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
           <CommandDialogPrimitive.Title className="sr-only">Palette</CommandDialogPrimitive.Title>
           <CommandPanel>
             <Command filter={null} items={groups} value={query} onValueChange={setQuery}>
-              <CommandInput placeholder="Rechercher une action, une page, un ticket ou un Thread…" />
-              <CommandEmpty>Aucun résultat.</CommandEmpty>
+              <CommandInput placeholder="Search an action, page, ticket, or Thread…" />
+              <CommandEmpty>No results.</CommandEmpty>
               <CommandList>
                 {(group) => (
                   <CommandGroup key={group.id} items={group.items}>
@@ -342,7 +341,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
             </span>
             <span className="inline-flex items-center gap-1">
               <KeyboardShortcut hotkey="Escape" />
-              Fermer
+              Close
             </span>
           </CommandFooter>
         </CommandDialogPopup>

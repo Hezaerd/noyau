@@ -205,10 +205,10 @@ export const resolveThreadActivity = (input: {
 }): ThreadActivity | null => {
   const { sessionStatus, latestTurn } = input
   if (sessionStatus === "error" || latestTurn?.state === "error") {
-    return { kind: "error", label: "Erreur" }
+    return { kind: "error", label: "Error" }
   }
   if (isThreadWorking(sessionStatus, latestTurn)) {
-    return { kind: "working", label: "En cours" }
+    return { kind: "working", label: "In progress" }
   }
   if (latestTurn === null) {
     return null
@@ -228,8 +228,8 @@ export const resolveThreadActivity = (input: {
     })
   ) {
     return settlementKind === "interrupted"
-      ? { kind: "interrupted", label: "Interrompu" }
-      : { kind: "completed", label: "Terminé" }
+      ? { kind: "interrupted", label: "Interrupted" }
+      : { kind: "completed", label: "Done" }
   }
   return null
 }
@@ -268,9 +268,9 @@ export const countWaitingThreads = (
 
 export const workingTranscriptLabel = (startedAtMs: number | null, nowMs: number): string => {
   if (startedAtMs === null) {
-    return "En cours…"
+    return "In progress…"
   }
-  return `En cours depuis ${formatElapsedLabel(nowMs - startedAtMs)}`
+  return `In progress for ${formatElapsedLabel(nowMs - startedAtMs)}`
 }
 
 export const settledTranscriptLabel = (
@@ -287,16 +287,16 @@ export const settledTranscriptLabel = (
       : formatElapsedLabel(completedAtMs - startedAtMs)
   switch (latestTurn.state) {
     case "completed":
-      return duration === null ? "A travaillé" : `A travaillé ${duration}`
+      return duration === null ? "Worked" : `Worked ${duration}`
     case "interrupted":
-      return duration === null ? "Interrompu" : `Interrompu après ${duration}`
+      return duration === null ? "Interrupted" : `Interrupted after ${duration}`
     case "error":
-      return duration === null ? "Échec" : `Échec après ${duration}`
+      return duration === null ? "Failed" : `Failed after ${duration}`
     case "running":
       return latestTurn.completedAt === null
         ? null
         : duration === null
-          ? "A travaillé"
-          : `A travaillé ${duration}`
+          ? "Worked"
+          : `Worked ${duration}`
   }
 }

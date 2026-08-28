@@ -195,21 +195,21 @@ function ThreadTranscriptItemImpl({
           <Bubble variant="muted" align="start">
             <BubbleContent>
               {item.status === "resolved"
-                ? "Permission traitée."
-                : "Cursor demande une permission."}
+                ? "Permission handled."
+                : "Cursor is requesting permission."}
             </BubbleContent>
           </Bubble>
           {item.status === "pending" ? (
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={() => onRespondApproval(item.requestId, "accept")}>
-                Autoriser
+                Allow
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => onRespondApproval(item.requestId, "decline")}
               >
-                Refuser
+                Decline
               </Button>
             </div>
           ) : null}

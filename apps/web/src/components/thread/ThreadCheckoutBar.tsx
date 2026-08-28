@@ -248,7 +248,7 @@ export function ThreadCheckoutBar({
   }
 
   const createBranch = (requestedName?: string) => {
-    const name = (requestedName ?? window.prompt("Nom de la branche") ?? "").trim()
+    const name = (requestedName ?? window.prompt("Branch name") ?? "").trim()
     if (name === "" || selectingWorktreeBase) {
       return
     }
@@ -347,8 +347,8 @@ export function ThreadCheckoutBar({
                   size="sm"
                   type="search"
                   value={branchQuery}
-                  placeholder="Rechercher une branche…"
-                  aria-label="Rechercher une branche"
+                  placeholder="Search a branch…"
+                  aria-label="Search a branch"
                   className="[&_input]:h-6.5 [&_input]:bg-transparent [&_input]:ps-5 [&_input]:font-sans"
                   onKeyDown={(event) => {
                     event.stopPropagation()
@@ -369,7 +369,7 @@ export function ThreadCheckoutBar({
                   <MenuItem
                     key={ref.name}
                     className="w-full"
-                    title={removable ? "⌘⇧ clic pour supprimer le worktree" : undefined}
+                    title={removable ? "⌘⇧ click to delete the worktree" : undefined}
                     onClick={(event) => {
                       if (isWorktreeDeleteGesture(event) && removable) {
                         event.preventDefault()
@@ -391,13 +391,13 @@ export function ThreadCheckoutBar({
                 )
               })}
               {filteredRefs.length === 0 && !showCreateBranch ? (
-                <p className="px-2 py-1.5 text-muted-foreground text-xs">Aucune branche</p>
+                <p className="px-2 py-1.5 text-muted-foreground text-xs">No branches</p>
               ) : null}
               {showCreateBranch ? (
                 <>
                   <MenuSeparator />
                   <MenuItem onClick={() => createBranch(trimmedBranchQuery)}>
-                    Créer « {trimmedBranchQuery} »
+                    Create "{trimmedBranchQuery}"
                   </MenuItem>
                 </>
               ) : null}
@@ -415,13 +415,13 @@ export function ThreadCheckoutBar({
                     >
                       <span className="flex min-w-0 items-center gap-1.5 font-medium text-muted-foreground">
                         <RefreshCwIcon aria-hidden="true" className="size-3 shrink-0 opacity-70" />
-                        <span className="truncate">Partir de origin</span>
+                        <span className="truncate">Start from origin</span>
                       </span>
                       <Switch
                         id={startFromOriginSwitchId}
                         checked={startFromOrigin}
                         className="[--thumb-size:--spacing(3.5)]"
-                        aria-label="Créer le worktree depuis origin"
+                        aria-label="Create the worktree from origin"
                         onCheckedChange={(checked) => onStartFromOriginChange(checked)}
                       />
                     </label>
@@ -434,8 +434,8 @@ export function ThreadCheckoutBar({
                     composerOverlayGlassClassName,
                   )}
                 >
-                  Crée le worktree depuis la branche correspondante sur origin, pas depuis le
-                  checkout local.
+                  Create the worktree from the matching branch on origin, not from the local
+                  checkout.
                 </TooltipPopup>
               </Tooltip>
             ) : null}
@@ -444,10 +444,10 @@ export function ThreadCheckoutBar({
       </div>
       {mismatch !== null ? (
         <Alert variant="warning">
-          <AlertTitle>Branche différente</AlertTitle>
+          <AlertTitle>Different branch</AlertTitle>
           <AlertDescription>
-            Ce Thread a tourné sur {mismatch.previous}. L&apos;envoi continue sur {mismatch.current}
-            . Restaure avec le sélecteur de branche.
+            This Thread ran on {mismatch.previous}. Sending continues on {mismatch.current}. Restore
+            it with the branch picker.
           </AlertDescription>
         </Alert>
       ) : null}

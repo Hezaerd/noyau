@@ -104,6 +104,7 @@ Full glossary with file links: `docs/internals/glossary.md`
 
 ## Taste
 
+- Product UI is English. Maintainer voice (comments, agent-to-maintainer) can stay French.
 - Complexity belongs at the adapter boundary. Orchestration stays pure, UI stays dumb.
 - Inferred types over annotations. `any` is the enemy.
 - Comments describe how a thing is used, and move when the code moves. To be used mostly to describe functions, not to annotate every line of behavior.

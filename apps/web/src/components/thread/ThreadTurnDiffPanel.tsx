@@ -68,7 +68,7 @@ export function ThreadTurnDiffPanel({
       setError(
         result.failure._tag === "InvalidInput" && result.failure.message !== undefined
           ? result.failure.message
-          : "Impossible de charger le patch de ce Turn.",
+          : "Unable to load this Turn's patch.",
       )
     })()
     return () => {
@@ -96,18 +96,20 @@ export function ThreadTurnDiffPanel({
     >
       <SheetPopup side="right" className="max-w-3xl sm:max-w-3xl">
         <SheetHeader>
-          <SheetTitle>Fichiers du Turn</SheetTitle>
-          <SheetDescription>Patch recalculé depuis les Checkpoints, hors journal.</SheetDescription>
+          <SheetTitle>Turn files</SheetTitle>
+          <SheetDescription>
+            Patch recomputed from Checkpoints, outside the journal.
+          </SheetDescription>
           <label className="flex items-center gap-2 text-muted-foreground text-xs">
             <Switch checked={ignoreWhitespace} onCheckedChange={setIgnoreWhitespace} />
-            Ignorer les espaces
+            Ignore whitespace
           </label>
         </SheetHeader>
         <SheetPanel className="min-h-0">
-          {loading ? <p className="text-muted-foreground text-sm">Chargement du patch…</p> : null}
+          {loading ? <p className="text-muted-foreground text-sm">Loading patch…</p> : null}
           {error === null ? null : <p className="text-destructive text-sm">{error}</p>}
           {!loading && error === null && (patch === null || patch.trim() === "") ? (
-            <p className="text-muted-foreground text-sm">Aucun hunk à afficher.</p>
+            <p className="text-muted-foreground text-sm">No hunks to display.</p>
           ) : null}
           {files.length > 0 ? (
             files.map((file) => {

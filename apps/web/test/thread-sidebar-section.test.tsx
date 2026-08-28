@@ -76,7 +76,7 @@ describe("ThreadSidebarSection settled shelf", () => {
 
     renderSection()
 
-    expect(screen.getByRole("button", { name: "Classés (2)" }).getAttribute("aria-expanded")).toBe(
+    expect(screen.getByRole("button", { name: "Settled (2)" }).getAttribute("aria-expanded")).toBe(
       "false",
     )
     expect(screen.getByText("Inbox thread")).toBeTruthy()
@@ -91,7 +91,7 @@ describe("ThreadSidebarSection settled shelf", () => {
     renderSection()
     await user.click(screen.getByTestId("sidebar-settled-shelf-toggle"))
 
-    expect(screen.getByRole("button", { name: "Classés (2)" }).getAttribute("aria-expanded")).toBe(
+    expect(screen.getByRole("button", { name: "Settled (2)" }).getAttribute("aria-expanded")).toBe(
       "true",
     )
     expect(screen.getByText("Settled one")).toBeTruthy()

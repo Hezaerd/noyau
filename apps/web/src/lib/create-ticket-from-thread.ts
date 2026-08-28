@@ -48,7 +48,7 @@ export const createTicketFromThreadEffect = Effect.fn("createTicketFromThread")(
 }: CreateTicketFromThreadOptions) {
   const column = board.columns.find((candidate) => !candidate.done)
   if (column === undefined) {
-    onError(invalidInputFailure("Aucune colonne non terminale ne permet de créer un Ticket."))
+    onError(invalidInputFailure("No non-terminal column is available to create a Ticket."))
     return
   }
 

@@ -3,23 +3,23 @@ import type { Turn } from "@noyau/contracts/entities/turn"
 import { DateTime } from "effect"
 
 const TIME_OPTIONS = {
-  locale: "fr",
+  locale: "en",
   hour: "numeric",
   minute: "2-digit",
 } as const satisfies Intl.DateTimeFormatOptions & { readonly locale: string }
 
 const TOOLTIP_OPTIONS = {
-  locale: "fr",
+  locale: "en",
   dateStyle: "long",
   timeStyle: "short",
 } as const satisfies Intl.DateTimeFormatOptions & { readonly locale: string }
 
-const sameYearDateFormatter = new Intl.DateTimeFormat("fr", {
+const sameYearDateFormatter = new Intl.DateTimeFormat("en", {
   day: "numeric",
   month: "numeric",
 })
 
-const otherYearDateFormatter = new Intl.DateTimeFormat("fr", {
+const otherYearDateFormatter = new Intl.DateTimeFormat("en", {
   day: "numeric",
   month: "numeric",
   year: "numeric",
@@ -41,7 +41,7 @@ export const formatTranscriptMessageAt = (at: DateTime.Utc, nowMs: number = Date
     return time
   }
   if (dayDiff === 1) {
-    return `hier à ${time}`
+    return `yesterday at ${time}`
   }
   const date = new Date(DateTime.toEpochMillis(at))
   const dateLabel =

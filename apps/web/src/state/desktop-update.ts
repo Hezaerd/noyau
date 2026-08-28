@@ -58,7 +58,7 @@ export const checkDesktopUpdate = async (): Promise<DesktopUpdateCheckResult> =>
       const result: DesktopUpdateCheckResult = {
         _tag: "failed",
         currentVersion: getDesktopUpdateState().result?.currentVersion ?? desktopAppVersion(),
-        message: "Impossible de vérifier les mises à jour.",
+        message: "Unable to check for updates.",
       }
       setState({ phase: "idle", result })
       return result
@@ -89,7 +89,7 @@ export const openDesktopInstaller = async (): Promise<DesktopUpdateOpenResult> =
         result: {
           _tag: "failed",
           currentVersion: current.result?.currentVersion ?? desktopAppVersion(),
-          message: desktopUpdateOpenErrorMessage(result) ?? "Impossible d’ouvrir l’installeur.",
+          message: desktopUpdateOpenErrorMessage(result) ?? "Unable to open the installer.",
         },
       })
     } else {
@@ -99,7 +99,7 @@ export const openDesktopInstaller = async (): Promise<DesktopUpdateOpenResult> =
   } catch {
     const result: DesktopUpdateOpenResult = {
       _tag: "failed",
-      message: "Impossible d’ouvrir l’installeur.",
+      message: "Unable to open the installer.",
     }
     setState({
       phase: "idle",

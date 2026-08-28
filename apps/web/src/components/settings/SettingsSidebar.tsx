@@ -191,8 +191,8 @@ export function SettingsSidebar(): ReactElement {
                 setActiveResultIndex(0)
               }}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Rechercher"
-              aria-label="Rechercher dans les Paramètres"
+              placeholder="Search"
+              aria-label="Search Settings"
               role="combobox"
               aria-autocomplete="list"
               aria-expanded={isSearching && hasResults}
@@ -210,7 +210,7 @@ export function SettingsSidebar(): ReactElement {
                 size="icon-xs"
                 variant="ghost"
                 className="ml-auto shrink-0 text-sidebar-foreground/55 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden"
-                aria-label="Effacer la recherche"
+                aria-label="Clear search"
                 onClick={() => {
                   clearSearch()
                   searchInputRef.current?.focus()
@@ -231,13 +231,13 @@ export function SettingsSidebar(): ReactElement {
         <SidebarGroup className="gap-2 px-3 pt-0 pb-3">
           {isSearching && results.length === 0 ? (
             <p role="status" className="px-2 py-6 text-center text-xs text-sidebar-foreground/50">
-              Aucun réglage trouvé
+              No settings found
             </p>
           ) : null}
           <SidebarMenu
             id={isSearching && hasResults ? "settings-search-results" : undefined}
             role={isSearching && hasResults ? "listbox" : undefined}
-            aria-label={isSearching && hasResults ? "Résultats des Paramètres" : undefined}
+            aria-label={isSearching && hasResults ? "Settings results" : undefined}
           >
             {isSearching
               ? results.map((item, index) => {
@@ -288,7 +288,7 @@ export function SettingsSidebar(): ReactElement {
           <SidebarMenuItem>
             <SidebarMenuButton onClick={navigateBack}>
               <ArrowLeftIcon />
-              <span>Retour</span>
+              <span>Back</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

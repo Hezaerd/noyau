@@ -106,13 +106,13 @@ function ExpandableHeaderSearch({
                 onClick={() => {
                   onOpenChange(true)
                 }}
-                aria-label="Rechercher un Keybinding"
+                aria-label="Search a Keybinding"
               />
             }
           >
             <SearchIcon />
           </TooltipTrigger>
-          <TooltipPopup side="top">Rechercher</TooltipPopup>
+          <TooltipPopup side="top">Search</TooltipPopup>
         </Tooltip>
       </>
     )
@@ -141,8 +141,8 @@ function ExpandableHeaderSearch({
             onOpenChange(false)
           }
         }}
-        placeholder="Rechercher…"
-        aria-label="Rechercher un Keybinding"
+        placeholder="Search…"
+        aria-label="Search a Keybinding"
         className="w-44 [&_[data-slot=input]]:pl-7"
         size="sm"
       />
@@ -160,8 +160,8 @@ function KeybindingConflictWarning({
   }
   const description =
     labels.length === 1
-      ? `Conflit avec ${labels[0]}.`
-      : `Conflit avec ${labels.slice(0, 3).join(", ")}${labels.length > 3 ? ", et plus" : ""}.`
+      ? `Conflicts with ${labels[0]}.`
+      : `Conflicts with ${labels.slice(0, 3).join(", ")}${labels.length > 3 ? ", and more" : ""}.`
 
   return (
     <Tooltip>
@@ -177,8 +177,7 @@ function KeybindingConflictWarning({
         <TriangleAlertIcon className="size-3.5" />
       </TooltipTrigger>
       <TooltipPopup side="top" className="max-w-72 whitespace-normal leading-relaxed">
-        {description} La dernière règle qui match gagne quand les deux Conditions peuvent
-        s’appliquer.
+        {description} The last matching rule wins when both Conditions can apply.
       </TooltipPopup>
     </Tooltip>
   )
@@ -304,7 +303,7 @@ function KeybindingTableRow({
             onClick={() => {
               setDraft({ isRecording: true })
             }}
-            aria-label={`Modifier le Raccourci de ${label}`}
+            aria-label={`Edit the Shortcut for ${label}`}
             className="group inline-flex h-7 items-center gap-1.5 rounded-md border border-transparent px-1.5 outline-none transition-colors hover:border-border/70 hover:bg-background focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/24"
           >
             <KeybindingPill value={row.key} />
@@ -316,9 +315,9 @@ function KeybindingTableRow({
           <Input
             data-keybinding-capture=""
             autoFocus={isRecording}
-            aria-label={`Raccourci de ${label}`}
+            aria-label={`Shortcut for ${label}`}
             value={isRecording ? "" : keyDraft}
-            placeholder={isRecording ? "Appuie sur un Raccourci" : "Non assigné"}
+            placeholder={isRecording ? "Press a Shortcut" : "Unassigned"}
             className={cn(
               "h-7 w-44 rounded-md font-mono text-[12px] sm:h-7",
               isRecording && "border-primary/70 bg-primary/5",
@@ -341,7 +340,7 @@ function KeybindingTableRow({
             disabled={keyDraft.trim().length === 0 || !isWhenDraftValid}
             onClick={save}
           >
-            Enregistrer
+            Save
           </Button>
         ) : null}
       </div>
@@ -352,10 +351,10 @@ function KeybindingTableRow({
               "flex h-7 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-2.5 text-left font-mono text-[12px] text-foreground shadow-xs/5 outline-none transition-colors hover:bg-accent focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/24",
               whenDraftExpression.length === 0 && "text-muted-foreground",
             )}
-            aria-label={`Modifier la Condition de ${label}`}
+            aria-label={`Edit the Condition for ${label}`}
           >
             <span className="truncate">
-              {whenDraftExpression.length === 0 ? "Toujours" : whenDraftExpression}
+              {whenDraftExpression.length === 0 ? "Always" : whenDraftExpression}
             </span>
             <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" />
           </PopoverTrigger>
@@ -384,7 +383,7 @@ function KeybindingTableRow({
                   variant="ghost"
                   size="icon-sm"
                   className="size-7 text-muted-foreground hover:text-foreground sm:size-7"
-                  aria-label={`Actions pour ${label}`}
+                  aria-label={`Actions for ${label}`}
                 />
               }
             >
@@ -397,7 +396,7 @@ function KeybindingTableRow({
                     onReset(row)
                   }}
                 >
-                  Rétablir le défaut
+                  Restore default
                 </MenuItem>
               ) : null}
               {canRemove ? (
@@ -407,7 +406,7 @@ function KeybindingTableRow({
                     onRemove(row)
                   }}
                 >
-                  Retirer
+                  Remove
                 </MenuItem>
               ) : null}
             </MenuPopup>
@@ -493,9 +492,9 @@ function NewKeybindingTableRow({
       <div className="flex min-w-0 items-center gap-2 pr-4">
         <Input
           data-keybinding-capture=""
-          aria-label={`Raccourci de ${commandLabelText}`}
+          aria-label={`Shortcut for ${commandLabelText}`}
           value={isRecording ? "" : keyDraft}
-          placeholder={isRecording ? "Appuie sur un Raccourci" : "Non assigné"}
+          placeholder={isRecording ? "Press a Shortcut" : "Unassigned"}
           size="sm"
           className={cn("w-44 font-mono", isRecording && "border-primary/70 bg-primary/5")}
           onFocus={() => {
@@ -530,7 +529,7 @@ function NewKeybindingTableRow({
             })
           }}
         >
-          Enregistrer
+          Save
         </Button>
       </div>
       <div className="grid min-w-0 pr-4">
@@ -540,10 +539,10 @@ function NewKeybindingTableRow({
               "flex h-7 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-2.5 text-left font-mono text-[12px] text-foreground shadow-xs/5 outline-none transition-colors hover:bg-accent focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/24",
               whenDraftExpression.length === 0 && "text-muted-foreground",
             )}
-            aria-label={`Modifier la Condition de ${commandLabelText}`}
+            aria-label={`Edit the Condition for ${commandLabelText}`}
           >
             <span className="truncate">
-              {whenDraftExpression.length === 0 ? "Toujours" : whenDraftExpression}
+              {whenDraftExpression.length === 0 ? "Always" : whenDraftExpression}
             </span>
             <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" />
           </PopoverTrigger>
@@ -571,14 +570,14 @@ function NewKeybindingTableRow({
                 variant="ghost"
                 size="icon-sm"
                 className="size-7 text-muted-foreground hover:text-foreground"
-                aria-label="Annuler le nouveau Keybinding"
+                aria-label="Cancel the new Keybinding"
                 onClick={onCancel}
               />
             }
           >
             <XIcon />
           </TooltipTrigger>
-          <TooltipPopup side="top">Annuler</TooltipPopup>
+          <TooltipPopup side="top">Cancel</TooltipPopup>
         </Tooltip>
       </div>
     </div>
@@ -630,7 +629,7 @@ export function KeybindingsSettingsPanel(): ReactElement {
 
   return (
     <SettingsPage>
-      <SettingsSection id="keybindings" title="Raccourcis" className="max-w-5xl">
+      <SettingsSection id="keybindings" title="Keybindings" className="max-w-5xl">
         <div className="mb-3 flex items-center justify-end gap-1.5 px-1">
           <ExpandableHeaderSearch
             query={query}
@@ -650,13 +649,13 @@ export function KeybindingsSettingsPanel(): ReactElement {
                   onClick={() => {
                     setIsAddingBinding(true)
                   }}
-                  aria-label="Ajouter un Keybinding"
+                  aria-label="Add a Keybinding"
                 />
               }
             >
               <PlusIcon />
             </TooltipTrigger>
-            <TooltipPopup side="top">Ajouter un Keybinding</TooltipPopup>
+            <TooltipPopup side="top">Add a Keybinding</TooltipPopup>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger
@@ -665,7 +664,7 @@ export function KeybindingsSettingsPanel(): ReactElement {
                   type="button"
                   size="icon-xs"
                   variant="ghost"
-                  aria-label={`Télécharger ${KEYBINDINGS_FILE_NAME}`}
+                  aria-label={`Download ${KEYBINDINGS_FILE_NAME}`}
                   onClick={() => {
                     downloadKeybindingsRules(rules)
                   }}
@@ -681,9 +680,9 @@ export function KeybindingsSettingsPanel(): ReactElement {
         <div className="overflow-x-auto">
           <div className="grid min-w-[680px] grid-cols-[minmax(190px,1.1fr)_minmax(220px,0.85fr)_minmax(210px,1fr)_60px] border-b border-border/70 bg-muted/25 px-4 py-2 text-[11px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
             <div>Action</div>
-            <div>Raccourci</div>
+            <div>Shortcut</div>
             <div>Condition</div>
-            <div>État</div>
+            <div>Status</div>
           </div>
           <div className="min-w-[680px] divide-y divide-border/60">
             {isAddingBinding ? (
@@ -715,7 +714,7 @@ export function KeybindingsSettingsPanel(): ReactElement {
             ))}
             {rows.length === 0 && !isAddingBinding ? (
               <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-                Aucun Keybinding ne correspond à ta recherche.
+                No Keybinding matches your search.
               </div>
             ) : null}
           </div>

@@ -28,28 +28,28 @@ export function ProjectDeleteConfirmDialog({
     threadCount === 0
       ? null
       : threadCount === 1
-        ? " Son Thread disparaîtra du control plane."
-        : ` Ses ${String(threadCount)} Threads disparaîtront du control plane.`
+        ? " Its Thread will disappear from the control plane."
+        : ` Its ${String(threadCount)} Threads will disappear from the control plane.`
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogPopup>
         <AlertDialogHeader>
-          <AlertDialogTitle>Retirer le Project ?</AlertDialogTitle>
+          <AlertDialogTitle>Remove this Project?</AlertDialogTitle>
           <AlertDialogDescription>
-            « {projectName} » quittera Noyau. Son Tableau est retiré.{threads} Le dossier sur le
-            disque n’est pas modifié.
+            "{projectName}" will leave Noyau. Its Board is removed.{threads} The folder on disk is
+            not modified.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogClose render={<Button type="button" variant="ghost" />}>
-            Annuler
+            Cancel
           </AlertDialogClose>
           <AlertDialogClose
             render={<Button type="button" variant="destructive" />}
             onClick={onConfirm}
           >
-            Retirer
+            Remove
           </AlertDialogClose>
         </AlertDialogFooter>
       </AlertDialogPopup>

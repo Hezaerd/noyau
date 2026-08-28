@@ -36,7 +36,7 @@ export const pickProjectFolderEffect = Effect.fn("pickProjectFolder")(function* 
   const pickFolder = globalThis.window?.noyauDesktop?.pickFolder
   if (pickFolder === undefined) {
     return yield* new DesktopFolderPickerUnavailable({
-      message: "Le sélecteur de dossier n’est disponible que dans Noyau Desktop.",
+      message: "The folder picker is only available in Noyau Desktop.",
     })
   }
 
@@ -44,7 +44,7 @@ export const pickProjectFolderEffect = Effect.fn("pickProjectFolder")(function* 
     try: () => pickFolder(folderPickerOptions(initialPath)),
     catch: (cause) =>
       new DesktopFolderPickerFailed({
-        message: "Impossible d’ouvrir le sélecteur de dossier.",
+        message: "Unable to open the folder picker.",
         cause,
       }),
   })

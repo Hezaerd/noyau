@@ -43,12 +43,12 @@ function SidebarControl() {
         <TooltipTrigger
           render={
             <SidebarTrigger
-              aria-label="Basculer la sidebar"
+              aria-label="Toggle Sidebar"
               className="pointer-events-auto text-muted-foreground"
             />
           }
         />
-        <TooltipPopup side="bottom">Basculer la sidebar</TooltipPopup>
+        <TooltipPopup side="bottom">Toggle Sidebar</TooltipPopup>
       </Tooltip>
     </div>
   )
@@ -94,7 +94,7 @@ function SettingsRestoreAction() {
     <div className="ms-auto">
       <Button type="button" size="xs" variant="ghost" disabled={!canRestore} onClick={restore}>
         <RotateCcwIcon data-icon="inline-start" />
-        Restaurer les défauts
+        Restore defaults
       </Button>
     </div>
   )
@@ -199,13 +199,13 @@ export function NotFound() {
   return (
     <section className="mx-auto flex min-h-[calc(100svh-3.5rem)] max-w-2xl flex-col justify-center px-6 py-20">
       <h1 className="my-3 text-4xl font-semibold tracking-[-0.045em] text-foreground">
-        Page introuvable
+        Page not found
       </h1>
       <Link
         to="/"
         className="mt-6 inline-flex w-fit rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
-        Retour au Tableau
+        Back to the Board
       </Link>
     </section>
   )

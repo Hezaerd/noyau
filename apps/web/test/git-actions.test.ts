@@ -56,7 +56,7 @@ describe("git-actions", () => {
 
   it("ouvre une PR sur une feature déjà poussée", () => {
     expect(resolveQuickAction(status(), false)).toEqual({
-      label: "Créer une PR",
+      label: "Create a PR",
       disabled: false,
       kind: "open_dialog",
       action: "create_pr",
@@ -87,7 +87,7 @@ describe("git-actions", () => {
       label: "Commit",
       disabled: true,
       kind: "show_hint",
-      hint: "Branche à jour. Rien à faire.",
+      hint: "Branch is up to date. Nothing to do.",
     })
     expect(resolveQuickAction(status({ hasWorkingTreeChanges: true, pr: openPr }), false)).toEqual({
       label: "Commit & push",
@@ -105,7 +105,7 @@ describe("git-actions", () => {
   it("propose Créer le repo quand origin est absent", () => {
     const localOnly = status({ hasPrimaryRemote: false })
     expect(resolveQuickAction(localOnly, false)).toEqual({
-      label: "Créer le repo",
+      label: "Create the repo",
       disabled: false,
       kind: "open_publish",
     })

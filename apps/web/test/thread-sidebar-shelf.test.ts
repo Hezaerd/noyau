@@ -19,7 +19,7 @@ describe("parseSettledShelfExpanded", () => {
 
 describe("settledShelfLabel", () => {
   it("keeps the count in both shelf states", () => {
-    expect(settledShelfLabel(182)).toBe("Classés (182)")
+    expect(settledShelfLabel(182)).toBe("Settled (182)")
   })
 })
 

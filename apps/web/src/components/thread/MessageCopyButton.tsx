@@ -18,29 +18,29 @@ export function MessageCopyButton({
   const { copyToClipboard, isCopied } = useCopyToClipboard({
     onCopy: () => {
       toastManager.add({
-        description: "Le message est dans le presse-papiers.",
+        description: "The message is on the clipboard.",
         id: MESSAGE_COPIED_TOAST_ID,
-        title: "Copié",
+        title: "Copied",
         type: "success",
       })
     },
     onError: () => {
       toastManager.add({
-        description: "Le presse-papiers a refusé le message.",
-        title: "Copie impossible",
+        description: "The clipboard refused the message.",
+        title: "Unable to copy",
         type: "error",
       })
     },
   })
 
-  const copyLabel = isCopied ? "Copié" : "Copier le message"
+  const copyLabel = isCopied ? "Copied" : "Copy message"
 
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <Button
-            aria-label="Copier le message"
+            aria-label="Copy message"
             className={cn("text-muted-foreground hover:text-foreground", className)}
             onClick={() => {
               copyToClipboard(text)

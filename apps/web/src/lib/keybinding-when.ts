@@ -262,11 +262,11 @@ export const parseWhenExpressionDraft = (
     return { ok: true, value: undefined }
   }
   if (trimmed.length > MAX_KEYBINDING_WHEN_LENGTH) {
-    return { ok: false, message: "Expression trop longue." }
+    return { ok: false, message: "Expression too long." }
   }
   const ast = parseKeybindingWhenExpression(trimmed)
   if (ast === null) {
-    return { ok: false, message: "Utilise des variables avec !, &&, || et des parenthèses." }
+    return { ok: false, message: "Use identifiers with !, &&, ||, and parentheses." }
   }
   return { ok: true, value: ast }
 }

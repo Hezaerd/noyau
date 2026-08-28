@@ -26,7 +26,7 @@ export function DesktopUpdateSidebarButton(): ReactElement | null {
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Ouvrir l’installeur Noyau"
+            aria-label="Open the Noyau installer"
             loading={state.phase === "opening"}
             className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={() => {

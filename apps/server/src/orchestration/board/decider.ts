@@ -322,7 +322,7 @@ const initialize = (
     }),
     KanbanColumnCreated.make({
       columnId: command.payload.activeColumnId,
-      name: "En cours",
+      name: "In progress",
       color: "#3B82F6",
       rank: activeRank,
       done: false,

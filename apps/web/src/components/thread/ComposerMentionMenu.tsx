@@ -66,7 +66,7 @@ export function ComposerMentionMenu({
           <li className="px-2 py-1.5 text-muted-foreground">Recherche…</li>
         ) : null}
         {!loading && entries.length === 0 ? (
-          <li className="px-2 py-1.5 text-muted-foreground">Aucun résultat</li>
+          <li className="px-2 py-1.5 text-muted-foreground">No results</li>
         ) : null}
         {entries.map((entry, index) => {
           const selected = index === highlightedIndex
@@ -85,7 +85,7 @@ export function ComposerMentionMenu({
               ) : null}
               {showFileHeading && fileCount > 0 ? (
                 <p className="px-2 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground">
-                  Fichiers
+                  Files
                 </p>
               ) : null}
               <button

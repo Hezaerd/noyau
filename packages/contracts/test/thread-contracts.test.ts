@@ -481,7 +481,7 @@ describe("Thread commands", () => {
       "thread.create": {
         threadId: ids.thread,
         projectId: ids.project,
-        title: "Nouveau thread",
+        title: DEFAULT_THREAD_TITLE,
         runtimeMode: "full-access",
       },
       "thread.delete": { threadId: ids.thread },
@@ -631,6 +631,8 @@ describe("Thread title helpers", () => {
 
   it("autorise le remplacement du placeholder ou du seed seulement", () => {
     expect(canReplaceThreadTitle(DEFAULT_THREAD_TITLE)).toBe(true)
+    expect(canReplaceThreadTitle("Nouveau thread")).toBe(true)
+    expect(canReplaceThreadTitle("Nouveau Thread")).toBe(true)
     expect(canReplaceThreadTitle("Inspecte le projet", "Inspecte le projet")).toBe(true)
     expect(canReplaceThreadTitle("Titre manuel", "Inspecte le projet")).toBe(false)
   })

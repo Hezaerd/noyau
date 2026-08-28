@@ -102,7 +102,7 @@ describe("ThreadSidebarItem", () => {
     const activity = link.querySelector("[data-slot='thread-sidebar-activity']")
     const project = link.querySelector("[data-slot='thread-sidebar-project']")
     const lastActivity = link.querySelector("[data-slot='thread-sidebar-last-activity']")
-    const pin = screen.getByLabelText("Épinglé")
+    const pin = screen.getByLabelText("Pinned")
     expect(activity).not.toBeNull()
     expect(project).not.toBeNull()
     expect(project?.textContent).toBe("noyau")
@@ -115,7 +115,7 @@ describe("ThreadSidebarItem", () => {
     )
     expect(activity?.nextElementSibling?.textContent).toBe("Stores Zustand t3code vs shell")
     expect(lastActivity?.querySelector("[aria-hidden='true']")).toBeNull()
-    expect(lastActivity?.textContent).toMatch(/^Dernière activité : /)
+    expect(lastActivity?.textContent).toMatch(/^Last activity: /)
   })
 
   it("replaces the elapsed timer with status and keeps the pin on its left", () => {
@@ -208,13 +208,13 @@ describe("ThreadSidebarItem", () => {
 
     const link = screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ })
     const status = screen.getByRole("status")
-    const pin = screen.getByLabelText("Épinglé")
+    const pin = screen.getByLabelText("Pinned")
     expect(link.querySelector("[data-slot='thread-sidebar-last-activity']")).toBeNull()
     expect(link.querySelector("[data-slot='thread-sidebar-project']")?.contains(status)).toBe(false)
     expect(pin.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
-    expect(status.textContent).toMatch(/En cours/)
+    expect(status.textContent).toMatch(/In progress/)
   })
 
   it("prefetches a cold Thread on pointer enter, not the open one", () => {

@@ -187,7 +187,7 @@ export function ThreadComposer({
       : undefined,
     selectedModel?.thinking === undefined
       ? undefined
-      : `Réflexion ${selectedThinking === true ? "activée" : "désactivée"}`,
+      : `Thinking ${selectedThinking === true ? "on" : "off"}`,
   ]
     .filter((label) => label !== undefined)
     .join(" · ")
@@ -347,7 +347,7 @@ export function ThreadComposer({
                       size="icon-xs"
                       variant="secondary"
                       disabled={controlsDisabled}
-                      aria-label={`Retirer ${image.upload.name}`}
+                      aria-label={`Remove ${image.upload.name}`}
                       className="absolute top-0.5 right-0.5 size-5"
                       onClick={() => {
                         onImageRemove(image.localId)
@@ -416,7 +416,7 @@ export function ThreadComposer({
                           size="sm"
                           variant="ghost"
                           disabled={controlsDisabled}
-                          aria-label="Configuration du modèle"
+                          aria-label="Model configuration"
                         />
                       }
                     >
@@ -431,7 +431,7 @@ export function ThreadComposer({
                     >
                       {(selectedModel?.reasoningEfforts.length ?? 0) > 0 ? (
                         <MenuGroup>
-                          <MenuGroupLabel>Niveau d’effort</MenuGroupLabel>
+                          <MenuGroupLabel>Effort level</MenuGroupLabel>
                           <MenuRadioGroup
                             value={selectedEffort?.value ?? ""}
                             onValueChange={(reasoningEffort) => {
@@ -451,7 +451,7 @@ export function ThreadComposer({
                                     <span>{effort.label}</span>
                                     {effort.isDefault === true ? (
                                       <Badge variant="outline" size="sm">
-                                        Par défaut
+                                        Default
                                       </Badge>
                                     ) : null}
                                   </span>
@@ -493,7 +493,7 @@ export function ThreadComposer({
                                     <span>{tier.label}</span>
                                     {tier.isDefault === true ? (
                                       <Badge variant="outline" size="sm">
-                                        Par défaut
+                                        Default
                                       </Badge>
                                     ) : null}
                                   </span>
@@ -531,10 +531,10 @@ export function ThreadComposer({
                               className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
                             >
                               <span className="flex items-center gap-1.5">
-                                <span>Désactivée</span>
+                                <span>Off</span>
                                 {selectedModel.thinking.defaultValue === false ? (
                                   <Badge variant="outline" size="sm">
-                                    Par défaut
+                                    Default
                                   </Badge>
                                 ) : null}
                               </span>
@@ -546,10 +546,10 @@ export function ThreadComposer({
                               className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
                             >
                               <span className="flex items-center gap-1.5">
-                                <span>Activée</span>
+                                <span>On</span>
                                 {selectedModel.thinking.defaultValue === true ? (
                                   <Badge variant="outline" size="sm">
-                                    Par défaut
+                                    Default
                                   </Badge>
                                 ) : null}
                               </span>
@@ -571,7 +571,7 @@ export function ThreadComposer({
                       size="sm"
                       variant="ghost"
                       disabled={controlsDisabled}
-                      aria-label="Niveau d’accès"
+                      aria-label="Access level"
                       className="max-w-52"
                     />
                   }
@@ -586,7 +586,7 @@ export function ThreadComposer({
                   className={cn("w-max", composerOverlayGlassClassName)}
                 >
                   <MenuGroup>
-                    <MenuGroupLabel>Niveau d’accès</MenuGroupLabel>
+                    <MenuGroupLabel>Access level</MenuGroupLabel>
                     <MenuRadioGroup
                       value={runtimeMode}
                       onValueChange={(value) => {
@@ -628,7 +628,7 @@ export function ThreadComposer({
                   size="icon-sm"
                   variant={isRunning ? "destructive" : "default"}
                   disabled={isRunning ? false : sendDisabled}
-                  aria-label={isRunning ? "Interrompre" : "Envoyer"}
+                  aria-label={isRunning ? "Interrupt" : "Send"}
                   onClick={isRunning ? onInterrupt : undefined}
                 >
                   {isRunning ? (

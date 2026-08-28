@@ -44,7 +44,7 @@ describe("parseKeybindingWhenExpression", () => {
     })
     expect(parseWhenExpressionDraft("thread &&")).toEqual({
       ok: false,
-      message: "Utilise des variables avec !, &&, || et des parenthèses.",
+      message: "Use identifiers with !, &&, ||, and parentheses.",
     })
     expect(
       whenAstToExpression(parseKeybindingWhenExpression("!(thread || settings)") ?? undefined),

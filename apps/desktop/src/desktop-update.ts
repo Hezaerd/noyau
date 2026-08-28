@@ -270,7 +270,7 @@ export const checkDesktopUpdate = Effect.fn("checkDesktopUpdate")(function* (
       Effect.mapError(
         (cause) =>
           new DesktopUpdateCheckFailed({
-            message: "Impossible de vérifier les mises à jour.",
+            message: "Unable to check for updates.",
             cause,
           }),
       ),
@@ -279,7 +279,7 @@ export const checkDesktopUpdate = Effect.fn("checkDesktopUpdate")(function* (
     Effect.mapError(
       (cause) =>
         new DesktopUpdateCheckFailed({
-          message: "Impossible de vérifier les mises à jour.",
+          message: "Unable to check for updates.",
           cause,
         }),
     ),
@@ -288,7 +288,7 @@ export const checkDesktopUpdate = Effect.fn("checkDesktopUpdate")(function* (
     Effect.mapError(
       (cause) =>
         new DesktopUpdateCheckFailed({
-          message: "Impossible de vérifier les mises à jour.",
+          message: "Unable to check for updates.",
           cause,
         }),
     ),
@@ -297,7 +297,7 @@ export const checkDesktopUpdate = Effect.fn("checkDesktopUpdate")(function* (
     Effect.mapError(
       (cause) =>
         new DesktopUpdateCheckFailed({
-          message: "Impossible de vérifier les mises à jour.",
+          message: "Unable to check for updates.",
           cause,
         }),
     ),
@@ -324,7 +324,7 @@ export const settleDesktopUpdateCheck = Effect.fn("settleDesktopUpdateCheck")(fu
         currentVersion: input.currentVersion,
         message: Schema.is(DesktopUpdateCheckFailed)(cause)
           ? cause.message
-          : "Impossible de vérifier les mises à jour.",
+          : "Unable to check for updates.",
       } satisfies DesktopUpdateCheckResult),
     ),
   )
@@ -357,7 +357,7 @@ export const openCheckedDesktopInstaller = Effect.fn("openCheckedDesktopInstalle
     Effect.as({ _tag: "opened" as const } satisfies DesktopUpdateOpenResult),
     Effect.orElseSucceed((): DesktopUpdateOpenResult => ({
       _tag: "failed",
-      message: "Impossible d’ouvrir l’installeur.",
+      message: "Unable to open the installer.",
     })),
   )
 })
@@ -376,7 +376,7 @@ export const openDesktopInstallerUrl = Effect.fn("openDesktopInstallerUrl")(func
     catch: (cause) =>
       new DesktopInstallerOpenFailed({
         url: resolved,
-        message: "Impossible d’ouvrir l’installeur.",
+        message: "Unable to open the installer.",
         cause,
       }),
   })

@@ -32,11 +32,11 @@ export function ProjectSidebarItem({
           />
         }
         isActive={pathname === `/projects/${project.id}/board`}
-        tooltip="Tableau"
+        tooltip="Board"
         className="h-8 text-sidebar-foreground/58"
       >
         <LayoutGridIcon />
-        <span>Tableau</span>
+        <span>Board</span>
       </SidebarMenuButton>
       <ThreadSidebarSection
         projectId={project.id}

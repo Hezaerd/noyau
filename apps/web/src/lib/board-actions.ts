@@ -73,8 +73,8 @@ export const createBoardActions = (
 ): ReadonlyArray<ExecutableBoardAction> => [
   {
     id: "ticket.create",
-    label: "Créer un ticket",
-    searchValue: "Créer un ticket",
+    label: "Create a ticket",
+    searchValue: "Create a ticket",
     groupId: "actions",
     groupLabel: "Actions",
     shortcut: keybindings["board.ticket.create"],
@@ -84,8 +84,8 @@ export const createBoardActions = (
   },
   {
     id: "board.search",
-    label: "Rechercher",
-    searchValue: "Rechercher",
+    label: "Search",
+    searchValue: "Search",
     groupId: "actions",
     groupLabel: "Actions",
     shortcut: keybindings["board.search"],
@@ -96,8 +96,8 @@ export const createBoardActions = (
   ...state.tickets.flatMap((ticket): ReadonlyArray<ExecutableBoardAction> => [
     {
       id: `ticket.open.${ticket.id}`,
-      label: "Ouvrir",
-      searchValue: `Ouvrir ${ticket.title}`,
+      label: "Open",
+      searchValue: `Open ${ticket.title}`,
       groupId: "tickets",
       groupLabel: "Tickets",
       surfaces: ["context-menu"],
@@ -107,8 +107,8 @@ export const createBoardActions = (
     },
     {
       id: `ticket.rename.${ticket.id}`,
-      label: "Renommer",
-      searchValue: `Renommer ${ticket.title}`,
+      label: "Rename",
+      searchValue: `Rename ${ticket.title}`,
       groupId: "tickets",
       groupLabel: "Tickets",
       shortcut: keybindings["board.ticket.rename"],
@@ -119,8 +119,8 @@ export const createBoardActions = (
     },
     {
       id: `ticket.archive.${ticket.id}`,
-      label: "Archiver",
-      searchValue: `Archiver ${ticket.title}`,
+      label: "Archive",
+      searchValue: `Archive ${ticket.title}`,
       groupId: "tickets",
       groupLabel: "Tickets",
       destructive: true,
@@ -133,10 +133,10 @@ export const createBoardActions = (
   ...state.columns.flatMap((column): ReadonlyArray<ExecutableBoardAction> => [
     {
       id: `column.rename.${column.id}`,
-      label: "Renommer",
-      searchValue: `Renommer la colonne ${column.name}`,
+      label: "Rename",
+      searchValue: `Rename column ${column.name}`,
       groupId: "columns",
-      groupLabel: "Colonnes",
+      groupLabel: "Columns",
       shortcut: keybindings["board.column.rename"],
       surfaces: ["context-menu"],
       target: { kind: "column", id: column.id },
@@ -147,10 +147,10 @@ export const createBoardActions = (
       ? [
           {
             id: `column.delete.${column.id}`,
-            label: "Supprimer",
-            searchValue: `Supprimer la colonne ${column.name}`,
+            label: "Delete",
+            searchValue: `Delete column ${column.name}`,
             groupId: "columns",
-            groupLabel: "Colonnes",
+            groupLabel: "Columns",
             destructive: true,
             surfaces: ["context-menu" as const],
             target: { kind: "column" as const, id: column.id },

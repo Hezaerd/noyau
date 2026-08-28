@@ -36,7 +36,7 @@ export const persistSettledShelfExpanded = (expanded: boolean): void => {
   }
 }
 
-export const settledShelfLabel = (count: number): string => `Classés (${count})`
+export const settledShelfLabel = (count: number): string => `Settled (${count})`
 
 /** Collapsed shelf hides every row. Only the header toggle opens it. */
 export const settledThreadsVisibleInShelf = <T>(

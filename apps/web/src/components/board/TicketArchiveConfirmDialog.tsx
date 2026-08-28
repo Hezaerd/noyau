@@ -31,24 +31,24 @@ export function TicketArchiveConfirmDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogPopup>
         <AlertDialogHeader>
-          <AlertDialogTitle>Archiver le ticket ?</AlertDialogTitle>
+          <AlertDialogTitle>Archive this ticket?</AlertDialogTitle>
           <AlertDialogDescription>
-            « {ticketTitle} » quittera le Tableau. Son contenu, ses dépendances et son historique
-            restent disponibles.
+            "{ticketTitle}" will leave the Board. Its content, dependencies, and history remain
+            available.
             {blockedBy === ""
               ? null
-              : ` Il est encore bloqué par ${blockedBy}. L’archivage confirme que tu poursuis malgré ces dépendances ouvertes.`}
+              : ` It is still blocked by ${blockedBy}. Archiving confirms you want to continue despite these open dependencies.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogClose render={<Button type="button" variant="ghost" />}>
-            Annuler
+            Cancel
           </AlertDialogClose>
           <AlertDialogClose
             render={<Button type="button" variant="destructive" />}
             onClick={onConfirm}
           >
-            Archiver
+            Archive
           </AlertDialogClose>
         </AlertDialogFooter>
       </AlertDialogPopup>

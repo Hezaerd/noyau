@@ -574,7 +574,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
                 label: "Claude Opus 5",
                 reasoningEfforts: [],
                 serviceTiers: [],
-                thinking: { label: "Réflexion", defaultValue: true },
+                thinking: { label: "Thinking", defaultValue: true },
               },
             ])
           }),

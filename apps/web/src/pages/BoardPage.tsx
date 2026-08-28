@@ -23,7 +23,7 @@ import type { ClientCommandRequest } from "@noyau/contracts/commands"
 import type { TicketPriority } from "@noyau/contracts/entities/ticket"
 import { KanbanColumnId, type ProjectId, type ThreadId, TicketId } from "@noyau/contracts/ids"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
-import { fr } from "date-fns/locale"
+import { enUS } from "date-fns/locale"
 import type { Crypto } from "effect"
 import { type Effect } from "effect"
 import {
@@ -126,11 +126,11 @@ import {
 import { cn } from "@/lib/utils"
 import { setKeybindingSelection } from "@/state/keybinding-context"
 const priorityLabels = {
-  none: "Sans priorité",
-  low: "Basse",
-  normal: "Normale",
-  high: "Haute",
-  urgent: "Urgente",
+  none: "No priority",
+  low: "Low",
+  normal: "Normal",
+  high: "High",
+  urgent: "Urgent",
 } satisfies Record<TicketPriority, string>
 
 const priorityStyles = {
@@ -225,12 +225,12 @@ const dueLabel = (
   }
   const due = parseISO(ticket.dueAt)
   const days = differenceInCalendarDays(due, startOfToday())
-  const date = format(due, "d MMM", { locale: fr })
+  const date = format(due, "d MMM", { locale: enUS })
   if (!done && days < 0) {
-    return { label: `${date} · En retard`, late: true }
+    return { label: `${date} · Overdue`, late: true }
   }
   if (!done && days <= 3) {
-    return { label: `${date} · Bientôt`, late: false }
+    return { label: `${date} · Soon`, late: false }
   }
   return { label: date, late: false }
 }
@@ -294,7 +294,7 @@ function TicketCard({
           onClick={onOpen}
           onFocus={onFocus}
           className="w-full touch-none rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/65"
-          aria-label={`Ouvrir le ticket ${ticket.title}`}
+          aria-label={`Open ticket ${ticket.title}`}
           {...attributes}
           {...listeners}
         >
@@ -317,7 +317,7 @@ function TicketCard({
             <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
               {openDependencyCount === 0 ? null : (
                 <Badge variant="outline" className="h-5 rounded-full px-1.5 text-[0.6rem]">
-                  Bloqué
+                  Blocked
                 </Badge>
               )}
               {due === undefined ? null : (
@@ -370,7 +370,7 @@ function QuickCreate({ columnId, active, onCancel, onCreate, onActivate }: Quick
         onClick={onActivate}
       >
         <PlusIcon />
-        Ajouter un ticket
+        Add a ticket
       </Button>
     )
   }
@@ -380,8 +380,8 @@ function QuickCreate({ columnId, active, onCancel, onCreate, onActivate }: Quick
       <Input
         value={title}
         onChange={(event) => setTitle(event.target.value)}
-        placeholder="Titre du ticket"
-        aria-label={`Titre du nouveau ticket dans ${columnId}`}
+        placeholder="Ticket title"
+        aria-label={`Title of the new ticket in ${columnId}`}
         autoFocus
         onKeyDown={(event) => {
           if (event.key === "Escape") {
@@ -392,15 +392,9 @@ function QuickCreate({ columnId, active, onCancel, onCreate, onActivate }: Quick
       />
       <div className="mt-2 flex items-center gap-2">
         <Button type="submit" size="xs" disabled={title.trim() === ""}>
-          Ajouter
+          Add
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          onClick={onCancel}
-          aria-label="Annuler"
-        >
+        <Button type="button" variant="ghost" size="icon-xs" onClick={onCancel} aria-label="Cancel">
           <XIcon />
         </Button>
       </div>
@@ -528,11 +522,7 @@ function BoardColumnView({
           <Menu>
             <MenuTrigger
               render={
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={`Menu de la colonne ${column.name}`}
-                >
+                <Button variant="ghost" size="icon-xs" aria-label={`Column menu ${column.name}`}>
                   <EllipsisIcon />
                 </Button>
               }
@@ -540,16 +530,16 @@ function BoardColumnView({
             <MenuPopup align="end" className="w-44">
               <MenuGroup>
                 <MenuGroupLabel>{column.name}</MenuGroupLabel>
-                <MenuItem onClick={() => onEditingChange(true)}>Renommer</MenuItem>
+                <MenuItem onClick={() => onEditingChange(true)}>Rename</MenuItem>
               </MenuGroup>
               <MenuSeparator />
               <MenuGroup>
-                <MenuGroupLabel>Couleur</MenuGroupLabel>
+                <MenuGroupLabel>Color</MenuGroupLabel>
                 {[
-                  ["Neutre", "#a3a3a3"],
-                  ["Bleu", "#3B82F6"],
-                  ["Émeraude", "#10B981"],
-                  ["Ambre", "#F59E0B"],
+                  ["Neutral", "#a3a3a3"],
+                  ["Blue", "#3B82F6"],
+                  ["Emerald", "#10B981"],
+                  ["Amber", "#F59E0B"],
                 ].map(([label, color]) => (
                   <MenuItem key={color} onClick={() => onColor(color ?? "#a3a3a3")}>
                     <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
@@ -561,7 +551,7 @@ function BoardColumnView({
                 <>
                   <MenuSeparator />
                   <MenuItem variant="destructive" onClick={onDelete}>
-                    Supprimer
+                    Delete
                   </MenuItem>
                 </>
               )}
@@ -595,7 +585,7 @@ function BoardColumnView({
 
         {tickets.length === 0 && filtered ? (
           <div className="grid min-h-28 place-items-center px-4 text-center text-xs text-muted-foreground">
-            Aucun ticket visible dans cette colonne.
+            No tickets visible in this column.
           </div>
         ) : null}
 
@@ -685,7 +675,7 @@ export function BoardPage({
   const [addingColumn, setAddingColumn] = useState(false)
   const [newColumnName, setNewColumnName] = useState("")
   const [announcement, setAnnouncement] = useState(
-    "Tableau chargé. Utilise les flèches pour naviguer entre les tickets.",
+    "Board loaded. Use the arrow keys to move between tickets.",
   )
   const boardRef = useRef<HTMLElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -715,7 +705,7 @@ export function BoardPage({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
   const priorityOptions = [
-    { value: "all", label: "Toutes les priorités" },
+    { value: "all", label: "All priorities" },
     ...priorities
       .filter((priority) => priority !== "none")
       .map((priority) => ({ value: priority, label: priorityLabels[priority] })),
@@ -812,7 +802,7 @@ export function BoardPage({
         })
         if (presentation.surface === "toast") showFailureToast(presentation)
         else setBoardFailure(presentation)
-        setAnnouncement("La commande n’a pas pu être envoyée au control plane.")
+        setAnnouncement("The command could not be sent to the control plane.")
       } else {
         setAnnouncement(successMessage)
       }
@@ -914,13 +904,13 @@ export function BoardPage({
         persistTicketPlacement(
           next,
           activeTicketId,
-          `Ticket déplacé vers ${column?.name ?? "la colonne cible"}${filtered ? ", en fin de colonne" : ""}.`,
+          `Ticket moved to ${column?.name ?? "the target column"}${filtered ? ", at the end of the column" : ""}.`,
         )
       }
       return
     }
     if (filtered) {
-      setAnnouncement("Le réordonnancement est désactivé dans une vue filtrée.")
+      setAnnouncement("Reordering is disabled in a filtered view.")
       return
     }
     const next = reorderTicket(state, activeTicketId, direction)
@@ -929,7 +919,7 @@ export function BoardPage({
     persistTicketPlacement(
       next,
       activeTicketId,
-      `Ticket réordonné, position ${(nextPosition ?? 0) + 1}.`,
+      `Ticket reordered, position ${(nextPosition ?? 0) + 1}.`,
     )
   }
 
@@ -1046,7 +1036,7 @@ export function BoardPage({
         persistTicketPlacement(
           state,
           ticketId,
-          `Ticket déplacé vers ${column?.name ?? "la colonne cible"}, position ${(preview?.position ?? 0) + 1}.`,
+          `Ticket moved to ${column?.name ?? "the target column"}, position ${(preview?.position ?? 0) + 1}.`,
         )
       }
       return
@@ -1058,7 +1048,7 @@ export function BoardPage({
     }
     if (filtered && target.columnId === source.columnId) {
       setState(origin)
-      setAnnouncement("Le réordonnancement est désactivé dans une vue filtrée.")
+      setAnnouncement("Reordering is disabled in a filtered view.")
       return
     }
     const next = filtered
@@ -1081,8 +1071,8 @@ export function BoardPage({
       next,
       ticketId,
       filtered
-        ? `Ticket déplacé vers ${column?.name ?? "la colonne cible"}, en fin de colonne.`
-        : `Ticket déplacé vers ${column?.name ?? "la colonne cible"}, position ${(moved?.position ?? 0) + 1}.`,
+        ? `Ticket moved to ${column?.name ?? "the target column"}, at the end of the column.`
+        : `Ticket moved to ${column?.name ?? "the target column"}, position ${(moved?.position ?? 0) + 1}.`,
     )
   }
 
@@ -1096,7 +1086,7 @@ export function BoardPage({
         title: title.trim(),
         placement: { columnId: KanbanColumnId.make(columnId) },
       }),
-      `Ticket ${title} créé dans la colonne.`,
+      `Ticket ${title} created in the column.`,
     )
   }
 
@@ -1110,7 +1100,7 @@ export function BoardPage({
       makeTicketArchiveRequest(
         blockedBy.length > 0 ? { ticketId, acknowledgeOpenDependencies: true } : { ticketId },
       ),
-      `Ticket ${ticket.title} archivé.`,
+      `Ticket ${ticket.title} archived.`,
     )
   }
 
@@ -1122,7 +1112,7 @@ export function BoardPage({
       (candidate) => !candidate.done && candidate.id !== column.id,
     )
     if (destination === undefined) {
-      setAnnouncement("Il faut conserver au moins une colonne non terminale.")
+      setAnnouncement("Keep at least one non-terminal column.")
       return
     }
     let next = state
@@ -1141,7 +1131,7 @@ export function BoardPage({
         columnId: KanbanColumnId.make(column.id),
         destinationColumnId: KanbanColumnId.make(destination.id),
       }),
-      `Colonne supprimée. Ses tickets ont été déplacés vers ${destination.name}.`,
+      `Column deleted. Its tickets were moved to ${destination.name}.`,
     )
   }
 
@@ -1157,15 +1147,15 @@ export function BoardPage({
     () => [
       {
         id: "ticket.create",
-        label: "Créer un ticket",
-        searchValue: "Créer un ticket",
+        label: "Create a ticket",
+        searchValue: "Create a ticket",
         icon: <PlusIcon />,
         execute: createTicketFromPalette,
       },
       {
         id: "board.search",
-        label: "Rechercher",
-        searchValue: "Rechercher dans le Tableau",
+        label: "Search",
+        searchValue: "Search the Board",
         icon: <SearchIcon />,
         execute: focusBoardSearch,
       },
@@ -1238,10 +1228,12 @@ export function BoardPage({
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h1 id="board-title" className="text-2xl font-semibold tracking-[-0.04em]">
-                Tableau
+                Board
               </h1>
               <Badge variant="outline" className="rounded-full text-[0.6rem]">
-                {loading ? "Chargement…" : `${state.tickets.length} tickets`}
+                {loading
+                  ? "Loading…"
+                  : `${state.tickets.length} ${state.tickets.length === 1 ? "ticket" : "tickets"}`}
               </Badge>
             </div>
           </div>
@@ -1258,7 +1250,7 @@ export function BoardPage({
                     true,
                   )
                 }
-                placeholder="Rechercher un ticket…"
+                placeholder="Search a ticket…"
                 className="pl-9"
               />
               <KeyboardShortcut
@@ -1281,7 +1273,7 @@ export function BoardPage({
               <SelectTrigger size="default" className="w-auto">
                 <FunnelIcon />
                 <SelectValue>
-                  {search.priority === undefined ? "Priorité" : priorityLabels[search.priority]}
+                  {search.priority === undefined ? "Priority" : priorityLabels[search.priority]}
                 </SelectValue>
               </SelectTrigger>
               <SelectPopup>
@@ -1296,7 +1288,7 @@ export function BoardPage({
             {filtered ? (
               <Button variant="ghost" size="default" onClick={clearFilters}>
                 <XIcon />
-                Effacer
+                Clear
               </Button>
             ) : null}
           </div>
@@ -1358,7 +1350,7 @@ export function BoardPage({
                       columnId: KanbanColumnId.make(column.id),
                       name: name.trim(),
                     }),
-                    `Colonne renommée ${name.trim()}.`,
+                    `Column renamed ${name.trim()}.`,
                   )
                 }}
                 onColor={(color) => {
@@ -1373,7 +1365,7 @@ export function BoardPage({
                       columnId: KanbanColumnId.make(column.id),
                       color,
                     }),
-                    `Couleur de la colonne ${column.name} mise à jour.`,
+                    `Column ${column.name} color updated.`,
                   )
                 }}
                 onDelete={() => removeColumn(column)}
@@ -1399,7 +1391,7 @@ export function BoardPage({
                           }
                     runCommand(
                       makeKanbanColumnCreateRequest({ ...columnInput, projectId }),
-                      `Colonne ${newColumnName.trim()} ajoutée.`,
+                      `Column ${newColumnName.trim()} added.`,
                     )
                     setNewColumnName("")
                     setAddingColumn(false)
@@ -1409,12 +1401,12 @@ export function BoardPage({
                   <Input
                     value={newColumnName}
                     onChange={(event) => setNewColumnName(event.target.value)}
-                    placeholder="Nom de la colonne"
+                    placeholder="Column name"
                     autoFocus
                   />
                   <div className="mt-2 flex gap-2">
                     <Button type="submit" size="xs" disabled={newColumnName.trim() === ""}>
-                      Ajouter
+                      Add
                     </Button>
                     <Button
                       type="button"
@@ -1422,7 +1414,7 @@ export function BoardPage({
                       size="xs"
                       onClick={() => setAddingColumn(false)}
                     >
-                      Annuler
+                      Cancel
                     </Button>
                   </div>
                 </form>
@@ -1433,7 +1425,7 @@ export function BoardPage({
                   onClick={() => setAddingColumn(true)}
                 >
                   <PlusIcon />
-                  Ajouter une colonne
+                  Add a column
                 </Button>
               )}
             </div>
@@ -1520,12 +1512,12 @@ export function BoardPage({
                 dueAt: patch.dueAt === undefined ? null : patch.dueAt,
               }
             }
-            runCommand(makeTicketUpdateRequest(updateInput), "Détails du ticket mis à jour.")
+            runCommand(makeTicketUpdateRequest(updateInput), "Ticket details updated.")
           }
         }}
         onAddDependency={(ticketId, dependsOnTicketId) => {
           if (ticketDependencyIssue(state, ticketId, dependsOnTicketId) !== undefined) {
-            setAnnouncement("Cette dépendance créerait un doublon ou un cycle.")
+            setAnnouncement("This dependency would create a duplicate or a cycle.")
             return
           }
           runCommand(
@@ -1533,7 +1525,7 @@ export function BoardPage({
               ticketId: TicketId.make(ticketId),
               dependsOnTicketId: TicketId.make(dependsOnTicketId),
             }),
-            "Dépendance ajoutée.",
+            "Dependency added.",
           )
         }}
         onRemoveDependency={(ticketId, dependsOnTicketId) => {
@@ -1542,7 +1534,7 @@ export function BoardPage({
               ticketId: TicketId.make(ticketId),
               dependsOnTicketId: TicketId.make(dependsOnTicketId),
             }),
-            "Dépendance retirée.",
+            "Dependency removed.",
           )
         }}
         onLinkThread={(ticketId, threadId) => {
@@ -1551,7 +1543,7 @@ export function BoardPage({
               ticketId: TicketId.make(ticketId),
               threadId,
             }),
-            "Thread lié au ticket.",
+            "Thread linked to the ticket.",
           )
         }}
         onUnlinkThread={(ticketId, threadId) => {
@@ -1560,7 +1552,7 @@ export function BoardPage({
               ticketId: TicketId.make(ticketId),
               threadId,
             }),
-            "Thread détaché du ticket.",
+            "Thread unlinked from the ticket.",
           )
         }}
         onOpenThread={onOpenThread}

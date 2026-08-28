@@ -142,12 +142,12 @@ export const revokeComposerImages = (images: ReadonlyArray<ComposerImage>) => {
 export const composerImageFailureMessage = (reason: ComposerImageFailure): string => {
   switch (reason) {
     case "unsupported":
-      return "Ce format d’image n’est pas pris en charge (png, jpeg, gif, webp)."
+      return "This image format is not supported (png, jpeg, gif, webp)."
     case "too-large":
-      return "Cette image dépasse 10 Mo."
+      return "This image is larger than 10 MB."
     case "unreadable":
-      return "Cette image n’a pas pu être lue."
+      return "This image could not be read."
     case "limit":
-      return `Tu peux joindre au plus ${TURN_MAX_ATTACHMENTS} images.`
+      return `You can attach at most ${TURN_MAX_ATTACHMENTS} images.`
   }
 }
