@@ -279,6 +279,9 @@ export const settledTranscriptLabel = (
   if (latestTurn === null || latestTurn.completedAt === null) {
     return null
   }
+  if (latestTurn.state === "completed" || latestTurn.state === "running") {
+    return null
+  }
   const startedAtMs = firstValidEpochMs(latestTurn.startedAt, latestTurn.requestedAt)
   const completedAtMs = epochMsOf(latestTurn.completedAt)
   const duration =
@@ -286,17 +289,9 @@ export const settledTranscriptLabel = (
       ? null
       : formatElapsedLabel(completedAtMs - startedAtMs)
   switch (latestTurn.state) {
-    case "completed":
-      return duration === null ? "Worked" : `Worked ${duration}`
     case "interrupted":
       return duration === null ? "Interrupted" : `Interrupted after ${duration}`
     case "error":
       return duration === null ? "Failed" : `Failed after ${duration}`
-    case "running":
-      return latestTurn.completedAt === null
-        ? null
-        : duration === null
-          ? "Worked"
-          : `Worked ${duration}`
   }
 }
