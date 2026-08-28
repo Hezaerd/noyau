@@ -335,8 +335,15 @@ export function ThreadCheckoutBar({
             <span className="min-w-0 max-w-[240px] truncate">{branchLabel}</span>
             <ChevronDownIcon data-icon="inline-end" />
           </CheckoutMenuTrigger>
-          <MenuPopup align="end" side="top" className={cn("w-80", composerOverlayGlassClassName)}>
-            <div className="px-2 pt-1.5 pb-1">
+          <MenuPopup
+            align="end"
+            side="top"
+            className={cn(
+              "w-80 [&>div]:flex [&>div]:max-h-[min(20rem,var(--available-height))] [&>div]:flex-col [&>div]:overflow-hidden",
+              composerOverlayGlassClassName,
+            )}
+          >
+            <div className="shrink-0 px-2 pt-1.5 pb-1">
               <div className="relative border-b border-border/70 pb-1.5 transition-colors focus-within:border-ring">
                 <SearchIcon
                   aria-hidden="true"
@@ -359,85 +366,89 @@ export function ThreadCheckoutBar({
                 />
               </div>
             </div>
-            <MenuGroup>
-              <MenuGroupLabel>Branches</MenuGroupLabel>
-              {filteredRefs.map((ref) => {
-                const cwd = status?.cwd ?? ""
-                const badge = branchPickerBadge(ref, cwd)
-                const removable = isRemovableWorktreeRef(ref, cwd, status?.worktreePath ?? null)
-                return (
-                  <MenuItem
-                    key={ref.name}
-                    className="w-full"
-                    title={removable ? "⌘⇧ click to delete the worktree" : undefined}
-                    onClick={(event) => {
-                      if (isWorktreeDeleteGesture(event) && removable) {
-                        event.preventDefault()
-                        removeListedWorktree(ref)
-                        return
-                      }
-                      selectRef(ref)
-                    }}
-                  >
-                    <span className="flex w-full min-w-0 items-center justify-between gap-2">
-                      <span className="min-w-0 flex-1 truncate">{ref.name}</span>
-                      {badge === null ? null : (
-                        <span className="shrink-0 text-[10px] text-muted-foreground/45">
-                          {badge}
-                        </span>
-                      )}
-                    </span>
-                  </MenuItem>
-                )
-              })}
-              {filteredRefs.length === 0 && !showCreateBranch ? (
-                <p className="px-2 py-1.5 text-muted-foreground text-xs">No branches</p>
-              ) : null}
-              {showCreateBranch ? (
-                <>
-                  <MenuSeparator />
-                  <MenuItem onClick={() => createBranch(trimmedBranchQuery)}>
-                    Create "{trimmedBranchQuery}"
-                  </MenuItem>
-                </>
-              ) : null}
-            </MenuGroup>
-            {selectingWorktreeBase ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <label
-                      htmlFor={startFromOriginSwitchId}
-                      className="flex cursor-pointer items-center justify-between gap-3 border-t border-border/60 px-3 py-2 text-xs"
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <MenuGroup>
+                <MenuGroupLabel>Branches</MenuGroupLabel>
+                {filteredRefs.map((ref) => {
+                  const cwd = status?.cwd ?? ""
+                  const badge = branchPickerBadge(ref, cwd)
+                  const removable = isRemovableWorktreeRef(ref, cwd, status?.worktreePath ?? null)
+                  return (
+                    <MenuItem
+                      key={ref.name}
+                      className="w-full"
+                      title={removable ? "⌘⇧ click to delete the worktree" : undefined}
                       onClick={(event) => {
-                        event.stopPropagation()
+                        if (isWorktreeDeleteGesture(event) && removable) {
+                          event.preventDefault()
+                          removeListedWorktree(ref)
+                          return
+                        }
+                        selectRef(ref)
                       }}
                     >
-                      <span className="flex min-w-0 items-center gap-1.5 font-medium text-muted-foreground">
-                        <RefreshCwIcon aria-hidden="true" className="size-3 shrink-0 opacity-70" />
-                        <span className="truncate">Start from origin</span>
+                      <span className="flex w-full min-w-0 items-center justify-between gap-2">
+                        <span className="min-w-0 flex-1 truncate">{ref.name}</span>
+                        {badge === null ? null : (
+                          <span className="shrink-0 text-[10px] text-muted-foreground/45">
+                            {badge}
+                          </span>
+                        )}
                       </span>
-                      <Switch
-                        id={startFromOriginSwitchId}
-                        checked={startFromOrigin}
-                        className="[--thumb-size:--spacing(3.5)]"
-                        aria-label="Create the worktree from origin"
-                        onCheckedChange={(checked) => onStartFromOriginChange(checked)}
-                      />
-                    </label>
-                  }
-                />
-                <TooltipPopup
-                  side="top"
-                  className={cn(
-                    "max-w-72 whitespace-normal leading-tight",
-                    composerOverlayGlassClassName,
-                  )}
-                >
-                  Create the worktree from the matching branch on origin, not from the local
-                  checkout.
-                </TooltipPopup>
-              </Tooltip>
+                    </MenuItem>
+                  )
+                })}
+                {filteredRefs.length === 0 && !showCreateBranch ? (
+                  <p className="px-2 py-1.5 text-muted-foreground text-xs">No branches</p>
+                ) : null}
+                {showCreateBranch ? (
+                  <>
+                    <MenuSeparator />
+                    <MenuItem onClick={() => createBranch(trimmedBranchQuery)}>
+                      Create "{trimmedBranchQuery}"
+                    </MenuItem>
+                  </>
+                ) : null}
+              </MenuGroup>
+            </div>
+            {selectingWorktreeBase ? (
+              <div className="shrink-0">
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <label
+                        htmlFor={startFromOriginSwitchId}
+                        className="flex cursor-pointer items-center justify-between gap-3 border-t border-border/60 px-3 py-2 text-xs"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                        }}
+                      >
+                        <span className="flex min-w-0 items-center gap-1.5 font-medium text-muted-foreground">
+                          <RefreshCwIcon aria-hidden="true" className="size-3 shrink-0 opacity-70" />
+                          <span className="truncate">Start from origin</span>
+                        </span>
+                        <Switch
+                          id={startFromOriginSwitchId}
+                          checked={startFromOrigin}
+                          className="[--thumb-size:--spacing(3.5)]"
+                          aria-label="Create the worktree from origin"
+                          onCheckedChange={(checked) => onStartFromOriginChange(checked)}
+                        />
+                      </label>
+                    }
+                  />
+                  <TooltipPopup
+                    side="top"
+                    className={cn(
+                      "max-w-72 whitespace-normal leading-tight",
+                      composerOverlayGlassClassName,
+                    )}
+                  >
+                    Create the worktree from the matching branch on origin, not from the local
+                    checkout.
+                  </TooltipPopup>
+                </Tooltip>
+              </div>
             ) : null}
           </MenuPopup>
         </Menu>
