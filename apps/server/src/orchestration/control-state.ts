@@ -7,7 +7,7 @@ import { ThreadCommand } from "@noyau/contracts/thread/commands"
 import { ThreadEvent } from "@noyau/contracts/thread/events"
 import { BoardInitialize, TicketCommand } from "@noyau/contracts/ticket/commands"
 import { TicketEvent } from "@noyau/contracts/ticket/events"
-import { DateTime, Result, Schema } from "effect"
+import { Result, Schema, type DateTime } from "effect"
 
 import { decide as decideBoard } from "./board/decider.ts"
 import {
