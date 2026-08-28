@@ -3,6 +3,12 @@ import { threadBranchOf, threadWorktreePathOf } from "@noyau/contracts/entities/
 import type { PrepareWorktree, VcsRef, VcsStatusResult } from "@noyau/contracts/git"
 import type { ThreadId } from "@noyau/contracts/ids"
 
+/** Intention et `startFromOrigin` d'un draft, avant bind. */
+export const draftCheckoutOf = (envMode: ThreadEnvMode) => ({
+  envMode,
+  startFromOrigin: envMode === "worktree",
+})
+
 export type PendingCreatedCheckout = {
   readonly threadId: ThreadId
   readonly envMode: ThreadEnvMode
@@ -10,25 +16,67 @@ export type PendingCreatedCheckout = {
   readonly startFromOrigin: boolean
 }
 
-let pendingCreatedCheckout: PendingCreatedCheckout | undefined
+const pendingCreatedCheckouts = new Map<ThreadId, PendingCreatedCheckout>()
 
-/** Survit un remount draft → Thread créé, le temps que le snapshot arrive. */
+/** Survit un remount draft → Thread, y compris un aller-retour d'onglet. */
 export const rememberCreatedCheckout = (next: PendingCreatedCheckout): void => {
-  pendingCreatedCheckout = next
+  pendingCreatedCheckouts.set(next.threadId, next)
 }
 
-export const peekCreatedCheckout = (threadId: ThreadId): PendingCreatedCheckout | undefined => {
-  if (pendingCreatedCheckout?.threadId !== threadId) {
-    return undefined
-  }
-  return pendingCreatedCheckout
-}
+export const peekCreatedCheckout = (threadId: ThreadId): PendingCreatedCheckout | undefined =>
+  pendingCreatedCheckouts.get(threadId)
 
 export const clearCreatedCheckout = (threadId?: ThreadId): void => {
-  if (threadId !== undefined && pendingCreatedCheckout?.threadId !== threadId) {
+  if (threadId === undefined) {
     return
   }
-  pendingCreatedCheckout = undefined
+  pendingCreatedCheckouts.delete(threadId)
+}
+
+export type OpenedThreadCheckout = {
+  readonly envMode: ThreadEnvMode
+  readonly startFromOrigin: boolean
+  readonly baseBranch: string | null
+}
+
+/**
+ * Checkout à l'ouverture : path bindé, intention retenue, sinon préférence d'un draft.
+ * `worktreePath === null` n'est pas « local » tant qu'aucun Turn n'a bindé le cwd.
+ */
+export const resolveOpenedThreadCheckout = (input: {
+  readonly worktreePath: string | null
+  readonly threadBranch: string | null
+  readonly latestTurn: { readonly turnId: string } | null | undefined
+  readonly pending: PendingCreatedCheckout | undefined
+  readonly preferredEnvMode: ThreadEnvMode
+}): OpenedThreadCheckout => {
+  if (input.worktreePath !== null) {
+    return {
+      envMode: "worktree",
+      startFromOrigin: false,
+      baseBranch: input.threadBranch,
+    }
+  }
+  if (input.pending !== undefined) {
+    return {
+      envMode: input.pending.envMode,
+      startFromOrigin: input.pending.startFromOrigin,
+      baseBranch: input.pending.baseBranch ?? input.threadBranch,
+    }
+  }
+  if (input.latestTurn === null) {
+    const draft = draftCheckoutOf(input.preferredEnvMode)
+    return {
+      envMode: draft.envMode,
+      startFromOrigin: draft.startFromOrigin,
+      baseBranch: input.threadBranch,
+    }
+  }
+  return {
+    envMode: "local",
+    startFromOrigin: false,
+    baseBranch: input.threadBranch,
+  }
 }
 
 export type CheckoutThread = {
@@ -77,12 +125,6 @@ export const THREAD_ENV_MODE_ITEMS: ReadonlyArray<{
   { value: "local", label: resolveEnvModeLabel("local") },
   { value: "worktree", label: resolveEnvModeLabel("worktree") },
 ]
-
-/** Intention et `startFromOrigin` d'un draft, avant bind. */
-export const draftCheckoutOf = (envMode: ThreadEnvMode) => ({
-  envMode,
-  startFromOrigin: envMode === "worktree",
-})
 
 export const resolveEnvModeTriggerLabel = (input: {
   readonly envMode: ThreadEnvMode

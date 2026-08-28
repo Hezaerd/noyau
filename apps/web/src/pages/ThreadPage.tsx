@@ -63,6 +63,8 @@ import {
   peekCreatedCheckout,
   rememberCreatedCheckout,
   resolveEffectiveEnvMode,
+  resolveOpenedThreadCheckout,
+  type OpenedThreadCheckout,
 } from "@/lib/checkout"
 import {
   appendComposerImages,
@@ -138,6 +140,29 @@ const sameDefaultModelSelection = (
   left?.modelSelection.serviceTier === right?.modelSelection.serviceTier &&
   left?.modelSelection.thinking === right?.modelSelection.thinking
 
+const openedCheckoutOf = (input: {
+  readonly threadId: ThreadId | undefined
+  readonly worktreePath: string | null
+  readonly threadBranch: string | null
+  readonly latestTurn: { readonly turnId: string } | null | undefined
+}): OpenedThreadCheckout => {
+  if (input.threadId === undefined) {
+    const draft = draftCheckoutOf(getThreadEnvModePreference())
+    return { ...draft, baseBranch: null }
+  }
+  const checkout = resolveOpenedThreadCheckout({
+    worktreePath: input.worktreePath,
+    threadBranch: input.threadBranch,
+    latestTurn: input.latestTurn,
+    pending: peekCreatedCheckout(input.threadId),
+    preferredEnvMode: getThreadEnvModePreference(),
+  })
+  if (input.worktreePath === null && input.latestTurn === null) {
+    rememberCreatedCheckout({ threadId: input.threadId, ...checkout })
+  }
+  return checkout
+}
+
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
   const cursor = useCursor()
   const claude = useClaude()
@@ -148,6 +173,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const project = projects.find((candidate) => candidate.id === projectId)
   const snapshot = useThreadSnapshot(threadId)
   const shellThread = useThreadShell(threadId)
+  const shellThreadRef = useRef(shellThread)
+  shellThreadRef.current = shellThread
   const [loading, setLoading] = useState(() => threadSnapshotNeedsLoad(threadId))
   const [actionFailure, setActionFailure] = useState<FailurePresentation>()
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
@@ -161,14 +188,18 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   } = useComposerDraft(projectId, threadId)
   const replaceDraft = useAtomSet(replaceComposerDraftAtom)
   const removeDraftImage = useAtomSet(removeComposerDraftImageAtom)
-  const createdThreadIdRef = useRef<ThreadId>(undefined)
-  const [envMode, setEnvMode] = useState<ThreadEnvMode>(() =>
-    threadId === undefined ? getThreadEnvModePreference() : "local",
-  )
-  const [baseBranch, setBaseBranch] = useState<string | null>(null)
-  const [startFromOrigin, setStartFromOrigin] = useState(
-    () => threadId === undefined && getThreadEnvModePreference() === "worktree",
-  )
+  const initialCheckout = useState(() => {
+    const cached = threadId === undefined ? undefined : getThreadSnapshot(threadId)
+    return openedCheckoutOf({
+      threadId,
+      worktreePath: threadWorktreePathOf(cached?.thread ?? shellThread ?? {}),
+      threadBranch: threadBranchOf(cached?.thread ?? shellThread ?? {}),
+      latestTurn: cached?.thread.latestTurn ?? shellThread?.latestTurn,
+    })
+  })[0]
+  const [envMode, setEnvMode] = useState<ThreadEnvMode>(initialCheckout.envMode)
+  const [baseBranch, setBaseBranch] = useState<string | null>(initialCheckout.baseBranch)
+  const [startFromOrigin, setStartFromOrigin] = useState(initialCheckout.startFromOrigin)
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
   const [defaultModelSelection, setDefaultModelSelection] = useState<DefaultModelSelection | null>(
@@ -323,6 +354,18 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   })
   const snapshotWorktreePath =
     pageSnapshot === undefined ? null : threadWorktreePathOf(pageSnapshot.thread)
+
+  useEffect(() => {
+    if (threadId === undefined || !isDraftThread) {
+      return
+    }
+    rememberCreatedCheckout({
+      threadId,
+      envMode,
+      baseBranch,
+      startFromOrigin,
+    })
+  }, [baseBranch, envMode, isDraftThread, startFromOrigin, threadId])
   const gitStatus = useVcsStatus(
     threadId === undefined
       ? null
@@ -347,35 +390,29 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   useEffect(() => {
     setTurnDiffTarget(null)
     if (threadId === undefined) {
-      createdThreadIdRef.current = undefined
-      clearCreatedCheckout()
       setLoading(false)
       setSubscriptionStatus(undefined)
-      const draftCheckout = draftCheckoutOf(getThreadEnvModePreference())
+      const draftCheckout = openedCheckoutOf({
+        threadId,
+        worktreePath: null,
+        threadBranch: null,
+        latestTurn: null,
+      })
       setEnvMode(draftCheckout.envMode)
-      setBaseBranch(null)
+      setBaseBranch(draftCheckout.baseBranch)
       setStartFromOrigin(draftCheckout.startFromOrigin)
       return
     }
     const cached = getThreadSnapshot(threadId)
-    const pendingCheckout = peekCreatedCheckout(threadId)
-    if (pendingCheckout !== undefined) {
-      createdThreadIdRef.current = threadId
-      setEnvMode(pendingCheckout.envMode)
-      setBaseBranch(pendingCheckout.baseBranch)
-      setStartFromOrigin(pendingCheckout.startFromOrigin)
-    } else if (cached !== undefined) {
-      const boundPath = threadWorktreePathOf(cached.thread)
-      setEnvMode(boundPath !== null ? "worktree" : "local")
-      setBaseBranch(threadBranchOf(cached.thread))
-      setStartFromOrigin(false)
-    } else if (threadId !== createdThreadIdRef.current) {
-      createdThreadIdRef.current = undefined
-      clearCreatedCheckout()
-      setEnvMode("local")
-      setBaseBranch(null)
-      setStartFromOrigin(false)
-    }
+    const opened = openedCheckoutOf({
+      threadId,
+      worktreePath: threadWorktreePathOf(cached?.thread ?? shellThreadRef.current ?? {}),
+      threadBranch: threadBranchOf(cached?.thread ?? shellThreadRef.current ?? {}),
+      latestTurn: cached?.thread.latestTurn ?? shellThreadRef.current?.latestTurn,
+    })
+    setEnvMode(opened.envMode)
+    setBaseBranch(opened.baseBranch)
+    setStartFromOrigin(opened.startFromOrigin)
     setLoading(cached === undefined)
     setSubscriptionStatus(undefined)
     if (cached !== undefined) {
@@ -393,18 +430,19 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       setRuntimeMode(next.thread.runtimeMode)
       setModelSelection(next.thread.modelSelection)
       const boundPath = threadWorktreePathOf(next.thread)
-      if (boundPath !== null) {
-        setEnvMode("worktree")
-        clearCreatedCheckout(next.thread.id)
-      } else if (createdThreadIdRef.current !== next.thread.id) {
-        setEnvMode("local")
+      const nextCheckout = openedCheckoutOf({
+        threadId: next.thread.id,
+        worktreePath: boundPath,
+        threadBranch: threadBranchOf(next.thread),
+        latestTurn: next.thread.latestTurn,
+      })
+      setEnvMode(nextCheckout.envMode)
+      setStartFromOrigin(nextCheckout.startFromOrigin)
+      if (nextCheckout.baseBranch !== null) {
+        setBaseBranch(nextCheckout.baseBranch)
       }
-      const boundBranch = threadBranchOf(next.thread)
-      if (
-        boundBranch !== null &&
-        (boundPath !== null || createdThreadIdRef.current !== next.thread.id)
-      ) {
-        setBaseBranch(boundBranch)
+      if (boundPath !== null) {
+        clearCreatedCheckout(next.thread.id)
       }
       setLoading(false)
       setActionFailure(undefined)
@@ -627,7 +665,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return undefined
       }
       if (result.kind === "created") {
-        createdThreadIdRef.current = result.threadId
         setOptimisticSend((current) =>
           current === null
             ? current
@@ -952,6 +989,14 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const changeEnvMode = (mode: ThreadEnvMode) => {
     setEnvMode(mode)
     setStartFromOrigin(mode === "worktree")
+    if (threadId !== undefined && worktreePath === null) {
+      rememberCreatedCheckout({
+        threadId,
+        envMode: mode,
+        baseBranch,
+        startFromOrigin: mode === "worktree",
+      })
+    }
   }
   const awaitingThread = threadId !== undefined && pageSnapshot === undefined
   const composer = (

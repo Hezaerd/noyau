@@ -8,7 +8,7 @@ export const resolveDraftLatestTurn = (
   pageSnapshotLoaded: boolean,
 ): LatestTurn | null | undefined => (pageSnapshotLoaded ? pageLatestTurn : shellLatestTurn)
 
-/** Empty persisted Thread, or the `/thread/new` route before create finishes. */
+/** Empty persisted Thread, or the `/thread/new` route before the first send. */
 export const isDraftThreadView = (input: {
   readonly threadId: ThreadId | undefined
   readonly latestTurn: LatestTurn | null | undefined

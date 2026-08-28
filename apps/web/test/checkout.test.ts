@@ -10,6 +10,7 @@ import {
   peekCreatedCheckout,
   draftCheckoutOf,
   rememberCreatedCheckout,
+  resolveOpenedThreadCheckout,
   resolveBranchSelectionTarget,
   resolveBranchTriggerLabel,
   resolveEffectiveEnvMode,
@@ -195,6 +196,95 @@ describe("checkout helpers", () => {
         "/tmp/repo",
       ),
     ).toEqual({ kind: "switch" })
+  })
+
+  it("applique la préférence worktree aux drafts sans path bindé", () => {
+    expect(
+      resolveOpenedThreadCheckout({
+        worktreePath: null,
+        threadBranch: null,
+        latestTurn: null,
+        pending: undefined,
+        preferredEnvMode: "worktree",
+      }),
+    ).toEqual({
+      envMode: "worktree",
+      startFromOrigin: true,
+      baseBranch: null,
+    })
+    expect(
+      resolveOpenedThreadCheckout({
+        worktreePath: null,
+        threadBranch: "feat",
+        latestTurn: { turnId: "turn_1" },
+        pending: undefined,
+        preferredEnvMode: "worktree",
+      }),
+    ).toEqual({
+      envMode: "local",
+      startFromOrigin: false,
+      baseBranch: "feat",
+    })
+    expect(
+      resolveOpenedThreadCheckout({
+        worktreePath: null,
+        threadBranch: null,
+        latestTurn: undefined,
+        pending: undefined,
+        preferredEnvMode: "worktree",
+      }),
+    ).toEqual({
+      envMode: "local",
+      startFromOrigin: false,
+      baseBranch: null,
+    })
+  })
+
+  it("garde l'intention retenue d'un draft plutôt que de forcer local", () => {
+    const threadId = ThreadId.make("20000000-0000-4000-8000-000000000097")
+    expect(
+      resolveOpenedThreadCheckout({
+        worktreePath: null,
+        threadBranch: null,
+        latestTurn: null,
+        pending: {
+          threadId,
+          envMode: "worktree",
+          baseBranch: "develop",
+          startFromOrigin: true,
+        },
+        preferredEnvMode: "local",
+      }),
+    ).toEqual({
+      envMode: "worktree",
+      startFromOrigin: true,
+      baseBranch: "develop",
+    })
+  })
+
+  it("retient l'intention de plusieurs drafts en parallèle", () => {
+    const first = ThreadId.make("20000000-0000-4000-8000-000000000096")
+    const second = ThreadId.make("20000000-0000-4000-8000-000000000095")
+    rememberCreatedCheckout({
+      threadId: first,
+      envMode: "worktree",
+      baseBranch: "main",
+      startFromOrigin: true,
+    })
+    rememberCreatedCheckout({
+      threadId: second,
+      envMode: "local",
+      baseBranch: null,
+      startFromOrigin: false,
+    })
+    expect(peekCreatedCheckout(first)?.envMode).toBe("worktree")
+    expect(peekCreatedCheckout(second)?.envMode).toBe("local")
+    clearCreatedCheckout()
+    expect(peekCreatedCheckout(first)?.envMode).toBe("worktree")
+    clearCreatedCheckout(first)
+    expect(peekCreatedCheckout(first)).toBeUndefined()
+    expect(peekCreatedCheckout(second)?.envMode).toBe("local")
+    clearCreatedCheckout(second)
   })
 
   it("restaure l'intention worktree après create → navigation", () => {
