@@ -9,6 +9,7 @@ export const KEYBINDING_IDS = [
   "thread.rename",
   "thread.pin",
   "thread.settle",
+  "thread.workspace-panel.toggle",
   "thread.model-picker.open",
   "board.search",
   "board.ticket.create",
@@ -109,6 +110,14 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     description: "Settle or unsettle the open Thread in the Settled shelf.",
     defaultHotkey: "mod+e",
     when: WHEN_THREAD,
+  },
+  {
+    id: "thread.workspace-panel.toggle",
+    group: "thread",
+    title: "Toggle workspace panel",
+    description: "Show or hide the Thread workspace panel.",
+    defaultHotkey: "mod+shift+b",
+    when: "thread && !commandPaletteOpen",
   },
   {
     id: "board.search",

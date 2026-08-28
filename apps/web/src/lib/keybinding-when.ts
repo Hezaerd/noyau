@@ -12,6 +12,7 @@ export const KEYBINDING_WHEN_IDENTIFIERS = [
   "ticketSelected",
   "columnSelected",
   "dialogOpen",
+  "commandPaletteOpen",
   "editableFocused",
   "true",
   "false",
@@ -32,6 +33,7 @@ export interface KeybindingContext {
   readonly ticketSelected: boolean
   readonly columnSelected: boolean
   readonly dialogOpen: boolean
+  readonly commandPaletteOpen: boolean
   readonly editableFocused: boolean
   readonly [key: string]: boolean
 }
@@ -76,6 +78,7 @@ export const keybindingContextFromSurface = (
     readonly ticketSelected: boolean
     readonly columnSelected: boolean
     readonly dialogOpen: boolean
+    readonly commandPaletteOpen: boolean
     readonly editableFocused: boolean
   },
 ): KeybindingContext => ({
@@ -85,6 +88,7 @@ export const keybindingContextFromSurface = (
   ticketSelected: flags.ticketSelected,
   columnSelected: flags.columnSelected,
   dialogOpen: flags.dialogOpen,
+  commandPaletteOpen: flags.commandPaletteOpen,
   editableFocused: flags.editableFocused,
 })
 
@@ -354,15 +358,18 @@ export const whenExpressionsConflict = (leftWhen: string, rightWhen: string): bo
     for (const ticketSelected of WHEN_CONFLICT_FLAGS) {
       for (const columnSelected of WHEN_CONFLICT_FLAGS) {
         for (const dialogOpen of WHEN_CONFLICT_FLAGS) {
-          for (const editableFocused of WHEN_CONFLICT_FLAGS) {
-            const context = keybindingContextFromSurface(surface, {
-              ticketSelected,
-              columnSelected,
-              dialogOpen,
-              editableFocused,
-            })
-            if (evaluateWhenNode(leftAst, context) && evaluateWhenNode(rightAst, context)) {
-              return true
+          for (const commandPaletteOpen of WHEN_CONFLICT_FLAGS) {
+            for (const editableFocused of WHEN_CONFLICT_FLAGS) {
+              const context = keybindingContextFromSurface(surface, {
+                ticketSelected,
+                columnSelected,
+                dialogOpen,
+                commandPaletteOpen,
+                editableFocused,
+              })
+              if (evaluateWhenNode(leftAst, context) && evaluateWhenNode(rightAst, context)) {
+                return true
+              }
             }
           }
         }

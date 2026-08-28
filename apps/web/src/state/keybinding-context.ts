@@ -51,5 +51,6 @@ export const readKeybindingContext = (
     ticketSelected: appAtomRegistry.get(keybindingTicketSelectedAtom),
     columnSelected: appAtomRegistry.get(keybindingColumnSelectedAtom),
     dialogOpen: isDialogOpen() && !appAtomRegistry.get(keybindingPaletteOpenAtom),
+    commandPaletteOpen: appAtomRegistry.get(keybindingPaletteOpenAtom),
     editableFocused: isEditableTarget(target),
   })

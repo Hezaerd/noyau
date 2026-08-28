@@ -46,6 +46,7 @@ export interface ResolvedKeybindings {
   readonly "thread.rename": string
   readonly "thread.pin": string
   readonly "thread.settle": string
+  readonly "thread.workspace-panel.toggle": string
   readonly "thread.model-picker.open": string
   readonly "board.search": string
   readonly "board.ticket.create": string
@@ -96,6 +97,7 @@ const emptyContext = (): KeybindingContext => ({
   ticketSelected: false,
   columnSelected: false,
   dialogOpen: false,
+  commandPaletteOpen: false,
   editableFocused: false,
 })
 
@@ -480,6 +482,12 @@ export const resolveKeybindings = (
     "thread.rename": tanstackLabelForCommand(merged, "thread.rename", context, platform),
     "thread.pin": tanstackLabelForCommand(merged, "thread.pin", context, platform),
     "thread.settle": tanstackLabelForCommand(merged, "thread.settle", context, platform),
+    "thread.workspace-panel.toggle": tanstackLabelForCommand(
+      merged,
+      "thread.workspace-panel.toggle",
+      context,
+      platform,
+    ),
     "thread.model-picker.open": tanstackLabelForCommand(
       merged,
       "thread.model-picker.open",

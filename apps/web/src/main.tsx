@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client"
 
 import { AnchoredToastProvider, ToastProvider } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { workspaceTabSanitizeKinds } from "@/components/workspace-panel/catalog"
 import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
 import { AppAtomRegistryProvider } from "@/state/atom-registry"
 import { initializeComposerDrafts } from "@/state/composer-drafts"
@@ -21,6 +22,7 @@ import {
 import { initializeThreadPins } from "@/state/thread-pins"
 import { initializeThreadSettlePreference } from "@/state/thread-settle"
 import { initializeThreadVisits } from "@/state/thread-visits"
+import { initializeWorkspacePanel } from "@/state/workspace-panel"
 
 import { routeTree } from "./routeTree.gen"
 
@@ -39,6 +41,7 @@ initializeTranscriptPaintPreference()
 initializeThreadPins()
 initializeThreadVisits()
 initializeComposerDrafts()
+initializeWorkspacePanel(workspaceTabSanitizeKinds)
 initializeNowMinuteClock()
 
 const router = createRouter({ routeTree })

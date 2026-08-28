@@ -18,6 +18,7 @@ const context = (extra: Partial<KeybindingContext> = {}): KeybindingContext =>
     ticketSelected: false,
     columnSelected: false,
     dialogOpen: false,
+    commandPaletteOpen: false,
     editableFocused: false,
     ...extra,
   })
@@ -77,6 +78,7 @@ describe("matchesWhenClause", () => {
           ticketSelected: false,
           columnSelected: false,
           dialogOpen: false,
+          commandPaletteOpen: false,
           editableFocused: false,
         }),
       ),
@@ -98,6 +100,7 @@ describe("matchesWhenClause", () => {
           ticketSelected: false,
           columnSelected: false,
           dialogOpen: false,
+          commandPaletteOpen: false,
           editableFocused: false,
         }),
       ),
