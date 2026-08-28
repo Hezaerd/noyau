@@ -78,6 +78,7 @@ const thread = Schema.decodeSync(ThreadShell)({
   sessionStatus: "ready",
   lastError: null,
   createdAt: "2026-08-20T00:00:00.000Z",
+  listedAt: "2026-08-20T00:00:00.000Z",
   updatedAt: "2026-08-25T11:05:00.000Z",
 }) satisfies ThreadShellType
 
@@ -143,6 +144,7 @@ describe("ThreadSidebarItem", () => {
       sessionStatus: "running",
       lastError: null,
       createdAt: "2026-08-20T00:00:00.000Z",
+      listedAt: "2026-08-20T00:00:00.000Z",
       updatedAt: "2026-08-25T11:05:00.000Z",
     })
     replaceAppliedShell({

@@ -79,6 +79,7 @@ const makeThread = (extra: Partial<(typeof ThreadShell)["Encoded"]> = {}): Threa
     sessionStatus: null,
     lastError: null,
     createdAt: "2026-08-20T12:00:00.000Z",
+    listedAt: "2026-08-20T12:00:00.000Z",
     updatedAt: "2026-08-20T12:00:00.000Z",
     ...extra,
   })

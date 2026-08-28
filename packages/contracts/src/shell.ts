@@ -37,6 +37,7 @@ export const ThreadShell = Schema.Struct({
   hasPendingApprovals: Schema.optionalKey(Schema.Boolean),
   hasPendingUserInput: Schema.optionalKey(Schema.Boolean),
   createdAt: Schema.DateTimeUtcFromString,
+  listedAt: Schema.DateTimeUtcFromString,
   updatedAt: Schema.DateTimeUtcFromString,
 })
 export type ThreadShell = (typeof ThreadShell)["Type"]

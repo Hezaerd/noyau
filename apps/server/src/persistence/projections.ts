@@ -538,7 +538,7 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       yield* sql`
         INSERT INTO projection_threads (
           thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
-          service_tier, thinking, branch, worktree_path, status, created_at, updated_at
+          service_tier, thinking, branch, worktree_path, status, created_at, listed_at, updated_at
         ) VALUES (
           ${event.threadId}, ${event.projectId}, ${event.title}, ${event.provider},
           ${event.runtimeMode}, ${event.modelSelection?.modelId ?? null},
@@ -546,7 +546,7 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
           ${event.modelSelection?.serviceTier ?? null},
           ${event.modelSelection?.thinking === undefined ? null : Number(event.modelSelection.thinking)},
           ${event.branch ?? null}, ${event.worktreePath ?? null},
-          'active', ${occurredAt}, ${occurredAt}
+          'active', ${occurredAt}, ${occurredAt}, ${occurredAt}
         )
       `
       return
@@ -587,6 +587,7 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         UPDATE projection_threads
         SET settled_override = ${event.reason === "user" ? "active" : null},
             settled_at = NULL,
+            listed_at = ${occurredAt},
             updated_at = ${occurredAt}
         WHERE thread_id = ${event.threadId}
       `

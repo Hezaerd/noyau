@@ -23,8 +23,10 @@ import {
   ThreadDeleted,
   ThreadModelSelectionSet,
   ThreadSessionSet,
+  ThreadSettled,
   ThreadTranscriptAppended,
   ThreadTurnStarted,
+  ThreadUnsettled,
 } from "@noyau/contracts/thread/events"
 import { TicketCommand } from "@noyau/contracts/ticket/commands"
 import { TicketRejection } from "@noyau/contracts/ticket/errors"
@@ -624,6 +626,59 @@ layer(platformLayer)("SQL projections", (it) => {
       }),
     )
   })
+
+  it.effect("rebump listed_at à l'unsettle sans toucher created_at", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Ancien",
+                provider: "cursor",
+                runtimeMode: "full-access",
+              }),
+              "2026-08-10T00:00:00.000Z",
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadSettled.make({
+                threadId: ids.recoveryThread,
+                settledAt: occurredAt("2026-08-12T00:00:00.000Z"),
+              }),
+              "2026-08-12T00:00:00.000Z",
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadUnsettled.make({
+                threadId: ids.recoveryThread,
+                reason: "user",
+              }),
+              "2026-08-25T12:00:00.000Z",
+            ),
+          )
+          const shell = expectSome(
+            yield* readThreadShellById(ids.recoveryThread),
+            "Thread should exist",
+          )
+          assert.strictEqual(DateTime.formatIso(shell.createdAt), "2026-08-10T00:00:00.000Z")
+          assert.strictEqual(DateTime.formatIso(shell.listedAt), "2026-08-25T12:00:00.000Z")
+          assert.strictEqual(DateTime.formatIso(shell.updatedAt), "2026-08-25T12:00:00.000Z")
+          assert.strictEqual(shell.settledOverride, "active")
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    ),
+  )
 
   it.effect("ancre started_at sur turn.started, pas session.updatedAt", () => {
     const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000003")

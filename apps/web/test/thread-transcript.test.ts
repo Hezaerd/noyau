@@ -7,7 +7,7 @@ import {
   type DomainEvent as DomainEventType,
 } from "@noyau/contracts/events"
 import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
-import { Schema } from "effect"
+import { DateTime, Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
@@ -57,6 +57,7 @@ const snapshot = Schema.decodeSync(ThreadSnapshot)({
       completedAt: null,
     },
     createdAt: "2026-08-19T12:00:00.000Z",
+    listedAt: "2026-08-19T12:00:00.000Z",
     updatedAt: "2026-08-19T12:00:00.000Z",
   },
   session: {
@@ -448,6 +449,21 @@ describe("thread transcript projection", () => {
     )
 
     expect(next).toBeUndefined()
+  })
+
+  it("rebases listedAt when the Thread is unsettled", () => {
+    const next = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.unsettled",
+        threadId: ids.thread,
+        reason: "user",
+      }),
+    )
+
+    expect(next?.thread.settledOverride).toBe("active")
+    expect(next && DateTime.formatIso(next.thread.createdAt)).toBe("2026-08-19T12:00:00.000Z")
+    expect(next && DateTime.formatIso(next.thread.listedAt)).toBe("2026-08-19T12:00:01.000Z")
   })
 
   it("renders a compact tool caption without status or raw output", () => {

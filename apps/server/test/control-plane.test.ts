@@ -179,7 +179,7 @@ describe("ControlPlane", () => {
         assert.strictEqual(frames[1]?.kind, "synchronized")
 
         const config = yield* controlPlane.getConfig
-        assert.strictEqual(config.databaseSchemaVersion, 11)
+        assert.strictEqual(config.databaseSchemaVersion, 12)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
         assert.deepStrictEqual(
           yield* controlPlane.setShellFocus({
