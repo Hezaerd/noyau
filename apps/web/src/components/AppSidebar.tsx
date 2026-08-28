@@ -1,6 +1,6 @@
 import type { ProjectId } from "@noyau/contracts/ids"
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
-import { SearchIcon, SettingsIcon, SquarePenIcon } from "lucide-react"
+import { SearchIcon, SettingsIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
@@ -29,7 +29,6 @@ import {
   useSelectProject,
   useSelectedProject,
 } from "@/hooks/use-control-plane"
-import { useCreateDraftThread } from "@/hooks/use-create-draft-thread"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
@@ -44,8 +43,6 @@ export function AppSidebar() {
   const { isMobile, setOpenMobile } = useSidebar()
   const paletteHotkey = useKeybinding("palette.open")
   const settingsHotkey = useKeybinding("settings.open")
-  const createThreadHotkey = useKeybinding("thread.create")
-  const createDraftThread = useCreateDraftThread()
   const projects = useProjects()
   const selectedProject = useSelectedProject()
   const selectProject = useSelectProject()
@@ -135,53 +132,23 @@ export function AppSidebar() {
       <SidebarHeader className="gap-0 p-0">
         <SidebarBrandTitlebar />
 
-        <div className="flex items-center gap-1 p-3">
-          <div className="min-w-0 flex-1">
-            <CommandDialogTrigger
-              render={
-                <button
-                  type="button"
-                  aria-label="Open Palette"
-                  className={sidebarSearchChromeClassName}
-                />
-              }
-            >
-              <SearchIcon className="size-3.5 shrink-0" />
-              <span className="group-data-[collapsible=icon]:hidden">Search</span>
-              <KeyboardShortcut
-                hotkey={paletteHotkey}
-                className="ml-auto group-data-[collapsible=icon]:hidden"
+        <div className="p-3">
+          <CommandDialogTrigger
+            render={
+              <button
+                type="button"
+                aria-label="Open Palette"
+                className={sidebarSearchChromeClassName}
               />
-            </CommandDialogTrigger>
-          </div>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="New Thread"
-                  disabled={selectedProject === undefined}
-                  className="size-9 shrink-0 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                  onClick={() => {
-                    if (selectedProject === undefined) {
-                      return
-                    }
-                    selectProject(selectedProject.id)
-                    closeMobileNavigation()
-                    void createDraftThread(selectedProject)
-                  }}
-                />
-              }
-            >
-              <SquarePenIcon />
-            </TooltipTrigger>
-            <TooltipPopup side="right" className="inline-flex items-center gap-1.5">
-              New Thread
-              <KeyboardShortcut hotkey={createThreadHotkey} />
-            </TooltipPopup>
-          </Tooltip>
+            }
+          >
+            <SearchIcon className="size-3.5 shrink-0" />
+            <span className="group-data-[collapsible=icon]:hidden">Search</span>
+            <KeyboardShortcut
+              hotkey={paletteHotkey}
+              className="ml-auto group-data-[collapsible=icon]:hidden"
+            />
+          </CommandDialogTrigger>
         </div>
         <ProjectSwitcher
           projects={projects}
