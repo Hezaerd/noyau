@@ -266,7 +266,7 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:01:23.000Z",
         }),
       ),
-    ).toBe("Worked 1m 23s")
+    ).toBeNull()
     expect(
       settledTranscriptLabel(
         latestTurn({
@@ -285,7 +285,7 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:00:08.000Z",
         }),
       ),
-    ).toBe("Worked 8s")
+    ).toBeNull()
     expect(
       settledTranscriptLabel(
         latestTurn({
@@ -295,7 +295,16 @@ describe("thread activity", () => {
           completedAt: "2026-08-23T12:01:34.000Z",
         }),
       ),
-    ).toBe("Worked 1m 19s")
+    ).toBeNull()
+    expect(
+      settledTranscriptLabel(
+        latestTurn({
+          state: "error",
+          startedAt: "2026-08-23T12:00:00.000Z",
+          completedAt: "2026-08-23T12:00:08.000Z",
+        }),
+      ),
+    ).toBe("Failed after 8s")
   })
 
   it("ignores an optimistic send that belongs to another Thread", () => {
