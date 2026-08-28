@@ -19,6 +19,7 @@ import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
 import { setThreadPinned } from "../src/state/thread-pins"
 
 const prefetchThreadSnapshot = vi.hoisted(() => vi.fn())
+const dispatchThreadSettle = vi.hoisted(() => vi.fn())
 
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
@@ -43,11 +44,16 @@ vi.mock("../src/lib/thread-snapshot-prefetch", () => ({
   prefetchThreadSnapshot,
 }))
 
+vi.mock("../src/lib/thread-settle-actions", () => ({
+  dispatchThreadSettle,
+}))
+
 afterEach(() => {
   cleanup()
   resetAppAtomRegistryForTests()
   resetAppliedShell()
   prefetchThreadSnapshot.mockClear()
+  dispatchThreadSettle.mockClear()
 })
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
@@ -215,6 +221,7 @@ describe("ThreadSidebarItem", () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
     expect(status.textContent).toMatch(/In progress/)
+    expect(screen.queryByRole("button", { name: "Settle Thread" })).toBeNull()
   })
 
   it("prefetches a cold Thread on pointer enter, not the open one", () => {
@@ -248,5 +255,65 @@ describe("ThreadSidebarItem", () => {
     renderItem(true)
     fireEvent.pointerEnter(screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ }))
     expect(prefetchThreadSnapshot).not.toHaveBeenCalled()
+  })
+
+  it("swaps last activity for Settle on a settleable Thread and does not open it", () => {
+    const onSelect = vi.fn()
+    render(
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ThreadSidebarItem
+            thread={thread}
+            project={{
+              id: projectId,
+              name: "noyau",
+              workspaceRoot,
+            }}
+            pullRequest={null}
+            liveBranch={null}
+            isActive={false}
+            settled={false}
+            onSelect={onSelect}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
+    )
+
+    const settle = screen.getByRole("button", { name: "Settle Thread" })
+    const lastActivity = screen
+      .getByRole("link", { name: /Stores Zustand t3code vs shell/ })
+      .querySelector("[data-slot='thread-sidebar-last-activity']")
+    expect(lastActivity).not.toBeNull()
+    expect(settle.compareDocumentPosition(lastActivity!) & Node.DOCUMENT_POSITION_PRECEDING).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING,
+    )
+
+    fireEvent.click(settle)
+    expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, true)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it("offers Unsettle on a settled Thread", () => {
+    render(
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ThreadSidebarItem
+            thread={thread}
+            project={{
+              id: projectId,
+              name: "noyau",
+              workspaceRoot,
+            }}
+            pullRequest={null}
+            liveBranch={null}
+            isActive={false}
+            settled={true}
+            onSelect={vi.fn()}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Unsettle Thread" }))
+    expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, false)
   })
 })

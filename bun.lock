@@ -21,6 +21,7 @@
       "dependencies": {
         "@effect/platform-node": "catalog:",
         "@noyau/contracts": "workspace:*",
+        "@noyau/server": "workspace:*",
         "@noyau/shared": "workspace:*",
         "effect": "catalog:",
       },

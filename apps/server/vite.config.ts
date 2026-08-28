@@ -1,5 +1,7 @@
 import { defineConfig } from "vite-plus"
 
+import { isExternalServerDependency, shouldBundleServerDependency } from "./src/pack-deps.ts"
+
 export default defineConfig({
   pack: {
     entry: ["src/main.ts"],
@@ -7,11 +9,9 @@ export default defineConfig({
     sourcemap: true,
     clean: true,
     deps: {
-      alwaysBundle: (id: string) =>
-        id.startsWith("@noyau/") ||
-        id === "effect" ||
-        id.startsWith("@effect/") ||
-        id.startsWith("effect/"),
+      alwaysBundle: shouldBundleServerDependency,
+      neverBundle: isExternalServerDependency,
+      onlyBundle: false,
     },
   },
   test: {

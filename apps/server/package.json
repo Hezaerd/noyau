@@ -20,6 +20,7 @@
     "./mcp/mcp-session-registry": "./src/mcp/mcp-session-registry.ts",
     "./mcp/tools": "./src/mcp/tools.ts",
     "./observability": "./src/observability.ts",
+    "./pack-deps": "./src/pack-deps.ts",
     "./provider/assistant-delivery": "./src/provider/assistant-delivery.ts",
     "./provider/cursor-acp": "./src/provider/cursor-acp.ts",
     "./provider/claude-agent": "./src/provider/claude-agent.ts",
