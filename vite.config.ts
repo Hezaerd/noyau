@@ -1,7 +1,7 @@
 import { recommended as effectRecommended } from "@effect/tsgo/oxlint-presets"
 import { defineConfig } from "vite-plus"
 
-// `repos/**` regroupe les subtrees vendored (Effect, t3code, …) : jamais formatés, jamais lintés.
+// `repos/**` regroupe les subtrees vendored (Effect, …) : jamais formatés, jamais lintés.
 // `.agents/**` regroupe des skills importés — hors périmètre lint/fmt Noyau.
 // `tools/oxlint/anti-slop/**` : plugin Oxlint vendored (anti-slop).
 const agentIgnorePatterns = [
