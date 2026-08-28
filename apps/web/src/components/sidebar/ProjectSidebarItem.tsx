@@ -35,7 +35,7 @@ export function ProjectSidebarItem({
             className: "inline-flex items-center gap-1.5",
             children: (
               <>
-                New Agent
+                New Thread
                 <KeyboardShortcut hotkey={createThreadHotkey} />
               </>
             ),
@@ -47,7 +47,7 @@ export function ProjectSidebarItem({
           }}
         >
           <SquarePenIcon />
-          <span>New Agent</span>
+          <span>New Thread</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>

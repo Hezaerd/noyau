@@ -73,7 +73,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
   {
     id: "thread.create",
     group: "global",
-    title: "New Agent",
+    title: "New Thread",
     description: "Create a new Thread in the current Project.",
     defaultHotkey: "mod+n",
     when: "!dialogOpen",
