@@ -280,7 +280,7 @@ export const evaluateWhenNode = (node: KeybindingWhenNode, context: KeybindingCo
       if (node.name === "false") {
         return false
       }
-      return Boolean(context[node.name])
+      return isKnownWhenVariable(node.name) && context[node.name] === true
     case "not":
       return !evaluateWhenNode(node.node, context)
     case "and":
