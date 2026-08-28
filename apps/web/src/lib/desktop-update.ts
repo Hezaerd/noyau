@@ -81,8 +81,11 @@ export const desktopUpdateStatusLabel = (
   }
 }
 
-export const desktopUpdatePrimaryAction = (state: DesktopUpdateState): "open" | "check" | null => {
-  if (state.phase !== "idle") {
+export const desktopUpdatePrimaryAction = (
+  state: DesktopUpdateState,
+  packagedChannel: DesktopReleaseChannel = "latest",
+): "open" | "check" | null => {
+  if (state.phase !== "idle" || packagedChannel === "development") {
     return null
   }
   if (state.result?._tag === "unsupported") {

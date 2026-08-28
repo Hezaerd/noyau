@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   desktopUpdateDescription,
+  desktopUpdatePrimaryAction,
   desktopUpdateVersionLine,
   type DesktopUpdateState,
 } from "../src/lib/desktop-update"
@@ -47,5 +48,25 @@ describe("desktop update description", () => {
         "nightly",
       ),
     ).toBe("Local build — no updates.")
+  })
+})
+
+describe("desktop update primary action", () => {
+  it("hides Check on a local development build before auto-check runs", () => {
+    expect(desktopUpdatePrimaryAction({ phase: "idle", result: undefined }, "development")).toBe(
+      null,
+    )
+    expect(
+      desktopUpdatePrimaryAction(
+        idle({ _tag: "unsupported", currentVersion: "0.0.0" }),
+        "development",
+      ),
+    ).toBe(null)
+  })
+
+  it("still offers Check on a packaged channel that has not been checked", () => {
+    expect(desktopUpdatePrimaryAction({ phase: "idle", result: undefined }, "nightly")).toBe(
+      "check",
+    )
   })
 })

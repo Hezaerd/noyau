@@ -9,10 +9,14 @@ import {
 } from "@/lib/desktop-update"
 import { appAtomRegistry } from "@/state/atom-registry"
 
-export const desktopUpdateStateAtom = Atom.make<DesktopUpdateState>({
-  phase: "idle",
-  result: undefined,
-}).pipe(Atom.keepAlive, Atom.withLabel("chrome:desktop-update"))
+const initialRendererDesktopUpdateState = (): DesktopUpdateState =>
+  desktopReleaseChannel() === "development"
+    ? initialDesktopUpdateState(desktopAppVersion())
+    : { phase: "idle", result: undefined }
+
+export const desktopUpdateStateAtom = Atom.make<DesktopUpdateState>(
+  initialRendererDesktopUpdateState(),
+).pipe(Atom.keepAlive, Atom.withLabel("chrome:desktop-update"))
 
 let inFlight: Promise<void> | undefined
 let autoCheckStarted = false

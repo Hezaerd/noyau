@@ -17,12 +17,13 @@ export function DesktopUpdateSettings(): ReactElement | null {
     return null
   }
 
-  const action = desktopUpdatePrimaryAction(state)
+  const packagedChannel = desktopReleaseChannel()
+  const action = desktopUpdatePrimaryAction(state, packagedChannel)
   const currentVersion = state.result?.currentVersion || desktopAppVersion()
   const description = desktopUpdateDescription(
     state,
     desktopUpdateVersionLine(currentVersion),
-    desktopReleaseChannel(),
+    packagedChannel,
   )
 
   return (
