@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { assert, layer } from "@effect/vitest"
-import { BoardSnapshot } from "@noyau/protocol/board"
-import { ActorId, EnvironmentId, ProjectId, Sequence, ThreadId, TurnId } from "@noyau/protocol/ids"
+import { BoardSnapshot } from "@noyau/contracts/board"
+import { ActorId, EnvironmentId, ProjectId, Sequence, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ControlPlane } from "@noyau/server/control-plane"
 import { McpInvocationContext } from "@noyau/server/mcp/mcp-invocation-context"
 import {

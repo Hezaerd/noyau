@@ -1,9 +1,9 @@
 import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
-} from "@noyau/protocol/entities/approvals"
-import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
-import type { Provider } from "@noyau/protocol/entities/environment"
+} from "@noyau/contracts/entities/approvals"
+import type { TurnImageAttachment } from "@noyau/contracts/entities/attachment"
+import type { Provider } from "@noyau/contracts/entities/environment"
 import {
   emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
@@ -11,13 +11,13 @@ import {
   type ClaudeProviderStatus,
   type CodexProviderStatus,
   type CursorProviderStatus,
-} from "@noyau/protocol/entities/environment"
-import type { ModelSelection } from "@noyau/protocol/entities/model-selection"
-import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import type { ResumeCursor, SessionStatus } from "@noyau/protocol/entities/session"
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import type { TurnSettlementState } from "@noyau/protocol/entities/turn"
-import type { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/entities/environment"
+import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
+import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import type { ResumeCursor, SessionStatus } from "@noyau/contracts/entities/session"
+import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import type { TurnSettlementState } from "@noyau/contracts/entities/turn"
+import type { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { Context, Effect, Layer } from "effect"
 
 import type { PromptTicket } from "./prompt-blocks.ts"

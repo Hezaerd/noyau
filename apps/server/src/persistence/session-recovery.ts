@@ -1,4 +1,4 @@
-import { BOOT_RECOVERY_LAST_ERROR } from "@noyau/domain/thread/recovery"
+import { BOOT_RECOVERY_LAST_ERROR } from "@noyau/server/orchestration/thread/recovery"
 import { DateTime, Effect, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 

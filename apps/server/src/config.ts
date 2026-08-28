@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@noyau/protocol/ids"
+import { EnvironmentId } from "@noyau/contracts/ids"
 import { RELEASE_CHANNELS, type ReleaseChannel } from "@noyau/shared/release-brand"
 import { Config, Context, Effect, FileSystem, Layer, Path, Redacted, Schema } from "effect"
 

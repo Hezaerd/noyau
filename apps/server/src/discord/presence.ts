@@ -1,4 +1,4 @@
-import type { SetShellFocusInput } from "@noyau/protocol/shell"
+import type { SetShellFocusInput } from "@noyau/contracts/shell"
 import { Context, Effect, Layer, Ref } from "effect"
 
 import {

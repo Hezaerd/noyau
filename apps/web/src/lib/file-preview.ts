@@ -1,5 +1,5 @@
-import type { FilePreview } from "@noyau/protocol/file-preview"
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { FilePreview } from "@noyau/contracts/file-preview"
+import type { ProjectId } from "@noyau/contracts/ids"
 
 import { previewFile as requestFilePreview } from "@/lib/control-plane"
 

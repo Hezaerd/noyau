@@ -1,4 +1,4 @@
-import { ProjectId, type ThreadId } from "@noyau/protocol/ids"
+import { ProjectId, type ThreadId } from "@noyau/contracts/ids"
 import { useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 

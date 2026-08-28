@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
-import { checkpointRefForTurn, Turn } from "@noyau/protocol/entities/turn"
-import { ThreadId, TurnId } from "@noyau/protocol/ids"
+import { checkpointRefForTurn, Turn } from "@noyau/contracts/entities/turn"
+import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import {
   parseTurnDiffNumstat,
   resolveTurnDiffCheckpoints,

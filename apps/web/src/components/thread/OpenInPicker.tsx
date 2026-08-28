@@ -1,5 +1,5 @@
-import type { EditorId } from "@noyau/protocol/editor"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { EditorId } from "@noyau/contracts/editor"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { ChevronDownIcon, CodeIcon, FolderClosedIcon, SquareIcon } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 

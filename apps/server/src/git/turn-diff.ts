@@ -5,9 +5,9 @@ import {
   type TurnDiffFile,
   type TurnDiffStatus,
   type TurnSettlementState,
-} from "@noyau/protocol/entities/turn"
-import type { ThreadId, TurnId } from "@noyau/protocol/ids"
-import type { TurnDiffUnavailableReason } from "@noyau/protocol/turn-diff"
+} from "@noyau/contracts/entities/turn"
+import type { ThreadId, TurnId } from "@noyau/contracts/ids"
+import type { TurnDiffUnavailableReason } from "@noyau/contracts/turn-diff"
 
 const destinationPath = (rawPath: string): string => {
   const braced = /^(.*)\{(.*?) => (.*?)\}(.*)$/.exec(rawPath)

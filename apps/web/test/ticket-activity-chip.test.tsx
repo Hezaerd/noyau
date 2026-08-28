@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
-import { DomainEvent, EventEnvelope } from "@noyau/protocol/events"
-import { ProjectId, ThreadId, TicketId } from "@noyau/protocol/ids"
-import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/protocol/shell"
+import { DomainEvent, EventEnvelope } from "@noyau/contracts/events"
+import { ProjectId, ThreadId, TicketId } from "@noyau/contracts/ids"
+import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect, Schema } from "effect"
@@ -181,6 +181,6 @@ describe("ticket activity thread chip", () => {
 
     expect(screen.getByText("Thread de reprise")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Ouvrir le Thread Thread de reprise" })).toBeNull()
-    expect(screen.getByTitle("Thread archivé — ouverture impossible")).toBeTruthy()
+    expect(screen.getByTitle("Thread supprimé — ouverture impossible")).toBeTruthy()
   })
 })

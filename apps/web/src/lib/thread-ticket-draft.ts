@@ -1,4 +1,4 @@
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
+import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
 
 import { transcriptToolCaption } from "@/lib/thread-transcript"
 import { turnPresentationLabel } from "@/lib/turn-presentation"

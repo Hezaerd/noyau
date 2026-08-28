@@ -1,9 +1,9 @@
 import {
   AgentIntegrationFailed,
   type ProjectAgentIntegration,
-} from "@noyau/protocol/agent-integration"
-import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import type { ProjectId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/agent-integration"
+import type { WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { Context, Crypto, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
 
 import { NOYAU_AGENT_SKILL } from "./catalog.ts"

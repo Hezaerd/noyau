@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest"
-import { ThreadId, TurnId } from "@noyau/protocol/ids"
+import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ThreadLive, threadLiveLayer } from "@noyau/server/thread-live"
 import { Effect, Ref, Stream } from "effect"
 import { TestClock } from "effect/testing"

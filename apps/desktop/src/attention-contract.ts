@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { Schema } from "effect"
 
 export const SET_BADGE_COUNT_CHANNEL = "noyau:set-badge-count"

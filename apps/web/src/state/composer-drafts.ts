@@ -1,4 +1,4 @@
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { Atom } from "effect/unstable/reactivity"
 
 import {

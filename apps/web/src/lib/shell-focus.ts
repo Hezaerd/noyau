@@ -1,5 +1,5 @@
-import { ProjectId, ThreadId } from "@noyau/protocol/ids"
-import type { ShellFocus } from "@noyau/protocol/shell"
+import { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import type { ShellFocus } from "@noyau/contracts/shell"
 import { Option, Schema } from "effect"
 
 import { isSettingsPath } from "@/lib/settings-catalog"

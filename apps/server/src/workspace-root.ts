@@ -1,4 +1,4 @@
-import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import type { WorkspaceRoot } from "@noyau/contracts/entities/environment"
 import { Context, Effect, FileSystem, Layer } from "effect"
 
 export interface WorkspaceRootAccessService {

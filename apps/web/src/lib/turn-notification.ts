@@ -1,4 +1,4 @@
-import type { TurnSettlementState } from "@noyau/protocol/entities/turn"
+import type { TurnSettlementState } from "@noyau/contracts/entities/turn"
 
 export const isRendererForeground = (input: {
   readonly visibilityState: DocumentVisibilityState

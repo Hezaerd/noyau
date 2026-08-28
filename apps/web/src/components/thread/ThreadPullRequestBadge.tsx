@@ -1,4 +1,4 @@
-import type { VcsStatusPullRequest } from "@noyau/protocol/git"
+import type { VcsStatusPullRequest } from "@noyau/contracts/git"
 import { GitPullRequestIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"

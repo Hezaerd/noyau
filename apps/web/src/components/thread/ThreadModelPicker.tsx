@@ -1,8 +1,8 @@
-import type { CursorModel, Provider } from "@noyau/protocol/entities/environment"
+import type { CursorModel, Provider } from "@noyau/contracts/entities/environment"
 import type {
   DefaultModelSelection,
   ModelSelection,
-} from "@noyau/protocol/entities/model-selection"
+} from "@noyau/contracts/entities/model-selection"
 import { CheckIcon, ChevronsUpDownIcon, PinIcon, StarIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 

@@ -1,4 +1,4 @@
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { Option, Schema } from "effect"
 
 export const COMPOSER_DRAFTS_STORAGE_KEY = "noyau:composer-drafts"

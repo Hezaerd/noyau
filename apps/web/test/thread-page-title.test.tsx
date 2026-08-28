@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { ThreadId } from "@noyau/protocol/ids"
+import { ThreadId } from "@noyau/contracts/ids"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"

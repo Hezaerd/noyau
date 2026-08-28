@@ -1,14 +1,19 @@
-import type { Session, SessionStatus } from "@noyau/protocol/entities/session"
-import { Thread } from "@noyau/protocol/entities/thread"
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
+import type { Session, SessionStatus } from "@noyau/contracts/entities/session"
+import { Thread } from "@noyau/contracts/entities/thread"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import type {
   TranscriptItem,
   TranscriptTool,
   TranscriptToolAction,
-} from "@noyau/protocol/entities/transcript"
-import type { LatestTurn, Turn, TurnDiff, TurnSettlementState } from "@noyau/protocol/entities/turn"
-import type { EventEnvelope } from "@noyau/protocol/events"
-import { canReplaceThreadTitle } from "@noyau/protocol/thread/title"
+} from "@noyau/contracts/entities/transcript"
+import type {
+  LatestTurn,
+  Turn,
+  TurnDiff,
+  TurnSettlementState,
+} from "@noyau/contracts/entities/turn"
+import type { EventEnvelope } from "@noyau/contracts/events"
+import { canReplaceThreadTitle } from "@noyau/contracts/thread/title"
 
 const userTranscriptFromTurnStarted = (
   event: Extract<EventEnvelope["event"], { readonly _tag: "thread.turn.started" }>,
@@ -411,8 +416,9 @@ export const threadStatusNoticesVisible = (
   (session?.status === "error" && session.lastError !== null) || latestTurn?.state === "interrupted"
 
 /**
- * Table de settlement t3code, recopiée hors `@noyau/domain` : le renderer
- * ne dépend pas du decider. `starting` / `running` ne terminent jamais un Turn.
+ * Table de settlement t3code, recopiée hors de l'orchestration server : le
+ * renderer ne doit pas importer les deciders. `starting` / `running` ne
+ * terminent jamais un Turn.
  */
 const settledTurnStateForSessionStatus = (status: SessionStatus): TurnSettlementState | null => {
   switch (status) {
@@ -704,6 +710,11 @@ export const applyThreadEnvelope = (
         transcript: snapshot.transcript,
       })
     }
+    case "thread.deleted":
+      if (event.threadId !== snapshot.thread.id) {
+        return withEnvelope(snapshot, envelope, snapshot)
+      }
+      return undefined
     case "thread.archived": {
       if (event.threadId !== snapshot.thread.id) {
         return withEnvelope(snapshot, envelope, snapshot)

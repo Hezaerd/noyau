@@ -1,16 +1,16 @@
-import { AgentIntegrationFailed } from "@noyau/protocol/agent-integration"
-import { OpenInEditorFailed } from "@noyau/protocol/editor"
+import { AgentIntegrationFailed } from "@noyau/contracts/agent-integration"
+import { OpenInEditorFailed } from "@noyau/contracts/editor"
 import {
   CommandIdConflict,
   Forbidden,
   MissingIdentity,
   ServiceUnavailable,
-} from "@noyau/protocol/errors"
-import { FilePreviewFailed } from "@noyau/protocol/file-preview"
-import { GitCommandError } from "@noyau/protocol/git"
-import { ProjectNotFound } from "@noyau/protocol/project/errors"
-import { Rejection, type Rejection as RejectionType } from "@noyau/protocol/receipts"
-import { TurnDiffUnavailable } from "@noyau/protocol/turn-diff"
+} from "@noyau/contracts/errors"
+import { FilePreviewFailed } from "@noyau/contracts/file-preview"
+import { GitCommandError } from "@noyau/contracts/git"
+import { ProjectNotFound } from "@noyau/contracts/project/errors"
+import { Rejection, type Rejection as RejectionType } from "@noyau/contracts/receipts"
+import { TurnDiffUnavailable } from "@noyau/contracts/turn-diff"
 import { Cause, Option, Schema } from "effect"
 import { RpcClientError } from "effect/unstable/rpc/RpcClientError"
 

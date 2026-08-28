@@ -1,5 +1,5 @@
-import type { TurnPresentation } from "@noyau/protocol/entities/transcript"
-import type { VcsStatusPullRequest } from "@noyau/protocol/git"
+import type { TurnPresentation } from "@noyau/contracts/entities/transcript"
+import type { VcsStatusPullRequest } from "@noyau/contracts/git"
 
 export const FIX_MERGE_CONFLICTS_PRESENTATION =
   "fix-merge-conflicts" as const satisfies TurnPresentation

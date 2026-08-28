@@ -1,6 +1,6 @@
-import type { VcsStatusPullRequest, VcsStatusResult } from "@noyau/protocol/git"
-import type { ProjectId } from "@noyau/protocol/ids"
-import type { ThreadShell } from "@noyau/protocol/shell"
+import type { VcsStatusPullRequest, VcsStatusResult } from "@noyau/contracts/git"
+import type { ProjectId } from "@noyau/contracts/ids"
+import type { ThreadShell } from "@noyau/contracts/shell"
 import { useEffect, useMemo, useState } from "react"
 
 import { subscribeVcsStatus } from "@/lib/control-plane"

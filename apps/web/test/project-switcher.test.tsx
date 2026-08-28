@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
-import { ProjectId } from "@noyau/protocol/ids"
-import { ProjectShell } from "@noyau/protocol/shell"
+import { ProjectId } from "@noyau/contracts/ids"
+import { ProjectShell } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect, Schema } from "effect"

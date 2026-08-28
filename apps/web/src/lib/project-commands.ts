@@ -1,12 +1,12 @@
-import { WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import type { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"
-import { CommandId, ProjectId } from "@noyau/protocol/ids"
+import { WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import type { DefaultModelSelection } from "@noyau/contracts/entities/model-selection"
+import { CommandId, ProjectId } from "@noyau/contracts/ids"
 import {
   ProjectCreateRequest,
   ProjectDeleteRequest,
   ProjectMetaUpdateRequest,
   ProjectRebindRequest,
-} from "@noyau/protocol/project/commands"
+} from "@noyau/contracts/project/commands"
 import { Crypto, Effect, Schema } from "effect"
 
 const uuid = Effect.fnUntraced(function* () {

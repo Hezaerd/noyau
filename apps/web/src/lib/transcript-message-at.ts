@@ -1,5 +1,5 @@
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import type { Turn } from "@noyau/protocol/entities/turn"
+import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import type { Turn } from "@noyau/contracts/entities/turn"
 import { DateTime } from "effect"
 
 const TIME_OPTIONS = {

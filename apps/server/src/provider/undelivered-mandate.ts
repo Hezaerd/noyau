@@ -1,7 +1,7 @@
-import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
-import type { ResumeCursor } from "@noyau/protocol/entities/session"
-import type { TranscriptItem, TranscriptUser } from "@noyau/protocol/entities/transcript"
-import type { TurnId } from "@noyau/protocol/ids"
+import type { TurnImageAttachment } from "@noyau/contracts/entities/attachment"
+import type { ResumeCursor } from "@noyau/contracts/entities/session"
+import type { TranscriptItem, TranscriptUser } from "@noyau/contracts/entities/transcript"
+import type { TurnId } from "@noyau/contracts/ids"
 import { isResumePrompt } from "@noyau/shared/resume-prompt"
 
 export interface ProviderTurnPrompt {

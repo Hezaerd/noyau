@@ -1,7 +1,7 @@
-import type { SessionStatus } from "@noyau/protocol/entities/session"
-import type { ThreadStatus } from "@noyau/protocol/entities/thread"
-import type { LatestTurn } from "@noyau/protocol/entities/turn"
-import type { ThreadId } from "@noyau/protocol/ids"
+import type { SessionStatus } from "@noyau/contracts/entities/session"
+import type { ThreadStatus } from "@noyau/contracts/entities/thread"
+import type { LatestTurn } from "@noyau/contracts/entities/turn"
+import type { ThreadId } from "@noyau/contracts/ids"
 import { DateTime } from "effect"
 
 export type ThreadActivityKind = "working" | "completed" | "interrupted" | "error"

@@ -5,16 +5,16 @@ import type * as AcpSchema from "@noyau/acp/schema"
 import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
-} from "@noyau/protocol/entities/approvals"
+} from "@noyau/contracts/entities/approvals"
 import {
   emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
   emptyCursorProviderStatus,
   type CursorModel,
-} from "@noyau/protocol/entities/environment"
-import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import type { TranscriptTool } from "@noyau/protocol/entities/transcript"
-import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/entities/environment"
+import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import type { TranscriptTool } from "@noyau/contracts/entities/transcript"
+import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/contracts/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { ThreadLive, threadLiveLayer } from "@noyau/server/thread-live"
 import {

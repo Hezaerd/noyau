@@ -20,7 +20,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@effect/platform-node": "catalog:",
-        "@noyau/protocol": "workspace:*",
+        "@noyau/contracts": "workspace:*",
         "@noyau/shared": "workspace:*",
         "effect": "catalog:",
       },
@@ -42,10 +42,10 @@
         "@effect/platform-node": "catalog:",
         "@noyau/acp": "workspace:*",
         "@noyau/codex": "workspace:*",
-        "@noyau/domain": "workspace:*",
-        "@noyau/protocol": "workspace:*",
+        "@noyau/contracts": "workspace:*",
         "@noyau/shared": "workspace:*",
         "effect": "catalog:",
+        "fractional-indexing": "^4.0.0",
       },
       "devDependencies": {
         "@effect/vitest": "catalog:",
@@ -65,7 +65,7 @@
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@effect/atom-react": "catalog:",
-        "@noyau/protocol": "workspace:*",
+        "@noyau/contracts": "workspace:*",
         "@noyau/shared": "workspace:*",
         "@pierre/diffs": "1.3.0-beta.10",
         "@pierre/trees": "1.0.0-beta.4",
@@ -145,22 +145,8 @@
     "packages/config": {
       "name": "@noyau/config",
     },
-    "packages/domain": {
-      "name": "@noyau/domain",
-      "version": "0.0.0",
-      "dependencies": {
-        "@noyau/protocol": "workspace:*",
-        "effect": "catalog:",
-        "fractional-indexing": "^4.0.0",
-      },
-      "devDependencies": {
-        "@effect/vitest": "catalog:",
-        "vite-plus": "catalog:",
-        "vitest": "catalog:",
-      },
-    },
-    "packages/protocol": {
-      "name": "@noyau/protocol",
+    "packages/contracts": {
+      "name": "@noyau/contracts",
       "version": "0.0.0",
       "dependencies": {
         "effect": "catalog:",
@@ -447,11 +433,9 @@
 
     "@noyau/config": ["@noyau/config@workspace:packages/config"],
 
+    "@noyau/contracts": ["@noyau/contracts@workspace:packages/contracts"],
+
     "@noyau/desktop": ["@noyau/desktop@workspace:apps/desktop"],
-
-    "@noyau/domain": ["@noyau/domain@workspace:packages/domain"],
-
-    "@noyau/protocol": ["@noyau/protocol@workspace:packages/protocol"],
 
     "@noyau/server": ["@noyau/server@workspace:apps/server"],
 

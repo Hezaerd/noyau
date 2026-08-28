@@ -1,7 +1,7 @@
 import {
   NOYAU_AGENT_SKILL_NAME,
   NOYAU_AGENT_SKILL_VERSION,
-} from "@noyau/protocol/agent-integration"
+} from "@noyau/contracts/agent-integration"
 
 import { NOYAU_AGENT_SKILL_FILES } from "./generated.ts"
 

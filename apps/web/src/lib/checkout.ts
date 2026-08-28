@@ -1,7 +1,7 @@
-import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
-import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
-import type { PrepareWorktree, VcsRef, VcsStatusResult } from "@noyau/protocol/git"
-import type { ThreadId } from "@noyau/protocol/ids"
+import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
+import { threadBranchOf, threadWorktreePathOf } from "@noyau/contracts/entities/checkout"
+import type { PrepareWorktree, VcsRef, VcsStatusResult } from "@noyau/contracts/git"
+import type { ThreadId } from "@noyau/contracts/ids"
 
 export type PendingCreatedCheckout = {
   readonly threadId: ThreadId

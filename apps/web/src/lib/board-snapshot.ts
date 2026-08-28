@@ -1,4 +1,4 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
+import type { BoardSnapshot } from "@noyau/contracts/board"
 import { DateTime } from "effect"
 
 import type { BoardState, BoardTicket } from "./board-model"

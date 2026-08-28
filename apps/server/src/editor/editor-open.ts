@@ -4,8 +4,8 @@ import {
   type ListEditorsResult,
   type OpenInEditorInput,
   type OpenInEditorResult,
-} from "@noyau/protocol/editor"
-import type { ServiceUnavailable } from "@noyau/protocol/errors"
+} from "@noyau/contracts/editor"
+import type { ServiceUnavailable } from "@noyau/contracts/errors"
 import { resolveWorkspaceCwd } from "@noyau/server/workspace-cwd"
 import { Context, Effect } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"

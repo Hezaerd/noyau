@@ -1,12 +1,10 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { decide } from "@noyau/domain/board/decider"
-import { emptyBoardState, evolve } from "@noyau/domain/board/projector"
-import { BoardSnapshot } from "@noyau/protocol/board"
-import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import { KanbanColumnColor, KanbanRank } from "@noyau/protocol/entities/kanban-column"
-import { Session } from "@noyau/protocol/entities/session"
-import { type DomainEvent } from "@noyau/protocol/events"
+import { BoardSnapshot } from "@noyau/contracts/board"
+import { Environment, WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import { KanbanColumnColor, KanbanRank } from "@noyau/contracts/entities/kanban-column"
+import { Session } from "@noyau/contracts/entities/session"
+import { type DomainEvent } from "@noyau/contracts/events"
 import {
   ActorId,
   ApprovalRequestId,
@@ -18,24 +16,27 @@ import {
   TicketId,
   ToolCallId,
   TurnId,
-} from "@noyau/protocol/ids"
-import { ProjectCreated, ProjectDeleted } from "@noyau/protocol/project/events"
+} from "@noyau/contracts/ids"
+import { ProjectCreated, ProjectDeleted } from "@noyau/contracts/project/events"
 import {
   ThreadCreated,
+  ThreadDeleted,
   ThreadModelSelectionSet,
   ThreadSessionSet,
   ThreadTranscriptAppended,
   ThreadTurnStarted,
-} from "@noyau/protocol/thread/events"
-import { TicketCommand } from "@noyau/protocol/ticket/commands"
-import { TicketRejection } from "@noyau/protocol/ticket/errors"
+} from "@noyau/contracts/thread/events"
+import { TicketCommand } from "@noyau/contracts/ticket/commands"
+import { TicketRejection } from "@noyau/contracts/ticket/errors"
 import {
   KanbanColumnCreated,
   TicketCompleted,
   TicketCreated,
   TicketEvent,
   TicketThreadLinked,
-} from "@noyau/protocol/ticket/events"
+} from "@noyau/contracts/ticket/events"
+import { decide } from "@noyau/server/orchestration/board/decider"
+import { emptyBoardState, evolve } from "@noyau/server/orchestration/board/projector"
 import { makeCommandWorker, type PersistedEvent } from "@noyau/server/persistence/command-worker"
 import { makeDrainableWorker } from "@noyau/server/persistence/drainable-worker"
 import { findWorkspaceRootOwner, projectDomainEvent } from "@noyau/server/persistence/projections"
@@ -695,6 +696,147 @@ layer(platformLayer)("SQL projections", (it) => {
             shellTurn?.startedAt == null ? null : DateTime.formatIso(shellTurn.startedAt),
             "2026-08-20T00:01:00.000Z",
           )
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    )
+  })
+
+  it.effect("retire le Thread et ses projections enfants", () => {
+    const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000010")
+    const session = Schema.decodeSync(Session)({
+      threadId: ids.recoveryThread,
+      status: "running",
+      lastError: null,
+      activeTurnId: turnId,
+      runtimeMode: "full-access",
+      resumeCursor: { schemaVersion: 1, sessionId: "cursor-session-delete" },
+      updatedAt: "2026-08-20T00:03:00.000Z",
+    })
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          const countProjectionRows = () =>
+            sql<{
+              threads: number
+              sessions: number
+              turns: number
+              transcript: number
+              links: number
+            }>`
+              SELECT
+                (SELECT COUNT(*) FROM projection_threads) AS threads,
+                (SELECT COUNT(*) FROM projection_sessions) AS sessions,
+                (SELECT COUNT(*) FROM projection_turns) AS turns,
+                (SELECT COUNT(*) FROM projection_transcript) AS transcript,
+                (SELECT COUNT(*) FROM projection_ticket_threads) AS links
+            `
+
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              KanbanColumnCreated.make({
+                columnId: ids.backlog,
+                name: "Backlog",
+                color: columnColor,
+                rank: ranks.backlog,
+                done: false,
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              TicketCreated.make({
+                ticketId: ids.ticket,
+                columnId: ids.backlog,
+                rank: ranks.ticket,
+                title: "Lié au Thread",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "À supprimer",
+                provider: "cursor",
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              TicketThreadLinked.make({
+                ticketId: ids.ticket,
+                threadId: ids.recoveryThread,
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              5,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId,
+                text: "Travaille",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              6,
+              ThreadSessionSet.make({
+                threadId: ids.recoveryThread,
+                session,
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              7,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: "hello",
+                },
+              }),
+            ),
+          )
+
+          const before = yield* readThreadSnapshot(ids.recoveryThread)
+          assert.isTrue(Option.isSome(before), "Thread should exist before delete")
+          assert.deepStrictEqual((yield* countProjectionRows())[0], {
+            threads: 1,
+            sessions: 1,
+            turns: 1,
+            transcript: 2,
+            links: 1,
+          })
+
+          yield* projectDomainEvent(
+            persisted(8, ThreadDeleted.make({ threadId: ids.recoveryThread })),
+          )
+
+          const thread = yield* readThreadSnapshot(ids.recoveryThread)
+          const shell = yield* readThreadShellById(ids.recoveryThread)
+
+          assert.deepStrictEqual(thread, Option.none())
+          assert.deepStrictEqual(shell, Option.none())
+          assert.deepStrictEqual((yield* countProjectionRows())[0], {
+            threads: 0,
+            sessions: 0,
+            turns: 0,
+            transcript: 0,
+            links: 0,
+          })
         }).pipe(Effect.provideService(SqlClient, sql))
       }),
     )

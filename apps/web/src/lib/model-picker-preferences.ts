@@ -1,5 +1,5 @@
-import type { CursorModel, Provider } from "@noyau/protocol/entities/environment"
-import type { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"
+import type { CursorModel, Provider } from "@noyau/contracts/entities/environment"
+import type { DefaultModelSelection } from "@noyau/contracts/entities/model-selection"
 import { Option, Schema } from "effect"
 
 export interface FavoriteModel {

@@ -1,12 +1,12 @@
-import { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
-import { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import { checkpointRefForTurn } from "@noyau/protocol/entities/turn"
+import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
+import { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import { checkpointRefForTurn } from "@noyau/contracts/entities/turn"
 import {
   DomainEvent,
   EventEnvelope,
   type DomainEvent as DomainEventType,
-} from "@noyau/protocol/events"
-import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/events"
+import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 

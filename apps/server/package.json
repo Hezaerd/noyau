@@ -60,7 +60,15 @@
     "./persistence/projections": "./src/persistence/projections.ts",
     "./persistence/session-recovery": "./src/persistence/session-recovery.ts",
     "./persistence/snapshots": "./src/persistence/snapshots.ts",
-    "./persistence/sqlite": "./src/persistence/sqlite.ts"
+    "./persistence/sqlite": "./src/persistence/sqlite.ts",
+    "./orchestration/control-state": "./src/orchestration/control-state.ts",
+    "./orchestration/board/decider": "./src/orchestration/board/decider.ts",
+    "./orchestration/board/projector": "./src/orchestration/board/projector.ts",
+    "./orchestration/project/decider": "./src/orchestration/project/decider.ts",
+    "./orchestration/project/projector": "./src/orchestration/project/projector.ts",
+    "./orchestration/thread/decider": "./src/orchestration/thread/decider.ts",
+    "./orchestration/thread/projector": "./src/orchestration/thread/projector.ts",
+    "./orchestration/thread/recovery": "./src/orchestration/thread/recovery.ts"
   },
   "scripts": {
     "dev": "node --watch src/main.ts",
@@ -75,10 +83,10 @@
     "@effect/platform-node": "catalog:",
     "@noyau/acp": "workspace:*",
     "@noyau/codex": "workspace:*",
-    "@noyau/domain": "workspace:*",
-    "@noyau/protocol": "workspace:*",
+    "@noyau/contracts": "workspace:*",
     "@noyau/shared": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "fractional-indexing": "^4.0.0"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

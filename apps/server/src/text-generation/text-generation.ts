@@ -1,4 +1,4 @@
-import type { GitDraftKind } from "@noyau/protocol/git"
+import type { GitDraftKind } from "@noyau/contracts/git"
 import { Context, Effect, Layer, Schema } from "effect"
 
 export class TextGenerationError extends Schema.TaggedError<TextGenerationError>()(

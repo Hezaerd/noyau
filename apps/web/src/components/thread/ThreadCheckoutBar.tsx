@@ -1,6 +1,6 @@
-import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
-import type { VcsRef } from "@noyau/protocol/git"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
+import type { VcsRef } from "@noyau/contracts/git"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import {
   ChevronDownIcon,
   FolderGit2Icon,

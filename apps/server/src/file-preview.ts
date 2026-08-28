@@ -1,10 +1,10 @@
-import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
+import type { WorkspaceRoot } from "@noyau/contracts/entities/environment"
 import {
   FilePreviewFailed,
   type FilePreview,
   type FilePreviewImageMime,
   type FilePreviewUnsupportedReason,
-} from "@noyau/protocol/file-preview"
+} from "@noyau/contracts/file-preview"
 import { Effect, FileSystem, Option, Path, Stream } from "effect"
 
 export const TEXT_PREVIEW_BYTE_LIMIT = 64 * 1024

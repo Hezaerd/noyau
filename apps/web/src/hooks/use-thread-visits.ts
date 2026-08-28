@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { ThreadId } from "@noyau/protocol/ids"
+import type { ThreadId } from "@noyau/contracts/ids"
 
 import type { ThreadVisits } from "@/lib/thread-visits"
 import { threadVisitsAtom, visitAtom } from "@/state/thread-visits"

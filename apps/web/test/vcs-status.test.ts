@@ -1,5 +1,5 @@
-import type { VcsStatusPullRequest, VcsStatusResult } from "@noyau/protocol/git"
-import { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { VcsStatusPullRequest, VcsStatusResult } from "@noyau/contracts/git"
+import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { describe, expect, it } from "vite-plus/test"
 
 import {

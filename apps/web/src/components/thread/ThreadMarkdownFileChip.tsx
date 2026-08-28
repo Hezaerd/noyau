@@ -1,4 +1,4 @@
-import type { FilePreview } from "@noyau/protocol/file-preview"
+import type { FilePreview } from "@noyau/contracts/file-preview"
 import { useEffect, useState } from "react"
 
 import { PierreEntryIcon } from "@/components/PierreEntryIcon"

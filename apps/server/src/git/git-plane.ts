@@ -1,4 +1,4 @@
-import { ServiceUnavailable } from "@noyau/protocol/errors"
+import { ServiceUnavailable } from "@noyau/contracts/errors"
 import {
   GitCommandError,
   type GitDraftInput,
@@ -20,8 +20,8 @@ import {
   type VcsStatusStreamEvent,
   type VcsSwitchRefInput,
   type VcsSwitchRefResult,
-} from "@noyau/protocol/git"
-import { ThreadId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/git"
+import { ThreadId } from "@noyau/contracts/ids"
 import { ServerConfig } from "@noyau/server/config"
 import { TextGeneration } from "@noyau/server/text-generation/text-generation"
 import { resolveWorkspaceCwd } from "@noyau/server/workspace-cwd"

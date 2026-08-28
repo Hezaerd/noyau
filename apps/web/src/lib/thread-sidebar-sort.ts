@@ -1,4 +1,4 @@
-import type { ThreadShell } from "@noyau/protocol/shell"
+import type { ThreadShell } from "@noyau/contracts/shell"
 import { DateTime } from "effect"
 
 import type { ThreadPins } from "@/lib/thread-pins"

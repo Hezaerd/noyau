@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { CheckCircle2Icon, SparklesIcon } from "lucide-react"
 import { useState } from "react"
 

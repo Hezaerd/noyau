@@ -1,4 +1,4 @@
-import type { TranscriptTool, TranscriptToolAction } from "@noyau/protocol/entities/transcript"
+import type { TranscriptTool, TranscriptToolAction } from "@noyau/contracts/entities/transcript"
 import {
   BotIcon,
   ChevronDownIcon,

@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { ThreadEnvMode } from "@noyau/protocol/entities/checkout"
+import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
 
 import { threadEnvModePreferenceAtom } from "@/state/preferences"
 

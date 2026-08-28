@@ -1,11 +1,11 @@
-import { threadBranchOf, threadWorktreePathOf } from "@noyau/protocol/entities/checkout"
+import { threadBranchOf, threadWorktreePathOf } from "@noyau/contracts/entities/checkout"
 import type {
   VcsScope,
   VcsStatusPullRequest,
   VcsStatusResult,
   VcsStatusStreamEvent,
-} from "@noyau/protocol/git"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+} from "@noyau/contracts/git"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 
 export const applyVcsStatusStreamEvent = (
   _current: VcsStatusResult | null,

@@ -1,10 +1,10 @@
-import type { CursorModel, Provider } from "@noyau/protocol/entities/environment"
+import type { CursorModel, Provider } from "@noyau/contracts/entities/environment"
 import type {
   DefaultModelSelection,
   ModelSelection,
-} from "@noyau/protocol/entities/model-selection"
-import type { RuntimeMode } from "@noyau/protocol/entities/runtime-mode"
-import type { WorkspacePathEntry } from "@noyau/protocol/entities/workspace-path"
+} from "@noyau/contracts/entities/model-selection"
+import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import type { WorkspacePathEntry } from "@noyau/contracts/entities/workspace-path"
 import { serializeComposerTicketMention } from "@noyau/shared/composer-inline-tokens"
 import {
   detectComposerTrigger,

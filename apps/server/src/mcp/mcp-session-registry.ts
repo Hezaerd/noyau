@@ -1,5 +1,5 @@
-import type { ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
-import { ActorId } from "@noyau/protocol/ids"
+import type { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ActorId } from "@noyau/contracts/ids"
 import { ServerConfig } from "@noyau/server/config"
 import { Clock, Context, Crypto, Effect, Layer, SynchronizedRef } from "effect"
 

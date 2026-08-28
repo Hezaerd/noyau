@@ -1,46 +1,25 @@
-import { decide as decideBoard } from "@noyau/domain/board/decider"
-import {
-  emptyBoardState,
-  evolve as evolveBoard,
-  type BoardState,
-  withProjectThreads,
-} from "@noyau/domain/board/projector"
-import { decide as decideProject } from "@noyau/domain/project/decider"
-import {
-  emptyProjectCatalog,
-  evolve as evolveProject,
-  type ProjectCatalog,
-} from "@noyau/domain/project/projector"
-import { decide as decideThread } from "@noyau/domain/thread/decider"
-import {
-  emptyThreadState,
-  evolve as evolveThread,
-  type ThreadState,
-  withAvailableProjects,
-} from "@noyau/domain/thread/projector"
-import { recoverAfterBoot } from "@noyau/domain/thread/recovery"
 import type {
   AgentIntegrationFailed,
   ProjectAgentIntegration,
   ProjectAgentIntegrationInput,
-} from "@noyau/protocol/agent-integration"
-import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/protocol/attachment-preview"
-import type { AttachmentPreviewFailed } from "@noyau/protocol/attachment-preview"
-import type { ClientCommandRequest, Command as CommandType } from "@noyau/protocol/commands"
-import { Command } from "@noyau/protocol/commands"
-import { Environment, WorkspaceRoot } from "@noyau/protocol/entities/environment"
-import { Project } from "@noyau/protocol/entities/project"
-import type { WorkspacePathSearchResult } from "@noyau/protocol/entities/workspace-path"
-import type { CommandIdConflict } from "@noyau/protocol/errors"
-import { ServiceUnavailable } from "@noyau/protocol/errors"
+} from "@noyau/contracts/agent-integration"
+import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/contracts/attachment-preview"
+import type { AttachmentPreviewFailed } from "@noyau/contracts/attachment-preview"
+import type { ClientCommandRequest, Command as CommandType } from "@noyau/contracts/commands"
+import { Command } from "@noyau/contracts/commands"
+import { Environment, WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import { Project } from "@noyau/contracts/entities/project"
+import type { WorkspacePathSearchResult } from "@noyau/contracts/entities/workspace-path"
+import type { CommandIdConflict } from "@noyau/contracts/errors"
+import { ServiceUnavailable } from "@noyau/contracts/errors"
 import {
   decodeEventEnvelope,
   DomainEvent,
   type DomainEvent as DomainEventType,
-} from "@noyau/protocol/events"
-import type { FilePreview, PreviewFileInput } from "@noyau/protocol/file-preview"
-import type { FilePreviewFailed } from "@noyau/protocol/file-preview"
-import type { GitCommandError } from "@noyau/protocol/git"
+} from "@noyau/contracts/events"
+import type { FilePreview, PreviewFileInput } from "@noyau/contracts/file-preview"
+import type { FilePreviewFailed } from "@noyau/contracts/file-preview"
+import type { GitCommandError } from "@noyau/contracts/git"
 import {
   type ActorId,
   CorrelationId,
@@ -50,21 +29,20 @@ import {
   Sequence,
   type Sequence as SequenceType,
   type ThreadId,
-} from "@noyau/protocol/ids"
-import { ProjectCommand } from "@noyau/protocol/project/commands"
+} from "@noyau/contracts/ids"
 import {
   ProjectNotFound,
   ProjectUnavailable,
   WorkspaceRootConflict,
   WorkspaceRootNotDirectory,
   WorkspaceRootNotFound,
-} from "@noyau/protocol/project/errors"
-import { ProjectEvent } from "@noyau/protocol/project/events"
+} from "@noyau/contracts/project/errors"
+import { ProjectEvent } from "@noyau/contracts/project/events"
 import {
   type DispatchResult,
   Rejection,
   type Rejection as RejectionType,
-} from "@noyau/protocol/receipts"
+} from "@noyau/contracts/receipts"
 import {
   requiresFreshSnapshot,
   type ProjectStreamItem,
@@ -74,14 +52,18 @@ import {
   type SubscribeShellInput,
   type SubscribeThreadInput,
   type ThreadStreamItem,
-} from "@noyau/protocol/rpc"
-import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/protocol/shell"
-import { ThreadCommand } from "@noyau/protocol/thread/commands"
-import { ThreadEvent } from "@noyau/protocol/thread/events"
-import { BoardInitialize, TicketCommand } from "@noyau/protocol/ticket/commands"
-import { TicketEvent } from "@noyau/protocol/ticket/events"
-import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/protocol/turn-diff"
-import { TurnDiffUnavailable } from "@noyau/protocol/turn-diff"
+} from "@noyau/contracts/rpc"
+import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
+import { ThreadEvent } from "@noyau/contracts/thread/events"
+import { TicketEvent } from "@noyau/contracts/ticket/events"
+import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/contracts/turn-diff"
+import { TurnDiffUnavailable } from "@noyau/contracts/turn-diff"
+import {
+  decide,
+  emptyControlState,
+  evolve,
+  recoverControlStateAfterBoot,
+} from "@noyau/server/orchestration/control-state"
 import { ThreadLive } from "@noyau/server/thread-live"
 import {
   Context,
@@ -95,7 +77,6 @@ import {
   Path,
   PubSub,
   Queue,
-  Result,
   Schema,
   type Scope,
   Stream,
@@ -131,86 +112,9 @@ import { makeWorktreeBranchReactor } from "./text-generation/worktree-branch-rea
 import { searchWorkspacePathsInRoot } from "./workspace-path-search.ts"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root.ts"
 
-interface ControlState {
-  readonly projects: ProjectCatalog
-  readonly board: BoardState
-  readonly threads: ThreadState
-}
-
-const emptyControlState: ControlState = {
-  projects: emptyProjectCatalog,
-  board: emptyBoardState,
-  threads: emptyThreadState,
-}
-
-const isProjectCommand = Schema.is(ProjectCommand)
-const isTicketCommand = Schema.is(TicketCommand)
-const isThreadCommand = Schema.is(ThreadCommand)
 const isProjectEvent = Schema.is(ProjectEvent)
 const isTicketEvent = Schema.is(TicketEvent)
 const isThreadEvent = Schema.is(ThreadEvent)
-
-const decide = (
-  state: ControlState,
-  command: CommandType,
-): Result.Result<ReadonlyArray<DomainEventType>, RejectionType> => {
-  if (isProjectCommand(command)) {
-    const projectDecision = decideProject(state.projects, command)
-    if (command._tag !== "project.create") {
-      return projectDecision
-    }
-    const initializationFields = {
-      commandId: command.commandId,
-      projectId: command.projectId,
-      actorId: command.actorId,
-      correlationId: command.correlationId,
-      issuedAt: command.issuedAt,
-      schemaVersion: command.schemaVersion,
-      payload: command.initialBoard,
-    }
-    const initialization =
-      command.causationId === undefined
-        ? BoardInitialize.make(initializationFields)
-        : BoardInitialize.make({ ...initializationFields, causationId: command.causationId })
-    return projectDecision.pipe(
-      Result.flatMap((projectEvents) =>
-        decideBoard(state.board, initialization).pipe(
-          Result.map((boardEvents) =>
-            Array.from<DomainEventType>(projectEvents).concat(boardEvents),
-          ),
-        ),
-      ),
-    )
-  }
-  if (isTicketCommand(command)) {
-    return decideBoard(state.board, command)
-  }
-  return decideThread(
-    state.threads,
-    isThreadCommand(command) ? command : Schema.decodeSync(ThreadCommand)(command),
-  )
-}
-
-const evolve = (state: ControlState, event: DomainEventType): ControlState => {
-  const projects = isProjectEvent(event) ? evolveProject(state.projects, event) : state.projects
-  const board = isTicketEvent(event) ? evolveBoard(state.board, event) : state.board
-  const threads = isThreadEvent(event) ? evolveThread(state.threads, event) : state.threads
-  const availableProjectIds = projects.projects.map((project) => project.projectId)
-  const projectThreadIds = threads.threads.map((thread) => thread.threadId)
-  return {
-    projects,
-    board: withProjectThreads(board, projectThreadIds),
-    threads: withAvailableProjects(threads, availableProjectIds),
-  }
-}
-
-const recoverControlStateAfterBoot = (
-  state: ControlState,
-  recoveredAt: DateTime.Utc,
-): ControlState => ({
-  ...state,
-  threads: recoverAfterBoot(state.threads, recoveredAt).reduce(evolveThread, state.threads),
-})
 
 const ScopeRow = Schema.Struct({ project_id: Schema.String })
 const WorkspaceRootRow = Schema.Struct({ workspace_root: Schema.String })
@@ -300,8 +204,7 @@ const requestProjectId = Effect.fn("ControlPlane.requestProjectId")(function* (
     case "ticket.thread.link":
     case "ticket.thread.unlink":
       return yield* projectForTicket(request.payload.ticketId)
-    case "thread.archive":
-    case "thread.restore":
+    case "thread.delete":
     case "thread.settle":
     case "thread.unsettle":
     case "thread.meta.update":

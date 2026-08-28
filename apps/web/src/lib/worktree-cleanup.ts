@@ -1,5 +1,5 @@
-import type { VcsRemoveWorktreeResult } from "@noyau/protocol/git"
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { VcsRemoveWorktreeResult } from "@noyau/contracts/git"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 
 import {
   buildCommand,

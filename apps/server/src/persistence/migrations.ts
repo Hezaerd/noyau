@@ -11,6 +11,7 @@ import ThreadSettledMigration from "./migrations/007_thread_settled.ts"
 import TurnDiffMigration from "./migrations/008_turn_diff.ts"
 import ThreadProviderCodexMigration from "./migrations/009_thread_provider_codex.ts"
 import ProjectDefaultModelMigration from "./migrations/010_project_default_model.ts"
+import ThreadHardDeleteMigration from "./migrations/011_thread_hard_delete.ts"
 
 export const migrationsThroughTurnDiff: Migrator.Loader = Migrator.fromRecord({
   "1_journal": JournalMigration,
@@ -34,6 +35,7 @@ export const migrations: Migrator.Loader = Migrator.fromRecord({
   "8_turn_diff": TurnDiffMigration,
   "9_thread_provider_codex": ThreadProviderCodexMigration,
   "10_project_default_model": ProjectDefaultModelMigration,
+  "11_thread_hard_delete": ThreadHardDeleteMigration,
 })
 
 export { default as threadProviderCodexMigration } from "./migrations/009_thread_provider_codex.ts"

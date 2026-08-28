@@ -1,4 +1,4 @@
-import type { ProjectId, ThreadId } from "@noyau/protocol/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { CircleCheckIcon, CircleDotIcon } from "lucide-react"
 import { useMemo } from "react"
 

@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/protocol/ids"
+import type { ProjectId } from "@noyau/contracts/ids"
 import { Effect, Schema } from "effect"
 
 import { invalidInputFailure } from "./app-failure"

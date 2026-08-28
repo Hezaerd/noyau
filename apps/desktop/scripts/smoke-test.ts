@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { inspect } from "node:util"
 
-import type { ThreadSnapshot } from "@noyau/protocol/entities/thread-snapshot"
+import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import { Clock, Config, Effect, FileSystem, Option, Path, Schema, Stream } from "effect"
 import type { ChildProcessSpawner } from "effect/unstable/process"
 import { ChildProcess } from "effect/unstable/process"

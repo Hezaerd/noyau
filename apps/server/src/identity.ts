@@ -1,8 +1,8 @@
 import { timingSafeEqual } from "node:crypto"
 
-import { CurrentActor, Forbidden, MissingIdentity } from "@noyau/protocol/errors"
-import { ActorId, type ActorId as ActorIdType } from "@noyau/protocol/ids"
-import { NoyauRpcIdentity } from "@noyau/protocol/rpc"
+import { CurrentActor, Forbidden, MissingIdentity } from "@noyau/contracts/errors"
+import { ActorId, type ActorId as ActorIdType } from "@noyau/contracts/ids"
+import { NoyauRpcIdentity } from "@noyau/contracts/rpc"
 import { Effect, Layer, Redacted, Schema } from "effect"
 
 const decodeActorId = Schema.decodeUnknownEffect(ActorId)

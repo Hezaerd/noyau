@@ -1,6 +1,6 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it } from "@effect/vitest"
-import { ActorId, EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
+import { ActorId, EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import { controlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"

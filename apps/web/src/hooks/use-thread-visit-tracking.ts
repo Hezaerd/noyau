@@ -1,4 +1,4 @@
-import type { ThreadId } from "@noyau/protocol/ids"
+import type { ThreadId } from "@noyau/contracts/ids"
 import { DateTime } from "effect"
 import { useEffect, useEffectEvent } from "react"
 

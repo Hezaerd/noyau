@@ -1,4 +1,4 @@
-import type { GitStackedAction, VcsStatusResult } from "@noyau/protocol/git"
+import type { GitStackedAction, VcsStatusResult } from "@noyau/contracts/git"
 
 export type GitActionIconName = "commit" | "push" | "pr" | "publish"
 

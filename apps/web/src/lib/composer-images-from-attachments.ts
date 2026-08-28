@@ -1,4 +1,4 @@
-import type { TurnImageAttachment } from "@noyau/protocol/entities/attachment"
+import type { TurnImageAttachment } from "@noyau/contracts/entities/attachment"
 
 import { composerImageFromBytes, type ComposerImage } from "./composer-images"
 import { previewAttachment } from "./control-plane"

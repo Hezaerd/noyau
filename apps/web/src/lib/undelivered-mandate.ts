@@ -1,5 +1,5 @@
-import type { ResumeCursor } from "@noyau/protocol/entities/session"
-import type { TranscriptItem, TranscriptUser } from "@noyau/protocol/entities/transcript"
+import type { ResumeCursor } from "@noyau/contracts/entities/session"
+import type { TranscriptItem, TranscriptUser } from "@noyau/contracts/entities/transcript"
 import { isResumePrompt } from "@noyau/shared/resume-prompt"
 
 const isResumeOnlyUser = (item: TranscriptUser): boolean => {

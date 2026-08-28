@@ -1,6 +1,6 @@
-import type { BoardSnapshot } from "@noyau/protocol/board"
-import type { ProjectId } from "@noyau/protocol/ids"
-import type { ProjectStreamItem } from "@noyau/protocol/rpc"
+import type { BoardSnapshot } from "@noyau/contracts/board"
+import type { ProjectId } from "@noyau/contracts/ids"
+import type { ProjectStreamItem } from "@noyau/contracts/rpc"
 import { ControlPlane } from "@noyau/server/control-plane"
 import { Effect, Option, Schema, Stream } from "effect"
 

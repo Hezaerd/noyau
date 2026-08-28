@@ -3,15 +3,15 @@ import { fileURLToPath } from "node:url"
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it } from "@effect/vitest"
-import { ClientCommandRequest } from "@noyau/protocol/commands"
-import { CommandIdConflict } from "@noyau/protocol/errors"
-import { ActorId, ProjectId, ThreadId, TurnId } from "@noyau/protocol/ids"
-import { ProjectNotFound, ProjectUnavailable } from "@noyau/protocol/project/errors"
+import { ClientCommandRequest } from "@noyau/contracts/commands"
+import { CommandIdConflict } from "@noyau/contracts/errors"
+import { ActorId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ProjectNotFound, ProjectUnavailable } from "@noyau/contracts/project/errors"
 import {
   WorkspaceRootConflict,
   WorkspaceRootNotDirectory,
   WorkspaceRootNotFound,
-} from "@noyau/protocol/project/errors"
+} from "@noyau/contracts/project/errors"
 import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import {
   ControlPlane,
@@ -183,7 +183,7 @@ describe("ControlPlane", () => {
         assert.strictEqual(frames[1]?.kind, "synchronized")
 
         const config = yield* controlPlane.getConfig
-        assert.strictEqual(config.databaseSchemaVersion, 10)
+        assert.strictEqual(config.databaseSchemaVersion, 11)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
         assert.deepStrictEqual(
           yield* controlPlane.setShellFocus({

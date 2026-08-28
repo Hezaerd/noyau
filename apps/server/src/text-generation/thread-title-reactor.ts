@@ -1,9 +1,9 @@
 import {
   InternalCommand,
   type InternalCommand as InternalCommandType,
-} from "@noyau/protocol/commands"
-import type { TranscriptItem } from "@noyau/protocol/entities/transcript"
-import type { DomainEvent } from "@noyau/protocol/events"
+} from "@noyau/contracts/commands"
+import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import type { DomainEvent } from "@noyau/contracts/events"
 import {
   ActorId,
   CommandId,
@@ -11,14 +11,14 @@ import {
   EventId,
   ProjectId,
   type ThreadId,
-} from "@noyau/protocol/ids"
-import { ThreadEvent } from "@noyau/protocol/thread/events"
+} from "@noyau/contracts/ids"
+import { ThreadEvent } from "@noyau/contracts/thread/events"
 import {
   canReplaceThreadTitle,
   DEFAULT_THREAD_TITLE,
   sanitizeThreadTitle,
   seedTitleFromTurn,
-} from "@noyau/protocol/thread/title"
+} from "@noyau/contracts/thread/title"
 import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
 import { readThreadSnapshot } from "@noyau/server/persistence/snapshots"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
