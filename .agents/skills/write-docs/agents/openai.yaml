@@ -1,4 +1,4 @@
 interface:
   display_name: "Write docs"
-  short_description: "Rédiger les docs Noyau (user, internals)"
+  short_description: "Rédiger les docs Noyau (users, internals, operations, glossary)"
   default_prompt: "Utilise $write-docs pour écrire ou mettre à jour la documentation Noyau."
