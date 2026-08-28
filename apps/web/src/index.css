@@ -584,6 +584,16 @@ html.dark [data-streamdown="code-block-body"] pre {
   text-decoration: none;
 }
 
+/* User bubbles sit on --primary. --info-foreground is the same violet family and
+   fails contrast in both schemes; inherit the bubble's primary-foreground instead. */
+[data-slot="bubble"][data-variant="default"] .thread-markdown a:not(.thread-markdown-file-chip) {
+  color: inherit;
+  background-image: radial-gradient(circle, currentcolor 0.75px, transparent 1px);
+  background-position: left bottom;
+  background-repeat: repeat-x;
+  background-size: 4px 2px;
+}
+
 .thread-markdown a:not(.thread-markdown-file-chip):hover,
 .thread-markdown a:not(.thread-markdown-file-chip):focus-visible {
   background-image: radial-gradient(circle, currentcolor 0.75px, transparent 1px);
