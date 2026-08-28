@@ -81,6 +81,7 @@ Useful starting points:
 - `packages/contracts/src/entities/{project,ticket,thread,turn,session,environment}.ts`
 - `packages/contracts/src/{board,receipts,turn-diff}.ts`
 - `packages/contracts/src/entities/{ticket-thread,kanban-column,runtime-mode}.ts`
+- `apps/server/src/orchestration/control-state.ts`
 - `apps/server/src/orchestration/{project,board,thread}/{decider,projector}.ts`
 - Reactors under `apps/server/src/` when the term is a side effect
   (provider, turn-diff, worktree, title).
@@ -101,7 +102,8 @@ Write these from source, not from habit:
 | CheckpointRef | Hidden git ref `refs/noyau/checkpoint/<threadId>/<ordinal>` | `packages/contracts/src/entities/turn.ts` |
 
 Project, board, and thread are separate aggregates, each with its own decider
-and projector under `apps/server/src/orchestration`.
+and projector under `apps/server/src/orchestration`. The in-memory join is
+`control-state.ts`.
 
 ## Practical Shortcuts
 

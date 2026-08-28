@@ -43,9 +43,10 @@ Footnotes to contracts, orchestration, and server files you opened.
 ```
 
 Prefer a few accurate file links over a tour of the monorepo. Wire types are
-in `packages/contracts`. Decision and projection logic is in
-`apps/server/src/orchestration/{project,board,thread}`. Side effects are
-reactors in `apps/server`.
+in `packages/contracts`. The three-aggregate join is
+`apps/server/src/orchestration/control-state.ts`. Per-aggregate decide and
+evolve live in `{project,board,thread}`. Side effects are reactors in
+`apps/server`.
 
 ## Checklist
 
