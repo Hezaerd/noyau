@@ -51,21 +51,6 @@ export const SETTINGS_TABS: ReadonlyArray<SettingsTab> = [
 
 export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
   {
-    id: "desktop-update-channel",
-    tab: "general",
-    title: "Update channel",
-    description:
-      "GitHub latest or nightly track to check. Does not change the installed app brand.",
-    keywords: ["channel", "latest", "nightly", "update"],
-  },
-  {
-    id: "desktop-update",
-    tab: "general",
-    title: "Version",
-    description: "Check the update channel and open the unsigned GitHub installer.",
-    keywords: ["version", "update", "installer", "release", "nightly"],
-  },
-  {
     id: "project-folder-start-directory",
     tab: "general",
     title: "Add a Project starts in",
@@ -135,6 +120,21 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     title: "Discord Rich Presence",
     description: "Show the open Project and Thread on your Discord profile.",
     keywords: ["discord", "rich presence", "status", "activity", "presence"],
+  },
+  {
+    id: "about",
+    tab: "general",
+    title: "About",
+    description: "Installed Noyau version and desktop updates.",
+    keywords: ["about", "version", "update", "nightly", "release"],
+  },
+  {
+    id: "desktop-update",
+    tab: "general",
+    title: "Version",
+    description:
+      "Installed version. Packaged apps can check GitHub and open the unsigned installer.",
+    keywords: ["version", "update", "installer", "release", "nightly", "about"],
   },
   {
     id: "appearance",

@@ -11,7 +11,6 @@ import { initializeKeybindings } from "@/state/keybindings"
 import { initializeNowMinuteClock } from "@/state/now"
 import {
   initializeAppearance,
-  initializeDesktopUpdateChannelPreference,
   initializeDiscordPresencePreference,
   initializeProjectFolderStartDirectory,
   initializeThreadEnvModePreference,
@@ -32,7 +31,6 @@ initializeAppearance()
 initializeKeybindings()
 initializeProjectFolderStartDirectory()
 initializeDiscordPresencePreference()
-initializeDesktopUpdateChannelPreference()
 initializeThreadEnvModePreference()
 initializeThreadSettlePreference()
 initializeTurnCuePreference()

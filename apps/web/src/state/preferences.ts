@@ -8,11 +8,6 @@ import {
   watchSystemAppearance,
 } from "@/lib/appearance"
 import type { AppearancePreference } from "@/lib/desktop-bridge"
-import type { DesktopUpdatePackagedChannel } from "@/lib/desktop-bridge"
-import {
-  persistDesktopUpdateChannel,
-  readStoredDesktopUpdateChannel,
-} from "@/lib/desktop-update-channel-preference"
 import {
   persistDiscordPresence,
   readStoredDiscordPresence,
@@ -63,11 +58,6 @@ export const discordPresenceEnabledAtom = Atom.make(DEFAULT_DISCORD_PRESENCE_ENA
   Atom.withLabel("pref:discord-presence"),
 )
 
-export const desktopUpdateChannelAtom = Atom.make<DesktopUpdatePackagedChannel>("latest").pipe(
-  Atom.keepAlive,
-  Atom.withLabel("pref:desktop-update-channel"),
-)
-
 export const projectFolderStartDirectoryAtom = Atom.make("").pipe(
   Atom.keepAlive,
   Atom.withLabel("pref:project-folder-start-directory"),
@@ -98,7 +88,6 @@ const once = (flag: { current: boolean }, initialize: () => void): void => {
 const appearanceReady = { current: false }
 const threadEnvReady = { current: false }
 const discordReady = { current: false }
-const updateChannelReady = { current: false }
 const folderReady = { current: false }
 const transcriptPaintReady = { current: false }
 const turnCueReady = { current: false }
@@ -134,15 +123,6 @@ export const initializeDiscordPresencePreference = (): void => {
     persistWritableAtom(discordPresenceEnabledAtom, {
       read: readStoredDiscordPresence,
       write: persistDiscordPresence,
-    })
-  })
-}
-
-export const initializeDesktopUpdateChannelPreference = (): void => {
-  once(updateChannelReady, () => {
-    persistWritableAtom(desktopUpdateChannelAtom, {
-      read: readStoredDesktopUpdateChannel,
-      write: persistDesktopUpdateChannel,
     })
   })
 }
@@ -212,16 +192,6 @@ export const setDiscordPresenceEnabled = (enabled: boolean): void => {
     return
   }
   appAtomRegistry.set(discordPresenceEnabledAtom, enabled)
-}
-
-export const getDesktopUpdateChannel = (): DesktopUpdatePackagedChannel =>
-  appAtomRegistry.get(desktopUpdateChannelAtom)
-
-export const setDesktopUpdateChannel = (channel: DesktopUpdatePackagedChannel): void => {
-  if (channel === appAtomRegistry.get(desktopUpdateChannelAtom)) {
-    return
-  }
-  appAtomRegistry.set(desktopUpdateChannelAtom, channel)
 }
 
 export const getProjectFolderStartDirectory = (): string =>

@@ -8,7 +8,6 @@ import {
   type DesktopUpdateState,
 } from "@/lib/desktop-update"
 import { appAtomRegistry } from "@/state/atom-registry"
-import { getDesktopUpdateChannel } from "@/state/preferences"
 
 export const desktopUpdateStateAtom = Atom.make<DesktopUpdateState>({
   phase: "idle",
@@ -25,15 +24,12 @@ const setState = (next: DesktopUpdateState): void => {
 export const getDesktopUpdateState = (): DesktopUpdateState =>
   appAtomRegistry.get(desktopUpdateStateAtom)
 
-const requestedUpdateChannel = () =>
-  desktopReleaseChannel() === "development" ? undefined : getDesktopUpdateChannel()
-
 const checkFromBridge = async (): Promise<DesktopUpdateCheckResult> => {
   const check = window.noyauDesktop?.checkDesktopUpdate
   if (check === undefined) {
     return { _tag: "unsupported", currentVersion: desktopAppVersion() }
   }
-  return check(requestedUpdateChannel())
+  return check()
 }
 
 export const checkDesktopUpdate = async (): Promise<DesktopUpdateCheckResult> => {
@@ -77,7 +73,7 @@ export const openDesktopInstaller = async (): Promise<DesktopUpdateOpenResult> =
   }
   setState({ phase: "opening", result: getDesktopUpdateState().result })
   try {
-    const result = await open(requestedUpdateChannel())
+    const result = await open()
     const current = getDesktopUpdateState()
     if (result._tag === "opened") {
       setState({ phase: "idle", result: current.result })
