@@ -105,43 +105,43 @@ const makeThread = (extra: Partial<(typeof ThreadShell)["Encoded"]> = {}): Threa
   })
 
 const nowMs = Date.parse("2026-08-25T12:00:00.000Z")
+const registeredPaletteActions: AppPaletteAction[] = []
+const paletteValue = {
+  registerPageActions: (actions: ReadonlyArray<AppPaletteAction>) => {
+    registeredPaletteActions.splice(0, registeredPaletteActions.length, ...actions)
+    return () => undefined
+  },
+}
 
 const renderHeader = (thread: ThreadShell) => {
-  const registered: AppPaletteAction[] = []
+  registeredPaletteActions.length = 0
   replaceAppliedShell(makeSnapshot([thread]))
   appAtomRegistry.set(nowMinuteAtom, nowMs)
-  const view = render(
+  return render(
     <AppAtomRegistryProvider>
-      <AppPaletteContext.Provider
-        value={{
-          registerPageActions: (actions) => {
-            registered.splice(0, registered.length, ...actions)
-            return () => undefined
-          },
-        }}
-      >
+      <AppPaletteContext.Provider value={paletteValue}>
         <ThreadHeaderActions projectId={projectId} threadId={thread.id} disabled={false} />
       </AppPaletteContext.Provider>
     </AppAtomRegistryProvider>,
   )
-  return { ...view, registered }
 }
 
 afterEach(() => {
   cleanup()
   resetAppAtomRegistryForTests()
   resetAppliedShell()
+  registeredPaletteActions.length = 0
   dispatchThreadSettle.mockClear()
 })
 
 describe("ThreadHeaderActions", () => {
   it("does not offer Settle in the header of an active Thread", () => {
     const thread = makeThread()
-    const { registered } = renderHeader(thread)
+    renderHeader(thread)
 
     expect(screen.queryByRole("button", { name: "Settle Thread" })).toBeNull()
-    expect(registered[0]?.label).toBe("Settle Thread")
-    registered[0]?.execute()
+    expect(registeredPaletteActions[0]?.label).toBe("Settle Thread")
+    void registeredPaletteActions[0]?.execute()
     expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, true)
   })
 
@@ -150,12 +150,12 @@ describe("ThreadHeaderActions", () => {
       settledOverride: "settled",
       settledAt: "2026-08-24T12:00:00.000Z",
     })
-    const { registered } = renderHeader(thread)
+    renderHeader(thread)
 
     expect(screen.queryByRole("button", { name: "Unsettle Thread" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Settle Thread" })).toBeNull()
-    expect(registered[0]?.label).toBe("Unsettle Thread")
-    registered[0]?.execute()
+    expect(registeredPaletteActions[0]?.label).toBe("Unsettle Thread")
+    void registeredPaletteActions[0]?.execute()
     expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, false)
   })
 })
