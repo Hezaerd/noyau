@@ -134,7 +134,6 @@ describe("partitionThreadsForSidebar", () => {
         pins: new Map([[pinnedId, nowMs]]),
         nowMs,
         autoSettleAfterDays: 3,
-        autoSettleOnMerge: true,
         changeRequestStateOf: () => null,
       },
     )

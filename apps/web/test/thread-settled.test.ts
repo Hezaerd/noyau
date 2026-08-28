@@ -3,7 +3,12 @@ import { ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
-import { canSettle, changeRequestAutoSettles, effectiveSettled } from "../src/lib/thread-settled"
+import {
+  canSettle,
+  changeRequestAutoSettles,
+  changeRequestSettleDecision,
+  effectiveSettled,
+} from "../src/lib/thread-settled"
 
 const NOW = Date.parse("2026-08-25T12:00:00.000Z")
 const STALE_ISO = "2026-08-20T12:00:00.000Z"
@@ -70,8 +75,88 @@ describe("canSettle", () => {
   })
 })
 
+describe("changeRequestSettleDecision", () => {
+  const base = {
+    autoSettleOnMerge: true,
+    canSettle: true,
+    settledOverride: null,
+  } as const
+
+  it("persists on the first sight of a terminal PR", () => {
+    expect(
+      changeRequestSettleDecision({
+        ...base,
+        previous: null,
+        next: { number: 12, state: "merged" },
+      }),
+    ).toBe("persist")
+    expect(
+      changeRequestSettleDecision({
+        ...base,
+        previous: { number: 12, state: "open" },
+        next: { number: 12, state: "merged" },
+      }),
+    ).toBe("persist")
+    expect(
+      changeRequestSettleDecision({
+        ...base,
+        autoSettleOnMerge: false,
+        previous: null,
+        next: { number: 12, state: "closed" },
+      }),
+    ).toBe("persist")
+  })
+
+  it("does not re-persist the same merge after activity clears the pin", () => {
+    expect(
+      changeRequestSettleDecision({
+        ...base,
+        previous: { number: 12, state: "merged" },
+        next: { number: 12, state: "merged" },
+      }),
+    ).toBe("remember")
+    expect(
+      changeRequestSettleDecision({
+        ...base,
+        settledOverride: "active",
+        previous: null,
+        next: { number: 12, state: "merged" },
+      }),
+    ).toBe("remember")
+  })
+
+  it("retries while the Thread cannot settle, then allows a later persist", () => {
+    expect(
+      changeRequestSettleDecision({
+        ...base,
+        canSettle: false,
+        previous: { number: 12, state: "open" },
+        next: { number: 12, state: "merged" },
+      }),
+    ).toBe("retry")
+  })
+
+  it("persists again only for a different PR", () => {
+    expect(
+      changeRequestSettleDecision({
+        ...base,
+        previous: { number: 12, state: "merged" },
+        next: { number: 15, state: "merged" },
+      }),
+    ).toBe("persist")
+    expect(
+      changeRequestSettleDecision({
+        ...base,
+        autoSettleOnMerge: false,
+        previous: null,
+        next: { number: 12, state: "merged" },
+      }),
+    ).toBe("remember")
+  })
+})
+
 describe("effectiveSettled", () => {
-  it("honors the explicit override, then PR, then inactivity", () => {
+  it("honors the explicit override, then inactivity, and keeps an open PR visible", () => {
     expect(
       effectiveSettled(shell({ settledOverride: "settled", settledAt: STALE_ISO }), {
         nowMs: NOW,
@@ -89,14 +174,6 @@ describe("effectiveSettled", () => {
       effectiveSettled(shell(), {
         nowMs: NOW,
         autoSettleAfterDays: null,
-        changeRequestState: "merged",
-      }),
-    ).toBe(true)
-    expect(
-      effectiveSettled(shell(), {
-        nowMs: NOW,
-        autoSettleAfterDays: null,
-        autoSettleOnMerge: false,
         changeRequestState: "merged",
       }),
     ).toBe(false)
