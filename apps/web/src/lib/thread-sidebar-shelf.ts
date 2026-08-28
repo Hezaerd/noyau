@@ -38,17 +38,8 @@ export const persistSettledShelfExpanded = (expanded: boolean): void => {
 
 export const settledShelfLabel = (count: number): string => `Classés (${count})`
 
-/** Collapsed shelf hides rows, except the Thread already open. */
-export const settledThreadsVisibleInShelf = <T extends { readonly id: string }>(
+/** Collapsed shelf hides every row. Only the header toggle opens it. */
+export const settledThreadsVisibleInShelf = <T>(
   settled: ReadonlyArray<T>,
-  options: { readonly expanded: boolean; readonly openThreadId: string | null },
-): ReadonlyArray<T> => {
-  if (options.expanded) {
-    return settled
-  }
-  if (options.openThreadId === null) {
-    return []
-  }
-  const open = settled.find((thread) => thread.id === options.openThreadId)
-  return open === undefined ? [] : [open]
-}
+  expanded: boolean,
+): ReadonlyArray<T> => (expanded ? settled : [])

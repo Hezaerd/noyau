@@ -1,4 +1,4 @@
-import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import type { ProjectId } from "@noyau/contracts/ids"
 import type { ThreadShell } from "@noyau/contracts/shell"
 import { ChevronDownIcon } from "lucide-react"
 import { Fragment, type ReactNode } from "react"
@@ -11,19 +11,14 @@ import { setSettledShelfExpanded } from "@/state/thread-settle"
 
 export function ThreadSidebarSection({
   projectId,
-  openThreadId,
   renderThread,
 }: {
   readonly projectId: ProjectId
-  readonly openThreadId: ThreadId | null
   readonly renderThread: (thread: ThreadShell, settled: boolean) => ReactNode
 }) {
   const { active, settled } = useSidebarQueues(projectId)
   const settledShelfExpanded = useSettledShelfExpanded()
-  const visibleSettled = settledThreadsVisibleInShelf(settled, {
-    expanded: settledShelfExpanded,
-    openThreadId,
-  })
+  const visibleSettled = settledThreadsVisibleInShelf(settled, settledShelfExpanded)
 
   return (
     <section aria-label="Threads" className="mt-1">

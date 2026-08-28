@@ -9,7 +9,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
-import { setSettledShelfExpanded } from "../src/state/thread-settle"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const activeId = ThreadId.make("20000000-0000-4000-8000-000000000001")
@@ -60,12 +59,11 @@ afterEach(() => {
   queues.settled = []
 })
 
-const renderSection = (openThreadId: ThreadId | null = null) =>
+const renderSection = () =>
   render(
     <AppAtomRegistryProvider>
       <ThreadSidebarSection
         projectId={projectId}
-        openThreadId={openThreadId}
         renderThread={(thread) => <div>{thread.title}</div>}
       />
     </AppAtomRegistryProvider>,
@@ -100,13 +98,18 @@ describe("ThreadSidebarSection settled shelf", () => {
     expect(screen.getByText("Settled two")).toBeTruthy()
   })
 
-  it("keeps the open settled Thread visible while collapsed", () => {
+  it("hides settled rows after collapsing", async () => {
     queues.settled = [makeShell(settledId, "Settled one"), makeShell(otherSettledId, "Settled two")]
-    setSettledShelfExpanded(false)
+    const user = userEvent.setup()
 
-    renderSection(settledId)
+    renderSection()
+    await user.click(screen.getByTestId("sidebar-settled-shelf-toggle"))
+    await user.click(screen.getByTestId("sidebar-settled-shelf-toggle"))
 
-    expect(screen.getByText("Settled one")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Classés (2)" }).getAttribute("aria-expanded")).toBe(
+      "false",
+    )
+    expect(screen.queryByText("Settled one")).toBeNull()
     expect(screen.queryByText("Settled two")).toBeNull()
   })
 })
