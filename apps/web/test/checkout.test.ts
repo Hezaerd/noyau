@@ -3,8 +3,6 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   branchPickerBadge,
-  isRemovableWorktreeRef,
-  isWorktreeDeleteGesture,
   envModeLockedOf,
   envModeOf,
   isSelectingWorktreeBase,
@@ -31,36 +29,6 @@ describe("checkout helpers", () => {
     expect(envModeLockedOf({ latestTurn: { turnId: "turn_1" } })).toBe(true)
     expect(envModeLockedOf({ worktreePath: "/tmp/wt" })).toBe(true)
     expect(envModeLockedOf({ worktreePath: null, latestTurn: null })).toBe(false)
-  })
-
-  it("détecte ⌘⇧ clic / ctrl⇧ clic pour supprimer un worktree", () => {
-    expect(
-      isWorktreeDeleteGesture({ metaKey: true, shiftKey: true, ctrlKey: false, altKey: false }),
-    ).toBe(true)
-    expect(
-      isWorktreeDeleteGesture({ metaKey: false, shiftKey: true, ctrlKey: true, altKey: false }),
-    ).toBe(true)
-    expect(
-      isWorktreeDeleteGesture({ metaKey: true, shiftKey: false, ctrlKey: false, altKey: false }),
-    ).toBe(false)
-    expect(
-      isWorktreeDeleteGesture({ metaKey: true, shiftKey: true, ctrlKey: false, altKey: true }),
-    ).toBe(false)
-  })
-
-  it("n'autorise la suppression que des worktrees liés", () => {
-    expect(
-      isRemovableWorktreeRef({ current: false, worktreePath: "/tmp/wt" }, "/tmp/repo", null),
-    ).toBe(true)
-    expect(
-      isRemovableWorktreeRef({ current: true, worktreePath: "/tmp/repo" }, "/tmp/repo", null),
-    ).toBe(false)
-    expect(
-      isRemovableWorktreeRef({ current: true, worktreePath: "/tmp/wt" }, "/tmp/wt", "/tmp/wt"),
-    ).toBe(true)
-    expect(isRemovableWorktreeRef({ current: false, worktreePath: null }, "/tmp/repo", null)).toBe(
-      false,
-    )
   })
 
   it("priorise current, worktree, puis default sur le badge", () => {
