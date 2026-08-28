@@ -87,22 +87,21 @@ function ThreadSettleButton({
     thread !== undefined && !disabled,
   )
 
-  if (thread === undefined || threadId === undefined) {
+  if (thread === undefined || threadId === undefined || settled) {
     return null
   }
-  const settleBlocked = !settled && !canSettle(thread)
   return (
     <Button
       type="button"
       size="sm"
       variant="ghost"
-      disabled={disabled || settleBlocked}
+      disabled={disabled || !canSettle(thread)}
       aria-keyshortcuts={settleHotkey}
-      aria-label={settled ? "Unsettle Thread" : "Settle Thread"}
-      onClick={() => dispatchThreadSettle(thread, !settled)}
+      aria-label="Settle Thread"
+      onClick={() => dispatchThreadSettle(thread, true)}
     >
-      {settled ? <CircleDotIcon /> : <CircleCheckIcon />}
-      {settled ? "Unsettle" : "Settle"}
+      <CircleCheckIcon />
+      Settle
     </Button>
   )
 }
