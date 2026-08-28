@@ -6,6 +6,7 @@
   "exports": {
     "./config": "./src/config.ts",
     "./control-plane": "./src/control-plane.ts",
+    "./command-from-request": "./src/command-from-request.ts",
     "./file-preview": "./src/file-preview.ts",
     "./agent-skill/installer": "./src/agent-skill/installer.ts",
     "./agent-skill/catalog": "./src/agent-skill/catalog.ts",

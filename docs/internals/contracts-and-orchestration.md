@@ -23,12 +23,17 @@ web and the thread projector both import them.
 Project, board, and thread stay three aggregates. The journal is keyed
 `{ kind: "project", id: projectId }`, so the three projections replay as one
 [control state][11]. `project.create` is the only command that runs two
-deciders: project, then `board.initialize`. `control-plane.ts` wires the
-command worker; it does not own decide / evolve / recover.
+deciders: project, then `board.initialize`. [command-from-request.ts][12]
+turns a client request into a Command (project scope, deterministic board
+ids, turn uploads, actor). `control-plane.ts` then runs
+`ensureWorkspaceAvailable → commandFromRequest → worker.dispatch`. Worker
+`validate` keeps the in-transaction WorkspaceRoot ownership check. The
+control plane does not own decide / evolve / recover.
 
 ## Where it lives
 
 - Package rule: [packages/contracts/package.json][1]
+- Request to command: [command-from-request.ts][12]
 - Control state: [control-state.ts][11]
 - Board: [board/decider.ts][2], [board/projector.ts][3]
 - Project: [project/decider.ts][4], [project/projector.ts][5]
@@ -51,3 +56,4 @@ command worker; it does not own decide / evolve / recover.
 [9]: ../../packages/contracts/src/thread/title.ts
 [10]: ../../packages/contracts/src/events.ts
 [11]: ../../apps/server/src/orchestration/control-state.ts
+[12]: ../../apps/server/src/command-from-request.ts

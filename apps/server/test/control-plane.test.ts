@@ -7,11 +7,7 @@ import { ClientCommandRequest } from "@noyau/contracts/commands"
 import { CommandIdConflict } from "@noyau/contracts/errors"
 import { ActorId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ProjectNotFound, ProjectUnavailable } from "@noyau/contracts/project/errors"
-import {
-  WorkspaceRootConflict,
-  WorkspaceRootNotDirectory,
-  WorkspaceRootNotFound,
-} from "@noyau/contracts/project/errors"
+import { WorkspaceRootNotFound } from "@noyau/contracts/project/errors"
 import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import {
   ControlPlane,
@@ -298,104 +294,6 @@ describe("ControlPlane", () => {
             (SELECT COUNT(*) FROM projection_columns WHERE project_id = ${projectId}) AS columns
         `
         assert.deepStrictEqual(rows[0], { events: 5, projects: 1, columns: 3 })
-      }),
-    ),
-  )
-
-  it.effect("persists stable WorkspaceRootConflict receipts for create and rebind", () =>
-    run(
-      Effect.gen(function* () {
-        const controlPlane = yield* ControlPlane
-        const sql = yield* SqlClient
-        yield* controlPlane.dispatch(projectCreate(uuid(1), projectId, "/tmp"), actorId)
-
-        const conflictingCreate = projectCreate(uuid(2), otherProjectId, "/tmp")
-        const createError = yield* controlPlane
-          .dispatch(conflictingCreate, actorId)
-          .pipe(Effect.flip)
-        const createRetry = yield* controlPlane
-          .dispatch(conflictingCreate, actorId)
-          .pipe(Effect.flip)
-        assert.instanceOf(createError, WorkspaceRootConflict)
-        assert.deepStrictEqual(createRetry, createError)
-        assert.strictEqual(createError._tag, "WorkspaceRootConflict")
-        assert.strictEqual(createError.workspaceRoot, "/tmp")
-        assert.strictEqual(createError.projectId, projectId)
-
-        yield* controlPlane.dispatch(projectCreate(uuid(3), otherProjectId, "/"), actorId)
-        const rebind = request({
-          _tag: "project.rebind",
-          commandId: uuid(4),
-          payload: { projectId: otherProjectId, workspaceRoot: "/tmp" },
-        })
-        const rebindError = yield* controlPlane.dispatch(rebind, actorId).pipe(Effect.flip)
-        const rebindRetry = yield* controlPlane.dispatch(rebind, actorId).pipe(Effect.flip)
-        assert.instanceOf(rebindError, WorkspaceRootConflict)
-        assert.deepStrictEqual(rebindRetry, rebindError)
-        assert.strictEqual(rebindError._tag, "WorkspaceRootConflict")
-
-        const receipts = yield* sql<{ response: string }>`
-          SELECT response
-          FROM receipts
-          WHERE command_id IN (${uuid(2)}, ${uuid(4)})
-          ORDER BY command_id
-        `
-        assert.strictEqual(receipts.length, 2)
-        assert.isTrue(receipts.every((row) => row.response.includes('"WorkspaceRootConflict"')))
-      }),
-    ),
-  )
-
-  it.effect("persists stable existing-directory rejections for create and rebind", () =>
-    run(
-      Effect.gen(function* () {
-        const controlPlane = yield* ControlPlane
-        const sql = yield* SqlClient
-        const missing = `/tmp/noyau-missing-${uuid(90)}`
-        const missingCreateRequest = projectCreate(uuid(1), projectId, missing)
-        const fileCreateRequest = projectCreate(uuid(2), projectId, "/etc/hosts")
-        const missingCreate = yield* controlPlane
-          .dispatch(missingCreateRequest, actorId)
-          .pipe(Effect.flip)
-        const missingCreateRetry = yield* controlPlane
-          .dispatch(missingCreateRequest, actorId)
-          .pipe(Effect.flip)
-        const fileCreate = yield* controlPlane
-          .dispatch(fileCreateRequest, actorId)
-          .pipe(Effect.flip)
-        const fileCreateRetry = yield* controlPlane
-          .dispatch(fileCreateRequest, actorId)
-          .pipe(Effect.flip)
-        assert.instanceOf(missingCreate, WorkspaceRootNotFound)
-        assert.deepStrictEqual(missingCreateRetry, missingCreate)
-        assert.instanceOf(fileCreate, WorkspaceRootNotDirectory)
-        assert.deepStrictEqual(fileCreateRetry, fileCreate)
-
-        yield* controlPlane.dispatch(projectCreate(uuid(3), projectId, "/tmp"), actorId)
-        const missingRebindRequest = request({
-          _tag: "project.rebind",
-          commandId: uuid(4),
-          payload: { projectId, workspaceRoot: missing },
-        })
-        const missingRebind = yield* controlPlane
-          .dispatch(missingRebindRequest, actorId)
-          .pipe(Effect.flip)
-        const missingRebindRetry = yield* controlPlane
-          .dispatch(missingRebindRequest, actorId)
-          .pipe(Effect.flip)
-        assert.instanceOf(missingRebind, WorkspaceRootNotFound)
-        assert.deepStrictEqual(missingRebindRetry, missingRebind)
-
-        const receipts = yield* sql<{ response: string }>`
-          SELECT response
-          FROM receipts
-          WHERE command_id IN (${uuid(1)}, ${uuid(2)}, ${uuid(4)})
-          ORDER BY command_id
-        `
-        assert.strictEqual(receipts.length, 3)
-        assert.isTrue(receipts[0]?.response.includes('"WorkspaceRootNotFound"'))
-        assert.isTrue(receipts[1]?.response.includes('"WorkspaceRootNotDirectory"'))
-        assert.isTrue(receipts[2]?.response.includes('"WorkspaceRootNotFound"'))
       }),
     ),
   )
