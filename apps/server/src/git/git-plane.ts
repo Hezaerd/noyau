@@ -13,19 +13,16 @@ import {
   type VcsCreateWorktreeInput,
   type VcsCreateWorktreeResult,
   type VcsListRefsResult,
-  type VcsRemoveWorktreeInput,
-  type VcsRemoveWorktreeResult,
   type VcsScope,
   type VcsStatusResult,
   type VcsStatusStreamEvent,
   type VcsSwitchRefInput,
   type VcsSwitchRefResult,
 } from "@noyau/contracts/git"
-import { ThreadId } from "@noyau/contracts/ids"
 import { ServerConfig } from "@noyau/server/config"
 import { TextGeneration } from "@noyau/server/text-generation/text-generation"
 import { resolveWorkspaceCwd } from "@noyau/server/workspace-cwd"
-import { Context, Crypto, Effect, Layer, Schema, Stream } from "effect"
+import { Context, Crypto, Effect, Layer, Stream } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { buildTemporaryWorktreeBranchName, GitRuntime, gitRuntimeLayer } from "./git-runtime.ts"
@@ -50,9 +47,6 @@ export interface GitPlaneService {
   readonly createWorktree: (
     input: VcsCreateWorktreeInput,
   ) => Effect.Effect<VcsCreateWorktreeResult, GitCommandError | ServiceUnavailable>
-  readonly removeWorktree: (
-    input: VcsRemoveWorktreeInput,
-  ) => Effect.Effect<VcsRemoveWorktreeResult, GitCommandError | ServiceUnavailable>
   readonly draft: (
     input: GitDraftInput,
   ) => Effect.Effect<GitDraftResult, GitCommandError | ServiceUnavailable>
@@ -70,11 +64,6 @@ export interface GitPlaneService {
 export class GitPlane extends Context.Service<GitPlane, GitPlaneService>()(
   "@noyau/server/git/GitPlane",
 ) {}
-
-const BoundWorktreeRow = Schema.Struct({
-  thread_id: ThreadId,
-})
-const decodeBoundWorktreeRow = Schema.decodeEffect(BoundWorktreeRow)
 
 const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
   const git = yield* GitRuntime
@@ -154,33 +143,6 @@ const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
               ),
             ),
           )
-        }),
-      ),
-    removeWorktree: (input) =>
-      scoped(
-        Effect.gen(function* () {
-          const { workspaceRoot } = yield* resolveWorkspaceCwd({ projectId: input.projectId })
-          const boundRows = yield* sql<
-            (typeof BoundWorktreeRow)["Encoded"]
-          >`SELECT thread_id FROM projection_threads WHERE worktree_path = ${input.path}`.pipe(
-            Effect.mapError(() => new ServiceUnavailable({ service: "sqlite" })),
-          )
-          const releasedThreadIds = yield* Effect.forEach(boundRows, (row) =>
-            decodeBoundWorktreeRow(row).pipe(
-              Effect.map((decoded) => decoded.thread_id),
-              Effect.orDie,
-            ),
-          )
-          yield* refreshAfter(
-            workspaceRoot,
-            git.removeWorktree(
-              Object.assign(
-                { cwd: workspaceRoot, path: input.path },
-                input.force === undefined ? {} : { force: input.force },
-              ),
-            ),
-          )
-          return { path: input.path, releasedThreadIds } satisfies VcsRemoveWorktreeResult
         }),
       ),
     draft: (input) =>

@@ -1,6 +1,5 @@
 import { DEFAULT_APPEARANCE_PREFERENCE } from "@/components/settings/AppearanceSettingsPanel"
 import { useAppearance } from "@/hooks/use-appearance"
-import { useAutoRemoveMergedWorktreeEnabled } from "@/hooks/use-auto-remove-merged-worktree"
 import { useDiscordPresenceEnabled } from "@/hooks/use-discord-presence-enabled"
 import { useKeybindings } from "@/hooks/use-keybindings"
 import { useProjectFolderStartDirectory } from "@/hooks/use-project-folder-start-directory"
@@ -11,7 +10,6 @@ import {
 import { useTranscriptPaintMode } from "@/hooks/use-transcript-paint-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
 import { useTurnNotificationEnabled } from "@/hooks/use-turn-notification"
-import { DEFAULT_AUTO_REMOVE_MERGED_WORKTREE } from "@/lib/auto-remove-merged-worktree-preference"
 import { DEFAULT_DISCORD_PRESENCE_ENABLED } from "@/lib/discord-presence-preference"
 import type { SettingsTabId } from "@/lib/settings-catalog"
 import {
@@ -27,7 +25,6 @@ import {
   resetTurnCuePreference,
   resetTurnNotificationPreference,
   setAppearancePreference,
-  setAutoRemoveMergedWorktreeEnabled,
   setDiscordPresenceEnabled,
   setProjectFolderStartDirectory,
 } from "@/state/preferences"
@@ -43,7 +40,6 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
   const transcriptPaint = useTranscriptPaintMode()
   const { resetAll } = useKeybindings()
   const projectFolderStartDirectory = useProjectFolderStartDirectory()
-  const autoRemoveMergedWorktree = useAutoRemoveMergedWorktreeEnabled()
   const autoSettleOnMerge = useAutoSettleOnMergeEnabled()
   const autoSettleAfterDays = useAutoSettleAfterDays()
   const discordPresenceEnabled = useDiscordPresenceEnabled()
@@ -55,7 +51,6 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
       return {
         canRestore:
           projectFolderStartDirectory !== "" ||
-          autoRemoveMergedWorktree !== DEFAULT_AUTO_REMOVE_MERGED_WORKTREE ||
           autoSettleOnMerge !== DEFAULT_AUTO_SETTLE_ON_MERGE ||
           autoSettleAfterDays !== DEFAULT_AUTO_SETTLE_AFTER_DAYS ||
           discordPresenceEnabled !== DEFAULT_DISCORD_PRESENCE_ENABLED ||
@@ -63,7 +58,6 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
           turnNotificationEnabled !== DEFAULT_TURN_NOTIFICATION_ENABLED,
         restore: () => {
           setProjectFolderStartDirectory("")
-          setAutoRemoveMergedWorktreeEnabled(DEFAULT_AUTO_REMOVE_MERGED_WORKTREE)
           resetThreadSettlePreference()
           setDiscordPresenceEnabled(DEFAULT_DISCORD_PRESENCE_ENABLED)
           resetTurnCuePreference()

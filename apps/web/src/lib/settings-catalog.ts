@@ -87,13 +87,6 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["thread", "worktree", "checkout", "local", "new thread", "git", "environment"],
   },
   {
-    id: "auto-remove-merged-worktree",
-    tab: "general",
-    title: "Remove worktree after merge",
-    description: "Remove the linked worktree when the live PR is merged. Off by default.",
-    keywords: ["worktree", "merge", "pr", "cleanup", "remove", "git"],
-  },
-  {
     id: "auto-settle-merged-threads",
     tab: "general",
     title: "Settle after PR merge",
