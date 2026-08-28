@@ -1,4 +1,4 @@
-import { ServiceUnavailable } from "@noyau/contracts/errors"
+import type { ServiceUnavailable } from "@noyau/contracts/errors"
 import {
   GitCommandError,
   type GitDraftInput,
