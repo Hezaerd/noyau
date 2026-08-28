@@ -387,7 +387,10 @@ export function ThreadCheckoutBar({
                         }}
                       >
                         <span className="flex min-w-0 items-center gap-1.5 font-medium text-muted-foreground">
-                          <RefreshCwIcon aria-hidden="true" className="size-3 shrink-0 opacity-70" />
+                          <RefreshCwIcon
+                            aria-hidden="true"
+                            className="size-3 shrink-0 opacity-70"
+                          />
                           <span className="truncate">Start from origin</span>
                         </span>
                         <Switch
