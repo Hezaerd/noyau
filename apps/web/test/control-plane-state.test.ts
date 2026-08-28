@@ -70,6 +70,7 @@ const makeThread = (id: ThreadId): ThreadShell =>
     sessionStatus: null,
     lastError: null,
     createdAt: "2026-08-25T12:00:00.000Z",
+    listedAt: "2026-08-25T12:00:00.000Z",
     updatedAt: "2026-08-25T12:00:00.000Z",
   })
 

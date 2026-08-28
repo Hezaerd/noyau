@@ -32,6 +32,7 @@ const shell = (input: Partial<(typeof ThreadShell)["Encoded"]> = {}): ThreadShel
     sessionStatus: "ready",
     lastError: null,
     createdAt: STALE_ISO,
+    listedAt: STALE_ISO,
     updatedAt: STALE_ISO,
     ...input,
   })

@@ -83,6 +83,7 @@ const ThreadRow = Schema.Struct({
   worktree_path: Schema.NullOr(Schema.String),
   status: Schema.String,
   created_at: Schema.String,
+  listed_at: Schema.NullOr(Schema.String),
   updated_at: Schema.String,
   archived_at: Schema.NullOr(Schema.String),
   settled_override: Schema.NullOr(Schema.Literals(["settled", "active"])),
@@ -126,6 +127,7 @@ const ThreadShellRow = Schema.Struct({
   worktree_path: Schema.NullOr(Schema.String),
   status: Schema.String,
   created_at: Schema.String,
+  listed_at: Schema.NullOr(Schema.String),
   updated_at: Schema.String,
   session_status: Schema.NullOr(Schema.String),
   last_error: Schema.NullOr(Schema.String),
@@ -241,6 +243,7 @@ const encodedThreadShell = (row: (typeof ThreadShellRow)["Type"]) => {
     sessionStatus: row.session_status,
     lastError: row.last_error,
     createdAt: row.created_at,
+    listedAt: row.listed_at ?? row.created_at,
     updatedAt: row.updated_at,
     hasPendingApprovals: row.has_pending_approvals === 1,
     hasPendingUserInput: row.has_pending_user_input === 1,
@@ -490,7 +493,7 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
       const threadRows = yield* sql<(typeof ThreadRow)["Encoded"]>`
         SELECT
           thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
-          service_tier, thinking, branch, worktree_path, status, created_at, updated_at,
+          service_tier, thinking, branch, worktree_path, status, created_at, listed_at, updated_at,
           archived_at, settled_override, settled_at
         FROM projection_threads
         WHERE thread_id = ${threadId}
@@ -586,6 +589,7 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         session,
         latestTurn,
         createdAt: thread.created_at,
+        listedAt: thread.listed_at ?? thread.created_at,
         updatedAt: thread.updated_at,
       }
       if (thread.archived_at !== null) {
@@ -639,6 +643,7 @@ export const readShellSnapshot = Effect.fn("readShellSnapshot")(function* (
             thread.worktree_path,
             thread.status,
             thread.created_at,
+            thread.listed_at,
             thread.updated_at,
             thread.settled_override,
             thread.settled_at,
@@ -740,6 +745,7 @@ export const readThreadShellById = Effect.fn("readThreadShellById")(function* (t
           thread.worktree_path,
           thread.status,
           thread.created_at,
+          thread.listed_at,
           thread.updated_at,
           thread.settled_override,
           thread.settled_at,

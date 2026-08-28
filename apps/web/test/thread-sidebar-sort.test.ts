@@ -9,11 +9,11 @@ import { partitionThreadsForSidebar, sortThreadsForSidebar } from "../src/lib/th
 const utc = (iso: string): DateTime.Utc => Schema.decodeSync(Schema.DateTimeUtcFromString)(iso)
 
 describe("sortThreadsForSidebar", () => {
-  it("orders by creation time, newest first", () => {
+  it("orders by listedAt, newest first", () => {
     const sorted = sortThreadsForSidebar([
-      { id: "oldest", createdAt: utc("2026-03-09T08:00:00.000Z") },
-      { id: "newest", createdAt: utc("2026-03-09T12:00:00.000Z") },
-      { id: "middle", createdAt: utc("2026-03-09T10:00:00.000Z") },
+      { id: "oldest", listedAt: utc("2026-03-09T08:00:00.000Z") },
+      { id: "newest", listedAt: utc("2026-03-09T12:00:00.000Z") },
+      { id: "middle", listedAt: utc("2026-03-09T10:00:00.000Z") },
     ])
 
     expect(sorted.map((thread) => thread.id)).toEqual(["newest", "middle", "oldest"])
@@ -23,12 +23,12 @@ describe("sortThreadsForSidebar", () => {
     const sorted = sortThreadsForSidebar([
       {
         id: "older",
-        createdAt: utc("2026-03-09T08:00:00.000Z"),
+        listedAt: utc("2026-03-09T08:00:00.000Z"),
         updatedAt: utc("2026-03-09T18:00:00.000Z"),
       },
       {
         id: "newer",
-        createdAt: utc("2026-03-09T12:00:00.000Z"),
+        listedAt: utc("2026-03-09T12:00:00.000Z"),
         updatedAt: utc("2026-03-09T12:00:00.000Z"),
       },
     ])
@@ -36,11 +36,11 @@ describe("sortThreadsForSidebar", () => {
     expect(sorted.map((thread) => thread.id)).toEqual(["newer", "older"])
   })
 
-  it("breaks creation-time ties by id", () => {
-    const createdAt = utc("2026-03-09T10:00:00.000Z")
+  it("breaks listedAt ties by id", () => {
+    const listedAt = utc("2026-03-09T10:00:00.000Z")
     const sorted = sortThreadsForSidebar([
-      { id: "b", createdAt },
-      { id: "a", createdAt },
+      { id: "b", listedAt },
+      { id: "a", listedAt },
     ])
 
     expect(sorted.map((thread) => thread.id)).toEqual(["a", "b"])
@@ -49,9 +49,9 @@ describe("sortThreadsForSidebar", () => {
   it("keeps pinned Threads above unpinned ones", () => {
     const sorted = sortThreadsForSidebar(
       [
-        { id: "oldest", createdAt: utc("2026-03-09T08:00:00.000Z") },
-        { id: "newest", createdAt: utc("2026-03-09T12:00:00.000Z") },
-        { id: "middle", createdAt: utc("2026-03-09T10:00:00.000Z") },
+        { id: "oldest", listedAt: utc("2026-03-09T08:00:00.000Z") },
+        { id: "newest", listedAt: utc("2026-03-09T12:00:00.000Z") },
+        { id: "middle", listedAt: utc("2026-03-09T10:00:00.000Z") },
       ],
       new Map([["oldest", Date.parse("2026-03-09T20:00:00.000Z")]]),
     )
@@ -62,9 +62,9 @@ describe("sortThreadsForSidebar", () => {
   it("orders pinned Threads by most recent pin first", () => {
     const sorted = sortThreadsForSidebar(
       [
-        { id: "first-pin", createdAt: utc("2026-03-09T08:00:00.000Z") },
-        { id: "second-pin", createdAt: utc("2026-03-09T12:00:00.000Z") },
-        { id: "unpinned", createdAt: utc("2026-03-09T14:00:00.000Z") },
+        { id: "first-pin", listedAt: utc("2026-03-09T08:00:00.000Z") },
+        { id: "second-pin", listedAt: utc("2026-03-09T12:00:00.000Z") },
+        { id: "unpinned", listedAt: utc("2026-03-09T14:00:00.000Z") },
       ],
       new Map([
         ["first-pin", Date.parse("2026-03-09T15:00:00.000Z")],
@@ -73,6 +73,16 @@ describe("sortThreadsForSidebar", () => {
     )
 
     expect(sorted.map((thread) => thread.id)).toEqual(["second-pin", "first-pin", "unpinned"])
+  })
+
+  it("places an unsettled Thread above ones that kept their listedAt", () => {
+    const createdAt = utc("2026-08-10T08:00:00.000Z")
+    const sorted = sortThreadsForSidebar([
+      { id: "kept-place", listedAt: utc("2026-08-20T12:00:00.000Z"), createdAt },
+      { id: "unsettled", listedAt: utc("2026-08-25T12:00:00.000Z"), createdAt },
+    ])
+
+    expect(sorted.map((thread) => thread.id)).toEqual(["unsettled", "kept-place"])
   })
 })
 
@@ -109,6 +119,7 @@ describe("partitionThreadsForSidebar", () => {
         sessionStatus: "ready",
         lastError: null,
         createdAt,
+        listedAt: createdAt,
         updatedAt: staleIso,
         ...extra,
       })

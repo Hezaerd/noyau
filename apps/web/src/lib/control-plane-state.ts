@@ -90,6 +90,7 @@ export const makeOptimisticThreadShell = (input: {
     sessionStatus: null,
     lastError: null,
     createdAt,
+    listedAt: createdAt,
     updatedAt: createdAt,
   }
   if (input.branch === undefined || input.branch === null || input.branch.trim() === "") {

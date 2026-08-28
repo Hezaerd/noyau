@@ -30,6 +30,8 @@ export class Thread extends Schema.Class<Thread>("@noyau/contracts/entities/Thre
   settledOverride: Schema.optionalKey(SettledOverride),
   settledAt: Schema.optionalKey(Schema.DateTimeUtcFromString),
   createdAt: Schema.DateTimeUtcFromString,
+  /** Position dans la liste sidebar. Égal à createdAt jusqu'à un unsettle. */
+  listedAt: Schema.DateTimeUtcFromString,
   updatedAt: Schema.DateTimeUtcFromString,
   archivedAt: Schema.optionalKey(Schema.DateTimeUtcFromString),
 }) {}

@@ -48,6 +48,7 @@ const makeThread = (status: ThreadShellType["status"] = "active"): ThreadShellTy
     sessionStatus: null,
     lastError: null,
     createdAt: "2026-08-20T00:00:00.000Z",
+    listedAt: "2026-08-20T00:00:00.000Z",
     updatedAt: "2026-08-20T00:00:00.000Z",
   })
 

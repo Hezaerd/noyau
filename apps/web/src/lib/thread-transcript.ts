@@ -464,6 +464,7 @@ const replaceThread = (
     readonly archivedAt?: Thread["archivedAt"] | null
     readonly settledOverride?: Thread["settledOverride"] | null
     readonly settledAt?: Thread["settledAt"] | null
+    readonly listedAt?: Thread["listedAt"]
   },
 ): Thread => {
   const current = snapshot.thread
@@ -484,6 +485,7 @@ const replaceThread = (
     session: patch.session !== undefined ? patch.session : current.session,
     latestTurn: patch.latestTurn !== undefined ? patch.latestTurn : current.latestTurn,
     createdAt: current.createdAt,
+    listedAt: patch.listedAt ?? current.listedAt,
     updatedAt: patch.updatedAt ?? current.updatedAt,
   }
   const settledOverride =
@@ -768,6 +770,7 @@ export const applyThreadEnvelope = (
         thread: replaceThread(snapshot, {
           settledOverride: event.reason === "user" ? "active" : null,
           settledAt: null,
+          listedAt: envelope.occurredAt,
           updatedAt: envelope.occurredAt,
         }),
         session: snapshot.session,

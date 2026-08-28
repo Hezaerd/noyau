@@ -84,6 +84,7 @@ describe("Thread and Session entities", () => {
       session: null,
       latestTurn: null,
       createdAt: "2026-08-19T12:00:00.000Z",
+      listedAt: "2026-08-19T12:00:00.000Z",
       updatedAt: "2026-08-19T12:00:00.000Z",
       permissionMode: "ask",
     })
@@ -106,6 +107,7 @@ describe("Thread and Session entities", () => {
       session: null,
       latestTurn: null,
       createdAt: "2026-08-19T12:00:00.000Z",
+      listedAt: "2026-08-19T12:00:00.000Z",
       updatedAt: "2026-08-19T12:00:00.000Z",
     })
 
@@ -126,6 +128,7 @@ describe("Thread and Session entities", () => {
       session: null,
       latestTurn: null,
       createdAt: "2026-08-19T12:00:00.000Z",
+      listedAt: "2026-08-19T12:00:00.000Z",
       updatedAt: "2026-08-19T12:00:00.000Z",
     })
 
@@ -174,6 +177,7 @@ describe("Thread and Session entities", () => {
           completedAt: null,
         },
         createdAt: "2026-08-19T12:00:00.000Z",
+        listedAt: "2026-08-19T12:00:00.000Z",
         updatedAt: "2026-08-19T12:00:00.000Z",
       },
       session: {
