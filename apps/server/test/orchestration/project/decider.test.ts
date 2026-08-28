@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
-import { decide } from "@noyau/domain/project/decider"
-import { emptyProjectCatalog, evolve, type ProjectCatalog } from "@noyau/domain/project/projector"
+import { decide } from "@noyau/server/orchestration/project/decider"
+import { emptyProjectCatalog, evolve, type ProjectCatalog } from "@noyau/server/orchestration/project/projector"
 import { ProjectCommand } from "@noyau/protocol/project/commands"
 import type { ProjectEvent } from "@noyau/protocol/project/events"
 import { Result, Schema } from "effect"

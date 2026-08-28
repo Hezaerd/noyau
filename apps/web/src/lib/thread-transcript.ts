@@ -411,8 +411,9 @@ export const threadStatusNoticesVisible = (
   (session?.status === "error" && session.lastError !== null) || latestTurn?.state === "interrupted"
 
 /**
- * Table de settlement t3code, recopiée hors `@noyau/domain` : le renderer
- * ne dépend pas du decider. `starting` / `running` ne terminent jamais un Turn.
+ * Table de settlement t3code, recopiée hors de l'orchestration server : le
+ * renderer ne doit pas importer les deciders. `starting` / `running` ne
+ * terminent jamais un Turn.
  */
 const settledTurnStateForSessionStatus = (status: SessionStatus): TurnSettlementState | null => {
   switch (status) {

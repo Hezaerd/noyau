@@ -1,4 +1,4 @@
-import { settledTurnStateForSessionStatus } from "@noyau/domain/thread/projector"
+import { settledTurnStateForSessionStatus } from "@noyau/server/orchestration/thread/projector"
 import { ProviderUserInputAnswers } from "@noyau/protocol/entities/approvals"
 import type { WorkspaceRoot } from "@noyau/protocol/entities/environment"
 import { DefaultModelSelection } from "@noyau/protocol/entities/model-selection"

@@ -1,24 +1,24 @@
-import { decide as decideBoard } from "@noyau/domain/board/decider"
+import { decide as decideBoard } from "@noyau/server/orchestration/board/decider"
 import {
   emptyBoardState,
   evolve as evolveBoard,
   type BoardState,
   withProjectThreads,
-} from "@noyau/domain/board/projector"
-import { decide as decideProject } from "@noyau/domain/project/decider"
+} from "@noyau/server/orchestration/board/projector"
+import { decide as decideProject } from "@noyau/server/orchestration/project/decider"
 import {
   emptyProjectCatalog,
   evolve as evolveProject,
   type ProjectCatalog,
-} from "@noyau/domain/project/projector"
-import { decide as decideThread } from "@noyau/domain/thread/decider"
+} from "@noyau/server/orchestration/project/projector"
+import { decide as decideThread } from "@noyau/server/orchestration/thread/decider"
 import {
   emptyThreadState,
   evolve as evolveThread,
   type ThreadState,
   withAvailableProjects,
-} from "@noyau/domain/thread/projector"
-import { recoverAfterBoot } from "@noyau/domain/thread/recovery"
+} from "@noyau/server/orchestration/thread/projector"
+import { recoverAfterBoot } from "@noyau/server/orchestration/thread/recovery"
 import type {
   AgentIntegrationFailed,
   ProjectAgentIntegration,

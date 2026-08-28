@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { decide } from "@noyau/domain/thread/decider"
+import { decide } from "@noyau/server/orchestration/thread/decider"
 import {
   emptyThreadState,
   evolve,
@@ -7,8 +7,8 @@ import {
   settledTurnStateForSessionStatus,
   withAvailableProjects,
   type ThreadState,
-} from "@noyau/domain/thread/projector"
-import { BOOT_RECOVERY_LAST_ERROR, recoverAfterBoot } from "@noyau/domain/thread/recovery"
+} from "@noyau/server/orchestration/thread/projector"
+import { BOOT_RECOVERY_LAST_ERROR, recoverAfterBoot } from "@noyau/server/orchestration/thread/recovery"
 import {
   TranscriptItem,
   type TranscriptItem as TranscriptItemType,

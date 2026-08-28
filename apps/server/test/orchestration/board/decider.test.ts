@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { decide } from "@noyau/domain/board/decider"
+import { decide } from "@noyau/server/orchestration/board/decider"
 import {
   emptyBoardState,
   evolve,
   withProjectThreads,
   type BoardState,
-} from "@noyau/domain/board/projector"
+} from "@noyau/server/orchestration/board/projector"
 import { KanbanRank } from "@noyau/protocol/entities/kanban-column"
 import { ThreadId, TicketId } from "@noyau/protocol/ids"
 import { TicketCommand, TicketDependencyAdd } from "@noyau/protocol/ticket/commands"
