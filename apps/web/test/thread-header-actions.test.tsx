@@ -131,7 +131,9 @@ describe("ThreadHeaderActions", () => {
     const thread = makeThread()
     renderHeader(thread)
 
-    fireEvent.click(screen.getByRole("button", { name: "Settle Thread" }))
+    const settle = screen.getByRole("button", { name: "Settle Thread" })
+    expect(settle.hasAttribute("disabled")).toBe(false)
+    fireEvent.click(settle)
     expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, true)
   })
 
