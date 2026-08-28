@@ -8,7 +8,7 @@ import {
   type CreateDraftThreadInput,
   type CreateDraftThreadResult,
 } from "../src/lib/create-draft-thread"
-import { isDraftThreadView } from "../src/lib/draft-thread"
+import { isDraftThreadView, resolveDraftLatestTurn } from "../src/lib/draft-thread"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
@@ -74,6 +74,16 @@ describe("isDraftThreadView", () => {
         sending: false,
       }),
     ).toBe(false)
+  })
+})
+
+describe("resolveDraftLatestTurn", () => {
+  it("keeps an explicit null from a loaded snapshot", () => {
+    expect(resolveDraftLatestTurn(null, undefined, true)).toBeNull()
+  })
+
+  it("uses the shell while the snapshot is still missing", () => {
+    expect(resolveDraftLatestTurn(undefined, null, false)).toBeNull()
   })
 })
 

@@ -18,20 +18,28 @@ export function ThreadRoutePage() {
   const projectId = ProjectId.make(routeProjectId)
   const threadId = routeThreadId === "new" ? undefined : ThreadId.make(routeThreadId)
   const project = projects.find((candidate) => candidate.id === projectId)
-  const startedNewRouteKeyRef = useRef<string>(undefined)
+  const createDraftThreadRef = useRef(createDraftThread)
+  createDraftThreadRef.current = createDraftThread
+  const projectRef = useRef(project)
+  projectRef.current = project
   const newRouteKey = routeThreadId === "new" ? `${projectId}:new` : undefined
+  const projectReady = project !== undefined
   useRedirectIfProjectGone(projectId)
 
   useEffect(() => {
-    if (newRouteKey === undefined || project === undefined) {
+    const currentProject = projectRef.current
+    if (newRouteKey === undefined || !projectReady || currentProject === undefined) {
       return
     }
-    if (startedNewRouteKeyRef.current === newRouteKey) {
-      return
+    const controller = new AbortController()
+    void createDraftThreadRef.current(currentProject, {
+      replace: true,
+      signal: controller.signal,
+    })
+    return () => {
+      controller.abort()
     }
-    startedNewRouteKeyRef.current = newRouteKey
-    void createDraftThread(project, { replace: true })
-  }, [createDraftThread, newRouteKey, project])
+  }, [newRouteKey, projectReady])
 
   return (
     <ThreadPage

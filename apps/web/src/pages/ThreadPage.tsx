@@ -81,7 +81,7 @@ import {
 } from "@/lib/control-plane"
 import { makeOptimisticThreadShell } from "@/lib/control-plane-state"
 import { isCursorReady } from "@/lib/cursor-readiness"
-import { isDraftThreadView } from "@/lib/draft-thread"
+import { isDraftThreadView, resolveDraftLatestTurn } from "@/lib/draft-thread"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { resolveDraftDefaultModelSelection } from "@/lib/model-picker-preferences"
 import { makeProjectDefaultModelUpdateRequest } from "@/lib/project-commands"
@@ -313,7 +313,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     snapshot !== undefined && snapshot.thread.id === threadId ? snapshot : undefined
   const isDraftThread = isDraftThreadView({
     threadId,
-    latestTurn: pageSnapshot?.thread.latestTurn ?? shellThread?.latestTurn,
+    latestTurn: resolveDraftLatestTurn(
+      pageSnapshot?.thread.latestTurn,
+      shellThread?.latestTurn,
+      pageSnapshot !== undefined,
+    ),
     transcriptLength: pageSnapshot?.transcript.length ?? 0,
     sending: optimisticSend !== null,
   })
@@ -1099,7 +1103,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               onRespondUserInput={(requestId) => {
                 respondToUserInput(requestId)
               }}
-              scrollerKey={threadId}
+              {...(threadId === undefined ? {} : { scrollerKey: threadId })}
               followLatestKey={followLatestKey}
               onOpenTurnDiff={(openedTurnId, filePath) => {
                 if (threadId === undefined) {

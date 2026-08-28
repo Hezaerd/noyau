@@ -33,7 +33,7 @@ export const useCreateDraftThread = () => {
   return useCallback(
     (
       project: Pick<ProjectShell, "id" | "defaultModelSelection">,
-      options?: { readonly replace?: boolean },
+      options?: { readonly replace?: boolean; readonly signal?: AbortSignal },
     ) => {
       const availableProviders = providersOf({ cursorReady, claudeReady, codexReady })
       const modelsByProvider = {
@@ -65,6 +65,9 @@ export const useCreateDraftThread = () => {
               hasUsableData: true,
             }),
           )
+          return undefined
+        }
+        if (options?.signal?.aborted) {
           return undefined
         }
         return navigate({
