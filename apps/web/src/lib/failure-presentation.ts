@@ -11,6 +11,7 @@ export type FailureOperation =
   | "project.agent-integration"
   | "project.subscribe"
   | "shell.subscribe"
+  | "thread.create"
   | "thread.delete"
   | "thread.settle"
   | "thread.unsettle"

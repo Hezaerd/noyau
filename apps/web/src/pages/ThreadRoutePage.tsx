@@ -1,7 +1,9 @@
 import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { useNavigate, useParams } from "@tanstack/react-router"
+import { useEffect, useRef } from "react"
 
-import { useSelectProject } from "@/hooks/use-control-plane"
+import { useProjects, useSelectProject } from "@/hooks/use-control-plane"
+import { useCreateDraftThread } from "@/hooks/use-create-draft-thread"
 import { useRedirectIfProjectGone } from "@/hooks/use-redirect-if-project-gone"
 import { ThreadPage } from "@/pages/ThreadPage"
 
@@ -11,9 +13,33 @@ export function ThreadRoutePage() {
   const { projectId: routeProjectId, threadId: routeThreadId } = useParams({ from: routeId })
   const navigate = useNavigate({ from: routeId })
   const selectProject = useSelectProject()
+  const projects = useProjects()
+  const createDraftThread = useCreateDraftThread()
   const projectId = ProjectId.make(routeProjectId)
   const threadId = routeThreadId === "new" ? undefined : ThreadId.make(routeThreadId)
+  const project = projects.find((candidate) => candidate.id === projectId)
+  const createDraftThreadRef = useRef(createDraftThread)
+  createDraftThreadRef.current = createDraftThread
+  const projectRef = useRef(project)
+  projectRef.current = project
+  const newRouteKey = routeThreadId === "new" ? `${projectId}:new` : undefined
+  const projectReady = project !== undefined
   useRedirectIfProjectGone(projectId)
+
+  useEffect(() => {
+    const currentProject = projectRef.current
+    if (newRouteKey === undefined || !projectReady || currentProject === undefined) {
+      return
+    }
+    const controller = new AbortController()
+    void createDraftThreadRef.current(currentProject, {
+      replace: true,
+      signal: controller.signal,
+    })
+    return () => {
+      controller.abort()
+    }
+  }, [newRouteKey, projectReady])
 
   return (
     <ThreadPage

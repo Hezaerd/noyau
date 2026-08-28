@@ -42,7 +42,13 @@ import {
 } from "@/components/thread/ThreadTurnDiffPanel"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
-import { useClaude, useCodex, useCursor, useProjects } from "@/hooks/use-control-plane"
+import {
+  useClaude,
+  useCodex,
+  useCursor,
+  useProjects,
+  useThreadShell,
+} from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useThreadSnapshot } from "@/hooks/use-thread-snapshot"
@@ -75,6 +81,7 @@ import {
 } from "@/lib/control-plane"
 import { makeOptimisticThreadShell } from "@/lib/control-plane-state"
 import { isCursorReady } from "@/lib/cursor-readiness"
+import { isDraftThreadView, resolveDraftLatestTurn } from "@/lib/draft-thread"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { resolveDraftDefaultModelSelection } from "@/lib/model-picker-preferences"
 import { makeProjectDefaultModelUpdateRequest } from "@/lib/project-commands"
@@ -140,6 +147,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const tickets = useProjectComposerTickets(projectId)
   const project = projects.find((candidate) => candidate.id === projectId)
   const snapshot = useThreadSnapshot(threadId)
+  const shellThread = useThreadShell(threadId)
   const [loading, setLoading] = useState(() => threadSnapshotNeedsLoad(threadId))
   const [actionFailure, setActionFailure] = useState<FailurePresentation>()
   const [composerFailure, setComposerFailure] = useState<FailurePresentation>()
@@ -303,6 +311,16 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   }, [threadId])
   const pageSnapshot =
     snapshot !== undefined && snapshot.thread.id === threadId ? snapshot : undefined
+  const isDraftThread = isDraftThreadView({
+    threadId,
+    latestTurn: resolveDraftLatestTurn(
+      pageSnapshot?.thread.latestTurn,
+      shellThread?.latestTurn,
+      pageSnapshot !== undefined,
+    ),
+    transcriptLength: pageSnapshot?.transcript.length ?? 0,
+    sending: optimisticSend !== null,
+  })
   const snapshotWorktreePath =
     pageSnapshot === undefined ? null : threadWorktreePathOf(pageSnapshot.thread)
   const gitStatus = useVcsStatus(
@@ -919,8 +937,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   }
 
   const transcriptFailure = streamPresentation ?? actionFailure
-  const isNewThread = threadId === undefined
-  const composerError = composerFailure ?? (isNewThread ? actionFailure : undefined)
+  const composerError = composerFailure ?? (isDraftThread ? actionFailure : undefined)
   const transcriptError =
     transcriptFailure === undefined ? undefined : transcriptFailure.surface === "banner" ? (
       <ScopeBanner presentation={transcriptFailure} />
@@ -954,7 +971,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       selectedProvider={selectedProvider}
       modelSelection={modelSelection}
       defaultModelSelection={defaultModelSelection}
-      placement={isNewThread ? "hero" : "docked"}
+      placement={isDraftThread ? "hero" : "docked"}
       error={
         composerError === undefined ? undefined : (
           <InlineFailure className="text-xs" presentation={composerError} />
@@ -979,7 +996,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       searchPaths={searchPaths}
       tickets={tickets}
       toolbar={
-        isNewThread || (conflictingPr === null && failingCiPr === null) ? undefined : (
+        isDraftThread || (conflictingPr === null && failingCiPr === null) ? undefined : (
           <>
             {conflictingPr === null ? null : (
               <FixMergeConflictsButton
@@ -1024,7 +1041,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {isNewThread ? (
+      {isDraftThread ? (
         <ThreadDraftHero
           projectName={project?.name}
           projects={projects}
@@ -1086,7 +1103,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               onRespondUserInput={(requestId) => {
                 respondToUserInput(requestId)
               }}
-              scrollerKey={threadId}
+              {...(threadId === undefined ? {} : { scrollerKey: threadId })}
               followLatestKey={followLatestKey}
               onOpenTurnDiff={(openedTurnId, filePath) => {
                 if (threadId === undefined) {
