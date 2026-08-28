@@ -2,6 +2,7 @@
   "name": "@noyau/contracts",
   "version": "0.0.0",
   "private": true,
+  "description": "Schemas + tiny derived helpers. No decide / evolve / recover.",
   "type": "module",
   "exports": {
     "./ids": "./src/ids.ts",

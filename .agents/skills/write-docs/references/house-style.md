@@ -29,13 +29,13 @@ already states it.
 
 Open, in this order:
 
-1. `packages/protocol` — entities, commands, events, receipts, ids.
-2. `packages/domain/src/{project,board,thread}` — deciders and projectors.
+1. `packages/contracts` — entities, commands, events, receipts, ids.
+2. `apps/server/src/orchestration/{project,board,thread}` — deciders and projectors.
 3. `apps/server` — reactors, persistence, providers, git, only when the page
    needs that side effect.
 
 If the source and an old doc disagree, the source wins. Fix the doc. Do not
-document a name that does not exist in protocol or domain.
+document a name that does not exist in contracts or orchestration.
 
 ## Prose
 

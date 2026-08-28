@@ -35,7 +35,7 @@ The moving parts and the invariant that matters.
 
 ## Where it lives
 
-Footnotes to protocol, domain, and server files you opened.
+Footnotes to contracts, orchestration, and server files you opened.
 
 ## Related
 
@@ -43,14 +43,14 @@ Footnotes to protocol, domain, and server files you opened.
 ```
 
 Prefer a few accurate file links over a tour of the monorepo. Wire types are
-in `packages/protocol`. Decision and projection logic is in
-`packages/domain/src/{project,board,thread}`. Side effects are reactors in
-`apps/server`.
+in `packages/contracts`. Decision and projection logic is in
+`apps/server/src/orchestration/{project,board,thread}`. Side effects are
+reactors in `apps/server`.
 
 ## Checklist
 
 - [ ] Every file link opens a real path.
-- [ ] Names match protocol and domain exports.
+- [ ] Names match contracts and orchestration exports.
 - [ ] The page describes current code, not a future cut.
 - [ ] New vocabulary was added to the glossary or already existed there.
 - [ ] Linked from `docs/README.md` under *Working on Noyau* when the page

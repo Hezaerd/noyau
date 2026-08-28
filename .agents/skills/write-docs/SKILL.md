@@ -16,8 +16,9 @@ and in `docs/`. Do not invent types, command names, or vocabulary.
 
 1. Read [references/house-style.md](references/house-style.md).
 2. Pick the audience and load **one** genre reference.
-3. Open the Noyau source that owns the fact (`packages/protocol`,
-   `packages/domain`, then `apps/server` if the behavior is a reactor or
+3. Open the Noyau source that owns the fact (`packages/contracts`,
+   then `apps/server/src/orchestration` for decide / evolve / recover,
+   then other `apps/server` files if the behavior is a reactor or
    persistence detail).
 4. Write or update only the target page. Do not expand scope to nearby docs
    unless a link would otherwise lie.
