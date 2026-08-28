@@ -26,7 +26,7 @@ export const COMPOSER_PROMPT_FIELD_CLASS_NAME =
   "min-h-24 max-h-52 w-full overflow-y-auto whitespace-pre-wrap break-words px-[calc(--spacing(3)-1px)] py-[calc(--spacing(1.5)-1px)] text-base leading-6 outline-none sm:text-sm"
 
 export type ComposerPromptFieldHandle = {
-  readonly focus: () => void
+  readonly focus: (offset?: number) => void
   readonly setCursor: (offset: number) => void
 }
 
@@ -121,8 +121,12 @@ export function ComposerPromptField({
   }
 
   useImperativeHandle(ref, () => ({
-    focus: () => {
+    focus: (offset) => {
       editorRef.current?.focus()
+      if (offset !== undefined) {
+        pendingCaret.current = offset
+        restoreCaret(offset)
+      }
     },
     setCursor: (offset) => {
       pendingCaret.current = offset

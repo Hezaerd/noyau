@@ -67,6 +67,7 @@ export function ThreadModelPicker({
   onModelSelectionChange,
   onProviderChange,
   onDefaultModelSelectionChange,
+  onOpenChange,
 }: {
   readonly cursorModels: ReadonlyArray<CursorModel>
   readonly claudeModels: ReadonlyArray<CursorModel>
@@ -80,6 +81,7 @@ export function ThreadModelPicker({
   readonly onModelSelectionChange: (modelSelection: ModelSelection) => void
   readonly onProviderChange?: ((provider: Provider) => void) | undefined
   readonly onDefaultModelSelectionChange: (selection: DefaultModelSelection | null) => void
+  readonly onOpenChange?: ((open: boolean) => void) | undefined
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -107,7 +109,13 @@ export function ThreadModelPicker({
     }
   }, [activeTab, allowedProviders])
 
-  useKeybindingHandler("thread.model-picker.open", () => setOpen(true), !disabled)
+  const changeOpen = (nextOpen: boolean) => {
+    onOpenChange?.(nextOpen)
+    setOpen(nextOpen)
+    if (!nextOpen) setQuery("")
+  }
+
+  useKeybindingHandler("thread.model-picker.open", () => changeOpen(true), !disabled)
 
   const allItems = useMemo(() => {
     const items = allowedProviders.flatMap((provider) =>
@@ -132,8 +140,7 @@ export function ThreadModelPicker({
   }, [activeTab, allItems, query])
 
   const selectModel = (item: ModelPickerItem) => {
-    setOpen(false)
-    setQuery("")
+    changeOpen(false)
     onProviderChange?.(item.provider)
     const nextSelection: ModelSelection = { modelId: item.model.modelId }
     if (
@@ -170,13 +177,7 @@ export function ThreadModelPicker({
   }
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(nextOpen) => {
-        setOpen(nextOpen)
-        if (!nextOpen) setQuery("")
-      }}
-    >
+    <Popover open={open} onOpenChange={changeOpen}>
       <PopoverTrigger
         render={
           <Button
@@ -195,7 +196,12 @@ export function ThreadModelPicker({
         </span>
         <ChevronsUpDownIcon data-icon="inline-end" />
       </PopoverTrigger>
-      <PopoverPopup side="top" align="start" className="w-96 [&>[data-slot=popover-viewport]]:p-0">
+      <PopoverPopup
+        side="top"
+        align="start"
+        finalFocus={false}
+        className="w-96 [&>[data-slot=popover-viewport]]:p-0"
+      >
         <PopoverTitle className="sr-only">Choose a model</PopoverTitle>
         <Command items={visibleItems} value={query} onValueChange={setQuery}>
           <CommandInput placeholder="Search a model…" aria-label="Search a model" />

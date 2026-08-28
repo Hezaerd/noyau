@@ -18,6 +18,7 @@ import { ChildProcessSpawner } from "effect/unstable/process"
 
 import {
   decodeListedPullRequests,
+  rememberStatusPullRequest,
   selectStatusPullRequest,
   type ListedPullRequest,
 } from "./pull-request.ts"
@@ -335,8 +336,10 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
       collected.push(...latest)
     }
     const selected = selectStatusPullRequest(collected, { isDefaultRef: details.isDefaultRef })
-    lastKnownPr.set(lastKnownPrKey(cwd, details.branch), selected)
-    return selected
+    const key = lastKnownPrKey(cwd, details.branch)
+    const remembered = rememberStatusPullRequest(lastKnownPr.get(key), selected)
+    lastKnownPr.set(key, remembered)
+    return remembered
   })
 
   const status = Effect.fn("GitRuntime.status")(function* (

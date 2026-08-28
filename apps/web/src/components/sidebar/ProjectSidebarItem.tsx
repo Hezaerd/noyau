@@ -5,6 +5,7 @@ import { LayoutGridIcon } from "lucide-react"
 import { ThreadSidebarItem } from "@/components/sidebar/ThreadSidebarItem"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { useAutoSettleMergedThreads } from "@/hooks/use-auto-settle-merged-threads"
 import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useThreadChangeRequests } from "@/hooks/use-thread-change-requests"
 
@@ -19,6 +20,7 @@ export function ProjectSidebarItem({
 }) {
   const threads = useProjectThreads(project.id)
   const { pullRequests, liveBranches } = useThreadChangeRequests(project.id, threads)
+  useAutoSettleMergedThreads(threads, pullRequests)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton

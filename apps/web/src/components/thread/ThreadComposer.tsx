@@ -150,6 +150,27 @@ export function ThreadComposer({
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
   const pendingCursor = useRef<number | null>(null)
   const [cursor, setCursor] = useState(text.length)
+  const cursorRef = useRef(cursor)
+  const caretBeforeOverlay = useRef<number | null>(null)
+  cursorRef.current = cursor
+
+  const rememberComposerCaret = () => {
+    caretBeforeOverlay.current = cursorRef.current
+  }
+
+  const restoreComposerCaret = () => {
+    const offset = caretBeforeOverlay.current ?? cursorRef.current
+    caretBeforeOverlay.current = null
+    fieldRef.current?.focus(offset)
+  }
+
+  const handleComposerOverlayOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      rememberComposerCaret()
+      return
+    }
+    restoreComposerCaret()
+  }
   const [expandedImage, setExpandedImage] = useState<ExpandedImagePreview | null>(null)
   const [pathEntries, setPathEntries] = useState<ReadonlyArray<WorkspacePathEntry>>([])
   const [pathSearchLoading, setPathSearchLoading] = useState(false)
@@ -402,13 +423,14 @@ export function ThreadComposer({
                 onModelSelectionChange={onModelSelectionChange}
                 onDefaultModelSelectionChange={onDefaultModelSelectionChange}
                 onProviderChange={onProviderChange}
+                onOpenChange={handleComposerOverlayOpenChange}
               />
 
               <Separator orientation="vertical" className="mx-0.5 h-4" />
 
               {modelSelection !== null && hasTraits ? (
                 <>
-                  <Menu>
+                  <Menu onOpenChange={handleComposerOverlayOpenChange}>
                     <MenuTrigger
                       render={
                         <Button
@@ -427,6 +449,7 @@ export function ThreadComposer({
                     <MenuPopup
                       side="top"
                       align="start"
+                      finalFocus={false}
                       className={cn("w-max", composerOverlayGlassClassName)}
                     >
                       {(selectedModel?.reasoningEfforts.length ?? 0) > 0 ? (
@@ -563,7 +586,7 @@ export function ThreadComposer({
                 </>
               ) : null}
 
-              <Menu>
+              <Menu onOpenChange={handleComposerOverlayOpenChange}>
                 <MenuTrigger
                   render={
                     <Button
@@ -583,6 +606,7 @@ export function ThreadComposer({
                 <MenuPopup
                   side="top"
                   align="start"
+                  finalFocus={false}
                   className={cn("w-max", composerOverlayGlassClassName)}
                 >
                   <MenuGroup>

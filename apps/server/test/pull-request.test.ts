@@ -4,6 +4,7 @@ import {
   foldCiStatus,
   normalizeMergeability,
   normalizePullRequestState,
+  rememberStatusPullRequest,
   selectStatusPullRequest,
   toListedPullRequest,
 } from "@noyau/server/git/pull-request"
@@ -85,6 +86,15 @@ describe("pull-request helpers", () => {
     expect(selectStatusPullRequest([merged, open], { isDefaultRef: false })?.number).toBe(2)
     expect(selectStatusPullRequest([merged], { isDefaultRef: true })).toBeNull()
     expect(selectStatusPullRequest([merged], { isDefaultRef: false })?.number).toBe(1)
+  })
+
+  it("ne remplace pas une PR terminale par une liste vide", () => {
+    const merged = item({ number: 12, state: "MERGED" })
+    const open = item({ number: 13, state: "OPEN" })
+    expect(rememberStatusPullRequest(merged, null)?.number).toBe(12)
+    expect(rememberStatusPullRequest(open, null)).toBeNull()
+    expect(rememberStatusPullRequest(merged, open)?.number).toBe(13)
+    expect(rememberStatusPullRequest(undefined, null)).toBeNull()
   })
 
   it.effect("décode une liste gh ou un stdout vide", () =>

@@ -19,10 +19,12 @@ export const dispatchThreadSettle = (
     | "hasPendingUserInput"
   >,
   nextSettled: boolean,
+  options: { readonly initiatedByUser?: boolean } = {},
 ): void => {
   if (nextSettled && !canSettle(thread)) {
     return
   }
+  const initiatedByUser = options.initiatedByUser !== false
   const dispatched = nextSettled
     ? buildAndDispatchCommand(makeThreadSettleRequest({ threadId: thread.id }))
     : buildAndDispatchCommand(makeThreadUnsettleRequest({ threadId: thread.id }))
@@ -32,7 +34,7 @@ export const dispatchThreadSettle = (
         presentFailure(result.failure, {
           operation: nextSettled ? "thread.settle" : "thread.unsettle",
           scope: "project",
-          initiatedByUser: true,
+          initiatedByUser,
           hasUsableData: true,
         }),
       )
