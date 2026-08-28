@@ -191,26 +191,30 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   )
   const threadActions = useMemo<ReadonlyArray<AppPaletteAction>>(
     () =>
-      paletteThreadItems(threads, lastProjectId, newThreadDraft).map((thread) => ({
-        id: thread.id,
-        label: thread.label,
-        searchValue: thread.searchValue,
-        category: "thread" as const,
-        icon: <MessageCircleIcon />,
-        prefetch:
-          thread.threadId === NEW_THREAD_PALETTE_THREAD_ID
-            ? undefined
-            : () => prefetchThreadSnapshot(ThreadId.make(thread.threadId)),
-        execute: () => {
-          if (lastProjectId === undefined) {
-            return
-          }
-          void navigate({
-            to: "/projects/$projectId/thread/$threadId",
-            params: { projectId: lastProjectId, threadId: thread.threadId },
-          })
-        },
-      })),
+      paletteThreadItems(threads, lastProjectId, newThreadDraft).map((thread) => {
+        const action: AppPaletteAction = {
+          id: thread.id,
+          label: thread.label,
+          searchValue: thread.searchValue,
+          category: "thread",
+          icon: <MessageCircleIcon />,
+          execute: () => {
+            if (lastProjectId === undefined) {
+              return
+            }
+            void navigate({
+              to: "/projects/$projectId/thread/$threadId",
+              params: { projectId: lastProjectId, threadId: thread.threadId },
+            })
+          },
+        }
+        if (thread.threadId === NEW_THREAD_PALETTE_THREAD_ID) {
+          return action
+        }
+        return Object.assign(action, {
+          prefetch: () => prefetchThreadSnapshot(ThreadId.make(thread.threadId)),
+        })
+      }),
     [lastProjectId, navigate, newThreadDraft, threads],
   )
   const groups = useMemo(() => {

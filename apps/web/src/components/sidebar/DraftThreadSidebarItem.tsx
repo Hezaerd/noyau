@@ -50,7 +50,7 @@ export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
             }
             isActive={isActive}
             aria-label={title}
-            tooltip={menuOpen ? undefined : title}
+            {...(menuOpen ? {} : { tooltip: title })}
             className="group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
