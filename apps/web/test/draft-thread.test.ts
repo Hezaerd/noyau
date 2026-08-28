@@ -2,7 +2,13 @@ import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { DateTime } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
-import { isDraftThreadView, resolveDraftLatestTurn } from "../src/lib/draft-thread"
+import { emptyComposerDraft } from "../src/lib/composer-drafts"
+import {
+  isDraftThreadView,
+  isListableNewThreadDraft,
+  newThreadDraftTitle,
+  resolveDraftLatestTurn,
+} from "../src/lib/draft-thread"
 
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const at = DateTime.makeUnsafe("2026-08-28T12:00:00.000Z")
@@ -67,6 +73,39 @@ describe("isDraftThreadView", () => {
         sending: false,
       }),
     ).toBe(false)
+  })
+})
+
+describe("isListableNewThreadDraft", () => {
+  it("is false for an empty composer", () => {
+    expect(isListableNewThreadDraft(emptyComposerDraft)).toBe(false)
+  })
+
+  it("is true once the composer has text or images", () => {
+    expect(isListableNewThreadDraft({ text: "Fix the sidebar", images: [] })).toBe(true)
+    expect(
+      isListableNewThreadDraft({
+        text: "",
+        images: [{ upload: { name: "shot.png" } }],
+      }),
+    ).toBe(true)
+  })
+})
+
+describe("newThreadDraftTitle", () => {
+  it("seeds the sidebar label from the first prompt line", () => {
+    expect(newThreadDraftTitle({ text: "  Fix the sidebar draft  ", images: [] })).toBe(
+      "Fix the sidebar draft",
+    )
+  })
+
+  it("uses the first image name when the composer is images-only", () => {
+    expect(
+      newThreadDraftTitle({
+        text: "",
+        images: [{ upload: { name: "shot.png" } }],
+      }),
+    ).toBe("shot.png")
   })
 })
 

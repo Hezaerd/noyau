@@ -10,6 +10,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { ProjectSidebarItem } from "../src/components/sidebar/ProjectSidebarItem"
 import { SidebarProvider } from "../src/components/ui/sidebar"
+import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
+import { resetComposerDrafts, writeComposerDraft } from "../src/state/composer-drafts"
 
 const createDraftThread = vi.hoisted(() => vi.fn())
 
@@ -55,6 +57,8 @@ vi.mock("@/hooks/use-auto-settle-merged-threads", () => ({
 
 afterEach(() => {
   cleanup()
+  resetComposerDrafts()
+  resetAppAtomRegistryForTests()
   createDraftThread.mockClear()
 })
 
@@ -73,13 +77,15 @@ describe("ProjectSidebarItem", () => {
     const user = userEvent.setup()
     const onSelect = vi.fn()
     render(
-      <SidebarProvider>
-        <ProjectSidebarItem
-          project={project}
-          pathname={`/projects/${project.id}/board`}
-          onSelect={onSelect}
-        />
-      </SidebarProvider>,
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ProjectSidebarItem
+            project={project}
+            pathname={`/projects/${project.id}/board`}
+            onSelect={onSelect}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
     )
 
     const newThread = screen.getByRole("button", { name: "New Thread" })
@@ -91,5 +97,38 @@ describe("ProjectSidebarItem", () => {
     await user.click(newThread)
     expect(onSelect).toHaveBeenCalledOnce()
     expect(createDraftThread).toHaveBeenCalledWith(project)
+  })
+
+  it("lists a typed /thread/new draft and hides an empty one", () => {
+    const onSelect = vi.fn()
+    const { rerender } = render(
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ProjectSidebarItem
+            project={project}
+            pathname={`/projects/${project.id}/thread/new`}
+            onSelect={onSelect}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
+    )
+
+    expect(screen.queryByText("Fix the sidebar draft")).toBeNull()
+
+    writeComposerDraft(project.id, undefined, "Fix the sidebar draft")
+    rerender(
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ProjectSidebarItem
+            project={project}
+            pathname={`/projects/${project.id}/thread/new`}
+            onSelect={onSelect}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
+    )
+
+    expect(screen.getByText("Fix the sidebar draft")).toBeTruthy()
+    expect(screen.getByText("Draft")).toBeTruthy()
   })
 })
