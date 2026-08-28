@@ -17,14 +17,14 @@ export const initialDesktopUpdateState = (currentVersion: string): DesktopUpdate
   result: currentVersion === "" ? undefined : { _tag: "unsupported", currentVersion },
 })
 
-export const desktopUpdateVersionLine = (
-  currentVersion: string,
-  channelHint: "dev" | "nightly" | undefined,
-): string => {
-  if (currentVersion === "") {
-    return channelHint ?? ""
+const PLACEHOLDER_APP_VERSION = /^(0\.0\.0(?:\+.*)?)$/
+
+export const desktopUpdateVersionLine = (currentVersion: string): string => {
+  const version = currentVersion.trim()
+  if (version === "" || PLACEHOLDER_APP_VERSION.test(version)) {
+    return ""
   }
-  return channelHint === undefined ? currentVersion : `${currentVersion} · ${channelHint}`
+  return version
 }
 
 export const desktopUpdateDescription = (
@@ -81,8 +81,11 @@ export const desktopUpdateStatusLabel = (
   }
 }
 
-export const desktopUpdatePrimaryAction = (state: DesktopUpdateState): "open" | "check" | null => {
-  if (state.phase !== "idle") {
+export const desktopUpdatePrimaryAction = (
+  state: DesktopUpdateState,
+  packagedChannel: DesktopReleaseChannel = "latest",
+): "open" | "check" | null => {
+  if (state.phase !== "idle" || packagedChannel === "development") {
     return null
   }
   if (state.result?._tag === "unsupported") {

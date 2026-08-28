@@ -71,7 +71,6 @@ export function GeneralSettingsPanel(): ReactElement {
 
   return (
     <SettingsPage>
-      <DesktopUpdateSettings />
       <SettingsSection id="projects" title="Projects">
         <SettingsRow
           id="project-folder-start-directory"
@@ -282,6 +281,7 @@ export function GeneralSettingsPanel(): ReactElement {
           }
         />
       </SettingsSection>
+      <DesktopUpdateSettings />
     </SettingsPage>
   )
 }

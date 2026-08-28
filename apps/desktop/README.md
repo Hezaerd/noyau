@@ -37,9 +37,9 @@ ne dépende d'aucune distribution web.
 ## Package et releases (unsigned)
 
 CI publie latest/nightly sur GitHub Releases : DMG Apple Silicon et NSIS Windows x64. Pas de
-signature, pas d’auto-update. L’app packagée peut vérifier le Canal de mise à jour (défaut
-= canal packagé) et ouvrir l’installeur GitHub correspondant. L’autre canal installe une
-app séparée. Nightly s’appelle **Noyau (Nightly)** (icône dark, bundle id
+signature, pas d’auto-update. L’app packagée vérifie son propre canal GitHub et peut
+ouvrir l’installeur correspondant depuis About dans Réglages → Général. Nightly
+s’appelle **Noyau (Nightly)** (icône dark, bundle id
 séparé). Marques : ember en Dev, dark en nightly, light en latest. L’UI lit
 `window.noyauDesktop.releaseChannel` / `NOYAU_RELEASE_CHANNEL`.
 La matrice exhaustive (nom, bundle id, dossier d'icône, palette et identité Discord) vit dans
