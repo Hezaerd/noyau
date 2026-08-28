@@ -174,8 +174,8 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     }
     const createThread: AppPaletteAction = {
       id: "thread.create",
-      label: "New Agent",
-      searchValue: "New Agent New Thread create conversation",
+      label: "New Thread",
+      searchValue: "New Thread New Agent create conversation",
       shortcut: threadCreateHotkey,
       icon: <MessageCirclePlusIcon />,
       execute: openNewThread,

@@ -69,7 +69,7 @@ const project = Schema.decodeSync(ProjectShell)({
 })
 
 describe("ProjectSidebarItem", () => {
-  it("places New Agent above Board and starts a draft Thread", async () => {
+  it("places New Thread above Board and starts a draft Thread", async () => {
     const user = userEvent.setup()
     const onSelect = vi.fn()
     render(
@@ -82,13 +82,13 @@ describe("ProjectSidebarItem", () => {
       </SidebarProvider>,
     )
 
-    const newAgent = screen.getByRole("button", { name: "New Agent" })
+    const newThread = screen.getByRole("button", { name: "New Thread" })
     const board = screen.getByRole("link", { name: "Board" })
-    expect(newAgent.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+    expect(newThread.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
 
-    await user.click(newAgent)
+    await user.click(newThread)
     expect(onSelect).toHaveBeenCalledOnce()
     expect(createDraftThread).toHaveBeenCalledWith(project)
   })
