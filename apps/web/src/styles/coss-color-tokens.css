@@ -3,7 +3,8 @@
  *
  * Light and dark share the same hue family. Light uses a deeper primary so
  * actions stay readable on paper; dark keeps the #9b8cff glow. Border/input
- * tokens stay Coss alpha-based so rounding and elevation stay unchanged.
+ * tokens keep Coss alpha ratios as color-mix values so `var(--border)` and
+ * `var(--sidebar-border)` stay valid computed colors.
  *
  * @see https://coss.com/ui/docs/styling
  */
@@ -31,8 +32,8 @@
   --success-foreground: #1d7a68;
   --warning: #d0893a;
   --warning-foreground: #9a5a14;
-  --border: --alpha(var(--color-black) / 8%);
-  --input: --alpha(var(--color-black) / 10%);
+  --border: color-mix(in oklab, var(--color-black) 8%, transparent);
+  --input: color-mix(in oklab, var(--color-black) 10%, transparent);
   --ring: #6154e0;
   --chart-1: #6154e0;
   --chart-2: #4d6ef0;
@@ -49,7 +50,7 @@
   --sidebar-primary-foreground: #f7f5ff;
   --sidebar-accent: #ddd8f2;
   --sidebar-accent-foreground: #2a2840;
-  --sidebar-border: --alpha(var(--color-black) / 6%);
+  --sidebar-border: color-mix(in oklab, var(--color-black) 6%, transparent);
   --sidebar-ring: #6154e0;
 }
 
@@ -77,8 +78,8 @@
   --success-foreground: #9ce0d1;
   --warning: #d99a58;
   --warning-foreground: #ffd2a1;
-  --border: --alpha(var(--color-white) / 6%);
-  --input: --alpha(var(--color-white) / 8%);
+  --border: color-mix(in oklab, var(--color-white) 6%, transparent);
+  --input: color-mix(in oklab, var(--color-white) 8%, transparent);
   --ring: #9b8cff;
   --chart-1: #9b8cff;
   --chart-2: #6f8dff;
@@ -95,6 +96,6 @@
   --sidebar-primary-foreground: #100e17;
   --sidebar-accent: #211f2b;
   --sidebar-accent-foreground: #f3f1ff;
-  --sidebar-border: --alpha(var(--color-white) / 5%);
+  --sidebar-border: color-mix(in oklab, var(--color-white) 5%, transparent);
   --sidebar-ring: #9b8cff;
 }
