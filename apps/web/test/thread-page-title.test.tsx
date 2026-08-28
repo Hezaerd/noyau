@@ -3,9 +3,17 @@
 import { ThreadId } from "@noyau/contracts/ids"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { ThreadPageTitle } from "../src/components/WorkspaceBreadcrumb"
+import { useKeybindingDispatcher } from "../src/hooks/use-keybinding-dispatcher"
+import { resetKeybindingHandlersForTests } from "../src/state/keybinding-handlers"
+
+function KeybindingHarness({ children }: { readonly children: ReactNode }) {
+  useKeybindingDispatcher()
+  return children
+}
 
 const buildAndDispatchCommand = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ details: undefined, ok: true as const, value: undefined })),
@@ -17,20 +25,29 @@ vi.mock("@/lib/control-plane", () => ({
 
 afterEach(() => {
   cleanup()
+  resetKeybindingHandlersForTests()
   buildAndDispatchCommand.mockClear()
 })
 
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const threadTitle = "Exclure les subtrees du graphe"
 
-const renderTitle = (props?: { readonly threadId?: ThreadId }) =>
-  render(
-    <ThreadPageTitle
-      projectName="noyau"
-      threadId={props?.threadId ?? threadId}
-      threadTitle={threadTitle}
-    />,
+const renderTitle = (props?: { readonly threadId?: ThreadId }) => {
+  window.history.replaceState(
+    {},
+    "",
+    `/projects/10000000-0000-4000-8000-000000000001/thread/${props?.threadId ?? threadId}`,
   )
+  return render(
+    <KeybindingHarness>
+      <ThreadPageTitle
+        projectName="noyau"
+        threadId={props?.threadId ?? threadId}
+        threadTitle={threadTitle}
+      />
+    </KeybindingHarness>,
+  )
+}
 
 describe("Thread chrome title rename", () => {
   it("starts an inline rename from a double-click in the chrome", async () => {
@@ -78,7 +95,12 @@ describe("Thread chrome title rename", () => {
 
   it("does not rename a draft Thread without an id", async () => {
     const user = userEvent.setup()
-    render(<ThreadPageTitle projectName="noyau" threadTitle="Nouveau Thread" />)
+    window.history.replaceState({}, "", "/projects/10000000-0000-4000-8000-000000000001/thread/new")
+    render(
+      <KeybindingHarness>
+        <ThreadPageTitle projectName="noyau" threadTitle="Nouveau Thread" />
+      </KeybindingHarness>,
+    )
 
     await user.dblClick(screen.getByRole("heading", { name: "Nouveau Thread" }))
     fireEvent.keyDown(window, { key: "F2" })

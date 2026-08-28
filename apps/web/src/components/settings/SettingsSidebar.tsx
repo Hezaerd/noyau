@@ -34,8 +34,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useKeybindingRecorderActive, useKeybindings } from "@/hooks/use-keybindings"
-import { matchesKeybinding } from "@/lib/keybindings"
+import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
+import { useKeybinding } from "@/hooks/use-keybindings"
 import {
   searchSettings,
   SETTINGS_TABS,
@@ -57,9 +57,7 @@ export function SettingsSidebar(): ReactElement {
   const currentHash = useLocation({ select: (location) => location.hash })
   const canGoBack = useCanGoBack()
   const { isMobile, setOpenMobile, open, setOpen } = useSidebar()
-  const { resolved } = useKeybindings()
-  const searchHotkey = resolved["settings.search"]
-  const recorderActive = useKeybindingRecorderActive()
+  const searchHotkey = useKeybinding("settings.search")
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
   const [activeResultIndex, setActiveResultIndex] = useState(0)
@@ -77,37 +75,18 @@ export function SettingsSidebar(): ReactElement {
       ?.scrollIntoView({ block: "nearest" })
   }, [activeResultIndex, results])
 
-  useEffect(() => {
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (recorderActive || !matchesKeybinding(event, "settings.search", resolved)) {
-        return
-      }
-
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable ||
-          target.closest('[role="dialog"], [aria-modal="true"], [data-slot$="popup"]') !== null)
-      ) {
-        return
-      }
-
-      event.preventDefault()
-      if (isMobile) {
-        setOpenMobile(true)
-      } else if (!open) {
-        setOpen(true)
-      }
-      requestAnimationFrame(() => {
-        searchInputRef.current?.focus()
-        searchInputRef.current?.select()
-      })
+  const focusSettingsSearch = useCallback(() => {
+    if (isMobile) {
+      setOpenMobile(true)
+    } else if (!open) {
+      setOpen(true)
     }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [isMobile, open, recorderActive, resolved, setOpen, setOpenMobile, searchHotkey])
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    })
+  }, [isMobile, open, setOpen, setOpenMobile])
+  useKeybindingHandler("settings.search", focusSettingsSearch)
 
   const navigateBack = useCallback(() => {
     if (isMobile) {

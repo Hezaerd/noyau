@@ -178,7 +178,13 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     tab: "keybindings" as const,
     title: keybinding.title,
     description: keybinding.description,
-    keywords: ["raccourci", "clavier", keybinding.defaultHotkey],
+    keywords: [
+      "raccourci",
+      "clavier",
+      "condition",
+      keybinding.defaultHotkey,
+      ...(keybinding.when === undefined ? [] : [keybinding.when]),
+    ],
   })),
 ]
 

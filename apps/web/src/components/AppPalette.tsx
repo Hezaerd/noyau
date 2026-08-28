@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { useLastProjectId, useProjectThreads } from "@/hooks/use-control-plane"
+import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import {
   buildPaletteGroups,
@@ -49,16 +50,9 @@ import {
 } from "@/lib/keyboard-shortcut"
 import { DEFAULT_SETTINGS_TAB, isSettingsPath } from "@/lib/settings-catalog"
 import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
+import { setKeybindingPaletteOpen } from "@/state/keybinding-context"
 
 const RECENT_ACTIONS_STORAGE_KEY = "noyau.palette.recent-actions"
-
-const isEditableTarget = (target: EventTarget | null): boolean => {
-  if (!(target instanceof Element)) {
-    return false
-  }
-  return target.closest("input, textarea, select, [contenteditable=true]") !== null
-}
 
 const readRecentActionIds = (): ReadonlyArray<string> => {
   try {
@@ -102,22 +96,8 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   }, [recentActionIds])
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        isKeybindingRecorderActive() ||
-        !matchesKeybinding(event, "palette.open") ||
-        isEditableTarget(event.target) ||
-        (!open && document.querySelector('[role="dialog"]') !== null)
-      ) {
-        return
-      }
-      event.preventDefault()
-      setOpen(true)
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    setKeybindingPaletteOpen(open)
+    return () => setKeybindingPaletteOpen(false)
   }, [open])
 
   const openSettings = useCallback(() => {
@@ -131,23 +111,6 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
       params: { tab: DEFAULT_SETTINGS_TAB },
     })
   }, [navigate, pathname])
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        isKeybindingRecorderActive() ||
-        !matchesKeybinding(event, "settings.open")
-      ) {
-        return
-      }
-      event.preventDefault()
-      openSettings()
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [openSettings])
 
   const newThreadPath =
     lastProjectId === undefined ? undefined : `/projects/${lastProjectId}/thread/new`
@@ -167,24 +130,9 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     })
   }, [lastProjectId, navigate, pathname])
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        isKeybindingRecorderActive() ||
-        !matchesKeybinding(event, "thread.create") ||
-        lastProjectId === undefined ||
-        (!open && document.querySelector('[role="dialog"]') !== null)
-      ) {
-        return
-      }
-      event.preventDefault()
-      openNewThread()
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [lastProjectId, open, openNewThread])
+  useKeybindingHandler("palette.open", () => setOpen(true))
+  useKeybindingHandler("settings.open", openSettings)
+  useKeybindingHandler("thread.create", openNewThread, lastProjectId !== undefined)
 
   const navigationActions = useMemo<ReadonlyArray<AppPaletteAction>>(() => {
     const actions: Array<AppPaletteAction & { readonly path: string }> = [

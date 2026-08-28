@@ -17,8 +17,8 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
+import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
-import { composerOverlayGlassClassName } from "@/lib/composer-glass"
 import {
   favoriteModelKey,
   persistFavoriteModels,
@@ -26,7 +26,6 @@ import {
   type FavoriteModel,
 } from "@/lib/model-picker-preferences"
 import { cn } from "@/lib/utils"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 
 type ProviderTab = "favorites" | Provider
 type ModelPickerItem = {
@@ -108,17 +107,7 @@ export function ThreadModelPicker({
     }
   }, [activeTab, allowedProviders])
 
-  useEffect(() => {
-    if (disabled) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isKeybindingRecorderActive()) return
-      if (!matchesKeybinding(event, "thread.model-picker.open")) return
-      event.preventDefault()
-      setOpen(true)
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [disabled, modelPickerHotkey])
+  useKeybindingHandler("thread.model-picker.open", () => setOpen(true), !disabled)
 
   const allItems = useMemo(() => {
     const items = allowedProviders.flatMap((provider) =>
@@ -206,11 +195,7 @@ export function ThreadModelPicker({
         </span>
         <ChevronsUpDownIcon data-icon="inline-end" />
       </PopoverTrigger>
-      <PopoverPopup
-        side="top"
-        align="start"
-        className={cn("w-96 [&>[data-slot=popover-viewport]]:p-0", composerOverlayGlassClassName)}
-      >
+      <PopoverPopup side="top" align="start" className="w-96 [&>[data-slot=popover-viewport]]:p-0">
         <PopoverTitle className="sr-only">Choisir un modèle</PopoverTitle>
         <Command items={visibleItems} value={query} onValueChange={setQuery}>
           <CommandInput placeholder="Rechercher un modèle…" aria-label="Rechercher un modèle" />

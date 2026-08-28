@@ -1,12 +1,13 @@
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { CircleCheckIcon, CircleDotIcon } from "lucide-react"
-import { useEffect, useMemo } from "react"
+import { useMemo } from "react"
 
 import { useAppPaletteActions, type AppPaletteAction } from "@/components/app-palette-context"
 import { GitActionsControl } from "@/components/thread/GitActionsControl"
 import { OpenInPicker } from "@/components/thread/OpenInPicker"
 import { Button } from "@/components/ui/button"
 import { useThreadShell } from "@/hooks/use-control-plane"
+import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { useNowMinuteMs } from "@/hooks/use-now-minute"
 import { useThreadChangeRequests } from "@/hooks/use-thread-change-requests"
@@ -17,7 +18,6 @@ import {
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle, effectiveSettled } from "@/lib/thread-settled"
 import { EMPTY_THREAD_SHELLS } from "@/lib/thread-shell-index"
-import { isKeybindingRecorderActive, matchesKeybinding } from "@/state/keybindings"
 
 export function ThreadHeaderActions({
   projectId,
@@ -87,28 +87,15 @@ function ThreadSettleButton({
     ]
   }, [settleHotkey, settled, thread])
   useAppPaletteActions(paletteActions)
-
-  useEffect(() => {
-    if (thread === undefined || disabled) {
-      return
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        isKeybindingRecorderActive() ||
-        document.querySelector('[role="dialog"]') !== null
-      ) {
-        return
+  useKeybindingHandler(
+    "thread.settle",
+    () => {
+      if (thread !== undefined) {
+        dispatchThreadSettle(thread, !settled)
       }
-      if (!matchesKeybinding(event, "thread.settle")) {
-        return
-      }
-      event.preventDefault()
-      dispatchThreadSettle(thread, !settled)
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [disabled, settled, thread])
+    },
+    thread !== undefined && !disabled,
+  )
 
   if (thread === undefined || threadId === undefined) {
     return null

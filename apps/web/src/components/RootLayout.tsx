@@ -18,6 +18,7 @@ import {
   useThreadShell,
 } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
+import { useKeybindingDispatcher } from "@/hooks/use-keybinding-dispatcher"
 import { useOpenThreadFromNotification } from "@/hooks/use-open-thread-from-notification"
 import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
 import { useShellFocusReporter } from "@/hooks/use-shell-focus-reporter"
@@ -142,6 +143,11 @@ function ShellFocusReporter() {
   return null
 }
 
+function KeybindingRuntime() {
+  useKeybindingDispatcher()
+  return null
+}
+
 function TurnSettlementCue() {
   useTurnSettlementCue()
   useWaitingThreadBadge()
@@ -156,6 +162,7 @@ export function RootLayout() {
   return (
     <ControlPlaneProvider>
       <ShellFocusReporter />
+      <KeybindingRuntime />
       <TurnSettlementCue />
       <AppPaletteProvider>
         <SidebarProvider className="h-svh overflow-hidden" style={macosDesktopControlsStyle()}>

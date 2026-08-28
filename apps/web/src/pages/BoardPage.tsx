@@ -22,7 +22,6 @@ import type { TicketActivity } from "@noyau/contracts/board"
 import type { ClientCommandRequest } from "@noyau/contracts/commands"
 import type { TicketPriority } from "@noyau/contracts/entities/ticket"
 import { KanbanColumnId, type ProjectId, type ThreadId, TicketId } from "@noyau/contracts/ids"
-import { useHotkeys } from "@tanstack/react-hotkeys"
 import { differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns"
 import { fr } from "date-fns/locale"
 import type { Crypto } from "effect"
@@ -79,7 +78,8 @@ import {
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
-import { useKeybindingRecorderActive, useKeybindings } from "@/hooks/use-keybindings"
+import { useKeybindingHandlers } from "@/hooks/use-keybinding-handler"
+import { useKeybindings } from "@/hooks/use-keybindings"
 import { useProjectBoard } from "@/hooks/use-project-board"
 import {
   createBoardActions,
@@ -124,6 +124,7 @@ import {
   makeTicketUpdateRequest,
 } from "@/lib/ticket-commands"
 import { cn } from "@/lib/utils"
+import { setKeybindingSelection } from "@/state/keybinding-context"
 const priorityLabels = {
   none: "Sans priorité",
   low: "Basse",
@@ -413,9 +414,11 @@ interface BoardColumnViewProps {
   readonly actions: ReadonlyArray<ExecutableBoardAction>
   readonly filters: BoardFilters
   readonly activeTicketId: string | undefined
+  readonly selected: boolean
   readonly creating: boolean
   readonly editing: boolean
   readonly onActiveTicket: (ticketId: string) => void
+  readonly onSelectColumn: () => void
   readonly onOpenTicket: (ticketId: string) => void
   readonly onCreate: (title: string) => void
   readonly onCreatingChange: (creating: boolean) => void
@@ -431,9 +434,11 @@ function BoardColumnView({
   actions,
   filters,
   activeTicketId,
+  selected,
   creating,
   editing,
   onActiveTicket,
+  onSelectColumn,
   onOpenTicket,
   onCreate,
   onCreatingChange,
@@ -470,13 +475,19 @@ function BoardColumnView({
       aria-labelledby={`column-title-${column.id}`}
       className={cn(
         "flex h-full w-[304px] shrink-0 flex-col rounded-2xl border border-border/70 bg-card",
+        selected && "border-primary/55 ring-2 ring-primary/25",
         isOver && "border-primary/45 bg-primary/5",
       )}
     >
       <ContextMenu>
         <ContextMenuTrigger
           render={
-            <header className="flex h-12 items-center gap-2 border-b border-border/55 px-3" />
+            <header
+              className="flex h-12 items-center gap-2 border-b border-border/55 px-3"
+              onPointerDown={() => {
+                onSelectColumn()
+              }}
+            />
           }
         >
           <span className="size-2 rounded-full" style={{ backgroundColor: column.color }} />
@@ -651,7 +662,6 @@ export function BoardPage({
 }: BoardPageProps) {
   const projectThreads = useProjectThreads(projectId)
   const { resolved: keybindings } = useKeybindings()
-  const recorderActive = useKeybindingRecorderActive()
   const { snapshot: boardSnapshot, status: subscriptionStatus } = useProjectBoard(projectId)
   const [state, setState] = useState<BoardState>({
     columns: [],
@@ -666,6 +676,7 @@ export function BoardPage({
     ReadonlyArray<TicketActivity>
   >([])
   const [activeTicketId, setActiveTicketId] = useState<string | undefined>(state.tickets[0]?.id)
+  const [activeColumnId, setActiveColumnId] = useState<string>()
   const [draggedTicketId, setDraggedTicketId] = useState<string>()
   const [creatingColumnId, setCreatingColumnId] = useState<string>()
   const [editingColumnId, setEditingColumnId] = useState<string>()
@@ -695,6 +706,10 @@ export function BoardPage({
     [ticketActivityByTicket, selectedTicketId],
   )
   const draggedTicket = state.tickets.find((ticket) => ticket.id === draggedTicketId)
+  const selectedColumnId =
+    activeColumnId !== undefined && state.columns.some((column) => column.id === activeColumnId)
+      ? activeColumnId
+      : undefined
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -768,8 +783,18 @@ export function BoardPage({
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
   )
 
-  const setActiveAndFocus = (ticketId: string | undefined) => {
+  const selectTicket = (ticketId: string | undefined) => {
+    setActiveColumnId(undefined)
     setActiveTicketId(ticketId)
+  }
+
+  const selectColumn = (columnId: string) => {
+    setActiveTicketId(undefined)
+    setActiveColumnId(columnId)
+  }
+
+  const setActiveAndFocus = (ticketId: string | undefined) => {
+    selectTicket(ticketId)
     requestAnimationFrame(() => focusTicket(boardRef, ticketId))
   }
 
@@ -835,8 +860,11 @@ export function BoardPage({
   const navigateVertical = (direction: -1 | 1) => {
     const active = state.tickets.find((ticket) => ticket.id === activeTicketId)
     if (active === undefined) {
+      const columnTickets =
+        activeColumnId === undefined ? undefined : (visibleByColumn.get(activeColumnId) ?? [])
       setActiveAndFocus(
-        state.columns.flatMap((column) => visibleByColumn.get(column.id) ?? [])[0]?.id,
+        columnTickets?.[0]?.id ??
+          state.columns.flatMap((column) => visibleByColumn.get(column.id) ?? [])[0]?.id,
       )
       return
     }
@@ -847,20 +875,26 @@ export function BoardPage({
 
   const navigateHorizontal = (direction: -1 | 1) => {
     const active = state.tickets.find((ticket) => ticket.id === activeTicketId)
-    if (active === undefined) {
+    const sourceColumnId = active?.columnId ?? activeColumnId
+    if (sourceColumnId === undefined) {
       return
     }
-    const sourceIndex = state.columns.findIndex((column) => column.id === active.columnId)
+    const sourceIndex = state.columns.findIndex((column) => column.id === sourceColumnId)
     const destination = state.columns[sourceIndex + direction]
     if (destination === undefined) {
       return
     }
-    const sourceTickets = visibleByColumn.get(active.columnId) ?? []
+    const sourceTickets = visibleByColumn.get(sourceColumnId) ?? []
     const destinationTickets = visibleByColumn.get(destination.id) ?? []
-    const sourceTicketIndex = sourceTickets.findIndex((ticket) => ticket.id === active.id)
-    setActiveAndFocus(
-      destinationTickets[Math.min(sourceTicketIndex, destinationTickets.length - 1)]?.id,
-    )
+    const sourceTicketIndex =
+      active === undefined ? 0 : sourceTickets.findIndex((ticket) => ticket.id === active.id)
+    const nextTicket =
+      destinationTickets[Math.min(Math.max(sourceTicketIndex, 0), destinationTickets.length - 1)]
+    if (nextTicket === undefined) {
+      selectColumn(destination.id)
+      return
+    }
+    setActiveAndFocus(nextTicket.id)
   }
 
   const keyboardMove = (direction: -1 | 1, acrossColumns: boolean) => {
@@ -899,53 +933,62 @@ export function BoardPage({
     )
   }
 
-  useHotkeys(
-    [
-      { hotkey: keybindings["board.navigate.up"], callback: () => navigateVertical(-1) },
-      { hotkey: keybindings["board.navigate.down"], callback: () => navigateVertical(1) },
-      { hotkey: keybindings["board.navigate.left"], callback: () => navigateHorizontal(-1) },
-      { hotkey: keybindings["board.navigate.right"], callback: () => navigateHorizontal(1) },
-      {
-        hotkey: keybindings["board.ticket.open"],
-        callback: () => {
-          if (activeTicketId !== undefined) {
-            onOpenTicket(activeTicketId)
-          }
-        },
-      },
-      {
-        hotkey: keybindings["board.ticket.create"],
-        callback: () => {
-          const active = state.tickets.find((ticket) => ticket.id === activeTicketId)
-          const fallback = state.columns.find((column) => !column.done)
-          const columnId = active?.columnId ?? fallback?.id
-          const column = state.columns.find((candidate) => candidate.id === columnId)
-          if (column !== undefined && !column.done) {
-            setCreatingColumnId(column.id)
-          }
-        },
-      },
-      {
-        hotkey: keybindings["board.ticket.rename"],
-        callback: () => {
-          if (activeTicketId !== undefined) {
-            setRenamingTicketId(activeTicketId)
-            onOpenTicket(activeTicketId)
-          }
-        },
-      },
-      { hotkey: keybindings["board.search"], callback: () => searchRef.current?.focus() },
-      { hotkey: keybindings["board.move.up"], callback: () => keyboardMove(-1, false) },
-      { hotkey: keybindings["board.move.down"], callback: () => keyboardMove(1, false) },
-      { hotkey: keybindings["board.move.left"], callback: () => keyboardMove(-1, true) },
-      { hotkey: keybindings["board.move.right"], callback: () => keyboardMove(1, true) },
-    ],
-    {
-      target: boardRef,
-      enabled: selectedTicket === undefined && !recorderActive,
-      preventDefault: true,
+  useEffect(() => {
+    if (activeColumnId !== undefined && selectedColumnId === undefined) {
+      setActiveColumnId(undefined)
+    }
+    if (
+      editingColumnId !== undefined &&
+      !state.columns.some((column) => column.id === editingColumnId)
+    ) {
+      setEditingColumnId(undefined)
+    }
+  }, [activeColumnId, editingColumnId, selectedColumnId, state.columns])
+
+  useEffect(() => {
+    setKeybindingSelection({
+      ticketSelected: activeTicketId !== undefined,
+      columnSelected: selectedColumnId !== undefined && activeTicketId === undefined,
+    })
+    return () => setKeybindingSelection({ ticketSelected: false, columnSelected: false })
+  }, [activeTicketId, selectedColumnId])
+
+  useKeybindingHandlers({
+    "board.navigate.up": () => navigateVertical(-1),
+    "board.navigate.down": () => navigateVertical(1),
+    "board.navigate.left": () => navigateHorizontal(-1),
+    "board.navigate.right": () => navigateHorizontal(1),
+    "board.ticket.open": () => {
+      if (activeTicketId !== undefined) {
+        onOpenTicket(activeTicketId)
+      }
     },
-  )
+    "board.ticket.create": () => {
+      const active = state.tickets.find((ticket) => ticket.id === activeTicketId)
+      const fallback = state.columns.find((column) => !column.done)
+      const columnId = active?.columnId ?? fallback?.id
+      const column = state.columns.find((candidate) => candidate.id === columnId)
+      if (column !== undefined && !column.done) {
+        setCreatingColumnId(column.id)
+      }
+    },
+    "board.ticket.rename": () => {
+      if (activeTicketId !== undefined) {
+        setRenamingTicketId(activeTicketId)
+        onOpenTicket(activeTicketId)
+      }
+    },
+    "board.column.rename": () => {
+      if (selectedColumnId !== undefined && activeTicketId === undefined) {
+        setEditingColumnId(selectedColumnId)
+      }
+    },
+    "board.search": () => searchRef.current?.focus(),
+    "board.move.up": () => keyboardMove(-1, false),
+    "board.move.down": () => keyboardMove(1, false),
+    "board.move.left": () => keyboardMove(-1, true),
+    "board.move.right": () => keyboardMove(1, true),
+  })
 
   const handleDragStart = ({ active }: DragStartEvent) => {
     dragStartStateRef.current = state
@@ -996,7 +1039,7 @@ export function BoardPage({
     }
     if (String(over.id) === ticketId) {
       setState(state)
-      setActiveTicketId(ticketId)
+      selectTicket(ticketId)
       if (state !== origin) {
         const preview = state.tickets.find((ticket) => ticket.id === ticketId)
         const column = state.columns.find((candidate) => candidate.id === preview?.columnId)
@@ -1028,7 +1071,7 @@ export function BoardPage({
           isBelowOverItem(active, over),
         )
     setState(next)
-    setActiveTicketId(ticketId)
+    selectTicket(ticketId)
     if (next === origin) {
       return
     }
@@ -1085,6 +1128,12 @@ export function BoardPage({
     let next = state
     for (const ticket of ticketsInColumn(state, column.id)) {
       next = moveTicket(next, ticket.id, destination.id)
+    }
+    if (activeColumnId === column.id) {
+      setActiveColumnId(undefined)
+    }
+    if (editingColumnId === column.id) {
+      setEditingColumnId(undefined)
     }
     setState({ ...next, columns: next.columns.filter((candidate) => candidate.id !== column.id) })
     runCommand(
@@ -1284,9 +1333,13 @@ export function BoardPage({
                 actions={boardActions}
                 filters={filters}
                 activeTicketId={activeTicketId}
+                selected={selectedColumnId === column.id && activeTicketId === undefined}
                 creating={creatingColumnId === column.id}
                 editing={editingColumnId === column.id}
-                onActiveTicket={setActiveTicketId}
+                onActiveTicket={selectTicket}
+                onSelectColumn={() => {
+                  selectColumn(column.id)
+                }}
                 onOpenTicket={onOpenTicket}
                 onCreate={(title) => createInColumn(column.id, title)}
                 onCreatingChange={(creating) =>

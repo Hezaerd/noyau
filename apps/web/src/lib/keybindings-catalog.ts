@@ -1,5 +1,3 @@
-import type { Hotkey } from "@tanstack/react-hotkeys"
-
 export const KEYBINDING_GROUP_IDS = ["global", "board", "thread", "settings"] as const
 
 export type KeybindingGroupId = (typeof KEYBINDING_GROUP_IDS)[number]
@@ -26,6 +24,7 @@ export const KEYBINDING_IDS = [
   "board.move.left",
   "board.move.right",
   "settings.search",
+  "settings.keybindings.search",
 ] as const
 
 export type KeybindingId = (typeof KEYBINDING_IDS)[number]
@@ -35,7 +34,8 @@ export interface KeybindingDefinition {
   readonly group: KeybindingGroupId
   readonly title: string
   readonly description: string
-  readonly defaultHotkey: Hotkey
+  readonly defaultHotkey: string
+  readonly when?: string
 }
 
 export const KEYBINDING_GROUP_LABELS = {
@@ -45,55 +45,70 @@ export const KEYBINDING_GROUP_LABELS = {
   settings: "Paramètres",
 } as const satisfies Record<KeybindingGroupId, string>
 
+const WHEN_GLOBAL = "!dialogOpen && !editableFocused"
+const WHEN_THREAD = "thread && !dialogOpen"
+const WHEN_THREAD_CHROME = "thread && !dialogOpen && !editableFocused"
+const WHEN_TABLEAU = "tableau && !dialogOpen && !editableFocused"
+const WHEN_TABLEAU_TICKET = "tableau && ticketSelected && !dialogOpen && !editableFocused"
+const WHEN_TABLEAU_COLUMN =
+  "tableau && columnSelected && !ticketSelected && !dialogOpen && !editableFocused"
+const WHEN_SETTINGS = "settings && !dialogOpen && !editableFocused"
+
 export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
   {
     id: "palette.open",
     group: "global",
     title: "Ouvrir la Palette",
     description: "Ouvre la Palette depuis n’importe quelle page.",
-    defaultHotkey: "Mod+K",
+    defaultHotkey: "mod+k",
+    when: WHEN_GLOBAL,
   },
   {
     id: "settings.open",
     group: "global",
     title: "Ouvrir les Paramètres",
     description: "Ouvre les Paramètres depuis n’importe quelle page.",
-    defaultHotkey: "Mod+,",
+    defaultHotkey: "mod+,",
   },
   {
     id: "thread.create",
     group: "global",
     title: "Nouveau Thread",
     description: "Ouvre un nouveau Thread dans le Project courant.",
-    defaultHotkey: "Mod+N",
+    defaultHotkey: "mod+n",
+    when: "!dialogOpen",
   },
   {
     id: "thread.rename",
     group: "thread",
     title: "Renommer le Thread",
     description: "Renomme le Thread ouvert dans le chrome.",
-    defaultHotkey: "F2",
+    defaultHotkey: "f2",
+    when: WHEN_THREAD_CHROME,
   },
   {
     id: "thread.pin",
     group: "thread",
     title: "Épingler le Thread",
     description: "Épingle ou désépingle le Thread ouvert en haut de la sidebar.",
-    defaultHotkey: "Mod+P",
+    defaultHotkey: "mod+p",
+    when: WHEN_THREAD_CHROME,
   },
   {
     id: "thread.model-picker.open",
     group: "thread",
     title: "Choisir un modèle",
     description: "Ouvre le sélecteur de modèle du Composer.",
-    defaultHotkey: "Mod+;",
+    defaultHotkey: "mod+;",
+    when: WHEN_THREAD,
   },
   {
     id: "thread.settle",
     group: "thread",
     title: "Classer le Thread",
     description: "Classe ou déclasse le Thread ouvert dans la queue Classés.",
-    defaultHotkey: "Mod+E",
+    defaultHotkey: "mod+e",
+    when: WHEN_THREAD,
   },
   {
     id: "board.search",
@@ -101,90 +116,103 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Rechercher dans le Tableau",
     description: "Place le focus dans la recherche du Tableau.",
     defaultHotkey: "/",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.ticket.create",
     group: "board",
     title: "Créer un ticket",
     description: "Ouvre la création d’un ticket dans la colonne active.",
-    defaultHotkey: "C",
+    defaultHotkey: "c",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.ticket.open",
     group: "board",
     title: "Ouvrir le ticket",
     description: "Ouvre le Dialog du ticket sélectionné.",
-    defaultHotkey: "Enter",
+    defaultHotkey: "enter",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.ticket.rename",
     group: "board",
     title: "Renommer le ticket",
     description: "Renomme le ticket ciblé.",
-    defaultHotkey: "F2",
+    defaultHotkey: "f2",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.column.rename",
     group: "board",
     title: "Renommer la colonne",
     description: "Renomme la colonne ciblée.",
-    defaultHotkey: "F2",
+    defaultHotkey: "f2",
+    when: WHEN_TABLEAU_COLUMN,
   },
   {
     id: "board.navigate.up",
     group: "board",
     title: "Ticket précédent",
     description: "Sélectionne le ticket au-dessus.",
-    defaultHotkey: "ArrowUp",
+    defaultHotkey: "arrowup",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.navigate.down",
     group: "board",
     title: "Ticket suivant",
     description: "Sélectionne le ticket en dessous.",
-    defaultHotkey: "ArrowDown",
+    defaultHotkey: "arrowdown",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.navigate.left",
     group: "board",
     title: "Colonne précédente",
     description: "Sélectionne le ticket dans la colonne de gauche.",
-    defaultHotkey: "ArrowLeft",
+    defaultHotkey: "arrowleft",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.navigate.right",
     group: "board",
     title: "Colonne suivante",
     description: "Sélectionne le ticket dans la colonne de droite.",
-    defaultHotkey: "ArrowRight",
+    defaultHotkey: "arrowright",
+    when: WHEN_TABLEAU,
   },
   {
     id: "board.move.up",
     group: "board",
     title: "Monter le ticket",
     description: "Déplace le ticket sélectionné vers le haut.",
-    defaultHotkey: "Alt+Shift+ArrowUp",
+    defaultHotkey: "alt+shift+arrowup",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.move.down",
     group: "board",
     title: "Descendre le ticket",
     description: "Déplace le ticket sélectionné vers le bas.",
-    defaultHotkey: "Alt+Shift+ArrowDown",
+    defaultHotkey: "alt+shift+arrowdown",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.move.left",
     group: "board",
     title: "Ticket vers la gauche",
     description: "Déplace le ticket sélectionné dans la colonne de gauche.",
-    defaultHotkey: "Alt+Shift+ArrowLeft",
+    defaultHotkey: "alt+shift+arrowleft",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "board.move.right",
     group: "board",
     title: "Ticket vers la droite",
     description: "Déplace le ticket sélectionné dans la colonne de droite.",
-    defaultHotkey: "Alt+Shift+ArrowRight",
+    defaultHotkey: "alt+shift+arrowright",
+    when: WHEN_TABLEAU_TICKET,
   },
   {
     id: "settings.search",
@@ -192,8 +220,30 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Rechercher dans les Paramètres",
     description: "Place le focus dans la recherche des Paramètres.",
     defaultHotkey: "/",
+    when: WHEN_SETTINGS,
+  },
+  {
+    id: "settings.keybindings.search",
+    group: "settings",
+    title: "Rechercher dans les Raccourcis",
+    description: "Place le focus dans la recherche de la table des Keybindings.",
+    defaultHotkey: "mod+f",
+    when: WHEN_SETTINGS,
   },
 ]
+
+export interface DefaultKeybindingRule {
+  readonly key: string
+  readonly command: KeybindingId
+  readonly when?: string
+}
+
+export const DEFAULT_KEYBINDING_RULES: ReadonlyArray<DefaultKeybindingRule> = KEYBINDINGS.map(
+  (definition) =>
+    definition.when === undefined
+      ? { key: definition.defaultHotkey, command: definition.id }
+      : { key: definition.defaultHotkey, command: definition.id, when: definition.when },
+)
 
 const keybindingById = new Map(KEYBINDINGS.map((keybinding) => [keybinding.id, keybinding]))
 
@@ -208,8 +258,16 @@ export const getKeybindingDefinition = (id: KeybindingId): KeybindingDefinition 
   return keybinding
 }
 
-export const defaultKeybinding = (id: KeybindingId): Hotkey =>
+export const defaultKeybinding = (id: KeybindingId): string =>
   getKeybindingDefinition(id).defaultHotkey
+
+export const defaultKeybindingWhen = (id: KeybindingId): string =>
+  getKeybindingDefinition(id).when ?? ""
 
 export const keybindingsInGroup = (group: KeybindingGroupId): ReadonlyArray<KeybindingDefinition> =>
   KEYBINDINGS.filter((keybinding) => keybinding.group === group)
+
+export const commandLabel = (command: KeybindingId): string => {
+  const definition = getKeybindingDefinition(command)
+  return `${KEYBINDING_GROUP_LABELS[definition.group]}: ${definition.title}`
+}
