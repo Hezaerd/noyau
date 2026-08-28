@@ -61,6 +61,7 @@
     "./persistence/session-recovery": "./src/persistence/session-recovery.ts",
     "./persistence/snapshots": "./src/persistence/snapshots.ts",
     "./persistence/sqlite": "./src/persistence/sqlite.ts",
+    "./orchestration/control-state": "./src/orchestration/control-state.ts",
     "./orchestration/board/decider": "./src/orchestration/board/decider.ts",
     "./orchestration/board/projector": "./src/orchestration/board/projector.ts",
     "./orchestration/project/decider": "./src/orchestration/project/decider.ts",

@@ -64,10 +64,20 @@ a rejection. One file per aggregate: [project][3], [board][4], [thread][5].
 Pure `evolve` that folds events into the in-memory aggregate used by the next
 decide. Same three folders: [project][6], [board][7], [thread][8].
 
+#### Control state
+
+The in-memory join of the three aggregate projections used by the next decide.
+The journal is keyed `{ kind: "project", id: projectId }`, so project, board,
+and thread replay as one blob. [control-state.ts][10] owns `decide`, `evolve`,
+and `recoverControlStateAfterBoot`. `project.create` is the only command that
+runs two deciders: project, then `board.initialize`.
+
 #### Recovery
 
 `recoverAfterBoot` marks Sessions that cannot still own a process after restart
 as `error`. It does no provider I/O. Implementation: [thread/recovery.ts][9].
+The control-state recover wrapper applies those events to the thread projection
+only.
 
 [1]: ./contracts-and-orchestration.md
 [2]: ../../packages/contracts/package.json
@@ -78,3 +88,4 @@ as `error`. It does no provider I/O. Implementation: [thread/recovery.ts][9].
 [7]: ../../apps/server/src/orchestration/board/projector.ts
 [8]: ../../apps/server/src/orchestration/thread/projector.ts
 [9]: ../../apps/server/src/orchestration/thread/recovery.ts
+[10]: ../../apps/server/src/orchestration/control-state.ts

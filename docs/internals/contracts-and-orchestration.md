@@ -11,7 +11,7 @@ and `recoverAfterBoot` run only on the server.
 | Layer | Where | What |
 | --- | --- | --- |
 | Contracts | `packages/contracts` | Effect/Schema plus small derived helpers. No `decide` / `evolve` / `recover`. |
-| Orchestration | `apps/server/src/orchestration/` | Three aggregates: project, thread, and board. Each has a decider and a projector. Thread also has boot recovery. |
+| Orchestration | `apps/server/src/orchestration/` | Three aggregates: project, thread, and board. Each has a decider and a projector. Thread also has boot recovery. [control-state.ts][11] is the in-memory join and the only place that routes a command to more than one decider. |
 
 Commands, events, `EventEnvelope`, internal thread commands, and receipts stay
 in contracts. The renderer decodes them on `subscribe*` and catch-up. The
@@ -20,12 +20,16 @@ journal persists them. They are not server-only types.
 `sanitizeThreadTitle` and `canReplaceThreadTitle` stay in contracts because
 web and the thread projector both import them.
 
-Project, board, and thread stay three aggregates. `control-plane.ts` dispatches
-the three deciders; it is not folded into a single engine.
+Project, board, and thread stay three aggregates. The journal is keyed
+`{ kind: "project", id: projectId }`, so the three projections replay as one
+[control state][11]. `project.create` is the only command that runs two
+deciders: project, then `board.initialize`. `control-plane.ts` wires the
+command worker; it does not own decide / evolve / recover.
 
 ## Where it lives
 
 - Package rule: [packages/contracts/package.json][1]
+- Control state: [control-state.ts][11]
 - Board: [board/decider.ts][2], [board/projector.ts][3]
 - Project: [project/decider.ts][4], [project/projector.ts][5]
 - Thread: [thread/decider.ts][6], [thread/projector.ts][7], [thread/recovery.ts][8]
@@ -46,3 +50,4 @@ the three deciders; it is not folded into a single engine.
 [8]: ../../apps/server/src/orchestration/thread/recovery.ts
 [9]: ../../packages/contracts/src/thread/title.ts
 [10]: ../../packages/contracts/src/events.ts
+[11]: ../../apps/server/src/orchestration/control-state.ts

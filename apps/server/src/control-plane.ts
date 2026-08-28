@@ -30,7 +30,6 @@ import {
   type Sequence as SequenceType,
   type ThreadId,
 } from "@noyau/contracts/ids"
-import { ProjectCommand } from "@noyau/contracts/project/commands"
 import {
   ProjectNotFound,
   ProjectUnavailable,
@@ -55,33 +54,16 @@ import {
   type ThreadStreamItem,
 } from "@noyau/contracts/rpc"
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
-import { ThreadCommand } from "@noyau/contracts/thread/commands"
 import { ThreadEvent } from "@noyau/contracts/thread/events"
-import { BoardInitialize, TicketCommand } from "@noyau/contracts/ticket/commands"
 import { TicketEvent } from "@noyau/contracts/ticket/events"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/contracts/turn-diff"
 import { TurnDiffUnavailable } from "@noyau/contracts/turn-diff"
-import { decide as decideBoard } from "@noyau/server/orchestration/board/decider"
 import {
-  emptyBoardState,
-  evolve as evolveBoard,
-  type BoardState,
-  withProjectThreads,
-} from "@noyau/server/orchestration/board/projector"
-import { decide as decideProject } from "@noyau/server/orchestration/project/decider"
-import {
-  emptyProjectCatalog,
-  evolve as evolveProject,
-  type ProjectCatalog,
-} from "@noyau/server/orchestration/project/projector"
-import { decide as decideThread } from "@noyau/server/orchestration/thread/decider"
-import {
-  emptyThreadState,
-  evolve as evolveThread,
-  type ThreadState,
-  withAvailableProjects,
-} from "@noyau/server/orchestration/thread/projector"
-import { recoverAfterBoot } from "@noyau/server/orchestration/thread/recovery"
+  decide,
+  emptyControlState,
+  evolve,
+  recoverControlStateAfterBoot,
+} from "@noyau/server/orchestration/control-state"
 import { ThreadLive } from "@noyau/server/thread-live"
 import {
   Context,
@@ -95,7 +77,6 @@ import {
   Path,
   PubSub,
   Queue,
-  Result,
   Schema,
   type Scope,
   Stream,
@@ -131,86 +112,9 @@ import { makeWorktreeBranchReactor } from "./text-generation/worktree-branch-rea
 import { searchWorkspacePathsInRoot } from "./workspace-path-search.ts"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root.ts"
 
-interface ControlState {
-  readonly projects: ProjectCatalog
-  readonly board: BoardState
-  readonly threads: ThreadState
-}
-
-const emptyControlState: ControlState = {
-  projects: emptyProjectCatalog,
-  board: emptyBoardState,
-  threads: emptyThreadState,
-}
-
-const isProjectCommand = Schema.is(ProjectCommand)
-const isTicketCommand = Schema.is(TicketCommand)
-const isThreadCommand = Schema.is(ThreadCommand)
 const isProjectEvent = Schema.is(ProjectEvent)
 const isTicketEvent = Schema.is(TicketEvent)
 const isThreadEvent = Schema.is(ThreadEvent)
-
-const decide = (
-  state: ControlState,
-  command: CommandType,
-): Result.Result<ReadonlyArray<DomainEventType>, RejectionType> => {
-  if (isProjectCommand(command)) {
-    const projectDecision = decideProject(state.projects, command)
-    if (command._tag !== "project.create") {
-      return projectDecision
-    }
-    const initializationFields = {
-      commandId: command.commandId,
-      projectId: command.projectId,
-      actorId: command.actorId,
-      correlationId: command.correlationId,
-      issuedAt: command.issuedAt,
-      schemaVersion: command.schemaVersion,
-      payload: command.initialBoard,
-    }
-    const initialization =
-      command.causationId === undefined
-        ? BoardInitialize.make(initializationFields)
-        : BoardInitialize.make({ ...initializationFields, causationId: command.causationId })
-    return projectDecision.pipe(
-      Result.flatMap((projectEvents) =>
-        decideBoard(state.board, initialization).pipe(
-          Result.map((boardEvents) =>
-            Array.from<DomainEventType>(projectEvents).concat(boardEvents),
-          ),
-        ),
-      ),
-    )
-  }
-  if (isTicketCommand(command)) {
-    return decideBoard(state.board, command)
-  }
-  return decideThread(
-    state.threads,
-    isThreadCommand(command) ? command : Schema.decodeSync(ThreadCommand)(command),
-  )
-}
-
-const evolve = (state: ControlState, event: DomainEventType): ControlState => {
-  const projects = isProjectEvent(event) ? evolveProject(state.projects, event) : state.projects
-  const board = isTicketEvent(event) ? evolveBoard(state.board, event) : state.board
-  const threads = isThreadEvent(event) ? evolveThread(state.threads, event) : state.threads
-  const availableProjectIds = projects.projects.map((project) => project.projectId)
-  const projectThreadIds = threads.threads.map((thread) => thread.threadId)
-  return {
-    projects,
-    board: withProjectThreads(board, projectThreadIds),
-    threads: withAvailableProjects(threads, availableProjectIds),
-  }
-}
-
-const recoverControlStateAfterBoot = (
-  state: ControlState,
-  recoveredAt: DateTime.Utc,
-): ControlState => ({
-  ...state,
-  threads: recoverAfterBoot(state.threads, recoveredAt).reduce(evolveThread, state.threads),
-})
 
 const ScopeRow = Schema.Struct({ project_id: Schema.String })
 const WorkspaceRootRow = Schema.Struct({ workspace_root: Schema.String })

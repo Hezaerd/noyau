@@ -30,7 +30,8 @@ already states it.
 Open, in this order:
 
 1. `packages/contracts` — entities, commands, events, receipts, ids.
-2. `apps/server/src/orchestration/{project,board,thread}` — deciders and projectors.
+2. `apps/server/src/orchestration/control-state.ts` then
+   `{project,board,thread}` — join, deciders, and projectors.
 3. `apps/server` — reactors, persistence, providers, git, only when the page
    needs that side effect.
 
