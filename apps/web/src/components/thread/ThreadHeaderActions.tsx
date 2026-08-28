@@ -93,8 +93,9 @@ function ThreadSettleButton({
   return (
     <Button
       type="button"
-      size="sm"
-      variant="ghost"
+      size="xs"
+      variant="outline"
+      className="no-drag"
       disabled={disabled || !canSettle(thread)}
       aria-keyshortcuts={settleHotkey}
       aria-label="Settle Thread"
