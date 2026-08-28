@@ -30,6 +30,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
+import { useProjectNewThreadDraft } from "@/hooks/use-composer-draft"
 import { useLastProjectId, useProjects, useProjectThreads } from "@/hooks/use-control-plane"
 import { useCreateDraftThread } from "@/hooks/use-create-draft-thread"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
@@ -37,6 +38,7 @@ import { useKeybinding } from "@/hooks/use-keybindings"
 import {
   buildPaletteGroups,
   filterPaletteGroups,
+  NEW_THREAD_PALETTE_THREAD_ID,
   paletteShortcutIndex,
   paletteThreadItems,
   parseRecentActionIds,
@@ -69,6 +71,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   const lastProjectId = useLastProjectId()
   const projects = useProjects()
   const threads = useProjectThreads(lastProjectId)
+  const newThreadDraft = useProjectNewThreadDraft(lastProjectId)
   const createDraftThread = useCreateDraftThread()
   const threadCreateHotkey = useKeybinding("thread.create")
   const [open, setOpen] = useState(false)
@@ -188,24 +191,31 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   )
   const threadActions = useMemo<ReadonlyArray<AppPaletteAction>>(
     () =>
-      paletteThreadItems(threads, lastProjectId).map((thread) => ({
-        id: thread.id,
-        label: thread.label,
-        searchValue: thread.searchValue,
-        category: "thread" as const,
-        icon: <MessageCircleIcon />,
-        prefetch: () => prefetchThreadSnapshot(ThreadId.make(thread.threadId)),
-        execute: () => {
-          if (lastProjectId === undefined) {
-            return
-          }
-          void navigate({
-            to: "/projects/$projectId/thread/$threadId",
-            params: { projectId: lastProjectId, threadId: thread.threadId },
-          })
-        },
-      })),
-    [lastProjectId, navigate, threads],
+      paletteThreadItems(threads, lastProjectId, newThreadDraft).map((thread) => {
+        const action: AppPaletteAction = {
+          id: thread.id,
+          label: thread.label,
+          searchValue: thread.searchValue,
+          category: "thread",
+          icon: <MessageCircleIcon />,
+          execute: () => {
+            if (lastProjectId === undefined) {
+              return
+            }
+            void navigate({
+              to: "/projects/$projectId/thread/$threadId",
+              params: { projectId: lastProjectId, threadId: thread.threadId },
+            })
+          },
+        }
+        if (thread.threadId === NEW_THREAD_PALETTE_THREAD_ID) {
+          return action
+        }
+        return Object.assign(action, {
+          prefetch: () => prefetchThreadSnapshot(ThreadId.make(thread.threadId)),
+        })
+      }),
+    [lastProjectId, navigate, newThreadDraft, threads],
   )
   const groups = useMemo(() => {
     const baseGroups = buildPaletteGroups(contextualActions, navigationActions, recentActionIds)

@@ -7,8 +7,10 @@ import type { ComposerImage } from "@/lib/composer-images"
 import {
   clearComposerDraft,
   draftAtom,
+  emptyDraftAtom,
   writeComposerDraft,
   writeComposerDraftImages,
+  type ComposerDraftValue,
 } from "@/state/composer-drafts"
 
 export interface ComposerDraft {
@@ -17,6 +19,14 @@ export interface ComposerDraft {
   readonly setText: (text: string) => void
   readonly setImages: (images: ReadonlyArray<ComposerImage>) => void
   readonly clear: () => void
+}
+
+export function useProjectNewThreadDraft(projectId: ProjectId | undefined): ComposerDraftValue {
+  return useAtomValue(
+    projectId === undefined
+      ? emptyDraftAtom
+      : draftAtom(composerDraftStoreKey(projectId, undefined)),
+  )
 }
 
 export function useComposerDraft(

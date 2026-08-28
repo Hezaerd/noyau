@@ -29,6 +29,10 @@ export const draftAtom = Atom.family((key: string) =>
   ).pipe(Atom.withLabel(`chrome:draft:${key}`)),
 )
 
+export const emptyDraftAtom = Atom.make<ComposerDraftValue>(emptyComposerDraft).pipe(
+  Atom.withLabel("chrome:draft:empty"),
+)
+
 let initialized = false
 
 export const initializeComposerDrafts = (): void => {

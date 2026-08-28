@@ -2,15 +2,18 @@ import type { ProjectShell } from "@noyau/contracts/shell"
 import { Link } from "@tanstack/react-router"
 import { LayoutGridIcon, SquarePenIcon } from "lucide-react"
 
+import { DraftThreadSidebarItem } from "@/components/sidebar/DraftThreadSidebarItem"
 import { ThreadSidebarItem } from "@/components/sidebar/ThreadSidebarItem"
 import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { useAutoSettleMergedThreads } from "@/hooks/use-auto-settle-merged-threads"
+import { useProjectNewThreadDraft } from "@/hooks/use-composer-draft"
 import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useCreateDraftThread } from "@/hooks/use-create-draft-thread"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { useThreadChangeRequests } from "@/hooks/use-thread-change-requests"
+import { isListableNewThreadDraft, newThreadDraftTitle } from "@/lib/draft-thread"
 
 export function ProjectSidebarItem({
   project,
@@ -22,10 +25,12 @@ export function ProjectSidebarItem({
   readonly onSelect: () => void
 }) {
   const threads = useProjectThreads(project.id)
+  const newThreadDraft = useProjectNewThreadDraft(project.id)
   const { pullRequests, liveBranches } = useThreadChangeRequests(project.id, threads)
   const createDraftThread = useCreateDraftThread()
   const createThreadHotkey = useKeybinding("thread.create")
   useAutoSettleMergedThreads(threads, pullRequests)
+  const listDraft = isListableNewThreadDraft(newThreadDraft)
   return (
     <>
       <SidebarMenuItem>
@@ -68,6 +73,16 @@ export function ProjectSidebarItem({
         </SidebarMenuButton>
         <ThreadSidebarSection
           projectId={project.id}
+          draft={
+            listDraft ? (
+              <DraftThreadSidebarItem
+                project={project}
+                title={newThreadDraftTitle(newThreadDraft)}
+                isActive={pathname === `/projects/${project.id}/thread/new`}
+                onSelect={onSelect}
+              />
+            ) : null
+          }
           renderThread={(thread, settled) => (
             <ThreadSidebarItem
               thread={thread}

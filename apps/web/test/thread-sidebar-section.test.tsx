@@ -99,6 +99,21 @@ describe("ThreadSidebarSection settled shelf", () => {
     expect(screen.getByText("Settled two")).toBeTruthy()
   })
 
+  it("lists a non-empty /thread/new draft when there are no persisted Threads", () => {
+    render(
+      <AppAtomRegistryProvider>
+        <ThreadSidebarSection
+          projectId={projectId}
+          draft={<div>Fix the sidebar draft</div>}
+          renderThread={(thread) => <div>{thread.title}</div>}
+        />
+      </AppAtomRegistryProvider>,
+    )
+
+    expect(screen.getByText("Threads")).toBeTruthy()
+    expect(screen.getByText("Fix the sidebar draft")).toBeTruthy()
+  })
+
   it("hides settled rows after collapsing", async () => {
     queues.settled = [makeShell(settledId, "Settled one"), makeShell(otherSettledId, "Settled two")]
     const user = userEvent.setup()
