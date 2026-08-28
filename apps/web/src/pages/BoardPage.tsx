@@ -488,6 +488,7 @@ function BoardColumnView({
           {editing ? (
             <Input
               ref={nameInputRef}
+              size="sm"
               value={name}
               onChange={(event) => setName(event.target.value)}
               onBlur={() => {
@@ -506,7 +507,7 @@ function BoardColumnView({
                   onEditingChange(false)
                 }
               }}
-              className="h-7 flex-1 border-transparent bg-transparent px-1 text-xs font-semibold"
+              className="min-w-0 flex-1 border-transparent bg-transparent px-1 text-xs font-semibold"
             />
           ) : (
             <h2
