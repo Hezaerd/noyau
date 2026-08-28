@@ -398,7 +398,7 @@ function ThreadSidebarSettleButton({
       tabIndex={-1}
       data-slot="thread-sidebar-settle"
       aria-label={settled ? "Unsettle Thread" : "Settle Thread"}
-      className="col-start-1 row-start-1 inline-flex cursor-pointer items-center gap-0.5 self-center whitespace-nowrap text-[11px] font-medium text-sidebar-foreground/70 opacity-0 blur-[2px] transition-[opacity,filter] duration-150 ease-out pointer-events-none motion-reduce:transition-none [@media(hover:hover)]:group-hover/thread-item:pointer-events-auto [@media(hover:hover)]:group-hover/thread-item:opacity-100 [@media(hover:hover)]:group-hover/thread-item:blur-none"
+      className="col-start-1 row-start-1 inline-flex cursor-pointer items-center gap-0.5 self-center whitespace-nowrap text-[11px] font-medium text-sidebar-accent-foreground opacity-0 blur-[2px] transition-[opacity,filter,color] duration-150 ease-out pointer-events-none motion-reduce:transition-none hover:underline [@media(hover:hover)]:group-hover/thread-item:pointer-events-auto [@media(hover:hover)]:group-hover/thread-item:opacity-100 [@media(hover:hover)]:group-hover/thread-item:blur-none"
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
