@@ -13,7 +13,7 @@ import { appAtomRegistry } from "@/state/atom-registry"
 import { nowMinuteAtom } from "@/state/now"
 import { projectThreadsAtom, threadShellAtom, threadsAtom } from "@/state/shell"
 import { threadPinsAtom } from "@/state/thread-pins"
-import { autoSettleAfterDaysAtom, autoSettleOnMergeAtom } from "@/state/thread-settle"
+import { autoSettleAfterDaysAtom } from "@/state/thread-settle"
 import { threadVisitsAtom, visitAtom } from "@/state/thread-visits"
 
 export const EMPTY_PULL_REQUESTS: ReadonlyMap<string, VcsStatusPullRequest> = new Map()
@@ -57,7 +57,6 @@ export const sidebarQueuesAtom = Atom.family((projectId: ProjectId) =>
       pins,
       nowMs: get(nowMinuteAtom),
       autoSettleAfterDays: get(autoSettleAfterDaysAtom),
-      autoSettleOnMerge: get(autoSettleOnMergeAtom),
       changeRequestStateOf: (thread) => pullRequests.get(thread.id)?.state ?? null,
     })
   }).pipe(

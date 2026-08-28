@@ -10,14 +10,10 @@ import { useThreadShell } from "@/hooks/use-control-plane"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { useNowMinuteMs } from "@/hooks/use-now-minute"
-import { useThreadChangeRequests } from "@/hooks/use-thread-change-requests"
-import {
-  useAutoSettleAfterDays,
-  useAutoSettleOnMergeEnabled,
-} from "@/hooks/use-thread-settle-preference"
+import { useProjectPullRequests } from "@/hooks/use-sidebar-queues"
+import { useAutoSettleAfterDays } from "@/hooks/use-thread-settle-preference"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle, effectiveSettled } from "@/lib/thread-settled"
-import { EMPTY_THREAD_SHELLS } from "@/lib/thread-shell-index"
 
 export function ThreadHeaderActions({
   projectId,
@@ -50,14 +46,9 @@ function ThreadSettleButton({
   readonly disabled: boolean
 }) {
   const thread = useThreadShell(threadId)
-  const settleThreads = useMemo(
-    () => (thread === undefined ? EMPTY_THREAD_SHELLS : [thread]),
-    [thread],
-  )
-  const { pullRequests } = useThreadChangeRequests(projectId, settleThreads)
+  const pullRequests = useProjectPullRequests(projectId)
   const nowMs = useNowMinuteMs()
   const autoSettleAfterDays = useAutoSettleAfterDays()
-  const autoSettleOnMerge = useAutoSettleOnMergeEnabled()
   const settleHotkey = useKeybinding("thread.settle")
   const changeRequestState =
     thread === undefined ? null : (pullRequests.get(thread.id)?.state ?? null)
@@ -67,7 +58,6 @@ function ThreadSettleButton({
       : effectiveSettled(thread, {
           nowMs,
           autoSettleAfterDays,
-          autoSettleOnMerge,
           changeRequestState,
         })
 

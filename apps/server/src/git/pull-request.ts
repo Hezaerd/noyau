@@ -199,6 +199,23 @@ export const selectStatusPullRequest = (
   return latest === undefined ? null : toStatusPullRequest(latest)
 }
 
+const isTerminalPrState = (state: VcsStatusPullRequestState): boolean =>
+  state === "merged" || state === "closed"
+
+/** Une liste vide ne doit pas effacer une PR terminale déjà vue sur cette branche. */
+export const rememberStatusPullRequest = (
+  previous: VcsStatusPullRequest | null | undefined,
+  selected: VcsStatusPullRequest | null,
+): VcsStatusPullRequest | null => {
+  if (selected !== null) {
+    return selected
+  }
+  if (previous != null && isTerminalPrState(previous.state)) {
+    return previous
+  }
+  return null
+}
+
 export const decodeListedPullRequests = (stdout: string) =>
   decodeGhPullRequestListJson(stdout.trim() === "" ? "[]" : stdout).pipe(
     Effect.map((items) => items.map(toListedPullRequest)),

@@ -24,6 +24,41 @@ export const changeRequestAutoSettles = (
   autoSettleOnMerge = true,
 ): boolean => state === "closed" || (state === "merged" && autoSettleOnMerge)
 
+export type ChangeRequestSettleSight = {
+  readonly number: number
+  readonly state: ChangeRequestStateLike
+}
+
+/** Persisté une fois par PR terminale ; le même merge ne se re-applique pas après une activité. */
+export const changeRequestSettleDecision = (input: {
+  readonly previous: ChangeRequestSettleSight | null
+  readonly next: ChangeRequestSettleSight | null
+  readonly autoSettleOnMerge: boolean
+  readonly canSettle: boolean
+  readonly settledOverride: SettledOverride | null
+}): "persist" | "remember" | "retry" => {
+  if (input.next === null) {
+    return "remember"
+  }
+  if (input.settledOverride !== null) {
+    return "remember"
+  }
+  if (!changeRequestAutoSettles(input.next.state, input.autoSettleOnMerge)) {
+    return "remember"
+  }
+  const alreadyNoted =
+    input.previous !== null &&
+    input.previous.number === input.next.number &&
+    changeRequestAutoSettles(input.previous.state, input.autoSettleOnMerge)
+  if (alreadyNoted) {
+    return "remember"
+  }
+  if (!input.canSettle) {
+    return "retry"
+  }
+  return "persist"
+}
+
 export const threadLastActivityAtMs = (shell: ThreadSettleShell): number | null => {
   const turn = shell.latestTurn
   const candidates = [turn?.requestedAt, turn?.startedAt, turn?.completedAt]
@@ -55,7 +90,6 @@ export const effectiveSettled = (
   options: {
     readonly nowMs: number
     readonly autoSettleAfterDays: number | null
-    readonly autoSettleOnMerge?: boolean
     readonly changeRequestState?: ChangeRequestStateLike | null
   },
 ): boolean => {
@@ -81,9 +115,6 @@ export const effectiveSettled = (
   }
   if (shell.settledOverride === "active") {
     return false
-  }
-  if (changeRequestAutoSettles(options.changeRequestState, options.autoSettleOnMerge !== false)) {
-    return true
   }
   if (options.changeRequestState === "open") {
     return false

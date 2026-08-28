@@ -45,7 +45,6 @@ export const partitionThreadsForSidebar = <T extends ThreadShell>(
     readonly pins: ThreadPins
     readonly nowMs: number
     readonly autoSettleAfterDays: number | null
-    readonly autoSettleOnMerge: boolean
     readonly changeRequestStateOf: (thread: T) => ChangeRequestStateLike | null
   },
 ): SidebarThreadPartition<T> => {
@@ -60,7 +59,6 @@ export const partitionThreadsForSidebar = <T extends ThreadShell>(
       effectiveSettled(thread, {
         nowMs: options.nowMs,
         autoSettleAfterDays: options.autoSettleAfterDays,
-        autoSettleOnMerge: options.autoSettleOnMerge,
         changeRequestState: options.changeRequestStateOf(thread),
       })
     ) {
