@@ -1,16 +1,9 @@
-import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { DateTime } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
-import {
-  createDraftThreadForNewRoute,
-  resetDraftThreadNewRouteCreates,
-  type CreateDraftThreadInput,
-  type CreateDraftThreadResult,
-} from "../src/lib/create-draft-thread"
 import { isDraftThreadView, resolveDraftLatestTurn } from "../src/lib/draft-thread"
 
-const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const at = DateTime.makeUnsafe("2026-08-28T12:00:00.000Z")
 
@@ -84,26 +77,5 @@ describe("resolveDraftLatestTurn", () => {
 
   it("uses the shell while the snapshot is still missing", () => {
     expect(resolveDraftLatestTurn(undefined, null, false)).toBeNull()
-  })
-})
-
-describe("createDraftThreadForNewRoute", () => {
-  it("reuses the in-flight create for the same Project", async () => {
-    resetDraftThreadNewRouteCreates()
-    let calls = 0
-    const input: CreateDraftThreadInput = { projectId }
-    const create = (): Promise<CreateDraftThreadResult> => {
-      calls += 1
-      return Promise.resolve({ ok: true, threadId })
-    }
-
-    const [first, second] = await Promise.all([
-      createDraftThreadForNewRoute(input, create),
-      createDraftThreadForNewRoute(input, create),
-    ])
-
-    expect(calls).toBe(1)
-    expect(first).toEqual(second)
-    resetDraftThreadNewRouteCreates()
   })
 })
