@@ -88,7 +88,13 @@ import { isDraftThreadView, resolveDraftLatestTurn } from "@/lib/draft-thread"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { resolveDraftDefaultModelSelection } from "@/lib/model-picker-preferences"
 import { makeProjectDefaultModelUpdateRequest } from "@/lib/project-commands"
-import { resolveOpenThreadWorking, type OptimisticSend } from "@/lib/thread-activity"
+import {
+  clearOptimisticSend,
+  peekOptimisticSend,
+  rememberOptimisticSend,
+  resolveOpenThreadWorking,
+  type OptimisticSend,
+} from "@/lib/thread-activity"
 import { seedTitleFromTurn } from "@/lib/thread-commands"
 import {
   interruptTurn as interruptTurnAction,
@@ -214,7 +220,20 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [draftProvider, setDraftProvider] = useState<Provider>("cursor")
   const [draftByRequest, setDraftByRequest] = useState<Record<string, DraftAnswers>>({})
   const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
-  const [optimisticSend, setOptimisticSend] = useState<OptimisticSend | null>(null)
+  const [optimisticSend, setOptimisticSendState] = useState<OptimisticSend | null>(() =>
+    peekOptimisticSend(threadId),
+  )
+  const writeOptimisticSend = useCallback(
+    (send: OptimisticSend | null) => {
+      if (send?.threadId !== undefined) {
+        rememberOptimisticSend(send)
+      } else if (threadId !== undefined) {
+        clearOptimisticSend(threadId)
+      }
+      setOptimisticSendState(send)
+    },
+    [threadId],
+  )
   const [followLatestKey, setFollowLatestKey] = useState(0)
   const [turnDiffTarget, setTurnDiffTarget] = useState<ThreadTurnDiffTarget | null>(null)
   const composerDockRef = useRef<HTMLDivElement>(null)
@@ -534,9 +553,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
 
   useEffect(() => {
     if (!isWorking) {
-      setOptimisticSend(null)
+      writeOptimisticSend(null)
     }
-  }, [isWorking])
+  }, [isWorking, writeOptimisticSend])
 
   useEffect(() => {
     restoredFailedTurnRef.current = undefined
@@ -610,7 +629,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
     clearDraft()
     setComposerFailure(undefined)
-    setOptimisticSend({ threadId, startedAtMs: Date.now() })
+    writeOptimisticSend({ threadId, startedAtMs: Date.now() })
     setFollowLatestKey((current) => current + 1)
     void submitTurnAction(
       Object.assign(
@@ -636,7 +655,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           text: submittedText,
           images: submittedImages,
         })
-        setOptimisticSend(null)
+        writeOptimisticSend(null)
         setComposerFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -654,7 +673,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           text: submittedText,
           images: submittedImages,
         })
-        setOptimisticSend(null)
+        writeOptimisticSend(null)
         setActionFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -666,11 +685,10 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return undefined
       }
       if (result.kind === "created") {
-        setOptimisticSend((current) =>
-          current === null
-            ? current
-            : { threadId: result.threadId, startedAtMs: current.startedAtMs },
-        )
+        writeOptimisticSend({
+          threadId: result.threadId,
+          startedAtMs: optimisticSend?.startedAtMs ?? Date.now(),
+        })
         rememberCreatedCheckout({
           threadId: result.threadId,
           envMode,
@@ -725,7 +743,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       return
     }
     setComposerFailure(undefined)
-    setOptimisticSend({ threadId, startedAtMs: Date.now() })
+    writeOptimisticSend({ threadId, startedAtMs: Date.now() })
     setFollowLatestKey((current) => current + 1)
     const input = {
       projectId,
@@ -743,7 +761,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       baseBranch === null ? input : Object.assign({}, input, { baseBranch }),
     ).then((result) => {
       if (result.kind === "composer-error") {
-        setOptimisticSend(null)
+        writeOptimisticSend(null)
         setComposerFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",
@@ -755,7 +773,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return undefined
       }
       if (result.kind === "error") {
-        setOptimisticSend(null)
+        writeOptimisticSend(null)
         setActionFailure(
           presentFailure(result.failure, {
             operation: "thread.turn.start",

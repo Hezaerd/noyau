@@ -78,6 +78,30 @@ export type OptimisticSend = {
   readonly startedAtMs: number
 }
 
+const pendingOptimisticSends = new Map<ThreadId, OptimisticSend>()
+
+/** Survit un remount draft → Thread. Sans ça, le composer draft revient après `onCreated`. */
+export const rememberOptimisticSend = (send: OptimisticSend): void => {
+  if (send.threadId === undefined) {
+    return
+  }
+  pendingOptimisticSends.set(send.threadId, send)
+}
+
+export const peekOptimisticSend = (threadId: ThreadId | undefined): OptimisticSend | null => {
+  if (threadId === undefined) {
+    return null
+  }
+  return pendingOptimisticSends.get(threadId) ?? null
+}
+
+export const clearOptimisticSend = (threadId?: ThreadId): void => {
+  if (threadId === undefined) {
+    return
+  }
+  pendingOptimisticSends.delete(threadId)
+}
+
 export const sendStartedAtMsForThread = (
   send: OptimisticSend | null,
   threadId: ThreadId | undefined,

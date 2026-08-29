@@ -9,6 +9,11 @@ import {
   newThreadDraftTitle,
   resolveDraftLatestTurn,
 } from "../src/lib/draft-thread"
+import {
+  clearOptimisticSend,
+  peekOptimisticSend,
+  rememberOptimisticSend,
+} from "../src/lib/thread-activity"
 
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const at = DateTime.makeUnsafe("2026-08-28T12:00:00.000Z")
@@ -45,6 +50,20 @@ describe("isDraftThreadView", () => {
         sending: true,
       }),
     ).toBe(false)
+  })
+
+  it("stays off the draft composer after create remounts onto the new Thread", () => {
+    rememberOptimisticSend({ threadId, startedAtMs: 1_700 })
+    const send = peekOptimisticSend(threadId)
+    expect(
+      isDraftThreadView({
+        threadId,
+        latestTurn: null,
+        transcriptLength: 0,
+        sending: send !== null,
+      }),
+    ).toBe(false)
+    clearOptimisticSend(threadId)
   })
 
   it("is false while a persisted Thread snapshot has not arrived", () => {
