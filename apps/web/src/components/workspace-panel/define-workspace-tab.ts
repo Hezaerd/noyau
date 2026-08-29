@@ -4,8 +4,11 @@ import type { WorkspaceTab, WorkspaceTabKind, WorkspaceTabPayload } from "@/lib/
 
 export type WorkspaceTabIcon = (props: { readonly className?: string }) => ReactNode
 
-export type WorkspaceTabRenderContext = {
-  readonly tab: WorkspaceTab
+export type WorkspaceTabRenderContext<
+  Kind extends string = string,
+  Payload extends WorkspaceTabPayload = WorkspaceTabPayload,
+> = {
+  readonly tab: WorkspaceTab<Kind, Payload>
   readonly isActive: boolean
   readonly isVisible: boolean
 }
@@ -16,8 +19,8 @@ export type WorkspaceTabRegistration<
   Input = undefined,
 > = WorkspaceTabKind<Kind, Payload, Input> & {
   readonly icon: WorkspaceTabIcon
-  readonly render: (context: WorkspaceTabRenderContext) => ReactNode
-  readonly titleOf?: (tab: WorkspaceTab) => string
+  readonly render: (context: WorkspaceTabRenderContext<Kind, Payload>) => ReactNode
+  readonly titleOf?: (tab: WorkspaceTab<Kind, Payload>) => string
   readonly available?: () => boolean
   /** false = ouvrir seulement en code (ex. un fichier), pas depuis le lanceur. */
   readonly launchable?: boolean

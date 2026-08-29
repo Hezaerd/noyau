@@ -114,7 +114,7 @@ const paletteValue = {
   },
 }
 
-const renderHeader = (thread: ThreadShell) => {
+const renderHeader = (thread: ThreadShell, disabled = false) => {
   registeredPaletteActions.length = 0
   replaceAppliedShell(makeSnapshot([thread]))
   appAtomRegistry.set(nowMinuteAtom, nowMs)
@@ -122,7 +122,7 @@ const renderHeader = (thread: ThreadShell) => {
     <AppAtomRegistryProvider>
       <TooltipProvider>
         <AppPaletteContext.Provider value={paletteValue}>
-          <ThreadHeaderActions projectId={projectId} threadId={thread.id} disabled={false} />
+          <ThreadHeaderActions projectId={projectId} threadId={thread.id} disabled={disabled} />
         </AppPaletteContext.Provider>
       </TooltipProvider>
     </AppAtomRegistryProvider>,
@@ -172,5 +172,17 @@ describe("ThreadHeaderActions", () => {
       (action) => action.id === "thread.workspace-panel.toggle",
     )
     expect(toggle?.label).toBe("Show workspace panel")
+  })
+
+  it("omits the workspace panel palette action when the header is disabled", () => {
+    renderHeader(makeThread(), true)
+
+    expect(screen.getByRole("button", { name: "Show workspace panel" })).toHaveProperty(
+      "disabled",
+      true,
+    )
+    expect(
+      registeredPaletteActions.find((action) => action.id === "thread.workspace-panel.toggle"),
+    ).toBeUndefined()
   })
 })

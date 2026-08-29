@@ -16,31 +16,31 @@ export const MIN_WORKSPACE_PANEL_WIDTH = 20 * 16
 export type WorkspacePanels = Readonly<Record<string, WorkspacePanelState>>
 
 const decodeUuid = Schema.decodeUnknownOption(Schema.String.check(Schema.isUUID()))
+const decodePanel = Schema.decodeUnknownOption(WorkspacePanelPersisted)
+const RawThreadMap = Schema.Record(Schema.String, Schema.Unknown)
 const decodePersistedStore = Schema.decodeUnknownOption(
   Schema.Struct({
     version: Schema.optionalKey(Schema.Finite),
-    byThreadId: Schema.Record(Schema.String, WorkspacePanelPersisted),
+    byThreadId: RawThreadMap,
   }),
 )
-const decodeLegacyStore = Schema.decodeUnknownOption(
-  Schema.Record(Schema.String, WorkspacePanelPersisted),
-)
+const decodeLegacyStore = Schema.decodeUnknownOption(RawThreadMap)
 
 const isThreadKey = (key: string): boolean => Option.isSome(decodeUuid(key))
 
 export type WorkspaceTabKindCodecs = ReadonlySet<string>
 
-const panelsFromRecord = (
-  record: Readonly<Record<string, typeof WorkspacePanelPersisted.Type>>,
-  kinds: WorkspaceTabKindCodecs,
-) => {
+const panelsFromRecord = (record: typeof RawThreadMap.Type, kinds: WorkspaceTabKindCodecs) => {
   const next: Record<string, WorkspacePanelState> = {}
-  for (const [threadId, threadState] of Object.entries(record)) {
+  for (const [threadId, raw] of Object.entries(record)) {
     if (!isThreadKey(threadId)) {
       continue
     }
-    const sanitized = sanitizeWorkspacePanelState(threadState, kinds)
-    if (!sanitized.open && sanitized.tabs.length === 0) {
+    const sanitized = Option.match(decodePanel(raw), {
+      onNone: () => null,
+      onSome: (threadState) => sanitizeWorkspacePanelState(threadState, kinds),
+    })
+    if (sanitized === null || (!sanitized.open && sanitized.tabs.length === 0)) {
       continue
     }
     next[threadId] = sanitized

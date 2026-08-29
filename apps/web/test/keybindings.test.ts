@@ -118,6 +118,17 @@ describe("resolveMatchingKeybinding", () => {
     expect(
       resolveMatchingKeybinding(event, merged, context({ tableau: true }), "mac"),
     ).toBeUndefined()
+    expect(
+      resolveMatchingKeybinding(event, merged, context({ thread: true, dialogOpen: true }), "mac"),
+    ).toBeUndefined()
+    expect(
+      resolveMatchingKeybinding(
+        event,
+        merged,
+        context({ thread: true, editableFocused: true }),
+        "mac",
+      ),
+    ).toBeUndefined()
   })
 
   it("opens the model picker only on a Thread", () => {

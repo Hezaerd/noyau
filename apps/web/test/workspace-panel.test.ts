@@ -148,4 +148,23 @@ describe("workspace panel", () => {
     expect(Object.keys(parsed)).toEqual(["20000000-0000-4000-8000-000000000001"])
     expect(parsed["20000000-0000-4000-8000-000000000001"]?.tabs[0]?.id).toBe("tab-1")
   })
+
+  it("keeps valid persisted panels when another thread entry is corrupt", () => {
+    const opened = openTerminal(emptyWorkspacePanel, "tab-1")
+    const goodId = "20000000-0000-4000-8000-000000000001"
+    const badId = "20000000-0000-4000-8000-000000000002"
+    const parsed = parseWorkspacePanels(
+      JSON.stringify({
+        version: 1,
+        byThreadId: {
+          [goodId]: opened,
+          [badId]: { open: "yes", tabs: null },
+        },
+      }),
+      kinds,
+    )
+
+    expect(Object.keys(parsed)).toEqual([goodId])
+    expect(parsed[goodId]?.tabs[0]?.id).toBe("tab-1")
+  })
 })

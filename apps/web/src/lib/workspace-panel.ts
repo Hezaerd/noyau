@@ -8,10 +8,13 @@ export const WorkspaceTabPayload = Schema.Record(
 )
 export type WorkspaceTabPayload = typeof WorkspaceTabPayload.Type
 
-export type WorkspaceTab = {
+export type WorkspaceTab<
+  Kind extends string = string,
+  Payload extends WorkspaceTabPayload = WorkspaceTabPayload,
+> = {
   readonly id: string
-  readonly kind: string
-  readonly payload: WorkspaceTabPayload
+  readonly kind: Kind
+  readonly payload: Payload
   readonly identity: string | null
 }
 

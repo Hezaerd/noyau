@@ -49,6 +49,7 @@ export const KEYBINDING_GROUP_LABELS = {
 const WHEN_GLOBAL = "!dialogOpen && !editableFocused"
 const WHEN_THREAD = "thread && !dialogOpen"
 const WHEN_THREAD_CHROME = "thread && !dialogOpen && !editableFocused"
+const WHEN_THREAD_WORKSPACE_PANEL = `${WHEN_THREAD_CHROME} && !commandPaletteOpen`
 const WHEN_TABLEAU = "tableau && !dialogOpen && !editableFocused"
 const WHEN_TABLEAU_TICKET = "tableau && ticketSelected && !dialogOpen && !editableFocused"
 const WHEN_TABLEAU_COLUMN =
@@ -117,7 +118,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Toggle workspace panel",
     description: "Show or hide the Thread workspace panel.",
     defaultHotkey: "mod+shift+b",
-    when: "thread && !commandPaletteOpen",
+    when: WHEN_THREAD_WORKSPACE_PANEL,
   },
   {
     id: "board.search",

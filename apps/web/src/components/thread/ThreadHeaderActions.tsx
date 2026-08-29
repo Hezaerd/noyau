@@ -85,7 +85,7 @@ function ThreadHeaderPalette({
     if (thread === undefined) {
       return []
     }
-    return [
+    const actions: AppPaletteAction[] = [
       {
         id: "thread.settle",
         label: settled ? "Unsettle Thread" : "Settle Thread",
@@ -94,16 +94,19 @@ function ThreadHeaderPalette({
         icon: settled ? <CircleDotIcon /> : <CircleCheckIcon />,
         execute: () => dispatchThreadSettle(thread, !settled),
       },
-      {
+    ]
+    if (!disabled) {
+      actions.push({
         id: "thread.workspace-panel.toggle",
         label: workspacePanel.open ? "Hide workspace panel" : "Show workspace panel",
         searchValue: "Workspace panel sidebar tools terminal browser diff",
         shortcut: workspacePanelHotkey,
         icon: workspacePanel.open ? <PanelRightCloseIcon /> : <PanelRightIcon />,
         execute: () => toggleWorkspacePanel(threadId),
-      },
-    ]
-  }, [settleHotkey, settled, thread, workspacePanel.open, workspacePanelHotkey, threadId])
+      })
+    }
+    return actions
+  }, [disabled, settleHotkey, settled, thread, workspacePanel.open, workspacePanelHotkey, threadId])
   useAppPaletteActions(paletteActions)
   useKeybindingHandler(
     "thread.settle",
