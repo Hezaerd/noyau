@@ -8,6 +8,7 @@ import {
   type ThreadShell as ThreadShellType,
 } from "@noyau/contracts/shell"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
@@ -317,5 +318,35 @@ describe("ThreadSidebarItem", () => {
     )
     fireEvent.click(screen.getByRole("button", { name: "Unsettle Thread" }))
     expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, false)
+  })
+
+  it("settles from the context menu", async () => {
+    const user = userEvent.setup()
+    render(
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ThreadSidebarItem
+            thread={thread}
+            project={{
+              id: projectId,
+              name: "noyau",
+              workspaceRoot,
+            }}
+            pullRequest={null}
+            liveBranch={null}
+            isActive={false}
+            settled={false}
+            onSelect={vi.fn()}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
+    )
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ }),
+    })
+    await user.click(screen.getByRole("menuitem", { name: /Settle/ }))
+    expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, true)
   })
 })

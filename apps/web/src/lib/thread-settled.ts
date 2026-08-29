@@ -132,3 +132,26 @@ export const effectiveSettled = (
 export const threadSettledOverrideOf = (
   thread: Pick<ThreadShell, "settledOverride">,
 ): SettledOverride | null => thread.settledOverride ?? null
+
+/** Local shell patch after settle/unsettle is accepted. The live upsert replaces it. */
+export const applyOptimisticThreadSettle = (
+  thread: ThreadShell,
+  nextSettled: boolean,
+  at: DateTime.Utc = DateTime.nowUnsafe(),
+): ThreadShell => {
+  if (nextSettled) {
+    return {
+      ...thread,
+      settledOverride: "settled",
+      settledAt: thread.settledAt ?? at,
+      updatedAt: at,
+    }
+  }
+  const { settledAt: _settledAt, ...rest } = thread
+  return {
+    ...rest,
+    settledOverride: "active",
+    listedAt: at,
+    updatedAt: at,
+  }
+}
