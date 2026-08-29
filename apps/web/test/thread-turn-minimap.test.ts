@@ -19,6 +19,17 @@ describe("replaceMermaidFencesForPreview", () => {
       "Diagram",
     )
   })
+
+  it("keeps fences whose language only starts with mermaid", () => {
+    const source = "```mermaid-js\ngraph TD\n    A --> B\n```"
+    expect(replaceMermaidFencesForPreview(source)).toBe(source)
+  })
+
+  it("still replaces mermaid fences that have fence meta", () => {
+    expect(
+      replaceMermaidFencesForPreview('```mermaid title="flow"\ngraph TD\n    A --> B\n```'),
+    ).toBe("Diagram")
+  })
 })
 
 describe("clipTurnMinimapMarkdown", () => {

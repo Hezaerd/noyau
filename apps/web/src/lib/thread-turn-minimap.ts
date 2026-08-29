@@ -34,7 +34,7 @@ export const trimTurnMinimapPreview = (text: string | null | undefined): string 
   return trimmed.length > 0 ? trimmed : null
 }
 
-const mermaidFencePattern = /```mermaid(?:[^\n]*)\n[\s\S]*?(?:```|$)/gi
+const mermaidFencePattern = /```mermaid(?:[ \t]+[^\r\n]*)?\r?\n[\s\S]*?(?:```|$)/gi
 
 export const replaceMermaidFencesForPreview = (text: string): string =>
   text.replace(mermaidFencePattern, "Diagram")
