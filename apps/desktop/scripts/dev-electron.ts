@@ -111,7 +111,7 @@ const devElectron = Effect.fn("devElectron")(function* () {
     baseDirectory: desktopDir,
     files: ["dist-electron/main.cjs", "dist-electron/preload.cjs", "../server/dist/main.mjs"],
     host: "127.0.0.1",
-    port: 5173,
+    port: Number.parseInt(process.env.PORT ?? "5173", 10) || 5173,
   })
   yield* startElectron()
   yield* watchBundleDirectory(bundleDirectory, watchedDesktopBundles)

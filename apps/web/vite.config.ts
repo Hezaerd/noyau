@@ -6,6 +6,9 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react, { reactCompilerPreset } from "@vitejs/plugin-react"
 import { defineConfig, lazyPlugins } from "vite-plus"
 
+const webPort = Number.parseInt(process.env.PORT ?? "5173", 10) || 5173
+const serverPort = Number.parseInt(process.env.NOYAU_PORT ?? "3001", 10) || 3001
+
 export default defineConfig({
   test: {
     environment: "node",
@@ -51,21 +54,21 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    port: 5173,
+    port: webPort,
     strictPort: true,
     hmr: {
       protocol: "ws",
       host: "127.0.0.1",
-      clientPort: 5173,
+      clientPort: webPort,
     },
     proxy: {
       "/rpc": {
-        target: "http://127.0.0.1:3001",
+        target: `http://127.0.0.1:${String(serverPort)}`,
         changeOrigin: true,
         ws: true,
       },
       "/health": {
-        target: "http://127.0.0.1:3001",
+        target: `http://127.0.0.1:${String(serverPort)}`,
         changeOrigin: true,
       },
     },

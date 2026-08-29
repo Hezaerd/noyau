@@ -5,8 +5,20 @@ import { DEFAULT_RELEASE_CHANNEL, type DesktopReleaseChannel } from "./release-c
 export const DESKTOP_SCHEME = "noyau"
 export const DESKTOP_HOST = "app"
 export const DESKTOP_URL = `${DESKTOP_SCHEME}://${DESKTOP_HOST}/`
-export const DEVELOPMENT_RENDERER_URL = "http://127.0.0.1:5173/"
+export const DEFAULT_DEVELOPMENT_RENDERER_URL = "http://127.0.0.1:5173/"
 export const LOCAL_CONTROL_PLANE_RPC_URL = "ws://127.0.0.1:3001/rpc"
+
+export const developmentRendererUrlFromEnv = (
+  env: { readonly NOYAU_DEV_RENDERER_URL?: string; readonly VITE_DEV_SERVER_URL?: string } = {},
+): string => {
+  const raw = env.NOYAU_DEV_RENDERER_URL?.trim() || env.VITE_DEV_SERVER_URL?.trim()
+  if (raw === undefined || raw === "") {
+    return DEFAULT_DEVELOPMENT_RENDERER_URL
+  }
+  return raw.endsWith("/") ? raw : `${raw}/`
+}
+
+export const DEVELOPMENT_RENDERER_URL = DEFAULT_DEVELOPMENT_RENDERER_URL
 
 export const desktopUrlForServer = (
   host: string,

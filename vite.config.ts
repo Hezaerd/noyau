@@ -189,6 +189,12 @@ export default defineConfig({
         },
       },
       {
+        files: ["apps/web/vite.config.ts"],
+        rules: {
+          "effecttsgo/process-env": "off",
+        },
+      },
+      {
         files: ["apps/web/**"],
         plugins: ["react"],
         rules: {
@@ -211,6 +217,8 @@ export default defineConfig({
         rules: {
           "effecttsgo/node-builtin-import": "off",
           "effecttsgo/async-function": "off",
+          "effecttsgo/process-env": "off",
+          "effecttsgo/process-env-in-effect": "off",
         },
       },
       {

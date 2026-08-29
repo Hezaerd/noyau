@@ -3,17 +3,29 @@ import { Effect, Path } from "effect"
 
 import {
   DESKTOP_URL,
+  DEFAULT_DEVELOPMENT_RENDERER_URL,
   DEVELOPMENT_RENDERER_URL,
   LOCAL_CONTROL_PLANE_RPC_URL,
   desktopUrlForServer,
+  developmentRendererUrlFromEnv,
   resolveRendererAssetPath,
 } from "./renderer"
 
 describe("desktop renderer", () => {
   it("uses stable loopback and application URLs", () => {
     expect(DESKTOP_URL).toBe("noyau://app/")
+    expect(DEFAULT_DEVELOPMENT_RENDERER_URL).toBe("http://127.0.0.1:5173/")
     expect(DEVELOPMENT_RENDERER_URL).toBe("http://127.0.0.1:5173/")
     expect(LOCAL_CONTROL_PLANE_RPC_URL).toBe("ws://127.0.0.1:3001/rpc")
+  })
+
+  it("reads the runner's Vite URL without baking it at pack time", () => {
+    expect(developmentRendererUrlFromEnv({ NOYAU_DEV_RENDERER_URL: "http://127.0.0.1:5183" })).toBe(
+      "http://127.0.0.1:5183/",
+    )
+    expect(developmentRendererUrlFromEnv({ VITE_DEV_SERVER_URL: "http://127.0.0.1:5200/" })).toBe(
+      "http://127.0.0.1:5200/",
+    )
   })
 
   it("passes the supervisor-owned loopback connection to the renderer without IPC", () => {
