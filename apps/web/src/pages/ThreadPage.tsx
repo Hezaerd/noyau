@@ -520,11 +520,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
   }, [threadId])
 
-  const {
-    isAuthoritativeWorking: isRunning,
-    isWorking,
-    workingStartedAtMs,
-  } = resolveOpenThreadWorking({
+  const { isAuthoritativeWorking: isRunning, isWorking } = resolveOpenThreadWorking({
     openThreadId: threadId,
     snapshotThreadId: pageSnapshot?.thread.id,
     sessionStatus: pageSnapshot?.session?.status ?? null,
@@ -1122,7 +1118,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               composerDockHeight={composerDockHeight}
               transcript={pageSnapshot?.transcript ?? []}
               isRunning={isWorking}
-              workingStartedAtMs={workingStartedAtMs}
               latestTurn={pageSnapshot?.thread.latestTurn ?? null}
               turns={pageSnapshot?.turns ?? []}
               loading={loading || awaitingThread}

@@ -290,13 +290,6 @@ export const countWaitingThreads = (
   return count
 }
 
-export const workingTranscriptLabel = (startedAtMs: number | null, nowMs: number): string => {
-  if (startedAtMs === null) {
-    return "In progress…"
-  }
-  return `In progress for ${formatElapsedLabel(nowMs - startedAtMs)}`
-}
-
 export const settledTranscriptLabel = (
   latestTurn: Pick<LatestTurn, "state" | "requestedAt" | "startedAt" | "completedAt"> | null,
 ): string | null => {
