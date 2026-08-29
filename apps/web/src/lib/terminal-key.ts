@@ -1,26 +1,8 @@
 const encodeCtrlLetter = (letter: string): string | null => {
-  switch (letter) {
-    case "a":
-      return "\u0001"
-    case "c":
-      return "\u0003"
-    case "d":
-      return "\u0004"
-    case "e":
-      return "\u0005"
-    case "k":
-      return "\u000b"
-    case "l":
-      return "\u000c"
-    case "u":
-      return "\u0015"
-    case "w":
-      return "\u0017"
-    case "z":
-      return "\u001a"
-    default:
-      return null
+  if (letter.length !== 1 || letter < "a" || letter > "z") {
+    return null
   }
+  return String.fromCharCode(letter.charCodeAt(0) - 96)
 }
 
 /** Fallback PTY key encoding when Ghostty WASM fails to load. */

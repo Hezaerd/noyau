@@ -223,4 +223,41 @@ layer(Layer.mergeAll(NodeFileSystem.layer, Path.layer))("TerminalPlane", (it) =>
       )
     }),
   )
+
+  it.effect("livre closed après un attach qui se termine pendant un close", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-terminal-" })
+      const processHandle = new FakePtyProcess()
+      const started = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      yield* withPlane(
+        cwd,
+        processHandle,
+        (plane) =>
+          Effect.gen(function* () {
+            const attached = yield* Effect.forkChild(
+              Stream.runCollect(
+                plane.attach({ projectId, threadId, terminalId: "term-1" }).pipe(Stream.take(2)),
+              ),
+            )
+            yield* Deferred.await(started)
+            const closed = yield* Effect.forkChild(
+              plane.close({ projectId, threadId, terminalId: "term-1" }),
+            )
+            yield* Deferred.succeed(release, undefined)
+            const events = yield* Fiber.join(attached)
+            yield* Fiber.join(closed)
+            assert.strictEqual(events[0]?._tag, "snapshot")
+            assert.strictEqual(events[1]?._tag, "closed")
+          }),
+        () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(started, undefined)
+            yield* Deferred.await(release)
+            return processHandle
+          }),
+      )
+    }),
+  )
 })

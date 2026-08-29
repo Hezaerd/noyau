@@ -297,60 +297,64 @@ export const makeTerminalPlane = Effect.fn("TerminalPlane.make")(function* (opti
     yield* bindProcess(session, processHandle)
   })
 
-  const ensureSession = Effect.fn("TerminalPlane.ensureSession")(function* (
+  const withSessionLock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    sessionLock.withPermits(1)(effect)
+
+  const ensureSessionUnlocked = Effect.fn("TerminalPlane.ensureSessionUnlocked")(function* (
     input: TerminalAttachInput | TerminalRestartInput,
     flags?: { readonly restart?: boolean },
   ) {
-    return yield* sessionLock.withPermits(1)(
-      Effect.gen(function* () {
-        const { cwd } = yield* resolveCwd(input)
-        yield* assertCwd(cwd)
-        const key = sessionKey(input)
-        const cols = input.cols ?? DEFAULT_COLS
-        const rows = input.rows ?? DEFAULT_ROWS
-        const now = yield* DateTime.now
-        const existing = (yield* Ref.get(sessionsRef)).get(key)
-        if (existing !== undefined && flags?.restart !== true && existing.process !== null) {
-          return existing
-        }
-        const session =
-          existing ??
-          ({
-            projectId: input.projectId,
-            threadId: input.threadId,
-            terminalId: input.terminalId,
-            cwd,
-            status: "starting",
-            pid: null,
-            history: "",
-            exitCode: null,
-            exitSignal: null,
-            label: "Terminal",
-            updatedAt: now,
-            process: null,
-            unsubscribeData: null,
-            unsubscribeExit: null,
-          } satisfies LiveSession)
-        if (existing === undefined) {
-          yield* Ref.update(sessionsRef, (sessions) => {
-            const next = new Map(sessions)
-            next.set(key, session)
-            return next
-          })
-        } else {
-          session.cwd = cwd
-          if (flags?.restart === true) {
-            session.history = ""
-          }
-        }
-        yield* spawnSession(session, cols, rows)
-        return session
-      }),
-    )
+    const { cwd } = yield* resolveCwd(input)
+    yield* assertCwd(cwd)
+    const key = sessionKey(input)
+    const cols = input.cols ?? DEFAULT_COLS
+    const rows = input.rows ?? DEFAULT_ROWS
+    const now = yield* DateTime.now
+    const existing = (yield* Ref.get(sessionsRef)).get(key)
+    if (existing !== undefined && flags?.restart !== true && existing.process !== null) {
+      return existing
+    }
+    const session =
+      existing ??
+      ({
+        projectId: input.projectId,
+        threadId: input.threadId,
+        terminalId: input.terminalId,
+        cwd,
+        status: "starting",
+        pid: null,
+        history: "",
+        exitCode: null,
+        exitSignal: null,
+        label: "Terminal",
+        updatedAt: now,
+        process: null,
+        unsubscribeData: null,
+        unsubscribeExit: null,
+      } satisfies LiveSession)
+    if (existing === undefined) {
+      yield* Ref.update(sessionsRef, (sessions) => {
+        const next = new Map(sessions)
+        next.set(key, session)
+        return next
+      })
+    } else {
+      session.cwd = cwd
+      if (flags?.restart === true) {
+        session.history = ""
+      }
+    }
+    yield* spawnSession(session, cols, rows)
+    return session
   })
 
+  const ensureSession = (
+    input: TerminalAttachInput | TerminalRestartInput,
+    flags?: { readonly restart?: boolean },
+  ) => withSessionLock(ensureSessionUnlocked(input, flags))
+
   const closeSession = Effect.fn("TerminalPlane.closeSession")(function* (session: LiveSession) {
-    return yield* sessionLock.withPermits(1)(
+    return yield* withSessionLock(
       Effect.gen(function* () {
         detachProcess(session)
         yield* Ref.update(sessionsRef, (sessions) => {
@@ -373,10 +377,15 @@ export const makeTerminalPlane = Effect.fn("TerminalPlane.make")(function* (opti
       Stream.unwrap(
         Effect.gen(function* () {
           const subscription = yield* PubSub.subscribe(events)
-          const session = yield* ensureSession(input)
-          // Spawn output is already in the snapshot. Drop it so the client does
-          // not paint the same bytes twice after resetAndWrite(history).
-          yield* PubSub.takeUpTo(subscription, Number.POSITIVE_INFINITY)
+          // Hold the session lock through drain so close cannot publish
+          // `closed` into the buffer we are about to discard.
+          const session = yield* withSessionLock(
+            Effect.gen(function* () {
+              const session = yield* ensureSessionUnlocked(input)
+              yield* PubSub.takeUpTo(subscription, Number.POSITIVE_INFINITY)
+              return session
+            }),
+          )
           return Stream.concat(
             Stream.succeed({
               _tag: "snapshot" as const,
