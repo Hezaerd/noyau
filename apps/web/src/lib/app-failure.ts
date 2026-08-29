@@ -138,6 +138,10 @@ export const subscriptionEnded = (): AppFailure => ({
   reason: "ended",
 })
 
+/** Only these failures mean the shared socket is dead and must be replaced. */
+export const isTransportReplacementFailure = (failure: AppFailure): boolean =>
+  failure._tag === "TransportFailure" || failure._tag === "UnexpectedFailure"
+
 export const invalidInputFailure = (message?: string): AppFailure =>
   message === undefined ? { _tag: "InvalidInput" } : { _tag: "InvalidInput", message }
 

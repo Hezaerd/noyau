@@ -13,7 +13,24 @@ import {
   SynchronizedRef,
 } from "effect"
 
-import { GitRuntime } from "./git-runtime.ts"
+import { GitRuntime, unavailableVcsStatus } from "./git-runtime.ts"
+
+/** Domain git failures must not fail the live stream — they are an unavailable snapshot. */
+export const recoverVcsStatusSnapshot = (
+  cwd: string,
+  status: Effect.Effect<VcsStatusResult, GitCommandError>,
+): Effect.Effect<VcsStatusResult> =>
+  status.pipe(
+    Effect.catchTag("GitCommandError", (error) =>
+      Effect.logWarning("VCS status snapshot failed").pipe(
+        Effect.annotateLogs({
+          operation: error.operation,
+          cwdLength: cwd.length,
+        }),
+        Effect.as(unavailableVcsStatus(cwd)),
+      ),
+    ),
+  )
 
 export const DEFAULT_VCS_STATUS_REFRESH_INTERVAL = Duration.seconds(60)
 
@@ -158,7 +175,8 @@ export const make = Effect.gen(function* () {
         const interval = options?.interval ?? DEFAULT_VCS_STATUS_REFRESH_INTERVAL
         const subscription = yield* PubSub.subscribe(changes)
         const cached = (yield* Ref.get(cacheRef)).get(cwd)
-        const initial = cached ?? (yield* git.status(cwd, { includePr: false }))
+        const initial =
+          cached ?? (yield* recoverVcsStatusSnapshot(cwd, git.status(cwd, { includePr: false })))
         if (cached === undefined) {
           yield* remember(cwd, initial)
         }

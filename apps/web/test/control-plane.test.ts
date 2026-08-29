@@ -2,10 +2,11 @@ import { Sequence } from "@noyau/contracts/ids"
 import { Effect } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
-import { invalidInputFailure, type AppFailure } from "../src/lib/app-failure"
+import { invalidInputFailure, subscriptionEnded, type AppFailure } from "../src/lib/app-failure"
 import {
   acceptsSequence,
   makeSequencedFrameConsumer,
+  shouldRetryVcsStatus,
   superviseSubscription,
   type SubscriptionStatus,
 } from "../src/lib/control-plane"
@@ -137,7 +138,7 @@ describe("control plane stream cursor", () => {
         })
 
         cursor = Sequence.make(42)
-        attempts[0]?.fail(invalidInputFailure("socket closed"))
+        attempts[0]?.fail(subscriptionEnded())
         yield* Effect.promise(() => Promise.resolve())
 
         expect(replaced).toEqual([1])
@@ -145,7 +146,7 @@ describe("control plane stream cursor", () => {
           {
             _tag: "Reconnecting",
             attempt: 1,
-            failure: invalidInputFailure("socket closed"),
+            failure: subscriptionEnded(),
           },
         ])
         expect(reconnects).toHaveLength(1)
@@ -156,8 +157,246 @@ describe("control plane stream cursor", () => {
         })
 
         stop()
-        attempts[1]?.fail(invalidInputFailure("ignored after stop"))
+        attempts[1]?.fail(subscriptionEnded())
         expect(statuses).toHaveLength(1)
+      }),
+    ))
+
+  it("retries a domain stream failure without replacing the shared session", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        interface Session {
+          readonly id: number
+        }
+        interface Attempt {
+          readonly session: Session
+          readonly fail: (failure: AppFailure) => void
+        }
+
+        let session: Session = { id: 1 }
+        const attempts: Array<Attempt> = []
+        const replaced: Array<number> = []
+        const reconnects: Array<() => void> = []
+
+        superviseSubscription<Session>({
+          afterSequence: () => undefined,
+          currentSession: () => session,
+          startAttempt: (attemptSession, _afterSequence, fail) => {
+            attempts.push({ session: attemptSession, fail })
+            return () => undefined
+          },
+          replaceSession: (failedSession) => {
+            replaced.push(failedSession.id)
+            session = { id: failedSession.id + 1 }
+            return Promise.resolve()
+          },
+          onStatus: () => undefined,
+          schedule: (reconnect) => {
+            reconnects.push(reconnect)
+            return () => undefined
+          },
+        })
+
+        attempts[0]?.fail(invalidInputFailure("fatal: not a git repository"))
+        yield* Effect.promise(() => Promise.resolve())
+
+        expect(replaced).toEqual([])
+        expect(reconnects).toHaveLength(1)
+        reconnects[0]?.()
+        expect(attempts[1]?.session).toEqual({ id: 1 })
+      }),
+    ))
+
+  it("stops retrying a deterministic VCS failure", () => {
+    expect(shouldRetryVcsStatus(invalidInputFailure("ENOENT"))).toBe(false)
+    expect(shouldRetryVcsStatus(subscriptionEnded())).toBe(true)
+    expect(shouldRetryVcsStatus({ _tag: "Unavailable", service: "sqlite" })).toBe(true)
+
+    interface Session {
+      readonly id: number
+    }
+    const attempts: Array<Session> = []
+    const replaced: Array<number> = []
+    const reconnects: Array<() => void> = []
+    let fail: ((failure: AppFailure) => void) | undefined
+
+    superviseSubscription<Session>({
+      afterSequence: () => undefined,
+      currentSession: () => ({ id: 1 }),
+      startAttempt: (session, _afterSequence, onFailure) => {
+        attempts.push(session)
+        fail = onFailure
+        return () => undefined
+      },
+      replaceSession: (failedSession) => {
+        replaced.push(failedSession.id)
+        return Promise.resolve()
+      },
+      onStatus: () => undefined,
+      shouldRetry: shouldRetryVcsStatus,
+      schedule: (reconnect) => {
+        reconnects.push(reconnect)
+        return () => undefined
+      },
+    })
+
+    fail?.(invalidInputFailure("fatal: not a git repository"))
+    expect(replaced).toEqual([])
+    expect(reconnects).toEqual([])
+    expect(attempts).toHaveLength(1)
+  })
+
+  it("does not let a failing VCS stream replace the session of a healthy thread stream", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        interface Session {
+          readonly id: number
+        }
+        const listeners = new Set<() => void>()
+        let session: Session = { id: 1 }
+        const threadAttempts: Array<Session> = []
+        const vcsAttempts: Array<Session> = []
+        const replaced: Array<number> = []
+        const threadReconnects: Array<() => void> = []
+        const vcsReconnects: Array<() => void> = []
+        let failVcs: ((failure: AppFailure) => void) | undefined
+
+        const replaceSession = (failedSession: Session): Promise<void> => {
+          replaced.push(failedSession.id)
+          if (session === failedSession) {
+            session = { id: failedSession.id + 1 }
+            for (const reconnect of listeners) {
+              reconnect()
+            }
+          }
+          return Promise.resolve()
+        }
+
+        const watchSessionReplacement = (reconnect: () => void): (() => void) => {
+          listeners.add(reconnect)
+          return () => {
+            listeners.delete(reconnect)
+          }
+        }
+
+        superviseSubscription<Session>({
+          afterSequence: () => undefined,
+          currentSession: () => session,
+          startAttempt: (attemptSession, _afterSequence, _fail) => {
+            threadAttempts.push(attemptSession)
+            return () => undefined
+          },
+          replaceSession,
+          watchSessionReplacement,
+          onStatus: () => undefined,
+          schedule: (reconnect) => {
+            threadReconnects.push(reconnect)
+            return () => undefined
+          },
+        })
+
+        superviseSubscription<Session>({
+          afterSequence: () => undefined,
+          currentSession: () => session,
+          startAttempt: (attemptSession, _afterSequence, onFailure) => {
+            vcsAttempts.push(attemptSession)
+            failVcs = onFailure
+            return () => undefined
+          },
+          replaceSession,
+          watchSessionReplacement,
+          shouldRetry: shouldRetryVcsStatus,
+          onStatus: () => undefined,
+          schedule: (reconnect) => {
+            vcsReconnects.push(reconnect)
+            return () => undefined
+          },
+        })
+
+        failVcs?.(invalidInputFailure("fatal: not a git repository"))
+        yield* Effect.promise(() => Promise.resolve())
+
+        expect(replaced).toEqual([])
+        expect(threadAttempts).toEqual([{ id: 1 }])
+        expect(vcsAttempts).toEqual([{ id: 1 }])
+        expect(threadReconnects).toEqual([])
+        expect(vcsReconnects).toEqual([])
+      }),
+    ))
+
+  it("reconnects every active subscription when the shared session is actually replaced", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        interface Session {
+          readonly id: number
+        }
+        const listeners = new Set<() => void>()
+        let session: Session = { id: 1 }
+        const threadAttempts: Array<Session> = []
+        const vcsAttempts: Array<Session> = []
+        const threadReconnects: Array<() => void> = []
+        const vcsReconnects: Array<() => void> = []
+        let failVcs: ((failure: AppFailure) => void) | undefined
+
+        const replaceSession = (failedSession: Session): Promise<void> => {
+          if (session === failedSession) {
+            session = { id: failedSession.id + 1 }
+            for (const reconnect of listeners) {
+              reconnect()
+            }
+          }
+          return Promise.resolve()
+        }
+
+        const watchSessionReplacement = (reconnect: () => void): (() => void) => {
+          listeners.add(reconnect)
+          return () => {
+            listeners.delete(reconnect)
+          }
+        }
+
+        superviseSubscription<Session>({
+          afterSequence: () => undefined,
+          currentSession: () => session,
+          startAttempt: (attemptSession) => {
+            threadAttempts.push(attemptSession)
+            return () => undefined
+          },
+          replaceSession,
+          watchSessionReplacement,
+          onStatus: () => undefined,
+          schedule: (reconnect) => {
+            threadReconnects.push(reconnect)
+            return () => undefined
+          },
+        })
+
+        superviseSubscription<Session>({
+          afterSequence: () => undefined,
+          currentSession: () => session,
+          startAttempt: (attemptSession, _afterSequence, onFailure) => {
+            vcsAttempts.push(attemptSession)
+            failVcs = onFailure
+            return () => undefined
+          },
+          replaceSession,
+          watchSessionReplacement,
+          onStatus: () => undefined,
+          schedule: (reconnect) => {
+            vcsReconnects.push(reconnect)
+            return () => undefined
+          },
+        })
+
+        failVcs?.(subscriptionEnded())
+        yield* Effect.promise(() => Promise.resolve())
+
+        expect(threadReconnects).toHaveLength(1)
+        expect(vcsReconnects).toHaveLength(1)
+        threadReconnects[0]?.()
+        vcsReconnects[0]?.()
+        expect(threadAttempts[1]).toEqual({ id: 2 })
+        expect(vcsAttempts[1]).toEqual({ id: 2 })
       }),
     ))
 })
