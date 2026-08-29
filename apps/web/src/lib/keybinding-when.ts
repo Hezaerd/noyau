@@ -83,7 +83,9 @@ const isVisibleDialogElement = (node: Element): boolean => {
     return false
   }
   const style = window.getComputedStyle(node)
-  return style.display !== "none" && style.visibility !== "hidden"
+  return (
+    style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse"
+  )
 }
 
 export const isDialogOpen = (): boolean => {

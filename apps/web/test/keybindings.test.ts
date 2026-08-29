@@ -371,6 +371,12 @@ describe("isDialogOpen", () => {
     document.body.append(hidden)
     expect(isDialogOpen()).toBe(false)
 
+    const collapsed = document.createElement("div")
+    collapsed.setAttribute("role", "dialog")
+    collapsed.style.visibility = "collapse"
+    document.body.append(collapsed)
+    expect(isDialogOpen()).toBe(false)
+
     const dialog = document.createElement("div")
     dialog.setAttribute("role", "dialog")
     document.body.append(dialog)
