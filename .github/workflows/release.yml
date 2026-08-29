@@ -50,7 +50,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: .node-version
+          node-version: 24
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -112,7 +112,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: .node-version
+          node-version: 24
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
