@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { AppPaletteContext, type AppPaletteAction } from "../src/components/app-palette-context"
 import { ThreadHeaderActions } from "../src/components/thread/ThreadHeaderActions"
+import { TooltipProvider } from "../src/components/ui/tooltip"
 import {
   AppAtomRegistryProvider,
   appAtomRegistry,
@@ -113,15 +114,17 @@ const paletteValue = {
   },
 }
 
-const renderHeader = (thread: ThreadShell) => {
+const renderHeader = (thread: ThreadShell, disabled = false) => {
   registeredPaletteActions.length = 0
   replaceAppliedShell(makeSnapshot([thread]))
   appAtomRegistry.set(nowMinuteAtom, nowMs)
   return render(
     <AppAtomRegistryProvider>
-      <AppPaletteContext.Provider value={paletteValue}>
-        <ThreadHeaderActions projectId={projectId} threadId={thread.id} disabled={false} />
-      </AppPaletteContext.Provider>
+      <TooltipProvider>
+        <AppPaletteContext.Provider value={paletteValue}>
+          <ThreadHeaderActions projectId={projectId} threadId={thread.id} disabled={disabled} />
+        </AppPaletteContext.Provider>
+      </TooltipProvider>
     </AppAtomRegistryProvider>,
   )
 }
@@ -140,8 +143,9 @@ describe("ThreadHeaderActions", () => {
     renderHeader(thread)
 
     expect(screen.queryByRole("button", { name: "Settle Thread" })).toBeNull()
-    expect(registeredPaletteActions[0]?.label).toBe("Settle Thread")
-    void registeredPaletteActions[0]?.execute()
+    const settle = registeredPaletteActions.find((action) => action.id === "thread.settle")
+    expect(settle?.label).toBe("Settle Thread")
+    void settle?.execute()
     expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, true)
   })
 
@@ -154,8 +158,31 @@ describe("ThreadHeaderActions", () => {
 
     expect(screen.queryByRole("button", { name: "Unsettle Thread" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Settle Thread" })).toBeNull()
-    expect(registeredPaletteActions[0]?.label).toBe("Unsettle Thread")
-    void registeredPaletteActions[0]?.execute()
+    const settle = registeredPaletteActions.find((action) => action.id === "thread.settle")
+    expect(settle?.label).toBe("Unsettle Thread")
+    void settle?.execute()
     expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, false)
+  })
+
+  it("offers the workspace panel in the header and the palette", () => {
+    renderHeader(makeThread())
+
+    expect(screen.getByRole("button", { name: "Show workspace panel" })).toBeTruthy()
+    const toggle = registeredPaletteActions.find(
+      (action) => action.id === "thread.workspace-panel.toggle",
+    )
+    expect(toggle?.label).toBe("Show workspace panel")
+  })
+
+  it("omits the workspace panel palette action when the header is disabled", () => {
+    renderHeader(makeThread(), true)
+
+    expect(screen.getByRole("button", { name: "Show workspace panel" })).toHaveProperty(
+      "disabled",
+      true,
+    )
+    expect(
+      registeredPaletteActions.find((action) => action.id === "thread.workspace-panel.toggle"),
+    ).toBeUndefined()
   })
 })

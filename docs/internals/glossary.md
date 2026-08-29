@@ -9,6 +9,7 @@ This is a living glossary for Noyau. It explains what common terms mean in this 
 - [Project and workspace](#project-and-workspace)
 - [Boards](#boards)
 - [Thread timeline](#thread-timeline)
+- [Client chrome](#client-chrome)
 - [Orchestration](#orchestration)
 
 ## Concepts
@@ -42,6 +43,21 @@ This is a living glossary for Noyau. It explains what common terms mean in this 
 ...
 
 ### Thread timeline
+
+### Client chrome
+
+#### Workspace panel
+
+Optional right-hand column on a Thread page. It is a tab strip of tool surfaces,
+not a slot per tool. The store is client-only: no command, event, or contract
+owns an open tab. Implementation: [workspace-panel.ts][11] and
+[WorkspacePanel.tsx][12]. See [workspace panel][13].
+
+#### Workspace tab
+
+One instance in the workspace panel. Identity is `id`, not `kind`. Opening the
+same kind twice creates two tabs unless the kind sets `identityOf`. There is no
+placeholder tab: `create` produces the payload before the tab exists.
 
 ### Orchestration
 
@@ -89,3 +105,6 @@ only.
 [8]: ../../apps/server/src/orchestration/thread/projector.ts
 [9]: ../../apps/server/src/orchestration/thread/recovery.ts
 [10]: ../../apps/server/src/orchestration/control-state.ts
+[11]: ../../apps/web/src/lib/workspace-panel.ts
+[12]: ../../apps/web/src/components/workspace-panel/WorkspacePanel.tsx
+[13]: ./workspace-panel.md

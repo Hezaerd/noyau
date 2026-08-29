@@ -1,10 +1,12 @@
+import { useAtomValue } from "@effect/atom-react"
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
-import { CircleCheckIcon, CircleDotIcon } from "lucide-react"
+import { CircleCheckIcon, CircleDotIcon, PanelRightCloseIcon, PanelRightIcon } from "lucide-react"
 import { useMemo } from "react"
 
 import { useAppPaletteActions, type AppPaletteAction } from "@/components/app-palette-context"
 import { GitActionsControl } from "@/components/thread/GitActionsControl"
 import { OpenInPicker } from "@/components/thread/OpenInPicker"
+import { WorkspacePanelToggle } from "@/components/workspace-panel/WorkspacePanelToggle"
 import { useThreadShell } from "@/hooks/use-control-plane"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
@@ -13,6 +15,7 @@ import { useProjectPullRequests } from "@/hooks/use-sidebar-queues"
 import { useAutoSettleAfterDays } from "@/hooks/use-thread-settle-preference"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { effectiveSettled } from "@/lib/thread-settled"
+import { toggleWorkspacePanel, workspacePanelAtom } from "@/state/workspace-panel"
 
 export function ThreadHeaderActions({
   projectId,
@@ -31,6 +34,7 @@ export function ThreadHeaderActions({
       <ThreadSettleHotkey projectId={projectId} threadId={threadId} disabled={disabled} />
       <OpenInPicker projectId={projectId} threadId={threadId} disabled={disabled} />
       <GitActionsControl projectId={projectId} threadId={threadId} disabled={disabled} />
+      <WorkspacePanelToggle threadId={threadId} disabled={disabled} />
     </div>
   )
 }
@@ -44,11 +48,28 @@ function ThreadSettleHotkey({
   readonly threadId: ThreadId | undefined
   readonly disabled: boolean
 }) {
+  if (threadId === undefined) {
+    return null
+  }
+  return <ThreadHeaderPalette disabled={disabled} projectId={projectId} threadId={threadId} />
+}
+
+function ThreadHeaderPalette({
+  projectId,
+  threadId,
+  disabled,
+}: {
+  readonly projectId: ProjectId
+  readonly threadId: ThreadId
+  readonly disabled: boolean
+}) {
   const thread = useThreadShell(threadId)
   const pullRequests = useProjectPullRequests(projectId)
   const nowMs = useNowMinuteMs()
   const autoSettleAfterDays = useAutoSettleAfterDays()
   const settleHotkey = useKeybinding("thread.settle")
+  const workspacePanelHotkey = useKeybinding("thread.workspace-panel.toggle")
+  const workspacePanel = useAtomValue(workspacePanelAtom(threadId))
   const changeRequestState =
     thread === undefined ? null : (pullRequests.get(thread.id)?.state ?? null)
   const settled =
@@ -64,7 +85,7 @@ function ThreadSettleHotkey({
     if (thread === undefined) {
       return []
     }
-    return [
+    const actions: AppPaletteAction[] = [
       {
         id: "thread.settle",
         label: settled ? "Unsettle Thread" : "Settle Thread",
@@ -74,7 +95,18 @@ function ThreadSettleHotkey({
         execute: () => dispatchThreadSettle(thread, !settled),
       },
     ]
-  }, [settleHotkey, settled, thread])
+    if (!disabled) {
+      actions.push({
+        id: "thread.workspace-panel.toggle",
+        label: workspacePanel.open ? "Hide workspace panel" : "Show workspace panel",
+        searchValue: "Workspace panel sidebar tools terminal browser diff",
+        shortcut: workspacePanelHotkey,
+        icon: workspacePanel.open ? <PanelRightCloseIcon /> : <PanelRightIcon />,
+        execute: () => toggleWorkspacePanel(threadId),
+      })
+    }
+    return actions
+  }, [disabled, settleHotkey, settled, thread, workspacePanel.open, workspacePanelHotkey, threadId])
   useAppPaletteActions(paletteActions)
   useKeybindingHandler(
     "thread.settle",

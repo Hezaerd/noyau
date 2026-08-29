@@ -33,6 +33,7 @@ const context = (extra: Partial<KeybindingContext> = {}): KeybindingContext =>
       ticketSelected: extra.ticketSelected ?? false,
       columnSelected: extra.columnSelected ?? false,
       dialogOpen: extra.dialogOpen ?? false,
+      commandPaletteOpen: extra.commandPaletteOpen ?? false,
       editableFocused: extra.editableFocused ?? false,
     },
   )
@@ -101,6 +102,35 @@ describe("keybindingConflicts", () => {
 })
 
 describe("resolveMatchingKeybinding", () => {
+  it("toggles the workspace panel with mod+shift+b unless the Palette is open", () => {
+    const event = keyEvent({ key: "b", metaKey: true, shiftKey: true })
+    expect(resolveMatchingKeybinding(event, merged, context({ thread: true }), "mac")).toBe(
+      "thread.workspace-panel.toggle",
+    )
+    expect(
+      resolveMatchingKeybinding(
+        event,
+        merged,
+        context({ thread: true, commandPaletteOpen: true }),
+        "mac",
+      ),
+    ).toBeUndefined()
+    expect(
+      resolveMatchingKeybinding(event, merged, context({ tableau: true }), "mac"),
+    ).toBeUndefined()
+    expect(
+      resolveMatchingKeybinding(event, merged, context({ thread: true, dialogOpen: true }), "mac"),
+    ).toBeUndefined()
+    expect(
+      resolveMatchingKeybinding(
+        event,
+        merged,
+        context({ thread: true, editableFocused: true }),
+        "mac",
+      ),
+    ).toBeUndefined()
+  })
+
   it("opens the model picker only on a Thread", () => {
     const event = keyEvent({ key: ";", metaKey: true, ctrlKey: false })
     expect(resolveMatchingKeybinding(event, merged, context({ thread: true }), "mac")).toBe(
@@ -165,6 +195,7 @@ describe("readKeybindingContext", () => {
     const event = keyEvent({ key: "n", metaKey: true })
     setKeybindingPaletteOpen(true)
     expect(readKeybindingContext(event.target, "/projects/abc/board").dialogOpen).toBe(false)
+    expect(readKeybindingContext(event.target, "/projects/abc/board").commandPaletteOpen).toBe(true)
     expect(readKeybindingContext(event.target, "/projects/abc/board").tableau).toBe(true)
   })
 })

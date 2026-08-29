@@ -41,6 +41,7 @@ import {
   type ThreadTurnDiffTarget,
 } from "@/components/thread/ThreadTurnDiffPanel"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
+import { WorkspacePanel } from "@/components/workspace-panel/WorkspacePanel"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
 import {
   useClaude,
@@ -1096,8 +1097,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           {composer}
         </ThreadDraftHero>
       ) : (
-        <>
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <ThreadTranscript
               composerDockHeight={composerDockHeight}
               transcript={pageSnapshot?.transcript ?? []}
@@ -1168,8 +1169,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               <div className="pointer-events-auto">{composer}</div>
             </div>
           </div>
+          {threadId === undefined ? null : <WorkspacePanel threadId={threadId} />}
           <ThreadTurnDiffPanel target={turnDiffTarget} onClose={() => setTurnDiffTarget(null)} />
-        </>
+        </div>
       )}
     </main>
   )
