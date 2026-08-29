@@ -5,6 +5,7 @@ import { Effect, Stream } from "effect"
 import { ControlPlane } from "./control-plane.ts"
 import { EditorOpen } from "./editor/editor-open.ts"
 import { GitPlane } from "./git/git-plane.ts"
+import { TerminalPlane } from "./terminal/terminal-plane.ts"
 
 export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
   [RPC_METHODS.dispatchCommand]: (request) =>
@@ -64,4 +65,16 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
   [RPC_METHODS.listEditors]: () => EditorOpen.pipe(Effect.flatMap((editors) => editors.list)),
   [RPC_METHODS.openInEditor]: (input) =>
     EditorOpen.pipe(Effect.flatMap((editors) => editors.open(input))),
+  [RPC_METHODS.terminalAttach]: (input) =>
+    Stream.unwrap(TerminalPlane.pipe(Effect.map((terminals) => terminals.attach(input)))),
+  [RPC_METHODS.terminalWrite]: (input) =>
+    TerminalPlane.pipe(Effect.flatMap((terminals) => terminals.write(input))),
+  [RPC_METHODS.terminalResize]: (input) =>
+    TerminalPlane.pipe(Effect.flatMap((terminals) => terminals.resize(input))),
+  [RPC_METHODS.terminalClear]: (input) =>
+    TerminalPlane.pipe(Effect.flatMap((terminals) => terminals.clear(input))),
+  [RPC_METHODS.terminalRestart]: (input) =>
+    TerminalPlane.pipe(Effect.flatMap((terminals) => terminals.restart(input))),
+  [RPC_METHODS.terminalClose]: (input) =>
+    TerminalPlane.pipe(Effect.flatMap((terminals) => terminals.close(input))),
 })

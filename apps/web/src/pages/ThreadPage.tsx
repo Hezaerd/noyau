@@ -1169,7 +1169,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               <div className="pointer-events-auto">{composer}</div>
             </div>
           </div>
-          {threadId === undefined ? null : <WorkspacePanel threadId={threadId} />}
+          {threadId === undefined ? null : (
+            <WorkspacePanel projectId={projectId} threadId={threadId} />
+          )}
           <ThreadTurnDiffPanel target={turnDiffTarget} onClose={() => setTurnDiffTarget(null)} />
         </div>
       )}

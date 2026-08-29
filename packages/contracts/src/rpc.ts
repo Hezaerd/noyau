@@ -50,6 +50,17 @@ import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/contracts/i
 import { ProjectNotFound, ProjectUnavailable } from "@noyau/contracts/project/errors"
 import { DispatchResult, Rejection } from "@noyau/contracts/receipts"
 import { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
+import {
+  TerminalAttachInput,
+  TerminalAttachStreamEvent,
+  TerminalClearInput,
+  TerminalCloseInput,
+  TerminalError,
+  TerminalResizeInput,
+  TerminalRestartInput,
+  TerminalSessionSnapshot,
+  TerminalWriteInput,
+} from "@noyau/contracts/terminal"
 import { ThreadAssistantLive } from "@noyau/contracts/thread/live"
 import { GetTurnDiffInput, TurnDiffPatch, TurnDiffUnavailable } from "@noyau/contracts/turn-diff"
 import { Schema } from "effect"
@@ -91,6 +102,12 @@ export const RPC_METHODS = {
   gitPublishRepository: "git.publishRepository",
   listEditors: "workspace.listEditors",
   openInEditor: "workspace.openInEditor",
+  terminalAttach: "terminal.attach",
+  terminalWrite: "terminal.write",
+  terminalResize: "terminal.resize",
+  terminalClear: "terminal.clear",
+  terminalRestart: "terminal.restart",
+  terminalClose: "terminal.close",
 } as const
 
 /**
@@ -338,6 +355,41 @@ export const OpenInEditor = Rpc.make(RPC_METHODS.openInEditor, {
   error: Schema.Union([OpenInEditorFailed, ServiceUnavailable]),
 })
 
+const terminalErrors = Schema.Union([TerminalError, ServiceUnavailable])
+
+export const TerminalAttach = Rpc.make(RPC_METHODS.terminalAttach, {
+  payload: TerminalAttachInput,
+  success: TerminalAttachStreamEvent,
+  error: terminalErrors,
+  stream: true,
+})
+
+export const TerminalWrite = Rpc.make(RPC_METHODS.terminalWrite, {
+  payload: TerminalWriteInput,
+  error: terminalErrors,
+})
+
+export const TerminalResize = Rpc.make(RPC_METHODS.terminalResize, {
+  payload: TerminalResizeInput,
+  error: terminalErrors,
+})
+
+export const TerminalClear = Rpc.make(RPC_METHODS.terminalClear, {
+  payload: TerminalClearInput,
+  error: terminalErrors,
+})
+
+export const TerminalRestart = Rpc.make(RPC_METHODS.terminalRestart, {
+  payload: TerminalRestartInput,
+  success: TerminalSessionSnapshot,
+  error: terminalErrors,
+})
+
+export const TerminalClose = Rpc.make(RPC_METHODS.terminalClose, {
+  payload: TerminalCloseInput,
+  error: terminalErrors,
+})
+
 /** Contrat unique client/serveur du control plane sur WebSocket. */
 export const ControlPlaneRpcs = RpcGroup.make(
   DispatchCommand,
@@ -366,6 +418,12 @@ export const ControlPlaneRpcs = RpcGroup.make(
   GitPublishRepository,
   ListEditors,
   OpenInEditor,
+  TerminalAttach,
+  TerminalWrite,
+  TerminalResize,
+  TerminalClear,
+  TerminalRestart,
+  TerminalClose,
 ).middleware(NoyauRpcIdentity)
 
 export type ControlPlaneRpcs = typeof ControlPlaneRpcs

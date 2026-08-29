@@ -43,6 +43,7 @@
     "./turn-diff": "./src/turn-diff.ts",
     "./editor": "./src/editor.ts",
     "./git": "./src/git.ts",
+    "./terminal": "./src/terminal.ts",
     "./attachment-preview": "./src/attachment-preview.ts",
     "./entities/attachment": "./src/entities/attachment.ts",
     "./rpc": "./src/rpc.ts"

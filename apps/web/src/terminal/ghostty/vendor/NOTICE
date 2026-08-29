@@ -1,0 +1,6 @@
+libghostty-vt WebAssembly, revision pinned in VERSION.
+
+Built from ghostty-org/ghostty (MIT). The PTY trampoline
+(ghostty-write-pty.wasm) imports `t3_write_pty`; that name is baked into
+the module and must stay. Browser ABI (runtime, core, renderer, keyCodes)
+is adapted from t3code (MIT).

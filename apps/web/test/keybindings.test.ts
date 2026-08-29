@@ -131,6 +131,21 @@ describe("resolveMatchingKeybinding", () => {
     ).toBeUndefined()
   })
 
+  it("opens a terminal with mod+shift+j unless the Palette is open", () => {
+    const event = keyEvent({ key: "j", metaKey: true, shiftKey: true })
+    expect(resolveMatchingKeybinding(event, merged, context({ thread: true }), "mac")).toBe(
+      "thread.terminal.new",
+    )
+    expect(
+      resolveMatchingKeybinding(
+        event,
+        merged,
+        context({ thread: true, commandPaletteOpen: true }),
+        "mac",
+      ),
+    ).toBeUndefined()
+  })
+
   it("opens the model picker only on a Thread", () => {
     const event = keyEvent({ key: ";", metaKey: true, ctrlKey: false })
     expect(resolveMatchingKeybinding(event, merged, context({ thread: true }), "mac")).toBe(

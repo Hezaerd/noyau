@@ -22,6 +22,8 @@ import { loggerLayer } from "./observability.ts"
 import * as Sqlite from "./persistence/sqlite.ts"
 import { providerRuntimeLayer } from "./provider/provider-runtime.ts"
 import { rpcHandlersLayer } from "./rpc-handlers.ts"
+import { layer as nodePtyAdapterLayer } from "./terminal/node-pty-adapter.ts"
+import { TerminalPlane, terminalPlaneLayer } from "./terminal/terminal-plane.ts"
 import { cursorTextGenerationLayer } from "./text-generation/cursor-text-generation.ts"
 import { workspaceRootAccessLayer } from "./workspace-root.ts"
 
@@ -111,6 +113,7 @@ export const websocketRpcLayer = Layer.unwrap(
     const controlPlane = yield* ControlPlane
     const gitPlane = yield* GitPlane
     const editorOpen = yield* EditorOpen
+    const terminalPlane = yield* TerminalPlane
     return HttpRouter.add(
       "GET",
       "/rpc",
@@ -132,6 +135,7 @@ export const websocketRpcLayer = Layer.unwrap(
           Layer.provide(Layer.succeed(ControlPlane)(controlPlane)),
           Layer.provide(Layer.succeed(GitPlane)(gitPlane)),
           Layer.provide(Layer.succeed(EditorOpen)(editorOpen)),
+          Layer.provide(Layer.succeed(TerminalPlane)(terminalPlane)),
           Layer.provideMerge(RpcSerialization.layerJson),
         )
         const connection = yield* Layer.build(connectionLayer)
@@ -178,6 +182,7 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(providerRuntimeLayer()),
   Layer.provideMerge(gitPlaneLayer),
   Layer.provideMerge(editorOpenLayer),
+  Layer.provideMerge(terminalPlaneLayer.pipe(Layer.provide(nodePtyAdapterLayer))),
   Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),
   Layer.provide(discordPresenceLayer),

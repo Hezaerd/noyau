@@ -189,6 +189,30 @@ export default defineConfig({
         },
       },
       {
+        // Ghostty WASM ABI, ported from t3code. The trampoline and layout
+        // walks are a foreign C boundary; anti-slop and object bags do not apply.
+        files: ["apps/web/src/terminal/ghostty/**"],
+        rules: {
+          "anti-slop/no-object-parameters": "off",
+          "anti-slop/no-unknown-parameters": "off",
+          "anti-slop/no-unknown-returns": "off",
+          "anti-slop/no-runtime-typeof": "off",
+          "anti-slop/no-conditional-empty-object-spread": "off",
+          "anti-slop/require-safety-comment-for-type-assertion": "off",
+          "anti-slop/no-unsafe-dictionary-type": "off",
+          "anti-slop/no-known-value-widening": "off",
+          "typescript/no-unsafe-type-assertion": "off",
+          "typescript/consistent-type-imports": "off",
+          "typescript/no-misused-spread": "off",
+          "unicorn/consistent-function-scoping": "off",
+          "unicorn/no-new-array": "off",
+          "promise/always-return": "off",
+          "no-underscore-dangle": "off",
+          "effecttsgo/global-console": "off",
+          "effecttsgo/global-fetch": "off",
+        },
+      },
+      {
         files: ["apps/web/**"],
         plugins: ["react"],
         rules: {

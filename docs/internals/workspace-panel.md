@@ -26,6 +26,9 @@ Closing the last tab leaves the panel open on the launcher. Hiding the panel
 keeps the tab list. Kinds that set `keepMounted` stay in the DOM while inactive
 so a later PTY or tree does not remount.
 
+The Terminal kind is the first catalogue entry. Closing that tab calls
+`terminal.close`. See [terminal](./terminal.md).
+
 ## Where it lives
 
 | Piece | File |
