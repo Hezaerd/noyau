@@ -409,6 +409,35 @@ export const transcriptRowId = (item: TranscriptItem, index: number): string => 
   }
 }
 
+/**
+ * Mount an empty assistant row as soon as a live Turn exists, so paint can
+ * land before the journal flushes the first `transcript.assistant` item.
+ */
+export const transcriptWithLiveAssistantPlaceholder = (
+  transcript: ReadonlyArray<TranscriptItem>,
+  live:
+    | {
+        readonly threadId: TranscriptItem["threadId"]
+        readonly turnId: TranscriptItem["turnId"]
+      }
+    | undefined,
+): ReadonlyArray<TranscriptItem> => {
+  if (live === undefined) {
+    return transcript
+  }
+  const last = transcript.at(-1)
+  if (last?._tag === "transcript.assistant" && last.turnId === live.turnId) {
+    return transcript
+  }
+  if (last !== undefined && (last.threadId !== live.threadId || last.turnId !== live.turnId)) {
+    return transcript
+  }
+  return [
+    ...transcript,
+    { _tag: "transcript.assistant", threadId: live.threadId, turnId: live.turnId, text: "" },
+  ]
+}
+
 export const threadStatusNoticesVisible = (
   session: { readonly status: string; readonly lastError: string | null } | null | undefined,
   latestTurn: { readonly state: string } | null | undefined,

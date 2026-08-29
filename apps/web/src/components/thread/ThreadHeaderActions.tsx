@@ -1,4 +1,3 @@
-import { useAtomValue } from "@effect/atom-react"
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { CircleCheckIcon, CircleDotIcon, PanelRightCloseIcon, PanelRightIcon } from "lucide-react"
 import { useMemo } from "react"
@@ -7,6 +6,7 @@ import { useAppPaletteActions, type AppPaletteAction } from "@/components/app-pa
 import { GitActionsControl } from "@/components/thread/GitActionsControl"
 import { OpenInPicker } from "@/components/thread/OpenInPicker"
 import { WorkspacePanelToggle } from "@/components/workspace-panel/WorkspacePanelToggle"
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { useThreadShell } from "@/hooks/use-control-plane"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
@@ -69,7 +69,7 @@ function ThreadHeaderPalette({
   const autoSettleAfterDays = useAutoSettleAfterDays()
   const settleHotkey = useKeybinding("thread.settle")
   const workspacePanelHotkey = useKeybinding("thread.workspace-panel.toggle")
-  const workspacePanel = useAtomValue(workspacePanelAtom(threadId))
+  const workspacePanel = useAppAtomValue(workspacePanelAtom(threadId))
   const changeRequestState =
     thread === undefined ? null : (pullRequests.get(thread.id)?.state ?? null)
   const settled =
