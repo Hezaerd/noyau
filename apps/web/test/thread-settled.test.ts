@@ -4,6 +4,7 @@ import { Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  applyOptimisticThreadSettle,
   canSettle,
   changeRequestAutoSettles,
   changeRequestSettleDecision,
@@ -208,5 +209,21 @@ describe("effectiveSettled", () => {
         autoSettleAfterDays: 3,
       }),
     ).toBe(false)
+  })
+})
+
+describe("applyOptimisticThreadSettle", () => {
+  it("pins settled and active so the sidebar does not wait on the live upsert", () => {
+    const settled = applyOptimisticThreadSettle(shell(), true)
+    expect(settled.settledOverride).toBe("settled")
+    expect(settled.settledAt).toBeDefined()
+
+    const unsettled = applyOptimisticThreadSettle(
+      shell({ settledOverride: "settled", settledAt: STALE_ISO }),
+      false,
+    )
+    expect(unsettled.settledOverride).toBe("active")
+    expect(unsettled.settledAt).toBeUndefined()
+    expect(effectiveSettled(unsettled, { nowMs: NOW, autoSettleAfterDays: 3 })).toBe(false)
   })
 })

@@ -4,7 +4,8 @@ import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
 import { makeThreadSettleRequest, makeThreadUnsettleRequest } from "@/lib/thread-commands"
-import { canSettle } from "@/lib/thread-settled"
+import { applyOptimisticThreadSettle, canSettle } from "@/lib/thread-settled"
+import { patchAppliedShellThread } from "@/state/shell"
 import { setThreadPinned } from "@/state/thread-pins"
 
 export const dispatchThreadSettle = (
@@ -43,6 +44,9 @@ export const dispatchThreadSettle = (
     if (nextSettled) {
       setThreadPinned(thread.id, false)
     }
+    patchAppliedShellThread(thread.id, (current) =>
+      applyOptimisticThreadSettle(current, nextSettled),
+    )
     return undefined
   })
 }

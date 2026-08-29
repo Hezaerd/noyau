@@ -76,4 +76,16 @@ describe("failure presentation policy", () => {
       presentFailure({ _tag: "Interrupted" }, context({ initiatedByUser: false })).surface,
     ).toBe("silent")
   })
+
+  it("toasts an unexpected failure that the user just triggered", () => {
+    expect(
+      presentFailure({ _tag: "UnexpectedFailure", incidentId: "web-1" }, context()).surface,
+    ).toBe("toast")
+    expect(
+      presentFailure(
+        { _tag: "UnexpectedFailure", incidentId: "web-2" },
+        context({ initiatedByUser: false }),
+      ).surface,
+    ).toBe("banner")
+  })
 })
