@@ -242,10 +242,29 @@ export class GitRuntime extends Context.Service<GitRuntime, GitRuntimeService>()
   "@noyau/server/git/GitRuntime",
 ) {}
 
+/** Missing cwd, spawn failure, or a path that is not a git work tree. */
+export const unavailableVcsStatus = (cwd: string): VcsStatusResult => ({
+  isRepo: false,
+  cwd,
+  refName: null,
+  isDefaultRef: false,
+  hasPrimaryRemote: false,
+  hasWorkingTreeChanges: false,
+  hasUpstream: false,
+  aheadCount: 0,
+  behindCount: 0,
+  worktreePath: null,
+  pr: null,
+})
+
 const isRepo = Effect.fn("GitRuntime.isRepo")(function* (cwd: string) {
   const result = yield* runGit("git.rev-parse", cwd, ["rev-parse", "--is-inside-work-tree"], {
     allowNonZero: true,
-  })
+  }).pipe(
+    Effect.catchTag("GitCommandError", () =>
+      Effect.succeed({ stdout: "", stderr: "", code: 1 } satisfies CommandResult),
+    ),
+  )
   return result.code === 0 && firstLine(result.stdout) === "true"
 })
 
@@ -349,19 +368,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     const includePr = options.includePr !== false
     const repo = yield* isRepo(cwd)
     if (!repo) {
-      return {
-        isRepo: false,
-        cwd,
-        refName: null,
-        isDefaultRef: false,
-        hasPrimaryRemote: false,
-        hasWorkingTreeChanges: false,
-        hasUpstream: false,
-        aheadCount: 0,
-        behindCount: 0,
-        worktreePath: null,
-        pr: null,
-      } satisfies VcsStatusResult
+      return unavailableVcsStatus(cwd)
     }
     const [refName, remotes, porcelain, defaultHead, worktrees] = yield* Effect.all(
       [

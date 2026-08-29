@@ -1,11 +1,14 @@
 import { ServiceUnavailable } from "@noyau/contracts/errors"
 import { FilePreviewFailed } from "@noyau/contracts/file-preview"
+import { GitCommandError } from "@noyau/contracts/git"
 import { TicketId } from "@noyau/contracts/ids"
 import { TicketDependencyCycle } from "@noyau/contracts/ticket/errors"
 import { Cause } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  invalidInputFailure,
+  isTransportReplacementFailure,
   normalizeCause,
   ResourceSnapshotUnavailable,
   subscriptionEnded,
@@ -34,6 +37,12 @@ describe("AppFailure normalization", () => {
     expect(
       normalizeCause(Cause.fail(new FilePreviewFailed({ reason: "outside-workspace" })), "command"),
     ).toEqual({ _tag: "InvalidInput" })
+    expect(
+      normalizeCause(
+        Cause.fail(new GitCommandError({ operation: "git.rev-parse", detail: "ENOENT" })),
+        "stream",
+      ),
+    ).toEqual({ _tag: "InvalidInput", message: "ENOENT" })
   })
 
   it("turns protocol defects into incidents without exposing their cause", () => {
@@ -58,5 +67,23 @@ describe("AppFailure normalization", () => {
       phase: "stream",
       reason: "ended",
     })
+  })
+
+  it("replaces the shared transport only for socket-level failures", () => {
+    expect(isTransportReplacementFailure(subscriptionEnded())).toBe(true)
+    expect(
+      isTransportReplacementFailure({
+        _tag: "TransportFailure",
+        phase: "stream",
+        reason: "failed",
+      }),
+    ).toBe(true)
+    expect(isTransportReplacementFailure({ _tag: "UnexpectedFailure", incidentId: "web-1" })).toBe(
+      true,
+    )
+    expect(isTransportReplacementFailure(invalidInputFailure("fatal: not a git repository"))).toBe(
+      false,
+    )
+    expect(isTransportReplacementFailure({ _tag: "Unavailable", service: "sqlite" })).toBe(false)
   })
 })

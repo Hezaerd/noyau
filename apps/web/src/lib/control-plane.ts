@@ -55,6 +55,7 @@ import type * as RpcGroup from "effect/unstable/rpc/RpcGroup"
 import { Socket } from "effect/unstable/socket"
 
 import {
+  isTransportReplacementFailure,
   normalizeCause,
   ResourceSnapshotUnavailable,
   subscriptionEnded,
@@ -113,6 +114,14 @@ type TransportSession = ReturnType<typeof makeTransportSession>
 
 let activeTransportSession = makeTransportSession()
 const retiredSessions = new WeakMap<TransportSession, Promise<void>>()
+const sessionReplacementListeners = new Set<() => void>()
+
+const watchTransportSessionReplacement = (reconnect: () => void): (() => void) => {
+  sessionReplacementListeners.add(reconnect)
+  return () => {
+    sessionReplacementListeners.delete(reconnect)
+  }
+}
 
 const replaceTransportSession = (failedSession: TransportSession): Promise<void> => {
   const retired = retiredSessions.get(failedSession)
@@ -125,8 +134,14 @@ const replaceTransportSession = (failedSession: TransportSession): Promise<void>
   activeTransportSession = makeTransportSession()
   const disposal = failedSession.dispose()
   retiredSessions.set(failedSession, disposal)
+  for (const reconnect of sessionReplacementListeners) {
+    reconnect()
+  }
   return disposal
 }
+
+export const shouldRetryVcsStatus = (failure: AppFailure): boolean =>
+  isTransportReplacementFailure(failure) || failure._tag === "Unavailable"
 
 type ControlPlaneStreamError =
   | RpcClientError
@@ -516,6 +531,9 @@ export interface SubscriptionSupervisorOptions<Session> {
   readonly replaceSession: (failedSession: Session) => Promise<void>
   readonly onStatus: (status: SubscriptionStatus) => void
   readonly schedule?: ReconnectSchedule
+  readonly shouldReplaceSession?: (failure: AppFailure) => boolean
+  readonly shouldRetry?: (failure: AppFailure) => boolean
+  readonly watchSessionReplacement?: (reconnect: () => void) => () => void
 }
 
 export const superviseSubscription = <Session>({
@@ -525,6 +543,9 @@ export const superviseSubscription = <Session>({
   replaceSession,
   onStatus,
   schedule = scheduleReconnect,
+  shouldReplaceSession = isTransportReplacementFailure,
+  shouldRetry = () => true,
+  watchSessionReplacement,
 }: SubscriptionSupervisorOptions<Session>): (() => void) => {
   let stopped = false
   let retrying = false
@@ -532,37 +553,69 @@ export const superviseSubscription = <Session>({
   let stopAttempt: (() => void) | undefined
   let cancelReconnect: (() => void) | undefined
 
+  const scheduleConnect = (): void => {
+    cancelReconnect = schedule(() => {
+      cancelReconnect = undefined
+      retrying = false
+      connect()
+    }, attempt)
+  }
+
+  const beginReconnect = (failure: AppFailure): void => {
+    retrying = true
+    attempt += 1
+    stopAttempt?.()
+    stopAttempt = undefined
+    cancelReconnect?.()
+    cancelReconnect = undefined
+    onStatus({ _tag: "Reconnecting", attempt, failure })
+  }
+
+  const handleFailure = (session: Session, failure: AppFailure): void => {
+    if (stopped || retrying || failure._tag === "Interrupted") {
+      return
+    }
+    const replace = shouldReplaceSession(failure)
+    if (!replace && !shouldRetry(failure)) {
+      return
+    }
+    beginReconnect(failure)
+    if (replace) {
+      void replaceSession(session).then(() => {
+        if (!stopped) {
+          scheduleConnect()
+        }
+        return undefined
+      })
+      return
+    }
+    scheduleConnect()
+  }
+
   const connect = (): void => {
     if (stopped) {
       return
     }
     const session = currentSession()
     stopAttempt = startAttempt(session, afterSequence(), (failure) => {
-      if (stopped || retrying) {
-        return
-      }
-      retrying = true
-      attempt += 1
-      stopAttempt?.()
-      stopAttempt = undefined
-      onStatus({ _tag: "Reconnecting", attempt, failure })
-      void replaceSession(session).then(() => {
-        if (stopped) {
-          return
-        }
-        cancelReconnect = schedule(() => {
-          cancelReconnect = undefined
-          retrying = false
-          connect()
-        }, attempt)
-        return undefined
-      })
+      handleFailure(session, failure)
     })
   }
+
+  const forceReconnect = (): void => {
+    if (stopped || retrying) {
+      return
+    }
+    beginReconnect(subscriptionEnded())
+    scheduleConnect()
+  }
+
+  const unwatch = watchSessionReplacement?.(forceReconnect)
 
   connect()
   return () => {
     stopped = true
+    unwatch?.()
     cancelReconnect?.()
     stopAttempt?.()
   }
@@ -614,6 +667,7 @@ export const subscribeShell = (
     afterSequence: consumer.afterSequence,
     currentSession: () => activeTransportSession,
     replaceSession: replaceTransportSession,
+    watchSessionReplacement: watchTransportSessionReplacement,
     onStatus: callbacks.onStatus,
     startAttempt: (session, resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
@@ -640,6 +694,7 @@ export const subscribeProject = (
     afterSequence: consumer.afterSequence,
     currentSession: () => activeTransportSession,
     replaceSession: replaceTransportSession,
+    watchSessionReplacement: watchTransportSessionReplacement,
     onStatus: callbacks.onStatus,
     startAttempt: (session, resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
@@ -684,6 +739,8 @@ export const subscribeVcsStatus = (
     afterSequence: () => undefined,
     currentSession: () => activeTransportSession,
     replaceSession: replaceTransportSession,
+    watchSessionReplacement: watchTransportSessionReplacement,
+    shouldRetry: shouldRetryVcsStatus,
     onStatus,
     startAttempt: (session, _resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
@@ -706,6 +763,7 @@ export const subscribeThread = (
     afterSequence: consumer.afterSequence,
     currentSession: () => activeTransportSession,
     replaceSession: replaceTransportSession,
+    watchSessionReplacement: watchTransportSessionReplacement,
     onStatus: callbacks.onStatus,
     startAttempt: (session, resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
