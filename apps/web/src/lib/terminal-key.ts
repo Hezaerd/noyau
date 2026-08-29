@@ -1,23 +1,42 @@
+const encodeCtrlLetter = (letter: string): string | null => {
+  switch (letter) {
+    case "a":
+      return "\u0001"
+    case "c":
+      return "\u0003"
+    case "d":
+      return "\u0004"
+    case "e":
+      return "\u0005"
+    case "k":
+      return "\u000b"
+    case "l":
+      return "\u000c"
+    case "u":
+      return "\u0015"
+    case "w":
+      return "\u0017"
+    case "z":
+      return "\u001a"
+    default:
+      return null
+  }
+}
+
 /** Fallback PTY key encoding when Ghostty WASM fails to load. */
 export const encodeTerminalKey = (event: KeyboardEvent): string | null => {
   if (event.isComposing) {
     return null
   }
-  if (event.ctrlKey || event.metaKey) {
-    const letter = event.key.length === 1 ? event.key.toLowerCase() : ""
-    if (letter === "c") {
-      return "\u0003"
-    }
-    if (letter === "d") {
-      return "\u0004"
-    }
-    if (letter === "l") {
-      return "\u000c"
-    }
-    if (letter === "u") {
-      return "\u0015"
-    }
+  if (event.metaKey) {
     return null
+  }
+  if (event.ctrlKey) {
+    const letter = event.key.length === 1 ? event.key.toLowerCase() : ""
+    return encodeCtrlLetter(letter)
+  }
+  if (event.altKey && event.key.length === 1) {
+    return `\u001b${event.key}`
   }
   switch (event.key) {
     case "Enter":

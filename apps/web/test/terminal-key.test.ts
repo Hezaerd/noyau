@@ -16,7 +16,9 @@ describe("encodeTerminalKey", () => {
   it("encode Ctrl+C / Ctrl+D et ignore les accords non gérés", () => {
     expect(encodeTerminalKey(key({ key: "c", ctrlKey: true }))).toBe("\u0003")
     expect(encodeTerminalKey(key({ key: "d", ctrlKey: true }))).toBe("\u0004")
-    expect(encodeTerminalKey(key({ key: "k", ctrlKey: true }))).toBeNull()
+    expect(encodeTerminalKey(key({ key: "k", ctrlKey: true }))).toBe("\u000b")
+    expect(encodeTerminalKey(key({ key: "c", metaKey: true }))).toBeNull()
+    expect(encodeTerminalKey(key({ key: "f", altKey: true }))).toBe("\u001bf")
     expect(encodeTerminalKey(key({ key: "Shift" }))).toBeNull()
   })
 })

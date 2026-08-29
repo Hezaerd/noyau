@@ -208,6 +208,18 @@ export default defineConfig({
           "unicorn/no-new-array": "off",
           "promise/always-return": "off",
           "no-underscore-dangle": "off",
+        },
+      },
+      {
+        // Tests keep TerminalPlane alive across attach streams.
+        files: ["apps/server/test/terminal-plane.test.ts"],
+        rules: {
+          "effecttsgo/strict-effect-provide": "off",
+        },
+      },
+      {
+        files: ["apps/web/src/terminal/ghostty/runtime.ts"],
+        rules: {
           "effecttsgo/global-console": "off",
           "effecttsgo/global-fetch": "off",
         },

@@ -50,6 +50,7 @@ import type {
   TerminalAttachStreamEvent,
   TerminalClearInput,
   TerminalCloseInput,
+  TerminalError,
   TerminalResizeInput,
   TerminalRestartInput,
   TerminalSessionSnapshot,
@@ -144,6 +145,7 @@ type ControlPlaneStreamError =
   | MissingIdentity
   | ServiceUnavailable
   | GitCommandError
+  | TerminalError
 
 const reportTechnicalFailure = <E>(cause: Cause.Cause<E>, failure: AppFailure) => {
   if (failure._tag === "UnexpectedFailure") {
@@ -478,7 +480,7 @@ export const terminalClose = (input: TerminalCloseInput): Promise<ControlPlaneRe
   )
 
 export const subscribeTerminalAttach = (
-  input: TerminalAttachInput,
+  readInput: () => TerminalAttachInput,
   onEvent: (event: TerminalAttachStreamEvent) => void,
   onStatus: (status: SubscriptionStatus) => void = () => undefined,
 ) =>
@@ -490,7 +492,7 @@ export const subscribeTerminalAttach = (
     startAttempt: (session, _resumeAfterSequence, onFailure) => {
       const stream = Effect.gen(function* () {
         const client = yield* ControlPlaneClient
-        return yield* client[RPC_METHODS.terminalAttach](input).pipe(
+        return yield* client[RPC_METHODS.terminalAttach](readInput()).pipe(
           Stream.runForEach((event) => Effect.sync(() => onEvent(event))),
         )
       })

@@ -69,7 +69,7 @@ export function measureGhosttyCell(
   const widthMeasurement = context.measureText("M")
   const verticalMeasurement = context.measureText("Mg")
   const ascent = verticalMeasurement.actualBoundingBoxAscent || fontSize
-  const descent = verticalMeasurement.actualBoundingBoxDescent
+  const descent = verticalMeasurement.actualBoundingBoxDescent ?? 0
   const glyphHeight = ascent + descent
   const height = Math.max(1, Math.round(fontSize * 1.35), Math.ceil(glyphHeight))
   return {

@@ -1,5 +1,9 @@
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
-import type { TerminalAttachStreamEvent, TerminalSessionSnapshot } from "@noyau/contracts/terminal"
+import {
+  TerminalId,
+  type TerminalAttachStreamEvent,
+  type TerminalSessionSnapshot,
+} from "@noyau/contracts/terminal"
 import { Option, Schema } from "effect"
 import {
   useEffect,
@@ -28,7 +32,7 @@ const measureFallbackSize = (element: HTMLElement) => ({
   rows: Math.max(1, Math.floor(element.clientHeight / FALLBACK_CELL_HEIGHT)),
 })
 
-const decodeTerminalId = Schema.decodeUnknownOption(Schema.String)
+const decodeTerminalId = Schema.decodeUnknownOption(TerminalId)
 
 export const renderTerminalTab = ({
   tab,
@@ -64,6 +68,8 @@ export function ThreadTerminal({
   const mountRef = useRef<HTMLDivElement>(null)
   const fallbackRef = useRef<HTMLPreElement>(null)
   const surfaceRef = useRef<GhosttyTerminalSurface | null>(null)
+  const isVisibleRef = useRef(isVisible)
+  isVisibleRef.current = isVisible
   const [snapshot, setSnapshot] = useState<TerminalSessionSnapshot | null>(null)
   const [buffer, setBuffer] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -138,12 +144,19 @@ export function ThreadTerminal({
       }
     }
 
-    const attach = (
-      cols: number,
-      rows: number,
-      onEvent: (event: TerminalAttachStreamEvent) => void,
-    ) => {
-      stop = subscribeTerminalAttach({ projectId, threadId, terminalId, cols, rows }, onEvent)
+    const attach = (onEvent: (event: TerminalAttachStreamEvent) => void) => {
+      stop = subscribeTerminalAttach(() => {
+        const live = surfaceRef.current
+        if (live !== null) {
+          return { projectId, threadId, terminalId, cols: live.cols, rows: live.rows }
+        }
+        const fallback = fallbackRef.current
+        if (fallback !== null) {
+          const size = measureFallbackSize(fallback)
+          return { projectId, threadId, terminalId, cols: size.cols, rows: size.rows }
+        }
+        return { projectId, threadId, terminalId, cols: 80, rows: 24 }
+      }, onEvent)
     }
 
     void GhosttyTerminalSurface.create(
@@ -162,7 +175,10 @@ export function ThreadTerminal({
         }
         surface = created
         surfaceRef.current = created
-        attach(created.cols, created.rows, applyToSurface)
+        attach(applyToSurface)
+        if (isVisibleRef.current) {
+          created.focus()
+        }
         return undefined
       })
       .catch((cause: unknown) => {
@@ -172,8 +188,7 @@ export function ThreadTerminal({
         mount.replaceChildren()
         setUseFallback(true)
         setError(cause instanceof Error ? cause.message : "Unable to load the terminal renderer")
-        const size = measureFallbackSize(mount)
-        attach(size.cols, size.rows, applyToFallback)
+        attach(applyToFallback)
       })
 
     const themeObserver = new MutationObserver(() => {
@@ -194,11 +209,14 @@ export function ThreadTerminal({
   }, [projectId, terminalId, threadId])
 
   useEffect(() => {
-    if (isVisible) {
-      surfaceRef.current?.focus()
+    if (!isVisible) {
+      return
+    }
+    surfaceRef.current?.focus()
+    if (useFallback) {
       fallbackRef.current?.focus()
     }
-  }, [isVisible])
+  }, [isVisible, useFallback])
 
   useEffect(() => {
     const fallback = fallbackRef.current

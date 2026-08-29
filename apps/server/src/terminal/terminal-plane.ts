@@ -19,7 +19,18 @@ import {
   type TerminalWriteInput,
 } from "@noyau/contracts/terminal"
 import { resolveWorkspaceCwd } from "@noyau/server/workspace-cwd"
-import { Context, DateTime, Effect, FileSystem, Layer, Option, PubSub, Ref, Stream } from "effect"
+import {
+  Context,
+  DateTime,
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  PubSub,
+  Ref,
+  Semaphore,
+  Stream,
+} from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { PtyAdapter, type PtyProcess } from "./pty-adapter.ts"
@@ -27,6 +38,7 @@ import { PtyAdapter, type PtyProcess } from "./pty-adapter.ts"
 const DEFAULT_COLS = 120
 const DEFAULT_ROWS = 30
 const HISTORY_LINE_LIMIT = 5_000
+const HISTORY_CHAR_LIMIT = 1_000_000
 const ENV_BLOCKLIST = new Set(["PORT", "ELECTRON_RENDERER_PORT", "ELECTRON_RUN_AS_NODE"])
 
 export interface TerminalPlaneService {
@@ -104,13 +116,17 @@ const capHistory = (history: string): string => {
   if (history.length === 0) {
     return history
   }
-  const hasTrailingNewline = history.endsWith("\n")
-  const lines = history.split("\n")
+  const bounded =
+    history.length > HISTORY_CHAR_LIMIT
+      ? history.slice(history.length - HISTORY_CHAR_LIMIT)
+      : history
+  const hasTrailingNewline = bounded.endsWith("\n")
+  const lines = bounded.split("\n")
   if (hasTrailingNewline) {
     lines.pop()
   }
   if (lines.length <= HISTORY_LINE_LIMIT) {
-    return history
+    return bounded
   }
   const kept = lines.slice(lines.length - HISTORY_LINE_LIMIT)
   return hasTrailingNewline ? `${kept.join("\n")}\n` : kept.join("\n")
@@ -175,6 +191,7 @@ export const makeTerminalPlane = Effect.fn("TerminalPlane.make")(function* (opti
   const fileSystem = yield* FileSystem.FileSystem
   const sql = yield* Effect.serviceOption(SqlClient)
   const sessionsRef = yield* Ref.make(new Map<string, LiveSession>())
+  const sessionLock = yield* Semaphore.make(1)
   const events = yield* Effect.acquireRelease(
     PubSub.unbounded<TerminalAttachStreamEvent>(),
     (hub) => PubSub.shutdown(hub),
@@ -226,6 +243,8 @@ export const makeTerminalPlane = Effect.fn("TerminalPlane.make")(function* (opti
     session.unsubscribeData = processHandle.onData((data) => {
       session.history = capHistory(`${session.history}${data}`)
       session.updatedAt = DateTime.nowUnsafe()
+      // Native callback: history must be visible before publish. The hub is
+      // unbounded, so publish does not suspend. runFork dropped events in tests.
       Effect.runSync(
         publish({
           _tag: "output",
@@ -280,78 +299,92 @@ export const makeTerminalPlane = Effect.fn("TerminalPlane.make")(function* (opti
 
   const ensureSession = Effect.fn("TerminalPlane.ensureSession")(function* (
     input: TerminalAttachInput | TerminalRestartInput,
-    options?: { readonly restart?: boolean },
+    flags?: { readonly restart?: boolean },
   ) {
-    const { cwd } = yield* resolveCwd(input)
-    yield* assertCwd(cwd)
-    const key = sessionKey(input)
-    const cols = input.cols ?? DEFAULT_COLS
-    const rows = input.rows ?? DEFAULT_ROWS
-    const now = yield* DateTime.now
-    const existing = (yield* Ref.get(sessionsRef)).get(key)
-    if (existing !== undefined && options?.restart !== true && existing.process !== null) {
-      return existing
-    }
-    const session =
-      existing ??
-      ({
-        projectId: input.projectId,
-        threadId: input.threadId,
-        terminalId: input.terminalId,
-        cwd,
-        status: "starting",
-        pid: null,
-        history: "",
-        exitCode: null,
-        exitSignal: null,
-        label: "Terminal",
-        updatedAt: now,
-        process: null,
-        unsubscribeData: null,
-        unsubscribeExit: null,
-      } satisfies LiveSession)
-    if (existing === undefined) {
-      yield* Ref.update(sessionsRef, (sessions) => {
-        const next = new Map(sessions)
-        next.set(key, session)
-        return next
-      })
-    } else {
-      session.cwd = cwd
-      if (options?.restart === true) {
-        session.history = ""
-      }
-    }
-    yield* spawnSession(session, cols, rows)
-    return session
+    return yield* sessionLock.withPermits(1)(
+      Effect.gen(function* () {
+        const { cwd } = yield* resolveCwd(input)
+        yield* assertCwd(cwd)
+        const key = sessionKey(input)
+        const cols = input.cols ?? DEFAULT_COLS
+        const rows = input.rows ?? DEFAULT_ROWS
+        const now = yield* DateTime.now
+        const existing = (yield* Ref.get(sessionsRef)).get(key)
+        if (existing !== undefined && flags?.restart !== true && existing.process !== null) {
+          return existing
+        }
+        const session =
+          existing ??
+          ({
+            projectId: input.projectId,
+            threadId: input.threadId,
+            terminalId: input.terminalId,
+            cwd,
+            status: "starting",
+            pid: null,
+            history: "",
+            exitCode: null,
+            exitSignal: null,
+            label: "Terminal",
+            updatedAt: now,
+            process: null,
+            unsubscribeData: null,
+            unsubscribeExit: null,
+          } satisfies LiveSession)
+        if (existing === undefined) {
+          yield* Ref.update(sessionsRef, (sessions) => {
+            const next = new Map(sessions)
+            next.set(key, session)
+            return next
+          })
+        } else {
+          session.cwd = cwd
+          if (flags?.restart === true) {
+            session.history = ""
+          }
+        }
+        yield* spawnSession(session, cols, rows)
+        return session
+      }),
+    )
   })
 
   const closeSession = Effect.fn("TerminalPlane.closeSession")(function* (session: LiveSession) {
-    detachProcess(session)
-    yield* Ref.update(sessionsRef, (sessions) => {
-      const next = new Map(sessions)
-      next.delete(sessionKey(session))
-      return next
-    })
-    yield* publish({
-      _tag: "closed",
-      projectId: session.projectId,
-      threadId: session.threadId,
-      terminalId: session.terminalId,
-    })
+    return yield* sessionLock.withPermits(1)(
+      Effect.gen(function* () {
+        detachProcess(session)
+        yield* Ref.update(sessionsRef, (sessions) => {
+          const next = new Map(sessions)
+          next.delete(sessionKey(session))
+          return next
+        })
+        yield* publish({
+          _tag: "closed",
+          projectId: session.projectId,
+          threadId: session.threadId,
+          terminalId: session.terminalId,
+        })
+      }),
+    )
   })
 
   return TerminalPlane.of({
     attach: (input) =>
       Stream.unwrap(
         Effect.gen(function* () {
+          const subscription = yield* PubSub.subscribe(events)
           const session = yield* ensureSession(input)
+          // Spawn output is already in the snapshot. Drop it so the client does
+          // not paint the same bytes twice after resetAndWrite(history).
+          yield* PubSub.takeUpTo(subscription, Number.POSITIVE_INFINITY)
           return Stream.concat(
             Stream.succeed({
               _tag: "snapshot" as const,
               snapshot: toSnapshot(session),
             }),
-            Stream.fromPubSub(events).pipe(Stream.filter((event) => eventMatches(event, input))),
+            Stream.fromSubscription(subscription).pipe(
+              Stream.filter((event) => eventMatches(event, input)),
+            ),
           )
         }),
       ),
