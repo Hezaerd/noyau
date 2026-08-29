@@ -8,7 +8,7 @@ import { ThreadTranscriptFollowLatest } from "@/components/thread/ThreadTranscri
 import { ThreadTranscriptItem } from "@/components/thread/ThreadTranscriptItem"
 import { ThreadTranscriptToolGroup } from "@/components/thread/ThreadTranscriptTool"
 import { ThreadTurnMinimap } from "@/components/thread/ThreadTurnMinimap"
-import { ThreadSettledMarker, ThreadWorkingMarker } from "@/components/thread/ThreadTurnProgress"
+import { ThreadSettledMarker } from "@/components/thread/ThreadTurnProgress"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import {
   MessageScroller,
@@ -59,7 +59,6 @@ const transcriptTurnDiffProps = (
 export function ThreadTranscript({
   transcript,
   isRunning,
-  workingStartedAtMs = null,
   latestTurn = null,
   turns = EMPTY_TURNS,
   loading,
@@ -83,7 +82,6 @@ export function ThreadTranscript({
 }: {
   readonly transcript: ReadonlyArray<TranscriptItem>
   readonly isRunning: boolean
-  readonly workingStartedAtMs?: number | null
   readonly latestTurn?: LatestTurn | null
   readonly turns?: ReadonlyArray<Turn>
   readonly loading: boolean
@@ -206,11 +204,7 @@ export function ThreadTranscript({
               ),
             )}
 
-            {isRunning ? (
-              <MessageScrollerItem messageId="thread-working">
-                <ThreadWorkingMarker startedAtMs={workingStartedAtMs} />
-              </MessageScrollerItem>
-            ) : settledLabel === null ? null : (
+            {isRunning || settledLabel === null ? null : (
               <MessageScrollerItem messageId="thread-settled">
                 <ThreadSettledMarker label={settledLabel} />
               </MessageScrollerItem>

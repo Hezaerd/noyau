@@ -19,7 +19,6 @@ import {
   resolveWorkingStartedAtMs,
   sendStartedAtMsForThread,
   settledTranscriptLabel,
-  workingTranscriptLabel,
 } from "../src/lib/thread-activity"
 
 const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
@@ -253,14 +252,7 @@ describe("thread activity", () => {
     ).toBe(false)
   })
 
-  it("labels the live and settled transcript rows", () => {
-    expect(workingTranscriptLabel(null, 0)).toBe("In progress…")
-    expect(
-      workingTranscriptLabel(
-        Date.parse("2026-08-23T12:00:00.000Z"),
-        Date.parse("2026-08-23T12:00:12.000Z"),
-      ),
-    ).toBe("In progress for 12s")
+  it("labels settled transcript rows", () => {
     expect(
       settledTranscriptLabel(
         latestTurn({
