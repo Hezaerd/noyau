@@ -27,7 +27,11 @@ const streamdownComponents = {
   table: ThreadMarkdownTable,
 }
 
-const streamdownControls = { code: { copy: false, download: false }, table: false } as const
+const streamdownControls = {
+  code: { copy: false, download: false },
+  mermaid: { copy: true, download: false, fullscreen: true, panZoom: false },
+  table: false,
+} as const
 
 export const ThreadMarkdown = memo(function ThreadMarkdown({
   text,

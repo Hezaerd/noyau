@@ -17,6 +17,7 @@ export function ThreadFilePreviewText({
     <div className="thread-file-preview" data-file-preview-kind={kind}>
       <ThreadPreviewMarkdown
         className={kind === "markdown" ? "text-[11px] leading-relaxed" : "thread-file-preview-code"}
+        diagrams={kind === "markdown"}
         text={markdown}
       />
     </div>

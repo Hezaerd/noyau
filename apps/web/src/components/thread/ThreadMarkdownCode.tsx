@@ -5,7 +5,9 @@ import { CodeBlock, type ExtraProps, useIsCodeFenceIncomplete } from "streamdown
 import { useThreadMarkdownFileLinks } from "@/components/thread/thread-markdown-context"
 import { ThreadMarkdownCodeBlock } from "@/components/thread/ThreadMarkdownCodeBlock"
 import { ThreadMarkdownFileChip } from "@/components/thread/ThreadMarkdownFileChip"
+import { ThreadMarkdownMermaid } from "@/components/thread/ThreadMarkdownMermaid"
 import {
+  isMermaidFenceLanguage,
   parseCodeFence,
   resolveCodeBlockFenceTitle,
   resolveCodeBlockLanguage,
@@ -83,6 +85,10 @@ export function ThreadMarkdownCode({
       : (fence.startLine ?? 1)
   const lineNumbers = metastring === undefined || !noLineNumbersMetaPattern.test(metastring)
   const code = codeText(children)
+
+  if (isMermaidFenceLanguage(resolveCodeBlockLanguage(fence))) {
+    return <ThreadMarkdownMermaid chart={code} incomplete={isIncomplete} />
+  }
 
   return (
     <ThreadMarkdownCodeBlock
