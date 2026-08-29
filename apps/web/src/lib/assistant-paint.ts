@@ -33,6 +33,27 @@ export const resolvePaintedAssistantText = (
 
 export const getAssistantPaint = (): AssistantPaintState | undefined => current
 
+/** Stable while only the live text grows, so a target subscription can skip token paints. */
+let paintTarget: Pick<AssistantPaintState, "threadId" | "turnId"> | undefined
+
+export const getAssistantPaintTarget = ():
+  | Pick<AssistantPaintState, "threadId" | "turnId">
+  | undefined => {
+  if (current === undefined) {
+    paintTarget = undefined
+    return undefined
+  }
+  if (
+    paintTarget !== undefined &&
+    paintTarget.threadId === current.threadId &&
+    paintTarget.turnId === current.turnId
+  ) {
+    return paintTarget
+  }
+  paintTarget = { threadId: current.threadId, turnId: current.turnId }
+  return paintTarget
+}
+
 export const subscribeAssistantPaint = (listener: () => void): (() => void) => {
   listeners.add(listener)
   return () => {

@@ -1,4 +1,3 @@
-import { useAtomValue } from "@effect/atom-react"
 import type { ThreadId } from "@noyau/contracts/ids"
 import { PlusIcon, XIcon } from "lucide-react"
 import {
@@ -25,6 +24,7 @@ import {
   workspaceTabKeepMountedKinds,
 } from "@/components/workspace-panel/catalog"
 import type { WorkspaceTabRegistration } from "@/components/workspace-panel/define-workspace-tab"
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { cn } from "@/lib/utils"
 import {
   EMPTY_TAB_ID_SET,
@@ -58,8 +58,8 @@ export function WorkspacePanel({
   readonly threadId: ThreadId
   readonly kinds?: ReadonlyArray<WorkspaceTabRegistration>
 }): ReactElement | null {
-  const state = useAtomValue(workspacePanelAtom(threadId))
-  const width = useAtomValue(workspacePanelWidthAtom)
+  const state = useAppAtomValue(workspacePanelAtom(threadId))
+  const width = useAppAtomValue(workspacePanelWidthAtom)
   const activeTab = resolveActiveWorkspaceTab(state)
   const keepMountedKinds = useMemo(
     () =>

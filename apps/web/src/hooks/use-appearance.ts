@@ -1,9 +1,8 @@
-import { useAtomValue } from "@effect/atom-react"
-
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { appearancePreferenceAtom, setAppearancePreference } from "@/state/preferences"
 
 export const useAppearance = () => {
-  const preference = useAtomValue(appearancePreferenceAtom)
+  const preference = useAppAtomValue(appearancePreferenceAtom)
   return {
     preference,
     setPreference: setAppearancePreference,

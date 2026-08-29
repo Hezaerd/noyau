@@ -19,6 +19,7 @@ import {
   summarizeTranscriptToolGroup,
   threadStatusNoticesVisible,
   transcriptRowId,
+  transcriptWithLiveAssistantPlaceholder,
   transcriptToolCaption,
   transcriptToolDisplay,
   transcriptToolGroupLabel,
@@ -617,6 +618,54 @@ describe("thread transcript projection", () => {
       expect(summarizeTranscriptToolGroup(mixedGroup.items)).toBe("Read 1 file and changed 3 files")
     }
     expect(transcriptToolGroupLabel("other", 18)).toBe("Used 18 tools")
+  })
+
+  it("adds an empty assistant row when live paint has no journal item yet", () => {
+    const user = decodeTranscript({
+      _tag: "transcript.user",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "Go",
+    })
+    expect(
+      transcriptWithLiveAssistantPlaceholder([user], {
+        threadId: ids.thread,
+        turnId: ids.turn,
+      }),
+    ).toEqual([
+      user,
+      { _tag: "transcript.assistant", threadId: ids.thread, turnId: ids.turn, text: "" },
+    ])
+  })
+
+  it("does not duplicate an assistant row that the journal already has", () => {
+    const assistant = decodeTranscript({
+      _tag: "transcript.assistant",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "Bon",
+    })
+    expect(
+      transcriptWithLiveAssistantPlaceholder([assistant], {
+        threadId: ids.thread,
+        turnId: ids.turn,
+      }),
+    ).toEqual([assistant])
+  })
+
+  it("ignores live paint that belongs to another Turn", () => {
+    const user = decodeTranscript({
+      _tag: "transcript.user",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "Go",
+    })
+    expect(
+      transcriptWithLiveAssistantPlaceholder([user], {
+        threadId: ids.thread,
+        turnId: ids.nextTurn,
+      }),
+    ).toEqual([user])
   })
 
   it("shows Session lastError and hides the interrupted notice otherwise", () => {

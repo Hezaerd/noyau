@@ -1,4 +1,3 @@
-import { useAtomValue } from "@effect/atom-react"
 import type {
   ClaudeProviderStatus,
   CodexProviderStatus,
@@ -7,6 +6,7 @@ import type {
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import type { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import type { SubscriptionStatus } from "@/lib/control-plane"
 import {
   appliedShellAtom,
@@ -27,32 +27,33 @@ import {
   threadsAtom,
 } from "@/state/shell"
 
-export const useAppliedShell = (): ShellSnapshot | undefined => useAtomValue(appliedShellAtom)
+export const useAppliedShell = (): ShellSnapshot | undefined => useAppAtomValue(appliedShellAtom)
 
-export const useProjects = (): ReadonlyArray<ProjectShell> => useAtomValue(projectsAtom)
+export const useProjects = (): ReadonlyArray<ProjectShell> => useAppAtomValue(projectsAtom)
 
-export const useCursor = (): CursorProviderStatus | undefined => useAtomValue(cursorAtom)
+export const useCursor = (): CursorProviderStatus | undefined => useAppAtomValue(cursorAtom)
 
-export const useClaude = (): ClaudeProviderStatus | undefined => useAtomValue(claudeAtom)
+export const useClaude = (): ClaudeProviderStatus | undefined => useAppAtomValue(claudeAtom)
 
-export const useCodex = (): CodexProviderStatus | undefined => useAtomValue(codexAtom)
+export const useCodex = (): CodexProviderStatus | undefined => useAppAtomValue(codexAtom)
 
-export const useThreads = (): ReadonlyArray<ThreadShell> => useAtomValue(threadsAtom)
+export const useThreads = (): ReadonlyArray<ThreadShell> => useAppAtomValue(threadsAtom)
 
 export const useSubscriptionStatus = (): SubscriptionStatus | undefined =>
-  useAtomValue(subscriptionStatusAtom)
+  useAppAtomValue(subscriptionStatusAtom)
 
-export const useLastProjectId = (): ProjectId | undefined => useAtomValue(lastProjectIdAtom)
+export const useLastProjectId = (): ProjectId | undefined => useAppAtomValue(lastProjectIdAtom)
 
-export const useSelectedProject = (): ProjectShell | undefined => useAtomValue(selectedProjectAtom)
+export const useSelectedProject = (): ProjectShell | undefined =>
+  useAppAtomValue(selectedProjectAtom)
 
 export const useSelectProject = (): typeof selectProject => selectProject
 
 export const useThreadShell = (threadId: ThreadId | undefined): ThreadShell | undefined =>
-  useAtomValue(threadId === undefined ? emptyThreadShellAtom : threadShellAtom(threadId))
+  useAppAtomValue(threadId === undefined ? emptyThreadShellAtom : threadShellAtom(threadId))
 
 export const useProjectThreadIds = (projectId: ProjectId | undefined): ReadonlyArray<ThreadId> =>
-  useAtomValue(projectId === undefined ? emptyThreadIdsAtom : projectThreadIdsAtom(projectId))
+  useAppAtomValue(projectId === undefined ? emptyThreadIdsAtom : projectThreadIdsAtom(projectId))
 
 export const useProjectThreads = (projectId: ProjectId | undefined): ReadonlyArray<ThreadShell> =>
-  useAtomValue(projectId === undefined ? emptyThreadShellsAtom : projectThreadsAtom(projectId))
+  useAppAtomValue(projectId === undefined ? emptyThreadShellsAtom : projectThreadsAtom(projectId))

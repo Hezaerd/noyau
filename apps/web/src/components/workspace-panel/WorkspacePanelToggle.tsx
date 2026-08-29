@@ -1,10 +1,10 @@
-import { useAtomValue } from "@effect/atom-react"
 import type { ThreadId } from "@noyau/contracts/ids"
 import { PanelRightCloseIcon, PanelRightIcon } from "lucide-react"
 import type { ReactElement } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { toggleWorkspacePanel, workspacePanelAtom } from "@/state/workspace-panel"
 
@@ -28,7 +28,7 @@ function WorkspacePanelToggleControl({
   readonly threadId: ThreadId
   readonly disabled: boolean
 }): ReactElement {
-  const panel = useAtomValue(workspacePanelAtom(threadId))
+  const panel = useAppAtomValue(workspacePanelAtom(threadId))
   useKeybindingHandler(
     "thread.workspace-panel.toggle",
     () => {

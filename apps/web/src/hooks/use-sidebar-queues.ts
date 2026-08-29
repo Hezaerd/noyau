@@ -1,8 +1,8 @@
-import { useAtomValue } from "@effect/atom-react"
 import type { VcsStatusPullRequest } from "@noyau/contracts/git"
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import type { ThreadShell } from "@noyau/contracts/shell"
 
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import type { ThreadActivity } from "@/lib/thread-activity"
 import type { SidebarThreadPartition } from "@/lib/thread-sidebar-sort"
 import {
@@ -16,14 +16,14 @@ import {
 export const useSidebarQueues = (
   projectId: ProjectId | undefined,
 ): SidebarThreadPartition<ThreadShell> =>
-  useAtomValue(projectId === undefined ? emptySidebarQueuesAtom : sidebarQueuesAtom(projectId))
+  useAppAtomValue(projectId === undefined ? emptySidebarQueuesAtom : sidebarQueuesAtom(projectId))
 
 export const useProjectPullRequests = (
   projectId: ProjectId,
-): ReadonlyMap<string, VcsStatusPullRequest> => useAtomValue(projectPullRequestsAtom(projectId))
+): ReadonlyMap<string, VcsStatusPullRequest> => useAppAtomValue(projectPullRequestsAtom(projectId))
 
 export const useThreadActivity = (threadId: ThreadId): ThreadActivity | null =>
-  useAtomValue(threadActivityAtom(threadId))
+  useAppAtomValue(threadActivityAtom(threadId))
 
 export const useThreadUnread = (threadId: ThreadId): boolean =>
-  useAtomValue(threadUnreadAtom(threadId))
+  useAppAtomValue(threadUnreadAtom(threadId))

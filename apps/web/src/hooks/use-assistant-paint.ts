@@ -5,9 +5,19 @@ import { useTranscriptPaintMode } from "@/hooks/use-transcript-paint-preference"
 import {
   createFramePainter,
   getAssistantPaint,
+  getAssistantPaintTarget,
   resolvePaintedAssistantText,
   subscribeAssistantPaint,
 } from "@/lib/assistant-paint"
+
+export const useAssistantPaintTarget = (): ReturnType<typeof getAssistantPaintTarget> => {
+  "use no memo"
+  return useSyncExternalStore(
+    subscribeAssistantPaint,
+    getAssistantPaintTarget,
+    getAssistantPaintTarget,
+  )
+}
 
 export const useAssistantPaint = (
   journalText: string,
@@ -15,6 +25,7 @@ export const useAssistantPaint = (
   turnId: TurnId,
   streaming: boolean,
 ): string => {
+  "use no memo"
   const mode = useTranscriptPaintMode()
   const live = useSyncExternalStore(subscribeAssistantPaint, getAssistantPaint, getAssistantPaint)
   const target = streaming
