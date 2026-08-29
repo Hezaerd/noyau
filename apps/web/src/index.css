@@ -28,6 +28,14 @@
   color: var(--muted-foreground);
 }
 
+.thread-markdown-mermaid-svg svg,
+.thread-preview-markdown [data-streamdown="mermaid"] svg,
+.thread-preview-markdown [data-streamdown="mermaid-block"] svg {
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
 .thread-markdown-codeblock-action:hover,
 .thread-markdown-codeblock-action[aria-pressed="true"] {
   background-color: var(--code-highlight);
@@ -150,6 +158,7 @@
 @source "../node_modules/streamdown/dist/*.js";
 @source "../node_modules/@streamdown/code/dist/*.js";
 @source "../node_modules/@streamdown/math/dist/*.js";
+@source "../node_modules/@streamdown/mermaid/dist/*.js";
 @source inline("text-[var(--sdm-c,inherit)]");
 @source inline("dark:text-[var(--shiki-dark,var(--sdm-c,inherit))]");
 @source inline("bg-[var(--sdm-tbg)]");

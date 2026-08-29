@@ -24,6 +24,7 @@
     "@shadcn/react": "^0.3.0",
     "@streamdown/code": "^1.1.1",
     "@streamdown/math": "^1.0.2",
+    "@streamdown/mermaid": "^1.0.2",
     "@tanstack/react-hotkeys": "^0.10.0",
     "@tanstack/react-router": "^1.170.25",
     "blobatar": "^2.3.1",
