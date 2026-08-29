@@ -629,7 +629,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
     clearDraft()
     setComposerFailure(undefined)
-    writeOptimisticSend({ threadId, startedAtMs: Date.now() })
+    const startedAtMs = Date.now()
+    writeOptimisticSend({ threadId, startedAtMs })
     setFollowLatestKey((current) => current + 1)
     void submitTurnAction(
       Object.assign(
@@ -687,7 +688,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       if (result.kind === "created") {
         writeOptimisticSend({
           threadId: result.threadId,
-          startedAtMs: optimisticSend?.startedAtMs ?? Date.now(),
+          startedAtMs,
         })
         rememberCreatedCheckout({
           threadId: result.threadId,

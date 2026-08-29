@@ -466,4 +466,33 @@ describe("optimistic send remount cache", () => {
     clearOptimisticSend(openThreadId)
     expect(peekOptimisticSend(openThreadId)).toBeNull()
   })
+
+  it("drops remount working state when created arrives after the Turn settled", () => {
+    const sendStartedAtMs = Date.parse("2026-08-23T12:00:00.000Z")
+    const createdCallbackAtMs = Date.parse("2026-08-23T12:00:00.800Z")
+    const settled = latestTurn({
+      state: "completed",
+      completedAt: "2026-08-23T12:00:00.400Z",
+    })
+    expect(
+      resolveOpenThreadWorking({
+        openThreadId,
+        snapshotThreadId: openThreadId,
+        sessionStatus: "ready",
+        latestTurn: settled,
+        send: { threadId: openThreadId, startedAtMs: sendStartedAtMs },
+      }),
+    ).toEqual({
+      isAuthoritativeWorking: false,
+      isWorking: false,
+      workingStartedAtMs: null,
+    })
+    expect(
+      isOptimisticSendActive({
+        sendStartedAtMs: createdCallbackAtMs,
+        latestTurnCompletedAtMs: Date.parse("2026-08-23T12:00:00.400Z"),
+        isAuthoritativeWorking: false,
+      }),
+    ).toBe(true)
+  })
 })
