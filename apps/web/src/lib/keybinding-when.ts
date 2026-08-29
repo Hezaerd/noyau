@@ -69,8 +69,33 @@ export const isEditableTarget = (target: EventTarget | null): boolean => {
   return target.closest("input, textarea, select, [contenteditable=true]") !== null
 }
 
-export const isDialogOpen = (): boolean =>
-  document.querySelector('[role="dialog"], [aria-modal="true"]') !== null
+const isVisibleDialogElement = (node: Element): boolean => {
+  if (!(node instanceof HTMLElement)) {
+    return false
+  }
+  if (node.closest('[role="menu"]') !== null) {
+    return false
+  }
+  if (node.hidden || node.getAttribute("aria-hidden") === "true") {
+    return false
+  }
+  if (node.dataset.closed !== undefined || node.dataset.endingStyle !== undefined) {
+    return false
+  }
+  const style = window.getComputedStyle(node)
+  return (
+    style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse"
+  )
+}
+
+export const isDialogOpen = (): boolean => {
+  for (const node of document.querySelectorAll('[role="dialog"], [aria-modal="true"]')) {
+    if (isVisibleDialogElement(node)) {
+      return true
+    }
+  }
+  return false
+}
 
 export const keybindingContextFromSurface = (
   surface: KeybindingSurface | undefined,

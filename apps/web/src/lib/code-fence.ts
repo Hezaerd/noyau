@@ -60,3 +60,6 @@ export const resolveCodeBlockLanguage = (fence: ParsedCodeFence): string => {
   const language = fence.language.trim()
   return language.length > 0 ? language : "text"
 }
+
+export const isMermaidFenceLanguage = (language: string): boolean =>
+  language.trim().toLowerCase() === "mermaid"

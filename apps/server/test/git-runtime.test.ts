@@ -5,6 +5,7 @@ import {
   deriveRepositoryUrlFromCreateOutput,
   isTemporaryWorktreeBranch,
   sanitizeWorktreeFolderName,
+  unavailableVcsStatus,
 } from "@noyau/server/git/git-runtime"
 
 describe("GitRuntime helpers", () => {
@@ -48,6 +49,22 @@ describe("GitRuntime helpers", () => {
     expect(deriveRepositoryUrlFromCreateOutput("", "hezaerd/noyau")).toEqual({
       nameWithOwner: "hezaerd/noyau",
       url: "https://github.com/hezaerd/noyau",
+    })
+  })
+
+  it("représente un cwd manquant comme un status VCS indisponible", () => {
+    expect(unavailableVcsStatus("/missing/worktree")).toEqual({
+      isRepo: false,
+      cwd: "/missing/worktree",
+      refName: null,
+      isDefaultRef: false,
+      hasPrimaryRemote: false,
+      hasWorkingTreeChanges: false,
+      hasUpstream: false,
+      aheadCount: 0,
+      behindCount: 0,
+      worktreePath: null,
+      pr: null,
     })
   })
 })

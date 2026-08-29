@@ -1,5 +1,5 @@
-import { useAtomValue } from "@effect/atom-react"
-
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { turnNotificationEnabledAtom } from "@/state/preferences"
 
-export const useTurnNotificationEnabled = (): boolean => useAtomValue(turnNotificationEnabledAtom)
+export const useTurnNotificationEnabled = (): boolean =>
+  useAppAtomValue(turnNotificationEnabledAtom)

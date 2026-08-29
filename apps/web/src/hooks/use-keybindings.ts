@@ -1,6 +1,7 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import { useMemo } from "react"
 
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { type KeybindingId } from "@/lib/keybindings-catalog"
 import { type KeybindingRow } from "@/lib/keybindings-settings"
 import {
@@ -18,9 +19,9 @@ import {
 } from "@/state/keybindings"
 
 export const useKeybindings = () => {
-  const rules = useAtomValue(keybindingsRulesAtom)
-  const resolved = useAtomValue(resolvedKeybindingsAtom)
-  const resolvedConfig = useAtomValue(resolvedKeybindingsConfigAtom)
+  const rules = useAppAtomValue(keybindingsRulesAtom)
+  const resolved = useAppAtomValue(resolvedKeybindingsAtom)
+  const resolvedConfig = useAppAtomValue(resolvedKeybindingsConfigAtom)
 
   return useMemo(
     () => ({
@@ -37,9 +38,10 @@ export const useKeybindings = () => {
   )
 }
 
-export const useKeybinding = (id: KeybindingId) => useAtomValue(resolvedKeybindingsAtom)[id]
+export const useKeybinding = (id: KeybindingId) => useAppAtomValue(resolvedKeybindingsAtom)[id]
 
-export const useKeybindingRecorderActive = (): boolean => useAtomValue(keybindingRecorderActiveAtom)
+export const useKeybindingRecorderActive = (): boolean =>
+  useAppAtomValue(keybindingRecorderActiveAtom)
 
 export const useSetKeybindingRecorderActive = () => useAtomSet(keybindingRecorderActiveAtom)
 

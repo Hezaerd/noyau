@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   clearAssistantPaint,
   createFramePainter,
+  getAssistantPaintTarget,
   pushAssistantLive,
   resolvePaintedAssistantText,
 } from "../src/lib/assistant-paint"
@@ -79,5 +80,19 @@ describe("assistant paint", () => {
     pushAssistantLive({ threadId, turnId, text: "Bon" })
     pushAssistantLive({ threadId, turnId, text: "Bonjour" })
     clearAssistantPaint(threadId)
+  })
+
+  it("keeps the paint target identity while only the live text grows", () => {
+    clearAssistantPaint()
+    pushAssistantLive({ threadId, turnId, text: "Bon" })
+    const first = getAssistantPaintTarget()
+    pushAssistantLive({ threadId, turnId, text: "Bonjour" })
+    expect(getAssistantPaintTarget()).toBe(first)
+    pushAssistantLive({ threadId, turnId: otherTurn, text: "Autre" })
+    const next = getAssistantPaintTarget()
+    expect(next).not.toBe(first)
+    expect(next).toEqual({ threadId, turnId: otherTurn })
+    clearAssistantPaint(threadId)
+    expect(getAssistantPaintTarget()).toBeUndefined()
   })
 })

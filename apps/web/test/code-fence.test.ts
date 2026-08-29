@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   extractFenceTitle,
+  isMermaidFenceLanguage,
   parseCodeFence,
   resolveCodeBlockFenceTitle,
   resolveCodeBlockLanguage,
@@ -60,5 +61,19 @@ describe("extractFenceTitle", () => {
   it("returns null when meta has no filename", () => {
     expect(extractFenceTitle(undefined)).toBeNull()
     expect(extractFenceTitle("highlight noLineNumbers")).toBeNull()
+  })
+})
+
+describe("isMermaidFenceLanguage", () => {
+  it("matches mermaid regardless of case or padding", () => {
+    expect(isMermaidFenceLanguage("mermaid")).toBe(true)
+    expect(isMermaidFenceLanguage("Mermaid")).toBe(true)
+    expect(isMermaidFenceLanguage(" mermaid ")).toBe(true)
+  })
+
+  it("rejects other fence languages", () => {
+    expect(isMermaidFenceLanguage("ts")).toBe(false)
+    expect(isMermaidFenceLanguage("mmd")).toBe(false)
+    expect(isMermaidFenceLanguage("")).toBe(false)
   })
 })

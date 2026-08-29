@@ -273,9 +273,10 @@ export const presentFailure = (
         recovery: { action: "retry", label: "Retry" },
         dedupeKey: dedupeKey(context),
       }
-    case "UnexpectedFailure":
+    case "UnexpectedFailure": {
+      const backgroundSurface: FailureSurface = context.hasUsableData ? "banner" : "page"
       return {
-        surface: context.hasUsableData ? "banner" : "page",
+        surface: context.initiatedByUser ? surfaceFor(context) : backgroundSurface,
         tone: "critical",
         title: "An unexpected error occurred.",
         description: `Incident ${failure.incidentId}.`,
@@ -283,6 +284,7 @@ export const presentFailure = (
         recovery: { action: "reload", label: "Reload" },
         dedupeKey: dedupeKey(context),
       }
+    }
     default:
       return assertNever(failure)
   }

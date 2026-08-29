@@ -1,6 +1,6 @@
-import { useAtomValue } from "@effect/atom-react"
 import { useEffect } from "react"
 
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import {
   checkDesktopUpdate,
   desktopUpdateStateAtom,
@@ -9,7 +9,7 @@ import {
 } from "@/state/desktop-update"
 
 export const useDesktopUpdate = () => {
-  const state = useAtomValue(desktopUpdateStateAtom)
+  const state = useAppAtomValue(desktopUpdateStateAtom)
 
   useEffect(() => {
     startDesktopUpdateAutoCheck()

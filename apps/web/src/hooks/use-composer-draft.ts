@@ -1,7 +1,7 @@
-import { useAtomValue } from "@effect/atom-react"
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { useCallback } from "react"
 
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { composerDraftStoreKey } from "@/lib/composer-drafts"
 import type { ComposerImage } from "@/lib/composer-images"
 import {
@@ -22,7 +22,7 @@ export interface ComposerDraft {
 }
 
 export function useProjectNewThreadDraft(projectId: ProjectId | undefined): ComposerDraftValue {
-  return useAtomValue(
+  return useAppAtomValue(
     projectId === undefined
       ? emptyDraftAtom
       : draftAtom(composerDraftStoreKey(projectId, undefined)),
@@ -33,7 +33,7 @@ export function useComposerDraft(
   projectId: ProjectId,
   threadId: ThreadId | undefined,
 ): ComposerDraft {
-  const draft = useAtomValue(draftAtom(composerDraftStoreKey(projectId, threadId)))
+  const draft = useAppAtomValue(draftAtom(composerDraftStoreKey(projectId, threadId)))
   const setText = useCallback(
     (next: string) => {
       writeComposerDraft(projectId, threadId, next)

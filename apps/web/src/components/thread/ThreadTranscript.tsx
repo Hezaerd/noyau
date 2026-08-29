@@ -18,6 +18,7 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
+import { useAssistantPaintTarget } from "@/hooks/use-assistant-paint"
 import type { ComposerTicket } from "@/lib/composer-tickets"
 import { settledTranscriptLabel } from "@/lib/thread-activity"
 import {
@@ -25,6 +26,7 @@ import {
   lastAssistantIndexByTurnId,
   transcriptGroupRowId,
   transcriptRowId,
+  transcriptWithLiveAssistantPlaceholder,
   turnDiffForTranscriptItem,
 } from "@/lib/thread-transcript"
 import { deriveTurnMinimapItems, TURN_MINIMAP_MIN_ITEMS } from "@/lib/thread-turn-minimap"
@@ -103,10 +105,18 @@ export function ThreadTranscript({
   readonly followLatestKey?: number
   readonly composerDockHeight?: number
 }) {
-  const lastItem = transcript.at(-1)
+  const liveTarget = useAssistantPaintTarget()
+  const paintedTranscript = useMemo(
+    () => transcriptWithLiveAssistantPlaceholder(transcript, liveTarget),
+    [liveTarget, transcript],
+  )
+  const lastItem = paintedTranscript.at(-1)
   const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
+  const streamingLast =
+    lastAssistant !== undefined &&
+    (isRunning || (liveTarget !== undefined && liveTarget.turnId === lastAssistant.turnId))
   const settledLabel = isRunning ? null : settledTranscriptLabel(latestTurn)
-  const minimapItems = useMemo(() => deriveTurnMinimapItems(transcript), [transcript])
+  const minimapItems = useMemo(() => deriveTurnMinimapItems(paintedTranscript), [paintedTranscript])
   const turnById = useMemo(() => {
     const map = new Map<Turn["id"], Turn>()
     for (const turn of turns) {
@@ -114,8 +124,11 @@ export function ThreadTranscript({
     }
     return map
   }, [turns])
-  const lastAssistantByTurn = useMemo(() => lastAssistantIndexByTurnId(transcript), [transcript])
-  const rows = useMemo(() => groupTranscriptRows(transcript), [transcript])
+  const lastAssistantByTurn = useMemo(
+    () => lastAssistantIndexByTurnId(paintedTranscript),
+    [paintedTranscript],
+  )
+  const rows = useMemo(() => groupTranscriptRows(paintedTranscript), [paintedTranscript])
 
   return (
     <MessageScrollerProvider key={scrollerKey} autoScroll>
@@ -154,11 +167,11 @@ export function ThreadTranscript({
                 <MessageScrollerItem
                   key={transcriptRowId(row.item, row.index)}
                   messageId={transcriptRowId(row.item, row.index)}
-                  live={isRunning && row.item === lastAssistant}
+                  live={streamingLast && row.item === lastAssistant}
                 >
                   <ThreadTranscriptItem
                     item={row.item}
-                    streaming={isRunning && row.item === lastAssistant}
+                    streaming={streamingLast && row.item === lastAssistant}
                     turn={turnById.get(row.item.turnId)}
                     {...transcriptTurnDiffProps(
                       row.item,

@@ -3,7 +3,11 @@
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { dispatchKeybindingEvent } from "../src/hooks/use-keybinding-dispatcher"
-import { keybindingContextFromSurface, type KeybindingContext } from "../src/lib/keybinding-when"
+import {
+  isDialogOpen,
+  keybindingContextFromSurface,
+  type KeybindingContext,
+} from "../src/lib/keybinding-when"
 import {
   compileAndMergeKeybindings,
   DEFAULT_RESOLVED_KEYBINDINGS,
@@ -361,5 +365,36 @@ describe("keybinding handlers", () => {
     const first = registerKeybindingHandler("thread.pin", () => undefined)
     first()
     expect(invokeKeybindingHandler("thread.pin")).toBe(false)
+  })
+})
+
+describe("isDialogOpen", () => {
+  afterEach(() => {
+    document.body.replaceChildren()
+  })
+
+  it("ignores a modal context menu and a hidden leftover dialog", () => {
+    const menu = document.createElement("div")
+    menu.setAttribute("role", "menu")
+    menu.setAttribute("aria-modal", "true")
+    document.body.append(menu)
+    expect(isDialogOpen()).toBe(false)
+
+    const hidden = document.createElement("div")
+    hidden.setAttribute("role", "dialog")
+    hidden.hidden = true
+    document.body.append(hidden)
+    expect(isDialogOpen()).toBe(false)
+
+    const collapsed = document.createElement("div")
+    collapsed.setAttribute("role", "dialog")
+    collapsed.style.visibility = "collapse"
+    document.body.append(collapsed)
+    expect(isDialogOpen()).toBe(false)
+
+    const dialog = document.createElement("div")
+    dialog.setAttribute("role", "dialog")
+    document.body.append(dialog)
+    expect(isDialogOpen()).toBe(true)
   })
 })

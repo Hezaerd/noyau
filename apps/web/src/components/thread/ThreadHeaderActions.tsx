@@ -1,4 +1,3 @@
-import { useAtomValue } from "@effect/atom-react"
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import {
   CircleCheckIcon,
@@ -14,6 +13,7 @@ import { GitActionsControl } from "@/components/thread/GitActionsControl"
 import { OpenInPicker } from "@/components/thread/OpenInPicker"
 import { terminalWorkspaceTab } from "@/components/workspace-panel/catalog"
 import { WorkspacePanelToggle } from "@/components/workspace-panel/WorkspacePanelToggle"
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { useThreadShell } from "@/hooks/use-control-plane"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
 import { useKeybinding } from "@/hooks/use-keybindings"
@@ -77,7 +77,7 @@ function ThreadHeaderPalette({
   const settleHotkey = useKeybinding("thread.settle")
   const workspacePanelHotkey = useKeybinding("thread.workspace-panel.toggle")
   const newTerminalHotkey = useKeybinding("thread.terminal.new")
-  const workspacePanel = useAtomValue(workspacePanelAtom(threadId))
+  const workspacePanel = useAppAtomValue(workspacePanelAtom(threadId))
   const changeRequestState =
     thread === undefined ? null : (pullRequests.get(thread.id)?.state ?? null)
   const settled =

@@ -157,6 +157,32 @@ export const reduceAppliedShellEvent = (event: ShellLiveEvent): boolean => {
   return true
 }
 
+export const patchAppliedShellThread = (
+  threadId: ThreadId,
+  patch: (thread: ThreadShell) => ThreadShell,
+): boolean => {
+  const current = appAtomRegistry.get(appliedShellAtom)
+  if (current === undefined) {
+    return false
+  }
+  let changed = false
+  const threads = current.threads.map((thread) => {
+    if (thread.id !== threadId) {
+      return thread
+    }
+    const next = patch(thread)
+    if (!Object.is(next, thread)) {
+      changed = true
+    }
+    return next
+  })
+  if (!changed) {
+    return false
+  }
+  appAtomRegistry.set(appliedShellAtom, { ...current, threads })
+  return true
+}
+
 export const upsertAppliedShellThread = (thread: ThreadShell): boolean => {
   const current = appAtomRegistry.get(appliedShellAtom)
   if (current === undefined) {
