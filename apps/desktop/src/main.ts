@@ -69,8 +69,9 @@ import {
   DESKTOP_HOST,
   DESKTOP_SCHEME,
   DESKTOP_URL,
-  DEVELOPMENT_RENDERER_URL,
+  DEFAULT_DEVELOPMENT_RENDERER_URL,
   desktopUrlForServer,
+  developmentRendererUrlFromEnv,
   resolveRendererAssetPath,
 } from "./renderer"
 import {
@@ -356,7 +357,19 @@ const withSecurityHeaders = (response: Response): Response => {
 }
 
 const fetchDevelopmentRenderer = Effect.fn("fetchDevelopmentRenderer")(function* (requestUrl: URL) {
-  const targetUrl = new URL(`${requestUrl.pathname}${requestUrl.search}`, DEVELOPMENT_RENDERER_URL)
+  const configuredRendererUrl = yield* Config.string("NOYAU_DEV_RENDERER_URL").pipe(
+    Config.orElse(() => Config.string("VITE_DEV_SERVER_URL")),
+    Config.option,
+    Effect.mapError((cause) => desktopError("Failed to read the development renderer URL", cause)),
+  )
+  const rendererBase = Option.match(configuredRendererUrl, {
+    onNone: () => DEFAULT_DEVELOPMENT_RENDERER_URL,
+    onSome: (value) => developmentRendererUrlFromEnv({ NOYAU_DEV_RENDERER_URL: value }),
+  })
+  const targetUrl = yield* Effect.try({
+    try: () => new URL(`${requestUrl.pathname}${requestUrl.search}`, rendererBase),
+    catch: (cause) => desktopError("Invalid development renderer URL", cause),
+  })
   const response = yield* Effect.tryPromise({
     try: () => net.fetch(targetUrl.toString()),
     catch: (cause) => desktopError("Failed to fetch the development renderer", cause),
@@ -574,9 +587,15 @@ const launch = Effect.fn("launch")(function* () {
           }),
       ),
     )
+  const configuredDataDirectory = yield* Config.string("NOYAU_DATA_DIR").pipe(
+    Config.orElse(() => Config.string("NOYAU_HOME")),
+    Config.option,
+  )
   const baseSupervisorOptions = {
     serverEntryPath: yield* resolveServerEntryPath(__dirname, app.isPackaged),
-    dataDirectory: path.join(app.getPath("userData"), "environment"),
+    dataDirectory: Option.getOrElse(configuredDataDirectory, () =>
+      path.join(app.getPath("userData"), "environment"),
+    ),
     environment: serverEnvironmentFromReleaseChannel(flags.releaseChannel),
     releaseChannel: flags.releaseChannel,
     afterSpawn,

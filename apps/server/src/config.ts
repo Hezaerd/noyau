@@ -132,10 +132,13 @@ export const loadServerConfig = Effect.gen(function* () {
     Config.orElse(() => Config.string("USERPROFILE")),
   )
   const bootstrapFd = yield* Config.option(Config.int("NOYAU_BOOTSTRAP_FD"))
+  const configuredHome = yield* Config.option(Config.string("NOYAU_HOME"))
+  const defaultDataDirectory =
+    configuredHome._tag === "Some" ? path.resolve(configuredHome.value) : path.resolve(".noyau")
   const bootstrap =
     bootstrapFd._tag === "Some"
       ? yield* readBootstrapFd(bootstrapFd.value)
-      : yield* standaloneBootstrap(path.resolve(".noyau")).pipe(
+      : yield* standaloneBootstrap(defaultDataDirectory).pipe(
           Effect.flatMap(decodeStandaloneBootstrap),
         )
   return {

@@ -41,8 +41,8 @@ The most common defect in this repo is a change that works on the path you teste
 ## Dev servers
 
 - `vp i` installs. Worktrees get this from the `noyau.json` setup scripts; if module resolution looks broken, it probably did not run.
-- `vp run dev` starts server and web. In a worktree, state defaults to that worktree's gitignored `.noyau`, which deliberately outranks an ambient `NOYAU_HOME` so you cannot land on shared state by accident. An explicit `--home-dir` still wins.
-- Ports derive from the worktree path and are stable across restarts, but read the real ones from the `[dev-runner]` line since occupied ports shift.
+- `bun run dev` starts the desktop stack through the dev-runner. In a worktree, state defaults to that worktree's gitignored `.noyau`, which deliberately outranks an ambient `NOYAU_HOME` so you cannot land on shared state by accident. An explicit `--home-dir` still wins.
+- Ports derive from the worktree path (`NOYAU_DEV_INSTANCE` or `NOYAU_PORT_OFFSET` override) and are stable across restarts, but read the real ones from the `[dev-runner]` line since occupied ports shift. `dev:server` and `dev:web` go through the same runner so a worktree's pair stays aligned.
 - Stop what you started, by the PID you tracked. See rule 1.
 
 ## Test data

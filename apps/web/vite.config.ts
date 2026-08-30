@@ -1,10 +1,14 @@
 import { fileURLToPath, URL } from "node:url"
 
+import { BASE_SERVER_PORT, BASE_WEB_PORT, readDevPort } from "@noyau/shared/dev-ports"
 import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react, { reactCompilerPreset } from "@vitejs/plugin-react"
 import { defineConfig, lazyPlugins } from "vite-plus"
+
+const webPort = readDevPort(process.env.PORT, BASE_WEB_PORT)
+const serverPort = readDevPort(process.env.NOYAU_PORT, BASE_SERVER_PORT)
 
 export default defineConfig({
   test: {
@@ -51,21 +55,21 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    port: 5173,
+    port: webPort,
     strictPort: true,
     hmr: {
       protocol: "ws",
       host: "127.0.0.1",
-      clientPort: 5173,
+      clientPort: webPort,
     },
     proxy: {
       "/rpc": {
-        target: "http://127.0.0.1:3001",
+        target: `http://127.0.0.1:${String(serverPort)}`,
         changeOrigin: true,
         ws: true,
       },
       "/health": {
-        target: "http://127.0.0.1:3001",
+        target: `http://127.0.0.1:${String(serverPort)}`,
         changeOrigin: true,
       },
     },
