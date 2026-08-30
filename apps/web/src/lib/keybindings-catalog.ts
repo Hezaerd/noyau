@@ -10,6 +10,7 @@ export const KEYBINDING_IDS = [
   "thread.pin",
   "thread.settle",
   "thread.workspace-panel.toggle",
+  "thread.terminal.new",
   "thread.model-picker.open",
   "board.search",
   "board.ticket.create",
@@ -118,6 +119,14 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Toggle workspace panel",
     description: "Show or hide the Thread workspace panel.",
     defaultHotkey: "mod+shift+b",
+    when: WHEN_THREAD_WORKSPACE_PANEL,
+  },
+  {
+    id: "thread.terminal.new",
+    group: "thread",
+    title: "New terminal",
+    description: "Open a Terminal tab in the Thread workspace panel.",
+    defaultHotkey: "mod+shift+j",
     when: WHEN_THREAD_WORKSPACE_PANEL,
   },
   {

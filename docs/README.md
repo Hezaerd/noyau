@@ -10,3 +10,4 @@ policy in [CONTRIBUTING.md](../CONTRIBUTING.md); agent rules in [AGENTS.md](../A
 - [Glossary](./internals/glossary.md)
 - [Contracts and orchestration](./internals/contracts-and-orchestration.md)
 - [Workspace panel](./internals/workspace-panel.md)
+- [Terminal](./internals/terminal.md)

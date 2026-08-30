@@ -1,10 +1,17 @@
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
-import { CircleCheckIcon, CircleDotIcon, PanelRightCloseIcon, PanelRightIcon } from "lucide-react"
+import {
+  CircleCheckIcon,
+  CircleDotIcon,
+  PanelRightCloseIcon,
+  PanelRightIcon,
+  SquareTerminalIcon,
+} from "lucide-react"
 import { useMemo } from "react"
 
 import { useAppPaletteActions, type AppPaletteAction } from "@/components/app-palette-context"
 import { GitActionsControl } from "@/components/thread/GitActionsControl"
 import { OpenInPicker } from "@/components/thread/OpenInPicker"
+import { terminalWorkspaceTab } from "@/components/workspace-panel/catalog"
 import { WorkspacePanelToggle } from "@/components/workspace-panel/WorkspacePanelToggle"
 import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { useThreadShell } from "@/hooks/use-control-plane"
@@ -15,7 +22,7 @@ import { useProjectPullRequests } from "@/hooks/use-sidebar-queues"
 import { useAutoSettleAfterDays } from "@/hooks/use-thread-settle-preference"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { effectiveSettled } from "@/lib/thread-settled"
-import { toggleWorkspacePanel, workspacePanelAtom } from "@/state/workspace-panel"
+import { openWorkspaceTab, toggleWorkspacePanel, workspacePanelAtom } from "@/state/workspace-panel"
 
 export function ThreadHeaderActions({
   projectId,
@@ -69,6 +76,7 @@ function ThreadHeaderPalette({
   const autoSettleAfterDays = useAutoSettleAfterDays()
   const settleHotkey = useKeybinding("thread.settle")
   const workspacePanelHotkey = useKeybinding("thread.workspace-panel.toggle")
+  const newTerminalHotkey = useKeybinding("thread.terminal.new")
   const workspacePanel = useAppAtomValue(workspacePanelAtom(threadId))
   const changeRequestState =
     thread === undefined ? null : (pullRequests.get(thread.id)?.state ?? null)
@@ -104,9 +112,26 @@ function ThreadHeaderPalette({
         icon: workspacePanel.open ? <PanelRightCloseIcon /> : <PanelRightIcon />,
         execute: () => toggleWorkspacePanel(threadId),
       })
+      actions.push({
+        id: "thread.terminal.new",
+        label: "New terminal",
+        searchValue: "Terminal shell pty workspace panel",
+        shortcut: newTerminalHotkey,
+        icon: <SquareTerminalIcon />,
+        execute: () => openWorkspaceTab(threadId, terminalWorkspaceTab),
+      })
     }
     return actions
-  }, [disabled, settleHotkey, settled, thread, workspacePanel.open, workspacePanelHotkey, threadId])
+  }, [
+    disabled,
+    newTerminalHotkey,
+    settleHotkey,
+    settled,
+    thread,
+    workspacePanel.open,
+    workspacePanelHotkey,
+    threadId,
+  ])
   useAppPaletteActions(paletteActions)
   useKeybindingHandler(
     "thread.settle",
@@ -116,6 +141,13 @@ function ThreadHeaderPalette({
       }
     },
     thread !== undefined && !disabled,
+  )
+  useKeybindingHandler(
+    "thread.terminal.new",
+    () => {
+      openWorkspaceTab(threadId, terminalWorkspaceTab)
+    },
+    !disabled,
   )
 
   return null

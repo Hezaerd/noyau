@@ -3,6 +3,7 @@ import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
 import { EditorOpen } from "@noyau/server/editor/editor-open"
 import { GitPlane } from "@noyau/server/git/git-plane"
 import { GitRuntime } from "@noyau/server/git/git-runtime"
+import { TerminalPlane } from "@noyau/server/terminal/terminal-plane"
 import { Effect, Layer, Redacted, Schema, Stream } from "effect"
 
 const emptyStatus = (cwd: string) => ({
@@ -56,6 +57,28 @@ export const stubGitRuntimeLayer = Layer.succeed(GitRuntime)({
 export const stubEditorOpenLayer = Layer.succeed(EditorOpen)({
   list: Effect.succeed({ editors: ["cursor"] }),
   open: (input) => Effect.succeed({ editor: input.editor, cwd: "/tmp/stub" }),
+})
+
+export const stubTerminalPlaneLayer = Layer.succeed(TerminalPlane)({
+  attach: () => Stream.empty,
+  write: () => Effect.void,
+  resize: () => Effect.void,
+  clear: () => Effect.void,
+  restart: (input) =>
+    Effect.succeed({
+      projectId: input.projectId,
+      threadId: input.threadId,
+      terminalId: input.terminalId,
+      cwd: "/tmp/stub",
+      status: "running",
+      pid: 1,
+      history: "",
+      exitCode: null,
+      exitSignal: null,
+      label: "Terminal",
+      updatedAt: Schema.decodeSync(Schema.DateTimeUtcFromString)("2026-08-29T00:00:00.000Z"),
+    }),
+  close: () => Effect.void,
 })
 
 export const stubGitPlaneLayer = Layer.succeed(GitPlane)({

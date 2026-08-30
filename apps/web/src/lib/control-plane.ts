@@ -45,6 +45,17 @@ import {
   type ThreadStreamItem,
 } from "@noyau/contracts/rpc"
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
+import type {
+  TerminalAttachInput,
+  TerminalAttachStreamEvent,
+  TerminalClearInput,
+  TerminalCloseInput,
+  TerminalError,
+  TerminalResizeInput,
+  TerminalRestartInput,
+  TerminalSessionSnapshot,
+  TerminalWriteInput,
+} from "@noyau/contracts/terminal"
 import type { ThreadAssistantLive } from "@noyau/contracts/thread/live"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/contracts/turn-diff"
 import type { Cause } from "effect"
@@ -149,6 +160,7 @@ type ControlPlaneStreamError =
   | MissingIdentity
   | ServiceUnavailable
   | GitCommandError
+  | TerminalError
 
 const reportTechnicalFailure = <E>(cause: Cause.Cause<E>, failure: AppFailure) => {
   if (failure._tag === "UnexpectedFailure") {
@@ -439,6 +451,69 @@ export const openInEditor = (
       return yield* client[RPC_METHODS.openInEditor](input)
     }),
   )
+
+export const terminalWrite = (input: TerminalWriteInput): Promise<ControlPlaneResult<void>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.terminalWrite](input)
+    }),
+  )
+
+export const terminalResize = (input: TerminalResizeInput): Promise<ControlPlaneResult<void>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.terminalResize](input)
+    }),
+  )
+
+export const terminalClear = (input: TerminalClearInput): Promise<ControlPlaneResult<void>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.terminalClear](input)
+    }),
+  )
+
+export const terminalRestart = (
+  input: TerminalRestartInput,
+): Promise<ControlPlaneResult<TerminalSessionSnapshot>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.terminalRestart](input)
+    }),
+  )
+
+export const terminalClose = (input: TerminalCloseInput): Promise<ControlPlaneResult<void>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.terminalClose](input)
+    }),
+  )
+
+export const subscribeTerminalAttach = (
+  readInput: () => TerminalAttachInput,
+  onEvent: (event: TerminalAttachStreamEvent) => void,
+  onStatus: (status: SubscriptionStatus) => void = () => undefined,
+) =>
+  superviseSubscription({
+    afterSequence: () => undefined,
+    currentSession: () => activeTransportSession,
+    replaceSession: replaceTransportSession,
+    onStatus,
+    startAttempt: (session, _resumeAfterSequence, onFailure) => {
+      const stream = Effect.gen(function* () {
+        const client = yield* ControlPlaneClient
+        return yield* client[RPC_METHODS.terminalAttach](readInput()).pipe(
+          Stream.runForEach((event) => Effect.sync(() => onEvent(event))),
+        )
+      })
+      return startSubscriptionAttempt(session, stream, onFailure)
+    },
+  })
 
 export const buildAndDispatchCommand = <A extends ClientCommandRequest, E>(
   request: Effect.Effect<A, E, Crypto.Crypto>,

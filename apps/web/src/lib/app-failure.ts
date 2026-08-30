@@ -10,6 +10,7 @@ import { FilePreviewFailed } from "@noyau/contracts/file-preview"
 import { GitCommandError } from "@noyau/contracts/git"
 import { ProjectNotFound } from "@noyau/contracts/project/errors"
 import { Rejection, type Rejection as RejectionType } from "@noyau/contracts/receipts"
+import { TerminalError } from "@noyau/contracts/terminal"
 import { TurnDiffUnavailable } from "@noyau/contracts/turn-diff"
 import { Cause, Option, Schema } from "effect"
 import { RpcClientError } from "effect/unstable/rpc/RpcClientError"
@@ -29,6 +30,7 @@ const KnownControlPlaneError = Schema.Union([
   TurnDiffUnavailable,
   ProjectNotFound,
   GitCommandError,
+  TerminalError,
   OpenInEditorFailed,
   AgentIntegrationFailed,
   RpcClientError,
@@ -111,6 +113,9 @@ const fromTypedError = (error: KnownControlPlaneError, phase: FailurePhase): App
   }
   if (Schema.is(FilePreviewFailed)(error) || Schema.is(ProjectNotFound)(error)) {
     return { _tag: "InvalidInput" }
+  }
+  if (Schema.is(TerminalError)(error)) {
+    return { _tag: "InvalidInput", message: error.message }
   }
   if (phase === "input") {
     return { _tag: "InvalidInput" }

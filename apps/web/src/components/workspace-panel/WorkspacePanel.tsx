@@ -1,4 +1,4 @@
-import type { ThreadId } from "@noyau/contracts/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { PlusIcon, XIcon } from "lucide-react"
 import {
   useLayoutEffect,
@@ -25,6 +25,7 @@ import {
 } from "@/components/workspace-panel/catalog"
 import type { WorkspaceTabRegistration } from "@/components/workspace-panel/define-workspace-tab"
 import { useAppAtomValue } from "@/hooks/use-app-atom"
+import { terminalClose } from "@/lib/control-plane"
 import { cn } from "@/lib/utils"
 import {
   EMPTY_TAB_ID_SET,
@@ -53,9 +54,11 @@ const openKind = (threadId: ThreadId, kind: WorkspaceTabRegistration): void => {
 
 export function WorkspacePanel({
   threadId,
+  projectId,
   kinds = workspaceTabCatalog,
 }: {
   readonly threadId: ThreadId
+  readonly projectId?: ProjectId
   readonly kinds?: ReadonlyArray<WorkspaceTabRegistration>
 }): ReactElement | null {
   const state = useAppAtomValue(workspacePanelAtom(threadId))
@@ -75,6 +78,25 @@ export function WorkspacePanel({
     activeTabId: activeTab?.id ?? null,
     keepMountedKinds,
   })
+
+  const previousTerminalIds = useRef<ReadonlySet<string>>(EMPTY_TAB_ID_SET)
+
+  useLayoutEffect(() => {
+    const nextIds = new Set(
+      state.tabs.flatMap((tab) => {
+        const terminalId = tab.kind === "terminal" ? tab.payload.terminalId : undefined
+        return typeof terminalId === "string" ? [terminalId] : []
+      }),
+    )
+    if (projectId !== undefined) {
+      for (const terminalId of previousTerminalIds.current) {
+        if (!nextIds.has(terminalId)) {
+          void terminalClose({ projectId, threadId, terminalId })
+        }
+      }
+    }
+    previousTerminalIds.current = nextIds
+  }, [projectId, state.tabs, threadId])
 
   useLayoutEffect(() => {
     setCommittedTabIds((current) => {
@@ -186,7 +208,7 @@ export function WorkspacePanel({
               data-tab-id={tab.id}
               data-tab-kind={tab.kind}
             >
-              {kind.render({ tab, isActive, isVisible })}
+              {kind.render({ tab, threadId, projectId, isActive, isVisible })}
             </div>
           )
         })}

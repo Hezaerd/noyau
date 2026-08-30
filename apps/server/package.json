@@ -42,6 +42,9 @@
     "./server": "./src/server.ts",
     "./shell-live": "./src/shell-live.ts",
     "./thread-live": "./src/thread-live.ts",
+    "./terminal/pty-adapter": "./src/terminal/pty-adapter.ts",
+    "./terminal/node-pty-adapter": "./src/terminal/node-pty-adapter.ts",
+    "./terminal/terminal-plane": "./src/terminal/terminal-plane.ts",
     "./workspace-cwd": "./src/workspace-cwd.ts",
     "./workspace-root": "./src/workspace-root.ts",
     "./workspace-path-search": "./src/workspace-path-search.ts",
@@ -88,7 +91,8 @@
     "@noyau/contracts": "workspace:*",
     "@noyau/shared": "workspace:*",
     "effect": "catalog:",
-    "fractional-indexing": "^4.0.0"
+    "fractional-indexing": "^4.0.0",
+    "node-pty": "^1.0.0"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

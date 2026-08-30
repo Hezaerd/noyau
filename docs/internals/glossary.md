@@ -59,6 +59,11 @@ One instance in the workspace panel. Identity is `id`, not `kind`. Opening the
 same kind twice creates two tabs unless the kind sets `identityOf`. There is no
 placeholder tab: `create` produces the payload before the tab exists.
 
+#### Terminal session
+
+Server-owned PTY keyed by Thread plus a client-chosen `terminalId`. Bytes cross
+RPC; the renderer stays local. Not a journal fact. See [terminal][14].
+
 ### Orchestration
 
 Wire types live in contracts. Decision and projection live on the server.
@@ -108,3 +113,4 @@ only.
 [11]: ../../apps/web/src/lib/workspace-panel.ts
 [12]: ../../apps/web/src/components/workspace-panel/WorkspacePanel.tsx
 [13]: ./workspace-panel.md
+[14]: ./terminal.md
