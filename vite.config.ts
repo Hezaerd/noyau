@@ -212,13 +212,13 @@ export default defineConfig({
         },
       },
       {
-        // Hooks Electron / pack : stdlib Node, pas de runtime Effect.
+        // Hooks Electron / pack : stdlib Node. Les scripts copient `process.env`
+        // vers les enfants ; les lectures dans un Effect passent par Config.
         files: ["apps/desktop/scripts/**"],
         rules: {
           "effecttsgo/node-builtin-import": "off",
           "effecttsgo/async-function": "off",
           "effecttsgo/process-env": "off",
-          "effecttsgo/process-env-in-effect": "off",
         },
       },
       {

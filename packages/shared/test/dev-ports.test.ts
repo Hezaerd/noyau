@@ -4,7 +4,9 @@ import {
   findFirstAvailableOffset,
   hashPortOffset,
   isBrowserAllowedPort,
+  parseDevPort,
   portPairForOffset,
+  readDevPort,
   resolveOffset,
 } from "@noyau/shared/dev-ports"
 import { describe, expect, it } from "vite-plus/test"
@@ -91,6 +93,19 @@ describe("dev ports", () => {
     expect(portPairForOffset(2)).toEqual({ serverPort: 3003, webPort: 5175 })
   })
 
+  it("parses only integers in 1–65535", () => {
+    expect(parseDevPort(undefined)).toEqual({ _tag: "empty" })
+    expect(parseDevPort("")).toEqual({ _tag: "empty" })
+    expect(parseDevPort(" 5173 ")).toEqual({ _tag: "ok", port: 5173 })
+    expect(parseDevPort("5173abc")).toEqual({ _tag: "invalid" })
+    expect(parseDevPort("-1")).toEqual({ _tag: "invalid" })
+    expect(parseDevPort("0")).toEqual({ _tag: "invalid" })
+    expect(parseDevPort("65536")).toEqual({ _tag: "invalid" })
+    expect(parseDevPort("65535")).toEqual({ _tag: "ok", port: 65_535 })
+    expect(readDevPort("5173abc", 5173)).toBe(5173)
+    expect(readDevPort("", 3001)).toBe(3001)
+  })
+
   it("skips a web port the browser would refuse", () => {
     const selected = findFirstAvailableOffset(827, false, true, () => true)
     expect(selected._tag).toBe("ok")
@@ -99,6 +114,16 @@ describe("dev ports", () => {
     }
     expect(portPairForOffset(selected.offset).webPort).not.toBe(6000)
     expect(isBrowserAllowedPort(portPairForOffset(selected.offset).webPort)).toBe(true)
+  })
+
+  it("skips a server port the browser would refuse to fetch", () => {
+    const selected = findFirstAvailableOffset(2999, true, false, () => true)
+    expect(selected._tag).toBe("ok")
+    if (selected._tag !== "ok") {
+      return
+    }
+    expect(portPairForOffset(selected.offset).serverPort).not.toBe(6000)
+    expect(isBrowserAllowedPort(portPairForOffset(selected.offset).serverPort)).toBe(true)
   })
 
   it("reports exhaustion when no port remains in range", () => {

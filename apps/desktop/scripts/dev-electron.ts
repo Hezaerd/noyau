@@ -1,4 +1,16 @@
-import { Deferred, Effect, Exit, Fiber, FileSystem, Path, Scope, Stream } from "effect"
+import { BASE_WEB_PORT, readDevPort } from "@noyau/shared/dev-ports"
+import {
+  Config,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Option,
+  Path,
+  Scope,
+  Stream,
+} from "effect"
 import type { ChildProcessSpawner } from "effect/unstable/process"
 import { ChildProcess } from "effect/unstable/process"
 
@@ -107,11 +119,14 @@ const devElectron = Effect.fn("devElectron")(function* () {
     )
   })
 
+  const webPort = yield* Config.option(Config.string("PORT")).pipe(
+    Effect.map((value) => readDevPort(Option.getOrUndefined(value), BASE_WEB_PORT)),
+  )
   yield* waitForResources({
     baseDirectory: desktopDir,
     files: ["dist-electron/main.cjs", "dist-electron/preload.cjs", "../server/dist/main.mjs"],
     host: "127.0.0.1",
-    port: Number.parseInt(process.env.PORT ?? "5173", 10) || 5173,
+    port: webPort,
   })
   yield* startElectron()
   yield* watchBundleDirectory(bundleDirectory, watchedDesktopBundles)

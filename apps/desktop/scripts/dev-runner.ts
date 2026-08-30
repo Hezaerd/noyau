@@ -5,12 +5,12 @@ import { pointsAtLinkedWorktree, resolveDevHome, worktreeNoyauHome } from "@noya
 import {
   exhaustedPortsMessage,
   invalidPortOffsetMessage,
-  isBrowserAllowedPort,
-  MAX_PORT,
+  iterateOffsetProbes,
+  parseDevPort,
   portPairForOffset,
   resolveOffset,
 } from "@noyau/shared/dev-ports"
-import { Deferred, Effect, Exit, FileSystem, Option, Path, Schema, Scope } from "effect"
+import { Config, Deferred, Effect, Exit, FileSystem, Option, Path, Schema, Scope } from "effect"
 import { ChildProcess } from "effect/unstable/process"
 
 import { desktopDir } from "./electron-launcher.ts"
@@ -40,6 +40,13 @@ class DevRunnerUsageError extends Schema.TaggedError<DevRunnerUsageError>()("Dev
   message: Schema.String,
 }) {}
 
+const isDevRunnerUsageError = Schema.is(DevRunnerUsageError)
+
+const NodeErrorWithCode = Schema.Struct({
+  code: Schema.optionalKey(Schema.String),
+})
+const decodeNodeErrorWithCode = Schema.decodeUnknownOption(NodeErrorWithCode)
+
 const isDevMode = (value: string): value is DevMode => DEV_MODES.some((mode) => mode === value)
 
 export const parseDevRunnerArgs = (argv: ReadonlyArray<string>): DevRunnerArgs => {
@@ -68,11 +75,11 @@ export const parseDevRunnerArgs = (argv: ReadonlyArray<string>): DevRunnerArgs =
         homeDir = value
         continue
       }
-      const parsed = Number(value)
-      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+      const parsed = parseDevPort(value)
+      if (parsed._tag !== "ok") {
         throw new DevRunnerUsageError({ message: "--port must be an integer between 1 and 65535" })
       }
-      port = parsed
+      port = parsed.port
       continue
     }
     if (arg.startsWith("--")) {
@@ -131,31 +138,45 @@ export const bindsServerPort = (mode: DevMode, hasExplicitServerPort: boolean): 
 
 export const bindsWebPort = (mode: DevMode): boolean => mode !== "dev:server"
 
-const optionalIntegerEnv = (name: string): number | undefined => {
-  const raw = process.env[name]?.trim()
+const UNAVAILABLE_ADDRESS_CODES = new Set(["EADDRNOTAVAIL", "EAFNOSUPPORT", "EPROTONOSUPPORT"])
+
+export type ListenProbeResult = "available" | "busy" | "host-unavailable"
+
+export const classifyListenError = (
+  error: typeof NodeErrorWithCode.Type,
+): Exclude<ListenProbeResult, "available"> =>
+  error.code !== undefined && UNAVAILABLE_ADDRESS_CODES.has(error.code)
+    ? "host-unavailable"
+    : "busy"
+
+const optionalIntegerConfig = Effect.fn("optionalIntegerConfig")(function* (name: string) {
+  const value = yield* Config.option(Config.string(name))
+  const raw = Option.getOrUndefined(value)?.trim()
   if (raw === undefined || raw === "") {
     return undefined
   }
   const parsed = Number(raw)
   if (!Number.isInteger(parsed)) {
-    throw new DevRunnerUsageError({ message: `${name} must be an integer` })
+    return yield* new DevRunnerUsageError({ message: `${name} must be an integer` })
   }
   return parsed
-}
+})
 
 const canListenOnHost = (port: number, host: string) =>
-  Effect.callback<boolean>((resume) => {
+  Effect.callback<ListenProbeResult>((resume) => {
     const server = createServer()
-    const finish = (available: boolean) => {
+    const finish = (result: ListenProbeResult) => {
       server.removeAllListeners()
       if (server.listening) {
-        server.close(() => resume(Effect.succeed(available)))
+        server.close(() => resume(Effect.succeed(result)))
         return
       }
-      resume(Effect.succeed(available))
+      resume(Effect.succeed(result))
     }
-    server.once("error", () => finish(false))
-    server.listen({ host, port, exclusive: true }, () => finish(true))
+    server.once("error", (error) =>
+      finish(classifyListenError(Option.getOrElse(decodeNodeErrorWithCode(error), () => ({})))),
+    )
+    server.listen({ host, port, exclusive: true }, () => finish("available"))
     return Effect.sync(() => {
       server.removeAllListeners()
       if (server.listening) {
@@ -166,12 +187,17 @@ const canListenOnHost = (port: number, host: string) =>
 
 const isLoopbackPortAvailable = (port: number) =>
   Effect.gen(function* () {
+    let probed = 0
     for (const host of DEV_PORT_PROBE_HOSTS) {
-      if (!(yield* canListenOnHost(port, host))) {
+      const result = yield* canListenOnHost(port, host)
+      if (result === "busy") {
         return false
       }
+      if (result === "available") {
+        probed += 1
+      }
     }
-    return true
+    return probed > 0
   })
 
 const selectAvailableOffset = Effect.fn("selectAvailableOffset")(function* (
@@ -179,28 +205,21 @@ const selectAvailableOffset = Effect.fn("selectAvailableOffset")(function* (
   requireServerPort: boolean,
   requireWebPort: boolean,
 ) {
-  for (let candidate = startOffset; ; candidate += 1) {
-    const { serverPort, webPort } = portPairForOffset(candidate)
-    const serverPortOutOfRange = serverPort > MAX_PORT
-    const webPortOutOfRange = webPort > MAX_PORT
-    if (
-      (requireServerPort && serverPortOutOfRange) ||
-      (requireWebPort && webPortOutOfRange) ||
-      (!requireServerPort && !requireWebPort && (serverPortOutOfRange || webPortOutOfRange))
-    ) {
+  for (const step of iterateOffsetProbes(startOffset, requireServerPort, requireWebPort)) {
+    if (step._tag === "exhausted") {
       return yield* new DevRunnerUsageError({
         message: exhaustedPortsMessage(startOffset),
       })
     }
-    if (requireWebPort && !isBrowserAllowedPort(webPort)) {
-      continue
-    }
-    const serverOk = !requireServerPort || (yield* isLoopbackPortAvailable(serverPort))
-    const webOk = !requireWebPort || (yield* isLoopbackPortAvailable(webPort))
+    const serverOk = !requireServerPort || (yield* isLoopbackPortAvailable(step.serverPort))
+    const webOk = !requireWebPort || (yield* isLoopbackPortAvailable(step.webPort))
     if (serverOk && webOk) {
-      return candidate
+      return step.offset
     }
   }
+  return yield* new DevRunnerUsageError({
+    message: exhaustedPortsMessage(startOffset),
+  })
 })
 
 const resolveGitWorktreePath = Effect.fn("resolveGitWorktreePath")(function* (cwd: string) {
@@ -309,18 +328,11 @@ const spawnForeground = Effect.fn("spawnForeground")(function* (
 const readOffsetConfig = Effect.fn("readOffsetConfig")(function* (
   worktreePath: string | undefined,
 ) {
-  const resolved = yield* Effect.try({
-    try: () =>
-      resolveOffset(
-        optionalIntegerEnv("NOYAU_PORT_OFFSET"),
-        process.env.NOYAU_DEV_INSTANCE,
-        worktreePath,
-      ),
-    catch: (error) =>
-      new DevRunnerUsageError({
-        message: error instanceof Error ? error.message : String(error),
-      }),
-  })
+  const portOffset = yield* optionalIntegerConfig("NOYAU_PORT_OFFSET")
+  const devInstance = yield* Config.option(Config.string("NOYAU_DEV_INSTANCE")).pipe(
+    Effect.map((value) => Option.getOrUndefined(value)),
+  )
+  const resolved = resolveOffset(portOffset, devInstance, worktreePath)
   if (resolved._tag === "invalid") {
     return yield* new DevRunnerUsageError({
       message: invalidPortOffsetMessage(resolved.portOffset),
@@ -329,7 +341,10 @@ const readOffsetConfig = Effect.fn("readOffsetConfig")(function* (
   return resolved
 })
 
-export const runDevRunner = Effect.fn("runDevRunner")(function* (args: DevRunnerArgs) {
+export const runDevRunner = Effect.fn("runDevRunner")(function* (
+  args: DevRunnerArgs,
+  hostEnv: NodeJS.ProcessEnv,
+) {
   const path = yield* Path.Path
   const worktreePath = yield* resolveGitWorktreePath(process.cwd())
   const { offset, source } = yield* readOffsetConfig(worktreePath)
@@ -342,9 +357,12 @@ export const runDevRunner = Effect.fn("runDevRunner")(function* (args: DevRunner
   const serverPort = args.port ?? pair.serverPort
   const webPort = pair.webPort
   const worktreeHome = yield* resolveWorktreeHome(process.cwd())
-  const home = resolveDevHome(args.homeDir, worktreeHome, process.env.NOYAU_HOME)
+  const ambientHome = yield* Config.option(Config.string("NOYAU_HOME")).pipe(
+    Effect.map((value) => Option.getOrUndefined(value)),
+  )
+  const home = resolveDevHome(args.homeDir, worktreeHome, ambientHome)
   const resolvedHome = home === undefined ? undefined : path.resolve(home)
-  const env = createDevRunnerEnv(process.env, {
+  const env = createDevRunnerEnv(hostEnv, {
     serverPort,
     webPort,
     home: resolvedHome,
@@ -373,9 +391,20 @@ const isDirectRun =
   process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
+  const hostEnv = process.env
   void scriptRuntime
     .runPromise(
-      Effect.scoped(runDevRunner(parseDevRunnerArgs(process.argv.slice(2)))).pipe(
+      Effect.try({
+        try: () => parseDevRunnerArgs(process.argv.slice(2)),
+        catch: (error) =>
+          isDevRunnerUsageError(error)
+            ? error
+            : new DevRunnerUsageError({
+                message: error instanceof Error ? error.message : String(error),
+              }),
+      }).pipe(
+        Effect.flatMap((args) => runDevRunner(args, hostEnv)),
+        Effect.scoped,
         Effect.tapError((error) =>
           Effect.sync(() => {
             process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)

@@ -1,13 +1,14 @@
 import { fileURLToPath, URL } from "node:url"
 
+import { BASE_SERVER_PORT, BASE_WEB_PORT, readDevPort } from "@noyau/shared/dev-ports"
 import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react, { reactCompilerPreset } from "@vitejs/plugin-react"
 import { defineConfig, lazyPlugins } from "vite-plus"
 
-const webPort = Number.parseInt(process.env.PORT ?? "5173", 10) || 5173
-const serverPort = Number.parseInt(process.env.NOYAU_PORT ?? "3001", 10) || 3001
+const webPort = readDevPort(process.env.PORT, BASE_WEB_PORT)
+const serverPort = readDevPort(process.env.NOYAU_PORT, BASE_SERVER_PORT)
 
 export default defineConfig({
   test: {

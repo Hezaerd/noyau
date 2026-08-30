@@ -362,13 +362,14 @@ const fetchDevelopmentRenderer = Effect.fn("fetchDevelopmentRenderer")(function*
     Config.option,
     Effect.mapError((cause) => desktopError("Failed to read the development renderer URL", cause)),
   )
-  const targetUrl = new URL(
-    `${requestUrl.pathname}${requestUrl.search}`,
-    Option.match(configuredRendererUrl, {
-      onNone: () => DEFAULT_DEVELOPMENT_RENDERER_URL,
-      onSome: (value) => developmentRendererUrlFromEnv({ NOYAU_DEV_RENDERER_URL: value }),
-    }),
-  )
+  const rendererBase = Option.match(configuredRendererUrl, {
+    onNone: () => DEFAULT_DEVELOPMENT_RENDERER_URL,
+    onSome: (value) => developmentRendererUrlFromEnv({ NOYAU_DEV_RENDERER_URL: value }),
+  })
+  const targetUrl = yield* Effect.try({
+    try: () => new URL(`${requestUrl.pathname}${requestUrl.search}`, rendererBase),
+    catch: (cause) => desktopError("Invalid development renderer URL", cause),
+  })
   const response = yield* Effect.tryPromise({
     try: () => net.fetch(targetUrl.toString()),
     catch: (cause) => desktopError("Failed to fetch the development renderer", cause),

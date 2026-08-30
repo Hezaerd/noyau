@@ -3,6 +3,7 @@ import { describe, expect, it } from "@effect/vitest"
 import {
   bindsServerPort,
   bindsWebPort,
+  classifyListenError,
   createDevRunnerEnv,
   formatDevRunnerLine,
   parseDevRunnerArgs,
@@ -39,6 +40,15 @@ describe("dev runner", () => {
   it("rejects an unknown mode or flag", () => {
     expect(() => parseDevRunnerArgs(["prod"])).toThrow(/Unknown mode/)
     expect(() => parseDevRunnerArgs(["--share"])).toThrow(/Unknown flag/)
+    expect(() => parseDevRunnerArgs(["--port", "5173abc"])).toThrow(/--port must be an integer/)
+  })
+
+  it("treats a missing address family as free, not occupied", () => {
+    expect(classifyListenError({ code: "EADDRINUSE" })).toBe("busy")
+    expect(classifyListenError({ code: "EADDRNOTAVAIL" })).toBe("host-unavailable")
+    expect(classifyListenError({ code: "EAFNOSUPPORT" })).toBe("host-unavailable")
+    expect(classifyListenError({ code: "EPROTONOSUPPORT" })).toBe("host-unavailable")
+    expect(classifyListenError({})).toBe("busy")
   })
 
   it("binds only the ports that mode will listen on", () => {

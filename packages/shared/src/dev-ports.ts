@@ -35,6 +35,20 @@ export type AvailableOffset =
   | { readonly _tag: "ok"; readonly offset: number }
   | { readonly _tag: "exhausted"; readonly startOffset: number }
 
+export type ParsedDevPort =
+  | { readonly _tag: "ok"; readonly port: number }
+  | { readonly _tag: "empty" }
+  | { readonly _tag: "invalid" }
+
+export type OffsetProbe =
+  | {
+      readonly _tag: "probe"
+      readonly offset: number
+      readonly serverPort: number
+      readonly webPort: number
+    }
+  | { readonly _tag: "exhausted"; readonly startOffset: number }
+
 export const invalidPortOffsetMessage = (portOffset: number): string =>
   `NOYAU_PORT_OFFSET must be at least 0; received ${String(portOffset)}.`
 
@@ -53,10 +67,76 @@ export const hashPortOffset = (seed: string): number => {
 
 export const isBrowserAllowedPort = (port: number): boolean => !FETCH_BAD_PORTS.has(port)
 
+export const parseDevPort = (raw: string | undefined): ParsedDevPort => {
+  const trimmed = raw?.trim()
+  if (trimmed === undefined || trimmed === "") {
+    return { _tag: "empty" }
+  }
+  if (!/^\d+$/.test(trimmed)) {
+    return { _tag: "invalid" }
+  }
+  const port = Number(trimmed)
+  if (port < 1 || port > MAX_PORT) {
+    return { _tag: "invalid" }
+  }
+  return { _tag: "ok", port }
+}
+
+export const readDevPort = (raw: string | undefined, fallback: number): number => {
+  const parsed = parseDevPort(raw)
+  return parsed._tag === "ok" ? parsed.port : fallback
+}
+
 export const portPairForOffset = (offset: number): DevPortPair => ({
   serverPort: BASE_SERVER_PORT + offset,
   webPort: BASE_WEB_PORT + offset,
 })
+
+const offsetPairIsExhausted = (
+  offset: number,
+  requireServerPort: boolean,
+  requireWebPort: boolean,
+): boolean => {
+  const { serverPort, webPort } = portPairForOffset(offset)
+  const serverPortOutOfRange = serverPort > MAX_PORT
+  const webPortOutOfRange = webPort > MAX_PORT
+  return (
+    (requireServerPort && serverPortOutOfRange) ||
+    (requireWebPort && webPortOutOfRange) ||
+    (!requireServerPort && !requireWebPort && (serverPortOutOfRange || webPortOutOfRange))
+  )
+}
+
+const offsetPairShouldSkip = (
+  offset: number,
+  requireServerPort: boolean,
+  requireWebPort: boolean,
+): boolean => {
+  const { serverPort, webPort } = portPairForOffset(offset)
+  return (
+    (requireWebPort && !isBrowserAllowedPort(webPort)) ||
+    (requireServerPort && !isBrowserAllowedPort(serverPort))
+  )
+}
+
+/** Yields offsets that are in range and not on a Fetch-blocked port. */
+export function* iterateOffsetProbes(
+  startOffset: number,
+  requireServerPort: boolean,
+  requireWebPort: boolean,
+): Generator<OffsetProbe> {
+  for (let candidate = startOffset; ; candidate += 1) {
+    if (offsetPairIsExhausted(candidate, requireServerPort, requireWebPort)) {
+      yield { _tag: "exhausted", startOffset }
+      return
+    }
+    if (offsetPairShouldSkip(candidate, requireServerPort, requireWebPort)) {
+      continue
+    }
+    const { serverPort, webPort } = portPairForOffset(candidate)
+    yield { _tag: "probe", offset: candidate, serverPort, webPort }
+  }
+}
 
 export const resolveOffset = (
   portOffset: number | undefined,
@@ -92,27 +172,14 @@ export const findFirstAvailableOffset = (
   requireWebPort: boolean,
   isPortAvailable: (port: number, role: DevPortRole) => boolean,
 ): AvailableOffset => {
-  for (let candidate = startOffset; ; candidate += 1) {
-    const { serverPort, webPort } = portPairForOffset(candidate)
-    const serverPortOutOfRange = serverPort > MAX_PORT
-    const webPortOutOfRange = webPort > MAX_PORT
-
-    if (
-      (requireServerPort && serverPortOutOfRange) ||
-      (requireWebPort && webPortOutOfRange) ||
-      (!requireServerPort && !requireWebPort && (serverPortOutOfRange || webPortOutOfRange))
-    ) {
-      break
+  for (const step of iterateOffsetProbes(startOffset, requireServerPort, requireWebPort)) {
+    if (step._tag === "exhausted") {
+      return { _tag: "exhausted", startOffset: step.startOffset }
     }
-
-    if (requireWebPort && !isBrowserAllowedPort(webPort)) {
-      continue
-    }
-
-    const serverOk = !requireServerPort || isPortAvailable(serverPort, "server")
-    const webOk = !requireWebPort || isPortAvailable(webPort, "web")
+    const serverOk = !requireServerPort || isPortAvailable(step.serverPort, "server")
+    const webOk = !requireWebPort || isPortAvailable(step.webPort, "web")
     if (serverOk && webOk) {
-      return { _tag: "ok", offset: candidate }
+      return { _tag: "ok", offset: step.offset }
     }
   }
 
