@@ -83,4 +83,20 @@ describe("ThreadMarkdownMermaid", () => {
     })
     expect(screen.queryByText("Couldn't render this diagram.")).toBeNull()
   })
+
+  it("opens a near-viewport dialog that scales the diagram", async () => {
+    const user = userEvent.setup()
+    renderDiagram({ chart: "sequenceDiagram\n    UI->>WS: attach", incomplete: false })
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mermaid-svg")).toBeTruthy()
+    })
+
+    await user.click(screen.getByRole("button", { name: "View diagram fullscreen" }))
+
+    expect(screen.getByRole("dialog", { name: "Diagram" })).toBeTruthy()
+    expect(document.querySelector("[data-thread-markdown-mermaid-expanded]")).not.toBeNull()
+    expect(document.querySelector("[data-slot='dialog-popup']")?.className).toContain("92vw")
+    expect(document.querySelector("[data-slot='dialog-popup']")?.className).toContain("92vh")
+  })
 })

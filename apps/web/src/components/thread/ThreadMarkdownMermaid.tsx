@@ -7,7 +7,6 @@ import {
   Dialog,
   DialogDescription,
   DialogHeader,
-  DialogPanel,
   DialogPopup,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -145,19 +144,21 @@ export function ThreadMarkdownMermaid({
         }}
         open={fullscreen}
       >
-        <DialogPopup className="sm:max-w-4xl">
+        <DialogPopup
+          bottomStickOnMobile={false}
+          className="h-[min(92vh,calc(100dvh-2rem))] max-h-[min(92vh,calc(100dvh-2rem))] w-[min(92vw,calc(100%-2rem))] max-w-[min(92vw,calc(100%-2rem))]"
+        >
           <DialogHeader>
             <DialogTitle id={titleId}>Diagram</DialogTitle>
             <DialogDescription>Rendered from the mermaid source in this message.</DialogDescription>
           </DialogHeader>
-          <DialogPanel>
-            {svg === null ? null : (
-              <div
-                className="thread-markdown-mermaid-svg max-w-full overflow-x-auto"
-                dangerouslySetInnerHTML={{ __html: svg }}
-              />
-            )}
-          </DialogPanel>
+          {svg === null ? null : (
+            <div
+              className="thread-markdown-mermaid-svg thread-markdown-mermaid-svg-expanded min-h-0 flex-1 overflow-auto px-6 pb-6"
+              dangerouslySetInnerHTML={{ __html: svg }}
+              data-thread-markdown-mermaid-expanded=""
+            />
+          )}
         </DialogPopup>
       </Dialog>
     </div>
