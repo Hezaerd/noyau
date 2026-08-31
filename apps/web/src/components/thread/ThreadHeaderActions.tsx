@@ -5,6 +5,7 @@ import {
   GlobeIcon,
   PanelRightCloseIcon,
   PanelRightIcon,
+  RefreshCwIcon,
 } from "lucide-react"
 import { useMemo } from "react"
 
@@ -22,6 +23,7 @@ import { useProjectPullRequests } from "@/hooks/use-sidebar-queues"
 import { useAutoSettleAfterDays } from "@/hooks/use-thread-settle-preference"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { effectiveSettled } from "@/lib/thread-settled"
+import { dispatchThreadTitleRegenerate } from "@/lib/thread-title-actions"
 import { openWorkspaceBrowser } from "@/lib/workspace-browser"
 import { toggleWorkspacePanel, workspacePanelAtom } from "@/state/workspace-panel"
 
@@ -105,6 +107,15 @@ function ThreadHeaderPalette({
         execute: () => dispatchThreadSettle(thread, !settled),
       },
     ]
+    if (thread.latestTurn !== null) {
+      actions.push({
+        id: "thread.title.regenerate",
+        label: "Regenerate title",
+        searchValue: "Regenerate title rename session",
+        icon: <RefreshCwIcon />,
+        execute: () => dispatchThreadTitleRegenerate(thread.id),
+      })
+    }
     if (!disabled) {
       actions.push(
         {

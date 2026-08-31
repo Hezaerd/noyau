@@ -11,6 +11,7 @@ import {
   PencilIcon,
   PinIcon,
   PinOffIcon,
+  RefreshCwIcon,
   Trash2Icon,
 } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
@@ -48,6 +49,7 @@ import { makeThreadDeleteRequest, makeThreadMetaUpdateRequest } from "@/lib/thre
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle } from "@/lib/thread-settled"
 import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
+import { dispatchThreadTitleRegenerate } from "@/lib/thread-title-actions"
 import { toggleThreadPinned } from "@/state/thread-pins"
 
 const providerIcons = {
@@ -74,6 +76,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
   readonly onSelect: () => void
 }) {
   const navigate = useNavigate()
+  const renameHotkey = useKeybinding("thread.rename")
   const pinHotkey = useKeybinding("thread.pin")
   const settleHotkey = useKeybinding("thread.settle")
   const pinned = useThreadPinned(thread.id)
@@ -240,7 +243,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
             />
           </SidebarMenuButton>
         </ContextMenuTrigger>
-        <ContextMenuPopup align="start" className="w-44">
+        <ContextMenuPopup align="start" className="w-52">
           <ContextMenuItem
             closeOnClick
             onClick={() => {
@@ -249,6 +252,15 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
           >
             <PencilIcon />
             Rename
+            <ContextMenuShortcut hotkey={renameHotkey} />
+          </ContextMenuItem>
+          <ContextMenuItem
+            closeOnClick
+            disabled={thread.latestTurn === null}
+            onClick={() => dispatchThreadTitleRegenerate(thread.id)}
+          >
+            <RefreshCwIcon />
+            Regenerate title
           </ContextMenuItem>
           <ContextMenuItem closeOnClick onClick={() => toggleThreadPinned(thread.id)}>
             {pinned ? <PinOffIcon /> : <PinIcon />}

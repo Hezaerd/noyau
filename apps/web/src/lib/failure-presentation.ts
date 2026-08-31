@@ -17,6 +17,7 @@ export type FailureOperation =
   | "thread.unsettle"
   | "thread.model-selection.set"
   | "thread.rename"
+  | "thread.title.regenerate"
   | "thread.subscribe"
   | "thread.ticket.link"
   | "thread.turn.interrupt"
