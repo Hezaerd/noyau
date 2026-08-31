@@ -410,6 +410,25 @@ export const transcriptRowId = (item: TranscriptItem, index: number): string => 
 }
 
 /**
+ * Assistant text already flushed into earlier rows of this Turn. Live paint is
+ * the full Turn snapshot, so the streaming row only shows the remainder.
+ */
+export const flushedAssistantPrefix = (
+  transcript: ReadonlyArray<TranscriptItem>,
+  turnId: TranscriptItem["turnId"],
+  beforeIndex: number,
+): string => {
+  let prefix = ""
+  for (let index = 0; index < beforeIndex; index += 1) {
+    const item = transcript[index]
+    if (item?._tag === "transcript.assistant" && item.turnId === turnId) {
+      prefix += item.text
+    }
+  }
+  return prefix
+}
+
+/**
  * Mount an empty assistant row as soon as a live Turn exists, so paint can
  * land before the journal flushes the first `transcript.assistant` item.
  */
@@ -494,6 +513,7 @@ const replaceThread = (
     readonly settledOverride?: Thread["settledOverride"] | null
     readonly settledAt?: Thread["settledAt"] | null
     readonly listedAt?: Thread["listedAt"]
+    readonly contextUsage?: Thread["contextUsage"]
   },
 ): Thread => {
   const current = snapshot.thread
@@ -520,13 +540,14 @@ const replaceThread = (
   const settledOverride =
     patch.settledOverride === null ? undefined : (patch.settledOverride ?? current.settledOverride)
   const settledAt = patch.settledAt === null ? undefined : (patch.settledAt ?? current.settledAt)
+  const contextUsage = patch.contextUsage ?? current.contextUsage
   const withSettled =
     settledOverride === undefined ? fields : Object.assign(fields, { settledOverride })
   const withSettledAt =
     settledAt === undefined ? withSettled : Object.assign(withSettled, { settledAt })
-  return archivedAt === undefined
-    ? new Thread(withSettledAt)
-    : new Thread({ ...withSettledAt, archivedAt })
+  const withUsage =
+    contextUsage === undefined ? withSettledAt : Object.assign(withSettledAt, { contextUsage })
+  return archivedAt === undefined ? new Thread(withUsage) : new Thread({ ...withUsage, archivedAt })
 }
 
 const withEnvelope = (
@@ -845,6 +866,20 @@ export const applyThreadEnvelope = (
         }),
         session,
         turns,
+        transcript: snapshot.transcript,
+      })
+    }
+    case "thread.context-usage-set": {
+      if (event.threadId !== snapshot.thread.id) {
+        return withEnvelope(snapshot, envelope, snapshot)
+      }
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, {
+          contextUsage: event.contextUsage,
+          updatedAt: envelope.occurredAt,
+        }),
+        session: snapshot.session,
+        turns: snapshot.turns,
         transcript: snapshot.transcript,
       })
     }

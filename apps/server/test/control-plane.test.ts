@@ -37,7 +37,7 @@ import {
 import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { stubGitRuntimeLayer } from "./fixtures.ts"
+import { stubGitRuntimeLayer, stubVcsStatusBroadcasterLayer } from "./fixtures.ts"
 import { testServerConfigLayer } from "./fixtures.ts"
 
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
@@ -113,6 +113,7 @@ const controlPlaneTestLayer = (
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(stubGitRuntimeLayer),
+    Layer.provideMerge(stubVcsStatusBroadcasterLayer()),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(workspaceRoots)),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provideMerge(Path.layer),
@@ -127,6 +128,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(stubGitRuntimeLayer),
+    Layer.provideMerge(stubVcsStatusBroadcasterLayer()),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(availableWorkspaceRoots)),
     Layer.provideMerge(
       cursorProviderLayer({
@@ -179,7 +181,7 @@ describe("ControlPlane", () => {
         assert.strictEqual(frames[1]?.kind, "synchronized")
 
         const config = yield* controlPlane.getConfig
-        assert.strictEqual(config.databaseSchemaVersion, 12)
+        assert.strictEqual(config.databaseSchemaVersion, 13)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
         assert.deepStrictEqual(
           yield* controlPlane.setShellFocus({

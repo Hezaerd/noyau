@@ -6,6 +6,7 @@ import {
   createFramePainter,
   getAssistantPaint,
   getAssistantPaintTarget,
+  presentedAssistantText,
   resolvePaintedAssistantText,
   subscribeAssistantPaint,
 } from "@/lib/assistant-paint"
@@ -24,13 +25,14 @@ export const useAssistantPaint = (
   threadId: ThreadId,
   turnId: TurnId,
   streaming: boolean,
+  flushedPrefix = "",
 ): string => {
   "use no memo"
   const mode = useTranscriptPaintMode()
   const live = useSyncExternalStore(subscribeAssistantPaint, getAssistantPaint, getAssistantPaint)
   const target = streaming
-    ? resolvePaintedAssistantText(journalText, live, threadId, turnId)
-    : journalText
+    ? resolvePaintedAssistantText(journalText, live, threadId, turnId, flushedPrefix)
+    : presentedAssistantText(journalText, flushedPrefix)
   const [painted, setPainted] = useState(target)
   const painterRef = useRef<ReturnType<typeof createFramePainter> | undefined>(undefined)
   const targetRef = useRef(target)
@@ -57,5 +59,5 @@ export const useAssistantPaint = (
     painterRef.current?.push(target)
   }, [target])
 
-  return streaming ? painted : journalText
+  return streaming ? painted : presentedAssistantText(journalText, flushedPrefix)
 }

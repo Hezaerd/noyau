@@ -2,6 +2,8 @@
 
 ## Using Noyau
 
+- [See how full the context window is](./users/context-window.md)
+
 ## Working on Noyau
 
 Everything below is for maintainers. Setup lives in the [root README](../README.md);

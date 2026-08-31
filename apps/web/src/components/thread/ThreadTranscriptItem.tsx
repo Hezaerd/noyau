@@ -25,6 +25,7 @@ import { transcriptItemCopyText, transcriptItemMessageAt } from "@/lib/transcrip
 function LiveAssistantMessage({
   item,
   streaming,
+  flushedPrefix,
   turn,
   workspaceRoot,
   projectId,
@@ -36,6 +37,7 @@ function LiveAssistantMessage({
 }: {
   readonly item: Extract<TranscriptItem, { readonly _tag: "transcript.assistant" }>
   readonly streaming: boolean
+  readonly flushedPrefix: string
   readonly turn?: Pick<Turn, "requestedAt" | "completedAt"> | undefined
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
@@ -45,7 +47,16 @@ function LiveAssistantMessage({
   readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
   readonly isLatestTurn?: boolean
 }) {
-  const paintedText = useAssistantPaint(item.text, item.threadId, item.turnId, streaming)
+  const paintedText = useAssistantPaint(
+    item.text,
+    item.threadId,
+    item.turnId,
+    streaming,
+    flushedPrefix,
+  )
+  if (paintedText.length === 0 && turnDiff === undefined) {
+    return null
+  }
   return (
     <Message align="start">
       <MessageContent>
@@ -81,6 +92,7 @@ function LiveAssistantMessage({
 function ThreadTranscriptItemImpl({
   item,
   streaming,
+  flushedPrefix = "",
   turn,
   workspaceRoot,
   projectId,
@@ -98,6 +110,7 @@ function ThreadTranscriptItemImpl({
 }: {
   readonly item: TranscriptItem
   readonly streaming: boolean
+  readonly flushedPrefix?: string
   readonly turn?: Pick<Turn, "requestedAt" | "completedAt"> | undefined
   readonly turnDiff?: TurnDiff | undefined
   readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
@@ -155,6 +168,7 @@ function ThreadTranscriptItemImpl({
       <LiveAssistantMessage
         item={item}
         streaming={streaming}
+        flushedPrefix={flushedPrefix}
         turn={turn}
         workspaceRoot={workspaceRoot}
         projectId={projectId}

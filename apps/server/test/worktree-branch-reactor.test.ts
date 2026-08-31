@@ -9,6 +9,7 @@ import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/i
 import { ControlPlane, makeControlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { GitRuntime, type GitRuntimeService } from "@noyau/server/git/git-runtime"
+import { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
 import { memoryLayer } from "@noyau/server/persistence/sqlite"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import {
@@ -17,9 +18,13 @@ import {
 } from "@noyau/server/text-generation/text-generation"
 import { threadLiveLayer } from "@noyau/server/thread-live"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
-import { Crypto, Effect, Layer, Path, Schema, Stream } from "effect"
+import { Context, Crypto, Effect, Layer, Path, Schema, Stream } from "effect"
 
-import { stubGitRuntimeLayer, testServerConfigLayer } from "./fixtures.ts"
+import {
+  stubGitRuntimeLayer,
+  stubVcsStatusBroadcasterLayer,
+  testServerConfigLayer,
+} from "./fixtures.ts"
 
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
 const projectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000001")
@@ -108,6 +113,7 @@ const stubTextGenerationLayer = (
 const layer = (
   generate: (input: BranchNameGenerationInput) => { readonly branch: string },
   git: Layer.Layer<GitRuntime>,
+  broadcaster: Layer.Layer<VcsStatusBroadcaster> = stubVcsStatusBroadcasterLayer(),
 ) =>
   makeControlPlaneLayer().pipe(
     Layer.provideMerge(unavailableAgentSkillInstallerLayer),
@@ -117,6 +123,7 @@ const layer = (
     Layer.provideMerge(threadLiveLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(git),
+    Layer.provideMerge(broadcaster),
     Layer.provideMerge(stubTextGenerationLayer(generate)),
     Layer.provideMerge(
       Layer.succeed(WorkspaceRootAccess)({
@@ -132,10 +139,11 @@ const run = <A, E>(
   generate: (input: BranchNameGenerationInput) => { readonly branch: string },
   git: Layer.Layer<GitRuntime>,
   effect: Effect.Effect<A, E, ControlPlane>,
+  broadcaster?: Layer.Layer<VcsStatusBroadcaster>,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const services = yield* Layer.build(layer(generate, git))
+      const services = yield* Layer.build(layer(generate, git, broadcaster))
       return yield* effect.pipe(Effect.provide(services))
     }),
   )
@@ -181,6 +189,7 @@ const readThreadBranch = Effect.fn("readThreadBranch")(function* (
 describe("Worktree branch reactor", () => {
   it.effect("renames a temporary worktree branch from the first-turn prompt", () => {
     const renames: Array<{ readonly oldBranch: string; readonly newBranch: string }> = []
+    const refreshed: Array<string> = []
     return run(
       (input) => {
         assert.strictEqual(input.message, "Add a safer reconnect backoff.")
@@ -213,13 +222,18 @@ describe("Worktree branch reactor", () => {
         assert.deepStrictEqual(renames, [
           { oldBranch: "noyau/f4ae4e0e", newBranch: "noyau/safer-reconnect-backoff" },
         ])
+        assert.deepStrictEqual(refreshed, ["/tmp/worktrees/noyau/f4ae4e0e"])
         assert.strictEqual(yield* readThreadBranch(controlPlane), "noyau/safer-reconnect-backoff")
+      }),
+      stubVcsStatusBroadcasterLayer((cwd) => {
+        refreshed.push(cwd)
       }),
     )
   })
 
-  it.effect("leaves a non-temporary checkout unchanged", () =>
-    run(
+  it.effect("leaves a non-temporary checkout unchanged", () => {
+    const refreshed: Array<string> = []
+    return run(
       () => ({ branch: "should-not-apply" }),
       stubGitRuntimeLayer,
       Effect.gen(function* () {
@@ -237,10 +251,14 @@ describe("Worktree branch reactor", () => {
           actorId,
         )
         yield* controlPlane.drainReactors
+        assert.deepStrictEqual(refreshed, [])
         assert.strictEqual(yield* readThreadBranch(controlPlane), "feature/manual")
       }),
-    ),
-  )
+      stubVcsStatusBroadcasterLayer((cwd) => {
+        refreshed.push(cwd)
+      }),
+    )
+  })
 
   it.effect("renames the temporary branch created on first-turn prepareWorktree", () => {
     const renames: Array<{ readonly oldBranch: string; readonly newBranch: string }> = []
@@ -278,6 +296,24 @@ describe("Worktree branch reactor", () => {
         assert.match(renames[0]?.oldBranch ?? "", /^noyau\/[0-9a-f]{8}$/)
         assert.strictEqual(renames[0]?.newBranch, "noyau/safer-reconnect-backoff")
         assert.strictEqual(yield* readThreadBranch(controlPlane), "noyau/safer-reconnect-backoff")
+      }),
+    )
+  })
+
+  it.effect("does not record a VCS refresh until the Effect runs", () => {
+    const refreshed: Array<string> = []
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const services = yield* Layer.build(
+          stubVcsStatusBroadcasterLayer((cwd) => {
+            refreshed.push(cwd)
+          }),
+        )
+        const broadcaster = Context.get(services, VcsStatusBroadcaster)
+        const pending = broadcaster.refresh("/tmp/worktrees/noyau/f4ae4e0e")
+        assert.deepStrictEqual(refreshed, [])
+        yield* pending
+        assert.deepStrictEqual(refreshed, ["/tmp/worktrees/noyau/f4ae4e0e"])
       }),
     )
   })

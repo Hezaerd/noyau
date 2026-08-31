@@ -205,7 +205,27 @@ describe("thread activity", () => {
         }),
         lastVisitedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
       }),
-    ).toEqual({ kind: "interrupted", label: "Interrupted" })
+    ).toBeNull()
+    expect(
+      resolveThreadActivity({
+        sessionStatus: "error",
+        latestTurn: latestTurn({
+          state: "interrupted",
+          completedAt: "2026-08-23T12:05:00.000Z",
+        }),
+        lastVisitedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+      }),
+    ).toBeNull()
+    expect(
+      resolveThreadActivity({
+        sessionStatus: "interrupted",
+        latestTurn: latestTurn({
+          state: "error",
+          completedAt: "2026-08-23T12:05:00.000Z",
+        }),
+        lastVisitedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+      }),
+    ).toBeNull()
     expect(
       resolveThreadActivity({
         sessionStatus: "ready",
@@ -403,12 +423,35 @@ describe("thread activity", () => {
     ).toBe(Date.parse("2026-08-23T12:00:05.000Z"))
   })
 
-  it("counts active unseen completed or interrupted Threads", () => {
+  it("counts active unseen completed Threads and ignores canceled ones", () => {
     const completed = latestTurn({
       state: "completed",
       completedAt: "2026-08-23T12:05:00.000Z",
     })
+    const canceled = latestTurn({
+      state: "interrupted",
+      completedAt: "2026-08-23T12:05:00.000Z",
+    })
     const visitedAt = Date.parse("2026-08-23T12:00:00.000Z")
+    expect(
+      countWaitingThreads(
+        [
+          {
+            id: openThreadId,
+            status: "active",
+            sessionStatus: "ready",
+            latestTurn: completed,
+          },
+          {
+            id: otherThreadId,
+            status: "active",
+            sessionStatus: "ready",
+            latestTurn: canceled,
+          },
+        ],
+        () => visitedAt,
+      ),
+    ).toBe(1)
     expect(
       countWaitingThreads(
         [

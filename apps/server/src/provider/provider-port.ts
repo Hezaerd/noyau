@@ -72,6 +72,12 @@ export type ProviderSignal =
       readonly state: TurnSettlementState
       readonly lastError?: string
     }
+  | {
+      readonly _tag: "context-usage"
+      readonly threadId: ThreadId
+      readonly used: number
+      readonly window: number
+    }
 
 export type ProviderEmit = (signal: ProviderSignal) => Effect.Effect<void>
 

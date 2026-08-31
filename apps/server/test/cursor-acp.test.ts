@@ -810,6 +810,11 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
               signal.item.text.includes("replay"),
           ),
         )
+        const usage = signals.find((signal) => signal._tag === "context-usage")
+        assert.deepStrictEqual(
+          usage?._tag === "context-usage" ? { used: usage.used, window: usage.window } : undefined,
+          { used: 12400, window: 200000 },
+        )
         const log = yield* readLog(evidence.requestLog)
         assert.include(log, '"method":"session/load"')
         assert.notInclude(log, '"method":"session/new"')
@@ -944,6 +949,9 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         yield* Fiber.join(interrupt)
         yield* provider.drain
         assert.isTrue(
+          signals.some((signal) => signal._tag === "turn-ended" && signal.state === "interrupted"),
+        )
+        assert.isFalse(
           signals.some((signal) => signal._tag === "session" && signal.status === "error"),
         )
       }),

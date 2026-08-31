@@ -44,6 +44,15 @@ This is a living glossary for Noyau. It explains what common terms mean in this 
 
 ### Thread timeline
 
+#### Context usage
+
+Last-known context usage for a Thread: the number of tokens used and the
+model context-window size. Shape is [ContextUsage][14]. The internal
+command is `thread.context-usage.set`; the event is `thread.context-usage-set`.
+Adapters normalize native payloads and emit a `context-usage` signal. The
+thread projector stores it on the Thread, not on the live Session, so the
+fill survives session reap. Claude does not report it yet.
+
 ### Client chrome
 
 #### Workspace panel
@@ -65,24 +74,24 @@ Workspace tab kind `browser`. It is the in-app browser chrome in the workspace
 panel: address bar, empty state, and the desktop [preview guest](#preview-guest).
 The open tab is client-only; it binds a server-owned
 [preview session](#preview-session) for the committed URL. Implementation:
-[browser-tab.tsx][14], [BrowserView.tsx][15], and
-[workspace-browser-session.ts][19].
+[browser-tab.tsx][15], [BrowserView.tsx][16], and
+[workspace-browser-session.ts][20].
 
 #### Preview guest
 
 Electron `<webview>` that loads the committed preview URL inside the browser
-tab. The host window does not navigate. Policy is [preview-manager.ts][20];
+tab. The host window does not navigate. Policy is [preview-manager.ts][21];
 the tag is created only on the desktop runtime
-([DesktopBrowserGuest.tsx][21]). `javascript:` and `file:` never load.
+([DesktopBrowserGuest.tsx][22]). `javascript:` and `file:` never load.
 
 #### Preview session
 
 Server-owned record of one in-app browser tab: `tabId`, thread, nav status, and
-updated time. Shape is in [preview.ts][16]. The in-memory store is
-[preview-sessions.ts][17]; clients reach it through `preview.open`,
+updated time. Shape is in [preview.ts][17]. The in-memory store is
+[preview-sessions.ts][18]; clients reach it through `preview.open`,
 `preview.navigate`, `preview.list`, and `preview.close`. It is not
 event-sourced and it is not the client [browser tab](#browser-tab). See
-[preview sessions][18].
+[preview sessions][19].
 
 ### Orchestration
 
@@ -133,11 +142,12 @@ only.
 [11]: ../../apps/web/src/lib/workspace-panel.ts
 [12]: ../../apps/web/src/components/workspace-panel/WorkspacePanel.tsx
 [13]: ./workspace-panel.md
-[14]: ../../apps/web/src/components/workspace-panel/browser-tab.tsx
-[15]: ../../apps/web/src/components/workspace-panel/BrowserView.tsx
-[16]: ../../packages/contracts/src/preview.ts
-[17]: ../../apps/server/src/preview/preview-sessions.ts
-[18]: ./preview-sessions.md
-[19]: ../../apps/web/src/lib/workspace-browser-session.ts
-[20]: ../../apps/desktop/src/preview/preview-manager.ts
-[21]: ../../apps/web/src/components/workspace-panel/DesktopBrowserGuest.tsx
+[14]: ../../packages/contracts/src/entities/context-usage.ts
+[15]: ../../apps/web/src/components/workspace-panel/browser-tab.tsx
+[16]: ../../apps/web/src/components/workspace-panel/BrowserView.tsx
+[17]: ../../packages/contracts/src/preview.ts
+[18]: ../../apps/server/src/preview/preview-sessions.ts
+[19]: ./preview-sessions.md
+[20]: ../../apps/web/src/lib/workspace-browser-session.ts
+[21]: ../../apps/desktop/src/preview/preview-manager.ts
+[22]: ../../apps/web/src/components/workspace-panel/DesktopBrowserGuest.tsx

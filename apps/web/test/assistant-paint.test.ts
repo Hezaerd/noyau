@@ -5,6 +5,7 @@ import {
   clearAssistantPaint,
   createFramePainter,
   getAssistantPaintTarget,
+  presentedAssistantText,
   pushAssistantLive,
   resolvePaintedAssistantText,
 } from "../src/lib/assistant-paint"
@@ -33,6 +34,73 @@ describe("assistant paint", () => {
     expect(
       resolvePaintedAssistantText("Bonjour", { threadId, turnId, text: "Bon" }, threadId, turnId),
     ).toBe("Bonjour")
+  })
+
+  it("paints only the remainder after assistant rows already flushed past a tool", () => {
+    const flushed = "Address bar first. "
+    expect(
+      resolvePaintedAssistantText(
+        "",
+        { threadId, turnId, text: `${flushed}There's a circular import.` },
+        threadId,
+        turnId,
+        flushed,
+      ),
+    ).toBe("There's a circular import.")
+    expect(
+      resolvePaintedAssistantText(
+        "There's a circular",
+        { threadId, turnId, text: `${flushed}There's a circular import.` },
+        threadId,
+        turnId,
+        flushed,
+      ),
+    ).toBe("There's a circular import.")
+    expect(
+      resolvePaintedAssistantText(
+        "",
+        { threadId, turnId, text: flushed },
+        threadId,
+        turnId,
+        flushed,
+      ),
+    ).toBe("")
+    expect(
+      resolvePaintedAssistantText(
+        "There's a circular import.",
+        { threadId, turnId, text: "unrelated live snapshot" },
+        threadId,
+        turnId,
+        flushed,
+      ),
+    ).toBe("There's a circular import.")
+    expect(
+      resolvePaintedAssistantText(
+        `${flushed}There's a circular import.`,
+        undefined,
+        threadId,
+        turnId,
+        flushed,
+      ),
+    ).toBe("There's a circular import.")
+  })
+
+  it("strips a trailing replay of earlier assistant rows from the last paragraph", () => {
+    const first = "Address bar will call the preview RPCs first. "
+    const second = "There's a circular import. "
+    const prefix = `${first}${second}`
+    const recap = `Slice 3 wires the address bar. ${prefix}`
+    expect(presentedAssistantText(prefix, prefix)).toBe("")
+    expect(presentedAssistantText(recap, prefix)).toBe("Slice 3 wires the address bar. ")
+    expect(
+      resolvePaintedAssistantText(
+        recap,
+        { threadId, turnId, text: recap },
+        threadId,
+        turnId,
+        prefix,
+      ),
+    ).toBe("Slice 3 wires the address bar. ")
   })
 
   it("commits immediately in classic mode and once per frame in smooth mode", () => {

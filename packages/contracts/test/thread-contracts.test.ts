@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { ClientCommandRequest, Command } from "@noyau/contracts/commands"
+import { ContextUsage, contextUsageOf } from "@noyau/contracts/entities/context-usage"
 import { ResumeCursor, Session } from "@noyau/contracts/entities/session"
 import { Thread } from "@noyau/contracts/entities/thread"
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
@@ -135,6 +136,39 @@ describe("Thread and Session entities", () => {
     expect(thread.provider).toBe("codex")
     expect(thread).not.toHaveProperty("permissionMode")
     expect(thread).not.toHaveProperty("channelId")
+    expect(thread).not.toHaveProperty("contextUsage")
+  })
+
+  it("round-trip un Thread avec le dernier fill de contexte", () => {
+    const encoded = {
+      id: ids.thread,
+      projectId: ids.project,
+      title: "Relier le dossier",
+      provider: "cursor" as const,
+      runtimeMode: "full-access" as const,
+      modelSelection: null,
+      status: "active" as const,
+      session: null,
+      latestTurn: null,
+      contextUsage: { used: 12400, window: 200000 },
+      createdAt: "2026-08-19T12:00:00.000Z",
+      listedAt: "2026-08-19T12:00:00.000Z",
+      updatedAt: "2026-08-19T12:00:00.000Z",
+    }
+    const thread = Schema.decodeSync(Thread)(encoded)
+    expect(thread.contextUsage).toEqual({ used: 12400, window: 200000 })
+    expect(Schema.encodeSync(Thread)(thread).contextUsage).toEqual({
+      used: 12400,
+      window: 200000,
+    })
+  })
+
+  it("rejette un fill de contexte sans fenêtre", () => {
+    expect(contextUsageOf(12, 0)).toBeNull()
+    expect(contextUsageOf(-1, 200000)).toBeNull()
+    expect(contextUsageOf(12.4, 200000)).toBeNull()
+    expect(contextUsageOf(12400, 200000)).toEqual({ used: 12400, window: 200000 })
+    expect(() => Schema.decodeUnknownSync(ContextUsage)({ used: 12, window: 0 })).toThrow()
   })
 
   it("décode une Session projetée sans id métier", () => {
@@ -466,6 +500,21 @@ describe("Thread commands", () => {
     expect(
       Schema.decodeUnknownSync(InternalThreadCommand)({ ...complete, ...commandMeta })._tag,
     ).toBe("thread.turn.diff.complete")
+  })
+
+  it("décode thread.context-usage.set comme commande interne seulement", () => {
+    const usage = {
+      _tag: "thread.context-usage.set",
+      commandId: ids.command,
+      payload: {
+        threadId: ids.thread,
+        contextUsage: { used: 12400, window: 200000 },
+      },
+    }
+    expect(() => Schema.decodeUnknownSync(ThreadCommandRequest)(usage)).toThrow()
+    expect(Schema.decodeUnknownSync(InternalThreadCommand)({ ...usage, ...commandMeta })._tag).toBe(
+      "thread.context-usage.set",
+    )
   })
 
   it.each([

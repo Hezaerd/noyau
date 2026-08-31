@@ -18,10 +18,11 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
-import { useAssistantPaintTarget } from "@/hooks/use-assistant-paint"
+import { useAssistantPaint, useAssistantPaintTarget } from "@/hooks/use-assistant-paint"
 import type { ComposerTicket } from "@/lib/composer-tickets"
 import { settledTranscriptLabel } from "@/lib/thread-activity"
 import {
+  flushedAssistantPrefix,
   groupTranscriptRows,
   lastAssistantIndexByTurnId,
   transcriptGroupRowId,
@@ -54,6 +55,38 @@ const transcriptTurnDiffProps = (
   return turnDiff === undefined
     ? { onOpenTurnDiff: open, isLatestTurn }
     : { turnDiff, onOpenTurnDiff: open, isLatestTurn }
+}
+
+function TranscriptAssistantRow({
+  item,
+  index,
+  streaming,
+  flushedPrefix,
+  keep,
+  children,
+}: {
+  readonly item: Extract<TranscriptItem, { readonly _tag: "transcript.assistant" }>
+  readonly index: number
+  readonly streaming: boolean
+  readonly flushedPrefix: string
+  readonly keep: boolean
+  readonly children: ReactNode
+}) {
+  const paintedText = useAssistantPaint(
+    item.text,
+    item.threadId,
+    item.turnId,
+    streaming,
+    flushedPrefix,
+  )
+  if (paintedText.length === 0 && !keep) {
+    return null
+  }
+  return (
+    <MessageScrollerItem messageId={transcriptRowId(item, index)} live={streaming}>
+      {children}
+    </MessageScrollerItem>
+  )
 }
 
 export function ThreadTranscript({
@@ -150,59 +183,86 @@ export function ThreadTranscript({
               <MessageScrollerItem messageId="thread-notices">{notices}</MessageScrollerItem>
             )}
 
-            {rows.map((row) =>
-              row.kind === "tool-group" ? (
-                <MessageScrollerItem
-                  key={transcriptGroupRowId(row.items)}
-                  messageId={transcriptGroupRowId(row.items)}
-                >
-                  <ThreadTranscriptToolGroup
-                    items={row.items}
-                    workspaceRoot={cwd ?? workspaceRoot}
-                  />
-                </MessageScrollerItem>
-              ) : (
+            {rows.map((row) => {
+              if (row.kind === "tool-group") {
+                return (
+                  <MessageScrollerItem
+                    key={transcriptGroupRowId(row.items)}
+                    messageId={transcriptGroupRowId(row.items)}
+                  >
+                    <ThreadTranscriptToolGroup
+                      items={row.items}
+                      workspaceRoot={cwd ?? workspaceRoot}
+                    />
+                  </MessageScrollerItem>
+                )
+              }
+              const streaming = streamingLast && row.item === lastAssistant
+              const flushedPrefix =
+                row.item._tag === "transcript.assistant"
+                  ? flushedAssistantPrefix(paintedTranscript, row.item.turnId, row.index)
+                  : ""
+              const turnDiffProps = transcriptTurnDiffProps(
+                row.item,
+                row.index,
+                turns,
+                lastAssistantByTurn,
+                latestTurn?.turnId,
+                onOpenTurnDiff,
+              )
+              const content = (
+                <ThreadTranscriptItem
+                  item={row.item}
+                  streaming={streaming}
+                  flushedPrefix={flushedPrefix}
+                  turn={turnById.get(row.item.turnId)}
+                  {...turnDiffProps}
+                  workspaceRoot={
+                    row.item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
+                  }
+                  projectId={projectId}
+                  draftAnswers={
+                    row.item._tag === "transcript.user-input"
+                      ? (draftByRequest[row.item.requestId] ?? {})
+                      : {}
+                  }
+                  legacyFreeform={
+                    row.item._tag === "transcript.user-input"
+                      ? (legacyFreeformByRequest[row.item.requestId] ?? "")
+                      : ""
+                  }
+                  onDraftAnswersChange={onDraftAnswersChange}
+                  onLegacyFreeformChange={onLegacyFreeformChange}
+                  onRespondApproval={onRespondApproval}
+                  onRespondUserInput={onRespondUserInput}
+                  {...(tickets === undefined ? {} : { tickets })}
+                  {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
+                />
+              )
+              if (row.item._tag === "transcript.assistant") {
+                return (
+                  <TranscriptAssistantRow
+                    key={transcriptRowId(row.item, row.index)}
+                    item={row.item}
+                    index={row.index}
+                    streaming={streaming}
+                    flushedPrefix={flushedPrefix}
+                    keep={turnDiffProps.turnDiff !== undefined}
+                  >
+                    {content}
+                  </TranscriptAssistantRow>
+                )
+              }
+              return (
                 <MessageScrollerItem
                   key={transcriptRowId(row.item, row.index)}
                   messageId={transcriptRowId(row.item, row.index)}
-                  live={streamingLast && row.item === lastAssistant}
+                  live={streaming}
                 >
-                  <ThreadTranscriptItem
-                    item={row.item}
-                    streaming={streamingLast && row.item === lastAssistant}
-                    turn={turnById.get(row.item.turnId)}
-                    {...transcriptTurnDiffProps(
-                      row.item,
-                      row.index,
-                      turns,
-                      lastAssistantByTurn,
-                      latestTurn?.turnId,
-                      onOpenTurnDiff,
-                    )}
-                    workspaceRoot={
-                      row.item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
-                    }
-                    projectId={projectId}
-                    draftAnswers={
-                      row.item._tag === "transcript.user-input"
-                        ? (draftByRequest[row.item.requestId] ?? {})
-                        : {}
-                    }
-                    legacyFreeform={
-                      row.item._tag === "transcript.user-input"
-                        ? (legacyFreeformByRequest[row.item.requestId] ?? "")
-                        : ""
-                    }
-                    onDraftAnswersChange={onDraftAnswersChange}
-                    onLegacyFreeformChange={onLegacyFreeformChange}
-                    onRespondApproval={onRespondApproval}
-                    onRespondUserInput={onRespondUserInput}
-                    {...(tickets === undefined ? {} : { tickets })}
-                    {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
-                  />
+                  {content}
                 </MessageScrollerItem>
-              ),
-            )}
+              )
+            })}
 
             {isRunning || settledLabel === null ? null : (
               <MessageScrollerItem messageId="thread-settled">

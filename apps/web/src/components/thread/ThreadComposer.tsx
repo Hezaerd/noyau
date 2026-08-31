@@ -1,3 +1,4 @@
+import type { ContextUsage } from "@noyau/contracts/entities/context-usage"
 import type { CursorModel, Provider } from "@noyau/contracts/entities/environment"
 import type {
   DefaultModelSelection,
@@ -35,6 +36,7 @@ import {
   type ReactNode,
 } from "react"
 
+import { ComposerContextUsage } from "@/components/thread/ComposerContextUsage"
 import { ComposerMentionMenu } from "@/components/thread/ComposerMentionMenu"
 import {
   ComposerPromptField,
@@ -112,6 +114,7 @@ export function ThreadComposer({
   onInterrupt,
   searchPaths,
   tickets = EMPTY_COMPOSER_TICKETS,
+  contextUsage,
   context,
   toolbar,
 }: {
@@ -143,6 +146,7 @@ export function ThreadComposer({
   readonly onInterrupt: () => void
   readonly searchPaths?: ((query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>) | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
+  readonly contextUsage?: ContextUsage | undefined
   readonly context?: ReactNode
   readonly toolbar?: ReactNode | undefined
 }) {
@@ -646,7 +650,8 @@ export function ThreadComposer({
                 </MenuPopup>
               </Menu>
 
-              <div className="ml-auto flex gap-2">
+              <div className="ml-auto flex items-center gap-2">
+                {contextUsage === undefined ? null : <ComposerContextUsage usage={contextUsage} />}
                 <Button
                   type={isRunning ? "button" : "submit"}
                   size="icon-sm"

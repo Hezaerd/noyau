@@ -1,3 +1,4 @@
+import type { VcsStatusResult } from "@noyau/contracts/git"
 import { ThreadId } from "@noyau/contracts/ids"
 import { describe, expect, it } from "vite-plus/test"
 
@@ -21,6 +22,20 @@ import {
   resolveSidebarCheckoutBranch,
   resolveWorktreeBaseBranch,
 } from "../src/lib/checkout"
+
+const liveStatus = (refName: string, dirty = false): VcsStatusResult => ({
+  isRepo: true,
+  cwd: "/tmp/wt",
+  refName,
+  isDefaultRef: false,
+  hasPrimaryRemote: true,
+  hasWorkingTreeChanges: dirty,
+  hasUpstream: false,
+  aheadCount: 0,
+  behindCount: 0,
+  worktreePath: "/tmp/wt",
+  pr: null,
+})
 
 describe("checkout helpers", () => {
   it("verrouille le checkout une fois le path bindé ou le premier Turn lancé", () => {
@@ -107,6 +122,62 @@ describe("checkout helpers", () => {
     ).toBe("Choose a base")
     expect(isSelectingWorktreeBase({ envMode: "worktree", worktreePath: null })).toBe(true)
     expect(isSelectingWorktreeBase({ envMode: "worktree", worktreePath: "/tmp/wt" })).toBe(false)
+  })
+
+  it("prend la branche persistée du Thread une fois le worktree bindé", () => {
+    expect(
+      resolveBranchTriggerLabel({
+        envMode: "worktree",
+        worktreePath: "/tmp/wt",
+        baseBranch: "noyau/safer-reconnect-backoff",
+        liveBranch: "noyau/f4ae4e0e",
+        startFromOrigin: false,
+        status: liveStatus("noyau/f4ae4e0e"),
+      }),
+    ).toBe("noyau/safer-reconnect-backoff")
+    expect(
+      resolveBranchTriggerLabel({
+        envMode: "worktree",
+        worktreePath: "/tmp/wt",
+        baseBranch: "noyau/safer-reconnect-backoff",
+        liveBranch: "noyau/f4ae4e0e",
+        startFromOrigin: false,
+        status: liveStatus("noyau/f4ae4e0e", true),
+      }),
+    ).toBe("noyau/safer-reconnect-backoff · dirty")
+    expect(
+      resolveBranchTriggerLabel({
+        envMode: "worktree",
+        worktreePath: "/tmp/wt",
+        baseBranch: "noyau/safer-reconnect-backoff",
+        liveBranch: null,
+        startFromOrigin: false,
+        status: undefined,
+      }),
+    ).toBe("noyau/safer-reconnect-backoff")
+    expect(
+      resolveBranchTriggerLabel({
+        envMode: "worktree",
+        worktreePath: "/tmp/wt",
+        baseBranch: "",
+        liveBranch: "noyau/f4ae4e0e",
+        startFromOrigin: false,
+        status: liveStatus("main"),
+      }),
+    ).toBe("noyau/f4ae4e0e")
+  })
+
+  it("garde le HEAD live en checkout local", () => {
+    expect(
+      resolveBranchTriggerLabel({
+        envMode: "local",
+        worktreePath: null,
+        baseBranch: "feat/bound",
+        liveBranch: "main",
+        startFromOrigin: false,
+        status: liveStatus("main"),
+      }),
+    ).toBe("main")
   })
 
   it("prend la branche default du repo comme base, pas un main hardcodé", () => {

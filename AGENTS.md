@@ -17,6 +17,7 @@ We need to be on the same page with terminology. When communicating, use this la
 - **project** means an environment-local workspace record rooted at a directory.
 - **thread** means the durable conversation and work history for a project.
 - **turn** means one user-to-agent cycle, including follow-up work such as checkpointing.
+- **context usage** means the last-known fill of a Thread's model context window.
 - **board** means a project's unique Kanban surface: ordered columns that hold its tickets.
 - **ticket** means a durable, flat unit of work on a project's board.
 - **workspace panel** means the Thread view's optional right-hand chrome: a tab strip of tool surfaces. It is client-only.

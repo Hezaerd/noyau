@@ -15,6 +15,7 @@ import {
   GitRuntime,
   isTemporaryWorktreeBranch,
 } from "@noyau/server/git/git-runtime"
+import { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
 import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
 import { readThreadSnapshot } from "@noyau/server/persistence/snapshots"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
@@ -148,6 +149,8 @@ const maybeRenameTemporaryWorktreeBranch = Effect.fn(
     worktreePath,
   })
   yield* dispatchInternal(command)
+  const broadcaster = yield* VcsStatusBroadcaster
+  yield* broadcaster.refresh(worktreePath).pipe(Effect.ignore)
 })
 
 /** Maps a first-turn worktree bind to a generated `noyau/<slug>` ref. */
@@ -156,13 +159,14 @@ export const makeWorktreeBranchReactor = (
 ): Effect.Effect<
   (persisted: PersistedEvent<DomainEvent>) => Effect.Effect<void>,
   never,
-  TextGeneration | SqlClient | Crypto.Crypto | GitRuntime
+  TextGeneration | SqlClient | Crypto.Crypto | GitRuntime | VcsStatusBroadcaster
 > =>
   Effect.gen(function* () {
     const sql = yield* SqlClient
     const crypto = yield* Crypto.Crypto
     const textGeneration = yield* TextGeneration
     const git = yield* GitRuntime
+    const broadcaster = yield* VcsStatusBroadcaster
 
     const run = (
       persisted: PersistedEvent<DomainEvent>,
@@ -178,6 +182,7 @@ export const makeWorktreeBranchReactor = (
         Effect.provideService(Crypto.Crypto, crypto),
         Effect.provideService(TextGeneration, textGeneration),
         Effect.provideService(GitRuntime, git),
+        Effect.provideService(VcsStatusBroadcaster, broadcaster),
       )
 
     return (persisted) => {

@@ -46,6 +46,7 @@ import {
 } from "@/lib/control-plane"
 import { makeThreadMetaUpdateRequest } from "@/lib/thread-commands"
 import { cn } from "@/lib/utils"
+import { vcsScopeForThread } from "@/lib/vcs-status"
 
 const checkoutTriggerClassName =
   "min-w-0 font-medium text-muted-foreground/70 hover:text-foreground/80"
@@ -99,7 +100,10 @@ export function ThreadCheckoutBar({
   readonly onStartFromOriginChange: (startFromOrigin: boolean) => void
 }) {
   const startFromOriginSwitchId = useId()
-  const scope = threadId === undefined ? { projectId } : { projectId, threadId }
+  const scope =
+    threadId === undefined
+      ? { projectId }
+      : vcsScopeForThread(projectId, { id: threadId, worktreePath })
   const status = useVcsStatus(scope) ?? undefined
   const [refs, setRefs] = useState<ReadonlyArray<VcsRef>>([])
   const [busy, setBusy] = useState(false)
@@ -130,7 +134,7 @@ export function ThreadCheckoutBar({
       }
       return undefined
     })
-  }, [projectId, threadId, worktreePath])
+  }, [projectId, threadId, worktreePath, branch])
 
   useEffect(() => {
     if (branch !== null && branch !== "") {

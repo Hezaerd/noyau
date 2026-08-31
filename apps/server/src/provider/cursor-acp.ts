@@ -6,6 +6,7 @@ import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/contracts/entities/approvals"
+import { contextUsageOf } from "@noyau/contracts/entities/context-usage"
 import {
   emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
@@ -594,6 +595,32 @@ const sessionSignal = (
         lastError,
       }
 
+const turnResumeCursor = (control: ActiveTurn): SessionSignal["resumeCursor"] =>
+  control.session?.resumeCursor ??
+  (control.resumeSessionId === undefined
+    ? control.input.resumeCursor
+    : {
+        schemaVersion: 1,
+        sessionId: ProviderSessionId.make(control.resumeSessionId),
+      })
+
+/** User cancel must not become Session/Turn error — the sidebar treats that as Error. */
+const emitCanceledTerminal = Effect.fn("CursorAdapter.emitCanceledTerminal")(function* (
+  control: ActiveTurn,
+  resumeCursor: SessionSignal["resumeCursor"],
+) {
+  yield* emitSignal(control, {
+    _tag: "turn-ended",
+    threadId: control.input.threadId,
+    turnId: control.input.turnId,
+    state: "interrupted",
+  })
+  yield* emitSignal(
+    control,
+    sessionSignal(control, control.stopRequested ? "stopped" : "ready", resumeCursor),
+  )
+})
+
 const clientInfo = (clientVersion: string) => ({
   protocolVersion: ACP_VERSION,
   clientCapabilities: {
@@ -823,14 +850,25 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     notification: AcpSchema.SessionNotification,
   ) {
     const replayMetadata = notification._meta
-    if (
-      loading() ||
-      replayMetadata?.isReplay === true ||
-      notification.sessionId !== control.sessionId
-    ) {
+    if (notification.sessionId !== control.sessionId) {
       return
     }
     const update = notification.update
+    if (update.sessionUpdate === "usage_update") {
+      const usage = contextUsageOf(update.used, update.size)
+      if (usage !== null) {
+        yield* emitSignal(control, {
+          _tag: "context-usage",
+          threadId: control.input.threadId,
+          used: usage.used,
+          window: usage.window,
+        })
+      }
+      return
+    }
+    if (loading() || replayMetadata?.isReplay === true) {
+      return
+    }
     switch (update.sessionUpdate) {
       case "agent_message_chunk": {
         if (update.content.type === "text" && update.content.text.length > 0) {
@@ -981,7 +1019,9 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           Effect.gen(function* () {
             if (created.loading) {
               created.loadLastActivityAt = yield* Clock.currentTimeMillis
-              return
+              if (notification.update.sessionUpdate !== "usage_update") {
+                return
+              }
             }
             const current = created.activeTurn
             if (current === undefined) {
@@ -1017,6 +1057,8 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         if (resumeSessionId !== undefined) {
           created.loading = true
           created.loadLastActivityAt = undefined
+          created.activeTurn = control
+          control.sessionId = resumeSessionId
           const loaded = yield* Effect.raceFirst(
             acp.agent
               .loadSession({
@@ -1284,26 +1326,19 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           ? Effect.void
           : Effect.gen(function* () {
               control.terminalEmitted = true
-              const detail = errorDetail(error)
               const currentSession = control.session
+              const resumeCursor = turnResumeCursor(control)
               if (currentSession !== undefined) {
                 yield* closeSession(currentSession)
               }
-              yield* emitSignal(
-                control,
-                sessionSignal(
+              if (control.cancelRequested || control.stopRequested) {
+                yield* emitCanceledTerminal(control, resumeCursor)
+              } else {
+                yield* emitSignal(
                   control,
-                  "error",
-                  currentSession?.resumeCursor ??
-                    (control.resumeSessionId === undefined
-                      ? control.input.resumeCursor
-                      : {
-                          schemaVersion: 1,
-                          sessionId: ProviderSessionId.make(control.resumeSessionId),
-                        }),
-                  detail,
-                ),
-              )
+                  sessionSignal(control, "error", resumeCursor, errorDetail(error)),
+                )
+              }
               yield* Deferred.succeed(control.promptSettled, undefined)
             }),
       ),

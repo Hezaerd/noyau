@@ -338,6 +338,14 @@ for await (const line of lines) {
           content: { type: "text", text: "load-gated text must be ignored" },
         },
       })
+      notify("session/update", {
+        sessionId: activeSessionId,
+        update: {
+          sessionUpdate: "usage_update",
+          used: 12400,
+          size: 200000,
+        },
+      })
     }
     if (scenario === "hang-load" || scenario === "hang-load-silent") {
       continue
