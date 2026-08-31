@@ -6,10 +6,11 @@ import {
   hydrateProviderInstanceConfigs,
   resolveHydratedInstanceEnabled,
 } from "@noyau/contracts/settings"
+import { ServerConfig } from "@noyau/server/config"
 import { patchServerSettings, readServerSettings } from "@noyau/server/provider/provider-settings"
 import { Effect, FileSystem, Layer, Path } from "effect"
 
-import { testServerConfigLayer } from "./fixtures.ts"
+import { testServerConfig } from "./fixtures.ts"
 
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
 
@@ -21,7 +22,7 @@ layer(platformLayer)((it) => {
         prefix: "noyau-settings-",
       })
       const settings = yield* readServerSettings().pipe(
-        Effect.provide(testServerConfigLayer({ dataDirectory: directory })),
+        Effect.provideService(ServerConfig, testServerConfig({ dataDirectory: directory })),
       )
       assert.deepStrictEqual(settings, DEFAULT_SERVER_SETTINGS)
       const hydrated = hydrateProviderInstanceConfigs(settings)
@@ -46,13 +47,13 @@ layer(platformLayer)((it) => {
       const directory = yield* fileSystem.makeTempDirectoryScoped({
         prefix: "noyau-settings-",
       })
-      const config = testServerConfigLayer({ dataDirectory: directory })
+      const config = testServerConfig({ dataDirectory: directory })
       const written = yield* patchServerSettings({
         providerInstances: {
           [ProviderInstanceId.make("cursor")]: { enabled: false },
         },
-      }).pipe(Effect.provide(config))
-      const read = yield* readServerSettings().pipe(Effect.provide(config))
+      }).pipe(Effect.provideService(ServerConfig, config))
+      const read = yield* readServerSettings().pipe(Effect.provideService(ServerConfig, config))
       assert.strictEqual(
         resolveHydratedInstanceEnabled(
           ProviderInstanceId.make("cursor"),

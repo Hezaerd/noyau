@@ -1,4 +1,4 @@
-import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
+import { Environment, ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { ProjectId, Sequence, ThreadId } from "@noyau/contracts/ids"
 import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
@@ -87,8 +87,8 @@ describe("applyShellEvent", () => {
   it("applies environment-updated even when sequence is already in the snapshot", () => {
     const current = makeSnapshot(12)
     const cursorId = ProviderInstanceId.make("cursor")
-    const environment = {
-      ...current.environment,
+    const environment = new Environment({
+      id: current.environment.id,
       providers: {
         ...current.environment.providers,
         [cursorId]: {
@@ -96,7 +96,8 @@ describe("applyShellEvent", () => {
           enabled: false,
         },
       },
-    }
+      createdAt: current.environment.createdAt,
+    })
     const next = applyShellEvent(current, {
       _tag: "environment-updated",
       sequence: Sequence.make(0),

@@ -16,6 +16,7 @@ import {
   type CursorModel,
   type CursorReasoningEffort,
   type CursorServiceTier,
+  type ProviderInstanceConfigBlob,
 } from "@noyau/contracts/entities/environment"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import type {
@@ -59,7 +60,7 @@ const CLIENT_INFO = {
 
 export interface CodexAdapterOptions {
   readonly instanceId?: ProviderInstanceId
-  readonly instanceConfig?: unknown
+  readonly instanceConfig?: ProviderInstanceConfigBlob | undefined
   readonly binaryPath?: string
   readonly binaryArgs?: ReadonlyArray<string>
   readonly environment?: NodeJS.ProcessEnv

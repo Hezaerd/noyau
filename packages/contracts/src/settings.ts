@@ -3,7 +3,9 @@ import { Effect, Schema } from "effect"
 import {
   defaultEnabledForDriver,
   isBuiltinProviderDriver,
+  isProviderInstanceId,
   ProviderDriverKind,
+  ProviderInstanceConfigBlob,
   ProviderInstanceConfigMap,
   ProviderInstanceId,
   resolveProviderInstanceEnabled,
@@ -39,7 +41,7 @@ export const ProviderInstanceConfigPatch = Schema.Struct({
   driver: Schema.optionalKey(ProviderDriverKind),
   displayName: Schema.optionalKey(Schema.NonEmptyString),
   enabled: Schema.optionalKey(Schema.Boolean),
-  config: Schema.optionalKey(Schema.Unknown),
+  config: Schema.optionalKey(ProviderInstanceConfigBlob),
 })
 export type ProviderInstanceConfigPatch = (typeof ProviderInstanceConfigPatch)["Type"]
 
@@ -73,21 +75,21 @@ export const hydrateProviderInstanceConfigs = (
   ...settings.providerInstances,
 })
 
-const mergeConfigBlob = (current: unknown, patch: unknown): unknown => {
+const mergeConfigBlob = (
+  current: ProviderInstanceConfigBlob | undefined,
+  patch: ProviderInstanceConfigBlob | undefined,
+): ProviderInstanceConfigBlob | undefined => {
   if (patch === undefined) {
     return current
   }
-  if (
-    current !== null &&
-    typeof current === "object" &&
-    !Array.isArray(current) &&
-    patch !== null &&
-    typeof patch === "object" &&
-    !Array.isArray(patch)
-  ) {
-    return { ...current, ...patch }
+  if (current === undefined) {
+    return patch
   }
-  return patch
+  const binaryPath = patch.binaryPath ?? current.binaryPath
+  if (binaryPath === undefined) {
+    return {}
+  }
+  return { binaryPath }
 }
 
 export const mergeServerSettings = (
@@ -97,13 +99,21 @@ export const mergeServerSettings = (
   if (patch.providerInstances === undefined) {
     return current
   }
-  const defaults = defaultProviderInstanceConfigs()
-  const next: Record<string, (typeof current.providerInstances)[ProviderInstanceId]> = {
-    ...defaults,
-    ...current.providerInstances,
-  }
-  for (const [instanceId, instancePatch] of Object.entries(patch.providerInstances)) {
-    const existing = next[instanceId] ?? defaults[instanceId as ProviderInstanceId]
+  const next = new Map(
+    Object.entries({
+      ...defaultProviderInstanceConfigs(),
+      ...current.providerInstances,
+    }),
+  )
+  for (const instanceId of Object.keys(patch.providerInstances)) {
+    if (!isProviderInstanceId(instanceId)) {
+      continue
+    }
+    const instancePatch = patch.providerInstances[instanceId]
+    if (instancePatch === undefined) {
+      continue
+    }
+    const existing = next.get(instanceId)
     const driver = instancePatch.driver ?? existing?.driver
     if (driver === undefined) {
       continue
@@ -114,14 +124,12 @@ export const mergeServerSettings = (
       instancePatch.config === undefined && existing?.config === undefined
         ? undefined
         : mergeConfigBlob(existing?.config, instancePatch.config)
-    next[instanceId] = {
-      driver,
-      ...(displayName === undefined ? {} : { displayName }),
-      ...(enabled === undefined ? {} : { enabled }),
-      ...(config === undefined ? {} : { config }),
-    }
+    const withName = displayName === undefined ? { driver } : { driver, displayName }
+    const withEnabled = enabled === undefined ? withName : { ...withName, enabled }
+    const merged = config === undefined ? withEnabled : { ...withEnabled, config }
+    next.set(instanceId, merged)
   }
-  return { providerInstances: next as ProviderInstanceConfigMap }
+  return { providerInstances: Object.fromEntries(next) }
 }
 
 export const resolveHydratedInstanceEnabled = (

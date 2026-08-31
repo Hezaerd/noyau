@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import type { CursorModel } from "@noyau/contracts/entities/environment"
+import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -32,8 +33,8 @@ const renderComposer = (contextUsage?: { readonly used: number; readonly window:
         runtimeMode="full-access"
         models={models}
         modelsByProvider={{ cursor: models }}
-        availableProviders={["cursor"]}
-        selectedProvider="cursor"
+        availableProviders={[ProviderInstanceId.make("cursor")]}
+        selectedProvider={ProviderInstanceId.make("cursor")}
         modelSelection={{ modelId: "composer-2.5" }}
         defaultModelSelection={null}
         error={undefined}

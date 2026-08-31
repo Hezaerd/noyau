@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { ShellSnapshot } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
@@ -66,21 +67,21 @@ describe("threadModelLabel", () => {
 describe("catalogModels", () => {
   it("prend le catalogue du provider du Thread", () => {
     expect(
-      catalogModels("cursor", {
+      catalogModels(ProviderInstanceId.make("cursor"), {
         cursor: [{ modelId: "composer-2.5", label: "Composer 2.5" }],
         claude: [{ modelId: "claude-opus-5", label: "Claude Opus 5" }],
         codex: [{ modelId: "gpt-5", label: "GPT-5" }],
       }),
     ).toEqual([{ modelId: "composer-2.5", label: "Composer 2.5" }])
     expect(
-      catalogModels("claude", {
+      catalogModels(ProviderInstanceId.make("claude"), {
         cursor: [{ modelId: "composer-2.5", label: "Composer 2.5" }],
         claude: [{ modelId: "claude-opus-5", label: "Claude Opus 5" }],
         codex: [{ modelId: "gpt-5", label: "GPT-5" }],
       }),
     ).toEqual([{ modelId: "claude-opus-5", label: "Claude Opus 5" }])
     expect(
-      catalogModels("codex", {
+      catalogModels(ProviderInstanceId.make("codex"), {
         cursor: [{ modelId: "composer-2.5", label: "Composer 2.5" }],
         claude: [{ modelId: "claude-opus-5", label: "Claude Opus 5" }],
         codex: [{ modelId: "gpt-5", label: "GPT-5" }],
@@ -89,9 +90,11 @@ describe("catalogModels", () => {
   })
 
   it("tolère un catalogue manquant", () => {
-    expect(catalogModels("codex", { codex: [{ modelId: "gpt-5", label: "GPT-5" }] })).toEqual([
-      { modelId: "gpt-5", label: "GPT-5" },
-    ])
+    expect(
+      catalogModels(ProviderInstanceId.make("codex"), {
+        codex: [{ modelId: "gpt-5", label: "GPT-5" }],
+      }),
+    ).toEqual([{ modelId: "gpt-5", label: "GPT-5" }])
   })
 })
 
@@ -112,7 +115,7 @@ describe("ThreadSidebarPopover", () => {
       <ThreadSidebarPopover
         thread={{
           title: "Stores Zustand t3code vs shell",
-          provider: "cursor",
+          provider: ProviderInstanceId.make("cursor"),
           modelSelection: { modelId: "grok-4.6" },
         }}
         project={{ name: "noyau" }}
@@ -154,7 +157,7 @@ describe("ThreadSidebarPopover", () => {
       <ThreadSidebarPopover
         thread={{
           title: "Thread Codex",
-          provider: "codex",
+          provider: ProviderInstanceId.make("codex"),
           modelSelection: { modelId: "gpt-5" },
         }}
         project={{ name: "noyau" }}
@@ -171,7 +174,7 @@ describe("ThreadSidebarPopover", () => {
       <ThreadSidebarPopover
         thread={{
           title: "Nouveau Thread",
-          provider: "cursor",
+          provider: ProviderInstanceId.make("cursor"),
           modelSelection: null,
         }}
         project={{ name: "noyau" }}

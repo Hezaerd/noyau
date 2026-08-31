@@ -21,6 +21,7 @@ import {
   type CursorModel,
   type CursorReasoningEffort,
   type CursorServiceTier,
+  type ProviderInstanceConfigBlob,
 } from "@noyau/contracts/entities/environment"
 import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
@@ -254,7 +255,7 @@ export interface ClaudeQueryRuntime extends AsyncIterable<SDKMessage> {
 
 export interface ClaudeAdapterOptions {
   readonly instanceId?: ProviderInstanceId
-  readonly instanceConfig?: unknown
+  readonly instanceConfig?: ProviderInstanceConfigBlob | undefined
   readonly binaryPath?: string
   readonly environment?: NodeJS.ProcessEnv
   readonly platform?: NodeJS.Platform

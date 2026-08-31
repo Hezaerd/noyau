@@ -9,6 +9,7 @@ export {
   Provider,
   ProviderDriverKind,
   ProviderInstanceConfig,
+  ProviderInstanceConfigBlob,
   ProviderInstanceConfigMap,
   ProviderInstanceId,
   defaultEnabledForDriver,
@@ -137,7 +138,7 @@ export const providerInstanceView = (input: {
     version: input.enabled ? probe.version : null,
     plan: input.enabled ? probe.plan : null,
     binaryPath: input.enabled ? probe.binaryPath : probe.binaryPath,
-    ...(probe.models === undefined ? {} : { models: input.enabled ? probe.models : [] }),
+    models: input.enabled ? (probe.models ?? []) : [],
   }
 }
 

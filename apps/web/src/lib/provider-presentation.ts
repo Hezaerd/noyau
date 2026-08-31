@@ -1,5 +1,4 @@
 import type {
-  CursorModel,
   Provider,
   ProviderInstanceView,
   ProviderInstanceViewMap,
@@ -8,31 +7,35 @@ import { isBuiltinProviderDriver } from "@noyau/contracts/entities/environment"
 
 import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
 
-const DRIVER_ICONS: Record<string, ProviderIcon> = {
+const DRIVER_ICONS = {
   cursor: CursorIcon,
   claude: ClaudeIcon,
   codex: CodexIcon,
-}
-
-const DRIVER_LABELS: Record<string, string> = {
-  cursor: "Cursor",
-  claude: "Claude Code",
-  codex: "Codex",
-}
+} as const
 
 export const providerDriverOf = (
-  instanceId: string,
+  instanceId: Provider,
   providers: ProviderInstanceViewMap,
 ): string => {
-  const driver = providers[instanceId as Provider]?.driver
+  const driver = providers[instanceId]?.driver
   if (driver !== undefined) return driver
   return isBuiltinProviderDriver(instanceId) ? instanceId : instanceId
 }
 
-export const providerIconOf = (driver: string): ProviderIcon => DRIVER_ICONS[driver] ?? CursorIcon
+export const providerIconOf = (driver: string): ProviderIcon => {
+  if (driver === "cursor") return DRIVER_ICONS.cursor
+  if (driver === "claude") return DRIVER_ICONS.claude
+  if (driver === "codex") return DRIVER_ICONS.codex
+  return CursorIcon
+}
 
-export const providerLabelOf = (driver: string, displayName?: string): string =>
-  displayName ?? DRIVER_LABELS[driver] ?? driver
+export const providerLabelOf = (driver: string, displayName?: string): string => {
+  if (displayName !== undefined) return displayName
+  if (driver === "cursor") return "Cursor"
+  if (driver === "claude") return "Claude Code"
+  if (driver === "codex") return "Codex"
+  return driver
+}
 
 export const isProviderInstanceReady = (view: ProviderInstanceView | undefined): boolean =>
   view !== undefined && view.enabled && view.handshakeOk
@@ -42,15 +45,8 @@ export const readyProviderIds = (providers: ProviderInstanceViewMap): ReadonlyAr
     .filter(isProviderInstanceReady)
     .map((view) => view.instanceId)
 
-export const modelsByProvider = (
-  providers: ProviderInstanceViewMap,
-): Record<string, ReadonlyArray<CursorModel>> => {
-  const catalogs: Record<string, ReadonlyArray<CursorModel>> = {}
-  for (const view of Object.values(providers)) {
-    catalogs[view.instanceId] = view.models ?? []
-  }
-  return catalogs
-}
+export const modelsByProvider = (providers: ProviderInstanceViewMap) =>
+  Object.fromEntries(Object.values(providers).map((view) => [view.instanceId, view.models ?? []]))
 
 export const orderedProviderViews = (
   providers: ProviderInstanceViewMap,

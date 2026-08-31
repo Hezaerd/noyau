@@ -1,15 +1,19 @@
-import type { ProviderInstanceConfig } from "@noyau/contracts/entities/environment"
 import {
   emptyProviderInstanceView,
-  ProviderDriverKind,
   ProviderInstanceId,
   providerInstanceView,
   resolveProviderInstanceEnabled,
+  type ProviderDriverKind,
+  type ProviderInstanceConfig,
   type ProviderInstanceView,
   type ProviderInstanceViewMap,
 } from "@noyau/contracts/entities/environment"
 import { hydrateProviderInstanceConfigs } from "@noyau/contracts/settings"
+import type { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
+import type { ThreadLive } from "@noyau/server/thread-live"
 import { Context, Effect, Layer, Ref } from "effect"
+import type { FileSystem, Path, Scope } from "effect"
+import type { ChildProcessSpawner } from "effect/unstable/process"
 
 import {
   ProviderPort,
@@ -17,6 +21,16 @@ import {
   type ProviderPortService,
   type ProviderTurnInput,
 } from "./provider-port.ts"
+import type { TurnUserInputRegistry } from "./turn-user-input-registry.ts"
+
+export type ProviderDriverRequirements =
+  | ChildProcessSpawner.ChildProcessSpawner
+  | FileSystem.FileSystem
+  | McpSessionRegistry
+  | Path.Path
+  | Scope.Scope
+  | ThreadLive
+  | TurnUserInputRegistry
 
 export interface ProviderDriverFactory {
   readonly kind: ProviderDriverKind
@@ -69,22 +83,21 @@ const viewFromPort = Effect.fn("ProviderInstanceRegistry.viewFromPort")(function
   const statuses = yield* port.status
   const own = statuses[instanceId]
   const first = own ?? Object.values(statuses)[0]
+  if (first === undefined) {
+    return providerInstanceView({ instanceId, driver, enabled: true })
+  }
   return providerInstanceView({
     instanceId,
     driver,
     enabled: true,
-    ...(first === undefined
-      ? {}
-      : {
-          probe: {
-            installed: first.installed,
-            handshakeOk: first.handshakeOk,
-            version: first.version,
-            plan: first.plan,
-            binaryPath: first.binaryPath,
-            ...(first.models === undefined ? {} : { models: first.models }),
-          },
-        }),
+    probe: {
+      installed: first.installed,
+      handshakeOk: first.handshakeOk,
+      version: first.version,
+      plan: first.plan,
+      binaryPath: first.binaryPath,
+      models: first.models ?? [],
+    },
   })
 })
 
@@ -264,7 +277,7 @@ export const providerInstanceRegistryLayer = (drivers: ReadonlyArray<ProviderDri
   Layer.effect(ProviderInstanceRegistry, makeProviderInstanceRegistry(drivers))
 
 export const staticProviderRegistryLayer = Layer.succeed(ProviderInstanceRegistry)({
-  get: () => Effect.sync(() => undefined),
+  get: () => Effect.succeed(undefined),
   values: Effect.succeed([]),
   status: Effect.succeed({}),
   applySettings: () => Effect.succeed({}),

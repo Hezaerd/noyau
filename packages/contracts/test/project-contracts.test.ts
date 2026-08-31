@@ -205,7 +205,7 @@ describe("provider instance slugs", () => {
 describe("ServerSettings", () => {
   it("hydrate les trois instances built-in depuis un fichier vide", () => {
     const hydrated = hydrateProviderInstanceConfigs(DEFAULT_SERVER_SETTINGS)
-    expect(Object.keys(hydrated).sort()).toEqual(["claude", "codex", "cursor"])
+    expect(Object.keys(hydrated).toSorted()).toEqual(["claude", "codex", "cursor"])
     expect(resolveHydratedInstanceEnabled(ProviderInstanceId.make("cursor"), hydrated)).toBe(true)
     expect(resolveHydratedInstanceEnabled(ProviderInstanceId.make("claude"), hydrated)).toBe(true)
     expect(resolveHydratedInstanceEnabled(ProviderInstanceId.make("codex"), hydrated)).toBe(true)

@@ -48,8 +48,11 @@ import {
   type SubscribeThreadInput,
   type ThreadStreamItem,
 } from "@noyau/contracts/rpc"
-import type { ServerSettings, ServerSettingsPatch } from "@noyau/contracts/settings"
-import { ServerSettingsError } from "@noyau/contracts/settings"
+import type {
+  ServerSettings,
+  ServerSettingsError,
+  ServerSettingsPatch,
+} from "@noyau/contracts/settings"
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
 import { ThreadEvent } from "@noyau/contracts/thread/events"
 import { TicketEvent } from "@noyau/contracts/ticket/events"

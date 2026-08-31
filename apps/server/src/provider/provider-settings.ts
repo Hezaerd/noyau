@@ -3,14 +3,14 @@ import {
   mergeServerSettings,
   ServerSettings,
   ServerSettingsError,
-  ServerSettingsPatch,
+  type ServerSettingsPatch,
 } from "@noyau/contracts/settings"
+import { ServerConfig } from "@noyau/server/config"
 import { Effect, FileSystem, Path, Schema } from "effect"
 
-import { ServerConfig } from "../config.ts"
-
-const decodeSettings = Schema.decodeUnknownEffect(ServerSettings)
-const encodeSettings = Schema.encodeEffect(ServerSettings)
+const SettingsFileJson = Schema.fromJsonString(ServerSettings, { space: 2 })
+const decodeSettingsFile = Schema.decodeUnknownEffect(SettingsFileJson)
+const encodeSettingsFile = Schema.encodeEffect(SettingsFileJson)
 
 export const settingsFilePath = (dataDirectory: string, path: Path.Path): string =>
   path.join(dataDirectory, "settings.json")
@@ -37,16 +37,7 @@ export const readServerSettings = Effect.fn("readServerSettings")(function* () {
   if (encoded.trim().length === 0) {
     return DEFAULT_SERVER_SETTINGS
   }
-  const parsed = yield* Effect.try({
-    try: () => JSON.parse(encoded) as unknown,
-    catch: (cause) =>
-      new ServerSettingsError({
-        settingsPath,
-        operation: "decode",
-        cause,
-      }),
-  })
-  return yield* decodeSettings(parsed).pipe(
+  return yield* decodeSettingsFile(encoded).pipe(
     Effect.mapError(
       (cause) =>
         new ServerSettingsError({
@@ -65,7 +56,7 @@ export const writeServerSettings = Effect.fn("writeServerSettings")(function* (
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const settingsPath = settingsFilePath(config.dataDirectory, path)
-  const encoded = yield* encodeSettings(settings).pipe(
+  const encoded = yield* encodeSettingsFile(settings).pipe(
     Effect.mapError(
       (cause) =>
         new ServerSettingsError({
@@ -75,7 +66,7 @@ export const writeServerSettings = Effect.fn("writeServerSettings")(function* (
         }),
     ),
   )
-  yield* fileSystem.writeFileString(settingsPath, `${JSON.stringify(encoded, null, 2)}\n`).pipe(
+  yield* fileSystem.writeFileString(settingsPath, `${encoded}\n`).pipe(
     Effect.mapError(
       (cause) =>
         new ServerSettingsError({

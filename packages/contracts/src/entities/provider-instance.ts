@@ -34,7 +34,7 @@ export const ProviderDriverKind = slugSchema.pipe(Schema.brand("ProviderDriverKi
 export type ProviderDriverKind = (typeof ProviderDriverKind)["Type"]
 
 const isProviderDriverKindValue = Schema.is(ProviderDriverKind)
-export const isProviderDriverKind = (value: unknown): value is ProviderDriverKind =>
+export const isProviderDriverKind = (value: string): value is ProviderDriverKind =>
   isProviderDriverKindValue(value)
 
 /** User-defined routing key for a configured provider instance. */
@@ -42,7 +42,7 @@ export const ProviderInstanceId = slugSchema.pipe(Schema.brand("ProviderInstance
 export type ProviderInstanceId = (typeof ProviderInstanceId)["Type"]
 
 const isProviderInstanceIdValue = Schema.is(ProviderInstanceId)
-export const isProviderInstanceId = (value: unknown): value is ProviderInstanceId =>
+export const isProviderInstanceId = (value: string): value is ProviderInstanceId =>
   isProviderInstanceIdValue(value)
 
 /**
@@ -58,30 +58,37 @@ export const BUILTIN_PROVIDER_DRIVERS = ["cursor", "claude", "codex"] as const
 export type BuiltinProviderDriver = (typeof BUILTIN_PROVIDER_DRIVERS)[number]
 
 export const isBuiltinProviderDriver = (driver: string): driver is BuiltinProviderDriver =>
-  (BUILTIN_PROVIDER_DRIVERS as ReadonlyArray<string>).includes(driver)
+  driver === "cursor" || driver === "claude" || driver === "codex"
 
 export const defaultInstanceIdForDriver = (driver: ProviderDriverKind): ProviderInstanceId =>
   ProviderInstanceId.make(driver)
+
+/** Opaque-to-orchestration driver blob. Only `binaryPath` is read here. */
+export const ProviderInstanceConfigBlob = Schema.Struct({
+  binaryPath: Schema.optionalKey(Schema.String),
+})
+export type ProviderInstanceConfigBlob = (typeof ProviderInstanceConfigBlob)["Type"]
 
 export const ProviderInstanceConfig = Schema.Struct({
   driver: ProviderDriverKind,
   displayName: Schema.optionalKey(Schema.NonEmptyString),
   enabled: Schema.optionalKey(Schema.Boolean),
-  config: Schema.optionalKey(Schema.Unknown),
+  config: Schema.optionalKey(ProviderInstanceConfigBlob),
 })
 export type ProviderInstanceConfig = (typeof ProviderInstanceConfig)["Type"]
 
 export const ProviderInstanceConfigMap = Schema.Record(ProviderInstanceId, ProviderInstanceConfig)
 export type ProviderInstanceConfigMap = (typeof ProviderInstanceConfigMap)["Type"]
 
-export const instanceConfigBinaryPath = (config: unknown): string | undefined => {
-  if (config === null || typeof config !== "object" || Array.isArray(config)) {
+export const instanceConfigBinaryPath = (
+  config: ProviderInstanceConfigBlob | undefined,
+): string | undefined => {
+  const binaryPath = config?.binaryPath
+  if (binaryPath === undefined) {
     return undefined
   }
-  const binaryPath = (config as { readonly binaryPath?: unknown }).binaryPath
-  return typeof binaryPath === "string" && binaryPath.trim().length > 0
-    ? binaryPath.trim()
-    : undefined
+  const trimmed = binaryPath.trim()
+  return trimmed.length > 0 ? trimmed : undefined
 }
 
 export const defaultEnabledForDriver = (driver: ProviderDriverKind): boolean =>

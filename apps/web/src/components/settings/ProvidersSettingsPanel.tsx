@@ -80,6 +80,7 @@ function BinaryPathField({ view }: { readonly view: ProviderInstanceView }): Rea
         setValue(view.binaryPath ?? "")
         showFailureToast(settingsPatchFailure)
       }
+      return undefined
     })
   }
 
@@ -121,6 +122,7 @@ function ProviderInstanceRow({ view }: { readonly view: ProviderInstanceView }):
       if (!result.ok) {
         showFailureToast(settingsPatchFailure)
       }
+      return undefined
     })
   }
 

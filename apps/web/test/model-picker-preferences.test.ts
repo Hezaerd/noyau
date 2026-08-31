@@ -1,3 +1,4 @@
+import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
@@ -5,6 +6,10 @@ import {
   parseFavoriteModels,
   resolveDraftDefaultModelSelection,
 } from "../src/lib/model-picker-preferences"
+
+const cursor = ProviderInstanceId.make("cursor")
+const claude = ProviderInstanceId.make("claude")
+const codex = ProviderInstanceId.make("codex")
 
 const model = (modelId: string) => ({
   modelId,
@@ -15,8 +20,8 @@ const model = (modelId: string) => ({
 
 describe("model picker preferences", () => {
   it("keeps provider/model pairs distinct when labels collide", () => {
-    expect(favoriteModelKey({ provider: "cursor", modelId: "fable-5" })).not.toBe(
-      favoriteModelKey({ provider: "claude", modelId: "fable-5" }),
+    expect(favoriteModelKey({ provider: cursor, modelId: "fable-5" })).not.toBe(
+      favoriteModelKey({ provider: claude, modelId: "fable-5" }),
     )
   })
 
@@ -39,16 +44,16 @@ describe("model picker preferences", () => {
   })
 
   it("keeps an explicit model outside the catalog while its provider remains available", () => {
-    const stored = { provider: "claude", modelSelection: { modelId: "custom-model" } } as const
+    const stored = { provider: claude, modelSelection: { modelId: "custom-model" } }
 
     expect(
       resolveDraftDefaultModelSelection({
         stored,
-        availableProviders: ["cursor", "claude"],
+        availableProviders: [cursor, claude],
         modelsByProvider: {
-          cursor: [model("composer")],
-          claude: [model("fable-5")],
-          codex: [],
+          [cursor]: [model("composer")],
+          [claude]: [model("fable-5")],
+          [codex]: [],
         },
       }),
     ).toBe(stored)
@@ -57,14 +62,14 @@ describe("model picker preferences", () => {
   it("falls back to the first ready provider without rewriting the stored preference", () => {
     expect(
       resolveDraftDefaultModelSelection({
-        stored: { provider: "claude", modelSelection: { modelId: "fable-5" } },
-        availableProviders: ["cursor"],
+        stored: { provider: claude, modelSelection: { modelId: "fable-5" } },
+        availableProviders: [cursor],
         modelsByProvider: {
-          cursor: [model("composer")],
-          claude: [model("fable-5")],
-          codex: [],
+          [cursor]: [model("composer")],
+          [claude]: [model("fable-5")],
+          [codex]: [],
         },
       }),
-    ).toEqual({ provider: "cursor", modelSelection: { modelId: "composer" } })
+    ).toEqual({ provider: cursor, modelSelection: { modelId: "composer" } })
   })
 })
