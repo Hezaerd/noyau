@@ -23,6 +23,7 @@ import { encodedTestEnvironment } from "./encoded-environment"
 const prefetchThreadSnapshot = vi.hoisted(() => vi.fn())
 const dispatchThreadSettle = vi.hoisted(() => vi.fn())
 const dispatchThreadTitleRegenerate = vi.hoisted(() => vi.fn())
+const openWorkspacePullRequest = vi.hoisted(() => vi.fn())
 
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
@@ -55,6 +56,10 @@ vi.mock("../src/lib/thread-title-actions", () => ({
   dispatchThreadTitleRegenerate,
 }))
 
+vi.mock("../src/lib/workspace-pr", () => ({
+  openWorkspacePullRequest,
+}))
+
 afterEach(() => {
   cleanup()
   resetAppAtomRegistryForTests()
@@ -62,6 +67,7 @@ afterEach(() => {
   prefetchThreadSnapshot.mockClear()
   dispatchThreadSettle.mockClear()
   dispatchThreadTitleRegenerate.mockClear()
+  openWorkspacePullRequest.mockClear()
 })
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
@@ -405,5 +411,49 @@ describe("ThreadSidebarItem", () => {
     expect(
       screen.getByRole("menuitem", { name: /Regenerate title/ }).getAttribute("aria-disabled"),
     ).toBe("true")
+  })
+
+  it("keeps the PR badge outside the Thread link", () => {
+    const onSelect = vi.fn()
+    render(
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ThreadSidebarItem
+            thread={thread}
+            project={{
+              id: projectId,
+              name: "noyau",
+              workspaceRoot,
+            }}
+            pullRequest={{
+              number: 345,
+              title: "Add a pull request viewer",
+              url: "https://github.com/Hezaerd/noyau/pull/345",
+              baseRef: "main",
+              headRef: "feat/pr-viewer",
+              state: "open",
+              mergeability: "mergeable",
+              ciStatus: "passing",
+              failedChecks: [],
+            }}
+            liveBranch={null}
+            isActive={false}
+            settled={false}
+            onSelect={onSelect}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
+    )
+
+    const link = screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ })
+    const badge = screen.getByRole("button", { name: "PR #345 · Open" })
+    expect(link.contains(badge)).toBe(false)
+
+    fireEvent.click(badge)
+    expect(openWorkspacePullRequest).toHaveBeenCalledWith(threadId, {
+      number: 345,
+      url: "https://github.com/Hezaerd/noyau/pull/345",
+    })
+    expect(onSelect).toHaveBeenCalled()
   })
 })

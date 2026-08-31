@@ -157,6 +157,10 @@ describe("ThreadHeaderActions", () => {
       (action) => action.id === "thread.workspace-browser.open",
     )
     expect(openBrowser?.label).toBe("Open browser")
+    const openPr = registeredPaletteActions.find(
+      (action) => action.id === "thread.workspace-pr.open",
+    )
+    expect(openPr?.label).toBe("Open pull request")
   })
 
   it("offers title regeneration from the palette when the Thread has a Turn", () => {
@@ -191,6 +195,9 @@ describe("ThreadHeaderActions", () => {
     ).toBeUndefined()
     expect(
       registeredPaletteActions.find((action) => action.id === "thread.workspace-browser.open"),
+    ).toBeUndefined()
+    expect(
+      registeredPaletteActions.find((action) => action.id === "thread.workspace-pr.open"),
     ).toBeUndefined()
   })
 })

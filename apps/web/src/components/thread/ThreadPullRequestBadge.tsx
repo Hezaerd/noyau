@@ -19,9 +19,11 @@ const variantForState = (state: VcsStatusPullRequest["state"]) => {
 export function ThreadPullRequestBadge({
   pr,
   compact = false,
+  onOpen,
 }: {
   readonly pr: VcsStatusPullRequest
   readonly compact?: boolean
+  readonly onOpen?: () => void
 }) {
   const label = `#${pr.number}`
   return (
@@ -32,12 +34,18 @@ export function ThreadPullRequestBadge({
             size="sm"
             variant={variantForState(pr.state)}
             render={
-              <a
-                href={pr.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(event) => event.stopPropagation()}
-              />
+              onOpen === undefined ? (
+                <span />
+              ) : (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    onOpen()
+                  }}
+                />
+              )
             }
             className={cn("no-drag max-w-32", compact && "px-1")}
             aria-label={`PR ${label} · ${pullRequestStateLabel(pr.state)}`}

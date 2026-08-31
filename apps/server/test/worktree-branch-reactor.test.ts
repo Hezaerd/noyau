@@ -91,6 +91,21 @@ const stubGitRuntime = (overrides: Partial<GitRuntimeService> = {}): GitRuntimeS
       pullRequest: { status: "skipped_not_requested" },
     }),
   githubAccount: () => Effect.succeed({ login: null }),
+  getPullRequest: (_cwd, number) =>
+    Effect.succeed({
+      number,
+      title: `PR ${number}`,
+      url: `https://github.com/hezaerd/noyau/pull/${number}`,
+      body: "",
+      author: null,
+      state: "open",
+      baseRef: "main",
+      headRef: "feat",
+      reviews: [],
+      comments: [],
+      files: [],
+      patch: "",
+    }),
   publishRepository: (input) =>
     Effect.succeed({
       nameWithOwner: input.repository,

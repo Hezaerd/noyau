@@ -22,6 +22,7 @@ We need to be on the same page with terminology. When communicating, use this la
 - **ticket** means a durable, flat unit of work on a project's board.
 - **workspace panel** means the Thread view's optional right-hand chrome: a tab strip of tool surfaces. It is client-only.
 - **browser tab** means a workspace-panel surface for the in-app browser. The open tab is client-only; it binds a server preview session for the committed URL. The page guest is a desktop `<webview>`.
+- **PR tab** means a workspace-panel surface for the Thread's live GitHub pull request. The open tab is client-only; it fetches description, reviews, files, and diff through `gh`. It is read-only.
 - **preview guest** means the Electron `<webview>` that loads the committed URL. The host window does not navigate.
 - **preview session** means a server-owned in-memory record of one in-app browser tab (URL and nav status). It is not event-sourced and is not the client browser tab.
 - **Noyau home** means the base data directory. Runtime state normally lives below its userdata directory.

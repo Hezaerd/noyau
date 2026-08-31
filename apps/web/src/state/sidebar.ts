@@ -41,6 +41,10 @@ export const replaceProjectPullRequests = (
   appAtomRegistry.set(projectPullRequestsAtom(projectId), pullRequests)
 }
 
+export const emptyPullRequestsAtom = Atom.make(EMPTY_PULL_REQUESTS).pipe(
+  Atom.withLabel("chrome:pull-requests:empty"),
+)
+
 export const emptySidebarQueuesAtom = Atom.make<SidebarThreadPartition<ThreadShell>>({
   active: [],
   settled: [],

@@ -51,6 +51,8 @@ import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle } from "@/lib/thread-settled"
 import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
 import { dispatchThreadTitleRegenerate } from "@/lib/thread-title-actions"
+import { cn } from "@/lib/utils"
+import { openWorkspacePullRequest } from "@/lib/workspace-pr"
 import { toggleThreadPinned } from "@/state/thread-pins"
 
 export const ThreadSidebarItem = memo(function ThreadSidebarItem({
@@ -131,6 +133,17 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
     })
   }
 
+  const openPullRequest = (pr: VcsStatusPullRequest) => {
+    openWorkspacePullRequest(thread.id, { number: pr.number, url: pr.url })
+    if (!isActive) {
+      void navigate({
+        to: "/projects/$projectId/thread/$threadId",
+        params: { projectId: project.id, threadId: thread.id },
+      })
+    }
+    onSelect()
+  }
+
   const deleteThread = () => {
     void buildAndDispatchCommand(makeThreadDeleteRequest({ threadId: thread.id })).then(
       (result) => {
@@ -185,58 +198,71 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
     <>
       <ContextMenu onOpenChange={setMenuOpen}>
         <ContextMenuTrigger render={<div />}>
-          <SidebarMenuButton
-            render={
-              <Link
-                to="/projects/$projectId/thread/$threadId"
-                params={{ projectId: project.id, threadId: thread.id }}
-                onClick={onSelect}
-                onPointerEnter={() => {
-                  if (!isActive) {
-                    prefetchThreadSnapshot(thread.id)
-                  }
-                }}
-                onFocus={() => {
-                  if (!isActive) {
-                    prefetchThreadSnapshot(thread.id)
-                  }
-                }}
+          <div className="flex min-w-0 items-stretch">
+            <SidebarMenuButton
+              render={
+                <Link
+                  to="/projects/$projectId/thread/$threadId"
+                  params={{ projectId: project.id, threadId: thread.id }}
+                  onClick={onSelect}
+                  onPointerEnter={() => {
+                    if (!isActive) {
+                      prefetchThreadSnapshot(thread.id)
+                    }
+                  }}
+                  onFocus={() => {
+                    if (!isActive) {
+                      prefetchThreadSnapshot(thread.id)
+                    }
+                  }}
+                />
+              }
+              isActive={isActive}
+              aria-label={thread.title}
+              tooltip={{
+                hidden: menuOpen,
+                side: "right",
+                align: "start",
+                sideOffset: 8,
+                variant: "glass",
+                className:
+                  "max-w-80 text-left whitespace-normal [&_[data-slot=tooltip-viewport]]:p-0",
+                children: (
+                  <ThreadSidebarPopover project={project} thread={thread} branch={branch} />
+                ),
+              }}
+              className={cn(
+                "min-w-0 flex-1",
+                settled && !isActive
+                  ? "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/38 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+                  : "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal",
+              )}
+            >
+              <ThreadSidebarItemContent
+                title={thread.title}
+                projectName={project.name}
+                pinned={pinned}
+                branch={branch}
+                worktreePath={threadWorktreePathOf(thread)}
+                activity={activity}
+                workingStartedAtMs={workingStartedAtMs}
+                lastActivityAtMs={lastActivityAtMs}
+                provider={thread.provider}
+                settled={settled}
+                settleable={settled || canSettle(thread)}
+                onSettle={() => dispatchThreadSettle(thread, !settled)}
               />
-            }
-            isActive={isActive}
-            aria-label={thread.title}
-            tooltip={{
-              hidden: menuOpen,
-              side: "right",
-              align: "start",
-              sideOffset: 8,
-              variant: "glass",
-              className:
-                "max-w-80 text-left whitespace-normal [&_[data-slot=tooltip-viewport]]:p-0",
-              children: <ThreadSidebarPopover project={project} thread={thread} branch={branch} />,
-            }}
-            className={
-              settled && !isActive
-                ? "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/38 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
-                : "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
-            }
-          >
-            <ThreadSidebarItemContent
-              title={thread.title}
-              projectName={project.name}
-              pinned={pinned}
-              branch={branch}
-              worktreePath={threadWorktreePathOf(thread)}
-              activity={activity}
-              workingStartedAtMs={workingStartedAtMs}
-              lastActivityAtMs={lastActivityAtMs}
-              pullRequest={pullRequest}
-              provider={thread.provider}
-              settled={settled}
-              settleable={settled || canSettle(thread)}
-              onSettle={() => dispatchThreadSettle(thread, !settled)}
-            />
-          </SidebarMenuButton>
+            </SidebarMenuButton>
+            {pullRequest === null ? null : (
+              <div className="flex shrink-0 items-end pb-2 pe-1.5">
+                <ThreadPullRequestBadge
+                  compact
+                  pr={pullRequest}
+                  onOpen={() => openPullRequest(pullRequest)}
+                />
+              </div>
+            )}
+          </div>
         </ContextMenuTrigger>
         <ContextMenuPopup align="start" className="w-52">
           <ContextMenuItem
@@ -301,7 +327,6 @@ function ThreadSidebarItemContent({
   activity,
   workingStartedAtMs,
   lastActivityAtMs,
-  pullRequest,
   provider,
   settled,
   settleable,
@@ -315,7 +340,6 @@ function ThreadSidebarItemContent({
   readonly activity: ThreadActivity | null
   readonly workingStartedAtMs: number | null
   readonly lastActivityAtMs: number | null
-  readonly pullRequest: VcsStatusPullRequest | null
   readonly provider: ThreadShell["provider"]
   readonly settled: boolean
   readonly settleable: boolean
@@ -384,10 +408,7 @@ function ThreadSidebarItemContent({
             <span className="min-w-0 flex-1 truncate whitespace-nowrap">{branch}</span>
           </>
         )}
-        <span className="flex shrink-0 items-center gap-1.5">
-          {pullRequest === null ? null : <ThreadPullRequestBadge pr={pullRequest} compact />}
-          <ProviderIcon aria-hidden className="size-3 shrink-0" />
-        </span>
+        <ProviderIcon aria-hidden className="size-3 shrink-0" />
       </span>
     </span>
   )

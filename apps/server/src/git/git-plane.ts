@@ -3,8 +3,10 @@ import {
   GitCommandError,
   type GitDraftInput,
   type GitDraftResult,
+  type GitGetPullRequestInput,
   type GitHubAccountResult,
   type GitPublishRepositoryInput,
+  type GitPullRequest,
   type GitPublishRepositoryResult,
   type GitRunStackedActionInput,
   type GitRunStackedActionResult,
@@ -56,6 +58,9 @@ export interface GitPlaneService {
   readonly githubAccount: (
     scope: VcsScope,
   ) => Effect.Effect<GitHubAccountResult, ServiceUnavailable>
+  readonly getPullRequest: (
+    input: GitGetPullRequestInput,
+  ) => Effect.Effect<GitPullRequest, GitCommandError | ServiceUnavailable>
   readonly publishRepository: (
     input: GitPublishRepositoryInput,
   ) => Effect.Effect<GitPublishRepositoryResult, GitCommandError | ServiceUnavailable>
@@ -196,6 +201,12 @@ const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
               .githubAccount(cwd)
               .pipe(Effect.catchTag("GitCommandError", () => Effect.succeed({ login: null }))),
           ),
+        ),
+      ),
+    getPullRequest: (input) =>
+      scoped(
+        resolveWorkspaceCwd(input).pipe(
+          Effect.flatMap(({ cwd }) => git.getPullRequest(cwd, input.number)),
         ),
       ),
     publishRepository: (input) =>

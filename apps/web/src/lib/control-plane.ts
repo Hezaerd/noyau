@@ -18,7 +18,9 @@ import type { FilePreview, PreviewFileInput } from "@noyau/contracts/file-previe
 import type {
   GitDraftInput,
   GitDraftResult,
+  GitGetPullRequestInput,
   GitHubAccountResult,
+  GitPullRequest,
   GitPublishRepositoryInput,
   GitPublishRepositoryResult,
   GitRunStackedActionInput,
@@ -473,6 +475,16 @@ export const gitGithubAccount = (
     Effect.gen(function* () {
       const client = yield* ControlPlaneClient
       return yield* client[RPC_METHODS.gitGithubAccount](input)
+    }),
+  )
+
+export const gitGetPullRequest = (
+  input: GitGetPullRequestInput,
+): Promise<ControlPlaneResult<GitPullRequest>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.gitGetPullRequest](input)
     }),
   )
 

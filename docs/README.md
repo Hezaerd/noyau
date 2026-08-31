@@ -6,6 +6,7 @@
 - [Notice when a turn finishes](./users/turn-notifications.md)
 - [Turn a provider on or off](./users/providers.md)
 - [Change a keyboard shortcut](./users/keybindings.md)
+- [Review a pull request beside the Thread](./users/pull-request-viewer.md)
 
 ## Working on Noyau
 

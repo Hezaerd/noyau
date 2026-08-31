@@ -3,6 +3,7 @@ import {
   GitCommandError,
   type GitHubAccountResult,
   type GitPublishRepositoryResult,
+  type GitPullRequest,
   type GitRepositoryVisibility,
   type GitRunStackedActionResult,
   type GitStackedAction,
@@ -18,6 +19,8 @@ import { ChildProcessSpawner } from "effect/unstable/process"
 
 import {
   decodeListedPullRequests,
+  decodeViewedPullRequest,
+  PR_VIEW_JSON_FIELDS,
   rememberStatusPullRequest,
   selectStatusPullRequest,
   type ListedPullRequest,
@@ -231,6 +234,10 @@ export interface GitRuntimeService {
     readonly pullRequestBody?: string
   }) => Effect.Effect<GitRunStackedActionResult, GitCommandError>
   readonly githubAccount: (cwd: string) => Effect.Effect<GitHubAccountResult, GitCommandError>
+  readonly getPullRequest: (
+    cwd: string,
+    number: number,
+  ) => Effect.Effect<GitPullRequest, GitCommandError>
   readonly publishRepository: (input: {
     readonly cwd: string
     readonly repository: string
@@ -842,6 +849,29 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     return { action: input.action, branch, commit, push, pullRequest }
   })
 
+  const getPullRequest = Effect.fn("GitRuntime.getPullRequest")(function* (
+    cwd: string,
+    number: number,
+  ) {
+    const viewed = yield* runGh("gh.pr.view", cwd, [
+      "pr",
+      "view",
+      String(number),
+      "--json",
+      PR_VIEW_JSON_FIELDS,
+    ])
+    const diff = yield* runGh("gh.pr.diff", cwd, ["pr", "diff", String(number)])
+    return yield* decodeViewedPullRequest(viewed.stdout, diff.stdout).pipe(
+      Effect.mapError(
+        () =>
+          new GitCommandError({
+            operation: "gh.pr.view",
+            detail: "gh returned an invalid pull request payload.",
+          }),
+      ),
+    )
+  })
+
   const githubAccount = Effect.fn("GitRuntime.githubAccount")(function* (cwd: string) {
     const result = yield* runGh("gh.api.user", cwd, ["api", "user", "--jq", ".login"], {
       allowNonZero: true,
@@ -912,6 +942,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     diffContext: (cwd) => enclose(diffContext(cwd)),
     runStackedAction: (input) => enclose(runStackedAction(input)),
     githubAccount: (cwd) => enclose(githubAccount(cwd)),
+    getPullRequest: (cwd, number) => enclose(getPullRequest(cwd, number)),
     publishRepository: (input) => enclose(publishRepository(input)),
   })
 })

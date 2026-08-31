@@ -1,9 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
   decodeListedPullRequests,
+  decodeViewedPullRequest,
   foldCiStatus,
   normalizeMergeability,
   normalizePullRequestState,
+  normalizeReviewState,
   rememberStatusPullRequest,
   selectStatusPullRequest,
   toListedPullRequest,
@@ -112,6 +114,72 @@ describe("pull-request helpers", () => {
         { name: "Verify", url: "https://github.com/hezaerd/noyau/actions/1" },
       ])
       const invalid = yield* Effect.exit(decodeListedPullRequests("{"))
+      expect(Exit.isFailure(invalid)).toBe(true)
+    }),
+  )
+
+  it("normalise les verdicts de review gh", () => {
+    expect(normalizeReviewState("APPROVED")).toBe("approved")
+    expect(normalizeReviewState("CHANGES_REQUESTED")).toBe("changes_requested")
+    expect(normalizeReviewState("DISMISSED")).toBe("dismissed")
+    expect(normalizeReviewState("PENDING")).toBe("pending")
+    expect(normalizeReviewState("COMMENTED")).toBe("commented")
+    expect(normalizeReviewState(null)).toBe("commented")
+  })
+
+  it.effect("décode une vue gh avec reviews, commentaires, fichiers et patch", () =>
+    Effect.gen(function* () {
+      const viewed = yield* decodeViewedPullRequest(
+        JSON.stringify({
+          number: 42,
+          title: "Add the PR viewer",
+          url: "https://github.com/hezaerd/noyau/pull/42",
+          body: "Description here.",
+          author: { login: "hezaerd" },
+          state: "OPEN",
+          baseRefName: "main",
+          headRefName: "feat/pr-viewer",
+          reviews: [
+            {
+              author: { login: "reviewer" },
+              body: "Looks good.",
+              state: "APPROVED",
+              submittedAt: "2026-08-31T12:00:00Z",
+            },
+          ],
+          comments: [
+            {
+              author: { login: "commenter" },
+              body: "Please ship it.",
+              createdAt: "2026-08-31T11:00:00Z",
+            },
+            { author: { login: "ghost" }, body: "dropped", createdAt: "" },
+          ],
+          files: [{ path: "apps/web/src/pr.tsx", additions: 12, deletions: 1 }],
+        }),
+        "diff --git a/apps/web/src/pr.tsx b/apps/web/src/pr.tsx\n",
+      )
+      expect(viewed.number).toBe(42)
+      expect(viewed.body).toBe("Description here.")
+      expect(viewed.author).toEqual({ login: "hezaerd" })
+      expect(viewed.reviews).toEqual([
+        {
+          author: { login: "reviewer" },
+          state: "approved",
+          body: "Looks good.",
+          submittedAt: "2026-08-31T12:00:00Z",
+        },
+      ])
+      expect(viewed.comments).toEqual([
+        {
+          author: { login: "commenter" },
+          body: "Please ship it.",
+          createdAt: "2026-08-31T11:00:00Z",
+        },
+      ])
+      expect(viewed.files).toEqual([{ path: "apps/web/src/pr.tsx", additions: 12, deletions: 1 }])
+      expect(viewed.patch).toContain("apps/web/src/pr.tsx")
+      const invalid = yield* Effect.exit(decodeViewedPullRequest("{", ""))
       expect(Exit.isFailure(invalid)).toBe(true)
     }),
   )
