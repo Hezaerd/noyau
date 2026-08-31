@@ -360,35 +360,34 @@ function ThreadSidebarItemContent({
           <FolderIcon aria-hidden className="size-3 shrink-0 opacity-70" />
           <span className="min-w-0 truncate">{projectName}</span>
         </span>
-        <span className="ml-auto flex shrink-0 items-center gap-1">
-          {pinned ? (
-            <PinIcon aria-label="Pinned" className="size-3 shrink-0 text-sidebar-foreground/55" />
-          ) : null}
-          <span className="grid min-h-4 justify-items-end">
-            <span
-              className={
-                settleable
-                  ? "col-start-1 row-start-1 flex items-center transition-[opacity,filter] duration-150 ease-out motion-reduce:transition-none [@media(hover:hover)]:group-hover/thread-item:pointer-events-none [@media(hover:hover)]:group-hover/thread-item:opacity-0 [@media(hover:hover)]:group-hover/thread-item:blur-[2px]"
-                  : "col-start-1 row-start-1 flex items-center"
-              }
-            >
-              {activity !== null ? (
-                <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
-              ) : lastActivityAtMs === null ? null : (
-                <span data-slot="thread-sidebar-last-activity" title="Last activity">
-                  <span className="sr-only">Last activity: </span>
-                  <LiveElapsed
-                    startedAtMs={lastActivityAtMs}
-                    format={formatAgoCompactLabel}
-                    className="font-mono text-[11px] tabular-nums text-sidebar-foreground/45"
-                  />
-                </span>
-              )}
-            </span>
-            {settleable ? (
-              <ThreadSidebarSettleButton settled={settled} onSettle={onSettle} />
-            ) : null}
+        <span className="ml-auto grid min-h-4 shrink-0 justify-items-end">
+          <span
+            className={
+              settleable
+                ? "col-start-1 row-start-1 flex items-center gap-1 transition-[opacity,filter] duration-150 ease-out motion-reduce:transition-none [@media(hover:hover)]:group-hover/thread-item:pointer-events-none [@media(hover:hover)]:group-hover/thread-item:opacity-0 [@media(hover:hover)]:group-hover/thread-item:blur-[2px]"
+                : "col-start-1 row-start-1 flex items-center gap-1"
+            }
+          >
+            {pinned ? <ThreadSidebarPinnedMark labeled /> : null}
+            {activity !== null ? (
+              <ThreadSidebarStatus activity={activity} startedAtMs={workingStartedAtMs} />
+            ) : lastActivityAtMs === null ? null : (
+              <span data-slot="thread-sidebar-last-activity" title="Last activity">
+                <span className="sr-only">Last activity: </span>
+                <LiveElapsed
+                  startedAtMs={lastActivityAtMs}
+                  format={formatAgoCompactLabel}
+                  className="font-mono text-[11px] tabular-nums text-sidebar-foreground/45"
+                />
+              </span>
+            )}
           </span>
+          {settleable ? (
+            <span className="col-start-1 row-start-1 flex items-center gap-1 opacity-0 blur-[2px] transition-[opacity,filter] duration-150 ease-out pointer-events-none motion-reduce:transition-none [@media(hover:hover)]:group-hover/thread-item:pointer-events-auto [@media(hover:hover)]:group-hover/thread-item:opacity-100 [@media(hover:hover)]:group-hover/thread-item:blur-none">
+              {pinned ? <ThreadSidebarPinnedMark /> : null}
+              <ThreadSidebarSettleButton settled={settled} onSettle={onSettle} />
+            </span>
+          ) : null}
         </span>
       </span>
       <span className="min-w-0 truncate">{title}</span>
@@ -414,6 +413,16 @@ function ThreadSidebarItemContent({
   )
 }
 
+function ThreadSidebarPinnedMark({ labeled = false }: { readonly labeled?: boolean }) {
+  return (
+    <PinIcon
+      aria-label={labeled ? "Pinned" : undefined}
+      aria-hidden={labeled ? undefined : true}
+      className="size-3 shrink-0 text-sidebar-foreground/55"
+    />
+  )
+}
+
 function ThreadSidebarSettleButton({
   settled,
   onSettle,
@@ -427,7 +436,7 @@ function ThreadSidebarSettleButton({
       tabIndex={-1}
       data-slot="thread-sidebar-settle"
       aria-label={settled ? "Unsettle Thread" : "Settle Thread"}
-      className="col-start-1 row-start-1 inline-flex cursor-pointer items-center self-center whitespace-nowrap text-[11px] font-medium text-sidebar-foreground/45 opacity-0 blur-[2px] transition-[opacity,filter,color] duration-150 ease-out pointer-events-none motion-reduce:transition-none hover:text-sidebar-accent-foreground [@media(hover:hover)]:group-hover/thread-item:pointer-events-auto [@media(hover:hover)]:group-hover/thread-item:opacity-100 [@media(hover:hover)]:group-hover/thread-item:blur-none"
+      className="inline-flex cursor-pointer items-center self-center whitespace-nowrap text-[11px] font-medium text-sidebar-foreground/45 transition-colors duration-150 ease-out motion-reduce:transition-none hover:text-sidebar-accent-foreground"
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
