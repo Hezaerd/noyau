@@ -61,18 +61,20 @@ const formatToolPreview = (
 const StartTruncatedText = ({
   text,
   pathLike,
+  live = false,
   className,
 }: {
   readonly text: string
   readonly pathLike: boolean
+  readonly live?: boolean
   readonly className?: string
 }) =>
   pathLike ? (
     <span className={cn("min-w-0 truncate text-left", className)} dir="rtl">
-      <bdi>{text}</bdi>
+      <bdi className={live ? "shimmer" : undefined}>{text}</bdi>
     </span>
   ) : (
-    <span className={cn("min-w-0 truncate", className)}>{text}</span>
+    <span className={cn("min-w-0 truncate", live && "shimmer", className)}>{text}</span>
   )
 
 const ToolRowIcon = ({
@@ -152,15 +154,11 @@ export function ThreadTranscriptTool({
           {toolActionIcon(presentTranscriptTool(item).action)}
         </ToolRowIcon>
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <p
-            className={cn(
-              "flex min-w-0 w-full items-baseline text-sm leading-relaxed",
-              live && "shimmer",
-            )}
-          >
+          <p className="flex min-w-0 w-full items-baseline text-sm leading-relaxed">
             <StartTruncatedText
               text={display}
               pathLike={pathLike}
+              live={live}
               className={cn(
                 "flex-1 text-muted-foreground",
                 failed && "text-destructive",
@@ -240,9 +238,10 @@ export function ThreadTranscriptToolGroup({
         <StartTruncatedText
           text={label}
           pathLike={pathLike}
+          live={liveItem !== undefined}
           className={cn(
             "flex-1 text-muted-foreground",
-            liveItem !== undefined && "shimmer text-foreground",
+            liveItem !== undefined && "text-foreground",
             failed && liveItem === undefined && "text-destructive",
           )}
         />
