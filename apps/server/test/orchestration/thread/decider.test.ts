@@ -736,6 +736,29 @@ describe("Session settlement", () => {
     expect(next.threads[0]?.session).toMatchObject({ status, lastError: error })
     expect(latestTurn(next.threads[0]!)?.state).toBe(state)
   })
+
+  it("rejects thread.turn.ended after a ready Session has already settled the Turn", () => {
+    const running = withRunningTurn()
+    const ready = apply(running, setSession(running, "ready"))
+    expect(latestTurn(ready.threads[0]!)?.state).toBe("completed")
+    expect(
+      failure(
+        decide(
+          ready,
+          command({
+            _tag: "thread.turn.ended",
+            ...meta,
+            issuedAt: later,
+            payload: {
+              threadId: ids.thread,
+              turnId: ids.turn1,
+              state: "completed",
+            },
+          }),
+        ),
+      )._tag,
+    ).toBe("SessionNotRunning")
+  })
 })
 
 describe("Transcript projection", () => {
