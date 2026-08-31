@@ -143,13 +143,6 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["theme", "light", "dark", "system"],
   },
   {
-    id: "transcript-paint",
-    tab: "appearance",
-    title: "Transcript paint",
-    description: "Smooth paints the live bubble at the display rate. Immediate applies each hint.",
-    keywords: ["streaming", "smooth", "transcript", "bubble", "60fps", "immediate"],
-  },
-  {
     id: "providers",
     tab: "providers",
     title: "Providers",

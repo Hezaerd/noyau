@@ -22,12 +22,6 @@ import {
   readStoredThreadEnvModePreference,
   DEFAULT_THREAD_ENV_MODE,
 } from "@/lib/thread-env-mode-preference"
-import {
-  persistTranscriptPaintMode,
-  readStoredTranscriptPaintMode,
-  DEFAULT_TRANSCRIPT_PAINT_MODE,
-  type TranscriptPaintMode,
-} from "@/lib/transcript-paint-preference"
 import { DEFAULT_TURN_CUE_SOUND, type TurnCueSound } from "@/lib/turn-cue"
 import {
   persistTurnCuePreference,
@@ -63,10 +57,6 @@ export const projectFolderStartDirectoryAtom = Atom.make("").pipe(
   Atom.withLabel("pref:project-folder-start-directory"),
 )
 
-export const transcriptPaintModeAtom = Atom.make<TranscriptPaintMode>(
-  DEFAULT_TRANSCRIPT_PAINT_MODE,
-).pipe(Atom.keepAlive, Atom.withLabel("pref:transcript-paint"))
-
 export const turnCuePreferenceAtom = Atom.make<TurnCuePreference>({
   enabled: DEFAULT_TURN_CUE_ENABLED,
   sound: DEFAULT_TURN_CUE_SOUND,
@@ -89,7 +79,6 @@ const appearanceReady = { current: false }
 const threadEnvReady = { current: false }
 const discordReady = { current: false }
 const folderReady = { current: false }
-const transcriptPaintReady = { current: false }
 const turnCueReady = { current: false }
 const turnNotificationReady = { current: false }
 
@@ -132,15 +121,6 @@ export const initializeProjectFolderStartDirectory = (): void => {
     persistWritableAtom(projectFolderStartDirectoryAtom, {
       read: readStoredProjectFolderStartDirectory,
       write: persistProjectFolderStartDirectory,
-    })
-  })
-}
-
-export const initializeTranscriptPaintPreference = (): void => {
-  once(transcriptPaintReady, () => {
-    persistWritableAtom(transcriptPaintModeAtom, {
-      read: readStoredTranscriptPaintMode,
-      write: persistTranscriptPaintMode,
     })
   })
 }
@@ -203,20 +183,6 @@ export const setProjectFolderStartDirectory = (directory: string): void => {
     return
   }
   appAtomRegistry.set(projectFolderStartDirectoryAtom, nextDirectory)
-}
-
-export const getTranscriptPaintMode = (): TranscriptPaintMode =>
-  appAtomRegistry.get(transcriptPaintModeAtom)
-
-export const setTranscriptPaintMode = (mode: TranscriptPaintMode): void => {
-  if (mode === appAtomRegistry.get(transcriptPaintModeAtom)) {
-    return
-  }
-  appAtomRegistry.set(transcriptPaintModeAtom, mode)
-}
-
-export const resetTranscriptPaintPreference = (): void => {
-  setTranscriptPaintMode(DEFAULT_TRANSCRIPT_PAINT_MODE)
 }
 
 export const getTurnCuePreference = (): TurnCuePreference =>
