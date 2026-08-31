@@ -65,10 +65,12 @@ export const settledTurns = (
       continue
     }
     const prior = previousById.get(thread.id)
-    if (prior === undefined || prior === null) {
-      continue
-    }
-    if (prior.turnId !== latest.turnId || prior.state !== "running") {
+    if (
+      prior !== undefined &&
+      prior !== null &&
+      prior.turnId === latest.turnId &&
+      prior.state === latest.state
+    ) {
       continue
     }
     settlements.push({

@@ -257,7 +257,7 @@ export function GeneralSettingsPanel(): ReactElement {
         <SettingsRow
           id="turn-notification"
           title="Turn end notifications"
-          description="OS banner when a Turn finishes outside the open Thread, or if the window is in the background. The badge counts waiting Threads."
+          description="OS banner when a Turn finishes while Noyau is not focused. The badge counts waiting Threads."
           control={
             <Switch
               id={turnNotificationSwitchId}

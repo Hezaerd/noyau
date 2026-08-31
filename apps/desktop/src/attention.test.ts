@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   normalizeBadgeCount,
   openThreadFromNotification,
+  shouldShowTurnNotification,
   turnNotificationOptions,
 } from "./attention"
 import {
@@ -26,6 +27,11 @@ describe("desktop attention", () => {
     expect(normalizeBadgeCount(0)).toBe(0)
     expect(normalizeBadgeCount(-2)).toBe(0)
     expect(normalizeBadgeCount(Number.NaN)).toBe(0)
+  })
+
+  it("shows a Turn notification only while the app window is unfocused", () => {
+    expect(shouldShowTurnNotification(false)).toBe(true)
+    expect(shouldShowTurnNotification(true)).toBe(false)
   })
 
   it("decodes a badge count and rejects negatives", () =>

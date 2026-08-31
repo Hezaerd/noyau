@@ -11,19 +11,6 @@ export const readRendererForeground = (): boolean =>
     hasFocus: document.hasFocus(),
   })
 
-export const shouldNotifyTurnSettlement = (input: {
-  readonly enabled: boolean
-  readonly isDesktop: boolean
-  readonly threadId: string
-  readonly openThreadId: string | undefined
-  readonly windowFocused: boolean
-}): boolean => {
-  if (!input.enabled || !input.isDesktop) {
-    return false
-  }
-  return !(input.windowFocused && input.openThreadId === input.threadId)
-}
-
 export const turnNotificationBody = (
   state: TurnSettlementState,
   projectName: string | undefined,
