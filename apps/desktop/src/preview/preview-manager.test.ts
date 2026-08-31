@@ -10,7 +10,7 @@ const fakeContents = (
   type: string,
 ): PreviewGuestHost & {
   readonly emit: (
-    event: "will-navigate",
+    event: "will-navigate" | "will-redirect",
     navigateEvent: { readonly preventDefault: () => void },
     url: string,
   ) => void
@@ -55,6 +55,8 @@ describe("PreviewManager", () => {
     const preventDefault = vi.fn()
     contents.emit("will-navigate", { preventDefault }, "file:///tmp")
     expect(preventDefault).toHaveBeenCalledTimes(1)
+    contents.emit("will-redirect", { preventDefault }, "javascript:alert(1)")
+    expect(preventDefault).toHaveBeenCalledTimes(2)
   })
 
   it("installs the partition lock and can dispose the listener", () => {

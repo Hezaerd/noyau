@@ -3,6 +3,7 @@ import { PreviewSessionSnapshot } from "@noyau/contracts/preview"
 import { Schema } from "effect"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { PREVIEW_TAB_GONE_MESSAGE } from "../src/lib/app-failure"
 import {
   ensureWorkspaceBrowserSession,
   navigateWorkspaceBrowser,
@@ -10,6 +11,7 @@ import {
   releaseRemovedWorkspaceBrowserSessions,
   releaseWorkspaceBrowserSession,
   resetWorkspaceBrowserBindingsForTests,
+  workspaceBrowserQueueDepthForTests,
 } from "../src/lib/workspace-browser"
 import { resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { closeWorkspaceTab, getWorkspacePanel } from "../src/state/workspace-panel"
@@ -121,7 +123,7 @@ describe("workspace browser session", () => {
     await ensureWorkspaceBrowserSession(threadId, tabId)
     previewNavigate.mockResolvedValueOnce({
       ok: false,
-      failure: { _tag: "InvalidInput", message: "This browser tab is no longer open." },
+      failure: { _tag: "InvalidInput", message: PREVIEW_TAB_GONE_MESSAGE },
     })
     previewOpen.mockResolvedValueOnce({
       ok: true,
@@ -141,6 +143,43 @@ describe("workspace browser session", () => {
     expect(getWorkspacePanel(threadId).tabs[0]?.payload).toEqual({
       url: "https://reopened.example/",
     })
+  })
+
+  it("keeps the binding when navigate fails for another reason", async () => {
+    const tabId = openWorkspaceBrowser(threadId)
+    await ensureWorkspaceBrowserSession(threadId, tabId)
+    previewNavigate.mockResolvedValueOnce({
+      ok: false,
+      failure: { _tag: "Unavailable", service: "preview" },
+    })
+
+    await expect(
+      navigateWorkspaceBrowser(threadId, tabId, "https://noyau.example/"),
+    ).resolves.toEqual({
+      ok: false,
+      failure: { _tag: "Unavailable", service: "preview" },
+    })
+    expect(previewOpen).toHaveBeenCalledTimes(1)
+    previewNavigate.mockResolvedValueOnce({
+      ok: true,
+      value: snapshot({
+        tabId: "aaaaaaaa-0000-4000-8000-000000000001",
+        url: "https://noyau.example/",
+      }),
+    })
+    await navigateWorkspaceBrowser(threadId, tabId, "https://noyau.example/")
+    expect(previewNavigate).toHaveBeenLastCalledWith({
+      threadId,
+      tabId: PreviewTabId.make("aaaaaaaa-0000-4000-8000-000000000001"),
+      url: "https://noyau.example/",
+    })
+  })
+
+  it("drops a settled queue tail after the tab is released", async () => {
+    const tabId = openWorkspaceBrowser(threadId)
+    await ensureWorkspaceBrowserSession(threadId, tabId)
+    await releaseWorkspaceBrowserSession(threadId, tabId)
+    expect(workspaceBrowserQueueDepthForTests()).toBe(0)
   })
 
   it("closes the session when the client tab is gone before the snapshot lands", async () => {

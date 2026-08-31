@@ -41,6 +41,11 @@ type KnownControlPlaneError = (typeof KnownControlPlaneError)["Type"]
 
 export type FailurePhase = "command" | "input" | "snapshot" | "stream"
 
+export const PREVIEW_TAB_GONE_MESSAGE = "This browser tab is no longer open."
+
+export const isMissingPreviewTab = (failure: AppFailure): boolean =>
+  failure._tag === "InvalidInput" && failure.message === PREVIEW_TAB_GONE_MESSAGE
+
 export type AppFailure =
   | { readonly _tag: "Rejected"; readonly rejection: RejectionType }
   | { readonly _tag: "CommandConflict"; readonly error: CommandIdConflict }
@@ -119,7 +124,7 @@ const fromTypedError = (error: KnownControlPlaneError, phase: FailurePhase): App
     return { _tag: "InvalidInput", message: "Enter a valid URL." }
   }
   if (Schema.is(PreviewTabNotFound)(error)) {
-    return { _tag: "InvalidInput", message: "This browser tab is no longer open." }
+    return { _tag: "InvalidInput", message: PREVIEW_TAB_GONE_MESSAGE }
   }
   if (phase === "input") {
     return { _tag: "InvalidInput" }

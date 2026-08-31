@@ -56,6 +56,7 @@ import { decodeOpenPathInput, openFilesystemPathOnHost } from "./open-path"
 import { OPEN_PATH_CHANNEL } from "./open-path-contract"
 import { isRendererPermissionAllowed } from "./permissions"
 import { encodePreloadBootstrapArgs } from "./preload-bootstrap"
+import { handlePreviewGuestAttach } from "./preview/preview-guest-policy.ts"
 import { installPreviewManager, type PreviewApp } from "./preview/preview-manager.ts"
 import {
   decodePackagedReleaseChannelFile,
@@ -486,6 +487,15 @@ const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: Ser
 
   mainWindow = window
 
+  window.webContents.on("will-attach-webview", (event, webPreferences, params) => {
+    handlePreviewGuestAttach(
+      { src: params.src, partition: params.partition },
+      webPreferences,
+      () => {
+        event.preventDefault()
+      },
+    )
+  })
   window.webContents.setWindowOpenHandler(({ url }) => {
     openExternalUrl(url)
     return { action: "deny" }
@@ -577,13 +587,23 @@ const launch = Effect.fn("launch")(function* () {
   registerAttentionBridge()
   const previewApp: PreviewApp = {
     on: (event, listener) => {
-      app.on(event, listener)
+      app.on(event, (createdEvent, contents) => {
+        listener(createdEvent, {
+          getType: () => contents.getType(),
+          session: contents.session,
+          setWindowOpenHandler: (handler) => contents.setWindowOpenHandler(handler),
+          on: (navEvent, navListener) => {
+            if (navEvent === "will-redirect") {
+              contents.on("will-redirect", navListener)
+              return
+            }
+            contents.on("will-navigate", navListener)
+          },
+        })
+      })
       return previewApp
     },
-    off: (event, listener) => {
-      app.off(event, listener)
-      return previewApp
-    },
+    off: () => previewApp,
   }
   installPreviewManager({
     app: previewApp,

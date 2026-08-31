@@ -11,6 +11,7 @@ import {
   invalidInputFailure,
   isTransportReplacementFailure,
   normalizeCause,
+  PREVIEW_TAB_GONE_MESSAGE,
   ResourceSnapshotUnavailable,
   subscriptionEnded,
 } from "../src/lib/app-failure"
@@ -64,7 +65,7 @@ describe("AppFailure normalization", () => {
         ),
         "command",
       ),
-    ).toEqual({ _tag: "InvalidInput", message: "This browser tab is no longer open." })
+    ).toEqual({ _tag: "InvalidInput", message: PREVIEW_TAB_GONE_MESSAGE })
   })
 
   it("turns protocol defects into incidents without exposing their cause", () => {

@@ -18,7 +18,7 @@ export type PreviewGuestHost = {
     handler: (details: { readonly url: string }) => PreviewWindowOpenResult,
   ) => void
   readonly on: (
-    event: "will-navigate",
+    event: "will-navigate" | "will-redirect",
     listener: (event: { readonly preventDefault: () => void }, url: string) => void,
   ) => void
 }
@@ -42,6 +42,12 @@ export type PreviewApp = {
 
 const denyGuestPermission = (): boolean => false
 
+const blockGuestUrl = (event: { readonly preventDefault: () => void }, url: string): void => {
+  handlePreviewGuestNavigate(url, () => {
+    event.preventDefault()
+  })
+}
+
 const lockGuestSession = (guestSession: PreviewSession): void => {
   guestSession.setPermissionRequestHandler((_contents, _permission, callback) => {
     callback(false)
@@ -58,11 +64,8 @@ export const attachPreviewGuest = (
   }
   lockGuestSession(contents.session)
   contents.setWindowOpenHandler(({ url }) => handlePreviewGuestWindowOpen(url, openExternal))
-  contents.on("will-navigate", (event, url) => {
-    handlePreviewGuestNavigate(url, () => {
-      event.preventDefault()
-    })
-  })
+  contents.on("will-navigate", blockGuestUrl)
+  contents.on("will-redirect", blockGuestUrl)
 }
 
 /** Pose la politique des guests `<webview>` : http(s) only, pas de permission, `_blank` dehors. */

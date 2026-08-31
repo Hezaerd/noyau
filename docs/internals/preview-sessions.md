@@ -32,11 +32,13 @@ the panel does not: keepMounted surfaces stay in the DOM so the guest does not
 reload.
 
 On the desktop runtime the guest is an Electron `<webview>` in partition
-`noyau-preview`. [preview-manager.ts][8] attaches every webview: http(s) only,
-permissions denied, `target=_blank` opens in the system browser. In-guest
-navigations (links, back, forward) call `preview.navigate` so the committed URL
-stays the snapshot. The web client still shows that the in-app browser needs
-the desktop app.
+`noyau-preview`. The host window gates attachment (`will-attach-webview`):
+only that partition, only an http(s) `src`, and no guest preload.
+[preview-manager.ts][8] then attaches every webview: http(s) only on
+`will-navigate` and `will-redirect`, permissions denied, `target=_blank` opens
+in the system browser. In-guest navigations (links, back, forward) call
+`preview.navigate` so the committed URL stays the snapshot. The web client
+still shows that the in-app browser needs the desktop app.
 
 ## Where it lives
 

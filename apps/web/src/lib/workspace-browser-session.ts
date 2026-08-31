@@ -1,6 +1,7 @@
 import type { PreviewTabId, ThreadId } from "@noyau/contracts/ids"
 import type { PreviewNavStatus, PreviewSessionSnapshot } from "@noyau/contracts/preview"
 
+import { isMissingPreviewTab } from "@/lib/app-failure"
 import { browserTabUrl } from "@/lib/browser-url"
 import {
   previewClose,
@@ -20,14 +21,16 @@ const tails = new Map<string, Promise<unknown>>()
 
 const enqueue = <A>(key: string, task: () => Promise<A>): Promise<A> => {
   const run = (tails.get(key) ?? Promise.resolve()).then(task, task)
-  tails.set(
-    key,
-    run.then(
-      () => undefined,
-      () => undefined,
-    ),
+  const tail = run.then(
+    () => undefined,
+    () => undefined,
   )
-  return run
+  tails.set(key, tail)
+  return run.finally(() => {
+    if (tails.get(key) === tail) {
+      tails.delete(key)
+    }
+  })
 }
 
 export const previewCommittedUrl = (status: PreviewNavStatus): string | null =>
@@ -86,6 +89,9 @@ export const navigateWorkspaceBrowser = (
       if (result.ok) {
         return applySnapshot(threadId, tabId, result.value)
       }
+      if (!isMissingPreviewTab(result.failure)) {
+        return result
+      }
       bindings.delete(bindingKey(threadId, tabId))
     }
     const opened = await previewOpen({ threadId, url })
@@ -123,3 +129,5 @@ export const resetWorkspaceBrowserBindingsForTests = (): void => {
   bindings.clear()
   tails.clear()
 }
+
+export const workspaceBrowserQueueDepthForTests = (): number => tails.size

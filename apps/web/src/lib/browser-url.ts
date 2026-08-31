@@ -9,7 +9,7 @@ const decodeCommittedUrl = Schema.decodeUnknownOption(Schema.NullishOr(Schema.St
 export const browserTabUrl = (payload: { readonly url?: unknown }): string | null =>
   Option.match(decodeCommittedUrl(payload.url), {
     onNone: () => null,
-    onSome: (url) => url ?? null,
+    onSome: (url) => (url == null ? null : normalizeBrowserUrl(url)),
   })
 
 export const browserTabTitle = (url: string | null): string => {

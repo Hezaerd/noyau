@@ -24,6 +24,8 @@ describe("browserTabUrl", () => {
     expect(browserTabUrl({ url: null })).toBeNull()
     expect(browserTabUrl({})).toBeNull()
     expect(browserTabUrl({ url: 1 })).toBeNull()
+    expect(browserTabUrl({ url: "javascript:alert(1)" })).toBeNull()
+    expect(browserTabUrl({ url: "file:///etc/passwd" })).toBeNull()
   })
 })
 

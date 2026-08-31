@@ -11,6 +11,7 @@ export {
   releaseRemovedWorkspaceBrowserSessions,
   releaseWorkspaceBrowserSession,
   resetWorkspaceBrowserBindingsForTests,
+  workspaceBrowserQueueDepthForTests,
 } from "@/lib/workspace-browser-session"
 
 /** Ouvre un onglet Browser. `url` est normalisée ; une valeur invalide laisse l’onglet vide. */

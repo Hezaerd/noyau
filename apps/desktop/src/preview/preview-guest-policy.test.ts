@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import {
+  handlePreviewGuestAttach,
   handlePreviewGuestNavigate,
   handlePreviewGuestWindowOpen,
   isPreviewGuestLoadFailure,
@@ -35,6 +36,28 @@ describe("preview guest policy", () => {
       action: "deny",
     })
     expect(openExternal).not.toHaveBeenCalled()
+  })
+
+  it("attaches only the preview partition with an http(s) src and strips preload", () => {
+    const prevent = vi.fn()
+    const allowed = { preload: "guest.js", preloadURL: "file:///guest.js" }
+    handlePreviewGuestAttach(
+      { src: "https://noyau.example/", partition: "noyau-preview" },
+      allowed,
+      prevent,
+    )
+    expect(prevent).not.toHaveBeenCalled()
+    expect(allowed.preload).toBeUndefined()
+    expect(allowed.preloadURL).toBeUndefined()
+
+    handlePreviewGuestAttach(
+      { src: "https://noyau.example/", partition: "persist:other" },
+      {},
+      prevent,
+    )
+    expect(prevent).toHaveBeenCalledTimes(1)
+    handlePreviewGuestAttach({ src: "file:///tmp", partition: "noyau-preview" }, {}, prevent)
+    expect(prevent).toHaveBeenCalledTimes(2)
   })
 
   it("ignores aborted subframe failures", () => {
