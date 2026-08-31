@@ -8,7 +8,6 @@ import { workspaceTabSanitizeKinds } from "@/components/workspace-panel/catalog"
 import { syncDocumentDesktopChrome } from "@/lib/desktop-bridge"
 import { AppAtomRegistryProvider } from "@/state/atom-registry"
 import { initializeComposerDrafts } from "@/state/composer-drafts"
-import { initializeKeybindings } from "@/state/keybindings"
 import { initializeNowMinuteClock } from "@/state/now"
 import {
   initializeAppearance,
@@ -30,7 +29,6 @@ import "./index.css"
 
 syncDocumentDesktopChrome()
 initializeAppearance()
-initializeKeybindings()
 initializeProjectFolderStartDirectory()
 initializeDiscordPresencePreference()
 initializeThreadEnvModePreference()

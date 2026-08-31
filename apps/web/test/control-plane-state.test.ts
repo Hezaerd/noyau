@@ -108,6 +108,16 @@ describe("applyShellEvent", () => {
     expect(next.environment.providers[cursorId]?.enabled).toBe(false)
   })
 
+  it("leaves the snapshot untouched for keybindings-updated", () => {
+    const current = makeSnapshot(12)
+    const next = applyShellEvent(current, {
+      _tag: "keybindings-updated",
+      sequence: Sequence.make(0),
+      rules: [{ key: "mod+j", command: "palette.open" }],
+    })
+    expect(next).toBe(current)
+  })
+
   it("ignores a live event whose sequence is already in the snapshot", () => {
     const current = makeSnapshot(12, [makeThread(threadId)])
     const next = applyShellEvent(current, {

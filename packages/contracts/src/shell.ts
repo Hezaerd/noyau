@@ -6,6 +6,7 @@ import { SessionStatus } from "@noyau/contracts/entities/session"
 import { SettledOverride, ThreadStatus } from "@noyau/contracts/entities/thread"
 import { LatestTurn } from "@noyau/contracts/entities/turn"
 import { ProjectId, Sequence, ThreadId } from "@noyau/contracts/ids"
+import { KeybindingRule } from "@noyau/contracts/keybindings"
 import { Schema } from "effect"
 
 export const ProjectShell = Schema.Struct({
@@ -71,8 +72,15 @@ export const ShellLiveEvent = Schema.Union([
     sequence: Sequence,
     environment: Environment,
   }),
+  Schema.TaggedStruct("keybindings-updated", {
+    sequence: Sequence,
+    rules: Schema.Array(KeybindingRule),
+  }),
 ])
 export type ShellLiveEvent = (typeof ShellLiveEvent)["Type"]
+
+export const isShellSideChannelEvent = (event: ShellLiveEvent): boolean =>
+  event._tag === "environment-updated" || event._tag === "keybindings-updated"
 
 /** Vue UI volatile. Pas un fait du journal. */
 export const ShellFocus = Schema.Union([

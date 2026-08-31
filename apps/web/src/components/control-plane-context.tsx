@@ -4,6 +4,7 @@ import { useAppliedShell, useSubscriptionStatus } from "@/hooks/use-control-plan
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { dismissBootSplash } from "@/lib/boot-splash"
 import { subscribeShell } from "@/lib/control-plane"
+import { hydrateKeybindingsFromServer } from "@/state/keybindings"
 import {
   hydrateLastProjectId,
   reduceAppliedShellEvent,
@@ -21,6 +22,7 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
     return subscribeShell(undefined, {
       onSnapshot: (next) => {
         replaceAppliedShell(next)
+        hydrateKeybindingsFromServer()
       },
       onEvent: (event) => reduceAppliedShellEvent(event),
       onStatus: setSubscriptionStatus,

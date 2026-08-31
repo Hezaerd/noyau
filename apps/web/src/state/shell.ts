@@ -20,6 +20,7 @@ import {
 } from "@/lib/thread-shell-index"
 import { appAtomRegistry } from "@/state/atom-registry"
 import { promoteComposerDraft } from "@/state/composer-drafts"
+import { applyKeybindingsLiveEvent } from "@/state/keybindings"
 
 export const EMPTY_PROJECTS: ReadonlyArray<ProjectShell> = Object.freeze([])
 
@@ -137,6 +138,7 @@ export const reduceAppliedShellEvent = (event: ShellLiveEvent): boolean => {
   if (current === undefined) {
     return false
   }
+  applyKeybindingsLiveEvent(event)
   const next = applyShellEvent(current, event)
   if (!Object.is(next, current)) {
     appAtomRegistry.set(appliedShellAtom, next)

@@ -91,6 +91,10 @@ export const persistKeybindingsRules = (rules: ReadonlyArray<KeybindingRule>): v
   }
 }
 
+export const clearStoredKeybindingsRules = (): void => {
+  persistKeybindingsRules([])
+}
+
 export const downloadKeybindingsRules = (rules: ReadonlyArray<KeybindingRule>): void => {
   const payload = rules.length === 0 ? DEFAULT_KEYBINDING_RULES : rules
   const blob = new Blob([serializeKeybindingsRules(payload)], { type: "application/json" })

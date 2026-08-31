@@ -10,6 +10,7 @@
     "./entities/environment": "./src/entities/environment.ts",
     "./entities/provider-instance": "./src/entities/provider-instance.ts",
     "./settings": "./src/settings.ts",
+    "./keybindings": "./src/keybindings.ts",
     "./entities/model-selection": "./src/entities/model-selection.ts",
     "./entities/runtime-mode": "./src/entities/runtime-mode.ts",
     "./entities/project": "./src/entities/project.ts",

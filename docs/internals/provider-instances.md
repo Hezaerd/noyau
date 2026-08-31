@@ -8,7 +8,7 @@ split lets a later cut host two Codex slots without rewriting the journal.
 
 ## How it works
 
-`settings.json` under the data directory stores
+`settings.json` under the [config directory](./settings.md) stores
 `{ providerInstances: Record<instanceId, { driver, enabled?, displayName?, config? }> }`.
 It is not event-sourced. An empty or missing file hydrates the three built-in
 ids `cursor`, `claude`, and `codex`, all enabled. Explicit `enabled: false`

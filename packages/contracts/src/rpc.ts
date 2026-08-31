@@ -47,6 +47,7 @@ import {
   VcsSwitchRefResult,
 } from "@noyau/contracts/git"
 import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/contracts/ids"
+import { KeybindingsError, KeybindingsSnapshot } from "@noyau/contracts/keybindings"
 import {
   PreviewCloseInput,
   PreviewCloseResult,
@@ -95,6 +96,8 @@ export const RPC_METHODS = {
   getConfig: "server.getConfig",
   getSettings: "server.getSettings",
   patchSettings: "server.patchSettings",
+  getKeybindings: "server.getKeybindings",
+  replaceKeybindings: "server.replaceKeybindings",
   probe: "server.probe",
   searchWorkspacePaths: "workspace.searchPaths",
   vcsStatus: "vcs.status",
@@ -212,6 +215,18 @@ export const PatchSettings = Rpc.make(RPC_METHODS.patchSettings, {
   payload: ServerSettingsPatch,
   success: ServerSettings,
   error: Schema.Union([ServerSettingsError, ServiceUnavailable]),
+})
+
+export const GetKeybindings = Rpc.make(RPC_METHODS.getKeybindings, {
+  payload: Schema.Struct({}),
+  success: KeybindingsSnapshot,
+  error: Schema.Union([KeybindingsError, ServiceUnavailable]),
+})
+
+export const ReplaceKeybindings = Rpc.make(RPC_METHODS.replaceKeybindings, {
+  payload: KeybindingsSnapshot,
+  success: KeybindingsSnapshot,
+  error: Schema.Union([KeybindingsError, ServiceUnavailable]),
 })
 
 export const SearchWorkspacePathsInput = Schema.Struct({
@@ -404,6 +419,8 @@ export const ControlPlaneRpcs = RpcGroup.make(
   GetConfig,
   GetSettings,
   PatchSettings,
+  GetKeybindings,
+  ReplaceKeybindings,
   Probe,
   SearchWorkspacePaths,
   SubscribeShell,
