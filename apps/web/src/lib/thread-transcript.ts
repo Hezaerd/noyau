@@ -410,6 +410,25 @@ export const transcriptRowId = (item: TranscriptItem, index: number): string => 
 }
 
 /**
+ * Assistant text already flushed into earlier rows of this Turn. Live paint is
+ * the full Turn snapshot, so the streaming row only shows the remainder.
+ */
+export const flushedAssistantPrefix = (
+  transcript: ReadonlyArray<TranscriptItem>,
+  turnId: TranscriptItem["turnId"],
+  beforeIndex: number,
+): string => {
+  let prefix = ""
+  for (let index = 0; index < beforeIndex; index += 1) {
+    const item = transcript[index]
+    if (item?._tag === "transcript.assistant" && item.turnId === turnId) {
+      prefix += item.text
+    }
+  }
+  return prefix
+}
+
+/**
  * Mount an empty assistant row as soon as a live Turn exists, so paint can
  * land before the journal flushes the first `transcript.assistant` item.
  */

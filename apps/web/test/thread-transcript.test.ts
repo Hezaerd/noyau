@@ -12,6 +12,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   applyThreadEnvelope,
+  flushedAssistantPrefix,
   groupTranscriptRows,
   lastAssistantIndexByTurnId,
   presentTranscriptTool,
@@ -651,6 +652,41 @@ describe("thread transcript projection", () => {
         turnId: ids.turn,
       }),
     ).toEqual([assistant])
+  })
+
+  it("concatenates earlier assistant rows of the same Turn as the live prefix", () => {
+    const first = decodeTranscript({
+      _tag: "transcript.assistant",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "Address bar first. ",
+    })
+    const tool = decodeTranscript({
+      _tag: "transcript.tool",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      toolCallId: "tool-1",
+      name: "Read file",
+      status: "completed",
+    })
+    const second = decodeTranscript({
+      _tag: "transcript.assistant",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "There's a circular import.",
+    })
+    const placeholder = decodeTranscript({
+      _tag: "transcript.assistant",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "",
+    })
+    const transcript = [first, tool, second, tool, placeholder]
+    expect(flushedAssistantPrefix(transcript, ids.turn, transcript.length - 1)).toBe(
+      "Address bar first. There's a circular import.",
+    )
+    expect(flushedAssistantPrefix(transcript, ids.turn, 2)).toBe("Address bar first. ")
+    expect(flushedAssistantPrefix([first], ids.turn, 0)).toBe("")
   })
 
   it("ignores live paint that belongs to another Turn", () => {

@@ -19,16 +19,51 @@ const emitChange = (): void => {
   }
 }
 
+/**
+ * Live paint and some journal rows replay every assistant chunk of the Turn.
+ * Keep only the text that is not already visible in earlier rows.
+ */
+export const presentedAssistantText = (text: string, flushedPrefix: string): string => {
+  if (flushedPrefix.length === 0 || text.length === 0) {
+    return text
+  }
+  if (text.startsWith(flushedPrefix)) {
+    return text.slice(flushedPrefix.length)
+  }
+  if (text.endsWith(flushedPrefix)) {
+    return text.slice(0, text.length - flushedPrefix.length)
+  }
+  if (flushedPrefix.length >= 32) {
+    const index = text.indexOf(flushedPrefix)
+    if (index !== -1) {
+      return `${text.slice(0, index)}${text.slice(index + flushedPrefix.length)}`
+    }
+  }
+  return text
+}
+
+const liveReplaysFlushedPrefix = (liveText: string, flushedPrefix: string): boolean =>
+  flushedPrefix.length === 0 ||
+  liveText.startsWith(flushedPrefix) ||
+  liveText.endsWith(flushedPrefix) ||
+  (flushedPrefix.length >= 32 && liveText.includes(flushedPrefix))
+
 export const resolvePaintedAssistantText = (
   journalText: string,
   live: AssistantPaintState | undefined,
   threadId: ThreadId,
   turnId: TurnId,
+  flushedPrefix = "",
 ): string => {
+  const journalPresented = presentedAssistantText(journalText, flushedPrefix)
   if (live === undefined || live.threadId !== threadId || live.turnId !== turnId) {
-    return journalText
+    return journalPresented
   }
-  return live.text.length >= journalText.length ? live.text : journalText
+  if (!liveReplaysFlushedPrefix(live.text, flushedPrefix)) {
+    return journalPresented
+  }
+  const livePresented = presentedAssistantText(live.text, flushedPrefix)
+  return livePresented.length >= journalPresented.length ? livePresented : journalPresented
 }
 
 export const getAssistantPaint = (): AssistantPaintState | undefined => current
