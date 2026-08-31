@@ -98,8 +98,8 @@ export const openWorkspaceTabWith = <
   input: Input,
 ): string => {
   const tabId = crypto.randomUUID()
-  writeThread(threadId, (state) => openWorkspaceTabInState(state, kind, tabId, input))
-  return tabId
+  const next = writeThread(threadId, (state) => openWorkspaceTabInState(state, kind, tabId, input))
+  return next.activeTabId ?? tabId
 }
 
 export const activateWorkspaceTab = (threadId: ThreadId, tabId: string): void => {

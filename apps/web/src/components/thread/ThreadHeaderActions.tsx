@@ -2,6 +2,7 @@ import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import {
   CircleCheckIcon,
   CircleDotIcon,
+  GitPullRequestIcon,
   GlobeIcon,
   PanelRightCloseIcon,
   PanelRightIcon,
@@ -14,6 +15,7 @@ import { GitActionsControl } from "@/components/thread/GitActionsControl"
 import { OpenInPicker } from "@/components/thread/OpenInPicker"
 import { WorkspaceBrowserOpen } from "@/components/workspace-panel/WorkspaceBrowserOpen"
 import { WorkspacePanelToggle } from "@/components/workspace-panel/WorkspacePanelToggle"
+import { WorkspacePullRequestOpen } from "@/components/workspace-panel/WorkspacePullRequestOpen"
 import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { useThreadShell } from "@/hooks/use-control-plane"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
@@ -25,6 +27,7 @@ import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { effectiveSettled } from "@/lib/thread-settled"
 import { dispatchThreadTitleRegenerate } from "@/lib/thread-title-actions"
 import { openWorkspaceBrowser } from "@/lib/workspace-browser"
+import { openWorkspacePullRequest } from "@/lib/workspace-pr"
 import { toggleWorkspacePanel, workspacePanelAtom } from "@/state/workspace-panel"
 
 export function ThreadHeaderActions({
@@ -45,6 +48,7 @@ export function ThreadHeaderActions({
       <OpenInPicker projectId={projectId} threadId={threadId} disabled={disabled} />
       <GitActionsControl projectId={projectId} threadId={threadId} disabled={disabled} />
       <WorkspaceBrowserOpen threadId={threadId} disabled={disabled} />
+      <WorkspacePullRequestOpen threadId={threadId} disabled={disabled} />
       <WorkspacePanelToggle threadId={threadId} disabled={disabled} />
     </div>
   )
@@ -81,6 +85,7 @@ function ThreadHeaderPalette({
   const settleHotkey = useKeybinding("thread.settle")
   const workspacePanelHotkey = useKeybinding("thread.workspace-panel.toggle")
   const workspaceBrowserHotkey = useKeybinding("thread.workspace-browser.open")
+  const workspacePrHotkey = useKeybinding("thread.workspace-pr.open")
   const workspacePanel = useAppAtomValue(workspacePanelAtom(threadId))
   const changeRequestState =
     thread === undefined ? null : (pullRequests.get(thread.id)?.state ?? null)
@@ -121,7 +126,7 @@ function ThreadHeaderPalette({
         {
           id: "thread.workspace-panel.toggle",
           label: workspacePanel.open ? "Hide workspace panel" : "Show workspace panel",
-          searchValue: "Workspace panel sidebar tools terminal browser diff",
+          searchValue: "Workspace panel sidebar tools terminal browser diff pull request",
           shortcut: workspacePanelHotkey,
           icon: workspacePanel.open ? <PanelRightCloseIcon /> : <PanelRightIcon />,
           execute: () => toggleWorkspacePanel(threadId),
@@ -136,6 +141,20 @@ function ThreadHeaderPalette({
             openWorkspaceBrowser(threadId)
           },
         },
+        {
+          id: "thread.workspace-pr.open",
+          label: "Open pull request",
+          searchValue: "Pull request PR review diff GitHub workspace panel",
+          shortcut: workspacePrHotkey,
+          icon: <GitPullRequestIcon />,
+          execute: () => {
+            const pr = pullRequests.get(thread.id)
+            openWorkspacePullRequest(
+              threadId,
+              pr === undefined ? undefined : { number: pr.number, url: pr.url },
+            )
+          },
+        },
       )
     }
     return actions
@@ -145,8 +164,10 @@ function ThreadHeaderPalette({
     settled,
     thread,
     workspaceBrowserHotkey,
+    workspacePrHotkey,
     workspacePanel.open,
     workspacePanelHotkey,
+    pullRequests,
     threadId,
   ])
   useAppPaletteActions(paletteActions)

@@ -1,4 +1,10 @@
 import {
+  type GitPullRequest,
+  type GitPullRequestAuthor,
+  type GitPullRequestComment,
+  type GitPullRequestFile,
+  type GitPullRequestReview,
+  type GitPullRequestReviewState,
   type VcsStatusCiVerdict,
   type VcsStatusFailedCheck,
   type VcsStatusMergeability,
@@ -220,3 +226,123 @@ export const decodeListedPullRequests = (stdout: string) =>
   decodeGhPullRequestListJson(stdout.trim() === "" ? "[]" : stdout).pipe(
     Effect.map((items) => items.map(toListedPullRequest)),
   )
+
+export const PR_VIEW_JSON_FIELDS =
+  "number,title,url,body,author,state,baseRefName,headRefName,reviews,comments,files"
+
+const GhAuthor = Schema.Struct({
+  login: Schema.optionalKey(Schema.NullOr(Schema.String)),
+})
+
+const GhReview = Schema.Struct({
+  author: Schema.optionalKey(Schema.NullOr(GhAuthor)),
+  body: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  state: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  submittedAt: Schema.optionalKey(Schema.NullOr(Schema.String)),
+})
+
+const GhComment = Schema.Struct({
+  author: Schema.optionalKey(Schema.NullOr(GhAuthor)),
+  body: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  createdAt: Schema.optionalKey(Schema.NullOr(Schema.String)),
+})
+
+const GhFile = Schema.Struct({
+  path: Schema.NonEmptyString,
+  additions: Schema.optionalKey(Schema.NullOr(Schema.Int)),
+  deletions: Schema.optionalKey(Schema.NullOr(Schema.Int)),
+})
+
+const GhPullRequestView = Schema.Struct({
+  number: Schema.Int.check(Schema.isGreaterThan(0)),
+  title: Schema.NonEmptyString,
+  url: Schema.NonEmptyString,
+  body: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  author: Schema.optionalKey(Schema.NullOr(GhAuthor)),
+  state: GhPullRequestState,
+  baseRefName: Schema.NonEmptyString,
+  headRefName: Schema.NonEmptyString,
+  reviews: Schema.optionalKey(Schema.NullOr(Schema.Array(GhReview))),
+  comments: Schema.optionalKey(Schema.NullOr(Schema.Array(GhComment))),
+  files: Schema.optionalKey(Schema.NullOr(Schema.Array(GhFile))),
+})
+
+const decodeGhPullRequestViewJson = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(GhPullRequestView),
+)
+
+const toAuthor = (raw: typeof GhAuthor.Type | null | undefined): GitPullRequestAuthor | null => {
+  const login = raw?.login?.trim()
+  return login === undefined || login === "" ? null : { login }
+}
+
+export const normalizeReviewState = (
+  state: string | null | undefined,
+): GitPullRequestReviewState => {
+  switch (state?.trim().toUpperCase()) {
+    case "APPROVED":
+      return "approved"
+    case "CHANGES_REQUESTED":
+      return "changes_requested"
+    case "DISMISSED":
+      return "dismissed"
+    case "PENDING":
+      return "pending"
+    default:
+      return "commented"
+  }
+}
+
+export const toGitPullRequestReview = (item: typeof GhReview.Type): GitPullRequestReview => {
+  const submittedAt = item.submittedAt?.trim()
+  return {
+    author: toAuthor(item.author),
+    state: normalizeReviewState(item.state),
+    body: item.body ?? "",
+    submittedAt: submittedAt === undefined || submittedAt === "" ? null : submittedAt,
+  }
+}
+
+export const toGitPullRequestComment = (
+  item: typeof GhComment.Type,
+): GitPullRequestComment | null => {
+  const createdAt = item.createdAt?.trim()
+  if (createdAt === undefined || createdAt === "") {
+    return null
+  }
+  return {
+    author: toAuthor(item.author),
+    body: item.body ?? "",
+    createdAt,
+  }
+}
+
+export const toGitPullRequestFile = (item: typeof GhFile.Type): GitPullRequestFile => ({
+  path: item.path,
+  additions: item.additions ?? 0,
+  deletions: item.deletions ?? 0,
+})
+
+export const toGitPullRequest = (
+  item: typeof GhPullRequestView.Type,
+  patch: string,
+): GitPullRequest => ({
+  number: item.number,
+  title: item.title,
+  url: item.url,
+  body: item.body ?? "",
+  author: toAuthor(item.author),
+  state: normalizePullRequestState(item.state),
+  baseRef: item.baseRefName,
+  headRef: item.headRefName,
+  reviews: (item.reviews ?? []).map(toGitPullRequestReview),
+  comments: (item.comments ?? []).flatMap((comment) => {
+    const mapped = toGitPullRequestComment(comment)
+    return mapped === null ? [] : [mapped]
+  }),
+  files: (item.files ?? []).map(toGitPullRequestFile),
+  patch,
+})
+
+export const decodeViewedPullRequest = (stdout: string, patch: string) =>
+  decodeGhPullRequestViewJson(stdout).pipe(Effect.map((item) => toGitPullRequest(item, patch)))

@@ -27,6 +27,15 @@ body is a `<webview>` guest; hiding the panel keeps keepMounted surfaces
 mounted so the guest does not reload. On the web client a submitted URL shows
 that the in-app browser needs the desktop app.
 
+The second kind is `pr`: a launchable, `keepMounted` tab for the Thread's live
+GitHub pull request. `identityOf` is the constant `pr`, so launcher, badge,
+palette, and `mod+shift+p` reuse one tab. The payload is `{ number, url }`.
+Mounting calls `git.getPullRequest`, which runs `gh pr view` and `gh pr diff`
+on the git plane. The snapshot is component state, not the tab payload and not
+the journal. Hide does not refetch; the header reload does. The surface is
+read-only: description, review timeline, file list, and Pierre diffs. Open on
+GitHub stays a link. Web and desktop render the same React tree.
+
 `create(tabId, input)` runs before the tab exists. There is no placeholder
 surface. Launchable kinds use `openWorkspaceTab`; kinds that need input use
 `openWorkspaceTabWith`. If a kind should reuse a tab (same file path), it sets
@@ -52,14 +61,19 @@ DOM while inactive so a later PTY or tree does not remount.
 | Open browser | [WorkspaceBrowserOpen.tsx][9] |
 | Preview binding | [workspace-browser-session.ts][10] |
 | Desktop guest | [DesktopBrowserGuest.tsx][11] |
+| PR kind | [pr-tab.tsx][12] |
+| PR chrome | [PullRequestView.tsx][13] |
+| Open PR | [WorkspacePullRequestOpen.tsx][14] |
+| PR RPC | [git.ts][15] |
 
 ## Related
 
-- [Preview sessions](./preview-sessions.md) — server-owned tab record the chrome
-  binds on mount / navigate / close
-- [Contracts and orchestration](./contracts-and-orchestration.md) — this chrome
-  does not cross that boundary.
+- [Preview sessions](./preview-sessions.md) — server-owned tab record the browser
+  chrome binds on mount / navigate / close
+- [Contracts and orchestration](./contracts-and-orchestration.md) — the open tab
+  list stays client-only. `pr` fetches through `git.getPullRequest`.
 - [Glossary](./glossary.md#workspace-panel)
+- [Review a pull request beside the Thread](../users/pull-request-viewer.md)
 
 [1]: ../../apps/web/src/lib/workspace-panel.ts
 [2]: ../../apps/web/src/lib/workspace-panel-persist.ts
@@ -72,3 +86,7 @@ DOM while inactive so a later PTY or tree does not remount.
 [9]: ../../apps/web/src/components/workspace-panel/WorkspaceBrowserOpen.tsx
 [10]: ../../apps/web/src/lib/workspace-browser-session.ts
 [11]: ../../apps/web/src/components/workspace-panel/DesktopBrowserGuest.tsx
+[12]: ../../apps/web/src/components/workspace-panel/pr-tab.tsx
+[13]: ../../apps/web/src/components/workspace-panel/PullRequestView.tsx
+[14]: ../../apps/web/src/components/workspace-panel/WorkspacePullRequestOpen.tsx
+[15]: ../../packages/contracts/src/git.ts

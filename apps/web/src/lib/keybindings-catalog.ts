@@ -11,6 +11,7 @@ export const KEYBINDING_IDS = [
   "thread.settle",
   "thread.workspace-panel.toggle",
   "thread.workspace-browser.open",
+  "thread.workspace-pr.open",
   "thread.model-picker.open",
   "board.search",
   "board.ticket.create",
@@ -127,6 +128,14 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Open browser",
     description: "Open a Browser tab in the Thread workspace panel.",
     defaultHotkey: "mod+shift+t",
+    when: "thread && !dialogOpen && !commandPaletteOpen",
+  },
+  {
+    id: "thread.workspace-pr.open",
+    group: "thread",
+    title: "Open pull request",
+    description: "Open the Pull request tab in the Thread workspace panel.",
+    defaultHotkey: "mod+shift+p",
     when: "thread && !dialogOpen && !commandPaletteOpen",
   },
   {

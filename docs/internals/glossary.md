@@ -128,6 +128,15 @@ The open tab is client-only; it binds a server-owned
 [browser-tab.tsx][15], [BrowserView.tsx][16], and
 [workspace-browser-session.ts][20].
 
+#### PR tab
+
+Workspace tab kind `pr`. It is the read-only GitHub pull request chrome in the
+workspace panel: description, review timeline, file list, and diff. The open
+tab is client-only; it fetches a live snapshot through `git.getPullRequest`.
+Shape is in [git.ts][32]. Implementation: [pr-tab.tsx][33] and
+[PullRequestView.tsx][34]. It is not event-sourced and it is not a
+[browser tab](#browser-tab).
+
 #### Preview guest
 
 Electron `<webview>` that loads the committed preview URL inside the browser
@@ -211,3 +220,6 @@ only.
 [29]: ./settings.md
 [30]: ../../packages/contracts/src/keybindings.ts
 [31]: ../../apps/server/src/keybindings.ts
+[32]: ../../packages/contracts/src/git.ts
+[33]: ../../apps/web/src/components/workspace-panel/pr-tab.tsx
+[34]: ../../apps/web/src/components/workspace-panel/PullRequestView.tsx

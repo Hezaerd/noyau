@@ -76,6 +76,8 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     GitPlane.pipe(Effect.flatMap((git) => git.runStackedAction(input))),
   [RPC_METHODS.gitGithubAccount]: (input) =>
     GitPlane.pipe(Effect.flatMap((git) => git.githubAccount(input))),
+  [RPC_METHODS.gitGetPullRequest]: (input) =>
+    GitPlane.pipe(Effect.flatMap((git) => git.getPullRequest(input))),
   [RPC_METHODS.gitPublishRepository]: (input) =>
     GitPlane.pipe(Effect.flatMap((git) => git.publishRepository(input))),
   [RPC_METHODS.listEditors]: () => EditorOpen.pipe(Effect.flatMap((editors) => editors.list)),

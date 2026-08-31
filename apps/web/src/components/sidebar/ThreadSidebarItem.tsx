@@ -51,6 +51,7 @@ import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { canSettle } from "@/lib/thread-settled"
 import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
 import { dispatchThreadTitleRegenerate } from "@/lib/thread-title-actions"
+import { openWorkspacePullRequest } from "@/lib/workspace-pr"
 import { toggleThreadPinned } from "@/state/thread-pins"
 
 export const ThreadSidebarItem = memo(function ThreadSidebarItem({
@@ -235,6 +236,23 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
               settled={settled}
               settleable={settled || canSettle(thread)}
               onSettle={() => dispatchThreadSettle(thread, !settled)}
+              {...(pullRequest === null
+                ? {}
+                : {
+                    onOpenPullRequest: () => {
+                      openWorkspacePullRequest(thread.id, {
+                        number: pullRequest.number,
+                        url: pullRequest.url,
+                      })
+                      if (!isActive) {
+                        void navigate({
+                          to: "/projects/$projectId/thread/$threadId",
+                          params: { projectId: project.id, threadId: thread.id },
+                        })
+                      }
+                      onSelect()
+                    },
+                  })}
             />
           </SidebarMenuButton>
         </ContextMenuTrigger>
@@ -306,6 +324,7 @@ function ThreadSidebarItemContent({
   settled,
   settleable,
   onSettle,
+  onOpenPullRequest,
 }: {
   readonly title: string
   readonly projectName: string
@@ -320,6 +339,7 @@ function ThreadSidebarItemContent({
   readonly settled: boolean
   readonly settleable: boolean
   readonly onSettle: () => void
+  readonly onOpenPullRequest?: () => void
 }) {
   const providers = useProviders()
   const ProviderIcon = providerInstanceIconOf(provider, providers)
@@ -385,7 +405,11 @@ function ThreadSidebarItemContent({
           </>
         )}
         <span className="flex shrink-0 items-center gap-1.5">
-          {pullRequest === null ? null : <ThreadPullRequestBadge pr={pullRequest} compact />}
+          {pullRequest === null ? null : onOpenPullRequest === undefined ? (
+            <ThreadPullRequestBadge compact pr={pullRequest} />
+          ) : (
+            <ThreadPullRequestBadge compact pr={pullRequest} onOpen={onOpenPullRequest} />
+          )}
           <ProviderIcon aria-hidden className="size-3 shrink-0" />
         </span>
       </span>

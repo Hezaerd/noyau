@@ -6,6 +6,7 @@ import { useAppAtomValue } from "@/hooks/use-app-atom"
 import type { ThreadActivity } from "@/lib/thread-activity"
 import type { SidebarThreadPartition } from "@/lib/thread-sidebar-sort"
 import {
+  emptyPullRequestsAtom,
   emptySidebarQueuesAtom,
   projectPullRequestsAtom,
   sidebarQueuesAtom,
@@ -19,8 +20,11 @@ export const useSidebarQueues = (
   useAppAtomValue(projectId === undefined ? emptySidebarQueuesAtom : sidebarQueuesAtom(projectId))
 
 export const useProjectPullRequests = (
-  projectId: ProjectId,
-): ReadonlyMap<string, VcsStatusPullRequest> => useAppAtomValue(projectPullRequestsAtom(projectId))
+  projectId: ProjectId | undefined,
+): ReadonlyMap<string, VcsStatusPullRequest> =>
+  useAppAtomValue(
+    projectId === undefined ? emptyPullRequestsAtom : projectPullRequestsAtom(projectId),
+  )
 
 export const useThreadActivity = (threadId: ThreadId): ThreadActivity | null =>
   useAppAtomValue(threadActivityAtom(threadId))

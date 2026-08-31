@@ -217,6 +217,65 @@ export const GitHubAccountResult = Schema.Struct({
 })
 export type GitHubAccountResult = (typeof GitHubAccountResult)["Type"]
 
+export const GitPullRequestReviewState = Schema.Literals([
+  "approved",
+  "changes_requested",
+  "commented",
+  "dismissed",
+  "pending",
+])
+export type GitPullRequestReviewState = (typeof GitPullRequestReviewState)["Type"]
+
+export const GitPullRequestAuthor = Schema.Struct({
+  login: TrimmedNonEmpty,
+})
+export type GitPullRequestAuthor = (typeof GitPullRequestAuthor)["Type"]
+
+export const GitPullRequestReview = Schema.Struct({
+  author: Schema.NullOr(GitPullRequestAuthor),
+  state: GitPullRequestReviewState,
+  body: Schema.String,
+  submittedAt: Schema.NullOr(Schema.NonEmptyString),
+})
+export type GitPullRequestReview = (typeof GitPullRequestReview)["Type"]
+
+export const GitPullRequestComment = Schema.Struct({
+  author: Schema.NullOr(GitPullRequestAuthor),
+  body: Schema.String,
+  createdAt: Schema.NonEmptyString,
+})
+export type GitPullRequestComment = (typeof GitPullRequestComment)["Type"]
+
+export const GitPullRequestFile = Schema.Struct({
+  path: TrimmedNonEmpty,
+  additions: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  deletions: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+})
+export type GitPullRequestFile = (typeof GitPullRequestFile)["Type"]
+
+/** PR GitHub live : description, reviews, fichiers, patch. Hors journal, via `gh`. */
+export const GitGetPullRequestInput = Schema.Struct({
+  ...VcsScope.fields,
+  number: Schema.Int.check(Schema.isGreaterThan(0)),
+})
+export type GitGetPullRequestInput = (typeof GitGetPullRequestInput)["Type"]
+
+export const GitPullRequest = Schema.Struct({
+  number: Schema.Int.check(Schema.isGreaterThan(0)),
+  title: TrimmedNonEmpty,
+  url: Schema.NonEmptyString,
+  body: Schema.String,
+  author: Schema.NullOr(GitPullRequestAuthor),
+  state: VcsStatusPullRequestState,
+  baseRef: TrimmedNonEmpty,
+  headRef: TrimmedNonEmpty,
+  reviews: Schema.Array(GitPullRequestReview),
+  comments: Schema.Array(GitPullRequestComment),
+  files: Schema.Array(GitPullRequestFile),
+  patch: Schema.String,
+})
+export type GitPullRequest = (typeof GitPullRequest)["Type"]
+
 export const GitPublishRepositoryInput = Schema.Struct({
   ...VcsScope.fields,
   repository: TrimmedNonEmpty,
