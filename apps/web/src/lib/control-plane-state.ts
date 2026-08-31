@@ -1,3 +1,4 @@
+import { DEFAULT_PROVIDER_INSTANCE_ID } from "@noyau/contracts/entities/environment"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import { ProjectId, type ThreadId } from "@noyau/contracts/ids"
 import type { ShellLiveEvent, ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
@@ -61,12 +62,21 @@ const withSequence = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnap
         snapshotSequence: event.sequence,
         threads: snapshot.threads.filter((thread) => thread.id !== event.threadId),
       }
+    case "environment-updated":
+      return {
+        ...snapshot,
+        environment: event.environment,
+      }
   }
 }
 
 /** Reduce a live shell event. Stale or duplicate sequences keep the current snapshot. */
 export const applyShellEvent = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnapshot =>
-  event.sequence <= snapshot.snapshotSequence ? snapshot : withSequence(snapshot, event)
+  event._tag === "environment-updated"
+    ? withSequence(snapshot, event)
+    : event.sequence <= snapshot.snapshotSequence
+      ? snapshot
+      : withSequence(snapshot, event)
 
 export const makeOptimisticThreadShell = (input: {
   readonly id: ThreadId
@@ -82,7 +92,7 @@ export const makeOptimisticThreadShell = (input: {
     id: input.id,
     projectId: input.projectId,
     title: input.title,
-    provider: input.provider ?? "cursor",
+    provider: input.provider ?? DEFAULT_PROVIDER_INSTANCE_ID,
     modelSelection: null,
     runtimeMode: input.runtimeMode,
     status: "active",

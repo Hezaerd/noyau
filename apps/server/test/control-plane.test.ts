@@ -18,6 +18,7 @@ import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { mcpSessionRegistryLayer } from "@noyau/server/mcp/mcp-session-registry"
 import { memoryLayer } from "@noyau/server/persistence/sqlite"
 import { cursorProviderLayer } from "@noyau/server/provider/cursor-acp"
+import { staticProviderRegistryLayer } from "@noyau/server/provider/provider-instance-registry"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
 import { ThreadLive, threadLiveLayer } from "@noyau/server/thread-live"
@@ -109,6 +110,7 @@ const controlPlaneTestLayer = (
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
+    Layer.provideMerge(staticProviderRegistryLayer),
     Layer.provideMerge(threadLiveLayer),
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
@@ -130,6 +132,7 @@ const cursorControlPlaneTestLayer = (scenario: string) =>
     Layer.provideMerge(stubGitRuntimeLayer),
     Layer.provideMerge(stubVcsStatusBroadcasterLayer()),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(availableWorkspaceRoots)),
+    Layer.provideMerge(staticProviderRegistryLayer),
     Layer.provideMerge(
       cursorProviderLayer({
         binaryPath: process.execPath,
@@ -181,7 +184,7 @@ describe("ControlPlane", () => {
         assert.strictEqual(frames[1]?.kind, "synchronized")
 
         const config = yield* controlPlane.getConfig
-        assert.strictEqual(config.databaseSchemaVersion, 13)
+        assert.strictEqual(config.databaseSchemaVersion, 14)
         assert.deepStrictEqual(yield* controlPlane.probe, {})
         assert.deepStrictEqual(
           yield* controlPlane.setShellFocus({

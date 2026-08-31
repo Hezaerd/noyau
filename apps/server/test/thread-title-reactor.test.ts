@@ -9,6 +9,7 @@ import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/i
 import { ControlPlane, makeControlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { memoryLayer } from "@noyau/server/persistence/sqlite"
+import { staticProviderRegistryLayer } from "@noyau/server/provider/provider-instance-registry"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import {
   TextGeneration,
@@ -62,6 +63,7 @@ const layer = (generate: (input: ThreadTitleGenerationInput) => { readonly title
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
+    Layer.provideMerge(staticProviderRegistryLayer),
     Layer.provideMerge(threadLiveLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(stubGitRuntimeLayer),

@@ -14,11 +14,14 @@ import type {
 } from "@noyau/contracts/entities/approvals"
 import {
   emptyClaudeProviderStatus,
-  emptyCodexProviderStatus,
-  emptyCursorProviderStatus,
+  instanceConfigBinaryPath,
+  ProviderDriverKind,
+  ProviderInstanceId,
+  providerInstanceView,
   type CursorModel,
   type CursorReasoningEffort,
   type CursorServiceTier,
+  type ProviderInstanceConfigBlob,
 } from "@noyau/contracts/entities/environment"
 import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
@@ -59,6 +62,7 @@ import {
 import { promptContentBlocks } from "./prompt-blocks.ts"
 import {
   ProviderPort,
+  singleInstanceStatuses,
   type ProviderEmit,
   type ProviderSignal,
   type ProviderTurnInput,
@@ -250,6 +254,8 @@ export interface ClaudeQueryRuntime extends AsyncIterable<SDKMessage> {
 }
 
 export interface ClaudeAdapterOptions {
+  readonly instanceId?: ProviderInstanceId
+  readonly instanceConfig?: ProviderInstanceConfigBlob | undefined
   readonly binaryPath?: string
   readonly environment?: NodeJS.ProcessEnv
   readonly platform?: NodeJS.Platform
@@ -662,7 +668,11 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
   const runPromise = Effect.runPromiseWith(runtimeContext)
   const environment = options.environment ?? process.env
   const platform = options.platform ?? process.platform
-  const configuredPath = options.binaryPath ?? environment.NOYAU_CLAUDE_PATH
+  const instanceId = options.instanceId ?? ProviderInstanceId.make("claude")
+  const configuredPath =
+    environment.NOYAU_CLAUDE_PATH ??
+    options.binaryPath ??
+    instanceConfigBinaryPath(options.instanceConfig)
   const activeTurns = new Map<string, ActiveTurn>()
   const queued = new Map<string, ActiveTurn>()
   const sessions = new Map<string, ClaudeSession>()
@@ -1316,11 +1326,16 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
   yield* Effect.addFinalizer(() => stopAll)
 
   return ProviderPort.of({
-    status: Effect.succeed({
-      cursor: emptyCursorProviderStatus,
-      claude: providerStatus,
-      codex: emptyCodexProviderStatus,
-    }),
+    status: Effect.succeed(
+      singleInstanceStatuses(
+        providerInstanceView({
+          instanceId,
+          driver: ProviderDriverKind.make("claude"),
+          enabled: true,
+          probe: providerStatus,
+        }),
+      ),
+    ),
     startTurn: (input, emit) => startTurn(input, emit).pipe(Effect.provideService(Path.Path, path)),
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

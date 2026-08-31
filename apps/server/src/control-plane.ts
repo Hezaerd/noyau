@@ -48,6 +48,11 @@ import {
   type SubscribeThreadInput,
   type ThreadStreamItem,
 } from "@noyau/contracts/rpc"
+import type {
+  ServerSettings,
+  ServerSettingsError,
+  ServerSettingsPatch,
+} from "@noyau/contracts/settings"
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
 import { ThreadEvent } from "@noyau/contracts/thread/events"
 import { TicketEvent } from "@noyau/contracts/ticket/events"
@@ -72,6 +77,7 @@ import {
   Path,
   PubSub,
   Queue,
+  Ref,
   Schema,
   type Scope,
   Stream,
@@ -98,9 +104,11 @@ import {
   readThreadShellById,
   readThreadSnapshot,
 } from "./persistence/snapshots.ts"
+import { ProviderInstanceRegistry } from "./provider/provider-instance-registry.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
 import { makeProviderSessionReaper } from "./provider/provider-session-reaper.ts"
+import { patchServerSettings, readServerSettings } from "./provider/provider-settings.ts"
 import { coalescePersistedForShell, threadEventTouchesShell, threadIdOf } from "./shell-live.ts"
 import { TextGeneration } from "./text-generation/text-generation.ts"
 import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
@@ -412,6 +420,10 @@ export interface ControlPlaneService {
   readonly getTurnDiff: (
     input: GetTurnDiffInput,
   ) => Effect.Effect<TurnDiffPatch, TurnDiffUnavailable | GitCommandError | ServiceUnavailable>
+  readonly getSettings: Effect.Effect<ServerSettings, ServerSettingsError | ServiceUnavailable>
+  readonly patchSettings: (
+    patch: ServerSettingsPatch,
+  ) => Effect.Effect<ServerSettings, ServerSettingsError | ServiceUnavailable>
   readonly probe: Effect.Effect<Record<never, never>>
   readonly drainReactors: Effect.Effect<void>
 }
@@ -471,13 +483,22 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       const textGeneration = yield* TextGeneration
       const git = yield* GitRuntime
       const presence = yield* makePresenceController()
+      const registry = yield* ProviderInstanceRegistry
       const providerStatuses = yield* provider.status
-      const environment = new Environment({
-        id: config.environmentId,
-        cursor: providerStatuses.cursor,
-        claude: providerStatuses.claude,
-        codex: providerStatuses.codex,
-        createdAt: config.environmentCreatedAt,
+      const environmentRef = yield* Ref.make(
+        new Environment({
+          id: config.environmentId,
+          providers: providerStatuses,
+          createdAt: config.environmentCreatedAt,
+        }),
+      )
+      const environmentUpdates = yield* PubSub.unbounded<Environment>()
+      const readEnvironment = Ref.get(environmentRef)
+      const publishEnvironment = Effect.fn("ControlPlane.publishEnvironment")(function* (
+        next: Environment,
+      ) {
+        yield* Ref.set(environmentRef, next)
+        yield* PubSub.publish(environmentUpdates, next)
       })
       const processProviderEvent = yield* makeProviderReactor(
         (command) => dispatchInternal(command),
@@ -505,7 +526,8 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
       ).pipe(Effect.provideService(SqlClient, sql))
       const processPresenceEvent = (event: PersistedEvent<DomainEventType>) =>
         journalEventTouchesPresence(event.event)
-          ? readShellSnapshot(environment).pipe(
+          ? readEnvironment.pipe(
+              Effect.flatMap((environment) => readShellSnapshot(environment)),
               Effect.provideService(SqlClient, sql),
               Effect.flatMap(presence.sync),
               Effect.catchCause((cause) =>
@@ -613,6 +635,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
 
       const readAvailableShellSnapshot = Effect.fn("ControlPlane.readAvailableShellSnapshot")(
         function* () {
+          const environment = yield* readEnvironment
           const snapshot = yield* readShellSnapshot(environment)
           const projects = yield* Effect.forEach(snapshot.projects, (project) =>
             workspaceRoots
@@ -799,6 +822,20 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           }),
         ).pipe(Stream.provideService(SqlClient, sql))
 
+      const environmentLive = Stream.fromPubSub(environmentUpdates).pipe(
+        Stream.map((environment): ShellStreamItem => ({
+          kind: "event",
+          event: {
+            _tag: "environment-updated",
+            sequence: Sequence.make(0),
+            environment,
+          },
+        })),
+      )
+      const withEnvironmentLive = <R>(
+        journal: Stream.Stream<ShellStreamItem, ServiceUnavailable, R>,
+      ) => Stream.merge(journal, environmentLive, { haltStrategy: "left" })
+
       const subscribeShell: ControlPlaneService["subscribeShell"] = (input) =>
         Stream.unwrap(
           Effect.gen(function* () {
@@ -820,10 +857,12 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
                 catchUp.filter((event) => event.sequence <= head),
                 workspaceRoots,
               ).pipe(Effect.mapError(unavailable("shell-stream")))
-              return Stream.concat(
-                Stream.fromIterable(historical),
-                shellLiveTail(buffer, head, input.requestCompletionMarker, workspaceRoots).pipe(
-                  Stream.mapError(unavailable("shell-stream")),
+              return withEnvironmentLive(
+                Stream.concat(
+                  Stream.fromIterable(historical),
+                  shellLiveTail(buffer, head, input.requestCompletionMarker, workspaceRoots).pipe(
+                    Stream.mapError(unavailable("shell-stream")),
+                  ),
                 ),
               )
             }
@@ -831,14 +870,16 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
               Effect.mapError(unavailable("shell-snapshot")),
             )
             yield* hooks.afterShellSnapshot?.(snapshot.snapshotSequence) ?? Effect.void
-            return Stream.concat(
-              Stream.make({ kind: "snapshot" as const, snapshot } satisfies ShellStreamItem),
-              shellLiveTail(
-                buffer,
-                snapshot.snapshotSequence,
-                input.requestCompletionMarker,
-                workspaceRoots,
-              ).pipe(Stream.mapError(unavailable("shell-stream"))),
+            return withEnvironmentLive(
+              Stream.concat(
+                Stream.make({ kind: "snapshot" as const, snapshot } satisfies ShellStreamItem),
+                shellLiveTail(
+                  buffer,
+                  snapshot.snapshotSequence,
+                  input.requestCompletionMarker,
+                  workspaceRoots,
+                ).pipe(Stream.mapError(unavailable("shell-stream"))),
+              ),
             )
           }),
         ).pipe(Stream.provideService(SqlClient, sql))
@@ -1002,6 +1043,45 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         }
       })
 
+      const provideSettings = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        effect.pipe(
+          Effect.provideService(ServerConfig, config),
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+        )
+
+      const getSettings: ControlPlaneService["getSettings"] = provideSettings(
+        readServerSettings(),
+      ).pipe(
+        Effect.mapError((error) =>
+          error._tag === "ServerSettingsError"
+            ? error
+            : new ServiceUnavailable({ service: "settings" }),
+        ),
+      )
+
+      const patchSettings: ControlPlaneService["patchSettings"] = Effect.fn(
+        "ControlPlane.patchSettings",
+      )(function* (patch) {
+        const next = yield* provideSettings(patchServerSettings(patch)).pipe(
+          Effect.mapError((error) =>
+            error._tag === "ServerSettingsError"
+              ? error
+              : new ServiceUnavailable({ service: "settings" }),
+          ),
+        )
+        const providers = yield* registry.applySettings(next.providerInstances)
+        const current = yield* readEnvironment
+        yield* publishEnvironment(
+          new Environment({
+            id: current.id,
+            providers,
+            createdAt: current.createdAt,
+          }),
+        )
+        return next
+      })
+
       const getConfig = readSchemaVersion().pipe(
         Effect.provideService(SqlClient, sql),
         Effect.map((databaseSchemaVersion) => ({
@@ -1038,6 +1118,8 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         removeProjectAgentIntegration,
         previewAttachment,
         getTurnDiff,
+        getSettings,
+        patchSettings,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {
           yield* providerSessionReaper.stop

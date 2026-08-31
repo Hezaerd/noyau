@@ -139,6 +139,25 @@ describe("Thread and Session entities", () => {
     expect(thread).not.toHaveProperty("contextUsage")
   })
 
+  it("décode un Thread dont le provider est un instance id ouvert", () => {
+    const thread = Schema.decodeSync(Thread)({
+      id: ids.thread,
+      projectId: ids.project,
+      title: "Relier le dossier",
+      provider: "codex_work",
+      runtimeMode: "full-access",
+      modelSelection: null,
+      status: "active",
+      session: null,
+      latestTurn: null,
+      createdAt: "2026-08-19T12:00:00.000Z",
+      listedAt: "2026-08-19T12:00:00.000Z",
+      updatedAt: "2026-08-19T12:00:00.000Z",
+    })
+
+    expect(thread.provider).toBe("codex_work")
+  })
+
   it("round-trip un Thread avec le dernier fill de contexte", () => {
     const encoded = {
       id: ids.thread,

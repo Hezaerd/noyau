@@ -53,6 +53,7 @@ import {
   type ShellStreamItem,
   type ThreadStreamItem,
 } from "@noyau/contracts/rpc"
+import type { ServerSettings, ServerSettingsPatch } from "@noyau/contracts/settings"
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
 import type { ThreadAssistantLive } from "@noyau/contracts/thread/live"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/contracts/turn-diff"
@@ -478,6 +479,26 @@ export const gitPublishRepository = (
       return yield* client[RPC_METHODS.gitPublishRepository](input)
     }),
   )
+
+const requestSettings = Effect.fn("ControlPlaneClient.getSettings")(function* () {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.getSettings]({})
+})
+
+export const getSettings = (): Promise<ControlPlaneResult<ServerSettings>> =>
+  runOperation(requestSettings(), "command")
+
+const requestPatchSettings = Effect.fn("ControlPlaneClient.patchSettings")(function* (
+  patch: ServerSettingsPatch,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.patchSettings](patch)
+})
+
+export const patchSettings = (
+  patch: ServerSettingsPatch,
+): Promise<ControlPlaneResult<ServerSettings>> =>
+  runOperation(requestPatchSettings(patch), "command")
 
 export const listEditors = (): Promise<ControlPlaneResult<ListEditorsResult>> =>
   gitCall(

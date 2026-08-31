@@ -1,4 +1,7 @@
-import type { CursorProviderStatus } from "@noyau/contracts/entities/environment"
+import type {
+  CursorProviderStatus,
+  ProviderInstanceView,
+} from "@noyau/contracts/entities/environment"
 
 import { resolveCursorReadiness, type CursorReadiness } from "@/lib/cursor-readiness"
 
@@ -46,13 +49,29 @@ export const PROVIDER_CATALOG: ReadonlyArray<ProviderCatalogEntry> = [
   },
 ]
 
-export const PROVIDER_SETTINGS_ITEMS = PROVIDER_CATALOG.map((provider) => ({
-  id: `provider-${provider.id}`,
-  tab: "providers" as const,
-  title: provider.title,
-  description: provider.summary,
-  keywords: [...provider.keywords, provider.cli],
-}))
+export const PROVIDER_SETTINGS_ITEMS = [
+  {
+    id: "provider-cursor",
+    tab: "providers" as const,
+    title: "Cursor",
+    description: "Local ACP adapter. PATH detection and handshake.",
+    keywords: ["cursor-agent", "acp", "cli"],
+  },
+  {
+    id: "provider-claude",
+    tab: "providers" as const,
+    title: "Claude Code",
+    description: "Local Agent SDK adapter. PATH detection.",
+    keywords: ["claude", "anthropic", "claude-code"],
+  },
+  {
+    id: "provider-codex",
+    tab: "providers" as const,
+    title: "Codex",
+    description: "Local app-server adapter. PATH detection and handshake.",
+    keywords: ["openai", "gpt", "app-server"],
+  },
+] as const
 
 export interface ProviderConnectionPresentation {
   readonly headline: string
@@ -121,6 +140,43 @@ export const presentCodexPlan = (plan: string | null | undefined): string | null
     return null
   }
   return /^codex\b/i.test(plan) ? plan : `Codex ${plan}`
+}
+
+const disabledConnection: ProviderConnectionPresentation = {
+  headline: "Disabled",
+  detail: "Hidden from new Threads",
+  statusDot: "disabled",
+}
+
+export const presentProviderInstanceConnection = (
+  view: ProviderInstanceView | undefined,
+): ProviderConnectionPresentation => {
+  if (view === undefined) {
+    return cursorConnectionPresentation.unknown
+  }
+  if (!view.enabled) {
+    return disabledConnection
+  }
+  return presentCursorConnection(view)
+}
+
+export const presentProviderInstanceVersion = (
+  view: ProviderInstanceView | undefined,
+): string | null => presentCursorVersion(view?.version)
+
+export const presentProviderInstancePlan = (
+  view: ProviderInstanceView | undefined,
+): string | null => {
+  if (view === undefined || view.plan === null) {
+    return null
+  }
+  if (view.driver === "claude") {
+    return presentClaudePlan(view.plan)
+  }
+  if (view.driver === "codex") {
+    return presentCodexPlan(view.plan)
+  }
+  return presentCursorPlan(view.plan)
 }
 
 export const PROVIDER_STATUS_DOT_CLASS = {

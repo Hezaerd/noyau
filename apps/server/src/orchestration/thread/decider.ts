@@ -1,3 +1,4 @@
+import { DEFAULT_PROVIDER_INSTANCE_ID } from "@noyau/contracts/entities/environment"
 import { DEFAULT_RUNTIME_MODE } from "@noyau/contracts/entities/runtime-mode"
 import type { Session } from "@noyau/contracts/entities/session"
 import { TurnId } from "@noyau/contracts/ids"
@@ -162,7 +163,7 @@ export const decide = (
             threadId: command.payload.threadId,
             projectId: command.payload.projectId,
             title: command.payload.title,
-            provider: command.payload.provider ?? "cursor",
+            provider: command.payload.provider ?? DEFAULT_PROVIDER_INSTANCE_ID,
             runtimeMode: command.payload.runtimeMode ?? DEFAULT_RUNTIME_MODE,
           }
           if (command.payload.modelSelection !== undefined) {

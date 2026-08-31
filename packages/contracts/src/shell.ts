@@ -67,6 +67,10 @@ export const ShellLiveEvent = Schema.Union([
     sequence: Sequence,
     threadId: ThreadId,
   }),
+  Schema.TaggedStruct("environment-updated", {
+    sequence: Sequence,
+    environment: Environment,
+  }),
 ])
 export type ShellLiveEvent = (typeof ShellLiveEvent)["Type"]
 

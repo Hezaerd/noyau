@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url"
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import { emptyCursorProviderStatus } from "@noyau/contracts/entities/environment"
+import { ProviderDriverKind, ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { ProjectId, ProviderSessionId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import type { McpInvocationScope } from "@noyau/server/mcp/mcp-invocation-context"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
@@ -50,7 +50,7 @@ const input = (
   projectId,
   threadId,
   turnId,
-  provider: "codex",
+  provider: ProviderInstanceId.make("codex"),
   text: "Implement the adapter",
   workspaceRoot: process.cwd(),
   runtimeMode,
@@ -192,8 +192,11 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status.cursor, emptyCursorProviderStatus)
-              assert.deepStrictEqual(status.codex, {
+              assert.deepStrictEqual(Object.keys(status), ["codex"])
+              assert.deepStrictEqual(status[ProviderInstanceId.make("codex")], {
+                instanceId: ProviderInstanceId.make("codex"),
+                driver: ProviderDriverKind.make("codex"),
+                enabled: true,
                 installed: true,
                 handshakeOk: true,
                 version: "fake-codex-app-server",
@@ -223,7 +226,10 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status.codex, {
+              assert.deepStrictEqual(status[ProviderInstanceId.make("codex")], {
+                instanceId: ProviderInstanceId.make("codex"),
+                driver: ProviderDriverKind.make("codex"),
+                enabled: true,
                 installed: true,
                 handshakeOk: false,
                 version: null,

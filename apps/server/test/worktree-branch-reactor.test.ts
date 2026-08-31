@@ -11,6 +11,7 @@ import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { GitRuntime, type GitRuntimeService } from "@noyau/server/git/git-runtime"
 import { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
 import { memoryLayer } from "@noyau/server/persistence/sqlite"
+import { staticProviderRegistryLayer } from "@noyau/server/provider/provider-instance-registry"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import {
   TextGeneration,
@@ -120,6 +121,7 @@ const layer = (
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
+    Layer.provideMerge(staticProviderRegistryLayer),
     Layer.provideMerge(threadLiveLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(git),

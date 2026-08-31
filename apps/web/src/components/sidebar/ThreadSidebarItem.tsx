@@ -16,7 +16,6 @@ import {
 } from "lucide-react"
 import { memo, useEffect, useRef, useState } from "react"
 
-import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
 import { ThreadDeleteConfirmDialog } from "@/components/sidebar/ThreadDeleteConfirmDialog"
 import { ThreadSidebarPopover } from "@/components/sidebar/ThreadSidebarPopover"
 import { ThreadSidebarStatus } from "@/components/sidebar/ThreadSidebarStatus"
@@ -32,6 +31,7 @@ import {
 } from "@/components/ui/context-menu"
 import { Input } from "@/components/ui/input"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
+import { useProviders } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { useThreadActivity } from "@/hooks/use-sidebar-queues"
 import { useThreadPinned } from "@/hooks/use-thread-pins"
@@ -39,6 +39,7 @@ import { resolveSidebarCheckoutBranch } from "@/lib/checkout"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
+import { providerInstanceIconOf } from "@/lib/provider-presentation"
 import {
   formatAgoCompactLabel,
   resolveSidebarLastActivityAtMs,
@@ -51,12 +52,6 @@ import { canSettle } from "@/lib/thread-settled"
 import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
 import { dispatchThreadTitleRegenerate } from "@/lib/thread-title-actions"
 import { toggleThreadPinned } from "@/state/thread-pins"
-
-const providerIcons = {
-  cursor: CursorIcon,
-  claude: ClaudeIcon,
-  codex: CodexIcon,
-} as const satisfies Record<ThreadShell["provider"], ProviderIcon>
 
 export const ThreadSidebarItem = memo(function ThreadSidebarItem({
   thread,
@@ -326,7 +321,8 @@ function ThreadSidebarItemContent({
   readonly settleable: boolean
   readonly onSettle: () => void
 }) {
-  const ProviderIcon = providerIcons[provider]
+  const providers = useProviders()
+  const ProviderIcon = providerInstanceIconOf(provider, providers)
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span

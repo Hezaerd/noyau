@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url"
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
+import { ProviderDriverKind, ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import {
   ApprovalRequestId,
   ProjectId,
@@ -93,7 +94,7 @@ const input = (
   projectId,
   threadId,
   turnId,
-  provider: "cursor",
+  provider: ProviderInstanceId.make("cursor"),
   text: "Implement the adapter",
   workspaceRoot: process.cwd(),
   runtimeMode,
@@ -253,7 +254,10 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status.cursor, {
+              assert.deepStrictEqual(status[ProviderInstanceId.make("cursor")], {
+                instanceId: ProviderInstanceId.make("cursor"),
+                driver: ProviderDriverKind.make("cursor"),
+                enabled: true,
                 installed: true,
                 handshakeOk: true,
                 version: null,
@@ -304,7 +308,10 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status.cursor, {
+              assert.deepStrictEqual(status[ProviderInstanceId.make("cursor")], {
+                instanceId: ProviderInstanceId.make("cursor"),
+                driver: ProviderDriverKind.make("cursor"),
+                enabled: true,
                 installed: true,
                 handshakeOk: false,
                 version: null,
@@ -320,7 +327,10 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status.cursor, {
+              assert.deepStrictEqual(status[ProviderInstanceId.make("cursor")], {
+                instanceId: ProviderInstanceId.make("cursor"),
+                driver: ProviderDriverKind.make("cursor"),
+                enabled: true,
                 installed: true,
                 handshakeOk: false,
                 version: null,
@@ -336,7 +346,10 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status.cursor, {
+              assert.deepStrictEqual(status[ProviderInstanceId.make("cursor")], {
+                instanceId: ProviderInstanceId.make("cursor"),
+                driver: ProviderDriverKind.make("cursor"),
+                enabled: true,
                 installed: true,
                 handshakeOk: false,
                 version: null,
@@ -352,7 +365,10 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         provider.status.pipe(
           Effect.tap((status) =>
             Effect.sync(() => {
-              assert.deepStrictEqual(status.cursor, {
+              assert.deepStrictEqual(status[ProviderInstanceId.make("cursor")], {
+                instanceId: ProviderInstanceId.make("cursor"),
+                driver: ProviderDriverKind.make("cursor"),
+                enabled: true,
                 installed: true,
                 handshakeOk: false,
                 version: null,
@@ -555,7 +571,7 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
       provider.status.pipe(
         Effect.tap((status) =>
           Effect.sync(() => {
-            assert.deepStrictEqual(status.cursor.models, [
+            assert.deepStrictEqual(status[ProviderInstanceId.make("cursor")]?.models, [
               {
                 modelId: "composer-2.5",
                 label: "Composer 2.5",

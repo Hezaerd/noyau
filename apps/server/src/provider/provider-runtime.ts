@@ -1,73 +1,21 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
+import { ProviderDriverKind } from "@noyau/contracts/entities/environment"
 import { threadLiveLayer } from "@noyau/server/thread-live"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, type Context } from "effect"
 
 import { makeClaudeProvider, type ClaudeAdapterOptions } from "./claude-agent.ts"
 import { makeCodexProvider, type CodexAdapterOptions } from "./codex-app-server.ts"
 import { makeCursorProvider, type CursorAdapterOptions } from "./cursor-acp.ts"
 import {
-  ProviderPort,
-  type ProviderEmit,
-  type ProviderPortService,
-  type ProviderTurnInput,
-} from "./provider-port.ts"
+  composeProviderPorts,
+  makeProviderInstanceRegistry,
+  ProviderInstanceRegistry,
+  type ProviderDriverFactory,
+  type ProviderDriverRequirements,
+} from "./provider-instance-registry.ts"
+import { ProviderPort } from "./provider-port.ts"
+import { readServerSettings } from "./provider-settings.ts"
 import { turnUserInputRegistryLayer } from "./turn-user-input-registry.ts"
-
-export const composeProviderPorts = (
-  cursor: ProviderPortService,
-  claude: ProviderPortService,
-  codex: ProviderPortService,
-): ProviderPortService =>
-  ProviderPort.of({
-    status: Effect.gen(function* () {
-      const cursorStatuses = yield* cursor.status
-      const claudeStatuses = yield* claude.status
-      const codexStatuses = yield* codex.status
-      return {
-        cursor: cursorStatuses.cursor,
-        claude: claudeStatuses.claude,
-        codex: codexStatuses.codex,
-      }
-    }),
-    startTurn: (input: ProviderTurnInput, emit: ProviderEmit) =>
-      input.provider === "claude"
-        ? claude.startTurn(input, emit)
-        : input.provider === "codex"
-          ? codex.startTurn(input, emit)
-          : cursor.startTurn(input, emit),
-    interrupt: (threadId) =>
-      cursor
-        .interrupt(threadId)
-        .pipe(
-          Effect.andThen(claude.interrupt(threadId)),
-          Effect.andThen(codex.interrupt(threadId)),
-        ),
-    stop: (threadId) =>
-      cursor
-        .stop(threadId)
-        .pipe(Effect.andThen(claude.stop(threadId)), Effect.andThen(codex.stop(threadId))),
-    reapIdle: (threadId) =>
-      cursor.reapIdle(threadId).pipe(
-        Effect.flatMap((reaped) => (reaped ? Effect.succeed(true) : claude.reapIdle(threadId))),
-        Effect.flatMap((reaped) => (reaped ? Effect.succeed(true) : codex.reapIdle(threadId))),
-      ),
-    stopAll: cursor.stopAll.pipe(Effect.andThen(claude.stopAll), Effect.andThen(codex.stopAll)),
-    respondApproval: (threadId, requestId, decision) =>
-      cursor
-        .respondApproval(threadId, requestId, decision)
-        .pipe(
-          Effect.andThen(claude.respondApproval(threadId, requestId, decision)),
-          Effect.andThen(codex.respondApproval(threadId, requestId, decision)),
-        ),
-    respondUserInput: (threadId, requestId, answers) =>
-      cursor
-        .respondUserInput(threadId, requestId, answers)
-        .pipe(
-          Effect.andThen(claude.respondUserInput(threadId, requestId, answers)),
-          Effect.andThen(codex.respondUserInput(threadId, requestId, answers)),
-        ),
-    drain: cursor.drain.pipe(Effect.andThen(claude.drain), Effect.andThen(codex.drain)),
-  })
 
 export interface ProviderRuntimeOptions {
   readonly cursor?: CursorAdapterOptions
@@ -75,16 +23,73 @@ export interface ProviderRuntimeOptions {
   readonly codex?: CodexAdapterOptions
 }
 
+const builtinDrivers = (options: ProviderRuntimeOptions) => [
+  {
+    kind: ProviderDriverKind.make("cursor"),
+    make: ({ instanceId, config }: Parameters<ProviderDriverFactory["make"]>[0]) =>
+      makeCursorProvider({
+        ...options.cursor,
+        instanceId,
+        instanceConfig: config.config,
+      }),
+  },
+  {
+    kind: ProviderDriverKind.make("claude"),
+    make: ({ instanceId, config }: Parameters<ProviderDriverFactory["make"]>[0]) =>
+      makeClaudeProvider({
+        ...options.claude,
+        instanceId,
+        instanceConfig: config.config,
+      }),
+  },
+  {
+    kind: ProviderDriverKind.make("codex"),
+    make: ({ instanceId, config }: Parameters<ProviderDriverFactory["make"]>[0]) =>
+      makeCodexProvider({
+        ...options.codex,
+        instanceId,
+        instanceConfig: config.config,
+      }),
+  },
+]
+
+const closeOverDriverContext = (
+  drivers: ReturnType<typeof builtinDrivers>,
+  context: Context.Context<ProviderDriverRequirements>,
+): ReadonlyArray<ProviderDriverFactory> =>
+  drivers.map((driver) => ({
+    kind: driver.kind,
+    make: (input) => driver.make(input).pipe(Effect.provide(context)),
+  }))
+
+const providerRegistryLayer = (options: ProviderRuntimeOptions) =>
+  Layer.effect(
+    ProviderInstanceRegistry,
+    Effect.gen(function* () {
+      const driverContext = yield* Effect.context<ProviderDriverRequirements>()
+      const settings = yield* readServerSettings().pipe(
+        Effect.tapError((error) =>
+          Effect.logWarning("Provider settings unreadable; using defaults", { error }),
+        ),
+        Effect.orElseSucceed(() => ({ providerInstances: {} })),
+      )
+      const registry = yield* makeProviderInstanceRegistry(
+        closeOverDriverContext(builtinDrivers(options), driverContext),
+      )
+      yield* registry.applySettings(settings.providerInstances)
+      return registry
+    }),
+  )
+
 export const providerRuntimeLayer = (options: ProviderRuntimeOptions = {}) =>
   Layer.effect(
     ProviderPort,
     Effect.gen(function* () {
-      const cursor = yield* makeCursorProvider(options.cursor ?? {})
-      const claude = yield* makeClaudeProvider(options.claude ?? {})
-      const codex = yield* makeCodexProvider(options.codex ?? {})
-      return composeProviderPorts(cursor, claude, codex)
+      const registry = yield* ProviderInstanceRegistry
+      return composeProviderPorts(registry)
     }),
   ).pipe(
+    Layer.provideMerge(providerRegistryLayer(options)),
     Layer.provide(NodeServices.layer),
     Layer.provideMerge(turnUserInputRegistryLayer),
     Layer.provideMerge(threadLiveLayer),

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { EnvironmentId } from "@noyau/contracts/ids"
+import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { ShellSnapshot } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
@@ -10,41 +10,28 @@ import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPop
 import { catalogModels, threadModelLabel } from "../src/lib/thread-sidebar-popover"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
+import { encodedTestEnvironment } from "./encoded-environment"
 
 const makeSnapshot = (
-  cursorModels: ShellSnapshot["environment"]["cursor"]["models"],
-  codexModels: ShellSnapshot["environment"]["codex"]["models"] = [],
+  cursorModels: ReadonlyArray<{
+    readonly modelId: string
+    readonly label: string
+    readonly reasoningEfforts: ReadonlyArray<never>
+    readonly serviceTiers: ReadonlyArray<never>
+  }>,
+  codexModels: ReadonlyArray<{
+    readonly modelId: string
+    readonly label: string
+    readonly reasoningEfforts: ReadonlyArray<never>
+    readonly serviceTiers: ReadonlyArray<never>
+  }> = [],
 ) =>
   Schema.decodeSync(ShellSnapshot)({
     snapshotSequence: 1,
-    environment: {
-      id: EnvironmentId.make("30000000-0000-4000-8000-000000000001"),
-      cursor: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: cursorModels,
-      },
-      claude: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: [],
-      },
-      codex: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: codexModels,
-      },
-      createdAt: "2026-08-25T12:00:00.000Z",
-    },
+    environment: encodedTestEnvironment({
+      cursorModels,
+      codexModels,
+    }),
     projects: [],
     threads: [],
   })
@@ -80,21 +67,21 @@ describe("threadModelLabel", () => {
 describe("catalogModels", () => {
   it("prend le catalogue du provider du Thread", () => {
     expect(
-      catalogModels("cursor", {
+      catalogModels(ProviderInstanceId.make("cursor"), {
         cursor: [{ modelId: "composer-2.5", label: "Composer 2.5" }],
         claude: [{ modelId: "claude-opus-5", label: "Claude Opus 5" }],
         codex: [{ modelId: "gpt-5", label: "GPT-5" }],
       }),
     ).toEqual([{ modelId: "composer-2.5", label: "Composer 2.5" }])
     expect(
-      catalogModels("claude", {
+      catalogModels(ProviderInstanceId.make("claude"), {
         cursor: [{ modelId: "composer-2.5", label: "Composer 2.5" }],
         claude: [{ modelId: "claude-opus-5", label: "Claude Opus 5" }],
         codex: [{ modelId: "gpt-5", label: "GPT-5" }],
       }),
     ).toEqual([{ modelId: "claude-opus-5", label: "Claude Opus 5" }])
     expect(
-      catalogModels("codex", {
+      catalogModels(ProviderInstanceId.make("codex"), {
         cursor: [{ modelId: "composer-2.5", label: "Composer 2.5" }],
         claude: [{ modelId: "claude-opus-5", label: "Claude Opus 5" }],
         codex: [{ modelId: "gpt-5", label: "GPT-5" }],
@@ -103,9 +90,11 @@ describe("catalogModels", () => {
   })
 
   it("tolère un catalogue manquant", () => {
-    expect(catalogModels("codex", { codex: [{ modelId: "gpt-5", label: "GPT-5" }] })).toEqual([
-      { modelId: "gpt-5", label: "GPT-5" },
-    ])
+    expect(
+      catalogModels(ProviderInstanceId.make("codex"), {
+        codex: [{ modelId: "gpt-5", label: "GPT-5" }],
+      }),
+    ).toEqual([{ modelId: "gpt-5", label: "GPT-5" }])
   })
 })
 
@@ -126,7 +115,7 @@ describe("ThreadSidebarPopover", () => {
       <ThreadSidebarPopover
         thread={{
           title: "Stores Zustand t3code vs shell",
-          provider: "cursor",
+          provider: ProviderInstanceId.make("cursor"),
           modelSelection: { modelId: "grok-4.6" },
         }}
         project={{ name: "noyau" }}
@@ -168,7 +157,7 @@ describe("ThreadSidebarPopover", () => {
       <ThreadSidebarPopover
         thread={{
           title: "Thread Codex",
-          provider: "codex",
+          provider: ProviderInstanceId.make("codex"),
           modelSelection: { modelId: "gpt-5" },
         }}
         project={{ name: "noyau" }}
@@ -185,7 +174,7 @@ describe("ThreadSidebarPopover", () => {
       <ThreadSidebarPopover
         thread={{
           title: "Nouveau Thread",
-          provider: "cursor",
+          provider: ProviderInstanceId.make("cursor"),
           modelSelection: null,
         }}
         project={{ name: "noyau" }}

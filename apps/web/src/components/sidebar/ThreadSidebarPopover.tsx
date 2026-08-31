@@ -1,15 +1,9 @@
 import type { ProjectShell, ThreadShell } from "@noyau/contracts/shell"
 import { GitBranchIcon, LayersIcon } from "lucide-react"
 
-import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
-import { useClaude, useCodex, useCursor } from "@/hooks/use-control-plane"
+import { useProviders } from "@/hooks/use-control-plane"
+import { modelsByProvider, providerDriverOf, providerIconOf } from "@/lib/provider-presentation"
 import { catalogModels, threadModelLabel } from "@/lib/thread-sidebar-popover"
-
-const providerIcons = {
-  cursor: CursorIcon,
-  claude: ClaudeIcon,
-  codex: CodexIcon,
-} as const satisfies Record<ThreadShell["provider"], ProviderIcon>
 
 export function ThreadSidebarPopover({
   thread,
@@ -20,15 +14,9 @@ export function ThreadSidebarPopover({
   readonly project: Pick<ProjectShell, "name">
   readonly branch: string | null
 }) {
-  const cursor = useCursor()
-  const claude = useClaude()
-  const codex = useCodex()
-  const models = catalogModels(thread.provider, {
-    cursor: cursor?.models ?? [],
-    claude: claude?.models ?? [],
-    codex: codex?.models ?? [],
-  })
-  const ProviderIcon = providerIcons[thread.provider]
+  const providers = useProviders()
+  const models = catalogModels(thread.provider, modelsByProvider(providers))
+  const ProviderIcon = providerIconOf(providerDriverOf(thread.provider, providers))
 
   return (
     <div className="flex min-w-56 max-w-80 flex-col gap-2.5 p-3">

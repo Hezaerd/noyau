@@ -5,10 +5,7 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk"
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
-import {
-  emptyCodexProviderStatus,
-  emptyCursorProviderStatus,
-} from "@noyau/contracts/entities/environment"
+import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import {
   ApprovalRequestId,
   AttachmentId,
@@ -120,7 +117,7 @@ const input = (extras: Partial<ProviderTurnInput> = {}): ProviderTurnInput => ({
   projectId,
   threadId,
   turnId,
-  provider: "claude",
+  provider: ProviderInstanceId.make("claude"),
   text: "Implement the adapter",
   workspaceRoot: process.cwd(),
   runtimeMode: "full-access",
@@ -327,14 +324,16 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
       provider.status.pipe(
         Effect.tap((status) =>
           Effect.sync(() => {
-            assert.deepStrictEqual(status.cursor, emptyCursorProviderStatus)
-            assert.deepStrictEqual(status.codex, emptyCodexProviderStatus)
-            assert.strictEqual(status.claude.installed, true)
-            assert.strictEqual(status.claude.handshakeOk, true)
-            assert.strictEqual(status.claude.version, "2.1.245")
-            assert.strictEqual(status.claude.plan, "Pro")
+            const claude = status[ProviderInstanceId.make("claude")]
+            assert.deepStrictEqual(Object.keys(status), ["claude"])
+            assert.strictEqual(claude?.instanceId, "claude")
+            assert.strictEqual(claude?.enabled, true)
+            assert.strictEqual(claude?.installed, true)
+            assert.strictEqual(claude?.handshakeOk, true)
+            assert.strictEqual(claude?.version, "2.1.245")
+            assert.strictEqual(claude?.plan, "Pro")
             assert.deepStrictEqual(
-              status.claude.models?.map((model) => model.modelId),
+              claude?.models?.map((model) => model.modelId),
               [
                 "claude-fable-5",
                 "claude-opus-5",

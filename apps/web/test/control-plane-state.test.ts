@@ -1,4 +1,5 @@
-import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/contracts/ids"
+import { Environment, ProviderInstanceId } from "@noyau/contracts/entities/environment"
+import { ProjectId, Sequence, ThreadId } from "@noyau/contracts/ids"
 import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"
@@ -16,6 +17,7 @@ import {
   threadShellAtom,
   upsertAppliedShellThread,
 } from "../src/state/shell"
+import { encodedTestEnvironment } from "./encoded-environment"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
@@ -23,34 +25,7 @@ const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const makeSnapshot = (sequence: number, threads: ReadonlyArray<ThreadShell> = []) => ({
   ...Schema.decodeSync(ShellSnapshot)({
     snapshotSequence: sequence,
-    environment: {
-      id: EnvironmentId.make("30000000-0000-4000-8000-000000000001"),
-      cursor: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: [],
-      },
-      claude: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: [],
-      },
-      codex: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: [],
-      },
-      createdAt: "2026-08-25T12:00:00.000Z",
-    },
+    environment: encodedTestEnvironment(),
     projects: [],
     threads: [],
   }),
@@ -107,6 +82,30 @@ describe("applyShellEvent", () => {
 
     expect(next.threads[0]).toBe(updated)
     expect(next.threads[1]).toBe(second)
+  })
+
+  it("applies environment-updated even when sequence is already in the snapshot", () => {
+    const current = makeSnapshot(12)
+    const cursorId = ProviderInstanceId.make("cursor")
+    const environment = new Environment({
+      id: current.environment.id,
+      providers: {
+        ...current.environment.providers,
+        [cursorId]: {
+          ...current.environment.providers[cursorId],
+          enabled: false,
+        },
+      },
+      createdAt: current.environment.createdAt,
+    })
+    const next = applyShellEvent(current, {
+      _tag: "environment-updated",
+      sequence: Sequence.make(0),
+      environment,
+    })
+
+    expect(next.snapshotSequence).toBe(12)
+    expect(next.environment.providers[cursorId]?.enabled).toBe(false)
   })
 
   it("ignores a live event whose sequence is already in the snapshot", () => {

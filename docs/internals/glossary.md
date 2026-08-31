@@ -9,6 +9,7 @@ This is a living glossary for Noyau. It explains what common terms mean in this 
 - [Project and workspace](#project-and-workspace)
 - [Boards](#boards)
 - [Thread timeline](#thread-timeline)
+- [Provider runtime](#provider-runtime)
 - [Client chrome](#client-chrome)
 - [Orchestration](#orchestration)
 
@@ -52,6 +53,39 @@ command is `thread.context-usage.set`; the event is `thread.context-usage-set`.
 Adapters normalize native payloads and emit a `context-usage` signal. The
 thread projector stores it on the Thread, not on the live Session, so the
 fill survives session reap. Claude does not report it yet.
+
+### Provider runtime
+
+#### Environment
+
+Durable local identity for this Noyau process: an id, a [providers](#provider-instance)
+map, and a created time. Shape is [Environment][23]. It is not event-sourced.
+Live updates travel as `environment-updated` on the shell stream. Enablement
+and binary paths live in `settings.json`, not on this entity.
+
+#### Provider
+
+Thread and project bindings still say `provider`. That field is a
+[provider instance](#provider-instance) id, not a driver kind. Historical
+`cursor`, `claude`, and `codex` values keep decoding. Typed as
+[Provider][24] (an alias of ProviderInstanceId).
+
+#### Driver
+
+Open branded slug that names an adapter implementation (`cursor`, `claude`,
+`codex`, later a fork's `grok`). It picks the probe, protocol, and catalog.
+Typed as [ProviderDriverKind][24]. Parsing must succeed for an unknown
+driver; the runtime marks that instance unavailable instead of failing
+decode.
+
+#### Provider instance
+
+A configured slot: instance id, driver, optional display name, enabled flag,
+and an opaque config blob. Threads, sessions, model defaults, and the
+Environment map route on the instance id. Defaults and the enablement rule
+are in [settings.ts][25]. The live view the UI renders is
+[ProviderInstanceView][23]. The mutable registry is
+[provider-instance-registry.ts][26].
 
 ### Client chrome
 
@@ -151,3 +185,7 @@ only.
 [20]: ../../apps/web/src/lib/workspace-browser-session.ts
 [21]: ../../apps/desktop/src/preview/preview-manager.ts
 [22]: ../../apps/web/src/components/workspace-panel/DesktopBrowserGuest.tsx
+[23]: ../../packages/contracts/src/entities/environment.ts
+[24]: ../../packages/contracts/src/entities/provider-instance.ts
+[25]: ../../packages/contracts/src/settings.ts
+[26]: ../../apps/server/src/provider/provider-instance-registry.ts

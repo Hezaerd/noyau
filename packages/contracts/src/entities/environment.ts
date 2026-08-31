@@ -1,6 +1,31 @@
 import { EnvironmentId } from "@noyau/contracts/ids"
 import { Schema } from "effect"
 
+import { ProviderDriverKind, ProviderInstanceId } from "./provider-instance.ts"
+
+export {
+  BUILTIN_PROVIDER_DRIVERS,
+  DEFAULT_PROVIDER_INSTANCE_ID,
+  Provider,
+  ProviderDriverKind,
+  ProviderInstanceConfig,
+  ProviderInstanceConfigBlob,
+  ProviderInstanceConfigMap,
+  ProviderInstanceId,
+  defaultEnabledForDriver,
+  defaultInstanceIdForDriver,
+  instanceConfigBinaryPath,
+  isBuiltinProviderDriver,
+  isProviderDriverKind,
+  isProviderInstanceId,
+  resolveProviderInstanceEnabled,
+} from "./provider-instance.ts"
+export type {
+  BuiltinProviderDriver,
+  ProviderDriverKind as ProviderDriverKindType,
+  ProviderInstanceId as ProviderInstanceIdType,
+} from "./provider-instance.ts"
+
 /** Chemin absolu du dossier où Noyau et Cursor travaillent. */
 export const WorkspaceRoot = Schema.NonEmptyString.check(
   Schema.makeFilter(
@@ -15,10 +40,6 @@ export const WorkspaceRoot = Schema.NonEmptyString.check(
   ),
 ).pipe(Schema.brand("WorkspaceRoot"))
 export type WorkspaceRoot = (typeof WorkspaceRoot)["Type"]
-
-/** Provider réel d'un Thread. Immuable après `thread.create`. */
-export const Provider = Schema.Literals(["cursor", "claude", "codex"])
-export type Provider = (typeof Provider)["Type"]
 
 export const CursorReasoningEffort = Schema.Struct({
   value: Schema.NonEmptyString,
@@ -52,7 +73,8 @@ export const CursorModel = Schema.Struct({
 })
 export type CursorModel = (typeof CursorModel)["Type"]
 
-export const CursorProviderStatus = Schema.Struct({
+/** Probe slice shared by every instance. Enablement and identity live on the view. */
+export const ProviderProbeStatus = Schema.Struct({
   installed: Schema.Boolean,
   handshakeOk: Schema.Boolean,
   version: Schema.NullOr(Schema.NonEmptyString),
@@ -60,9 +82,9 @@ export const CursorProviderStatus = Schema.Struct({
   binaryPath: Schema.NullOr(Schema.NonEmptyString),
   models: Schema.optionalKey(Schema.Array(CursorModel)),
 })
-export type CursorProviderStatus = (typeof CursorProviderStatus)["Type"]
+export type ProviderProbeStatus = (typeof ProviderProbeStatus)["Type"]
 
-export const emptyCursorProviderStatus: CursorProviderStatus = {
+export const emptyProviderProbeStatus: ProviderProbeStatus = {
   installed: false,
   handshakeOk: false,
   version: null,
@@ -71,25 +93,82 @@ export const emptyCursorProviderStatus: CursorProviderStatus = {
   models: [],
 }
 
-/** Statut live Claude : même forme de catalogue que Cursor. */
-export const ClaudeProviderStatus = CursorProviderStatus
-export type ClaudeProviderStatus = CursorProviderStatus
+/** @deprecated Use ProviderProbeStatus. Kept so adapter tests keep compiling during the cut. */
+export const CursorProviderStatus = ProviderProbeStatus
+export type CursorProviderStatus = ProviderProbeStatus
+export const emptyCursorProviderStatus = emptyProviderProbeStatus
 
-export const emptyClaudeProviderStatus: ClaudeProviderStatus = emptyCursorProviderStatus
+export const ClaudeProviderStatus = ProviderProbeStatus
+export type ClaudeProviderStatus = ProviderProbeStatus
+export const emptyClaudeProviderStatus = emptyProviderProbeStatus
 
-/** Statut live Codex : même forme de catalogue que Cursor. */
-export const CodexProviderStatus = CursorProviderStatus
-export type CodexProviderStatus = CursorProviderStatus
+export const CodexProviderStatus = ProviderProbeStatus
+export type CodexProviderStatus = ProviderProbeStatus
+export const emptyCodexProviderStatus = emptyProviderProbeStatus
 
-export const emptyCodexProviderStatus: CodexProviderStatus = emptyCursorProviderStatus
+export const ProviderInstanceView = Schema.Struct({
+  instanceId: ProviderInstanceId,
+  driver: ProviderDriverKind,
+  enabled: Schema.Boolean,
+  installed: Schema.Boolean,
+  handshakeOk: Schema.Boolean,
+  version: Schema.NullOr(Schema.NonEmptyString),
+  plan: Schema.NullOr(Schema.NonEmptyString),
+  binaryPath: Schema.NullOr(Schema.NonEmptyString),
+  models: Schema.optionalKey(Schema.Array(CursorModel)),
+})
+export type ProviderInstanceView = (typeof ProviderInstanceView)["Type"]
+
+export const ProviderInstanceViewMap = Schema.Record(ProviderInstanceId, ProviderInstanceView)
+export type ProviderInstanceViewMap = (typeof ProviderInstanceViewMap)["Type"]
+
+export const providerInstanceView = (input: {
+  readonly instanceId: ProviderInstanceId
+  readonly driver: ProviderDriverKind
+  readonly enabled: boolean
+  readonly probe?: ProviderProbeStatus
+}): ProviderInstanceView => {
+  const probe = input.probe ?? emptyProviderProbeStatus
+  return {
+    instanceId: input.instanceId,
+    driver: input.driver,
+    enabled: input.enabled,
+    installed: input.enabled ? probe.installed : false,
+    handshakeOk: input.enabled ? probe.handshakeOk : false,
+    version: input.enabled ? probe.version : null,
+    plan: input.enabled ? probe.plan : null,
+    binaryPath: input.enabled ? probe.binaryPath : probe.binaryPath,
+    models: input.enabled ? (probe.models ?? []) : [],
+  }
+}
+
+export const emptyProviderInstanceView = (
+  instanceId: ProviderInstanceId,
+  driver: ProviderDriverKind,
+  enabled = true,
+): ProviderInstanceView =>
+  providerInstanceView({ instanceId, driver, enabled, probe: emptyProviderProbeStatus })
+
+export const emptyEnvironmentProviders = (): ProviderInstanceViewMap => ({
+  [ProviderInstanceId.make("cursor")]: emptyProviderInstanceView(
+    ProviderInstanceId.make("cursor"),
+    ProviderDriverKind.make("cursor"),
+  ),
+  [ProviderInstanceId.make("claude")]: emptyProviderInstanceView(
+    ProviderInstanceId.make("claude"),
+    ProviderDriverKind.make("claude"),
+  ),
+  [ProviderInstanceId.make("codex")]: emptyProviderInstanceView(
+    ProviderInstanceId.make("codex"),
+    ProviderDriverKind.make("codex"),
+  ),
+})
 
 /** Racine locale durable à identité stable, non administrable depuis l'UI. */
 export class Environment extends Schema.Class<Environment>("@noyau/contracts/entities/Environment")(
   {
     id: EnvironmentId,
-    cursor: CursorProviderStatus,
-    claude: ClaudeProviderStatus,
-    codex: CodexProviderStatus,
+    providers: ProviderInstanceViewMap,
     createdAt: Schema.DateTimeUtcFromString,
   },
 ) {}
