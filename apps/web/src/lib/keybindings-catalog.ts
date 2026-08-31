@@ -96,7 +96,7 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     id: "thread.pin",
     group: "thread",
     title: "Pin Thread",
-    description: "Pin or unpin the open Thread at the top of the sidebar.",
+    description: "Pin or unpin the open Thread in the sidebar Pinned threads section.",
     defaultHotkey: "mod+p",
     when: WHEN_THREAD_CHROME,
   },

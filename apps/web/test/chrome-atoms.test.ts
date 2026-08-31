@@ -161,7 +161,7 @@ describe("threadUnreadAtom", () => {
 })
 
 describe("sidebarQueuesAtom", () => {
-  it("keeps a pinned Thread in the active queue", () => {
+  it("keeps a pinned Thread in the pinned queue", () => {
     replaceAppliedShell(
       makeSnapshot([
         makeThread({
@@ -174,7 +174,8 @@ describe("sidebarQueuesAtom", () => {
     setThreadPinned(threadId, true, Date.parse("2026-08-25T11:00:00.000Z"))
 
     const queues = appAtomRegistry.get(sidebarQueuesAtom(projectId))
-    expect(queues.active.map((thread: ThreadShell) => thread.id)).toEqual([threadId])
+    expect(queues.pinned.map((thread: ThreadShell) => thread.id)).toEqual([threadId])
+    expect(queues.active).toEqual([])
     expect(queues.settled).toEqual([])
   })
 })

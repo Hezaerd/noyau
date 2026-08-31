@@ -14,6 +14,7 @@ const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const activeId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const settledId = ThreadId.make("20000000-0000-4000-8000-000000000002")
 const otherSettledId = ThreadId.make("20000000-0000-4000-8000-000000000003")
+const pinnedId = ThreadId.make("20000000-0000-4000-8000-000000000004")
 const turnId = TurnId.make("30000000-0000-4000-8000-000000000001")
 
 const makeShell = (id: ThreadId, title: string): ThreadShell =>
@@ -40,11 +41,13 @@ const makeShell = (id: ThreadId, title: string): ThreadShell =>
   })
 
 interface SidebarQueuesFixture {
+  pinned: ThreadShell[]
   active: ThreadShell[]
   settled: ThreadShell[]
 }
 
 const queues = vi.hoisted((): SidebarQueuesFixture => ({
+  pinned: [],
   active: [],
   settled: [],
 }))
@@ -56,6 +59,7 @@ vi.mock("@/hooks/use-sidebar-queues", () => ({
 afterEach(() => {
   cleanup()
   resetAppAtomRegistryForTests()
+  queues.pinned = []
   queues.active = []
   queues.settled = []
 })
@@ -127,5 +131,42 @@ describe("ThreadSidebarSection settled shelf", () => {
     )
     expect(screen.queryByText("Settled one")).toBeNull()
     expect(screen.queryByText("Settled two")).toBeNull()
+  })
+})
+
+describe("ThreadSidebarSection pinned threads", () => {
+  it("hides the Pinned threads heading when the project has no pins", () => {
+    queues.active = [makeShell(activeId, "Inbox thread")]
+
+    renderSection()
+
+    expect(screen.queryByText("Pinned threads")).toBeNull()
+    expect(screen.getByText("Threads")).toBeTruthy()
+    expect(screen.getByText("Inbox thread")).toBeTruthy()
+  })
+
+  it("lists pinned Threads above the Threads block", () => {
+    queues.pinned = [makeShell(pinnedId, "Pinned one")]
+    queues.active = [makeShell(activeId, "Inbox thread")]
+
+    renderSection()
+
+    expect(screen.getByText("Pinned threads")).toBeTruthy()
+    expect(screen.getByText("Pinned one")).toBeTruthy()
+    expect(screen.getByText("Threads")).toBeTruthy()
+    expect(screen.getByText("Inbox thread")).toBeTruthy()
+    expect(
+      screen.getByText("Pinned threads").compareDocumentPosition(screen.getByText("Threads")),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it("keeps Pinned threads when that is the only inbox", () => {
+    queues.pinned = [makeShell(pinnedId, "Pinned one")]
+
+    renderSection()
+
+    expect(screen.getByText("Pinned threads")).toBeTruthy()
+    expect(screen.getByText("Pinned one")).toBeTruthy()
+    expect(screen.queryByText("Threads")).toBeNull()
   })
 })
