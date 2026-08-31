@@ -160,6 +160,9 @@ export const resolveWorktreeBaseBranch = (input: {
   return input.currentBranch
 }
 
+const nonEmptyBranch = (value: string | null | undefined): string | null =>
+  value === undefined || value === null || value === "" ? null : value
+
 /** Trigger : base tant que le worktree n'existe pas, branche persistée une fois bindé, sinon HEAD live. */
 export const resolveBranchTriggerLabel = (input: {
   readonly envMode: ThreadEnvMode
@@ -178,9 +181,12 @@ export const resolveBranchTriggerLabel = (input: {
     return `From ${ref}`
   }
   if (input.worktreePath !== null) {
-    const refName = input.baseBranch ?? input.liveBranch ?? input.status?.refName ?? null
+    const refName =
+      nonEmptyBranch(input.baseBranch) ??
+      nonEmptyBranch(input.liveBranch) ??
+      nonEmptyBranch(input.status?.refName)
     if (input.status === undefined) {
-      return refName === null || refName === "" ? "Git" : refName
+      return refName ?? "Git"
     }
     return statusLabel({ ...input.status, refName })
   }

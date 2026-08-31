@@ -23,10 +23,11 @@ const emptyStatus = (cwd: string) => ({
 export const stubVcsStatusBroadcasterLayer = (refresh: (cwd: string) => void = () => undefined) =>
   Layer.succeed(VcsStatusBroadcaster)({
     streamStatus: (cwd) => Stream.make({ _tag: "snapshot" as const, status: emptyStatus(cwd) }),
-    refresh: (cwd) => {
-      refresh(cwd)
-      return Effect.succeed(emptyStatus(cwd))
-    },
+    refresh: (cwd) =>
+      Effect.sync(() => {
+        refresh(cwd)
+        return emptyStatus(cwd)
+      }),
   })
 
 export const stubGitRuntimeLayer = Layer.succeed(GitRuntime)({

@@ -155,6 +155,16 @@ describe("checkout helpers", () => {
         status: undefined,
       }),
     ).toBe("noyau/safer-reconnect-backoff")
+    expect(
+      resolveBranchTriggerLabel({
+        envMode: "worktree",
+        worktreePath: "/tmp/wt",
+        baseBranch: "",
+        liveBranch: "noyau/f4ae4e0e",
+        startFromOrigin: false,
+        status: liveStatus("main"),
+      }),
+    ).toBe("noyau/f4ae4e0e")
   })
 
   it("garde le HEAD live en checkout local", () => {

@@ -9,7 +9,7 @@ import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/i
 import { ControlPlane, makeControlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { GitRuntime, type GitRuntimeService } from "@noyau/server/git/git-runtime"
-import type { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
+import { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
 import { memoryLayer } from "@noyau/server/persistence/sqlite"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import {
@@ -18,7 +18,7 @@ import {
 } from "@noyau/server/text-generation/text-generation"
 import { threadLiveLayer } from "@noyau/server/thread-live"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
-import { Crypto, Effect, Layer, Path, Schema, Stream } from "effect"
+import { Context, Crypto, Effect, Layer, Path, Schema, Stream } from "effect"
 
 import {
   stubGitRuntimeLayer,
@@ -296,6 +296,24 @@ describe("Worktree branch reactor", () => {
         assert.match(renames[0]?.oldBranch ?? "", /^noyau\/[0-9a-f]{8}$/)
         assert.strictEqual(renames[0]?.newBranch, "noyau/safer-reconnect-backoff")
         assert.strictEqual(yield* readThreadBranch(controlPlane), "noyau/safer-reconnect-backoff")
+      }),
+    )
+  })
+
+  it.effect("does not record a VCS refresh until the Effect runs", () => {
+    const refreshed: Array<string> = []
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const services = yield* Layer.build(
+          stubVcsStatusBroadcasterLayer((cwd) => {
+            refreshed.push(cwd)
+          }),
+        )
+        const broadcaster = Context.get(services, VcsStatusBroadcaster)
+        const pending = broadcaster.refresh("/tmp/worktrees/noyau/f4ae4e0e")
+        assert.deepStrictEqual(refreshed, [])
+        yield* pending
+        assert.deepStrictEqual(refreshed, ["/tmp/worktrees/noyau/f4ae4e0e"])
       }),
     )
   })
