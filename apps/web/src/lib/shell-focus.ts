@@ -2,6 +2,7 @@ import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import type { ShellFocus } from "@noyau/contracts/shell"
 import { Option, Schema } from "effect"
 
+import type { LastScreen } from "@/lib/last-screen"
 import { isSettingsPath } from "@/lib/settings-catalog"
 
 const decodeProjectId = Schema.decodeUnknownOption(ProjectId)
@@ -11,7 +12,7 @@ export type ResolvedShellFocus = ShellFocus | { readonly _tag: "sticky" }
 
 export const resolveShellFocus = (
   pathname: string,
-  lastProjectId: ProjectId | undefined,
+  lastScreen: LastScreen | undefined,
 ): ResolvedShellFocus => {
   const boardMatch = /^\/projects\/([^/]+)\/board$/.exec(pathname)
   if (boardMatch !== null) {
@@ -37,8 +38,10 @@ export const resolveShellFocus = (
     })
   }
 
-  if (pathname === "/" && lastProjectId !== undefined) {
-    return { _tag: "tableau", projectId: lastProjectId }
+  if (pathname === "/" && lastScreen !== undefined) {
+    return lastScreen._tag === "thread"
+      ? { _tag: "thread", projectId: lastScreen.projectId, threadId: lastScreen.threadId }
+      : { _tag: "tableau", projectId: lastScreen.projectId }
   }
 
   if (pathname === "/") {

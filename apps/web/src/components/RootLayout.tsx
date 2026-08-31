@@ -19,6 +19,7 @@ import {
 } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useKeybindingDispatcher } from "@/hooks/use-keybinding-dispatcher"
+import { useLastScreenRecorder } from "@/hooks/use-last-screen-recorder"
 import { useOpenThreadFromNotification } from "@/hooks/use-open-thread-from-notification"
 import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
 import { useShellFocusReporter } from "@/hooks/use-shell-focus-reporter"
@@ -143,6 +144,11 @@ function ShellFocusReporter() {
   return null
 }
 
+function LastScreenRecorder() {
+  useLastScreenRecorder()
+  return null
+}
+
 function KeybindingRuntime() {
   useKeybindingDispatcher()
   return null
@@ -162,6 +168,7 @@ export function RootLayout() {
   return (
     <ControlPlaneProvider>
       <ShellFocusReporter />
+      <LastScreenRecorder />
       <KeybindingRuntime />
       <TurnSettlementCue />
       <AppPaletteProvider>

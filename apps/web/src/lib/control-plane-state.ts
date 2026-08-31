@@ -1,31 +1,10 @@
 import { DEFAULT_PROVIDER_INSTANCE_ID } from "@noyau/contracts/entities/environment"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
-import { ProjectId, type ThreadId } from "@noyau/contracts/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import type { ShellLiveEvent, ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { DateTime } from "effect"
 
 export const LAST_PROJECT_STORAGE_KEY = "noyau.last-project-id"
-
-export const readLastProjectId = (): ProjectId | undefined => {
-  try {
-    const value = window.localStorage.getItem(LAST_PROJECT_STORAGE_KEY)
-    return value === null ? undefined : ProjectId.make(value)
-  } catch {
-    return undefined
-  }
-}
-
-export const writeLastProjectId = (projectId: ProjectId | undefined): void => {
-  try {
-    if (projectId === undefined) {
-      window.localStorage.removeItem(LAST_PROJECT_STORAGE_KEY)
-      return
-    }
-    window.localStorage.setItem(LAST_PROJECT_STORAGE_KEY, projectId)
-  } catch {
-    // Persistence is best effort; the server remains authoritative.
-  }
-}
 
 const withSequence = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnapshot => {
   switch (event._tag) {

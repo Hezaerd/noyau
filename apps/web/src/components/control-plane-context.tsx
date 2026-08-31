@@ -1,24 +1,32 @@
+import { useRouterState } from "@tanstack/react-router"
 import { useEffect, type ReactNode } from "react"
 
-import { useAppliedShell, useSubscriptionStatus } from "@/hooks/use-control-plane"
+import { useAppliedShell, useLastScreen, useSubscriptionStatus } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { dismissBootSplash } from "@/lib/boot-splash"
 import { subscribeShell } from "@/lib/control-plane"
+import { resolveStartupDestination, shouldHoldBootSplash } from "@/lib/last-screen"
 import { hydrateKeybindingsFromServer } from "@/state/keybindings"
 import {
-  hydrateLastProjectId,
+  hydrateLastScreen,
   reduceAppliedShellEvent,
   replaceAppliedShell,
   setSubscriptionStatus,
 } from "@/state/shell"
 
 export function ControlPlaneProvider({ children }: { readonly children: ReactNode }) {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
   const shell = useAppliedShell()
+  const lastScreen = useLastScreen()
   const subscriptionStatus = useSubscriptionStatus()
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
+  const destination =
+    shell === undefined
+      ? undefined
+      : resolveStartupDestination(lastScreen, shell.projects, shell.threads)
 
   useEffect(() => {
-    hydrateLastProjectId()
+    hydrateLastScreen()
     return subscribeShell(undefined, {
       onSnapshot: (next) => {
         replaceAppliedShell(next)
@@ -30,10 +38,18 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
   }, [])
 
   useEffect(() => {
-    if (shell !== undefined || subscriptionFailure !== undefined) {
-      dismissBootSplash()
+    if (
+      shouldHoldBootSplash({
+        pathname,
+        shellReady: shell !== undefined,
+        subscriptionFailed: subscriptionFailure !== undefined,
+        destination,
+      })
+    ) {
+      return
     }
-  }, [shell, subscriptionFailure])
+    dismissBootSplash()
+  }, [destination, pathname, shell, subscriptionFailure])
 
   return children
 }
