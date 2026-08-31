@@ -315,6 +315,10 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
           1,
         )
         assert.strictEqual(requests.filter((message) => message.method === "turn/start").length, 2)
+        assert.strictEqual(
+          requests.filter((message) => message.method === "config/mcpServer/reload").length,
+          1,
+        )
         assert.isTrue(
           first.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )

@@ -46,8 +46,9 @@ layer(Layer.merge(testServerConfigLayer({ port: 43_123 }), NodeServices.layer))(
         yield* registry.deactivateTurn(threadId, firstTurnId)
         assert.strictEqual((yield* registry.resolve(firstToken))?.turnId, secondTurnId)
 
+        // Settling the current Turn keeps the Session credential usable.
         yield* registry.deactivateTurn(threadId, secondTurnId)
-        assert.isUndefined(yield* registry.resolve(firstToken))
+        assert.strictEqual((yield* registry.resolve(firstToken))?.turnId, secondTurnId)
       }),
     )
 
