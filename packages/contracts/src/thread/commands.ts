@@ -8,6 +8,7 @@ import {
   turnHasPrompt,
 } from "@noyau/contracts/entities/attachment"
 import { ThreadBranch, ThreadWorktreePath } from "@noyau/contracts/entities/checkout"
+import { ContextUsage } from "@noyau/contracts/entities/context-usage"
 import { Provider } from "@noyau/contracts/entities/environment"
 import { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
@@ -284,6 +285,11 @@ const turnDiffCompletePayload = {
   files: Schema.Array(TurnDiffFile),
 } as const
 
+const contextUsageSetPayload = {
+  threadId: ThreadId,
+  contextUsage: ContextUsage,
+} as const
+
 export const ThreadSessionSet = command("thread.session.set", Schema.Struct(sessionSetPayload))
 export const ThreadTranscriptAppend = command(
   "thread.transcript.append",
@@ -295,6 +301,10 @@ export const ThreadTurnDiffComplete = command(
   "thread.turn.diff.complete",
   Schema.Struct(turnDiffCompletePayload),
 )
+export const ThreadContextUsageSet = command(
+  "thread.context-usage.set",
+  Schema.Struct(contextUsageSetPayload),
+)
 
 export const InternalThreadCommand = Schema.Union([
   ThreadSessionSet,
@@ -302,6 +312,7 @@ export const InternalThreadCommand = Schema.Union([
   ThreadTurnEnded,
   ThreadTitleSeeded,
   ThreadTurnDiffComplete,
+  ThreadContextUsageSet,
 ])
 export type InternalThreadCommand = (typeof InternalThreadCommand)["Type"]
 

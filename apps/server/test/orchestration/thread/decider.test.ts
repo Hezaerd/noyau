@@ -1144,6 +1144,73 @@ describe("TurnDiff", () => {
   })
 })
 
+describe("context usage", () => {
+  it("persiste le dernier fill et ignore un doublon identique", () => {
+    const state = withThread()
+    const events = success(
+      decide(
+        state,
+        command({
+          _tag: "thread.context-usage.set",
+          ...meta,
+          payload: {
+            threadId: ids.thread,
+            contextUsage: { used: 12400, window: 200000 },
+          },
+        }),
+      ),
+    )
+    const next = apply(state, events)
+    expect(events).toEqual([
+      {
+        _tag: "thread.context-usage-set",
+        threadId: ids.thread,
+        contextUsage: { used: 12400, window: 200000 },
+      },
+    ])
+    expect(next.threads[0]?.contextUsage).toEqual({ used: 12400, window: 200000 })
+    expect(
+      success(
+        decide(
+          next,
+          command({
+            _tag: "thread.context-usage.set",
+            ...meta,
+            commandId: ids.command2,
+            payload: {
+              threadId: ids.thread,
+              contextUsage: { used: 12400, window: 200000 },
+            },
+          }),
+        ),
+      ),
+    ).toEqual([])
+  })
+
+  it("conserve le fill après la fin de Session", () => {
+    const running = withRunningTurn()
+    const withUsage = apply(
+      running,
+      success(
+        decide(
+          running,
+          command({
+            _tag: "thread.context-usage.set",
+            ...meta,
+            payload: {
+              threadId: ids.thread,
+              contextUsage: { used: 180000, window: 200000 },
+            },
+          }),
+        ),
+      ),
+    )
+    const ready = apply(withUsage, setSession(withUsage, "ready", null, later))
+    expect(ready.threads[0]?.session?.status).toBe("ready")
+    expect(ready.threads[0]?.contextUsage).toEqual({ used: 180000, window: 200000 })
+  })
+})
+
 describe("boot recovery", () => {
   it.each(["starting", "running"] as const)(
     "convertit une Session %s en error, settle le Turn et conserve resumeCursor",

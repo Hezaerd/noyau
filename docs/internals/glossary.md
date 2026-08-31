@@ -44,6 +44,15 @@ This is a living glossary for Noyau. It explains what common terms mean in this 
 
 ### Thread timeline
 
+#### Context usage
+
+Last-known fill of a Thread's model context window: tokens currently in
+context over the window size. Shape is [ContextUsage][14]. The internal
+command is `thread.context-usage.set`; the event is `thread.context-usage-set`.
+Adapters normalize native payloads and emit a `context-usage` signal. The
+thread projector stores it on the Thread, not on the live Session, so the
+fill survives session reap. Claude does not report it yet.
+
 ### Client chrome
 
 #### Workspace panel
@@ -108,3 +117,4 @@ only.
 [11]: ../../apps/web/src/lib/workspace-panel.ts
 [12]: ../../apps/web/src/components/workspace-panel/WorkspacePanel.tsx
 [13]: ./workspace-panel.md
+[14]: ../../packages/contracts/src/entities/context-usage.ts

@@ -88,6 +88,8 @@ const ThreadRow = Schema.Struct({
   archived_at: Schema.NullOr(Schema.String),
   settled_override: Schema.NullOr(Schema.Literals(["settled", "active"])),
   settled_at: Schema.NullOr(Schema.String),
+  context_used: Schema.NullOr(Schema.Int),
+  context_window: Schema.NullOr(Schema.Int),
 })
 const SessionRow = Schema.Struct({
   thread_id: Schema.String,
@@ -494,7 +496,7 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         SELECT
           thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
           service_tier, thinking, branch, worktree_path, status, created_at, listed_at, updated_at,
-          archived_at, settled_override, settled_at
+          archived_at, settled_override, settled_at, context_used, context_window
         FROM projection_threads
         WHERE thread_id = ${threadId}
       `
@@ -600,6 +602,11 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
       }
       if (thread.settled_at !== null) {
         Object.assign(encodedThread, { settledAt: thread.settled_at })
+      }
+      if (thread.context_used !== null && thread.context_window !== null) {
+        Object.assign(encodedThread, {
+          contextUsage: { used: thread.context_used, window: thread.context_window },
+        })
       }
       const snapshot = yield* decodeThreadSnapshot({
         snapshotSequence,

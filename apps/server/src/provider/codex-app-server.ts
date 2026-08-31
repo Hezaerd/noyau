@@ -6,6 +6,7 @@ import type {
   ProviderUserInputAnswers,
   UserInputQuestion,
 } from "@noyau/contracts/entities/approvals"
+import { contextUsageOf, type ContextUsage } from "@noyau/contracts/entities/context-usage"
 import {
   emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
@@ -74,6 +75,7 @@ interface CodexSession {
   providerThreadId: string
   resumeCursor: ProviderTurnInput["resumeCursor"]
   activeTurn: ActiveTurn | undefined
+  lastEmit: ProviderEmit | undefined
   handlersBound: boolean
   stopped: boolean
 }
@@ -147,6 +149,21 @@ const emitSignal = Effect.fn("CodexAdapter.emitSignal")(function* (
   yield* flushAssistantText(control)
   yield* control.emit(signal)
 })
+
+const emitContextUsage = (session: CodexSession, usage: ContextUsage) => {
+  const control = session.activeTurn
+  const emit = control?.emit ?? session.lastEmit
+  if (emit === undefined) {
+    return Effect.void
+  }
+  const signal = {
+    _tag: "context-usage" as const,
+    threadId: session.threadId,
+    used: usage.used,
+    window: usage.window,
+  }
+  return control === undefined ? emit(signal) : emitSignal(control, signal)
+}
 
 const executableExists = (fileSystem: FileSystem.FileSystem, candidate: string) =>
   fileSystem.access(candidate, { ok: true }).pipe(
@@ -703,6 +720,13 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
         Effect.void,
       ),
     )
+    yield* session.client.handleServerNotification("thread/tokenUsage/updated", (payload) => {
+      const usage = contextUsageOf(
+        payload.tokenUsage.last.totalTokens,
+        payload.tokenUsage.modelContextWindow ?? 0,
+      )
+      return usage === null ? Effect.void : emitContextUsage(session, usage)
+    })
     yield* session.client.handleServerRequest("item/commandExecution/requestApproval", (payload) =>
       withActiveTurn(
         session,
@@ -864,6 +888,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
         providerThreadId,
         resumeCursor: makeResumeCursor(providerThreadId),
         activeTurn: control,
+        lastEmit: control.emit,
         handlersBound: false,
         stopped: false,
       }
@@ -872,6 +897,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
 
     control.session = session
     session.activeTurn = control
+    session.lastEmit = control.emit
     session.resumeCursor = makeResumeCursor(session.providerThreadId)
     if (!session.handlersBound) {
       yield* bindHandlers(session)

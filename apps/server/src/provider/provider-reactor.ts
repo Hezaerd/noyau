@@ -62,6 +62,10 @@ type InternalCommandBody =
       Extract<InternalCommandEncoded, { readonly _tag: "thread.turn.ended" }>,
       "_tag" | "payload"
     >
+  | Pick<
+      Extract<InternalCommandEncoded, { readonly _tag: "thread.context-usage.set" }>,
+      "_tag" | "payload"
+    >
 
 const projectRoot = Effect.fn("ProviderReactor.projectRoot")(function* (projectId: string) {
   const sql = yield* SqlClient
@@ -143,6 +147,17 @@ const commandForSignal = (
               lastError: signal.lastError,
             },
           }
+    case "context-usage":
+      return {
+        _tag: "thread.context-usage.set",
+        payload: {
+          threadId: signal.threadId,
+          contextUsage: {
+            used: signal.used,
+            window: signal.window,
+          },
+        },
+      }
   }
 }
 

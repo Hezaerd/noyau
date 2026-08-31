@@ -1056,6 +1056,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       onInterrupt={() => interruptTurn()}
       searchPaths={searchPaths}
       tickets={tickets}
+      contextUsage={pageSnapshot?.thread.contextUsage}
       toolbar={
         isDraftThread || (conflictingPr === null && failingCiPr === null) ? undefined : (
           <>
