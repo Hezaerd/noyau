@@ -600,6 +600,21 @@ html.dark [data-streamdown="code-block-body"] pre {
   text-decoration: none;
 }
 
+/* Page markdown: --code is the contrasted surface next to --background. */
+.thread-markdown [data-streamdown="inline-code"],
+.thread-preview-markdown [data-streamdown="inline-code"] {
+  background-color: var(--code);
+  color: var(--code-foreground);
+}
+
+/* User bubbles sit on --primary. Reuse that pair so the chip is a
+   contrasted primary, not a page --code island. Same mix recipe as
+   secondary/muted bubble hovers. */
+[data-slot="bubble"][data-variant="default"] .thread-markdown [data-streamdown="inline-code"] {
+  background-color: color-mix(in oklch, var(--primary), var(--primary-foreground) 18%);
+  color: inherit;
+}
+
 /* User bubbles sit on --primary. --info-foreground is the same violet family and
    fails contrast in both schemes; inherit the bubble's primary-foreground instead. */
 [data-slot="bubble"][data-variant="default"] .thread-markdown a:not(.thread-markdown-file-chip) {

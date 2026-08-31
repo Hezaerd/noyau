@@ -65,7 +65,7 @@ export function ThreadMarkdownCode({
     }
     return (
       <code
-        className={cn("rounded bg-muted px-1.5 py-0.5 font-mono text-sm", className)}
+        className={cn("rounded px-1.5 py-0.5 font-mono text-sm", className)}
         data-streamdown="inline-code"
         {...props}
       >
