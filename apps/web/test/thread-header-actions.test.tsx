@@ -18,9 +18,14 @@ import { nowMinuteAtom } from "../src/state/now"
 import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
 
 const dispatchThreadSettle = vi.hoisted(() => vi.fn())
+const dispatchThreadTitleRegenerate = vi.hoisted(() => vi.fn())
 
 vi.mock("../src/lib/thread-settle-actions", () => ({
   dispatchThreadSettle,
+}))
+
+vi.mock("../src/lib/thread-title-actions", () => ({
+  dispatchThreadTitleRegenerate,
 }))
 
 vi.mock("../src/components/thread/OpenInPicker", () => ({
@@ -135,6 +140,7 @@ afterEach(() => {
   resetAppliedShell()
   registeredPaletteActions.length = 0
   dispatchThreadSettle.mockClear()
+  dispatchThreadTitleRegenerate.mockClear()
 })
 
 describe("ThreadHeaderActions", () => {
@@ -177,6 +183,26 @@ describe("ThreadHeaderActions", () => {
       (action) => action.id === "thread.workspace-browser.open",
     )
     expect(openBrowser?.label).toBe("Open browser")
+  })
+
+  it("offers title regeneration from the palette when the Thread has a Turn", () => {
+    const thread = makeThread()
+    renderHeader(thread)
+
+    const regenerate = registeredPaletteActions.find(
+      (action) => action.id === "thread.title.regenerate",
+    )
+    expect(regenerate?.label).toBe("Regenerate title")
+    void regenerate?.execute()
+    expect(dispatchThreadTitleRegenerate).toHaveBeenCalledWith(thread.id)
+  })
+
+  it("omits title regeneration from the palette before the first Turn", () => {
+    renderHeader(makeThread({ latestTurn: null }))
+
+    expect(
+      registeredPaletteActions.find((action) => action.id === "thread.title.regenerate"),
+    ).toBeUndefined()
   })
 
   it("omits the workspace panel palette action when the header is disabled", () => {
