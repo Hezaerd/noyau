@@ -142,6 +142,14 @@ const resumeFrom = (signals: ReadonlyArray<ProviderSignal>) => {
   return session?._tag === "session" ? session.resumeCursor : null
 }
 
+const endedBeforeReady = (signals: ReadonlyArray<ProviderSignal>) => {
+  const ended = signals.findLastIndex((signal) => signal._tag === "turn-ended")
+  const ready = signals.findLastIndex(
+    (signal) => signal._tag === "session" && signal.status === "ready",
+  )
+  return ended !== -1 && ready !== -1 && ended < ready
+}
+
 const waitForLog = Effect.fn("CodexAdapterTest.waitForLog")((filePath: string, snippet: string) =>
   TestClock.withLive(
     Effect.gen(function* () {
@@ -331,13 +339,6 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
         assert.isTrue(
           second.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )
-        const endedBeforeReady = (signals: ReadonlyArray<ProviderSignal>) => {
-          const ended = signals.findLastIndex((signal) => signal._tag === "turn-ended")
-          const ready = signals.findLastIndex(
-            (signal) => signal._tag === "session" && signal.status === "ready",
-          )
-          return ended !== -1 && ready !== -1 && ended < ready
-        }
         assert.isTrue(endedBeforeReady(first))
         assert.isTrue(endedBeforeReady(second))
 
