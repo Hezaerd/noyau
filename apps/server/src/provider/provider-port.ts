@@ -3,15 +3,12 @@ import type {
   ProviderUserInputAnswers,
 } from "@noyau/contracts/entities/approvals"
 import type { TurnImageAttachment } from "@noyau/contracts/entities/attachment"
-import type { Provider } from "@noyau/contracts/entities/environment"
-import {
-  emptyClaudeProviderStatus,
-  emptyCodexProviderStatus,
-  emptyCursorProviderStatus,
-  type ClaudeProviderStatus,
-  type CodexProviderStatus,
-  type CursorProviderStatus,
+import type {
+  Provider,
+  ProviderInstanceView,
+  ProviderInstanceViewMap,
 } from "@noyau/contracts/entities/environment"
+import { emptyEnvironmentProviders } from "@noyau/contracts/entities/environment"
 import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import type { ResumeCursor, SessionStatus } from "@noyau/contracts/entities/session"
@@ -26,17 +23,13 @@ export interface ProviderTurnAttachment extends TurnImageAttachment {
   readonly data: Uint8Array
 }
 
-export interface ProviderStatuses {
-  readonly cursor: CursorProviderStatus
-  readonly claude: ClaudeProviderStatus
-  readonly codex: CodexProviderStatus
-}
+export type ProviderStatuses = ProviderInstanceViewMap
 
-export const emptyProviderStatuses: ProviderStatuses = {
-  cursor: emptyCursorProviderStatus,
-  claude: emptyClaudeProviderStatus,
-  codex: emptyCodexProviderStatus,
-}
+export const emptyProviderStatuses: ProviderStatuses = emptyEnvironmentProviders()
+
+export const singleInstanceStatuses = (view: ProviderInstanceView): ProviderStatuses => ({
+  [view.instanceId]: view,
+})
 
 export interface ProviderTurnInput {
   readonly projectId: ProjectId

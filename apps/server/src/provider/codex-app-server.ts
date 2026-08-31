@@ -8,9 +8,11 @@ import type {
 } from "@noyau/contracts/entities/approvals"
 import { contextUsageOf, type ContextUsage } from "@noyau/contracts/entities/context-usage"
 import {
-  emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
-  emptyCursorProviderStatus,
+  instanceConfigBinaryPath,
+  ProviderDriverKind,
+  ProviderInstanceId,
+  providerInstanceView,
   type CursorModel,
   type CursorReasoningEffort,
   type CursorServiceTier,
@@ -30,6 +32,7 @@ import { takeBufferedAssistantSpill } from "./assistant-delivery.ts"
 import { promptContentBlocks } from "./prompt-blocks.ts"
 import {
   ProviderPort,
+  singleInstanceStatuses,
   type ProviderEmit,
   type ProviderSignal,
   type ProviderTurnInput,
@@ -55,6 +58,8 @@ const CLIENT_INFO = {
 } as const
 
 export interface CodexAdapterOptions {
+  readonly instanceId?: ProviderInstanceId
+  readonly instanceConfig?: unknown
   readonly binaryPath?: string
   readonly binaryArgs?: ReadonlyArray<string>
   readonly environment?: NodeJS.ProcessEnv
@@ -486,7 +491,11 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const environment = options.environment ?? process.env
   const platform = options.platform ?? process.platform
-  const configuredPath = options.binaryPath ?? environment.NOYAU_CODEX_PATH
+  const instanceId = options.instanceId ?? ProviderInstanceId.make("codex")
+  const configuredPath =
+    environment.NOYAU_CODEX_PATH ??
+    options.binaryPath ??
+    instanceConfigBinaryPath(options.instanceConfig)
   const binaryArgs = options.binaryArgs ?? []
   const active = new Map<string, ActiveTurn>()
   const queued = new Map<string, ActiveTurn>()
@@ -1093,11 +1102,16 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
   yield* Effect.addFinalizer(() => stopAll)
 
   return ProviderPort.of({
-    status: Effect.succeed({
-      cursor: emptyCursorProviderStatus,
-      claude: emptyClaudeProviderStatus,
-      codex: providerStatus,
-    }),
+    status: Effect.succeed(
+      singleInstanceStatuses(
+        providerInstanceView({
+          instanceId,
+          driver: ProviderDriverKind.make("codex"),
+          enabled: true,
+          probe: providerStatus,
+        }),
+      ),
+    ),
     startTurn: (input, emit) => startTurn(input, emit).pipe(Effect.provideService(Path.Path, path)),
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

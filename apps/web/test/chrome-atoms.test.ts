@@ -1,4 +1,4 @@
-import { EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
 import { afterEach, describe, expect, it } from "vite-plus/test"
@@ -14,6 +14,7 @@ import {
 } from "../src/state/sidebar"
 import { pinAtom, setThreadPinned } from "../src/state/thread-pins"
 import { markThreadVisited, visitAtom } from "../src/state/thread-visits"
+import { encodedTestEnvironment } from "./encoded-environment"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
@@ -22,34 +23,7 @@ const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
 const makeSnapshot = (threads: ReadonlyArray<ThreadShell>) => ({
   ...Schema.decodeSync(ShellSnapshot)({
     snapshotSequence: 1,
-    environment: {
-      id: EnvironmentId.make("30000000-0000-4000-8000-000000000001"),
-      cursor: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: [],
-      },
-      claude: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: [],
-      },
-      codex: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: [],
-      },
-      createdAt: "2026-08-25T12:00:00.000Z",
-    },
+    environment: encodedTestEnvironment(),
     projects: [
       {
         id: projectId,

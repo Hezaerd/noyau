@@ -1,9 +1,11 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it as standaloneIt, layer } from "@effect/vitest"
 import {
+  migrationsThroughContextUsage,
   migrationsThroughTurnDiff,
   runMigrations,
   threadProviderCodexMigration,
+  threadProviderInstanceMigration,
 } from "@noyau/server/persistence/migrations"
 import * as NodeSqliteClient from "@noyau/server/persistence/node-sqlite-client"
 import { recoverSessionsAfterBoot } from "@noyau/server/persistence/session-recovery"
@@ -271,6 +273,83 @@ describe("SQLite persistence", () => {
             (SELECT COUNT(*) FROM projection_turns) AS turns
         `
         assert.deepStrictEqual(afterDelete[0], { threads: 0, sessions: 0, turns: 0 })
+      }),
+    )
+
+    it.effect("014 ouvre provider aux instance ids hors du CHECK fermé", () =>
+      Effect.gen(function* () {
+        const sql = yield* SqlClient
+        yield* sql`PRAGMA foreign_keys = ON`
+        yield* Migrator.make({})({
+          loader: migrationsThroughContextUsage,
+        })
+
+        yield* sql`
+          INSERT INTO projection_projects (
+            project_id, name, workspace_root, available, created_at, updated_at
+          ) VALUES (
+            'proj-1', 'noyau', '/tmp/noyau', 1, '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_threads (
+            thread_id, project_id, title, provider, runtime_mode, status, created_at, updated_at
+          ) VALUES (
+            'thread-1', 'proj-1', 'Cursor', 'cursor', 'full-access', 'active',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+        yield* sql`
+          INSERT INTO projection_sessions (
+            thread_id, status, last_error, active_turn_id, runtime_mode, resume_cursor, updated_at
+          ) VALUES (
+            'thread-1', 'idle', NULL, NULL, 'full-access', '{"schemaVersion":1,"sessionId":"s1"}',
+            '2026-08-20T00:00:00.000Z'
+          )
+        `
+
+        const rejected = yield* Effect.exit(
+          sql`
+            INSERT INTO projection_threads (
+              thread_id, project_id, title, provider, runtime_mode, status, created_at, updated_at
+            ) VALUES (
+              'thread-claude', 'proj-1', 'Claude', 'claude', 'full-access', 'active',
+              '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+            )
+          `,
+        )
+        assert.isTrue(rejected._tag === "Failure")
+
+        yield* threadProviderInstanceMigration
+
+        const leftovers = yield* sql<{ sessions: number; provider: string }>`
+          SELECT
+            (SELECT COUNT(*) FROM projection_sessions) AS sessions,
+            (SELECT provider FROM projection_threads WHERE thread_id = 'thread-1') AS provider
+        `
+        assert.deepStrictEqual(leftovers[0], { sessions: 1, provider: "cursor" })
+
+        yield* sql`
+          INSERT INTO projection_threads (
+            thread_id, project_id, title, provider, runtime_mode, status, created_at, updated_at
+          ) VALUES
+            (
+              'thread-claude', 'proj-1', 'Claude', 'claude', 'full-access', 'active',
+              '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+            ),
+            (
+              'thread-grok', 'proj-1', 'Grok', 'grok', 'full-access', 'active',
+              '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+            )
+        `
+
+        const inserted = yield* sql<{ provider: string }>`
+          SELECT provider FROM projection_threads ORDER BY thread_id
+        `
+        assert.deepStrictEqual(
+          inserted.map((row) => row.provider),
+          ["cursor", "claude", "grok"],
+        )
       }),
     )
   })

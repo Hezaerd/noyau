@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 
-import { EnvironmentId } from "@noyau/contracts/ids"
 import { ShellSnapshot } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
@@ -10,41 +9,28 @@ import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPop
 import { catalogModels, threadModelLabel } from "../src/lib/thread-sidebar-popover"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
+import { encodedTestEnvironment } from "./encoded-environment"
 
 const makeSnapshot = (
-  cursorModels: ShellSnapshot["environment"]["cursor"]["models"],
-  codexModels: ShellSnapshot["environment"]["codex"]["models"] = [],
+  cursorModels: ReadonlyArray<{
+    readonly modelId: string
+    readonly label: string
+    readonly reasoningEfforts: ReadonlyArray<never>
+    readonly serviceTiers: ReadonlyArray<never>
+  }>,
+  codexModels: ReadonlyArray<{
+    readonly modelId: string
+    readonly label: string
+    readonly reasoningEfforts: ReadonlyArray<never>
+    readonly serviceTiers: ReadonlyArray<never>
+  }> = [],
 ) =>
   Schema.decodeSync(ShellSnapshot)({
     snapshotSequence: 1,
-    environment: {
-      id: EnvironmentId.make("30000000-0000-4000-8000-000000000001"),
-      cursor: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: cursorModels,
-      },
-      claude: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: [],
-      },
-      codex: {
-        installed: false,
-        handshakeOk: false,
-        version: null,
-        plan: null,
-        binaryPath: null,
-        models: codexModels,
-      },
-      createdAt: "2026-08-25T12:00:00.000Z",
-    },
+    environment: encodedTestEnvironment({
+      cursorModels,
+      codexModels,
+    }),
     projects: [],
     threads: [],
   })

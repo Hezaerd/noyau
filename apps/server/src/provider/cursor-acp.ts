@@ -8,9 +8,11 @@ import type {
 } from "@noyau/contracts/entities/approvals"
 import { contextUsageOf } from "@noyau/contracts/entities/context-usage"
 import {
-  emptyClaudeProviderStatus,
-  emptyCodexProviderStatus,
   emptyCursorProviderStatus,
+  instanceConfigBinaryPath,
+  ProviderDriverKind,
+  ProviderInstanceId,
+  providerInstanceView,
   type CursorModel,
 } from "@noyau/contracts/entities/environment"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
@@ -42,6 +44,7 @@ import {
 import { promptContentBlocks } from "./prompt-blocks.ts"
 import {
   ProviderPort,
+  singleInstanceStatuses,
   type ProviderEmit,
   type ProviderSignal,
   type ProviderTurnInput,
@@ -65,6 +68,8 @@ const DEFAULT_SESSION_LOAD_TIMEOUT = Duration.seconds(90)
 const decodeCursorModels = Schema.decodeUnknownEffect(CursorListAvailableModelsResponse)
 
 export interface CursorAdapterOptions {
+  readonly instanceId?: ProviderInstanceId
+  readonly instanceConfig?: unknown
   readonly binaryPath?: string
   readonly binaryArgs?: ReadonlyArray<string>
   readonly environment?: NodeJS.ProcessEnv
@@ -660,7 +665,11 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const environment = options.environment ?? process.env
   const platform = options.platform ?? process.platform
-  const configuredPath = options.binaryPath ?? environment.NOYAU_CURSOR_PATH
+  const instanceId = options.instanceId ?? ProviderInstanceId.make("cursor")
+  const configuredPath =
+    environment.NOYAU_CURSOR_PATH ??
+    options.binaryPath ??
+    instanceConfigBinaryPath(options.instanceConfig)
   const binaryArgs = options.binaryArgs ?? []
   const clientVersion = options.clientVersion ?? "0.0.0"
   const active = new Map<string, ActiveTurn>()
@@ -1567,11 +1576,16 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
   yield* Effect.addFinalizer(() => stopAll)
 
   return ProviderPort.of({
-    status: Effect.succeed({
-      cursor: providerStatus,
-      claude: emptyClaudeProviderStatus,
-      codex: emptyCodexProviderStatus,
-    }),
+    status: Effect.succeed(
+      singleInstanceStatuses(
+        providerInstanceView({
+          instanceId,
+          driver: ProviderDriverKind.make("cursor"),
+          enabled: true,
+          probe: providerStatus,
+        }),
+      ),
+    ),
     startTurn,
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

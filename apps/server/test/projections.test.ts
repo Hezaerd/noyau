@@ -1,7 +1,11 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
 import { BoardSnapshot } from "@noyau/contracts/board"
-import { Environment, WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import {
+  Environment,
+  ProviderInstanceId,
+  WorkspaceRoot,
+} from "@noyau/contracts/entities/environment"
 import { KanbanColumnColor, KanbanRank } from "@noyau/contracts/entities/kanban-column"
 import { Session } from "@noyau/contracts/entities/session"
 import { type DomainEvent } from "@noyau/contracts/events"
@@ -74,26 +78,37 @@ const occurredAt = (iso: string) => Schema.decodeSync(Schema.DateTimeUtcFromStri
 const encodeBoardSnapshot = Schema.encodeEffect(BoardSnapshot)
 const environment = Schema.decodeSync(Environment)({
   id: "90000000-0000-4000-8000-000000000001",
-  cursor: {
-    installed: true,
-    handshakeOk: true,
-    version: null,
-    plan: null,
-    binaryPath: null,
-  },
-  claude: {
-    installed: false,
-    handshakeOk: false,
-    version: null,
-    plan: null,
-    binaryPath: null,
-  },
-  codex: {
-    installed: false,
-    handshakeOk: false,
-    version: null,
-    plan: null,
-    binaryPath: null,
+  providers: {
+    cursor: {
+      instanceId: "cursor",
+      driver: "cursor",
+      enabled: true,
+      installed: true,
+      handshakeOk: true,
+      version: null,
+      plan: null,
+      binaryPath: null,
+    },
+    claude: {
+      instanceId: "claude",
+      driver: "claude",
+      enabled: true,
+      installed: false,
+      handshakeOk: false,
+      version: null,
+      plan: null,
+      binaryPath: null,
+    },
+    codex: {
+      instanceId: "codex",
+      driver: "codex",
+      enabled: true,
+      installed: false,
+      handshakeOk: false,
+      version: null,
+      plan: null,
+      binaryPath: null,
+    },
   },
   createdAt: "2026-08-20T00:00:00.000Z",
 })
@@ -321,7 +336,7 @@ layer(platformLayer)("SQL projections", (it) => {
                   threadId: ids.recoveryThread,
                   projectId: ids.project,
                   title: "Recovery",
-                  provider: "cursor",
+                  provider: ProviderInstanceId.make("cursor"),
                   runtimeMode: "full-access",
                   modelSelection: { modelId: "composer-2.5", reasoningEffort: "medium" },
                 }),
@@ -363,7 +378,7 @@ layer(platformLayer)("SQL projections", (it) => {
                   threadId: ids.terminalThread,
                   projectId: ids.project,
                   title: "Terminal",
-                  provider: "cursor",
+                  provider: ProviderInstanceId.make("cursor"),
                   runtimeMode: "full-access",
                   modelSelection: { modelId: "composer-2.5", reasoningEffort: "medium" },
                 }),
@@ -515,7 +530,7 @@ layer(platformLayer)("SQL projections", (it) => {
                 threadId: ids.recoveryThread,
                 projectId: ids.project,
                 title: "Streaming",
-                provider: "cursor",
+                provider: ProviderInstanceId.make("cursor"),
                 runtimeMode: "full-access",
               }),
               "2026-08-20T00:02:00.000Z",
@@ -641,7 +656,7 @@ layer(platformLayer)("SQL projections", (it) => {
                 threadId: ids.recoveryThread,
                 projectId: ids.project,
                 title: "Ancien",
-                provider: "cursor",
+                provider: ProviderInstanceId.make("cursor"),
                 runtimeMode: "full-access",
               }),
               "2026-08-10T00:00:00.000Z",
@@ -704,7 +719,7 @@ layer(platformLayer)("SQL projections", (it) => {
                 threadId: ids.recoveryThread,
                 projectId: ids.project,
                 title: "Timer",
-                provider: "cursor",
+                provider: ProviderInstanceId.make("cursor"),
                 runtimeMode: "full-access",
               }),
             ),
@@ -819,7 +834,7 @@ layer(platformLayer)("SQL projections", (it) => {
                 threadId: ids.recoveryThread,
                 projectId: ids.project,
                 title: "À supprimer",
-                provider: "cursor",
+                provider: ProviderInstanceId.make("cursor"),
                 runtimeMode: "full-access",
               }),
             ),
@@ -957,7 +972,7 @@ layer(platformLayer)("SQL projections", (it) => {
                 threadId: ids.recoveryThread,
                 projectId: ids.project,
                 title: "Cascade",
-                provider: "cursor",
+                provider: ProviderInstanceId.make("cursor"),
                 runtimeMode: "full-access",
               }),
             ),

@@ -31,6 +31,8 @@
     "./provider/tool-call-presentation": "./src/provider/tool-call-presentation.ts",
     "./provider/prompt-blocks": "./src/provider/prompt-blocks.ts",
     "./provider/undelivered-mandate": "./src/provider/undelivered-mandate.ts",
+    "./provider/provider-instance-registry": "./src/provider/provider-instance-registry.ts",
+    "./provider/provider-settings": "./src/provider/provider-settings.ts",
     "./provider/provider-port": "./src/provider/provider-port.ts",
     "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
     "./provider/provider-session-reaper": "./src/provider/provider-session-reaper.ts",

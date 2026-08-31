@@ -153,7 +153,7 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     id: "providers",
     tab: "providers",
     title: "Providers",
-    description: "AI providers connected to Noyau: Cursor, Claude Code, and Codex.",
+    description: "Enable or disable the providers Noyau can start a Thread with.",
     keywords: ["ai", "agent", "provider", "cursor", "claude", "codex"],
   },
   ...PROVIDER_SETTINGS_ITEMS,

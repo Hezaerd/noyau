@@ -1,7 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
 import { threadBranchOf, threadWorktreePathOf } from "@noyau/contracts/entities/checkout"
-import type { Provider } from "@noyau/contracts/entities/environment"
+import { DEFAULT_PROVIDER_INSTANCE_ID, type Provider } from "@noyau/contracts/entities/environment"
 import type {
   DefaultModelSelection,
   ModelSelection,
@@ -43,13 +43,7 @@ import {
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { WorkspacePanel } from "@/components/workspace-panel/WorkspacePanel"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
-import {
-  useClaude,
-  useCodex,
-  useCursor,
-  useProjects,
-  useThreadShell,
-} from "@/hooks/use-control-plane"
+import { useProjects, useProviders, useThreadShell } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useThreadSnapshot } from "@/hooks/use-thread-snapshot"
@@ -83,11 +77,15 @@ import {
   type SubscriptionStatus,
 } from "@/lib/control-plane"
 import { makeOptimisticThreadShell } from "@/lib/control-plane-state"
-import { isCursorReady } from "@/lib/cursor-readiness"
 import { isDraftThreadView, resolveDraftLatestTurn } from "@/lib/draft-thread"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { resolveDraftDefaultModelSelection } from "@/lib/model-picker-preferences"
 import { makeProjectDefaultModelUpdateRequest } from "@/lib/project-commands"
+import {
+  isProviderInstanceReady,
+  modelsByProvider,
+  readyProviderIds,
+} from "@/lib/provider-presentation"
 import {
   clearOptimisticSend,
   peekOptimisticSend,
@@ -171,9 +169,7 @@ const openedCheckoutOf = (input: {
 }
 
 export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
-  const cursor = useCursor()
-  const claude = useClaude()
-  const codex = useCodex()
+  const providers = useProviders()
   const projects = useProjects()
   const navigate = useNavigate()
   const tickets = useProjectComposerTickets(projectId)
@@ -217,7 +213,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     undefined,
   )
   const persistedDefaultModelSelectionRef = useRef<DefaultModelSelection | null>(null)
-  const [draftProvider, setDraftProvider] = useState<Provider>("cursor")
+  const [draftProvider, setDraftProvider] = useState<Provider>(DEFAULT_PROVIDER_INSTANCE_ID)
   const [draftByRequest, setDraftByRequest] = useState<Record<string, DraftAnswers>>({})
   const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
   const [optimisticSend, setOptimisticSendState] = useState<OptimisticSend | null>(() =>
@@ -239,34 +235,14 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const composerDockRef = useRef<HTMLDivElement>(null)
   const [composerDockHeight, setComposerDockHeight] = useState(208)
   const restoredFailedTurnRef = useRef<string>(undefined)
-  const cursorReady = isCursorReady(cursor)
-  const claudeReady = isCursorReady(claude)
-  const codexReady = isCursorReady(codex)
   const lockedProvider = snapshot?.thread.provider
   const selectedProvider = lockedProvider ?? draftProvider
-  const providerReady =
-    selectedProvider === "claude"
-      ? claudeReady
-      : selectedProvider === "codex"
-        ? codexReady
-        : cursorReady
-  const cursorModels = useMemo(() => cursor?.models ?? [], [cursor?.models])
-  const claudeModels = useMemo(() => claude?.models ?? [], [claude?.models])
-  const codexModels = useMemo(() => codex?.models ?? [], [codex?.models])
-  const availableProviders = useMemo<ReadonlyArray<Provider>>(
-    () => [
-      ...(cursorReady ? (["cursor"] as const) : []),
-      ...(claudeReady ? (["claude"] as const) : []),
-      ...(codexReady ? (["codex"] as const) : []),
-    ],
-    [claudeReady, codexReady, cursorReady],
-  )
-  const selectedModels =
-    selectedProvider === "claude"
-      ? claudeModels
-      : selectedProvider === "codex"
-        ? codexModels
-        : cursorModels
+  const selectedInstance = providers[selectedProvider]
+  const providerReady = isProviderInstanceReady(selectedInstance)
+  const providerDisabled = selectedInstance !== undefined && !selectedInstance.enabled
+  const catalogs = useMemo(() => modelsByProvider(providers), [providers])
+  const availableProviders = useMemo(() => readyProviderIds(providers), [providers])
+  const selectedModels = catalogs[selectedProvider] ?? []
 
   useEffect(() => {
     const persisted = project?.defaultModelSelection ?? null
@@ -290,40 +266,33 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     const resolved = resolveDraftDefaultModelSelection({
       stored: project.defaultModelSelection,
       availableProviders,
-      modelsByProvider: { cursor: cursorModels, claude: claudeModels, codex: codexModels },
+      modelsByProvider: catalogs,
     })
     if (resolved === null) return
     initializedDraftModelRef.current = projectId
     setDraftProvider(resolved.provider)
     setModelSelection(resolved.modelSelection)
-  }, [availableProviders, claudeModels, codexModels, cursorModels, project, projectId, threadId])
+  }, [availableProviders, catalogs, project, projectId, threadId])
 
   useEffect(() => {
     if (lockedProvider !== undefined) {
       return
     }
-    const currentReady =
-      draftProvider === "claude"
-        ? claudeReady
-        : draftProvider === "codex"
-          ? codexReady
-          : cursorReady
-    if (currentReady) {
+    if (isProviderInstanceReady(providers[draftProvider])) {
       return
     }
-    const next = cursorReady ? "cursor" : claudeReady ? "claude" : codexReady ? "codex" : undefined
+    const next = availableProviders[0]
     if (next === undefined || next === draftProvider) {
       return
     }
-    const catalog =
-      (next === "claude" ? claude?.models : next === "codex" ? codex?.models : cursor?.models) ?? []
+    const catalog = catalogs[next] ?? []
     setDraftProvider(next)
     setModelSelection((selection) =>
       selection !== null && catalog.some((model) => model.modelId === selection.modelId)
         ? selection
         : null,
     )
-  }, [lockedProvider, draftProvider, cursorReady, claudeReady, codexReady, cursor, claude, codex])
+  }, [lockedProvider, draftProvider, providers, availableProviders, catalogs])
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
     (query: string) =>
@@ -1024,9 +993,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       images={images}
       runtimeMode={runtimeMode}
       models={selectedModels}
-      cursorModels={cursorModels}
-      claudeModels={claudeModels}
-      codexModels={codexModels}
+      modelsByProvider={catalogs}
       availableProviders={availableProviders}
       lockedProvider={lockedProvider}
       selectedProvider={selectedProvider}
@@ -1034,7 +1001,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       defaultModelSelection={defaultModelSelection}
       placement={isDraftThread ? "hero" : "docked"}
       error={
-        composerError === undefined ? undefined : (
+        providerDisabled ? (
+          <span className="text-xs text-muted-foreground">
+            This provider is disabled in Settings.
+          </span>
+        ) : composerError === undefined ? undefined : (
           <InlineFailure className="text-xs" presentation={composerError} />
         )
       }

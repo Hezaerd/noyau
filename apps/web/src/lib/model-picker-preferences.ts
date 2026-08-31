@@ -1,4 +1,5 @@
 import type { CursorModel, Provider } from "@noyau/contracts/entities/environment"
+import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import type { DefaultModelSelection } from "@noyau/contracts/entities/model-selection"
 import { Option, Schema } from "effect"
 
@@ -10,7 +11,7 @@ export interface FavoriteModel {
 export const MODEL_FAVORITES_STORAGE_KEY = "noyau:model-favorites"
 
 const FavoriteModelSchema = Schema.Struct({
-  provider: Schema.Literals(["cursor", "claude", "codex"]),
+  provider: ProviderInstanceId,
   modelId: Schema.NonEmptyString,
 })
 const FavoriteModelsJson = Schema.fromJsonString(Schema.Array(FavoriteModelSchema))
@@ -24,7 +25,7 @@ export const favoriteModelKey = (favorite: FavoriteModel): string =>
 export const resolveDraftDefaultModelSelection = (input: {
   readonly stored: DefaultModelSelection | null
   readonly availableProviders: ReadonlyArray<Provider>
-  readonly modelsByProvider: Readonly<Record<Provider, ReadonlyArray<CursorModel>>>
+  readonly modelsByProvider: Readonly<Record<string, ReadonlyArray<CursorModel>>>
 }): DefaultModelSelection | null => {
   const provider =
     input.stored !== null && input.availableProviders.includes(input.stored.provider)
@@ -32,7 +33,7 @@ export const resolveDraftDefaultModelSelection = (input: {
       : input.availableProviders[0]
   if (provider === undefined) return null
   if (input.stored?.provider === provider) return input.stored
-  const model = input.modelsByProvider[provider][0]
+  const model = input.modelsByProvider[provider]?.[0]
   return model === undefined ? null : { provider, modelSelection: { modelId: model.modelId } }
 }
 

@@ -1,4 +1,8 @@
-import type { CursorModel, Provider } from "@noyau/contracts/entities/environment"
+import {
+  DEFAULT_PROVIDER_INSTANCE_ID,
+  type CursorModel,
+  type Provider,
+} from "@noyau/contracts/entities/environment"
 import type {
   DefaultModelSelection,
   ModelSelection,
@@ -6,7 +10,6 @@ import type {
 import { CheckIcon, ChevronsUpDownIcon, PinIcon, StarIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
-import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -25,6 +28,7 @@ import {
   readStoredFavoriteModels,
   type FavoriteModel,
 } from "@/lib/model-picker-preferences"
+import { providerIconOf, providerLabelOf } from "@/lib/provider-presentation"
 import { cn } from "@/lib/utils"
 
 type ProviderTab = "favorites" | Provider
@@ -36,18 +40,6 @@ type ModelPickerItem = {
   readonly favorite: boolean
 }
 
-const providerIcons = {
-  cursor: CursorIcon,
-  claude: ClaudeIcon,
-  codex: CodexIcon,
-} as const satisfies Record<Provider, ProviderIcon>
-
-const providerLabels = {
-  cursor: "Cursor",
-  claude: "Claude Code",
-  codex: "Codex",
-} as const satisfies Record<Provider, string>
-
 const sameDefault = (
   value: DefaultModelSelection | null,
   provider: Provider,
@@ -55,9 +47,7 @@ const sameDefault = (
 ): boolean => value?.provider === provider && value.modelSelection.modelId === modelId
 
 export function ThreadModelPicker({
-  cursorModels,
-  claudeModels,
-  codexModels,
+  modelsByProvider,
   availableProviders,
   lockedProvider,
   selectedProvider,
@@ -69,9 +59,7 @@ export function ThreadModelPicker({
   onDefaultModelSelectionChange,
   onOpenChange,
 }: {
-  readonly cursorModels: ReadonlyArray<CursorModel>
-  readonly claudeModels: ReadonlyArray<CursorModel>
-  readonly codexModels: ReadonlyArray<CursorModel>
+  readonly modelsByProvider: Readonly<Record<string, ReadonlyArray<CursorModel>>>
   readonly availableProviders: ReadonlyArray<Provider>
   readonly lockedProvider?: Provider | undefined
   readonly selectedProvider?: Provider | undefined
@@ -86,22 +74,20 @@ export function ThreadModelPicker({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [favorites, setFavorites] = useState<ReadonlyArray<FavoriteModel>>(readStoredFavoriteModels)
-  const catalogs = useMemo<Record<Provider, ReadonlyArray<CursorModel>>>(
-    () => ({ cursor: cursorModels, claude: claudeModels, codex: codexModels }),
-    [claudeModels, codexModels, cursorModels],
-  )
+  const catalogs = modelsByProvider
   const allowedProviders = useMemo<ReadonlyArray<Provider>>(
     () => (lockedProvider === undefined ? availableProviders : [lockedProvider]),
     [availableProviders, lockedProvider],
   )
-  const activeProvider = lockedProvider ?? selectedProvider ?? allowedProviders[0] ?? "cursor"
+  const activeProvider =
+    lockedProvider ?? selectedProvider ?? allowedProviders[0] ?? DEFAULT_PROVIDER_INSTANCE_ID
   const [activeTab, setActiveTab] = useState<ProviderTab>(activeProvider)
   const modelPickerHotkey = useKeybinding("thread.model-picker.open")
   const favoriteKeys = useMemo(() => new Set(favorites.map(favoriteModelKey)), [favorites])
-  const selectedModel = catalogs[activeProvider].find(
+  const selectedModel = (catalogs[activeProvider] ?? []).find(
     (model) => model.modelId === modelSelection?.modelId,
   )
-  const SelectedIcon = providerIcons[activeProvider]
+  const SelectedIcon = providerIconOf(activeProvider)
 
   useEffect(() => {
     if (activeTab !== "favorites" && !allowedProviders.includes(activeTab)) {
@@ -119,13 +105,13 @@ export function ThreadModelPicker({
 
   const allItems = useMemo(() => {
     const items = allowedProviders.flatMap((provider) =>
-      catalogs[provider].map((model): ModelPickerItem => {
+      (catalogs[provider] ?? []).map((model): ModelPickerItem => {
         const favorite = favoriteKeys.has(favoriteModelKey({ provider, modelId: model.modelId }))
         return {
           provider,
           model,
           key: `${provider}:${model.modelId}`,
-          searchValue: `${model.label} ${model.modelId} ${providerLabels[provider]}`,
+          searchValue: `${model.label} ${model.modelId} ${providerLabelOf(provider)}`,
           favorite,
         }
       }),
@@ -221,7 +207,7 @@ export function ThreadModelPicker({
               <StarIcon className="size-3.5" /> Favorites
             </Button>
             {allowedProviders.map((provider) => {
-              const Icon = providerIcons[provider]
+              const Icon = providerIconOf(provider)
               return (
                 <Button
                   key={provider}
@@ -232,7 +218,7 @@ export function ThreadModelPicker({
                   variant={activeTab === provider ? "secondary" : "ghost"}
                   onClick={() => setActiveTab(provider)}
                 >
-                  <Icon className="size-3.5" /> {providerLabels[provider]}
+                  <Icon className="size-3.5" /> {providerLabelOf(provider)}
                 </Button>
               )
             })}
@@ -241,7 +227,7 @@ export function ThreadModelPicker({
           <CommandList className="max-h-80 p-1">
             <CommandCollection>
               {(item: ModelPickerItem) => {
-                const Icon = providerIcons[item.provider]
+                const Icon = providerIconOf(item.provider)
                 const selected =
                   item.provider === activeProvider && item.model.modelId === modelSelection?.modelId
                 const isDefault = sameDefault(
@@ -259,7 +245,7 @@ export function ThreadModelPicker({
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{item.model.label}</div>
                       <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Icon className="size-3.5" /> {providerLabels[item.provider]}
+                        <Icon className="size-3.5" /> {providerLabelOf(item.provider)}
                       </div>
                     </div>
                     {selected ? <CheckIcon className="size-4" aria-label="Selected model" /> : null}

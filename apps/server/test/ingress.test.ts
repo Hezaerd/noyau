@@ -14,6 +14,7 @@ import { commandFromRequest } from "@noyau/server/command-from-request"
 import { ControlPlane, makeControlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { memoryLayer } from "@noyau/server/persistence/sqlite"
+import { staticProviderRegistryLayer } from "@noyau/server/provider/provider-instance-registry"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
 import { threadLiveLayer } from "@noyau/server/thread-live"
@@ -75,6 +76,7 @@ const controlPlaneTestLayer = () =>
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
     Layer.provideMerge(unavailableProviderLayer),
+    Layer.provideMerge(staticProviderRegistryLayer),
     Layer.provideMerge(threadLiveLayer),
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),

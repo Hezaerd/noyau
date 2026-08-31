@@ -20,6 +20,10 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
       return yield* controlPlane.dispatch(request, actorId)
     }),
   [RPC_METHODS.getConfig]: () => ControlPlane.pipe(Effect.flatMap((service) => service.getConfig)),
+  [RPC_METHODS.getSettings]: () =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.getSettings)),
+  [RPC_METHODS.patchSettings]: (patch) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.patchSettings(patch))),
   [RPC_METHODS.probe]: () => ControlPlane.pipe(Effect.flatMap((service) => service.probe)),
   [RPC_METHODS.searchWorkspacePaths]: (input) =>
     ControlPlane.pipe(

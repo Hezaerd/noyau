@@ -33,6 +33,9 @@ describe("model picker preferences", () => {
       { provider: "cursor", modelId: "fable-5" },
     ])
     expect(parseFavoriteModels('{"provider":"unknown"}')).toEqual([])
+    expect(
+      parseFavoriteModels(JSON.stringify([{ provider: "codex_work", modelId: "gpt-5" }])),
+    ).toEqual([{ provider: "codex_work", modelId: "gpt-5" }])
   })
 
   it("keeps an explicit model outside the catalog while its provider remains available", () => {

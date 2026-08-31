@@ -1,8 +1,4 @@
-import type {
-  ClaudeProviderStatus,
-  CodexProviderStatus,
-  CursorProviderStatus,
-} from "@noyau/contracts/entities/environment"
+import type { ProviderInstanceViewMap } from "@noyau/contracts/entities/environment"
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import type {
   ProjectShell,
@@ -72,17 +68,9 @@ export const selectedProjectAtom = Atom.make((get): ProjectShell | undefined => 
   return projects.find((project) => project.id === lastProjectId) ?? projects[0]
 }).pipe(Atom.withLabel("shell:selected-project"))
 
-export const cursorAtom = Atom.make(
-  (get): CursorProviderStatus | undefined => get(appliedShellAtom)?.environment.cursor,
-).pipe(Atom.withLabel("shell:cursor"))
-
-export const claudeAtom = Atom.make(
-  (get): ClaudeProviderStatus | undefined => get(appliedShellAtom)?.environment.claude,
-).pipe(Atom.withLabel("shell:claude"))
-
-export const codexAtom = Atom.make(
-  (get): CodexProviderStatus | undefined => get(appliedShellAtom)?.environment.codex,
-).pipe(Atom.withLabel("shell:codex"))
+export const providersAtom = Atom.make((get): ProviderInstanceViewMap => {
+  return get(appliedShellAtom)?.environment.providers ?? {}
+}).pipe(Atom.withLabel("shell:providers"))
 
 export const threadsAtom = Atom.make(
   (get): ReadonlyArray<ThreadShell> => get(appliedShellAtom)?.threads ?? EMPTY_THREAD_SHELLS,

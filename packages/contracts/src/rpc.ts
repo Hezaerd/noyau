@@ -60,6 +60,7 @@ import {
 } from "@noyau/contracts/preview"
 import { ProjectNotFound, ProjectUnavailable } from "@noyau/contracts/project/errors"
 import { DispatchResult, Rejection } from "@noyau/contracts/receipts"
+import { ServerSettings, ServerSettingsError, ServerSettingsPatch } from "@noyau/contracts/settings"
 import { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
 import { ThreadAssistantLive } from "@noyau/contracts/thread/live"
 import { GetTurnDiffInput, TurnDiffPatch, TurnDiffUnavailable } from "@noyau/contracts/turn-diff"
@@ -92,6 +93,8 @@ export const RPC_METHODS = {
   previewAttachment: "thread.previewAttachment",
   getTurnDiff: "thread.getTurnDiff",
   getConfig: "server.getConfig",
+  getSettings: "server.getSettings",
+  patchSettings: "server.patchSettings",
   probe: "server.probe",
   searchWorkspacePaths: "workspace.searchPaths",
   vcsStatus: "vcs.status",
@@ -197,6 +200,18 @@ export const Probe = Rpc.make(RPC_METHODS.probe, {
   payload: Schema.Struct({}),
   success: Schema.Struct({}),
   error: ServiceUnavailable,
+})
+
+export const GetSettings = Rpc.make(RPC_METHODS.getSettings, {
+  payload: Schema.Struct({}),
+  success: ServerSettings,
+  error: Schema.Union([ServerSettingsError, ServiceUnavailable]),
+})
+
+export const PatchSettings = Rpc.make(RPC_METHODS.patchSettings, {
+  payload: ServerSettingsPatch,
+  success: ServerSettings,
+  error: Schema.Union([ServerSettingsError, ServiceUnavailable]),
 })
 
 export const SearchWorkspacePathsInput = Schema.Struct({
@@ -387,6 +402,8 @@ export const OpenInEditor = Rpc.make(RPC_METHODS.openInEditor, {
 export const ControlPlaneRpcs = RpcGroup.make(
   DispatchCommand,
   GetConfig,
+  GetSettings,
+  PatchSettings,
   Probe,
   SearchWorkspacePaths,
   SubscribeShell,

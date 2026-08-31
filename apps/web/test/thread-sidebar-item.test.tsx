@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { WorkspaceRoot } from "@noyau/contracts/entities/environment"
-import { EnvironmentId, ProjectId, ThreadId } from "@noyau/contracts/ids"
+import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import {
   ShellSnapshot,
   ThreadShell,
@@ -18,6 +18,7 @@ import { SidebarProvider } from "../src/components/ui/sidebar"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
 import { setThreadPinned } from "../src/state/thread-pins"
+import { encodedTestEnvironment } from "./encoded-environment"
 
 const prefetchThreadSnapshot = vi.hoisted(() => vi.fn())
 const dispatchThreadSettle = vi.hoisted(() => vi.fn())
@@ -151,34 +152,7 @@ describe("ThreadSidebarItem", () => {
     replaceAppliedShell({
       ...Schema.decodeSync(ShellSnapshot)({
         snapshotSequence: 1,
-        environment: {
-          id: EnvironmentId.make("30000000-0000-4000-8000-000000000001"),
-          cursor: {
-            installed: false,
-            handshakeOk: false,
-            version: null,
-            plan: null,
-            binaryPath: null,
-            models: [],
-          },
-          claude: {
-            installed: false,
-            handshakeOk: false,
-            version: null,
-            plan: null,
-            binaryPath: null,
-            models: [],
-          },
-          codex: {
-            installed: false,
-            handshakeOk: false,
-            version: null,
-            plan: null,
-            binaryPath: null,
-            models: [],
-          },
-          createdAt: "2026-08-25T12:00:00.000Z",
-        },
+        environment: encodedTestEnvironment(),
         projects: [
           {
             id: projectId,

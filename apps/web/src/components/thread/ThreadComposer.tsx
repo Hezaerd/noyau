@@ -92,9 +92,7 @@ export function ThreadComposer({
   images,
   runtimeMode,
   models,
-  cursorModels,
-  claudeModels,
-  codexModels,
+  modelsByProvider,
   availableProviders,
   lockedProvider,
   selectedProvider,
@@ -124,9 +122,7 @@ export function ThreadComposer({
   readonly images: ReadonlyArray<ComposerImage>
   readonly runtimeMode: RuntimeMode
   readonly models: ReadonlyArray<CursorModel>
-  readonly cursorModels: ReadonlyArray<CursorModel>
-  readonly claudeModels: ReadonlyArray<CursorModel>
-  readonly codexModels: ReadonlyArray<CursorModel>
+  readonly modelsByProvider: Readonly<Record<string, ReadonlyArray<CursorModel>>>
   readonly availableProviders: ReadonlyArray<Provider>
   readonly lockedProvider?: Provider | undefined
   readonly selectedProvider?: Provider | undefined
@@ -410,9 +406,7 @@ export function ThreadComposer({
             </span>
             <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
               <ThreadModelPicker
-                cursorModels={cursorModels}
-                claudeModels={claudeModels}
-                codexModels={codexModels}
+                modelsByProvider={modelsByProvider}
                 availableProviders={availableProviders}
                 lockedProvider={lockedProvider}
                 selectedProvider={selectedProvider}
@@ -420,9 +414,7 @@ export function ThreadComposer({
                 defaultModelSelection={defaultModelSelection}
                 disabled={
                   controlsDisabled ||
-                  (cursorModels.length === 0 &&
-                    claudeModels.length === 0 &&
-                    codexModels.length === 0)
+                  Object.values(modelsByProvider).every((catalog) => catalog.length === 0)
                 }
                 onModelSelectionChange={onModelSelectionChange}
                 onDefaultModelSelectionChange={onDefaultModelSelectionChange}

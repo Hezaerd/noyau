@@ -1,13 +1,20 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
   CursorProviderStatus,
-  Environment,
-  emptyClaudeProviderStatus,
-  emptyCodexProviderStatus,
   emptyCursorProviderStatus,
+  emptyEnvironmentProviders,
+  Environment,
+  ProviderInstanceId,
   WorkspaceRoot,
 } from "@noyau/contracts/entities/environment"
+import { ProviderDriverKind } from "@noyau/contracts/entities/provider-instance"
 import { ProjectCommand, ProjectCreateRequest } from "@noyau/contracts/project/commands"
+import {
+  DEFAULT_SERVER_SETTINGS,
+  hydrateProviderInstanceConfigs,
+  mergeServerSettings,
+  resolveHydratedInstanceEnabled,
+} from "@noyau/contracts/settings"
 import { Schema } from "effect"
 
 const ids = {
@@ -141,31 +148,80 @@ describe("CursorProviderStatus", () => {
       binaryPath: null,
       models: [],
     })
-    expect(emptyClaudeProviderStatus).toEqual(emptyCursorProviderStatus)
-    expect(emptyCodexProviderStatus).toEqual(emptyCursorProviderStatus)
   })
 })
 
 describe("Environment", () => {
-  it("exige cursor, claude et codex", () => {
+  it("décode une map d'instances et refuse les anciens champs nommés", () => {
     const decoded = Schema.decodeSync(Environment)({
       id: "90000000-0000-4000-8000-000000000001",
-      cursor: emptyCursorProviderStatus,
-      claude: emptyClaudeProviderStatus,
-      codex: emptyCodexProviderStatus,
+      providers: emptyEnvironmentProviders(),
       createdAt: "2026-08-20T00:00:00.000Z",
     })
 
-    expect(decoded.cursor.installed).toBe(false)
-    expect(decoded.claude.installed).toBe(false)
-    expect(decoded.codex.installed).toBe(false)
+    expect(decoded.providers[ProviderInstanceId.make("cursor")]?.installed).toBe(false)
+    expect(decoded.providers[ProviderInstanceId.make("claude")]?.enabled).toBe(true)
     expect(() =>
       Schema.decodeUnknownSync(Environment)({
         id: "90000000-0000-4000-8000-000000000001",
         cursor: emptyCursorProviderStatus,
-        codex: emptyCodexProviderStatus,
         createdAt: "2026-08-20T00:00:00.000Z",
       }),
     ).toThrow()
+  })
+
+  it("accepte un instance id hors du trio historique", () => {
+    const decoded = Schema.decodeSync(Environment)({
+      id: "90000000-0000-4000-8000-000000000001",
+      providers: {
+        grok: {
+          instanceId: "grok",
+          driver: "grok",
+          enabled: false,
+          installed: false,
+          handshakeOk: false,
+          version: null,
+          plan: null,
+          binaryPath: null,
+          models: [],
+        },
+      },
+      createdAt: "2026-08-20T00:00:00.000Z",
+    })
+    expect(decoded.providers[ProviderInstanceId.make("grok")]?.driver).toBe("grok")
+  })
+})
+
+describe("provider instance slugs", () => {
+  it("accepte cursor/claude/codex et un slug ouvert", () => {
+    expect(Schema.decodeSync(ProviderInstanceId)("cursor")).toBe("cursor")
+    expect(Schema.decodeSync(ProviderInstanceId)("claude")).toBe("claude")
+    expect(Schema.decodeSync(ProviderInstanceId)("codex_work")).toBe("codex_work")
+    expect(() => Schema.decodeSync(ProviderInstanceId)("1bad")).toThrow()
+    expect(() => Schema.decodeSync(ProviderInstanceId)("has space")).toThrow()
+  })
+})
+
+describe("ServerSettings", () => {
+  it("hydrate les trois instances built-in depuis un fichier vide", () => {
+    const hydrated = hydrateProviderInstanceConfigs(DEFAULT_SERVER_SETTINGS)
+    expect(Object.keys(hydrated).sort()).toEqual(["claude", "codex", "cursor"])
+    expect(resolveHydratedInstanceEnabled(ProviderInstanceId.make("cursor"), hydrated)).toBe(true)
+    expect(resolveHydratedInstanceEnabled(ProviderInstanceId.make("claude"), hydrated)).toBe(true)
+    expect(resolveHydratedInstanceEnabled(ProviderInstanceId.make("codex"), hydrated)).toBe(true)
+  })
+
+  it("laisse un enabled: false gagner sur le défaut", () => {
+    const merged = mergeServerSettings(DEFAULT_SERVER_SETTINGS, {
+      providerInstances: {
+        [ProviderInstanceId.make("cursor")]: { enabled: false },
+      },
+    })
+    const hydrated = hydrateProviderInstanceConfigs(merged)
+    expect(resolveHydratedInstanceEnabled(ProviderInstanceId.make("cursor"), hydrated)).toBe(false)
+    expect(resolveHydratedInstanceEnabled(ProviderInstanceId.make("claude"), hydrated)).toBe(true)
+    expect(hydrated[ProviderInstanceId.make("cursor")]?.driver).toBe(
+      ProviderDriverKind.make("cursor"),
+    )
   })
 })

@@ -1,7 +1,7 @@
 import type {
-  ClaudeProviderStatus,
-  CodexProviderStatus,
-  CursorProviderStatus,
+  Provider,
+  ProviderInstanceView,
+  ProviderInstanceViewMap,
 } from "@noyau/contracts/entities/environment"
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import type { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
@@ -10,9 +10,6 @@ import { useAppAtomValue } from "@/hooks/use-app-atom"
 import type { SubscriptionStatus } from "@/lib/control-plane"
 import {
   appliedShellAtom,
-  cursorAtom,
-  claudeAtom,
-  codexAtom,
   emptyThreadIdsAtom,
   emptyThreadShellAtom,
   emptyThreadShellsAtom,
@@ -20,6 +17,7 @@ import {
   projectThreadIdsAtom,
   projectThreadsAtom,
   projectsAtom,
+  providersAtom,
   selectProject,
   selectedProjectAtom,
   subscriptionStatusAtom,
@@ -31,11 +29,12 @@ export const useAppliedShell = (): ShellSnapshot | undefined => useAppAtomValue(
 
 export const useProjects = (): ReadonlyArray<ProjectShell> => useAppAtomValue(projectsAtom)
 
-export const useCursor = (): CursorProviderStatus | undefined => useAppAtomValue(cursorAtom)
+export const useProviders = (): ProviderInstanceViewMap => useAppAtomValue(providersAtom)
 
-export const useClaude = (): ClaudeProviderStatus | undefined => useAppAtomValue(claudeAtom)
-
-export const useCodex = (): CodexProviderStatus | undefined => useAppAtomValue(codexAtom)
+export const useProvider = (id: Provider | undefined): ProviderInstanceView | undefined => {
+  const providers = useProviders()
+  return id === undefined ? undefined : providers[id]
+}
 
 export const useThreads = (): ReadonlyArray<ThreadShell> => useAppAtomValue(threadsAtom)
 
