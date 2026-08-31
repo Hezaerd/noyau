@@ -3,7 +3,6 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   clearAssistantPaint,
-  createFramePainter,
   getAssistantPaintTarget,
   presentedAssistantText,
   pushAssistantLive,
@@ -101,45 +100,6 @@ describe("assistant paint", () => {
         prefix,
       ),
     ).toBe("Slice 3 wires the address bar. ")
-  })
-
-  it("commits immediately in classic mode and once per frame in smooth mode", () => {
-    const frames: Array<() => void> = []
-    const commits: Array<string> = []
-    const painter = createFramePainter({
-      mode: "smooth",
-      schedule: (callback) => {
-        frames.push(callback)
-        return frames.length
-      },
-      cancel: () => {
-        frames.length = 0
-      },
-      commit: (text) => {
-        commits.push(text)
-      },
-    })
-
-    painter.push("B")
-    painter.push("Bon")
-    painter.push("Bonjour")
-    expect(commits).toEqual([])
-    expect(frames).toHaveLength(1)
-    frames[0]?.()
-    expect(commits).toEqual(["Bonjour"])
-
-    const immediate: Array<string> = []
-    const classic = createFramePainter({
-      mode: "classic",
-      schedule: () => 0,
-      cancel: () => undefined,
-      commit: (text) => {
-        immediate.push(text)
-      },
-    })
-    classic.push("B")
-    classic.push("Bonjour")
-    expect(immediate).toEqual(["B", "Bonjour"])
   })
 
   it("replaces the live store without duplicating the same snapshot", () => {

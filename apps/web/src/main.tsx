@@ -14,7 +14,6 @@ import {
   initializeDiscordPresencePreference,
   initializeProjectFolderStartDirectory,
   initializeThreadEnvModePreference,
-  initializeTranscriptPaintPreference,
   initializeTurnCuePreference,
   initializeTurnNotificationPreference,
 } from "@/state/preferences"
@@ -35,7 +34,6 @@ initializeThreadEnvModePreference()
 initializeThreadSettlePreference()
 initializeTurnCuePreference()
 initializeTurnNotificationPreference()
-initializeTranscriptPaintPreference()
 initializeThreadPins()
 initializeThreadVisits()
 initializeComposerDrafts()
