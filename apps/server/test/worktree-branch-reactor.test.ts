@@ -9,7 +9,7 @@ import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/i
 import { ControlPlane, makeControlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { GitRuntime, type GitRuntimeService } from "@noyau/server/git/git-runtime"
-import { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
+import type { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
 import { memoryLayer } from "@noyau/server/persistence/sqlite"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import {
