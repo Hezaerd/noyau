@@ -42,6 +42,7 @@ import {
 } from "@/components/thread/ThreadTurnDiffPanel"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { WorkspacePanel } from "@/components/workspace-panel/WorkspacePanel"
+import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useProjects, useProviders, useThreadShell } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
@@ -121,6 +122,7 @@ import {
 import { removeComposerDraftImageAtom, replaceComposerDraftAtom } from "@/state/composer-drafts"
 import { getThreadEnvModePreference } from "@/state/preferences"
 import { publishCreatedThread } from "@/state/shell"
+import { threadComposerOpenByIdAtom } from "@/state/thread-composer"
 import {
   getThreadSnapshot,
   reduceThreadSnapshotEnvelope,
@@ -234,6 +236,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [turnDiffTarget, setTurnDiffTarget] = useState<ThreadTurnDiffTarget | null>(null)
   const composerDockRef = useRef<HTMLDivElement>(null)
   const [composerDockHeight, setComposerDockHeight] = useState(208)
+  const composerOpenById = useAppAtomValue(threadComposerOpenByIdAtom)
+  const composerOpen = threadId === undefined ? true : (composerOpenById.get(threadId) ?? true)
   const restoredFailedTurnRef = useRef<string>(undefined)
   const lockedProvider = snapshot?.thread.provider
   const selectedProvider = lockedProvider ?? draftProvider
@@ -312,11 +316,13 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     [navigate, projectId],
   )
   useLayoutEffect(() => {
-    if (threadId === undefined) {
+    if (threadId === undefined || !composerOpen) {
+      setComposerDockHeight(0)
       return
     }
     const dock = composerDockRef.current
     if (dock === null) {
+      setComposerDockHeight(0)
       return
     }
     const sync = () => {
@@ -328,7 +334,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     return () => {
       observer.disconnect()
     }
-  }, [threadId])
+  }, [composerOpen, threadId])
   const pageSnapshot =
     snapshot !== undefined && snapshot.thread.id === threadId ? snapshot : undefined
   const isDraftThread = isDraftThreadView({
@@ -1081,7 +1087,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           selectedProjectId={projectId}
           onSelectProject={onSelectProject}
         >
-          {composer}
+          {composerOpen ? composer : null}
         </ThreadDraftHero>
       ) : (
         <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1148,12 +1154,14 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
                 setTurnDiffTarget({ threadId, turnId: openedTurnId, filePath })
               }}
             />
-            <div
-              ref={composerDockRef}
-              className="pointer-events-none absolute inset-x-0 bottom-0 z-20"
-            >
-              <div className="pointer-events-auto">{composer}</div>
-            </div>
+            {composerOpen ? (
+              <div
+                ref={composerDockRef}
+                className="pointer-events-none absolute inset-x-0 bottom-0 z-20"
+              >
+                <div className="pointer-events-auto">{composer}</div>
+              </div>
+            ) : null}
           </div>
           {threadId === undefined ? null : <WorkspacePanel threadId={threadId} />}
           <ThreadTurnDiffPanel target={turnDiffTarget} onClose={() => setTurnDiffTarget(null)} />

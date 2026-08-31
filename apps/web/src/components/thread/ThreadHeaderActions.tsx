@@ -4,6 +4,8 @@ import {
   CircleDotIcon,
   GitPullRequestIcon,
   GlobeIcon,
+  PanelBottomCloseIcon,
+  PanelBottomIcon,
   PanelRightCloseIcon,
   PanelRightIcon,
   RefreshCwIcon,
@@ -13,6 +15,7 @@ import { useMemo } from "react"
 import { useAppPaletteActions, type AppPaletteAction } from "@/components/app-palette-context"
 import { GitActionsControl } from "@/components/thread/GitActionsControl"
 import { OpenInPicker } from "@/components/thread/OpenInPicker"
+import { ThreadComposerToggle } from "@/components/thread/ThreadComposerToggle"
 import { WorkspaceBrowserOpen } from "@/components/workspace-panel/WorkspaceBrowserOpen"
 import { WorkspacePanelToggle } from "@/components/workspace-panel/WorkspacePanelToggle"
 import { WorkspacePullRequestOpen } from "@/components/workspace-panel/WorkspacePullRequestOpen"
@@ -28,6 +31,7 @@ import { effectiveSettled } from "@/lib/thread-settled"
 import { dispatchThreadTitleRegenerate } from "@/lib/thread-title-actions"
 import { openWorkspaceBrowser } from "@/lib/workspace-browser"
 import { openWorkspacePullRequest } from "@/lib/workspace-pr"
+import { toggleThreadComposer, threadComposerOpenAtom } from "@/state/thread-composer"
 import { toggleWorkspacePanel, workspacePanelAtom } from "@/state/workspace-panel"
 
 export function ThreadHeaderActions({
@@ -47,6 +51,7 @@ export function ThreadHeaderActions({
       <ThreadSettleHotkey projectId={projectId} threadId={threadId} disabled={disabled} />
       <OpenInPicker projectId={projectId} threadId={threadId} disabled={disabled} />
       <GitActionsControl projectId={projectId} threadId={threadId} disabled={disabled} />
+      <ThreadComposerToggle threadId={threadId} disabled={disabled} />
       <WorkspaceBrowserOpen threadId={threadId} disabled={disabled} />
       <WorkspacePullRequestOpen threadId={threadId} disabled={disabled} />
       <WorkspacePanelToggle threadId={threadId} disabled={disabled} />
@@ -83,9 +88,11 @@ function ThreadHeaderPalette({
   const nowMs = useNowMinuteMs()
   const autoSettleAfterDays = useAutoSettleAfterDays()
   const settleHotkey = useKeybinding("thread.settle")
+  const composerHotkey = useKeybinding("thread.composer.toggle")
   const workspacePanelHotkey = useKeybinding("thread.workspace-panel.toggle")
   const workspaceBrowserHotkey = useKeybinding("thread.workspace-browser.open")
   const workspacePrHotkey = useKeybinding("thread.workspace-pr.open")
+  const composerOpen = useAppAtomValue(threadComposerOpenAtom(threadId))
   const workspacePanel = useAppAtomValue(workspacePanelAtom(threadId))
   const changeRequestState =
     thread === undefined ? null : (pullRequests.get(thread.id)?.state ?? null)
@@ -124,6 +131,16 @@ function ThreadHeaderPalette({
     if (!disabled) {
       actions.push(
         {
+          id: "thread.composer.toggle",
+          label: composerOpen ? "Hide composer" : "Show composer",
+          searchValue: "Composer prompt hide show transcript space",
+          shortcut: composerHotkey,
+          icon: composerOpen ? <PanelBottomCloseIcon /> : <PanelBottomIcon />,
+          execute: () => {
+            toggleThreadComposer(threadId)
+          },
+        },
+        {
           id: "thread.workspace-panel.toggle",
           label: workspacePanel.open ? "Hide workspace panel" : "Show workspace panel",
           searchValue: "Workspace panel sidebar tools terminal browser diff pull request",
@@ -159,6 +176,8 @@ function ThreadHeaderPalette({
     }
     return actions
   }, [
+    composerHotkey,
+    composerOpen,
     disabled,
     settleHotkey,
     settled,

@@ -2,7 +2,7 @@
 
 import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -144,6 +144,19 @@ describe("ThreadHeaderActions", () => {
     expect(dispatchThreadSettle).toHaveBeenCalledWith(thread, false)
   })
 
+  it("offers the composer toggle in the header and the palette", () => {
+    renderHeader(makeThread())
+
+    expect(screen.getByRole("button", { name: "Hide composer" })).toBeTruthy()
+    const toggle = registeredPaletteActions.find((action) => action.id === "thread.composer.toggle")
+    expect(toggle?.label).toBe("Hide composer")
+    fireEvent.click(screen.getByRole("button", { name: "Hide composer" }))
+    expect(screen.getByRole("button", { name: "Show composer" })).toBeTruthy()
+    expect(
+      registeredPaletteActions.find((action) => action.id === "thread.composer.toggle")?.label,
+    ).toBe("Show composer")
+  })
+
   it("offers the workspace panel in the header and the palette", () => {
     renderHeader(makeThread())
 
@@ -186,10 +199,14 @@ describe("ThreadHeaderActions", () => {
   it("omits the workspace panel palette action when the header is disabled", () => {
     renderHeader(makeThread(), true)
 
+    expect(screen.getByRole("button", { name: "Hide composer" })).toHaveProperty("disabled", true)
     expect(screen.getByRole("button", { name: "Show workspace panel" })).toHaveProperty(
       "disabled",
       true,
     )
+    expect(
+      registeredPaletteActions.find((action) => action.id === "thread.composer.toggle"),
+    ).toBeUndefined()
     expect(
       registeredPaletteActions.find((action) => action.id === "thread.workspace-panel.toggle"),
     ).toBeUndefined()

@@ -197,6 +197,35 @@ describe("resolveMatchingKeybinding", () => {
     ).toBeUndefined()
   })
 
+  it("toggles the composer with mod+l while the composer can be focused", () => {
+    const event = keyEvent({ key: "l", metaKey: true })
+    expect(resolveMatchingKeybinding(event, merged, context({ thread: true }), "mac")).toBe(
+      "thread.composer.toggle",
+    )
+    expect(
+      resolveMatchingKeybinding(
+        event,
+        merged,
+        context({ thread: true, editableFocused: true }),
+        "mac",
+      ),
+    ).toBe("thread.composer.toggle")
+    expect(
+      resolveMatchingKeybinding(
+        event,
+        merged,
+        context({ thread: true, commandPaletteOpen: true }),
+        "mac",
+      ),
+    ).toBeUndefined()
+    expect(
+      resolveMatchingKeybinding(event, merged, context({ tableau: true }), "mac"),
+    ).toBeUndefined()
+    expect(
+      resolveMatchingKeybinding(event, merged, context({ thread: true, dialogOpen: true }), "mac"),
+    ).toBeUndefined()
+  })
+
   it("lets the last matching rule win for F2", () => {
     const event = keyEvent({ key: "F2" })
     expect(
@@ -370,6 +399,7 @@ describe("resolveKeybindings labels", () => {
     const resolved = resolveKeybindings()
     expect(resolved["palette.open"]).toBe("Mod+K")
     expect(resolved["settings.open"]).toBe("Mod+,")
+    expect(resolved["thread.composer.toggle"]).toBe("Mod+L")
     expect(DEFAULT_RESOLVED_KEYBINDINGS.length).toBeGreaterThan(0)
   })
 })
