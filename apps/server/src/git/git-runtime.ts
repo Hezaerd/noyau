@@ -860,11 +860,8 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
       "--json",
       PR_VIEW_JSON_FIELDS,
     ])
-    const diff = yield* runGh("gh.pr.diff", cwd, ["pr", "diff", String(number)], {
-      allowNonZero: true,
-    })
-    const patch = diff.code === 0 ? diff.stdout : ""
-    return yield* decodeViewedPullRequest(viewed.stdout, patch).pipe(
+    const diff = yield* runGh("gh.pr.diff", cwd, ["pr", "diff", String(number)])
+    return yield* decodeViewedPullRequest(viewed.stdout, diff.stdout).pipe(
       Effect.mapError(
         () =>
           new GitCommandError({
