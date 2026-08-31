@@ -54,7 +54,7 @@ export type WorkspaceTabKind<
   readonly label: string
   readonly create: (tabId: string, input: Input) => Payload
   readonly keepMounted?: boolean
-  readonly identityOf?: (payload: Payload) => string
+  identityOf?(payload: Payload): string
 }
 
 /** Fige le kind : l’objet retourné est le token passé à open / au catalogue. */
