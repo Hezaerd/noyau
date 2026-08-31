@@ -8,12 +8,14 @@ import type { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/contracts/
 
 import { useAppAtomValue } from "@/hooks/use-app-atom"
 import type { SubscriptionStatus } from "@/lib/control-plane"
+import type { LastScreen } from "@/lib/last-screen"
 import {
   appliedShellAtom,
   emptyThreadIdsAtom,
   emptyThreadShellAtom,
   emptyThreadShellsAtom,
   lastProjectIdAtom,
+  lastScreenAtom,
   projectThreadIdsAtom,
   projectThreadsAtom,
   projectsAtom,
@@ -42,6 +44,8 @@ export const useSubscriptionStatus = (): SubscriptionStatus | undefined =>
   useAppAtomValue(subscriptionStatusAtom)
 
 export const useLastProjectId = (): ProjectId | undefined => useAppAtomValue(lastProjectIdAtom)
+
+export const useLastScreen = (): LastScreen | undefined => useAppAtomValue(lastScreenAtom)
 
 export const useSelectedProject = (): ProjectShell | undefined =>
   useAppAtomValue(selectedProjectAtom)

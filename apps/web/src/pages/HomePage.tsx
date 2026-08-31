@@ -1,42 +1,43 @@
 import { useNavigate } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { useLayoutEffect, useState } from "react"
 
 import { ResourceErrorState } from "@/components/failure/FailureSurfaces"
 import { ProjectFolderDialog } from "@/components/ProjectFolderDialog"
 import { Button } from "@/components/ui/button"
 import {
   useAppliedShell,
-  useLastProjectId,
+  useLastScreen,
   useProjects,
   useSelectProject,
   useSubscriptionStatus,
+  useThreads,
 } from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { presentFailure } from "@/lib/failure-presentation"
+import { resolveStartupDestination, startupNavigateTarget } from "@/lib/last-screen"
 
 export function HomePage() {
   const navigate = useNavigate()
   const shell = useAppliedShell()
-  const lastProjectId = useLastProjectId()
+  const lastScreen = useLastScreen()
   const projects = useProjects()
+  const threads = useThreads()
   const selectProject = useSelectProject()
   const subscriptionStatus = useSubscriptionStatus()
   const failure = useDelayedSubscriptionFailure(subscriptionStatus)
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
+  const destination =
+    shell === undefined ? undefined : resolveStartupDestination(lastScreen, projects, threads)
 
-  useEffect(() => {
-    if (shell === undefined || lastProjectId === undefined || linkDialogOpen) {
-      return
-    }
-    if (!projects.some((project) => project.id === lastProjectId)) {
+  useLayoutEffect(() => {
+    if (destination === undefined || destination._tag === "home" || linkDialogOpen) {
       return
     }
     void navigate({
       replace: true,
-      to: "/projects/$projectId/board",
-      params: { projectId: lastProjectId },
+      ...startupNavigateTarget(destination),
     })
-  }, [lastProjectId, linkDialogOpen, navigate, projects, shell])
+  }, [destination, linkDialogOpen, navigate])
 
   if (shell === undefined) {
     if (failure !== undefined) {
@@ -52,11 +53,11 @@ export function HomePage() {
         />
       )
     }
-    return (
-      <main className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        Connecting to the control plane…
-      </main>
-    )
+    return null
+  }
+
+  if (destination !== undefined && destination._tag !== "home") {
+    return null
   }
 
   return (

@@ -9,8 +9,14 @@ import type {
 import { Atom } from "effect/unstable/reactivity"
 
 import type { SubscriptionStatus } from "@/lib/control-plane"
-import { applyShellEvent, readLastProjectId, writeLastProjectId } from "@/lib/control-plane-state"
-import { nextLastProjectId } from "@/lib/project-navigation"
+import { applyShellEvent } from "@/lib/control-plane-state"
+import {
+  lastScreensEqual,
+  readLastScreen,
+  reconcileLastScreen,
+  writeLastScreen,
+  type LastScreen,
+} from "@/lib/last-screen"
 import {
   EMPTY_THREAD_IDS,
   EMPTY_THREAD_SHELL_INDEX,
@@ -46,10 +52,14 @@ export const subscriptionStatusAtom = Atom.make<SubscriptionStatus | undefined>(
   Atom.withLabel("shell:subscription-status"),
 )
 
-export const lastProjectIdAtom = Atom.make<ProjectId | undefined>(undefined).pipe(
+export const lastScreenAtom = Atom.make<LastScreen | undefined>(undefined).pipe(
   Atom.keepAlive,
-  Atom.withLabel("shell:last-project"),
+  Atom.withLabel("shell:last-screen"),
 )
+
+export const lastProjectIdAtom = Atom.make(
+  (get): ProjectId | undefined => get(lastScreenAtom)?.projectId,
+).pipe(Atom.keepAlive, Atom.withLabel("shell:last-project"))
 
 let previousThreadIndex = EMPTY_THREAD_SHELL_INDEX
 
@@ -97,29 +107,42 @@ export const projectThreadsAtom = Atom.family((projectId: ProjectId) =>
   ).pipe(Atom.withLabel(`shell:project-threads:${projectId}`)),
 )
 
-const reconcileLastProjectId = (projects: ReadonlyArray<ProjectShell>): void => {
-  const current = appAtomRegistry.get(lastProjectIdAtom)
-  const next = nextLastProjectId(projects, current)
-  if (next === current) {
+const persistLastScreen = (next: LastScreen | undefined): void => {
+  const current = appAtomRegistry.get(lastScreenAtom)
+  if (lastScreensEqual(current, next)) {
     return
   }
-  appAtomRegistry.set(lastProjectIdAtom, next)
-  writeLastProjectId(next)
+  appAtomRegistry.set(lastScreenAtom, next)
+  writeLastScreen(next)
 }
 
-let lastProjectHydrated = false
+const reconcileRememberedLastScreen = (
+  projects: ReadonlyArray<ProjectShell>,
+  threads: ReadonlyArray<ThreadShell>,
+): void => {
+  persistLastScreen(reconcileLastScreen(appAtomRegistry.get(lastScreenAtom), projects, threads))
+}
 
-export const hydrateLastProjectId = (): void => {
-  if (lastProjectHydrated) {
+let lastScreenHydrated = false
+
+export const hydrateLastScreen = (): void => {
+  if (lastScreenHydrated) {
     return
   }
-  lastProjectHydrated = true
-  appAtomRegistry.set(lastProjectIdAtom, readLastProjectId())
+  lastScreenHydrated = true
+  appAtomRegistry.set(lastScreenAtom, readLastScreen())
+}
+
+export const rememberLastScreen = (screen: LastScreen): void => {
+  persistLastScreen(screen)
 }
 
 export const selectProject = (projectId: ProjectId): void => {
-  appAtomRegistry.set(lastProjectIdAtom, projectId)
-  writeLastProjectId(projectId)
+  const current = appAtomRegistry.get(lastScreenAtom)
+  if (current?.projectId === projectId) {
+    return
+  }
+  persistLastScreen({ _tag: "board", projectId })
 }
 
 export const getAppliedShell = (): ShellSnapshot | undefined =>
@@ -130,7 +153,7 @@ export const replaceAppliedShell = (next: ShellSnapshot): void => {
     return
   }
   appAtomRegistry.set(appliedShellAtom, next)
-  reconcileLastProjectId(next.projects)
+  reconcileRememberedLastScreen(next.projects, next.threads)
 }
 
 export const reduceAppliedShellEvent = (event: ShellLiveEvent): boolean => {
@@ -142,7 +165,7 @@ export const reduceAppliedShellEvent = (event: ShellLiveEvent): boolean => {
   const next = applyShellEvent(current, event)
   if (!Object.is(next, current)) {
     appAtomRegistry.set(appliedShellAtom, next)
-    reconcileLastProjectId(next.projects)
+    reconcileRememberedLastScreen(next.projects, next.threads)
   }
   return true
 }
@@ -201,8 +224,8 @@ export const setSubscriptionStatus = (status: SubscriptionStatus): void => {
 
 export const resetAppliedShell = (): void => {
   previousThreadIndex = EMPTY_THREAD_SHELL_INDEX
-  lastProjectHydrated = false
+  lastScreenHydrated = false
   appAtomRegistry.set(appliedShellAtom, undefined)
   appAtomRegistry.set(subscriptionStatusAtom, undefined)
-  appAtomRegistry.set(lastProjectIdAtom, undefined)
+  appAtomRegistry.set(lastScreenAtom, undefined)
 }

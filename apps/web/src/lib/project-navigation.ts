@@ -2,16 +2,6 @@ import type { ProjectId } from "@noyau/contracts/ids"
 
 type ProjectRef = { readonly id: ProjectId }
 
-export const nextLastProjectId = (
-  projects: ReadonlyArray<ProjectRef>,
-  lastProjectId: ProjectId | undefined,
-): ProjectId | undefined => {
-  if (lastProjectId !== undefined && projects.some((project) => project.id === lastProjectId)) {
-    return lastProjectId
-  }
-  return projects[0]?.id
-}
-
 export const destinationAfterProjectRemoval = (
   remaining: ReadonlyArray<ProjectRef>,
 ):

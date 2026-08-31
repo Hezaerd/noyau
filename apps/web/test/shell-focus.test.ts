@@ -21,11 +21,25 @@ describe("resolveShellFocus", () => {
       _tag: "tableau",
       projectId,
     })
-    expect(resolveShellFocus("/settings/general", projectId)).toEqual({ _tag: "sticky" })
+    expect(resolveShellFocus("/settings/general", { _tag: "board", projectId })).toEqual({
+      _tag: "sticky",
+    })
   })
 
-  it("uses the last Project on / and stays idle without one", () => {
-    expect(resolveShellFocus("/", projectId)).toEqual({ _tag: "tableau", projectId })
+  it("uses the last screen on / and stays idle without one", () => {
+    expect(resolveShellFocus("/", { _tag: "board", projectId })).toEqual({
+      _tag: "tableau",
+      projectId,
+    })
+    expect(resolveShellFocus("/", { _tag: "thread", projectId, threadId })).toEqual({
+      _tag: "thread",
+      projectId,
+      threadId,
+    })
+    expect(resolveShellFocus("/", { _tag: "new-thread", projectId })).toEqual({
+      _tag: "tableau",
+      projectId,
+    })
     expect(resolveShellFocus("/", undefined)).toEqual({ _tag: "idle" })
   })
 })

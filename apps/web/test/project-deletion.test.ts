@@ -3,11 +3,7 @@ import { Crypto, Effect } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
 import { makeProjectDeleteRequest } from "../src/lib/project-commands"
-import {
-  destinationAfterProjectRemoval,
-  isViewingProject,
-  nextLastProjectId,
-} from "../src/lib/project-navigation"
+import { destinationAfterProjectRemoval, isViewingProject } from "../src/lib/project-navigation"
 
 const crypto = Crypto.make({
   randomBytes: (size) => new Uint8Array(size),
@@ -28,15 +24,6 @@ describe("project deletion", () => {
     expect(request._tag).toBe("project.delete")
     expect(request.payload.projectId).toBe(ids.first)
     expect(CommandId.make(request.commandId)).toBe(request.commandId)
-  })
-
-  it("keeps the last Project when it still exists", () => {
-    expect(nextLastProjectId([{ id: ids.first }, { id: ids.second }], ids.second)).toBe(ids.second)
-  })
-
-  it("falls back to the first remaining Project, or none", () => {
-    expect(nextLastProjectId([{ id: ids.second }], ids.first)).toBe(ids.second)
-    expect(nextLastProjectId([], ids.first)).toBeUndefined()
   })
 
   it("routes to the next Board or home after removal", () => {

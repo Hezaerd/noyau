@@ -7,6 +7,7 @@
 - [Turn a provider on or off](./users/providers.md)
 - [Change a keyboard shortcut](./users/keybindings.md)
 - [Review a pull request beside the Thread](./users/pull-request-viewer.md)
+- [Open where you left off](./users/startup.md)
 
 ## Working on Noyau
 
@@ -18,3 +19,4 @@ policy in [CONTRIBUTING.md](../CONTRIBUTING.md); agent rules in [AGENTS.md](../A
 - [Contracts and orchestration](./internals/contracts-and-orchestration.md)
 - [Workspace panel](./internals/workspace-panel.md)
 - [Preview sessions](./internals/preview-sessions.md)
+- [Last screen restore](./internals/last-screen.md)
