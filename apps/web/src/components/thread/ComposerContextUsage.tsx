@@ -5,8 +5,8 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { contextUsageRatio, contextUsageTone, formatContextUsage } from "@/lib/context-usage"
 import { cn } from "@/lib/utils"
 
-const RING_SIZE = 28
-const RING_STROKE = 2.25
+const RING_SIZE = 20
+const RING_STROKE = 2
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 
@@ -32,11 +32,11 @@ export function ComposerContextUsage({ usage }: { readonly usage: ContextUsage }
             aria-valuemin={0}
             aria-valuemax={usage.window}
             aria-valuenow={usage.used}
-            className="inline-flex size-7 items-center justify-center"
+            className="inline-flex size-5 cursor-pointer items-center justify-center"
           />
         }
       >
-        <svg aria-hidden="true" viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`} className="size-6">
+        <svg aria-hidden="true" viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`} className="size-4.5">
           <circle
             cx={RING_SIZE / 2}
             cy={RING_SIZE / 2}
