@@ -862,14 +862,10 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           },
         })),
       )
+      const sideChannelLive = Stream.merge(environmentLive, keybindingsLive)
       const withEnvironmentLive = <R>(
         journal: Stream.Stream<ShellStreamItem, ServiceUnavailable, R>,
-      ) =>
-        Stream.merge(
-          Stream.merge(journal, environmentLive, { haltStrategy: "left" }),
-          keybindingsLive,
-          { haltStrategy: "left" },
-        )
+      ) => Stream.merge(journal, sideChannelLive, { haltStrategy: "left" })
 
       const subscribeShell: ControlPlaneService["subscribeShell"] = (input) =>
         Stream.unwrap(

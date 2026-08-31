@@ -22,7 +22,7 @@ server copies a legacy `settings.json` out of `dataDirectory`.
 Empty means the built-in map. The server stores shape-valid rules (max 256).
 The client drops unknown commands and invalid shortcuts when it compiles.
 
-Writes are `tmp` + rename. A directory watch ignores `.tmp` and debounces.
+Writes are `tmp` + rename. A directory watch ignores `.tmp`.
 The server keeps the last good overlay in memory: invalid JSON logs a warning
 and does not publish. A UI patch and a hand-edit are the same document.
 

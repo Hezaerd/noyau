@@ -1,7 +1,5 @@
 import { KEYBINDINGS_FILE_NAME, SETTINGS_FILE_NAME } from "@noyau/shared/dev-home"
-import { Duration, Effect, FileSystem, Path, Result, Stream } from "effect"
-
-const CONFIG_WATCH_DEBOUNCE = Duration.millis(50)
+import { Effect, FileSystem, Path, Result, Stream } from "effect"
 
 const isTempWrite = (fileName: string): boolean => fileName.endsWith(".tmp")
 
@@ -35,7 +33,6 @@ export const watchConfigDirectory = Effect.fn("watchConfigDirectory")(function* 
       const kind = configFileKindFromPath(event.path, path.basename)
       return kind === undefined ? Result.failVoid : Result.succeed(kind)
     }),
-    Stream.debounce(CONFIG_WATCH_DEBOUNCE),
     Stream.runForEach((kind) => (kind === "settings" ? input.onSettings : input.onKeybindings)),
     Effect.catch((cause) =>
       Effect.logWarning("Config directory watch ended", { directory: input.directory, cause }),

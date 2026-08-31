@@ -56,14 +56,23 @@ export const applyKeybindingsRules = (rules: ReadonlyArray<FileKeybindingRule>):
   appAtomRegistry.set(keybindingsRulesAtom, next)
 }
 
-const persistRulesToServer = (rules: ReadonlyArray<KeybindingRule>): void => {
+let persistGeneration = 0
+
+const persistRulesToServer = (rules: ReadonlyArray<KeybindingRule>): Promise<boolean> => {
   applyKeybindingsRules(rules)
-  void replaceKeybindings({ rules }).then((result) => {
-    if (result.ok) {
-      applyKeybindingsRules(result.value.rules)
-    }
-    return undefined
-  })
+  const generation = (persistGeneration += 1)
+  return replaceKeybindings({ rules }).then(
+    (result) => {
+      if (!result.ok) {
+        return false
+      }
+      if (generation === persistGeneration) {
+        applyKeybindingsRules(result.value.rules)
+      }
+      return true
+    },
+    () => false,
+  )
 }
 
 export const hydrateKeybindingsFromServer = (): void => {
@@ -79,9 +88,12 @@ export const hydrateKeybindingsFromServer = (): void => {
     }
     const local = readStoredKeybindingsRules()
     if (result.value.rules.length === 0 && local.length > 0) {
-      persistRulesToServer(local)
-      clearStoredKeybindingsRules()
-      return undefined
+      return persistRulesToServer(local).then((ok) => {
+        if (ok) {
+          clearStoredKeybindingsRules()
+        }
+        return undefined
+      })
     }
     applyKeybindingsRules(result.value.rules)
     clearStoredKeybindingsRules()
@@ -122,17 +134,17 @@ export const upsertKeybinding = (input: {
     input.when === undefined || input.when.length === 0
       ? { key: input.key, command: input.command }
       : { key: input.key, command: input.command, when: input.when }
-  persistRulesToServer(upsertKeybindingRule(current, next, input.replace))
+  void persistRulesToServer(upsertKeybindingRule(current, next, input.replace))
 }
 
 export const removeKeybinding = (target: KeybindingRule): void => {
   const current = persistedRulesOrDefaults(appAtomRegistry.get(keybindingsRulesAtom))
   const without = removeKeybindingRule(current, target)
   if (without.some((entry) => entry.command === target.command)) {
-    persistRulesToServer(without)
+    void persistRulesToServer(without)
     return
   }
-  persistRulesToServer([...without, keybindingTombstone(target.command)])
+  void persistRulesToServer([...without, keybindingTombstone(target.command)])
 }
 
 export const resetKeybinding = (row: {
@@ -169,11 +181,11 @@ export const resetAllKeybindings = (): void => {
   if (!hasCustomKeybindings()) {
     return
   }
-  persistRulesToServer([])
+  void persistRulesToServer([])
 }
 
 export const replaceKeybindingsRules = (rules: ReadonlyArray<KeybindingRule>): void => {
-  persistRulesToServer(rules)
+  void persistRulesToServer(rules)
 }
 
 export const applyKeybindingsLiveEvent = (event: {

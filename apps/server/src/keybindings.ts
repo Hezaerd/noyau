@@ -2,6 +2,7 @@ import {
   decodeKeybindingsFile,
   encodeKeybindingsFile,
   KeybindingsError,
+  MAX_KEYBINDINGS_COUNT,
   type KeybindingRule,
 } from "@noyau/contracts/keybindings"
 import { ServerConfig } from "@noyau/server/config"
@@ -55,7 +56,9 @@ export const writeKeybindingsRules = Effect.fn("writeKeybindingsRules")(function
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const keybindingsPath = keybindingsFilePath(config.configDirectory, path)
-  const encoded = yield* encodeKeybindingsFile(rules).pipe(
+  const persisted =
+    rules.length <= MAX_KEYBINDINGS_COUNT ? [...rules] : rules.slice(0, MAX_KEYBINDINGS_COUNT)
+  const encoded = yield* encodeKeybindingsFile(persisted).pipe(
     Effect.mapError(
       (cause) =>
         new KeybindingsError({
@@ -87,5 +90,5 @@ export const writeKeybindingsRules = Effect.fn("writeKeybindingsRules")(function
         }),
     ),
   )
-  return rules
+  return persisted
 })
