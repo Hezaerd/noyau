@@ -11,6 +11,7 @@ import {
 import { describe, expect, it } from "vite-plus/test"
 
 const normalize = (path: string): string => path.replaceAll(/\/+/g, "/")
+const join = (...segments: string[]) => segments.join("/")
 
 describe("dev home", () => {
   it("recognizes a linked worktree gitdir pointer", () => {
@@ -48,7 +49,6 @@ describe("dev home", () => {
   })
 
   it("parks packaged config under ~/.noyau/<channel>", () => {
-    const join = (...segments: string[]) => segments.join("/")
     expect(resolveChannelHome(join, "/Users/moi", "nightly")).toBe("/Users/moi/.noyau/nightly")
     expect(
       resolveConfigDirectory({
@@ -71,7 +71,6 @@ describe("dev home", () => {
   })
 
   it("seeds only missing config files from the first live source", () => {
-    const join = (...segments: string[]) => segments.join("/")
     expect(
       shouldSeedWorktreeConfig({ explicitHomeDir: false, worktreeHome: "/tmp/wt/.noyau" }),
     ).toBe(true)

@@ -77,11 +77,7 @@ layer(platformLayer)((it) => {
       })
       yield* fileSystem.writeFileString(
         path.join(dataDirectory, "settings.json"),
-        JSON.stringify({
-          providerInstances: {
-            cursor: { driver: "cursor", enabled: false },
-          },
-        }),
+        '{"providerInstances":{"cursor":{"driver":"cursor","enabled":false}}}',
       )
       const config = testServerConfig({ dataDirectory, configDirectory })
       const read = yield* readServerSettings().pipe(Effect.provideService(ServerConfig, config))

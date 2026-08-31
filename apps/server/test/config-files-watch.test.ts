@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-
-import { configFileKindFromPath } from "../src/config-files-watch.ts"
+import { configFileKindFromPath } from "@noyau/server/config-files-watch"
 
 const basename = (value: string): string => value.split("/").at(-1) ?? value
 
