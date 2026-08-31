@@ -31,6 +31,7 @@ export const sqlitePersistenceLayer = Layer.unwrap(
     const config = yield* ServerConfig
     const fileSystem = yield* FileSystem.FileSystem
     yield* fileSystem.makeDirectory(config.dataDirectory, { recursive: true })
+    yield* fileSystem.makeDirectory(config.configDirectory, { recursive: true })
     return Sqlite.layer({ filename: config.databaseFile })
   }),
 ).pipe(Layer.provide(NodeFileSystem.layer))

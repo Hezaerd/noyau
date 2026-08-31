@@ -36,6 +36,7 @@ import type {
   VcsSwitchRefResult,
 } from "@noyau/contracts/git"
 import type { ProjectId, Sequence } from "@noyau/contracts/ids"
+import type { KeybindingsSnapshot } from "@noyau/contracts/keybindings"
 import type {
   PreviewCloseInput,
   PreviewCloseResult,
@@ -54,7 +55,12 @@ import {
   type ThreadStreamItem,
 } from "@noyau/contracts/rpc"
 import type { ServerSettings, ServerSettingsPatch } from "@noyau/contracts/settings"
-import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
+import {
+  isShellSideChannelEvent,
+  type SetShellFocusInput,
+  type ShellLiveEvent,
+  type ShellSnapshot,
+} from "@noyau/contracts/shell"
 import type { ThreadAssistantLive } from "@noyau/contracts/thread/live"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/contracts/turn-diff"
 import type { Cause } from "effect"
@@ -500,6 +506,26 @@ export const patchSettings = (
 ): Promise<ControlPlaneResult<ServerSettings>> =>
   runOperation(requestPatchSettings(patch), "command")
 
+const requestKeybindings = Effect.fn("ControlPlaneClient.getKeybindings")(function* () {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.getKeybindings]({})
+})
+
+export const getKeybindings = (): Promise<ControlPlaneResult<KeybindingsSnapshot>> =>
+  runOperation(requestKeybindings(), "command")
+
+const requestReplaceKeybindings = Effect.fn("ControlPlaneClient.replaceKeybindings")(function* (
+  snapshot: KeybindingsSnapshot,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.replaceKeybindings](snapshot)
+})
+
+export const replaceKeybindings = (
+  snapshot: KeybindingsSnapshot,
+): Promise<ControlPlaneResult<KeybindingsSnapshot>> =>
+  runOperation(requestReplaceKeybindings(snapshot), "command")
+
 export const listEditors = (): Promise<ControlPlaneResult<ListEditorsResult>> =>
   gitCall(
     Effect.gen(function* () {
@@ -550,6 +576,9 @@ export const makeSequencedFrameConsumer = <
 >(
   initialAfterSequence: Sequence | undefined,
   callbacks: StreamCallbacks<Snapshot, Event>,
+  options?: {
+    readonly isSideChannel?: (event: Event) => boolean
+  },
 ) => {
   let lastSequence = initialAfterSequence
   let acceptsLiveEvents = initialAfterSequence !== undefined
@@ -559,6 +588,13 @@ export const makeSequencedFrameConsumer = <
     consume: (item: SequencedFrame<Snapshot, Event>): void => {
       callbacks.onStatus({ _tag: "Connected" })
       if (item.kind === "synchronized") {
+        return
+      }
+      if (item.kind === "event" && options?.isSideChannel?.(item.event)) {
+        if (!acceptsLiveEvents) {
+          return
+        }
+        callbacks.onEvent(item.event)
         return
       }
       if (item.kind === "event" && !acceptsLiveEvents) {
@@ -740,7 +776,9 @@ export const subscribeShell = (
   afterSequence: Sequence | undefined,
   callbacks: StreamCallbacks<ShellSnapshot, ShellLiveEvent>,
 ) => {
-  const consumer = makeSequencedFrameConsumer(afterSequence, callbacks)
+  const consumer = makeSequencedFrameConsumer(afterSequence, callbacks, {
+    isSideChannel: isShellSideChannelEvent,
+  })
   return superviseSubscription({
     afterSequence: consumer.afterSequence,
     currentSession: () => activeTransportSession,

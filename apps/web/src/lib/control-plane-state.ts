@@ -67,12 +67,14 @@ const withSequence = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnap
         ...snapshot,
         environment: event.environment,
       }
+    case "keybindings-updated":
+      return snapshot
   }
 }
 
 /** Reduce a live shell event. Stale or duplicate sequences keep the current snapshot. */
 export const applyShellEvent = (snapshot: ShellSnapshot, event: ShellLiveEvent): ShellSnapshot =>
-  event._tag === "environment-updated"
+  event._tag === "environment-updated" || event._tag === "keybindings-updated"
     ? withSequence(snapshot, event)
     : event.sequence <= snapshot.snapshotSequence
       ? snapshot

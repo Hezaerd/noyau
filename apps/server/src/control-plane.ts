@@ -28,6 +28,12 @@ import {
   type ThreadId,
 } from "@noyau/contracts/ids"
 import {
+  sameKeybindingsRules,
+  type KeybindingRule,
+  type KeybindingsError,
+  type KeybindingsSnapshot,
+} from "@noyau/contracts/keybindings"
+import {
   ProjectNotFound,
   ProjectUnavailable,
   WorkspaceRootConflict,
@@ -87,6 +93,7 @@ import { SqlClient } from "effect/unstable/sql/SqlClient"
 import { AgentSkillInstaller } from "./agent-skill/installer.ts"
 import { loadTurnAttachments, readAttachmentPreview } from "./attachments.ts"
 import { commandFromRequest, requestProjectId } from "./command-from-request.ts"
+import { watchConfigDirectory } from "./config-files-watch.ts"
 import { ServerConfig } from "./config.ts"
 import { journalEventTouchesPresence } from "./discord/activity.ts"
 import { makePresenceController } from "./discord/presence.ts"
@@ -94,6 +101,7 @@ import { readFilePreview } from "./file-preview.ts"
 import { GitRuntime } from "./git/git-runtime.ts"
 import { makeTurnDiffReactor } from "./git/turn-diff-reactor.ts"
 import { resolveTurnDiffCheckpoints } from "./git/turn-diff.ts"
+import { readKeybindingsRules, writeKeybindingsRules, type KeybindingsRead } from "./keybindings.ts"
 import { makeCommandWorker, type PersistedEvent } from "./persistence/command-worker.ts"
 import { makeDrainableWorker } from "./persistence/drainable-worker.ts"
 import { findWorkspaceRootOwner, projectDomainEvent } from "./persistence/projections.ts"
@@ -424,6 +432,10 @@ export interface ControlPlaneService {
   readonly patchSettings: (
     patch: ServerSettingsPatch,
   ) => Effect.Effect<ServerSettings, ServerSettingsError | ServiceUnavailable>
+  readonly getKeybindings: Effect.Effect<KeybindingsSnapshot, KeybindingsError | ServiceUnavailable>
+  readonly replaceKeybindings: (
+    snapshot: KeybindingsSnapshot,
+  ) => Effect.Effect<KeybindingsSnapshot, KeybindingsError | ServiceUnavailable>
   readonly probe: Effect.Effect<Record<never, never>>
   readonly drainReactors: Effect.Effect<void>
 }
@@ -493,6 +505,14 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         }),
       )
       const environmentUpdates = yield* PubSub.unbounded<Environment>()
+      const keybindingsUpdates = yield* PubSub.unbounded<ReadonlyArray<KeybindingRule>>()
+      const initialKeybindings = yield* readKeybindingsRules().pipe(
+        Effect.provideService(ServerConfig, config),
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, path),
+        Effect.orElseSucceed((): KeybindingsRead => ({ rules: [], ok: true })),
+      )
+      const keybindingsRef = yield* Ref.make(initialKeybindings.ok ? initialKeybindings.rules : [])
       const readEnvironment = Ref.get(environmentRef)
       const publishEnvironment = Effect.fn("ControlPlane.publishEnvironment")(function* (
         next: Environment,
@@ -832,9 +852,20 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           },
         })),
       )
+      const keybindingsLive = Stream.fromPubSub(keybindingsUpdates).pipe(
+        Stream.map((rules): ShellStreamItem => ({
+          kind: "event",
+          event: {
+            _tag: "keybindings-updated",
+            sequence: Sequence.make(0),
+            rules,
+          },
+        })),
+      )
+      const sideChannelLive = Stream.merge(environmentLive, keybindingsLive)
       const withEnvironmentLive = <R>(
         journal: Stream.Stream<ShellStreamItem, ServiceUnavailable, R>,
-      ) => Stream.merge(journal, environmentLive, { haltStrategy: "left" })
+      ) => Stream.merge(journal, sideChannelLive, { haltStrategy: "left" })
 
       const subscribeShell: ControlPlaneService["subscribeShell"] = (input) =>
         Stream.unwrap(
@@ -1082,6 +1113,79 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         return next
       })
 
+      const publishKeybindings = Effect.fn("ControlPlane.publishKeybindings")(function* (
+        rules: ReadonlyArray<KeybindingRule>,
+      ) {
+        const current = yield* Ref.get(keybindingsRef)
+        if (sameKeybindingsRules(current, rules)) {
+          return rules
+        }
+        yield* Ref.set(keybindingsRef, rules)
+        yield* PubSub.publish(keybindingsUpdates, rules)
+        return rules
+      })
+
+      const applySettingsFromDisk = Effect.fn("ControlPlane.applySettingsFromDisk")(function* () {
+        const next = yield* provideSettings(readServerSettings()).pipe(
+          Effect.catch((error) =>
+            Effect.logWarning("Ignoring invalid settings.json", { error }).pipe(
+              Effect.as(undefined),
+            ),
+          ),
+        )
+        if (next === undefined) {
+          return
+        }
+        const providers = yield* registry.applySettings(next.providerInstances)
+        const current = yield* readEnvironment
+        yield* publishEnvironment(
+          new Environment({
+            id: current.id,
+            providers,
+            createdAt: current.createdAt,
+          }),
+        )
+      })
+
+      const applyKeybindingsFromDisk = Effect.fn("ControlPlane.applyKeybindingsFromDisk")(
+        function* () {
+          const read = yield* provideSettings(readKeybindingsRules()).pipe(
+            Effect.orElseSucceed((): KeybindingsRead => ({
+              rules: [],
+              ok: false,
+            })),
+          )
+          if (!read.ok) {
+            return
+          }
+          yield* publishKeybindings(read.rules)
+        },
+      )
+
+      const getKeybindings: ControlPlaneService["getKeybindings"] = Ref.get(keybindingsRef).pipe(
+        Effect.map((rules) => ({ rules })),
+      )
+
+      const replaceKeybindings: ControlPlaneService["replaceKeybindings"] = Effect.fn(
+        "ControlPlane.replaceKeybindings",
+      )(function* (snapshot) {
+        const written = yield* provideSettings(writeKeybindingsRules(snapshot.rules)).pipe(
+          Effect.mapError((error) =>
+            error._tag === "KeybindingsError"
+              ? error
+              : new ServiceUnavailable({ service: "keybindings" }),
+          ),
+        )
+        yield* publishKeybindings(written)
+        return { rules: written }
+      })
+
+      yield* watchConfigDirectory({
+        directory: config.configDirectory,
+        onSettings: applySettingsFromDisk(),
+        onKeybindings: applyKeybindingsFromDisk(),
+      }).pipe(Effect.forkScoped)
+
       const getConfig = readSchemaVersion().pipe(
         Effect.provideService(SqlClient, sql),
         Effect.map((databaseSchemaVersion) => ({
@@ -1120,6 +1224,8 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         getTurnDiff,
         getSettings,
         patchSettings,
+        getKeybindings,
+        replaceKeybindings,
         probe: Effect.succeed({}),
         drainReactors: Effect.gen(function* () {
           yield* providerSessionReaper.stop

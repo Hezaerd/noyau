@@ -1,7 +1,14 @@
 import { createServer } from "node:net"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
-import { pointsAtLinkedWorktree, resolveDevHome, worktreeNoyauHome } from "@noyau/shared/dev-home"
+import {
+  CONFIG_FILE_NAMES,
+  liveConfigSeedDirectories,
+  pointsAtLinkedWorktree,
+  resolveDevHome,
+  shouldSeedWorktreeConfig,
+  worktreeNoyauHome,
+} from "@noyau/shared/dev-home"
 import {
   exhaustedPortsMessage,
   invalidPortOffsetMessage,
@@ -10,6 +17,7 @@ import {
   portPairForOffset,
   resolveOffset,
 } from "@noyau/shared/dev-ports"
+import { RELEASE_CHANNELS, type ReleaseChannel } from "@noyau/shared/release-brand"
 import { Config, Deferred, Effect, Exit, FileSystem, Option, Path, Schema, Scope } from "effect"
 import { ChildProcess } from "effect/unstable/process"
 
@@ -248,6 +256,41 @@ const resolveGitWorktreePath = Effect.fn("resolveGitWorktreePath")(function* (cw
   }
 })
 
+const parseReleaseChannel = (value: string | undefined): ReleaseChannel =>
+  RELEASE_CHANNELS.find((channel) => channel === value) ?? "development"
+
+export const seedWorktreeConfigFiles = Effect.fn("seedWorktreeConfigFiles")(function* (input: {
+  readonly destDirectory: string
+  readonly homeDirectory: string
+  readonly releaseChannel: ReleaseChannel
+}) {
+  const fileSystem = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  yield* fileSystem.makeDirectory(input.destDirectory, { recursive: true })
+  const sourceDirectories = liveConfigSeedDirectories({
+    join: path.join,
+    homeDirectory: input.homeDirectory,
+    releaseChannel: input.releaseChannel,
+  })
+  for (const fileName of CONFIG_FILE_NAMES) {
+    const destination = path.join(input.destDirectory, fileName)
+    if (yield* fileSystem.exists(destination)) {
+      continue
+    }
+    for (const sourceDirectory of sourceDirectories) {
+      const source = path.join(sourceDirectory, fileName)
+      if (!(yield* fileSystem.exists(source))) {
+        continue
+      }
+      yield* fileSystem.copyFile(source, destination)
+      yield* Effect.sync(() => {
+        process.stdout.write(`[dev-runner] seeded ${fileName} from ${source}\n`)
+      })
+      break
+    }
+  }
+})
+
 const resolveWorktreeHome = Effect.fn("resolveWorktreeHome")(function* (cwd: string) {
   const path = yield* Path.Path
   const worktreePath = yield* resolveGitWorktreePath(cwd)
@@ -376,6 +419,23 @@ export const runDevRunner = Effect.fn("runDevRunner")(function* (
 
   if (args.dryRun) {
     return
+  }
+
+  if (
+    shouldSeedWorktreeConfig({
+      explicitHomeDir: (args.homeDir?.trim() ?? "") !== "",
+      worktreeHome,
+    }) &&
+    resolvedHome !== undefined
+  ) {
+    const userHome = hostEnv.HOME ?? hostEnv.USERPROFILE
+    if (userHome !== undefined && userHome !== "") {
+      yield* seedWorktreeConfigFiles({
+        destDirectory: resolvedHome,
+        homeDirectory: userHome,
+        releaseChannel: parseReleaseChannel(hostEnv.NOYAU_RELEASE_CHANNEL),
+      })
+    }
   }
 
   if (args.mode === "dev:server") {

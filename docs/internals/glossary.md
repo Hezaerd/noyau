@@ -10,6 +10,7 @@ This is a living glossary for Noyau. It explains what common terms mean in this 
 - [Boards](#boards)
 - [Thread timeline](#thread-timeline)
 - [Provider runtime](#provider-runtime)
+- [Environment files](#environment-files)
 - [Client chrome](#client-chrome)
 - [Orchestration](#orchestration)
 
@@ -61,7 +62,7 @@ fill survives session reap. Claude does not report it yet.
 Durable local identity for this Noyau process: an id, a [providers](#provider-instance)
 map, and a created time. Shape is [Environment][23]. It is not event-sourced.
 Live updates travel as `environment-updated` on the shell stream. Enablement
-and binary paths live in `settings.json`, not on this entity.
+and binary paths live in [`settings.json`](#settingsjson), not on this entity.
 
 #### Provider
 
@@ -86,6 +87,22 @@ Environment map route on the instance id. Defaults and the enablement rule
 are in [settings.ts][25]. The live view the UI renders is
 [ProviderInstanceView][23]. The mutable registry is
 [provider-instance-registry.ts][26].
+
+### Environment files
+
+#### settings.json
+
+Not event-sourced provider config under the [config directory][27]:
+`~/.noyau/<channel>/settings.json` for a packaged app, or `NOYAU_HOME` /
+the worktree `.noyau` when those are set. Schema and merge:
+[settings.ts][25]. I/O: [provider-settings.ts][28]. See [settings][29].
+
+#### keybindings.json
+
+Sibling overlay array of `{ key, command, when? }`. Same directory as
+`settings.json`. The server watches the file and publishes
+`keybindings-updated` on the shell stream. Schema: [keybindings.ts][30].
+I/O: [keybindings.ts][31]. See [settings][29].
 
 ### Client chrome
 
@@ -189,3 +206,8 @@ only.
 [24]: ../../packages/contracts/src/entities/provider-instance.ts
 [25]: ../../packages/contracts/src/settings.ts
 [26]: ../../apps/server/src/provider/provider-instance-registry.ts
+[27]: ../../packages/shared/src/dev-home.ts
+[28]: ../../apps/server/src/provider/provider-settings.ts
+[29]: ./settings.md
+[30]: ../../packages/contracts/src/keybindings.ts
+[31]: ../../apps/server/src/keybindings.ts

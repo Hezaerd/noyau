@@ -64,4 +64,34 @@ layer(platformLayer)((it) => {
       assert.deepStrictEqual(read, written)
     }),
   )
+
+  it.effect("copie settings.json hors de dataDirectory vers configDirectory", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const dataDirectory = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "noyau-settings-data-",
+      })
+      const configDirectory = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "noyau-settings-config-",
+      })
+      yield* fileSystem.writeFileString(
+        path.join(dataDirectory, "settings.json"),
+        '{"providerInstances":{"cursor":{"driver":"cursor","enabled":false}}}',
+      )
+      const config = testServerConfig({ dataDirectory, configDirectory })
+      const read = yield* readServerSettings().pipe(Effect.provideService(ServerConfig, config))
+      assert.strictEqual(
+        resolveHydratedInstanceEnabled(
+          ProviderInstanceId.make("cursor"),
+          hydrateProviderInstanceConfigs(read),
+        ),
+        false,
+      )
+      assert.strictEqual(
+        yield* fileSystem.exists(path.join(configDirectory, "settings.json")),
+        true,
+      )
+    }),
+  )
 })

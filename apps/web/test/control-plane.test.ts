@@ -49,6 +49,39 @@ describe("control plane stream cursor", () => {
     expect(consumer.afterSequence()).toBe(11)
   })
 
+  it("applies a side-channel event without moving the journal cursor", () => {
+    const accepted: Array<string> = []
+    const consumer = makeSequencedFrameConsumer<
+      { readonly snapshotSequence: Sequence; readonly label: string },
+      { readonly sequence: Sequence; readonly label: string; readonly side?: boolean }
+    >(
+      undefined,
+      {
+        onSnapshot: (snapshot) => accepted.push(`snapshot:${snapshot.label}`),
+        onEvent: (event) => {
+          accepted.push(`event:${event.label}`)
+        },
+        onStatus: () => undefined,
+      },
+      {
+        isSideChannel: (event) => event.side === true,
+      },
+    )
+
+    consumer.consume({
+      kind: "snapshot",
+      snapshot: { snapshotSequence: Sequence.make(10), label: "initial" },
+    })
+    consumer.consume({
+      kind: "event",
+      event: { sequence: Sequence.make(0), label: "keybindings", side: true },
+    })
+    consumer.consume({ kind: "event", event: { sequence: Sequence.make(11), label: "live" } })
+
+    expect(accepted).toEqual(["snapshot:initial", "event:keybindings", "event:live"])
+    expect(consumer.afterSequence()).toBe(11)
+  })
+
   it("resumes from a warm afterSequence without waiting for a fresh snapshot", () => {
     const accepted: Array<string> = []
     const consumer = makeSequencedFrameConsumer<

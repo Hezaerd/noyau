@@ -1,4 +1,5 @@
 import { EnvironmentId } from "@noyau/contracts/ids"
+import { resolveConfigDirectory } from "@noyau/shared/dev-home"
 import { RELEASE_CHANNELS, type ReleaseChannel } from "@noyau/shared/release-brand"
 import { Config, Context, Effect, FileSystem, Layer, Path, Redacted, Schema } from "effect"
 
@@ -28,6 +29,7 @@ export type BootstrapConfig = (typeof BootstrapConfig)["Type"]
 export interface ServerConfigValue {
   readonly environment: NoyauEnvironment
   readonly dataDirectory: string
+  readonly configDirectory: string
   readonly worktreesDir: string
   readonly databaseFile: string
   readonly host: string
@@ -133,6 +135,7 @@ export const loadServerConfig = Effect.gen(function* () {
   )
   const bootstrapFd = yield* Config.option(Config.int("NOYAU_BOOTSTRAP_FD"))
   const configuredHome = yield* Config.option(Config.string("NOYAU_HOME"))
+  const configuredDataDirectory = yield* Config.option(Config.string("NOYAU_DATA_DIR"))
   const defaultDataDirectory =
     configuredHome._tag === "Some" ? path.resolve(configuredHome.value) : path.resolve(".noyau")
   const bootstrap =
@@ -141,9 +144,17 @@ export const loadServerConfig = Effect.gen(function* () {
       : yield* standaloneBootstrap(defaultDataDirectory).pipe(
           Effect.flatMap(decodeStandaloneBootstrap),
         )
+  const explicitHome = configuredHome._tag === "Some" || configuredDataDirectory._tag === "Some"
   return {
     environment,
     dataDirectory: bootstrap.dataDirectory,
+    configDirectory: resolveConfigDirectory({
+      join: path.join,
+      dataDirectory: bootstrap.dataDirectory,
+      homeDirectory,
+      releaseChannel,
+      explicitHome,
+    }),
     worktreesDir: resolveWorktreesDir(path.join, homeDirectory, releaseChannel),
     databaseFile: path.join(bootstrap.dataDirectory, "noyau.sqlite"),
     host: bootstrap.host,

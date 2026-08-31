@@ -33,6 +33,8 @@
     "./provider/undelivered-mandate": "./src/provider/undelivered-mandate.ts",
     "./provider/provider-instance-registry": "./src/provider/provider-instance-registry.ts",
     "./provider/provider-settings": "./src/provider/provider-settings.ts",
+    "./keybindings": "./src/keybindings.ts",
+    "./config-files-watch": "./src/config-files-watch.ts",
     "./provider/provider-port": "./src/provider/provider-port.ts",
     "./provider/provider-reactor": "./src/provider/provider-reactor.ts",
     "./provider/provider-session-reaper": "./src/provider/provider-session-reaper.ts",

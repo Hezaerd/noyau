@@ -24,6 +24,10 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     ControlPlane.pipe(Effect.flatMap((service) => service.getSettings)),
   [RPC_METHODS.patchSettings]: (patch) =>
     ControlPlane.pipe(Effect.flatMap((service) => service.patchSettings(patch))),
+  [RPC_METHODS.getKeybindings]: () =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.getKeybindings)),
+  [RPC_METHODS.replaceKeybindings]: (snapshot) =>
+    ControlPlane.pipe(Effect.flatMap((service) => service.replaceKeybindings(snapshot))),
   [RPC_METHODS.probe]: () => ControlPlane.pipe(Effect.flatMap((service) => service.probe)),
   [RPC_METHODS.searchWorkspacePaths]: (input) =>
     ControlPlane.pipe(

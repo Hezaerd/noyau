@@ -6,20 +6,54 @@ import {
   type ServerSettingsPatch,
 } from "@noyau/contracts/settings"
 import { ServerConfig } from "@noyau/server/config"
+import { SETTINGS_FILE_NAME } from "@noyau/shared/dev-home"
 import { Effect, FileSystem, Path, Schema } from "effect"
 
 const SettingsFileJson = Schema.fromJsonString(ServerSettings, { space: 2 })
 const decodeSettingsFile = Schema.decodeUnknownEffect(SettingsFileJson)
 const encodeSettingsFile = Schema.encodeEffect(SettingsFileJson)
 
-export const settingsFilePath = (dataDirectory: string, path: Path.Path): string =>
-  path.join(dataDirectory, "settings.json")
+export const settingsFilePath = (configDirectory: string, path: Path.Path): string =>
+  path.join(configDirectory, SETTINGS_FILE_NAME)
 
-export const readServerSettings = Effect.fn("readServerSettings")(function* () {
+const resolveSettingsPath = Effect.fn("resolveSettingsPath")(function* () {
   const config = yield* ServerConfig
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const settingsPath = settingsFilePath(config.dataDirectory, path)
+  const primary = settingsFilePath(config.configDirectory, path)
+  if (yield* fileSystem.exists(primary)) {
+    return primary
+  }
+  const legacy = settingsFilePath(config.dataDirectory, path)
+  if (primary === legacy || !(yield* fileSystem.exists(legacy))) {
+    return primary
+  }
+  yield* fileSystem.makeDirectory(config.configDirectory, { recursive: true }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new ServerSettingsError({
+          settingsPath: primary,
+          operation: "write-file",
+          cause,
+        }),
+    ),
+  )
+  yield* fileSystem.copyFile(legacy, primary).pipe(
+    Effect.mapError(
+      (cause) =>
+        new ServerSettingsError({
+          settingsPath: primary,
+          operation: "write-file",
+          cause,
+        }),
+    ),
+  )
+  return primary
+})
+
+export const readServerSettings = Effect.fn("readServerSettings")(function* () {
+  const fileSystem = yield* FileSystem.FileSystem
+  const settingsPath = yield* resolveSettingsPath()
   const exists = yield* fileSystem.exists(settingsPath)
   if (!exists) {
     return DEFAULT_SERVER_SETTINGS
@@ -54,8 +88,17 @@ export const writeServerSettings = Effect.fn("writeServerSettings")(function* (
 ) {
   const config = yield* ServerConfig
   const fileSystem = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  const settingsPath = settingsFilePath(config.dataDirectory, path)
+  const settingsPath = yield* resolveSettingsPath()
+  yield* fileSystem.makeDirectory(config.configDirectory, { recursive: true }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new ServerSettingsError({
+          settingsPath,
+          operation: "write-file",
+          cause,
+        }),
+    ),
+  )
   const encoded = yield* encodeSettingsFile(settings).pipe(
     Effect.mapError(
       (cause) =>

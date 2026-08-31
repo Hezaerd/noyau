@@ -1,17 +1,16 @@
+import { channelHomeRelativeSegments, noyauHomeChannel } from "@noyau/shared/dev-home"
 import type { ReleaseChannel } from "@noyau/shared/release-brand"
 
-export type WorktreeHomeChannel = "dev" | "latest" | "nightly"
+export type WorktreeHomeChannel = ReturnType<typeof noyauHomeChannel>
 
 /** Segment dossier du canal : `development` → `dev`. */
-export const worktreeHomeChannel = (channel: ReleaseChannel): WorktreeHomeChannel =>
-  channel === "development" ? "dev" : channel
+export const worktreeHomeChannel = noyauHomeChannel
 
 /** `~/.noyau/<canal>/worktree` — hors `dataDirectory`. */
 export const worktreeHomeRelativeSegments = (
   channel: ReleaseChannel,
 ): readonly [".noyau", WorktreeHomeChannel, "worktree"] => [
-  ".noyau",
-  worktreeHomeChannel(channel),
+  ...channelHomeRelativeSegments(channel),
   "worktree",
 ]
 

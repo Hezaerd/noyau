@@ -155,6 +155,8 @@ const controlPlane = ControlPlane.of({
   getTurnDiff: () => Effect.die("unused"),
   getSettings: Effect.die("unused"),
   patchSettings: () => Effect.die("unused"),
+  getKeybindings: Effect.die("unused"),
+  replaceKeybindings: () => Effect.die("unused"),
   inspectProjectAgentIntegration: () => Effect.die("unused"),
   installProjectAgentIntegration: () => Effect.die("unused"),
   removeProjectAgentIntegration: () => Effect.die("unused"),

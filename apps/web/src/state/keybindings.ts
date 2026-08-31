@@ -1,5 +1,11 @@
+import {
+  sameKeybindingsRules,
+  serializeKeybindingsFile,
+  type KeybindingRule as FileKeybindingRule,
+} from "@noyau/contracts/keybindings"
 import { Atom } from "effect/unstable/reactivity"
 
+import { getKeybindings, replaceKeybindings } from "@/lib/control-plane"
 import {
   compileAndMergeKeybindings,
   keybindingTombstone,
@@ -13,12 +19,12 @@ import {
 import { type KeybindingId } from "@/lib/keybindings-catalog"
 import { persistedRulesOrDefaults } from "@/lib/keybindings-settings"
 import {
+  clearStoredKeybindingsRules,
   hasKeybindingsEdits,
-  persistKeybindingsRules,
+  parseKeybindingsRules,
   readStoredKeybindingsRules,
 } from "@/lib/keybinds-file"
 import { appAtomRegistry } from "@/state/atom-registry"
-import { persistWritableAtom } from "@/state/persist"
 
 export const keybindingsRulesAtom = Atom.make<ReadonlyArray<KeybindingRule>>([]).pipe(
   Atom.keepAlive,
@@ -38,16 +44,60 @@ export const keybindingRecorderActiveAtom = Atom.make(false).pipe(
   Atom.withLabel("chrome:keybinding-recorder"),
 )
 
-let initialized = false
+const toClientRules = (rules: ReadonlyArray<FileKeybindingRule>): ReadonlyArray<KeybindingRule> =>
+  parseKeybindingsRules(serializeKeybindingsFile(rules))
 
-export const initializeKeybindings = (): void => {
-  if (initialized) {
+export const applyKeybindingsRules = (rules: ReadonlyArray<FileKeybindingRule>): void => {
+  const next = toClientRules(rules)
+  const current = appAtomRegistry.get(keybindingsRulesAtom)
+  if (sameKeybindingsRules(current, next)) {
     return
   }
-  initialized = true
-  persistWritableAtom(keybindingsRulesAtom, {
-    read: readStoredKeybindingsRules,
-    write: persistKeybindingsRules,
+  appAtomRegistry.set(keybindingsRulesAtom, next)
+}
+
+let persistGeneration = 0
+
+const persistRulesToServer = (rules: ReadonlyArray<KeybindingRule>): Promise<boolean> => {
+  applyKeybindingsRules(rules)
+  const generation = (persistGeneration += 1)
+  return replaceKeybindings({ rules }).then(
+    (result) => {
+      if (!result.ok) {
+        return false
+      }
+      if (generation === persistGeneration) {
+        applyKeybindingsRules(result.value.rules)
+      }
+      return true
+    },
+    () => false,
+  )
+}
+
+export const hydrateKeybindingsFromServer = (): void => {
+  const startedWith = appAtomRegistry.get(keybindingsRulesAtom)
+  void getKeybindings().then((result) => {
+    if (!result.ok) {
+      return undefined
+    }
+    const current = appAtomRegistry.get(keybindingsRulesAtom)
+    if (!sameKeybindingsRules(current, startedWith)) {
+      clearStoredKeybindingsRules()
+      return undefined
+    }
+    const local = readStoredKeybindingsRules()
+    if (result.value.rules.length === 0 && local.length > 0) {
+      return persistRulesToServer(local).then((ok) => {
+        if (ok) {
+          clearStoredKeybindingsRules()
+        }
+        return undefined
+      })
+    }
+    applyKeybindingsRules(result.value.rules)
+    clearStoredKeybindingsRules()
+    return undefined
   })
 }
 
@@ -73,10 +123,6 @@ export const setKeybindingRecorderActive = (active: boolean): void => {
   appAtomRegistry.set(keybindingRecorderActiveAtom, active)
 }
 
-const writeRules = (rules: ReadonlyArray<KeybindingRule>): void => {
-  appAtomRegistry.set(keybindingsRulesAtom, rules)
-}
-
 export const upsertKeybinding = (input: {
   readonly command: KeybindingId
   readonly key: string
@@ -88,17 +134,17 @@ export const upsertKeybinding = (input: {
     input.when === undefined || input.when.length === 0
       ? { key: input.key, command: input.command }
       : { key: input.key, command: input.command, when: input.when }
-  writeRules(upsertKeybindingRule(current, next, input.replace))
+  void persistRulesToServer(upsertKeybindingRule(current, next, input.replace))
 }
 
 export const removeKeybinding = (target: KeybindingRule): void => {
   const current = persistedRulesOrDefaults(appAtomRegistry.get(keybindingsRulesAtom))
   const without = removeKeybindingRule(current, target)
   if (without.some((entry) => entry.command === target.command)) {
-    writeRules(without)
+    void persistRulesToServer(without)
     return
   }
-  writeRules([...without, keybindingTombstone(target.command)])
+  void persistRulesToServer([...without, keybindingTombstone(target.command)])
 }
 
 export const resetKeybinding = (row: {
@@ -135,11 +181,21 @@ export const resetAllKeybindings = (): void => {
   if (!hasCustomKeybindings()) {
     return
   }
-  writeRules([])
+  void persistRulesToServer([])
 }
 
 export const replaceKeybindingsRules = (rules: ReadonlyArray<KeybindingRule>): void => {
-  writeRules(rules)
+  void persistRulesToServer(rules)
+}
+
+export const applyKeybindingsLiveEvent = (event: {
+  readonly _tag: string
+  readonly rules?: ReadonlyArray<FileKeybindingRule>
+}): void => {
+  if (event._tag !== "keybindings-updated" || event.rules === undefined) {
+    return
+  }
+  applyKeybindingsRules(event.rules)
 }
 
 export type { KeybindingRule, ResolvedKeybindings, ResolvedKeybindingsConfig }
