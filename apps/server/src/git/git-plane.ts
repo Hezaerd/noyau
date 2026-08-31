@@ -217,6 +217,6 @@ const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
 })
 
 export const gitPlaneLayer = Layer.effect(GitPlane, makeGitPlane()).pipe(
-  Layer.provide(vcsStatusBroadcasterLayer),
+  Layer.provideMerge(vcsStatusBroadcasterLayer),
   Layer.provideMerge(gitRuntimeLayer),
 )

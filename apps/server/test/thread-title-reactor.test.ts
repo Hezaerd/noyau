@@ -18,7 +18,7 @@ import { threadLiveLayer } from "@noyau/server/thread-live"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
 import { Crypto, Effect, Layer, Path, Schema, Stream } from "effect"
 
-import { stubGitRuntimeLayer } from "./fixtures.ts"
+import { stubGitRuntimeLayer, stubVcsStatusBroadcasterLayer } from "./fixtures.ts"
 import { testServerConfigLayer } from "./fixtures.ts"
 
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
@@ -65,6 +65,7 @@ const layer = (generate: (input: ThreadTitleGenerationInput) => { readonly title
     Layer.provideMerge(threadLiveLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(stubGitRuntimeLayer),
+    Layer.provideMerge(stubVcsStatusBroadcasterLayer()),
     Layer.provideMerge(stubTextGenerationLayer(generate)),
     Layer.provideMerge(
       Layer.succeed(WorkspaceRootAccess)({
