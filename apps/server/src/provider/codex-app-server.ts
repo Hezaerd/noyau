@@ -858,6 +858,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       }
     }
 
+    let spawned = false
     if (session === undefined) {
       const scope = yield* Scope.make("sequential")
       const credential = yield* mcpSessions.issue({
@@ -893,6 +894,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
         stopped: false,
       }
       sessions.set(control.input.threadId, session)
+      spawned = true
     }
 
     control.session = session
@@ -906,9 +908,14 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     yield* userInputs.bindTurn(control.input.threadId, (signal) => emitSignal(control, signal))
     yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
     control.mcpActivated = true
-    yield* codexCall(session.client.request("config/mcpServer/reload", undefined)).pipe(
-      Effect.ignore,
-    )
+    // Reload only after spawn: a reused process already has the Noyau MCP
+    // session, and a second reload can block turn/start forever.
+    if (spawned) {
+      yield* codexCall(session.client.request("config/mcpServer/reload", undefined)).pipe(
+        Effect.timeout("8 seconds"),
+        Effect.ignore,
+      )
+    }
 
     const prompt = yield* flattenPrompt(control.input).pipe(Effect.provideService(Path.Path, path))
     const turnInput: Array<CodexSchema.V2TurnStartParams__UserInput> = []

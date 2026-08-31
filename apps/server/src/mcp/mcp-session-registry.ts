@@ -24,11 +24,14 @@ export interface McpIssuedCredential {
 export interface McpSessionRegistryService {
   readonly issue: (request: McpCredentialRequest) => Effect.Effect<McpIssuedCredential>
   /**
-   * Binds a live Session credential to the Turn currently being prompted.
-   * Resolution is intentionally unavailable while no Turn is active.
+   * Records the Turn that should own later tool attribution on this Session
+   * credential. Resolution stays available until the Session is revoked.
    */
   readonly activateTurn: (threadId: ThreadId, turnId: TurnId) => Effect.Effect<void>
-  /** Clears only the matching active Turn; a stale cleanup cannot clear a newer Turn. */
+  /**
+   * Touches the Session lease. A late Turn finalizer must not revoke the
+   * credential or unbind a newer Turn.
+   */
   readonly deactivateTurn: (threadId: ThreadId, turnId: TurnId) => Effect.Effect<void>
   /** Refreshes the liveness lease without changing the active Turn. Returns false when absent/expired. */
   readonly touchSession: (threadId: ThreadId) => Effect.Effect<boolean>
@@ -135,23 +138,6 @@ export const makeMcpSessionRegistry = Effect.fn("McpSessionRegistry.make")(funct
     })
   })
 
-  const deactivateTurn: McpSessionRegistryService["deactivateTurn"] = Effect.fn(
-    "McpSessionRegistry.deactivateTurn",
-  )(function* (threadId, turnId) {
-    const timestamp = yield* currentTimeMillis
-    yield* SynchronizedRef.update(state, ({ records }) => {
-      const next = new Map(pruneExpired(records, timestamp))
-      for (const [hash, record] of next) {
-        // Match the active Turn as well as the Thread. A late finalizer from
-        // an older Turn must not clear the Turn that has since taken over.
-        if (record.scope.threadId === threadId && record.activeTurnId === turnId) {
-          next.set(hash, { ...record, activeTurnId: null, lastAliveAt: timestamp })
-        }
-      }
-      return { records: next }
-    })
-  })
-
   const touchSession: McpSessionRegistryService["touchSession"] = Effect.fn(
     "McpSessionRegistry.touchSession",
   )(function* (threadId) {
@@ -168,6 +154,12 @@ export const makeMcpSessionRegistry = Effect.fn("McpSessionRegistry.make")(funct
       }
       return [refreshed, { records: next }] as const
     })
+  })
+
+  const deactivateTurn: McpSessionRegistryService["deactivateTurn"] = Effect.fn(
+    "McpSessionRegistry.deactivateTurn",
+  )(function* (threadId, _turnId) {
+    yield* touchSession(threadId)
   })
 
   const resolve: McpSessionRegistryService["resolve"] = Effect.fn("McpSessionRegistry.resolve")(
