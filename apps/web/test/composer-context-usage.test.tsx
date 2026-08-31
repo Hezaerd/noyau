@@ -61,7 +61,20 @@ describe("composer context usage", () => {
 
   it("shows the last-known fill next to Send", () => {
     renderComposer({ used: 12400, window: 200000 })
-    expect(screen.getByRole("meter", { name: "Context 12.4k / 200k" })).toBeTruthy()
+    const meter = screen.getByRole("meter", { name: "Context 12.4k / 200k" })
+    expect(meter).toBeTruthy()
+    expect(meter.getAttribute("aria-valuenow")).toBe("12400")
+    expect(meter.getAttribute("aria-valuemax")).toBe("200000")
+    expect(meter.getAttribute("aria-valuetext")).toBe("12.4k / 200k")
+    expect(meter.getAttribute("tabindex")).toBe("0")
     expect(screen.getByRole("button", { name: "Send" })).toBeTruthy()
+  })
+
+  it("keeps the meter value inside the window when usage overflows", () => {
+    renderComposer({ used: 250000, window: 200000 })
+    const meter = screen.getByRole("meter", { name: "Context 250k / 200k" })
+    expect(meter.getAttribute("aria-valuenow")).toBe("200000")
+    expect(meter.getAttribute("aria-valuemax")).toBe("200000")
+    expect(meter.getAttribute("aria-valuetext")).toBe("250k / 200k")
   })
 })

@@ -1019,7 +1019,9 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           Effect.gen(function* () {
             if (created.loading) {
               created.loadLastActivityAt = yield* Clock.currentTimeMillis
-              return
+              if (notification.update.sessionUpdate !== "usage_update") {
+                return
+              }
             }
             const current = created.activeTurn
             if (current === undefined) {
@@ -1055,6 +1057,8 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         if (resumeSessionId !== undefined) {
           created.loading = true
           created.loadLastActivityAt = undefined
+          created.activeTurn = control
+          control.sessionId = resumeSessionId
           const loaded = yield* Effect.raceFirst(
             acp.agent
               .loadSession({

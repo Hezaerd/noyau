@@ -28,10 +28,12 @@ export function ComposerContextUsage({ usage }: { readonly usage: ContextUsage }
         render={
           <span
             role="meter"
+            tabIndex={0}
             aria-label={`Context ${label}`}
             aria-valuemin={0}
             aria-valuemax={usage.window}
-            aria-valuenow={usage.used}
+            aria-valuenow={Math.min(usage.used, usage.window)}
+            aria-valuetext={label}
             className="inline-flex size-5 cursor-pointer items-center justify-center"
           />
         }

@@ -46,8 +46,8 @@ This is a living glossary for Noyau. It explains what common terms mean in this 
 
 #### Context usage
 
-Last-known fill of a Thread's model context window: tokens currently in
-context over the window size. Shape is [ContextUsage][14]. The internal
+Last-known context usage for a Thread: the number of tokens used and the
+model context-window size. Shape is [ContextUsage][14]. The internal
 command is `thread.context-usage.set`; the event is `thread.context-usage-set`.
 Adapters normalize native payloads and emit a `context-usage` signal. The
 thread projector stores it on the Thread, not on the live Session, so the
