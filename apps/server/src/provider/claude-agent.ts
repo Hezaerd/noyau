@@ -786,17 +786,23 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     }
     const errorMessage =
       lastError !== undefined && lastError !== null && lastError !== "" ? lastError : undefined
-    yield* emitSignal(
-      control,
-      sessionSignal(
-        control,
-        state === "error" ? "error" : "ready",
-        session?.resumeCursor ?? control.input.resumeCursor,
-        errorMessage,
+    // turn.ended must land while Session is still `running`. A ready/error
+    // session.set projects the Turn as settled, then requireRunningTurn
+    // rejects the follow-up and this fiber never unblocks the next Turn.
+    yield* emitSignal(control, turnEndedSignal(control, state, errorMessage)).pipe(
+      Effect.andThen(
+        emitSignal(
+          control,
+          sessionSignal(
+            control,
+            state === "error" ? "error" : "ready",
+            session?.resumeCursor ?? control.input.resumeCursor,
+            errorMessage,
+          ),
+        ),
       ),
+      Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)),
     )
-    yield* emitSignal(control, turnEndedSignal(control, state, errorMessage))
-    yield* Deferred.succeed(control.promptSettled, undefined)
     yield* userInputs.unbindTurn(control.input.threadId)
     yield* threadLive.clear(control.input.threadId)
   })

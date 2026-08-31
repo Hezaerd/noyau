@@ -441,6 +441,15 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
         assert.isTrue(
           second.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )
+        const endedBeforeReady = (signals: ReadonlyArray<ProviderSignal>) => {
+          const ended = signals.findLastIndex((signal) => signal._tag === "turn-ended")
+          const ready = signals.findLastIndex(
+            (signal) => signal._tag === "session" && signal.status === "ready",
+          )
+          return ended !== -1 && ready !== -1 && ended < ready
+        }
+        assert.isTrue(endedBeforeReady(first))
+        assert.isTrue(endedBeforeReady(second))
         const resume = first.findLast((signal) => signal._tag === "session")
         assert.strictEqual(
           resume?._tag === "session" ? resume.resumeCursor?.sessionId : undefined,
