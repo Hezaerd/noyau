@@ -131,6 +131,7 @@ describe("ThreadSidebarItem", () => {
     expect(activity?.contains(project)).toBe(true)
     expect(activity?.contains(pin)).toBe(true)
     expect(activity?.contains(lastActivity)).toBe(true)
+    expect(pin.parentElement).toBe(lastActivity?.parentElement)
     expect(pin.compareDocumentPosition(lastActivity!) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
@@ -206,6 +207,7 @@ describe("ThreadSidebarItem", () => {
     const pin = screen.getByLabelText("Pinned")
     expect(link.querySelector("[data-slot='thread-sidebar-last-activity']")).toBeNull()
     expect(link.querySelector("[data-slot='thread-sidebar-project']")?.contains(status)).toBe(false)
+    expect(pin.parentElement?.contains(status)).toBe(true)
     expect(pin.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
@@ -273,6 +275,7 @@ describe("ThreadSidebarItem", () => {
       .getByRole("link", { name: /Stores Zustand t3code vs shell/ })
       .querySelector("[data-slot='thread-sidebar-last-activity']")
     expect(lastActivity).not.toBeNull()
+    expect(settle.parentElement).not.toBe(lastActivity?.parentElement)
     expect(settle.compareDocumentPosition(lastActivity!) & Node.DOCUMENT_POSITION_PRECEDING).toBe(
       Node.DOCUMENT_POSITION_PRECEDING,
     )
