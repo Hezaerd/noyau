@@ -10,6 +10,7 @@ export const KEYBINDING_IDS = [
   "thread.pin",
   "thread.settle",
   "thread.workspace-panel.toggle",
+  "thread.workspace-browser.open",
   "thread.model-picker.open",
   "board.search",
   "board.ticket.create",
@@ -119,6 +120,14 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     description: "Show or hide the Thread workspace panel.",
     defaultHotkey: "mod+shift+b",
     when: WHEN_THREAD_WORKSPACE_PANEL,
+  },
+  {
+    id: "thread.workspace-browser.open",
+    group: "thread",
+    title: "Open browser",
+    description: "Open a Browser tab in the Thread workspace panel.",
+    defaultHotkey: "mod+shift+t",
+    when: "thread && !dialogOpen && !commandPaletteOpen",
   },
   {
     id: "board.search",

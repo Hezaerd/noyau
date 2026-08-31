@@ -1,7 +1,8 @@
 import { ServiceUnavailable } from "@noyau/contracts/errors"
 import { FilePreviewFailed } from "@noyau/contracts/file-preview"
 import { GitCommandError } from "@noyau/contracts/git"
-import { TicketId } from "@noyau/contracts/ids"
+import { PreviewTabId, TicketId, ThreadId } from "@noyau/contracts/ids"
+import { PreviewTabNotFound, PreviewUrlInvalid } from "@noyau/contracts/preview"
 import { TicketDependencyCycle } from "@noyau/contracts/ticket/errors"
 import { Cause } from "effect"
 import { describe, expect, it } from "vite-plus/test"
@@ -10,6 +11,7 @@ import {
   invalidInputFailure,
   isTransportReplacementFailure,
   normalizeCause,
+  PREVIEW_TAB_GONE_MESSAGE,
   ResourceSnapshotUnavailable,
   subscriptionEnded,
 } from "../src/lib/app-failure"
@@ -43,6 +45,27 @@ describe("AppFailure normalization", () => {
         "stream",
       ),
     ).toEqual({ _tag: "InvalidInput", message: "ENOENT" })
+    expect(
+      normalizeCause(
+        Cause.fail(
+          new PreviewUrlInvalid({
+            threadId: ThreadId.make("20000000-0000-4000-8000-000000000001"),
+          }),
+        ),
+        "command",
+      ),
+    ).toEqual({ _tag: "InvalidInput", message: "Enter a valid URL." })
+    expect(
+      normalizeCause(
+        Cause.fail(
+          new PreviewTabNotFound({
+            threadId: ThreadId.make("20000000-0000-4000-8000-000000000001"),
+            tabId: PreviewTabId.make("aaaaaaaa-0000-4000-8000-000000000001"),
+          }),
+        ),
+        "command",
+      ),
+    ).toEqual({ _tag: "InvalidInput", message: PREVIEW_TAB_GONE_MESSAGE })
   })
 
   it("turns protocol defects into incidents without exposing their cause", () => {

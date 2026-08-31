@@ -9,6 +9,7 @@ import {
   closeWorkspaceTabsToRightInState,
   emptyWorkspacePanel,
   openWorkspaceTabInState,
+  patchWorkspaceTabPayloadInState,
   setWorkspacePanelOpenInState,
   toggleWorkspacePanelInState,
   type WorkspacePanelState,
@@ -119,6 +120,14 @@ export const closeWorkspaceTabsToRight = (threadId: ThreadId, tabId: string): vo
 
 export const closeAllWorkspaceTabs = (threadId: ThreadId): void => {
   writeThread(threadId, (state) => closeAllWorkspaceTabsInState(state))
+}
+
+export const patchWorkspaceTabPayload = (
+  threadId: ThreadId,
+  tabId: string,
+  patch: WorkspaceTabPayload,
+): void => {
+  writeThread(threadId, (state) => patchWorkspaceTabPayloadInState(state, tabId, patch))
 }
 
 export const setWorkspacePanelOpen = (threadId: ThreadId, open: boolean): void => {

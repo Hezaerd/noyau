@@ -26,6 +26,7 @@ import {
 import type { WorkspaceTabRegistration } from "@/components/workspace-panel/define-workspace-tab"
 import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { cn } from "@/lib/utils"
+import { releaseRemovedWorkspaceBrowserSessions } from "@/lib/workspace-browser-session"
 import {
   EMPTY_TAB_ID_SET,
   reconcileKeepMountedTabIds,
@@ -38,6 +39,7 @@ import {
   closeOtherWorkspaceTabs,
   closeWorkspaceTab,
   closeWorkspaceTabsToRight,
+  getWorkspacePanel,
   openWorkspaceTab,
   setWorkspacePanelWidth,
   workspacePanelAtom,
@@ -49,6 +51,12 @@ const openKind = (threadId: ThreadId, kind: WorkspaceTabRegistration): void => {
     return
   }
   openWorkspaceTab(threadId, kind)
+}
+
+const closeAndRelease = (threadId: ThreadId, close: () => void): void => {
+  const previous = getWorkspacePanel(threadId).tabs
+  close()
+  void releaseRemovedWorkspaceBrowserSessions(threadId, previous, getWorkspacePanel(threadId).tabs)
 }
 
 export function WorkspacePanel({
@@ -91,7 +99,7 @@ export function WorkspacePanel({
     })
   }, [activeTab?.id, keepMountedKinds, state.tabs])
 
-  if (!state.open) {
+  if (!state.open && state.tabs.length === 0) {
     return null
   }
 
@@ -105,7 +113,10 @@ export function WorkspacePanel({
 
   return (
     <aside
-      className="relative flex h-full min-h-0 shrink-0 flex-col border-s border-border/70 bg-background"
+      className={cn(
+        "relative flex h-full min-h-0 shrink-0 flex-col border-s border-border/70 bg-background",
+        !state.open && "hidden",
+      )}
       data-slot="workspace-panel"
       style={{ width }}
     >
@@ -124,10 +135,18 @@ export function WorkspacePanel({
                   label={label}
                   icon={Icon === undefined ? null : <Icon />}
                   onActivate={() => activateWorkspaceTab(threadId, tab.id)}
-                  onClose={() => closeWorkspaceTab(threadId, tab.id)}
-                  onCloseOthers={() => closeOtherWorkspaceTabs(threadId, tab.id)}
-                  onCloseToRight={() => closeWorkspaceTabsToRight(threadId, tab.id)}
-                  onCloseAll={() => closeAllWorkspaceTabs(threadId)}
+                  onClose={() =>
+                    closeAndRelease(threadId, () => closeWorkspaceTab(threadId, tab.id))
+                  }
+                  onCloseOthers={() =>
+                    closeAndRelease(threadId, () => closeOtherWorkspaceTabs(threadId, tab.id))
+                  }
+                  onCloseToRight={() =>
+                    closeAndRelease(threadId, () => closeWorkspaceTabsToRight(threadId, tab.id))
+                  }
+                  onCloseAll={() =>
+                    closeAndRelease(threadId, () => closeAllWorkspaceTabs(threadId))
+                  }
                 />
               )
             })}
@@ -186,7 +205,7 @@ export function WorkspacePanel({
               data-tab-id={tab.id}
               data-tab-kind={tab.kind}
             >
-              {kind.render({ tab, isActive, isVisible })}
+              {kind.render({ threadId, tab, isActive, isVisible })}
             </div>
           )
         })}

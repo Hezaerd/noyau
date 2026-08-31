@@ -1,3 +1,4 @@
+import type { ThreadId } from "@noyau/contracts/ids"
 import type { ReactNode } from "react"
 
 import type { WorkspaceTab, WorkspaceTabKind, WorkspaceTabPayload } from "@/lib/workspace-panel"
@@ -8,6 +9,7 @@ export type WorkspaceTabRenderContext<
   Kind extends string = string,
   Payload extends WorkspaceTabPayload = WorkspaceTabPayload,
 > = {
+  readonly threadId: ThreadId
   readonly tab: WorkspaceTab<Kind, Payload>
   readonly isActive: boolean
   readonly isVisible: boolean
@@ -19,9 +21,9 @@ export type WorkspaceTabRegistration<
   Input = undefined,
 > = WorkspaceTabKind<Kind, Payload, Input> & {
   readonly icon: WorkspaceTabIcon
-  readonly render: (context: WorkspaceTabRenderContext<Kind, Payload>) => ReactNode
-  readonly titleOf?: (tab: WorkspaceTab<Kind, Payload>) => string
-  readonly available?: () => boolean
+  render(context: WorkspaceTabRenderContext<Kind, Payload>): ReactNode
+  titleOf?(tab: WorkspaceTab<Kind, Payload>): string
+  available?(): boolean
   /** false = ouvrir seulement en code (ex. un fichier), pas depuis le lanceur. */
   readonly launchable?: boolean
 }

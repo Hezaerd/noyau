@@ -9,7 +9,8 @@
     "./dev-home": "./src/dev-home.ts",
     "./dev-ports": "./src/dev-ports.ts",
     "./release-brand": "./src/release-brand.ts",
-    "./resume-prompt": "./src/resume-prompt.ts"
+    "./resume-prompt": "./src/resume-prompt.ts",
+    "./preview-url": "./src/preview-url.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

@@ -54,6 +54,7 @@
     "./git/vcs-status-broadcaster": "./src/git/vcs-status-broadcaster.ts",
     "./git/pull-request": "./src/git/pull-request.ts",
     "./editor/editor-open": "./src/editor/editor-open.ts",
+    "./preview/preview-sessions": "./src/preview/preview-sessions.ts",
     "./host-path": "./src/host-path.ts",
     "./persistence/command-worker": "./src/persistence/command-worker.ts",
     "./persistence/drainable-worker": "./src/persistence/drainable-worker.ts",
