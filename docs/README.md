@@ -3,6 +3,7 @@
 ## Using Noyau
 
 - [See how full the context window is](./users/context-window.md)
+- [Hide the composer](./users/composer.md)
 - [Notice when a turn finishes](./users/turn-notifications.md)
 - [Turn a provider on or off](./users/providers.md)
 - [Change a keyboard shortcut](./users/keybindings.md)

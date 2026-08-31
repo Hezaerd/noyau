@@ -106,6 +106,13 @@ I/O: [keybindings.ts][31]. See [settings][29].
 
 ### Client chrome
 
+#### Composer
+
+The prompt dock on a Thread: text, images, model picker, and send or interrupt.
+It is client chrome. Draft text lives in [composer-drafts.ts][35]. Visibility is
+a per-Thread flag in [thread-composer.ts][36]; hiding it does not persist and
+does not send or discard the draft. Implementation: [ThreadComposer.tsx][37].
+
 #### Workspace panel
 
 Optional right-hand column on a Thread page. It is a tab strip of tool surfaces,
@@ -223,3 +230,6 @@ only.
 [32]: ../../packages/contracts/src/git.ts
 [33]: ../../apps/web/src/components/workspace-panel/pr-tab.tsx
 [34]: ../../apps/web/src/components/workspace-panel/PullRequestView.tsx
+[35]: ../../apps/web/src/state/composer-drafts.ts
+[36]: ../../apps/web/src/state/thread-composer.ts
+[37]: ../../apps/web/src/components/thread/ThreadComposer.tsx

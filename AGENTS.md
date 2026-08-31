@@ -16,6 +16,7 @@ We need to be on the same page with terminology. When communicating, use this la
 - **environment** means one running Noyau server and the machine, filesystem, provider credentials, and state it owns.
 - **project** means an environment-local workspace record rooted at a directory.
 - **thread** means the durable conversation and work history for a project.
+- **composer** means the prompt dock at the bottom of a Thread.
 - **turn** means one user-to-agent cycle, including follow-up work such as checkpointing.
 - **context usage** means the last-known fill of a Thread's model context window.
 - **board** means a project's unique Kanban surface: ordered columns that hold its tickets.

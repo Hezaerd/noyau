@@ -12,6 +12,11 @@ import {
   threadUnreadAtom,
   waitingThreadCountAtom,
 } from "../src/state/sidebar"
+import {
+  isThreadComposerOpen,
+  setThreadComposerOpen,
+  toggleThreadComposer,
+} from "../src/state/thread-composer"
 import { pinAtom, setThreadPinned } from "../src/state/thread-pins"
 import { markThreadVisited, visitAtom } from "../src/state/thread-visits"
 import { encodedTestEnvironment } from "./encoded-environment"
@@ -61,6 +66,20 @@ const makeThread = (extra: Partial<(typeof ThreadShell)["Encoded"]> = {}): Threa
 afterEach(() => {
   resetAppAtomRegistryForTests()
   resetAppliedShell()
+})
+
+describe("thread composer visibility", () => {
+  it("hides one Thread composer without touching another", () => {
+    const otherId = ThreadId.make("20000000-0000-4000-8000-000000000002")
+
+    expect(isThreadComposerOpen(threadId)).toBe(true)
+    expect(toggleThreadComposer(threadId)).toBe(false)
+    expect(isThreadComposerOpen(threadId)).toBe(false)
+    expect(isThreadComposerOpen(otherId)).toBe(true)
+
+    setThreadComposerOpen(threadId, true)
+    expect(isThreadComposerOpen(threadId)).toBe(true)
+  })
 })
 
 describe("pinAtom / visitAtom", () => {

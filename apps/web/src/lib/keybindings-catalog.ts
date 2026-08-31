@@ -13,6 +13,7 @@ export const KEYBINDING_IDS = [
   "thread.workspace-browser.open",
   "thread.workspace-pr.open",
   "thread.model-picker.open",
+  "thread.composer.toggle",
   "board.search",
   "board.ticket.create",
   "board.ticket.open",
@@ -51,6 +52,7 @@ export const KEYBINDING_GROUP_LABELS = {
 const WHEN_GLOBAL = "!dialogOpen && !editableFocused"
 const WHEN_THREAD = "thread && !dialogOpen"
 const WHEN_THREAD_CHROME = "thread && !dialogOpen && !editableFocused"
+const WHEN_THREAD_COMPOSER = "thread && !dialogOpen && !commandPaletteOpen"
 const WHEN_THREAD_WORKSPACE_PANEL = `${WHEN_THREAD_CHROME} && !commandPaletteOpen`
 const WHEN_TABLEAU = "tableau && !dialogOpen && !editableFocused"
 const WHEN_TABLEAU_TICKET = "tableau && ticketSelected && !dialogOpen && !editableFocused"
@@ -105,6 +107,14 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     description: "Open the Composer model picker.",
     defaultHotkey: "mod+;",
     when: WHEN_THREAD,
+  },
+  {
+    id: "thread.composer.toggle",
+    group: "thread",
+    title: "Toggle composer",
+    description: "Show or hide the Thread composer to free space for the transcript.",
+    defaultHotkey: "mod+l",
+    when: WHEN_THREAD_COMPOSER,
   },
   {
     id: "thread.settle",

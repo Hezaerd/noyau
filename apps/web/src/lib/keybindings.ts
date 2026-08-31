@@ -50,6 +50,7 @@ export interface ResolvedKeybindings {
   readonly "thread.workspace-browser.open": string
   readonly "thread.workspace-pr.open": string
   readonly "thread.model-picker.open": string
+  readonly "thread.composer.toggle": string
   readonly "board.search": string
   readonly "board.ticket.create": string
   readonly "board.ticket.open": string
@@ -505,6 +506,12 @@ export const resolveKeybindings = (
     "thread.model-picker.open": tanstackLabelForCommand(
       merged,
       "thread.model-picker.open",
+      context,
+      platform,
+    ),
+    "thread.composer.toggle": tanstackLabelForCommand(
+      merged,
+      "thread.composer.toggle",
       context,
       platform,
     ),
