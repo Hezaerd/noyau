@@ -3,6 +3,7 @@ import {
   PREVIEW_GUEST_PARTITION,
   normalizePreviewUrl,
 } from "@noyau/shared/preview-url"
+import { Schema } from "effect"
 
 export { PREVIEW_GUEST_PARTITION } from "@noyau/shared/preview-url"
 
@@ -24,10 +25,13 @@ export type PreviewAttachPreferences = {
   preloadURL?: string
 }
 
-export type PreviewAttachParams = {
-  readonly src?: string | undefined
-  readonly partition?: string | undefined
-}
+export const PreviewAttachParams = Schema.Struct({
+  src: Schema.optionalKey(Schema.String),
+  partition: Schema.optionalKey(Schema.String),
+})
+export type PreviewAttachParams = typeof PreviewAttachParams.Type
+
+export const decodePreviewAttachParams = Schema.decodeUnknownOption(PreviewAttachParams)
 
 /** Refuse a guest that is not our partition, or whose first URL is not a page. */
 export const handlePreviewGuestAttach = (

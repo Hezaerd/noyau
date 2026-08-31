@@ -1,6 +1,8 @@
+import { Option } from "effect"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import {
+  decodePreviewAttachParams,
   handlePreviewGuestAttach,
   handlePreviewGuestNavigate,
   handlePreviewGuestWindowOpen,
@@ -58,6 +60,9 @@ describe("preview guest policy", () => {
     expect(prevent).toHaveBeenCalledTimes(1)
     handlePreviewGuestAttach({ src: "file:///tmp", partition: "noyau-preview" }, {}, prevent)
     expect(prevent).toHaveBeenCalledTimes(2)
+    expect(Option.isNone(decodePreviewAttachParams({ src: 1, partition: "noyau-preview" }))).toBe(
+      true,
+    )
   })
 
   it("ignores aborted subframe failures", () => {
