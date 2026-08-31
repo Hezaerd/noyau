@@ -40,6 +40,7 @@
     "./errors": "./src/errors.ts",
     "./agent-integration": "./src/agent-integration.ts",
     "./file-preview": "./src/file-preview.ts",
+    "./preview": "./src/preview.ts",
     "./turn-diff": "./src/turn-diff.ts",
     "./editor": "./src/editor.ts",
     "./git": "./src/git.ts",

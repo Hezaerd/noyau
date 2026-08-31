@@ -9,6 +9,7 @@ import {
   defineWorkspaceTabKind,
   emptyWorkspacePanel,
   openWorkspaceTabInState,
+  patchWorkspaceTabPayloadInState,
   reconcileKeepMountedTabIds,
   resolveActiveWorkspaceTab,
   sanitizeWorkspacePanelState,
@@ -91,6 +92,15 @@ describe("workspace panel", () => {
     expect(others.tabs.map((tab) => tab.id)).toEqual(["b"])
     expect(toRight.tabs.map((tab) => tab.id)).toEqual(["a"])
     expect(all).toEqual({ open: true, tabs: [], activeTabId: null })
+  })
+
+  it("patches a live tab payload and ignores unknown ids", () => {
+    const opened = openTerminal(emptyWorkspacePanel, "tab-1")
+    const patched = patchWorkspaceTabPayloadInState(opened, "tab-1", { sessionId: "renamed" })
+    const missing = patchWorkspaceTabPayloadInState(opened, "missing", { sessionId: "no" })
+
+    expect(patched.tabs[0]?.payload).toEqual({ sessionId: "renamed" })
+    expect(missing).toBe(opened)
   })
 
   it("activates an existing tab and ignores unknown ids", () => {

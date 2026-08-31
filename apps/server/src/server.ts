@@ -20,6 +20,7 @@ import { mcpHttpServerLayer } from "./mcp/mcp-http-server.ts"
 import { mcpSessionRegistryLayer } from "./mcp/mcp-session-registry.ts"
 import { loggerLayer } from "./observability.ts"
 import * as Sqlite from "./persistence/sqlite.ts"
+import { PreviewSessions, previewSessionsLayer } from "./preview/preview-sessions.ts"
 import { providerRuntimeLayer } from "./provider/provider-runtime.ts"
 import { rpcHandlersLayer } from "./rpc-handlers.ts"
 import { cursorTextGenerationLayer } from "./text-generation/cursor-text-generation.ts"
@@ -111,6 +112,7 @@ export const websocketRpcLayer = Layer.unwrap(
     const controlPlane = yield* ControlPlane
     const gitPlane = yield* GitPlane
     const editorOpen = yield* EditorOpen
+    const previewSessions = yield* PreviewSessions
     return HttpRouter.add(
       "GET",
       "/rpc",
@@ -132,6 +134,7 @@ export const websocketRpcLayer = Layer.unwrap(
           Layer.provide(Layer.succeed(ControlPlane)(controlPlane)),
           Layer.provide(Layer.succeed(GitPlane)(gitPlane)),
           Layer.provide(Layer.succeed(EditorOpen)(editorOpen)),
+          Layer.provide(Layer.succeed(PreviewSessions)(previewSessions)),
           Layer.provideMerge(RpcSerialization.layerJson),
         )
         const connection = yield* Layer.build(connectionLayer)
@@ -178,6 +181,7 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(providerRuntimeLayer()),
   Layer.provideMerge(gitPlaneLayer),
   Layer.provideMerge(editorOpenLayer),
+  Layer.provideMerge(previewSessionsLayer),
   Layer.provideMerge(cursorTextGenerationLayer()),
   Layer.provideMerge(workspaceRootAccessLayer),
   Layer.provide(discordPresenceLayer),

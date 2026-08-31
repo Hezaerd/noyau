@@ -5,6 +5,7 @@ import { Effect, Stream } from "effect"
 import { ControlPlane } from "./control-plane.ts"
 import { EditorOpen } from "./editor/editor-open.ts"
 import { GitPlane } from "./git/git-plane.ts"
+import { PreviewSessions } from "./preview/preview-sessions.ts"
 
 export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
   [RPC_METHODS.dispatchCommand]: (request) =>
@@ -34,6 +35,14 @@ export const rpcHandlersLayer = ControlPlaneRpcs.toLayer({
     ControlPlane.pipe(Effect.flatMap((service) => service.setShellFocus(input))),
   [RPC_METHODS.previewFile]: (input) =>
     ControlPlane.pipe(Effect.flatMap((service) => service.previewFile(input))),
+  [RPC_METHODS.previewOpen]: (input) =>
+    PreviewSessions.pipe(Effect.flatMap((preview) => preview.open(input))),
+  [RPC_METHODS.previewNavigate]: (input) =>
+    PreviewSessions.pipe(Effect.flatMap((preview) => preview.navigate(input))),
+  [RPC_METHODS.previewList]: (input) =>
+    PreviewSessions.pipe(Effect.flatMap((preview) => preview.list(input))),
+  [RPC_METHODS.previewClose]: (input) =>
+    PreviewSessions.pipe(Effect.flatMap((preview) => preview.close(input))),
   [RPC_METHODS.inspectProjectAgentIntegration]: (input) =>
     ControlPlane.pipe(Effect.flatMap((service) => service.inspectProjectAgentIntegration(input))),
   [RPC_METHODS.installProjectAgentIntegration]: (input) =>

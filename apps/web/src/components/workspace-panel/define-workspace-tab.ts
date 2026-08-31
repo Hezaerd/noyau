@@ -1,3 +1,4 @@
+import type { ThreadId } from "@noyau/contracts/ids"
 import type { ReactNode } from "react"
 
 import type { WorkspaceTab, WorkspaceTabKind, WorkspaceTabPayload } from "@/lib/workspace-panel"
@@ -8,6 +9,7 @@ export type WorkspaceTabRenderContext<
   Kind extends string = string,
   Payload extends WorkspaceTabPayload = WorkspaceTabPayload,
 > = {
+  readonly threadId: ThreadId
   readonly tab: WorkspaceTab<Kind, Payload>
   readonly isActive: boolean
   readonly isVisible: boolean

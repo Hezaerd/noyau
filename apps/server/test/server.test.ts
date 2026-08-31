@@ -6,6 +6,7 @@ import { controlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { memoryLayer } from "@noyau/server/persistence/sqlite"
+import { previewSessionsLayer } from "@noyau/server/preview/preview-sessions"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { turnUserInputRegistryLayer } from "@noyau/server/provider/turn-user-input-registry"
 import { serverRoutesLayer } from "@noyau/server/server"
@@ -68,6 +69,7 @@ const infrastructure = controlPlaneLayer.pipe(
   Layer.provideMerge(stubGitRuntimeLayer),
   Layer.provideMerge(stubGitPlaneLayer),
   Layer.provideMerge(stubEditorOpenLayer),
+  Layer.provideMerge(previewSessionsLayer),
   Layer.provideMerge(
     Layer.succeed(WorkspaceRootAccess)({
       isAvailable: () => Effect.succeed(true),

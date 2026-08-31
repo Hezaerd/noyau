@@ -36,6 +36,15 @@ import type {
   VcsSwitchRefResult,
 } from "@noyau/contracts/git"
 import type { ProjectId, Sequence } from "@noyau/contracts/ids"
+import type {
+  PreviewCloseInput,
+  PreviewCloseResult,
+  PreviewListInput,
+  PreviewListResult,
+  PreviewNavigateInput,
+  PreviewOpenInput,
+  PreviewSessionSnapshot,
+} from "@noyau/contracts/preview"
 import type { DispatchResult } from "@noyau/contracts/receipts"
 import {
   ControlPlaneRpcs,
@@ -265,6 +274,54 @@ const requestPreviewFile = Effect.fn("ControlPlaneClient.previewFile")(function*
 
 export const previewFile = (input: PreviewFileInput): Promise<ControlPlaneResult<FilePreview>> =>
   runOperation(requestPreviewFile(input), "command")
+
+const requestPreviewOpen = Effect.fn("ControlPlaneClient.previewOpen")(function* (
+  input: PreviewOpenInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.previewOpen](input)
+})
+
+export const previewOpen = (
+  input: PreviewOpenInput,
+): Promise<ControlPlaneResult<PreviewSessionSnapshot>> =>
+  runOperation(requestPreviewOpen(input), "command")
+
+const requestPreviewNavigate = Effect.fn("ControlPlaneClient.previewNavigate")(function* (
+  input: PreviewNavigateInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.previewNavigate](input)
+})
+
+export const previewNavigate = (
+  input: PreviewNavigateInput,
+): Promise<ControlPlaneResult<PreviewSessionSnapshot>> =>
+  runOperation(requestPreviewNavigate(input), "command")
+
+const requestPreviewList = Effect.fn("ControlPlaneClient.previewList")(function* (
+  input: PreviewListInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.previewList](input)
+})
+
+export const previewList = (
+  input: PreviewListInput,
+): Promise<ControlPlaneResult<PreviewListResult>> =>
+  runOperation(requestPreviewList(input), "command")
+
+const requestPreviewClose = Effect.fn("ControlPlaneClient.previewClose")(function* (
+  input: PreviewCloseInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.previewClose](input)
+})
+
+export const previewClose = (
+  input: PreviewCloseInput,
+): Promise<ControlPlaneResult<PreviewCloseResult>> =>
+  runOperation(requestPreviewClose(input), "command")
 
 const requestGetTurnDiff = Effect.fn("ControlPlaneClient.getTurnDiff")(function* (
   input: GetTurnDiffInput,

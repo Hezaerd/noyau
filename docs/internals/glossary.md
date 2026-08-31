@@ -59,6 +59,31 @@ One instance in the workspace panel. Identity is `id`, not `kind`. Opening the
 same kind twice creates two tabs unless the kind sets `identityOf`. There is no
 placeholder tab: `create` produces the payload before the tab exists.
 
+#### Browser tab
+
+Workspace tab kind `browser`. It is the in-app browser chrome in the workspace
+panel: address bar, empty state, and the desktop [preview guest](#preview-guest).
+The open tab is client-only; it binds a server-owned
+[preview session](#preview-session) for the committed URL. Implementation:
+[browser-tab.tsx][14], [BrowserView.tsx][15], and
+[workspace-browser-session.ts][19].
+
+#### Preview guest
+
+Electron `<webview>` that loads the committed preview URL inside the browser
+tab. The host window does not navigate. Policy is [preview-manager.ts][20];
+the tag is created only on the desktop runtime
+([DesktopBrowserGuest.tsx][21]). `javascript:` and `file:` never load.
+
+#### Preview session
+
+Server-owned record of one in-app browser tab: `tabId`, thread, nav status, and
+updated time. Shape is in [preview.ts][16]. The in-memory store is
+[preview-sessions.ts][17]; clients reach it through `preview.open`,
+`preview.navigate`, `preview.list`, and `preview.close`. It is not
+event-sourced and it is not the client [browser tab](#browser-tab). See
+[preview sessions][18].
+
 ### Orchestration
 
 Wire types live in contracts. Decision and projection live on the server.
@@ -108,3 +133,11 @@ only.
 [11]: ../../apps/web/src/lib/workspace-panel.ts
 [12]: ../../apps/web/src/components/workspace-panel/WorkspacePanel.tsx
 [13]: ./workspace-panel.md
+[14]: ../../apps/web/src/components/workspace-panel/browser-tab.tsx
+[15]: ../../apps/web/src/components/workspace-panel/BrowserView.tsx
+[16]: ../../packages/contracts/src/preview.ts
+[17]: ../../apps/server/src/preview/preview-sessions.ts
+[18]: ./preview-sessions.md
+[19]: ../../apps/web/src/lib/workspace-browser-session.ts
+[20]: ../../apps/desktop/src/preview/preview-manager.ts
+[21]: ../../apps/web/src/components/workspace-panel/DesktopBrowserGuest.tsx

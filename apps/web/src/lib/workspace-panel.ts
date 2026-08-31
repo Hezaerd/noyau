@@ -175,6 +175,33 @@ export const closeAllWorkspaceTabsInState = (state: WorkspacePanelState): Worksp
   return { open: state.open, tabs: [], activeTabId: null }
 }
 
+/** Met à jour le payload d’un onglet déjà créé. L’identité ne change pas. */
+export const patchWorkspaceTabPayloadInState = (
+  state: WorkspacePanelState,
+  tabId: string,
+  patch: WorkspaceTabPayload,
+): WorkspacePanelState => {
+  const index = state.tabs.findIndex((tab) => tab.id === tabId)
+  if (index < 0) {
+    return state
+  }
+  const current = state.tabs[index]
+  if (current === undefined) {
+    return state
+  }
+  const payload = { ...current.payload, ...patch }
+  if (
+    Object.keys(payload).length === Object.keys(current.payload).length &&
+    Object.entries(payload).every(([key, value]) => current.payload[key] === value)
+  ) {
+    return state
+  }
+  return {
+    ...state,
+    tabs: state.tabs.map((tab, tabIndex) => (tabIndex === index ? { ...tab, payload } : tab)),
+  }
+}
+
 export const setWorkspacePanelOpenInState = (
   state: WorkspacePanelState,
   open: boolean,

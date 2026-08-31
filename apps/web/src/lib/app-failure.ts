@@ -8,6 +8,7 @@ import {
 } from "@noyau/contracts/errors"
 import { FilePreviewFailed } from "@noyau/contracts/file-preview"
 import { GitCommandError } from "@noyau/contracts/git"
+import { PreviewTabNotFound, PreviewUrlInvalid } from "@noyau/contracts/preview"
 import { ProjectNotFound } from "@noyau/contracts/project/errors"
 import { Rejection, type Rejection as RejectionType } from "@noyau/contracts/receipts"
 import { TurnDiffUnavailable } from "@noyau/contracts/turn-diff"
@@ -26,6 +27,8 @@ const KnownControlPlaneError = Schema.Union([
   MissingIdentity,
   Forbidden,
   FilePreviewFailed,
+  PreviewTabNotFound,
+  PreviewUrlInvalid,
   TurnDiffUnavailable,
   ProjectNotFound,
   GitCommandError,
@@ -111,6 +114,12 @@ const fromTypedError = (error: KnownControlPlaneError, phase: FailurePhase): App
   }
   if (Schema.is(FilePreviewFailed)(error) || Schema.is(ProjectNotFound)(error)) {
     return { _tag: "InvalidInput" }
+  }
+  if (Schema.is(PreviewUrlInvalid)(error)) {
+    return { _tag: "InvalidInput", message: "Enter a valid URL." }
+  }
+  if (Schema.is(PreviewTabNotFound)(error)) {
+    return { _tag: "InvalidInput", message: "This browser tab is no longer open." }
   }
   if (phase === "input") {
     return { _tag: "InvalidInput" }

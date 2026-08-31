@@ -61,6 +61,10 @@ export type AttachmentId = (typeof AttachmentId)["Type"]
 export const ProviderSessionId = Schema.NonEmptyString.pipe(Schema.brand("ProviderSessionId"))
 export type ProviderSessionId = (typeof ProviderSessionId)["Type"]
 
+/** Identifiant d’un onglet de preview serveur, distinct de l’id client du panneau. */
+export const PreviewTabId = Uuid.pipe(Schema.brand("PreviewTabId"))
+export type PreviewTabId = (typeof PreviewTabId)["Type"]
+
 /** Position globale du journal, utilisée comme `afterSequence`. */
 export const Sequence = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).pipe(
   Schema.brand("Sequence"),

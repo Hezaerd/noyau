@@ -1,10 +1,11 @@
+import { browserWorkspaceTab } from "./browser-tab"
 import type { WorkspaceTabRegistration } from "./define-workspace-tab"
 
 /**
  * Catalogue des tools du panneau. Ajouter un kind = un `defineWorkspaceTab` +
  * une entrée ici. Le lanceur, le menu +, le persist et le keep-mount suivent.
  */
-export const workspaceTabCatalog: ReadonlyArray<WorkspaceTabRegistration> = []
+export const workspaceTabCatalog: ReadonlyArray<WorkspaceTabRegistration> = [browserWorkspaceTab]
 
 export const workspaceTabByKind = new Map(
   workspaceTabCatalog.map((registration) => [registration.kind, registration]),

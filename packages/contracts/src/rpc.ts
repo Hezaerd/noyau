@@ -47,6 +47,17 @@ import {
   VcsSwitchRefResult,
 } from "@noyau/contracts/git"
 import { EnvironmentId, ProjectId, Sequence, ThreadId } from "@noyau/contracts/ids"
+import {
+  PreviewCloseInput,
+  PreviewCloseResult,
+  PreviewListInput,
+  PreviewListResult,
+  PreviewNavigateInput,
+  PreviewOpenInput,
+  PreviewSessionSnapshot,
+  PreviewTabNotFound,
+  PreviewUrlInvalid,
+} from "@noyau/contracts/preview"
 import { ProjectNotFound, ProjectUnavailable } from "@noyau/contracts/project/errors"
 import { DispatchResult, Rejection } from "@noyau/contracts/receipts"
 import { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
@@ -71,6 +82,10 @@ export const RPC_METHODS = {
   subscribeThread: "orchestration.subscribeThread",
   setShellFocus: "orchestration.setShellFocus",
   previewFile: "workspace.previewFile",
+  previewOpen: "preview.open",
+  previewNavigate: "preview.navigate",
+  previewList: "preview.list",
+  previewClose: "preview.close",
   inspectProjectAgentIntegration: "workspace.inspectProjectAgentIntegration",
   installProjectAgentIntegration: "workspace.installProjectAgentIntegration",
   removeProjectAgentIntegration: "workspace.removeProjectAgentIntegration",
@@ -229,6 +244,36 @@ export const PreviewFile = Rpc.make(RPC_METHODS.previewFile, {
   error: Schema.Union([ProjectNotFound, FilePreviewFailed, ServiceUnavailable]),
 })
 
+const previewMutationErrors = Schema.Union([
+  PreviewUrlInvalid,
+  PreviewTabNotFound,
+  ServiceUnavailable,
+])
+
+export const PreviewOpen = Rpc.make(RPC_METHODS.previewOpen, {
+  payload: PreviewOpenInput,
+  success: PreviewSessionSnapshot,
+  error: Schema.Union([PreviewUrlInvalid, ServiceUnavailable]),
+})
+
+export const PreviewNavigate = Rpc.make(RPC_METHODS.previewNavigate, {
+  payload: PreviewNavigateInput,
+  success: PreviewSessionSnapshot,
+  error: previewMutationErrors,
+})
+
+export const PreviewList = Rpc.make(RPC_METHODS.previewList, {
+  payload: PreviewListInput,
+  success: PreviewListResult,
+  error: ServiceUnavailable,
+})
+
+export const PreviewClose = Rpc.make(RPC_METHODS.previewClose, {
+  payload: PreviewCloseInput,
+  success: PreviewCloseResult,
+  error: Schema.Union([PreviewTabNotFound, ServiceUnavailable]),
+})
+
 const agentIntegrationErrors = Schema.Union([
   ProjectNotFound,
   AgentIntegrationFailed,
@@ -349,6 +394,10 @@ export const ControlPlaneRpcs = RpcGroup.make(
   SubscribeThread,
   SetShellFocus,
   PreviewFile,
+  PreviewOpen,
+  PreviewNavigate,
+  PreviewList,
+  PreviewClose,
   InspectProjectAgentIntegration,
   InstallProjectAgentIntegration,
   RemoveProjectAgentIntegration,

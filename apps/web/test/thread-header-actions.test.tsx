@@ -167,11 +167,16 @@ describe("ThreadHeaderActions", () => {
   it("offers the workspace panel in the header and the palette", () => {
     renderHeader(makeThread())
 
+    expect(screen.queryByRole("button", { name: "Open browser" })).toBeNull()
     expect(screen.getByRole("button", { name: "Show workspace panel" })).toBeTruthy()
     const toggle = registeredPaletteActions.find(
       (action) => action.id === "thread.workspace-panel.toggle",
     )
     expect(toggle?.label).toBe("Show workspace panel")
+    const openBrowser = registeredPaletteActions.find(
+      (action) => action.id === "thread.workspace-browser.open",
+    )
+    expect(openBrowser?.label).toBe("Open browser")
   })
 
   it("omits the workspace panel palette action when the header is disabled", () => {
@@ -183,6 +188,9 @@ describe("ThreadHeaderActions", () => {
     )
     expect(
       registeredPaletteActions.find((action) => action.id === "thread.workspace-panel.toggle"),
+    ).toBeUndefined()
+    expect(
+      registeredPaletteActions.find((action) => action.id === "thread.workspace-browser.open"),
     ).toBeUndefined()
   })
 })

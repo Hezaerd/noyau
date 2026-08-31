@@ -56,6 +56,7 @@ import { decodeOpenPathInput, openFilesystemPathOnHost } from "./open-path"
 import { OPEN_PATH_CHANNEL } from "./open-path-contract"
 import { isRendererPermissionAllowed } from "./permissions"
 import { encodePreloadBootstrapArgs } from "./preload-bootstrap"
+import { installPreviewManager, type PreviewApp } from "./preview/preview-manager.ts"
 import {
   decodePackagedReleaseChannelFile,
   desktopBrandName,
@@ -472,6 +473,7 @@ const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: Ser
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webviewTag: true,
       backgroundThrottling: true,
       additionalArguments: [
         ...encodePreloadBootstrapArgs({
@@ -573,6 +575,21 @@ const launch = Effect.fn("launch")(function* () {
   registerOpenPathBridge()
   registerDesktopUpdateBridge()
   registerAttentionBridge()
+  const previewApp: PreviewApp = {
+    on: (event, listener) => {
+      app.on(event, listener)
+      return previewApp
+    },
+    off: (event, listener) => {
+      app.off(event, listener)
+      return previewApp
+    },
+  }
+  installPreviewManager({
+    app: previewApp,
+    session,
+    openExternal: openExternalUrl,
+  })
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) =>
     isRendererPermissionAllowed(permission),
   )
