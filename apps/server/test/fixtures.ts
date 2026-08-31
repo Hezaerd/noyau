@@ -3,6 +3,7 @@ import { ServerConfig, type ServerConfigValue } from "@noyau/server/config"
 import { EditorOpen } from "@noyau/server/editor/editor-open"
 import { GitPlane } from "@noyau/server/git/git-plane"
 import { GitRuntime } from "@noyau/server/git/git-runtime"
+import { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
 import { Effect, Layer, Redacted, Schema, Stream } from "effect"
 
 const emptyStatus = (cwd: string) => ({
@@ -18,6 +19,15 @@ const emptyStatus = (cwd: string) => ({
   worktreePath: null,
   pr: null,
 })
+
+export const stubVcsStatusBroadcasterLayer = (refresh: (cwd: string) => void = () => undefined) =>
+  Layer.succeed(VcsStatusBroadcaster)({
+    streamStatus: (cwd) => Stream.make({ _tag: "snapshot" as const, status: emptyStatus(cwd) }),
+    refresh: (cwd) => {
+      refresh(cwd)
+      return Effect.succeed(emptyStatus(cwd))
+    },
+  })
 
 export const stubGitRuntimeLayer = Layer.succeed(GitRuntime)({
   status: (cwd) => Effect.succeed(emptyStatus(cwd)),

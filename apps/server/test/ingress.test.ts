@@ -21,7 +21,7 @@ import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "@noyau/ser
 import { Crypto, Effect, Layer, Path, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
-import { stubGitRuntimeLayer } from "./fixtures.ts"
+import { stubGitRuntimeLayer, stubVcsStatusBroadcasterLayer } from "./fixtures.ts"
 import { testServerConfigLayer } from "./fixtures.ts"
 
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
@@ -79,6 +79,7 @@ const controlPlaneTestLayer = () =>
     Layer.provideMerge(unavailableTextGenerationLayer),
     Layer.provideMerge(noopDiscordPresenceLayer),
     Layer.provideMerge(stubGitRuntimeLayer),
+    Layer.provideMerge(stubVcsStatusBroadcasterLayer()),
     Layer.provideMerge(Layer.succeed(WorkspaceRootAccess)(availableWorkspaceRoots)),
     Layer.provideMerge(NodeFileSystem.layer),
     Layer.provideMerge(Path.layer),
