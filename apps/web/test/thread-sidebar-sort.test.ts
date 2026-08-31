@@ -87,7 +87,7 @@ describe("sortThreadsForSidebar", () => {
 })
 
 describe("partitionThreadsForSidebar", () => {
-  it("keeps pinned Threads in the active block and recedes settled ones", () => {
+  it("keeps pinned Threads in their own block and recedes settled ones", () => {
     const nowMs = Date.parse("2026-08-25T12:00:00.000Z")
     const staleIso = "2026-08-20T12:00:00.000Z"
     const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
@@ -123,7 +123,7 @@ describe("partitionThreadsForSidebar", () => {
         updatedAt: staleIso,
         ...extra,
       })
-    const { active, settled } = partitionThreadsForSidebar(
+    const { pinned, active, settled } = partitionThreadsForSidebar(
       [
         makeShell(freshId, "2026-08-25T11:00:00.000Z"),
         makeShell(staleId, staleIso),
@@ -138,7 +138,8 @@ describe("partitionThreadsForSidebar", () => {
       },
     )
 
-    expect(active.map((thread) => thread.id)).toEqual([pinnedId, freshId])
+    expect(pinned.map((thread) => thread.id)).toEqual([pinnedId])
+    expect(active.map((thread) => thread.id)).toEqual([freshId])
     expect(settled.map((thread) => thread.id)).toEqual([explicitId, staleId])
   })
 })

@@ -35,6 +35,7 @@ export const sortThreadsForSidebar = <
   })
 
 export interface SidebarThreadPartition<T extends ThreadShell> {
+  readonly pinned: ReadonlyArray<T>
   readonly active: ReadonlyArray<T>
   readonly settled: ReadonlyArray<T>
 }
@@ -48,11 +49,12 @@ export const partitionThreadsForSidebar = <T extends ThreadShell>(
     readonly changeRequestStateOf: (thread: T) => ChangeRequestStateLike | null
   },
 ): SidebarThreadPartition<T> => {
+  const pinned: T[] = []
   const active: T[] = []
   const settled: T[] = []
   for (const thread of threads) {
     if (options.pins.has(thread.id)) {
-      active.push(thread)
+      pinned.push(thread)
       continue
     }
     if (
@@ -68,7 +70,8 @@ export const partitionThreadsForSidebar = <T extends ThreadShell>(
     active.push(thread)
   }
   return {
-    active: sortThreadsForSidebar(active, options.pins),
+    pinned: sortThreadsForSidebar(pinned, options.pins),
+    active: sortThreadsForSidebar(active),
     settled: sortThreadsForSidebar(settled),
   }
 }

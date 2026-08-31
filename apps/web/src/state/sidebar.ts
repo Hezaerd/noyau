@@ -46,6 +46,7 @@ export const emptyPullRequestsAtom = Atom.make(EMPTY_PULL_REQUESTS).pipe(
 )
 
 export const emptySidebarQueuesAtom = Atom.make<SidebarThreadPartition<ThreadShell>>({
+  pinned: [],
   active: [],
   settled: [],
 }).pipe(Atom.withLabel("chrome:sidebar-queues:empty"))
@@ -66,7 +67,9 @@ export const sidebarQueuesAtom = Atom.family((projectId: ProjectId) =>
   }).pipe(
     Atom.withEquality<SidebarThreadPartition<ThreadShell>>(
       (left, right) =>
-        sameThreadRefs(left.active, right.active) && sameThreadRefs(left.settled, right.settled),
+        sameThreadRefs(left.pinned, right.pinned) &&
+        sameThreadRefs(left.active, right.active) &&
+        sameThreadRefs(left.settled, right.settled),
     ),
     Atom.withLabel(`chrome:sidebar-queues:${projectId}`),
   ),
