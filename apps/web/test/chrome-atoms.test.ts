@@ -149,7 +149,7 @@ describe("threadUnreadAtom", () => {
           title: "Other",
           latestTurn: {
             turnId: TurnId.make("40000000-0000-4000-8000-000000000002"),
-            state: "interrupted",
+            state: "completed",
             requestedAt: "2026-08-25T12:00:00.000Z",
             startedAt: "2026-08-25T12:00:00.000Z",
             completedAt: "2026-08-25T12:10:00.000Z",

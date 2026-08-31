@@ -944,6 +944,9 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
         yield* Fiber.join(interrupt)
         yield* provider.drain
         assert.isTrue(
+          signals.some((signal) => signal._tag === "turn-ended" && signal.state === "interrupted"),
+        )
+        assert.isFalse(
           signals.some((signal) => signal._tag === "session" && signal.status === "error"),
         )
       }),

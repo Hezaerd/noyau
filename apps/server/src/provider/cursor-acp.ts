@@ -594,6 +594,32 @@ const sessionSignal = (
         lastError,
       }
 
+const turnResumeCursor = (control: ActiveTurn): SessionSignal["resumeCursor"] =>
+  control.session?.resumeCursor ??
+  (control.resumeSessionId === undefined
+    ? control.input.resumeCursor
+    : {
+        schemaVersion: 1,
+        sessionId: ProviderSessionId.make(control.resumeSessionId),
+      })
+
+/** User cancel must not become Session/Turn error — the sidebar treats that as Error. */
+const emitCanceledTerminal = Effect.fn("CursorAdapter.emitCanceledTerminal")(function* (
+  control: ActiveTurn,
+  resumeCursor: SessionSignal["resumeCursor"],
+) {
+  yield* emitSignal(control, {
+    _tag: "turn-ended",
+    threadId: control.input.threadId,
+    turnId: control.input.turnId,
+    state: "interrupted",
+  })
+  yield* emitSignal(
+    control,
+    sessionSignal(control, control.stopRequested ? "stopped" : "ready", resumeCursor),
+  )
+})
+
 const clientInfo = (clientVersion: string) => ({
   protocolVersion: ACP_VERSION,
   clientCapabilities: {
@@ -1284,26 +1310,19 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           ? Effect.void
           : Effect.gen(function* () {
               control.terminalEmitted = true
-              const detail = errorDetail(error)
               const currentSession = control.session
+              const resumeCursor = turnResumeCursor(control)
               if (currentSession !== undefined) {
                 yield* closeSession(currentSession)
               }
-              yield* emitSignal(
-                control,
-                sessionSignal(
+              if (control.cancelRequested || control.stopRequested) {
+                yield* emitCanceledTerminal(control, resumeCursor)
+              } else {
+                yield* emitSignal(
                   control,
-                  "error",
-                  currentSession?.resumeCursor ??
-                    (control.resumeSessionId === undefined
-                      ? control.input.resumeCursor
-                      : {
-                          schemaVersion: 1,
-                          sessionId: ProviderSessionId.make(control.resumeSessionId),
-                        }),
-                  detail,
-                ),
-              )
+                  sessionSignal(control, "error", resumeCursor, errorDetail(error)),
+                )
+              }
               yield* Deferred.succeed(control.promptSettled, undefined)
             }),
       ),
