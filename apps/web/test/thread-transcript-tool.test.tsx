@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import { TranscriptTool } from "@noyau/contracts/entities/transcript"
 import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { cleanup, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
@@ -22,24 +22,28 @@ const decodeTool = (input: {
   readonly toolCallId: string
   readonly status: "in_progress" | "completed" | "error"
   readonly outputSummary?: string
-}) =>
-  Schema.decodeSync(TranscriptItem)({
-    _tag: "transcript.tool",
+}) => {
+  const tool = {
+    _tag: "transcript.tool" as const,
     threadId,
     turnId,
     toolCallId: input.toolCallId,
     name: "Read file",
     status: input.status,
-    action: "read",
-    ...(input.outputSummary === undefined ? {} : { outputSummary: input.outputSummary }),
+    action: "read" as const,
+  }
+  if (input.outputSummary === undefined) {
+    return Schema.decodeSync(TranscriptTool)(tool)
+  }
+  return Schema.decodeSync(TranscriptTool)({
+    ...tool,
+    outputSummary: input.outputSummary,
   })
+}
 
 describe("ThreadTranscriptTool shimmer", () => {
   it("shimmers only the in-progress tool label", () => {
     const live = decodeTool({ toolCallId: "tool-1", status: "in_progress" })
-    if (live._tag !== "transcript.tool") {
-      throw new Error("expected transcript.tool")
-    }
 
     render(<ThreadTranscriptTool item={live} />)
 
@@ -52,9 +56,6 @@ describe("ThreadTranscriptTool shimmer", () => {
       status: "completed",
       outputSummary: "src/index.ts",
     })
-    if (settled._tag !== "transcript.tool") {
-      throw new Error("expected transcript.tool")
-    }
 
     render(<ThreadTranscriptTool item={settled} />)
 
@@ -72,9 +73,6 @@ describe("ThreadTranscriptTool shimmer", () => {
       status: "completed",
       outputSummary: "src/index.ts",
     })
-    if (live._tag !== "transcript.tool" || settled._tag !== "transcript.tool") {
-      throw new Error("expected transcript.tool")
-    }
 
     render(<ThreadTranscriptToolGroup items={[settled, live]} />)
 
