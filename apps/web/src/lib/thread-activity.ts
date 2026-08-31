@@ -222,12 +222,16 @@ export const hasUnseenCompletion = (input: {
   return completedAtMs > input.lastVisitedAtMs
 }
 
+/** Sidebar badge: In progress, unseen Done, or Error. A canceled Turn stays idle. */
 export const resolveThreadActivity = (input: {
   readonly sessionStatus: SessionStatus | null
   readonly latestTurn: LatestTurn | null
   readonly lastVisitedAtMs: number | undefined
 }): ThreadActivity | null => {
   const { sessionStatus, latestTurn } = input
+  if (latestTurn?.state === "interrupted" || sessionStatus === "interrupted") {
+    return null
+  }
   if (sessionStatus === "error" || latestTurn?.state === "error") {
     return { kind: "error", label: "Error" }
   }
@@ -238,12 +242,10 @@ export const resolveThreadActivity = (input: {
     return null
   }
   const settlementKind =
-    latestTurn.state === "interrupted"
-      ? "interrupted"
-      : latestTurn.state === "completed" ||
-          (latestTurn.state === "running" && latestTurn.completedAt != null)
-        ? "completed"
-        : null
+    latestTurn.state === "completed" ||
+    (latestTurn.state === "running" && latestTurn.completedAt != null)
+      ? "completed"
+      : null
   if (
     settlementKind !== null &&
     hasUnseenCompletion({
@@ -251,9 +253,7 @@ export const resolveThreadActivity = (input: {
       lastVisitedAtMs: input.lastVisitedAtMs,
     })
   ) {
-    return settlementKind === "interrupted"
-      ? { kind: "interrupted", label: "Interrupted" }
-      : { kind: "completed", label: "Done" }
+    return { kind: "completed", label: "Done" }
   }
   return null
 }
