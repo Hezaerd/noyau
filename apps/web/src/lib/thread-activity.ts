@@ -214,7 +214,7 @@ export const hasUnseenCompletion = (input: {
     return false
   }
   if (input.lastVisitedAtMs === undefined) {
-    return false
+    return true
   }
   if (!Number.isFinite(input.lastVisitedAtMs)) {
     return true
@@ -258,9 +258,6 @@ export const resolveThreadActivity = (input: {
   return null
 }
 
-export const isWaitingThreadActivity = (activity: ThreadActivity | null): boolean =>
-  activity?.kind === "completed" || activity?.kind === "interrupted"
-
 export const countWaitingThreads = (
   threads: ReadonlyArray<{
     readonly id: ThreadId
@@ -276,13 +273,10 @@ export const countWaitingThreads = (
       continue
     }
     if (
-      isWaitingThreadActivity(
-        resolveThreadActivity({
-          sessionStatus: thread.sessionStatus,
-          latestTurn: thread.latestTurn,
-          lastVisitedAtMs: lastVisitedAtMsOf(thread.id),
-        }),
-      )
+      hasUnseenCompletion({
+        completedAt: thread.latestTurn?.completedAt,
+        lastVisitedAtMs: lastVisitedAtMsOf(thread.id),
+      })
     ) {
       count += 1
     }

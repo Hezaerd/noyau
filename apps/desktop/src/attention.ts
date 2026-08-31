@@ -7,6 +7,9 @@ export const normalizeBadgeCount = (count: number): number => {
   return Math.floor(count)
 }
 
+export const shouldShowTurnNotification = (mainWindowFocused: boolean): boolean =>
+  !mainWindowFocused
+
 export interface TurnNotificationOptions {
   readonly title: string
   readonly body: string

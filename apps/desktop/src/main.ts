@@ -23,6 +23,7 @@ import { applicationMenuTemplate } from "./application-menu"
 import {
   normalizeBadgeCount,
   openThreadFromNotification,
+  shouldShowTurnNotification,
   turnNotificationOptions,
 } from "./attention"
 import {
@@ -298,7 +299,12 @@ const registerAttentionBridge = (): void => {
     desktopRuntime.runPromise(
       decodeTurnNotification(input).pipe(
         Effect.map((notificationInput) => {
-          if (!Notification.isSupported()) {
+          if (
+            !Notification.isSupported() ||
+            (mainWindow !== undefined &&
+              !mainWindow.isDestroyed() &&
+              !shouldShowTurnNotification(mainWindow.isFocused()))
+          ) {
             return undefined
           }
           turnNotificationsByThread.get(notificationInput.threadId)?.close()

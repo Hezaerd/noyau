@@ -146,7 +146,7 @@ describe("thread activity", () => {
     ).toBe(Date.parse("2026-08-23T12:05:00.000Z"))
   })
 
-  it("hides historical completions until the Thread has been visited", () => {
+  it("treats a completed Turn as unread until the Thread is visited", () => {
     const completed = latestTurn({
       state: "completed",
       completedAt: "2026-08-23T12:05:00.000Z",
@@ -156,7 +156,7 @@ describe("thread activity", () => {
         completedAt: completed.completedAt,
         lastVisitedAtMs: undefined,
       }),
-    ).toBe(false)
+    ).toBe(true)
     expect(
       hasUnseenCompletion({
         completedAt: completed.completedAt,
@@ -235,7 +235,7 @@ describe("thread activity", () => {
         }),
         lastVisitedAtMs: undefined,
       }),
-    ).toBeNull()
+    ).toEqual({ kind: "completed", label: "Done" })
     expect(
       resolveThreadActivity({
         sessionStatus: "running",
@@ -423,7 +423,7 @@ describe("thread activity", () => {
     ).toBe(Date.parse("2026-08-23T12:00:05.000Z"))
   })
 
-  it("counts active unseen completed Threads and ignores canceled ones", () => {
+  it("counts active Threads with any unseen finished Turn", () => {
     const completed = latestTurn({
       state: "completed",
       completedAt: "2026-08-23T12:05:00.000Z",
@@ -451,7 +451,7 @@ describe("thread activity", () => {
         ],
         () => visitedAt,
       ),
-    ).toBe(1)
+    ).toBe(2)
     expect(
       countWaitingThreads(
         [

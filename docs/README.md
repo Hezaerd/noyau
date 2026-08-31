@@ -3,6 +3,7 @@
 ## Using Noyau
 
 - [See how full the context window is](./users/context-window.md)
+- [Notice when a turn finishes](./users/turn-notifications.md)
 
 ## Working on Noyau
 

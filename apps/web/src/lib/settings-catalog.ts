@@ -110,8 +110,7 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     id: "turn-notification",
     tab: "general",
     title: "Turn end notifications",
-    description:
-      "OS banner when a Turn finishes outside the open Thread, or if the window is in the background.",
+    description: "OS banner when a Turn finishes while Noyau is not focused.",
     keywords: ["notification", "badge", "dock", "system", "turn"],
   },
   {

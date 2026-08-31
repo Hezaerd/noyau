@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { settledTurns } from "../src/lib/turn-cue"
-import {
-  isRendererForeground,
-  shouldNotifyTurnSettlement,
-  turnNotificationBody,
-} from "../src/lib/turn-notification"
+import { isRendererForeground, turnNotificationBody } from "../src/lib/turn-notification"
 import { parseTurnNotificationEnabled } from "../src/lib/turn-notification-preference"
 
 describe("turn notification", () => {
@@ -20,54 +16,6 @@ describe("turn notification", () => {
     expect(isRendererForeground({ visibilityState: "visible", hasFocus: true })).toBe(true)
     expect(isRendererForeground({ visibilityState: "visible", hasFocus: false })).toBe(false)
     expect(isRendererForeground({ visibilityState: "hidden", hasFocus: true })).toBe(false)
-  })
-
-  it("skips the banner when the open Thread is already in the foreground", () => {
-    expect(
-      shouldNotifyTurnSettlement({
-        enabled: true,
-        isDesktop: true,
-        threadId: "thread-a",
-        openThreadId: "thread-a",
-        windowFocused: true,
-      }),
-    ).toBe(false)
-    expect(
-      shouldNotifyTurnSettlement({
-        enabled: true,
-        isDesktop: true,
-        threadId: "thread-a",
-        openThreadId: "thread-a",
-        windowFocused: false,
-      }),
-    ).toBe(true)
-    expect(
-      shouldNotifyTurnSettlement({
-        enabled: true,
-        isDesktop: true,
-        threadId: "thread-a",
-        openThreadId: "thread-b",
-        windowFocused: true,
-      }),
-    ).toBe(true)
-    expect(
-      shouldNotifyTurnSettlement({
-        enabled: false,
-        isDesktop: true,
-        threadId: "thread-a",
-        openThreadId: "thread-b",
-        windowFocused: false,
-      }),
-    ).toBe(false)
-    expect(
-      shouldNotifyTurnSettlement({
-        enabled: true,
-        isDesktop: false,
-        threadId: "thread-a",
-        openThreadId: "thread-b",
-        windowFocused: false,
-      }),
-    ).toBe(false)
   })
 
   it("labels the banner with the Project and settlement", () => {
@@ -89,5 +37,17 @@ describe("turn notification", () => {
         [{ id: "thread-a", latestTurn: { turnId: "turn-1", state: "completed" } }],
       ),
     ).toEqual([])
+  })
+
+  it("detects a newly observed settled Turn even when running was batched away", () => {
+    expect(
+      settledTurns(
+        [{ id: "thread-a", latestTurn: { turnId: "turn-1", state: "completed" } }],
+        [{ id: "thread-a", latestTurn: { turnId: "turn-2", state: "completed" } }],
+      ),
+    ).toEqual([{ threadId: "thread-a", turnId: "turn-2", state: "completed" }])
+    expect(
+      settledTurns([], [{ id: "thread-a", latestTurn: { turnId: "turn-1", state: "completed" } }]),
+    ).toEqual([{ threadId: "thread-a", turnId: "turn-1", state: "completed" }])
   })
 })
