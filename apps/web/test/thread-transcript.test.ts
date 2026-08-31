@@ -238,6 +238,19 @@ describe("thread transcript projection", () => {
     }
   })
 
+  it("applies context-usage-set locally without a snapshot reload", () => {
+    const next = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.context-usage-set",
+        threadId: ids.thread,
+        contextUsage: { used: 12400, window: 200000 },
+      }),
+    )
+
+    expect(next?.thread.contextUsage).toEqual({ used: 12400, window: 200000 })
+  })
+
   it("applies a generated title locally", () => {
     const next = applyThreadEnvelope(
       snapshot,

@@ -6,6 +6,7 @@ import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
 } from "@noyau/contracts/entities/approvals"
+import { contextUsageOf } from "@noyau/contracts/entities/context-usage"
 import {
   emptyClaudeProviderStatus,
   emptyCodexProviderStatus,
@@ -849,14 +850,25 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     notification: AcpSchema.SessionNotification,
   ) {
     const replayMetadata = notification._meta
-    if (
-      loading() ||
-      replayMetadata?.isReplay === true ||
-      notification.sessionId !== control.sessionId
-    ) {
+    if (notification.sessionId !== control.sessionId) {
       return
     }
     const update = notification.update
+    if (update.sessionUpdate === "usage_update") {
+      const usage = contextUsageOf(update.used, update.size)
+      if (usage !== null) {
+        yield* emitSignal(control, {
+          _tag: "context-usage",
+          threadId: control.input.threadId,
+          used: usage.used,
+          window: usage.window,
+        })
+      }
+      return
+    }
+    if (loading() || replayMetadata?.isReplay === true) {
+      return
+    }
     switch (update.sessionUpdate) {
       case "agent_message_chunk": {
         if (update.content.type === "text" && update.content.text.length > 0) {
@@ -1007,7 +1019,9 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           Effect.gen(function* () {
             if (created.loading) {
               created.loadLastActivityAt = yield* Clock.currentTimeMillis
-              return
+              if (notification.update.sessionUpdate !== "usage_update") {
+                return
+              }
             }
             const current = created.activeTurn
             if (current === undefined) {
@@ -1043,6 +1057,8 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         if (resumeSessionId !== undefined) {
           created.loading = true
           created.loadLastActivityAt = undefined
+          created.activeTurn = control
+          control.sessionId = resumeSessionId
           const loaded = yield* Effect.raceFirst(
             acp.agent
               .loadSession({

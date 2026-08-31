@@ -17,6 +17,7 @@ import {
 import {
   ApprovalResponded,
   SessionStopRequested,
+  ThreadContextUsageSet,
   ThreadCreated,
   ThreadDeleted,
   type ThreadEvent,
@@ -453,6 +454,18 @@ export const decide = (
             return Result.succeed([])
           }
           return Result.succeed([ThreadTurnDiffCompleted.make(command.payload)])
+        }),
+      )
+    case "thread.context-usage.set":
+      return requireThread(state, command.payload.threadId).pipe(
+        Result.flatMap((thread) => requireActiveThread(thread).pipe(Result.map(() => thread))),
+        Result.map((thread) => {
+          const next = command.payload.contextUsage
+          const current = thread.contextUsage
+          if (current !== null && current.used === next.used && current.window === next.window) {
+            return []
+          }
+          return [ThreadContextUsageSet.make(command.payload)]
         }),
       )
   }

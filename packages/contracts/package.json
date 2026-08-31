@@ -15,6 +15,7 @@
     "./entities/ticket": "./src/entities/ticket.ts",
     "./entities/ticket-thread": "./src/entities/ticket-thread.ts",
     "./entities/checkout": "./src/entities/checkout.ts",
+    "./entities/context-usage": "./src/entities/context-usage.ts",
     "./entities/thread": "./src/entities/thread.ts",
     "./entities/session": "./src/entities/session.ts",
     "./entities/turn": "./src/entities/turn.ts",

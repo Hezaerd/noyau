@@ -1,4 +1,5 @@
 import { ThreadBranch, ThreadWorktreePath } from "@noyau/contracts/entities/checkout"
+import { ContextUsage } from "@noyau/contracts/entities/context-usage"
 import { Provider } from "@noyau/contracts/entities/environment"
 import { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
@@ -27,6 +28,7 @@ export class Thread extends Schema.Class<Thread>("@noyau/contracts/entities/Thre
   status: ThreadStatus,
   session: Schema.NullOr(Session),
   latestTurn: Schema.NullOr(LatestTurn),
+  contextUsage: Schema.optionalKey(ContextUsage),
   settledOverride: Schema.optionalKey(SettledOverride),
   settledAt: Schema.optionalKey(Schema.DateTimeUtcFromString),
   createdAt: Schema.DateTimeUtcFromString,
@@ -39,3 +41,6 @@ export class Thread extends Schema.Class<Thread>("@noyau/contracts/entities/Thre
 export const threadSettledOverrideOf = (
   thread: Pick<Thread, "settledOverride">,
 ): SettledOverride | null => thread.settledOverride ?? null
+
+export const threadContextUsageOf = (thread: Pick<Thread, "contextUsage">): ContextUsage | null =>
+  thread.contextUsage ?? null

@@ -772,6 +772,14 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       `
       break
     }
+    case "thread.context-usage-set":
+      yield* sql`
+        UPDATE projection_threads
+        SET context_used = ${event.contextUsage.used},
+            context_window = ${event.contextUsage.window}
+        WHERE thread_id = ${event.threadId}
+      `
+      break
     case "thread.turn.interrupted":
     case "thread.turn.ended":
     case "session.stop-requested":

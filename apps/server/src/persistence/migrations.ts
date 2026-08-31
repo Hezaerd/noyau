@@ -13,6 +13,7 @@ import ThreadProviderCodexMigration from "./migrations/009_thread_provider_codex
 import ProjectDefaultModelMigration from "./migrations/010_project_default_model.ts"
 import ThreadHardDeleteMigration from "./migrations/011_thread_hard_delete.ts"
 import ThreadListedAtMigration from "./migrations/012_thread_listed_at.ts"
+import ThreadContextUsageMigration from "./migrations/013_thread_context_usage.ts"
 
 export const migrationsThroughTurnDiff: Migrator.Loader = Migrator.fromRecord({
   "1_journal": JournalMigration,
@@ -38,6 +39,7 @@ export const migrations: Migrator.Loader = Migrator.fromRecord({
   "10_project_default_model": ProjectDefaultModelMigration,
   "11_thread_hard_delete": ThreadHardDeleteMigration,
   "12_thread_listed_at": ThreadListedAtMigration,
+  "13_thread_context_usage": ThreadContextUsageMigration,
 })
 
 export { default as threadProviderCodexMigration } from "./migrations/009_thread_provider_codex.ts"

@@ -1,3 +1,4 @@
+import type { ContextUsage } from "@noyau/contracts/entities/context-usage"
 import type { Provider } from "@noyau/contracts/entities/environment"
 import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
@@ -31,6 +32,7 @@ export interface ThreadProjection {
   readonly worktreePath: string | null
   readonly status: "active" | "archived"
   readonly session: Session | null
+  readonly contextUsage: ContextUsage | null
   readonly settledOverride: "settled" | "active" | null
   readonly settledAt: DateTime.Utc | null
   readonly turns: ReadonlyArray<TurnProjection>
@@ -212,6 +214,7 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
             worktreePath: event.worktreePath ?? null,
             status: "active",
             session: null,
+            contextUsage: null,
             settledOverride: null,
             settledAt: null,
             turns: [],
@@ -358,6 +361,11 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
           },
         }))
       })
+    case "thread.context-usage-set":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        contextUsage: event.contextUsage,
+      }))
   }
 }
 

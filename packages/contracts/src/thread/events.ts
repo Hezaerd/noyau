@@ -4,6 +4,7 @@ import {
 } from "@noyau/contracts/entities/approvals"
 import { TurnImageAttachments } from "@noyau/contracts/entities/attachment"
 import { ThreadBranch, ThreadWorktreePath } from "@noyau/contracts/entities/checkout"
+import { ContextUsage } from "@noyau/contracts/entities/context-usage"
 import { Provider } from "@noyau/contracts/entities/environment"
 import { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
@@ -156,6 +157,12 @@ export const ThreadTurnDiffCompleted = Schema.TaggedStruct("thread.turn-diff-com
 })
 export type ThreadTurnDiffCompleted = (typeof ThreadTurnDiffCompleted)["Type"]
 
+export const ThreadContextUsageSet = Schema.TaggedStruct("thread.context-usage-set", {
+  threadId: ThreadId,
+  contextUsage: ContextUsage,
+})
+export type ThreadContextUsageSet = (typeof ThreadContextUsageSet)["Type"]
+
 export const ThreadEvent = Schema.Union([
   ThreadCreated,
   ThreadDeleted,
@@ -176,5 +183,6 @@ export const ThreadEvent = Schema.Union([
   ThreadTurnEnded,
   ThreadTitleSeeded,
   ThreadTurnDiffCompleted,
+  ThreadContextUsageSet,
 ])
 export type ThreadEvent = (typeof ThreadEvent)["Type"]

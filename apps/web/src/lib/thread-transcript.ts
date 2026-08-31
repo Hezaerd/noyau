@@ -513,6 +513,7 @@ const replaceThread = (
     readonly settledOverride?: Thread["settledOverride"] | null
     readonly settledAt?: Thread["settledAt"] | null
     readonly listedAt?: Thread["listedAt"]
+    readonly contextUsage?: Thread["contextUsage"]
   },
 ): Thread => {
   const current = snapshot.thread
@@ -539,13 +540,14 @@ const replaceThread = (
   const settledOverride =
     patch.settledOverride === null ? undefined : (patch.settledOverride ?? current.settledOverride)
   const settledAt = patch.settledAt === null ? undefined : (patch.settledAt ?? current.settledAt)
+  const contextUsage = patch.contextUsage ?? current.contextUsage
   const withSettled =
     settledOverride === undefined ? fields : Object.assign(fields, { settledOverride })
   const withSettledAt =
     settledAt === undefined ? withSettled : Object.assign(withSettled, { settledAt })
-  return archivedAt === undefined
-    ? new Thread(withSettledAt)
-    : new Thread({ ...withSettledAt, archivedAt })
+  const withUsage =
+    contextUsage === undefined ? withSettledAt : Object.assign(withSettledAt, { contextUsage })
+  return archivedAt === undefined ? new Thread(withUsage) : new Thread({ ...withUsage, archivedAt })
 }
 
 const withEnvelope = (
@@ -864,6 +866,20 @@ export const applyThreadEnvelope = (
         }),
         session,
         turns,
+        transcript: snapshot.transcript,
+      })
+    }
+    case "thread.context-usage-set": {
+      if (event.threadId !== snapshot.thread.id) {
+        return withEnvelope(snapshot, envelope, snapshot)
+      }
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, {
+          contextUsage: event.contextUsage,
+          updatedAt: envelope.occurredAt,
+        }),
+        session: snapshot.session,
+        turns: snapshot.turns,
         transcript: snapshot.transcript,
       })
     }
