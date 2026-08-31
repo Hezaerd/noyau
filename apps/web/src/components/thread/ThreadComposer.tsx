@@ -14,6 +14,7 @@ import {
 } from "@noyau/shared/composer-trigger"
 import {
   ArrowUpIcon,
+  BrainIcon,
   ChevronDownIcon,
   GaugeIcon,
   LockIcon,
@@ -22,6 +23,7 @@ import {
   SparklesIcon,
   SquareIcon,
   XIcon,
+  ZapIcon,
 } from "lucide-react"
 import {
   useEffect,
@@ -55,7 +57,6 @@ import {
   MenuPopup,
   MenuRadioGroup,
   MenuRadioItem,
-  MenuSeparator,
   MenuTrigger,
 } from "@/components/ui/menu"
 import { Separator } from "@/components/ui/separator"
@@ -195,23 +196,10 @@ export function ThreadComposer({
     selectedModel?.serviceTiers.find((tier) => tier.value === modelSelection?.serviceTier) ??
     selectedModel?.serviceTiers.find((tier) => tier.isDefault === true)
   const selectedThinking = modelSelection?.thinking ?? selectedModel?.thinking?.defaultValue
-  const hasTraits =
-    (selectedModel?.reasoningEfforts.length ?? 0) > 0 ||
-    (selectedModel?.serviceTiers.length ?? 0) > 0 ||
-    selectedModel?.thinking !== undefined
-  const traitsLabel = [
-    (selectedModel?.reasoningEfforts.length ?? 0) > 0
-      ? (selectedEffort?.label ?? "Effort")
-      : undefined,
-    (selectedModel?.serviceTiers.length ?? 0) > 0
-      ? (selectedTier?.label ?? "Service tier")
-      : undefined,
-    selectedModel?.thinking === undefined
-      ? undefined
-      : `Thinking ${selectedThinking === true ? "on" : "off"}`,
-  ]
-    .filter((label) => label !== undefined)
-    .join(" · ")
+  const hasEffort = (selectedModel?.reasoningEfforts.length ?? 0) > 0
+  const hasTier = (selectedModel?.serviceTiers.length ?? 0) > 0
+  const hasThinking = selectedModel?.thinking !== undefined
+  const hasTraits = hasEffort || hasTier || hasThinking
   const selectedRuntimeMode =
     runtimeModes.find((mode) => mode.value === runtimeMode) ?? runtimeModes[0]
   const SelectedRuntimeModeIcon = runtimeModeIcons[runtimeMode]
@@ -426,158 +414,97 @@ export function ThreadComposer({
 
               {modelSelection !== null && hasTraits ? (
                 <>
-                  <Menu onOpenChange={handleComposerOverlayOpenChange}>
-                    <MenuTrigger
-                      render={
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          disabled={controlsDisabled}
-                          aria-label="Model configuration"
-                        />
-                      }
+                  {hasEffort ? (
+                    <ComposerTraitMenu
+                      ariaLabel="Effort level"
+                      disabled={controlsDisabled}
+                      icon={GaugeIcon}
+                      label={selectedEffort?.label ?? "Effort"}
+                      onOpenChange={handleComposerOverlayOpenChange}
                     >
-                      <GaugeIcon data-icon="inline-start" />
-                      <span className="max-w-36 truncate">{traitsLabel}</span>
-                      <ChevronDownIcon data-icon="inline-end" />
-                    </MenuTrigger>
-                    <MenuPopup
-                      side="top"
-                      align="start"
-                      finalFocus={false}
-                      className={cn("w-max", composerOverlayGlassClassName)}
+                      <MenuGroup>
+                        <MenuGroupLabel>Effort level</MenuGroupLabel>
+                        <MenuRadioGroup
+                          value={selectedEffort?.value ?? ""}
+                          onValueChange={(reasoningEffort) => {
+                            onModelSelectionChange({ ...modelSelection, reasoningEffort })
+                          }}
+                        >
+                          {selectedModel?.reasoningEfforts.map((effort) => (
+                            <ComposerTraitOption
+                              key={effort.value}
+                              description={effort.description}
+                              isDefault={effort.isDefault}
+                              label={effort.label}
+                              value={effort.value}
+                            />
+                          ))}
+                        </MenuRadioGroup>
+                      </MenuGroup>
+                    </ComposerTraitMenu>
+                  ) : null}
+                  {hasTier ? (
+                    <ComposerTraitMenu
+                      ariaLabel="Service tier"
+                      disabled={controlsDisabled}
+                      icon={ZapIcon}
+                      label={selectedTier?.label ?? "Service tier"}
+                      onOpenChange={handleComposerOverlayOpenChange}
                     >
-                      {(selectedModel?.reasoningEfforts.length ?? 0) > 0 ? (
-                        <MenuGroup>
-                          <MenuGroupLabel>Effort level</MenuGroupLabel>
-                          <MenuRadioGroup
-                            value={selectedEffort?.value ?? ""}
-                            onValueChange={(reasoningEffort) => {
-                              onModelSelectionChange({ ...modelSelection, reasoningEffort })
-                            }}
-                          >
-                            {selectedModel?.reasoningEfforts.map((effort) => (
-                              <MenuRadioItem
-                                key={effort.value}
-                                value={effort.value}
-                                closeOnClick
-                                hideIndicator
-                                className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
-                              >
-                                <span className="flex min-w-0 flex-col gap-0.5">
-                                  <span className="flex items-center gap-1.5">
-                                    <span>{effort.label}</span>
-                                    {effort.isDefault === true ? (
-                                      <Badge variant="outline" size="sm">
-                                        Default
-                                      </Badge>
-                                    ) : null}
-                                  </span>
-                                  {effort.description === undefined ? null : (
-                                    <span className="whitespace-nowrap text-muted-foreground text-xs">
-                                      {effort.description}
-                                    </span>
-                                  )}
-                                </span>
-                              </MenuRadioItem>
-                            ))}
-                          </MenuRadioGroup>
-                        </MenuGroup>
-                      ) : null}
-                      {(selectedModel?.reasoningEfforts.length ?? 0) > 0 &&
-                      ((selectedModel?.serviceTiers.length ?? 0) > 0 ||
-                        selectedModel?.thinking !== undefined) ? (
-                        <MenuSeparator />
-                      ) : null}
-                      {(selectedModel?.serviceTiers.length ?? 0) > 0 ? (
-                        <MenuGroup>
-                          <MenuGroupLabel>Service tier</MenuGroupLabel>
-                          <MenuRadioGroup
-                            value={selectedTier?.value ?? ""}
-                            onValueChange={(serviceTier) => {
-                              onModelSelectionChange({ ...modelSelection, serviceTier })
-                            }}
-                          >
-                            {selectedModel?.serviceTiers.map((tier) => (
-                              <MenuRadioItem
-                                key={tier.value}
-                                value={tier.value}
-                                closeOnClick
-                                hideIndicator
-                                className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
-                              >
-                                <span className="flex min-w-0 flex-col gap-0.5">
-                                  <span className="flex items-center gap-1.5">
-                                    <span>{tier.label}</span>
-                                    {tier.isDefault === true ? (
-                                      <Badge variant="outline" size="sm">
-                                        Default
-                                      </Badge>
-                                    ) : null}
-                                  </span>
-                                  {tier.description === undefined ? null : (
-                                    <span className="whitespace-nowrap text-muted-foreground text-xs">
-                                      {tier.description}
-                                    </span>
-                                  )}
-                                </span>
-                              </MenuRadioItem>
-                            ))}
-                          </MenuRadioGroup>
-                        </MenuGroup>
-                      ) : null}
-                      {(selectedModel?.serviceTiers.length ?? 0) > 0 &&
-                      selectedModel?.thinking !== undefined ? (
-                        <MenuSeparator />
-                      ) : null}
-                      {selectedModel?.thinking === undefined ? null : (
-                        <MenuGroup>
-                          <MenuGroupLabel>{selectedModel.thinking.label}</MenuGroupLabel>
-                          <MenuRadioGroup
-                            value={selectedThinking === true ? "on" : "off"}
-                            onValueChange={(value) => {
-                              onModelSelectionChange({
-                                ...modelSelection,
-                                thinking: value === "on",
-                              })
-                            }}
-                          >
-                            <MenuRadioItem
-                              value="off"
-                              closeOnClick
-                              hideIndicator
-                              className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
-                            >
-                              <span className="flex items-center gap-1.5">
-                                <span>Off</span>
-                                {selectedModel.thinking.defaultValue === false ? (
-                                  <Badge variant="outline" size="sm">
-                                    Default
-                                  </Badge>
-                                ) : null}
-                              </span>
-                            </MenuRadioItem>
-                            <MenuRadioItem
-                              value="on"
-                              closeOnClick
-                              hideIndicator
-                              className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
-                            >
-                              <span className="flex items-center gap-1.5">
-                                <span>On</span>
-                                {selectedModel.thinking.defaultValue === true ? (
-                                  <Badge variant="outline" size="sm">
-                                    Default
-                                  </Badge>
-                                ) : null}
-                              </span>
-                            </MenuRadioItem>
-                          </MenuRadioGroup>
-                        </MenuGroup>
-                      )}
-                    </MenuPopup>
-                  </Menu>
+                      <MenuGroup>
+                        <MenuGroupLabel>Service tier</MenuGroupLabel>
+                        <MenuRadioGroup
+                          value={selectedTier?.value ?? ""}
+                          onValueChange={(serviceTier) => {
+                            onModelSelectionChange({ ...modelSelection, serviceTier })
+                          }}
+                        >
+                          {selectedModel?.serviceTiers.map((tier) => (
+                            <ComposerTraitOption
+                              key={tier.value}
+                              description={tier.description}
+                              isDefault={tier.isDefault}
+                              label={tier.label}
+                              value={tier.value}
+                            />
+                          ))}
+                        </MenuRadioGroup>
+                      </MenuGroup>
+                    </ComposerTraitMenu>
+                  ) : null}
+                  {hasThinking && selectedModel?.thinking !== undefined ? (
+                    <ComposerTraitMenu
+                      ariaLabel="Thinking"
+                      disabled={controlsDisabled}
+                      icon={BrainIcon}
+                      label={selectedThinking === true ? "On" : "Off"}
+                      onOpenChange={handleComposerOverlayOpenChange}
+                    >
+                      <MenuGroup>
+                        <MenuGroupLabel>{selectedModel.thinking.label}</MenuGroupLabel>
+                        <MenuRadioGroup
+                          value={selectedThinking === true ? "on" : "off"}
+                          onValueChange={(value) => {
+                            onModelSelectionChange({
+                              ...modelSelection,
+                              thinking: value === "on",
+                            })
+                          }}
+                        >
+                          <ComposerTraitOption
+                            isDefault={selectedModel.thinking.defaultValue === false}
+                            label="Off"
+                            value="off"
+                          />
+                          <ComposerTraitOption
+                            isDefault={selectedModel.thinking.defaultValue === true}
+                            label="On"
+                            value="on"
+                          />
+                        </MenuRadioGroup>
+                      </MenuGroup>
+                    </ComposerTraitMenu>
+                  ) : null}
                   <Separator orientation="vertical" className="mx-0.5 h-4" />
                 </>
               ) : null}
@@ -678,5 +605,84 @@ export function ThreadComposer({
         />
       )}
     </form>
+  )
+}
+
+function ComposerTraitMenu({
+  ariaLabel,
+  icon: Icon,
+  label,
+  disabled,
+  onOpenChange,
+  children,
+}: {
+  readonly ariaLabel: string
+  readonly icon: ComponentType<{ className?: string }>
+  readonly label: string
+  readonly disabled: boolean
+  readonly onOpenChange: (open: boolean) => void
+  readonly children: ReactNode
+}) {
+  return (
+    <Menu onOpenChange={onOpenChange}>
+      <MenuTrigger
+        render={
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={disabled}
+            aria-label={ariaLabel}
+          />
+        }
+      >
+        <Icon data-icon="inline-start" />
+        <span className="max-w-24 truncate">{label}</span>
+        <ChevronDownIcon data-icon="inline-end" />
+      </MenuTrigger>
+      <MenuPopup
+        side="top"
+        align="start"
+        finalFocus={false}
+        className={cn("w-max", composerOverlayGlassClassName)}
+      >
+        {children}
+      </MenuPopup>
+    </Menu>
+  )
+}
+
+function ComposerTraitOption({
+  value,
+  label,
+  description,
+  isDefault,
+}: {
+  readonly value: string
+  readonly label: string
+  readonly description?: string | undefined
+  readonly isDefault?: boolean | undefined
+}) {
+  return (
+    <MenuRadioItem
+      value={value}
+      closeOnClick
+      hideIndicator
+      className="py-2 data-checked:bg-accent data-checked:text-accent-foreground"
+    >
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex items-center gap-1.5">
+          <span>{label}</span>
+          {isDefault === true ? (
+            <Badge variant="outline" size="sm">
+              Default
+            </Badge>
+          ) : null}
+        </span>
+        {description === undefined ? null : (
+          <span className="whitespace-nowrap text-muted-foreground text-xs">{description}</span>
+        )}
+      </span>
+    </MenuRadioItem>
   )
 }
