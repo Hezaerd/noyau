@@ -15,7 +15,12 @@ import { useProviders } from "@/hooks/use-control-plane"
 import { patchSettings } from "@/lib/control-plane"
 import { resolveCursorReadiness } from "@/lib/cursor-readiness"
 import { showFailureToast } from "@/lib/failure-toast"
-import { orderedProviderViews, providerIconOf, providerLabelOf } from "@/lib/provider-presentation"
+import {
+  orderedProviderViews,
+  providerIconOf,
+  providerInstanceLabelOf,
+  providerLabelOf,
+} from "@/lib/provider-presentation"
 import {
   presentProviderInstanceConnection,
   presentProviderInstancePlan,
@@ -110,7 +115,7 @@ function ProviderInstanceRow({ view }: { readonly view: ProviderInstanceView }):
   const version = presentProviderInstanceVersion(view)
   const plan = presentProviderInstancePlan(view)
   const isUnknown = view.enabled && readiness === "unknown"
-  const title = providerLabelOf(view.driver)
+  const title = providerInstanceLabelOf(view.instanceId, { [view.instanceId]: view })
   const subtitle = plan ?? (connection.detail === null ? connection.headline : null)
 
   const setEnabled = (enabled: boolean) => {

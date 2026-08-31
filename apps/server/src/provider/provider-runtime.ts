@@ -68,6 +68,9 @@ const providerRegistryLayer = (options: ProviderRuntimeOptions) =>
     Effect.gen(function* () {
       const driverContext = yield* Effect.context<ProviderDriverRequirements>()
       const settings = yield* readServerSettings().pipe(
+        Effect.tapError((error) =>
+          Effect.logWarning("Provider settings unreadable; using defaults", { error }),
+        ),
         Effect.orElseSucceed(() => ({ providerInstances: {} })),
       )
       const registry = yield* makeProviderInstanceRegistry(

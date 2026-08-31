@@ -235,7 +235,7 @@ export const makeProviderInstanceRegistry = Effect.fn("makeProviderInstanceRegis
         next.set(rawId, existing)
         continue
       }
-      if (existing?.port !== null && existing !== undefined) {
+      if (existing !== undefined && existing.port !== null) {
         yield* existing.port.stopAll
       }
       next.set(rawId, yield* buildSlot(instanceId, config))

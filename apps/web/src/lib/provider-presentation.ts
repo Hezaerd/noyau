@@ -37,6 +37,20 @@ export const providerLabelOf = (driver: string, displayName?: string): string =>
   return driver
 }
 
+export const providerInstanceIconOf = (
+  instanceId: Provider,
+  providers: ProviderInstanceViewMap,
+): ProviderIcon => providerIconOf(providerDriverOf(instanceId, providers))
+
+export const providerInstanceLabelOf = (
+  instanceId: Provider,
+  providers: ProviderInstanceViewMap,
+): string => {
+  const driver = providerDriverOf(instanceId, providers)
+  const label = providerLabelOf(driver)
+  return String(instanceId) === driver ? label : `${label} (${instanceId})`
+}
+
 export const isProviderInstanceReady = (view: ProviderInstanceView | undefined): boolean =>
   view !== undefined && view.enabled && view.handshakeOk
 

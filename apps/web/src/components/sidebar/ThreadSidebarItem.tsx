@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/context-menu"
 import { Input } from "@/components/ui/input"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
+import { useProviders } from "@/hooks/use-control-plane"
 import { useKeybinding } from "@/hooks/use-keybindings"
 import { useThreadActivity } from "@/hooks/use-sidebar-queues"
 import { useThreadPinned } from "@/hooks/use-thread-pins"
@@ -37,7 +38,7 @@ import { resolveSidebarCheckoutBranch } from "@/lib/checkout"
 import { buildAndDispatchCommand } from "@/lib/control-plane"
 import { presentFailure } from "@/lib/failure-presentation"
 import { showFailureToast } from "@/lib/failure-toast"
-import { providerIconOf } from "@/lib/provider-presentation"
+import { providerInstanceIconOf } from "@/lib/provider-presentation"
 import {
   formatAgoCompactLabel,
   resolveSidebarLastActivityAtMs,
@@ -308,7 +309,8 @@ function ThreadSidebarItemContent({
   readonly settleable: boolean
   readonly onSettle: () => void
 }) {
-  const ProviderIcon = providerIconOf(provider)
+  const providers = useProviders()
+  const ProviderIcon = providerInstanceIconOf(provider, providers)
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span

@@ -66,7 +66,9 @@ export const writeServerSettings = Effect.fn("writeServerSettings")(function* (
         }),
     ),
   )
-  yield* fileSystem.writeFileString(settingsPath, `${encoded}\n`).pipe(
+  const temporaryPath = `${settingsPath}.tmp`
+  yield* fileSystem.writeFileString(temporaryPath, `${encoded}\n`).pipe(
+    Effect.andThen(fileSystem.rename(temporaryPath, settingsPath)),
     Effect.mapError(
       (cause) =>
         new ServerSettingsError({

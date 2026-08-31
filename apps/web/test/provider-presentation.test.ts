@@ -5,7 +5,11 @@ import {
 } from "@noyau/contracts/entities/environment"
 import { describe, expect, it } from "vite-plus/test"
 
-import { isProviderInstanceReady, readyProviderIds } from "../src/lib/provider-presentation"
+import {
+  isProviderInstanceReady,
+  providerInstanceLabelOf,
+  readyProviderIds,
+} from "../src/lib/provider-presentation"
 import { presentProviderInstanceConnection } from "../src/lib/providers-catalog"
 
 const ready = providerInstanceView({
@@ -46,6 +50,20 @@ describe("provider presentation", () => {
         [disabled.instanceId]: disabled,
       }),
     ).toEqual([ready.instanceId])
+  })
+
+  it("labels a second instance by driver and instance id", () => {
+    const work = providerInstanceView({
+      instanceId: ProviderInstanceId.make("claude-work"),
+      driver: ProviderDriverKind.make("claude"),
+      enabled: true,
+    })
+    expect(
+      providerInstanceLabelOf(work.instanceId, {
+        [work.instanceId]: work,
+      }),
+    ).toBe("Claude Code (claude-work)")
+    expect(providerInstanceLabelOf(ready.instanceId, { [ready.instanceId]: ready })).toBe("Cursor")
   })
 
   it("presents a disabled instance without claiming the CLI is missing", () => {
