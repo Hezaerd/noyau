@@ -97,7 +97,7 @@ export const lastScreenFromPathname = (pathname: string): LastScreen | undefined
         return { _tag: "new-thread", projectId }
       }
       return Option.match(decodeThreadId(threadMatch[2]), {
-        onNone: () => ({ _tag: "board", projectId }),
+        onNone: () => undefined,
         onSome: (threadId) => ({ _tag: "thread", projectId, threadId }),
       })
     },

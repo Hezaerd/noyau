@@ -60,6 +60,7 @@ describe("last screen", () => {
     expect(lastScreenFromPathname(`/projects/${projectId}/board`)).toEqual(board)
     expect(lastScreenFromPathname(`/projects/${projectId}/thread/${threadId}`)).toEqual(thread)
     expect(lastScreenFromPathname(`/projects/${projectId}/thread/new`)).toEqual(newThread)
+    expect(lastScreenFromPathname(`/projects/${projectId}/thread/not-a-thread-id`)).toBeUndefined()
     expect(lastScreenFromPathname("/")).toBeUndefined()
     expect(lastScreenFromPathname("/settings/general")).toBeUndefined()
   })
