@@ -88,4 +88,12 @@ describe("thread message meta", () => {
     renderItem(assistantItem, true)
     expect(screen.queryByRole("button", { name: "Copy message" })).toBeNull()
   })
+
+  it("lets assistant content use the full transcript width", () => {
+    renderItem(assistantItem)
+
+    const bubbleContent = screen.getByText("C'est noté.").closest("[data-slot='bubble-content']")
+    expect(bubbleContent?.className).toContain("w-full")
+    expect(bubbleContent?.closest("[data-slot='bubble']")?.className).toContain("w-full")
+  })
 })

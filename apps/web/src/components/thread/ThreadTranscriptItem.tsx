@@ -60,8 +60,8 @@ function LiveAssistantMessage({
   return (
     <Message align="start">
       <MessageContent>
-        <Bubble variant="ghost" align="start">
-          <BubbleContent>
+        <Bubble variant="ghost" align="start" className="w-full">
+          <BubbleContent className="w-full">
             <ThreadMarkdown
               text={paintedText}
               streaming={streaming}
