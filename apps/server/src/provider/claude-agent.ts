@@ -159,24 +159,28 @@ const CLAUDE_MODEL_CATALOG: ReadonlyArray<CursorModel> = [
   {
     modelId: "claude-opus-4-8",
     label: "Claude Opus 4.8",
+    isLegacy: true,
     reasoningEfforts: lowToMaxWithUltracode,
     serviceTiers: [],
   },
   {
     modelId: "claude-opus-4-7",
     label: "Claude Opus 4.7",
+    isLegacy: true,
     reasoningEfforts: opus47Efforts,
     serviceTiers: [],
   },
   {
     modelId: "claude-opus-4-6",
     label: "Claude Opus 4.6",
+    isLegacy: true,
     reasoningEfforts: opus46Efforts,
     serviceTiers: contextWindow("1m"),
   },
   {
     modelId: "claude-opus-4-5",
     label: "Claude Opus 4.5",
+    isLegacy: true,
     reasoningEfforts: opus45Efforts,
     serviceTiers: [],
   },
@@ -189,12 +193,14 @@ const CLAUDE_MODEL_CATALOG: ReadonlyArray<CursorModel> = [
   {
     modelId: "claude-sonnet-4-6",
     label: "Claude Sonnet 4.6",
+    isLegacy: true,
     reasoningEfforts: opus46Efforts,
     serviceTiers: contextWindow("200k"),
   },
   {
     modelId: "claude-haiku-4-5",
     label: "Claude Haiku 4.5",
+    isLegacy: true,
     reasoningEfforts: [],
     serviceTiers: [],
     thinking: { label: "Thinking", defaultValue: false },

@@ -67,6 +67,7 @@ export type CursorThinkingOption = (typeof CursorThinkingOption)["Type"]
 export const CursorModel = Schema.Struct({
   modelId: Schema.NonEmptyString,
   label: Schema.NonEmptyString,
+  isLegacy: Schema.optionalKey(Schema.Boolean),
   reasoningEfforts: Schema.Array(CursorReasoningEffort),
   serviceTiers: Schema.Array(CursorServiceTier),
   thinking: Schema.optionalKey(CursorThinkingOption),
