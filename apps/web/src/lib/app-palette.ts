@@ -1,6 +1,10 @@
 import { Option, Schema } from "effect"
 
-import { isComposerDraftEmpty, type ComposerDraftSessionValue } from "@/lib/composer-drafts"
+import {
+  isComposerDraftEmpty,
+  type NewThreadDraft,
+  type NewThreadDraftId,
+} from "@/lib/composer-drafts"
 import { newThreadDraftTitle } from "@/lib/draft-thread"
 
 export const MAX_PALETTE_RECENTS = 5
@@ -27,21 +31,23 @@ export interface PaletteThreadSource {
 export interface PaletteThreadItem {
   readonly id: string
   readonly threadId: string
+  readonly draftId?: NewThreadDraftId | undefined
   readonly label: string
   readonly searchValue: string
 }
 
 export const paletteNewThreadDraftItem = (
   projectId: string | undefined,
-  draft: ComposerDraftSessionValue<{ readonly upload: { readonly name: string } }>,
+  draft: NewThreadDraft<{ readonly upload: { readonly name: string } }>,
 ): PaletteThreadItem | undefined => {
-  if (projectId === undefined || isComposerDraftEmpty(draft)) {
+  if (projectId === undefined || isComposerDraftEmpty(draft.value)) {
     return undefined
   }
-  const label = newThreadDraftTitle(draft)
+  const label = newThreadDraftTitle(draft.value)
   return {
-    id: `thread.open.new.${projectId}`,
+    id: `thread.open.new.${projectId}.${draft.id ?? "legacy"}`,
     threadId: NEW_THREAD_PALETTE_THREAD_ID,
+    draftId: draft.id,
     label,
     searchValue: `${label} draft new thread`,
   }
@@ -50,7 +56,7 @@ export const paletteNewThreadDraftItem = (
 export const paletteThreadItems = (
   threads: ReadonlyArray<PaletteThreadSource>,
   projectId: string | undefined,
-  draft?: ComposerDraftSessionValue<{ readonly upload: { readonly name: string } }>,
+  drafts: ReadonlyArray<NewThreadDraft<{ readonly upload: { readonly name: string } }>> = [],
 ): ReadonlyArray<PaletteThreadItem> => {
   if (projectId === undefined) {
     return []
@@ -67,8 +73,11 @@ export const paletteThreadItems = (
         ]
       : [],
   )
-  const unsaved = draft === undefined ? undefined : paletteNewThreadDraftItem(projectId, draft)
-  return unsaved === undefined ? persisted : [unsaved, ...persisted]
+  const unsaved = drafts.flatMap((draft) => {
+    const item = paletteNewThreadDraftItem(projectId, draft)
+    return item === undefined ? [] : [item]
+  })
+  return [...unsaved, ...persisted]
 }
 
 export interface SearchablePaletteItem extends PaletteItem {

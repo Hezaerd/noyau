@@ -8,7 +8,7 @@ import { ThreadSidebarSection } from "@/components/sidebar/ThreadSidebarSection"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { useAutoSettleMergedThreads } from "@/hooks/use-auto-settle-merged-threads"
-import { useProjectNewThreadDraft } from "@/hooks/use-composer-draft"
+import { useProjectNewThreadDrafts } from "@/hooks/use-composer-draft"
 import { useProjectThreads } from "@/hooks/use-control-plane"
 import { useCreateDraftThread } from "@/hooks/use-create-draft-thread"
 import { useKeybinding } from "@/hooks/use-keybindings"
@@ -18,19 +18,20 @@ import { isListableNewThreadDraft, newThreadDraftTitle } from "@/lib/draft-threa
 export function ProjectSidebarItem({
   project,
   pathname,
+  activeDraftId,
   onSelect,
 }: {
   readonly project: ProjectShell
   readonly pathname: string
+  readonly activeDraftId?: string | undefined
   readonly onSelect: () => void
 }) {
   const threads = useProjectThreads(project.id)
-  const newThreadDraft = useProjectNewThreadDraft(project.id)
+  const newThreadDrafts = useProjectNewThreadDrafts(project.id)
   const { pullRequests, liveBranches } = useThreadChangeRequests(project.id, threads)
   const createDraftThread = useCreateDraftThread()
   const createThreadHotkey = useKeybinding("thread.create")
   useAutoSettleMergedThreads(threads, pullRequests)
-  const listDraft = isListableNewThreadDraft(newThreadDraft)
   return (
     <>
       <SidebarMenuItem>
@@ -73,16 +74,20 @@ export function ProjectSidebarItem({
         </SidebarMenuButton>
         <ThreadSidebarSection
           projectId={project.id}
-          draft={
-            listDraft ? (
+          draft={newThreadDrafts.map((draft) =>
+            isListableNewThreadDraft(draft.value) ? (
               <DraftThreadSidebarItem
+                key={draft.id ?? "legacy"}
                 project={project}
-                title={newThreadDraftTitle(newThreadDraft)}
-                isActive={pathname === `/projects/${project.id}/thread/new`}
+                draftId={draft.id}
+                title={newThreadDraftTitle(draft.value)}
+                isActive={
+                  pathname === `/projects/${project.id}/thread/new` && activeDraftId === draft.id
+                }
                 onSelect={onSelect}
               />
-            ) : null
-          }
+            ) : null,
+          )}
           renderThread={(thread, settled) => (
             <ThreadSidebarItem
               thread={thread}

@@ -36,16 +36,20 @@ afterEach(() => {
 })
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
+const draftA = "30000000-0000-4000-8000-000000000001"
+const draftB = "30000000-0000-4000-8000-000000000002"
 
 describe("DraftThreadSidebarItem", () => {
   it("discards the unsaved /thread/new Brouillon", async () => {
-    writeComposerDraft(projectId, undefined, "Fix the sidebar draft")
+    writeComposerDraft(projectId, undefined, "Fix the sidebar draft", draftA)
+    writeComposerDraft(projectId, undefined, "Keep this draft", draftB)
     const user = userEvent.setup()
     render(
       <AppAtomRegistryProvider>
         <SidebarProvider>
           <DraftThreadSidebarItem
             project={{ id: projectId, name: "Noyau" }}
+            draftId={draftA}
             title="Fix the sidebar draft"
             isActive
             onSelect={vi.fn()}
@@ -58,6 +62,7 @@ describe("DraftThreadSidebarItem", () => {
     await user.click(screen.getByRole("menuitem", { name: "Discard" }))
     await user.click(screen.getByRole("button", { name: "Discard" }))
 
-    expect(readComposerDraft(projectId, undefined)).toBe("")
+    expect(readComposerDraft(projectId, undefined, draftA)).toBe("")
+    expect(readComposerDraft(projectId, undefined, draftB)).toBe("Keep this draft")
   })
 })

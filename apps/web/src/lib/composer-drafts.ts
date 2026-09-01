@@ -1,13 +1,24 @@
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
-import { Option, Schema } from "effect"
+import { Crypto, Effect, Option, Schema } from "effect"
 
 export const COMPOSER_DRAFTS_STORAGE_KEY = "noyau:composer-drafts"
 
 const ComposerDraftsRecord = Schema.Record(Schema.String, Schema.String)
 const decodeComposerDraftsRecord = Schema.decodeUnknownOption(ComposerDraftsRecord)
 const decodeUuid = Schema.decodeUnknownOption(Schema.String.check(Schema.isUUID()))
+const ThreadRouteSearchSchema = Schema.Struct({
+  draft: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
+})
+const decodeThreadRouteSearch = Schema.decodeUnknownOption(ThreadRouteSearchSchema)
 
 export type ComposerDrafts = ReadonlyMap<string, string>
+
+export type NewThreadDraftId = string
+
+export type NewThreadDraft<TImage> = {
+  readonly id: NewThreadDraftId | undefined
+  readonly value: ComposerDraftSessionValue<TImage>
+}
 
 export type ComposerDraftSessionValue<TImage> = {
   readonly text: string
@@ -47,16 +58,68 @@ export const storedTextsFromSessionDrafts = <TImage>(
 export const composerDraftStoreKey = (
   projectId: ProjectId,
   threadId: ThreadId | undefined,
-): string => (threadId === undefined ? `new:${projectId}` : `thread:${threadId}`)
+  draftId?: NewThreadDraftId,
+): string =>
+  threadId === undefined
+    ? draftId === undefined
+      ? `new:${projectId}`
+      : `new:${projectId}:${draftId}`
+    : `thread:${threadId}`
+
+export const makeNewThreadDraftId = Effect.fnUntraced(function* () {
+  const crypto = yield* Crypto.Crypto
+  return yield* crypto.randomUUIDv4
+})
+
+export type ThreadRouteSearch = {
+  readonly draft?: NewThreadDraftId
+}
+
+type ThreadRouteSearchParams = {
+  readonly draft?: string | undefined
+}
+
+export const parseThreadRouteSearch = (search: ThreadRouteSearchParams): ThreadRouteSearch => {
+  return Option.getOrElse(decodeThreadRouteSearch(search), () => ({}))
+}
+
+const parseNewThreadDraftKey = (
+  key: string,
+): { readonly projectId: string; readonly draftId: NewThreadDraftId | undefined } | undefined => {
+  if (!key.startsWith("new:")) {
+    return undefined
+  }
+  const [projectId, draftId, ...extra] = key.slice("new:".length).split(":")
+  if (
+    projectId === undefined ||
+    Option.isNone(decodeUuid(projectId)) ||
+    extra.length > 0 ||
+    (draftId !== undefined && Option.isNone(decodeUuid(draftId)))
+  ) {
+    return undefined
+  }
+  return { projectId, draftId }
+}
+
+export const projectNewThreadDrafts = <TImage>(
+  drafts: ReadonlyMap<string, ComposerDraftSessionValue<TImage>>,
+  projectId: ProjectId,
+): ReadonlyArray<NewThreadDraft<TImage>> => {
+  const projectDrafts: Array<NewThreadDraft<TImage>> = []
+  for (const [key, value] of drafts) {
+    const parsed = parseNewThreadDraftKey(key)
+    if (parsed?.projectId === projectId && !isComposerDraftEmpty(value)) {
+      projectDrafts.push({ id: parsed.draftId, value })
+    }
+  }
+  return projectDrafts
+}
 
 const isDraftStoreKey = (key: string): boolean => {
   if (key.startsWith("thread:")) {
     return Option.isSome(decodeUuid(key.slice("thread:".length)))
   }
-  if (key.startsWith("new:")) {
-    return Option.isSome(decodeUuid(key.slice("new:".length)))
-  }
-  return false
+  return parseNewThreadDraftKey(key) !== undefined
 }
 
 export const parseComposerDrafts = (value: string | null): ComposerDrafts => {

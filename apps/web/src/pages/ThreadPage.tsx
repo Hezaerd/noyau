@@ -53,14 +53,18 @@ import { invalidInputFailure } from "@/lib/app-failure"
 import { clearAssistantPaint, pushAssistantLive } from "@/lib/assistant-paint"
 import {
   clearCreatedCheckout,
+  clearDraftCheckout,
   draftCheckoutOf,
   envModeLockedOf,
   peekCreatedCheckout,
+  peekDraftCheckout,
   rememberCreatedCheckout,
+  rememberDraftCheckout,
   resolveEffectiveEnvMode,
   resolveOpenedThreadCheckout,
   type OpenedThreadCheckout,
 } from "@/lib/checkout"
+import type { NewThreadDraftId } from "@/lib/composer-drafts"
 import {
   appendComposerImages,
   composerImageFailureMessage,
@@ -138,6 +142,7 @@ import {
 interface ThreadPageProps {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
+  readonly draftId?: NewThreadDraftId | undefined
   readonly onCreated: (threadId: ThreadId) => void
   readonly onSelectProject: (projectId: ProjectId) => void
 }
@@ -175,7 +180,13 @@ const openedCheckoutOf = (input: {
   return checkout
 }
 
-export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: ThreadPageProps) {
+export function ThreadPage({
+  projectId,
+  threadId,
+  draftId,
+  onCreated,
+  onSelectProject,
+}: ThreadPageProps) {
   const providers = useProviders()
   const projects = useProjects()
   const navigate = useNavigate()
@@ -195,13 +206,18 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     setText,
     setImages,
     clear: clearDraft,
-  } = useComposerDraft(projectId, threadId)
+  } = useComposerDraft(projectId, threadId, draftId)
   const replaceDraft = useAtomSet(replaceComposerDraftAtom)
   const removeDraftImage = useAtomSet(removeComposerDraftImageAtom)
   const initialComposerPreferences = useState(() =>
-    peekDraftComposerPreferences(projectId, threadId),
+    peekDraftComposerPreferences(projectId, threadId, draftId),
   )[0]
   const initialCheckout = useState(() => {
+    const rememberedDraft =
+      threadId === undefined ? peekDraftCheckout(projectId, draftId) : undefined
+    if (rememberedDraft !== undefined) {
+      return rememberedDraft
+    }
     const cached = threadId === undefined ? undefined : getThreadSnapshot(threadId)
     return openedCheckoutOf({
       threadId,
@@ -369,7 +385,15 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     pageSnapshot === undefined ? null : threadWorktreePathOf(pageSnapshot.thread)
 
   useEffect(() => {
-    if (threadId === undefined || !isDraftThread) {
+    if (!isDraftThread) {
+      return
+    }
+    if (threadId === undefined) {
+      rememberDraftCheckout({
+        projectId,
+        draftId,
+        checkout: { envMode, baseBranch, startFromOrigin },
+      })
       return
     }
     rememberCreatedCheckout({
@@ -378,7 +402,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       baseBranch,
       startFromOrigin,
     })
-  }, [baseBranch, envMode, isDraftThread, startFromOrigin, threadId])
+  }, [baseBranch, draftId, envMode, isDraftThread, projectId, startFromOrigin, threadId])
   const gitStatus = useVcsStatus(
     threadId === undefined
       ? null
@@ -405,19 +429,21 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     if (threadId === undefined) {
       setLoading(false)
       setSubscriptionStatus(undefined)
-      const draftCheckout = openedCheckoutOf({
-        threadId,
-        worktreePath: null,
-        threadBranch: null,
-        latestTurn: null,
-      })
+      const draftCheckout =
+        peekDraftCheckout(projectId, draftId) ??
+        openedCheckoutOf({
+          threadId,
+          worktreePath: null,
+          threadBranch: null,
+          latestTurn: null,
+        })
       setEnvMode(draftCheckout.envMode)
       setBaseBranch(draftCheckout.baseBranch)
       setStartFromOrigin(draftCheckout.startFromOrigin)
       return
     }
     const cached = getThreadSnapshot(threadId)
-    const rememberedPreferences = peekDraftComposerPreferences(projectId, threadId)
+    const rememberedPreferences = peekDraftComposerPreferences(projectId, threadId, draftId)
     const cachedIsDraft =
       cached !== undefined && cached.thread.latestTurn === null && cached.transcript.length === 0
     const opened = openedCheckoutOf({
@@ -451,7 +477,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return
       }
       replaceThreadSnapshot(next)
-      const remembered = peekDraftComposerPreferences(projectId, threadId)
+      const remembered = peekDraftComposerPreferences(projectId, threadId, draftId)
       const nextIsDraft = next.thread.latestTurn === null && next.transcript.length === 0
       setRuntimeMode(
         nextIsDraft && remembered !== undefined ? remembered.runtimeMode : next.thread.runtimeMode,
@@ -462,7 +488,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           : next.thread.modelSelection,
       )
       if (!nextIsDraft) {
-        clearDraftComposerPreferences(projectId, threadId)
+        clearDraftComposerPreferences(projectId, threadId, draftId)
       }
       const boundPath = threadWorktreePathOf(next.thread)
       const nextCheckout = openedCheckoutOf({
@@ -533,7 +559,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       unsubscribe()
       clearAssistantPaint(threadId)
     }
-  }, [projectId, threadId])
+  }, [draftId, projectId, threadId])
 
   const { isAuthoritativeWorking: isRunning, isWorking } = resolveOpenThreadWorking({
     openThreadId: threadId,
@@ -598,6 +624,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       replaceDraft({
         projectId,
         threadId,
+        draftId,
         text: mandateText,
         images: nextImages,
       })
@@ -606,7 +633,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     return () => {
       cancelled = true
     }
-  }, [images.length, projectId, replaceDraft, retryMandate, text, threadId])
+  }, [draftId, images.length, projectId, replaceDraft, retryMandate, text, threadId])
 
   const dispatchTurn = (
     submittedText: string,
@@ -623,6 +650,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       return
     }
     const submittedProjectId = projectId
+    const submittedDraftId = draftId
     if (
       envMode === "worktree" &&
       snapshotWorktreePath === null &&
@@ -664,6 +692,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         replaceDraft({
           projectId: submittedProjectId,
           threadId: submittedThreadId,
+          draftId: submittedDraftId,
           text: submittedText,
           images: submittedImages,
         })
@@ -682,6 +711,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         replaceDraft({
           projectId: submittedProjectId,
           threadId: submittedThreadId,
+          draftId: submittedDraftId,
           text: submittedText,
           images: submittedImages,
         })
@@ -707,7 +737,8 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           baseBranch,
           startFromOrigin,
         })
-        promoteDraftComposerPreferences(submittedProjectId, result.threadId)
+        clearDraftCheckout(submittedProjectId, submittedDraftId)
+        promoteDraftComposerPreferences(submittedProjectId, result.threadId, submittedDraftId)
         publishCreatedThread(
           makeOptimisticThreadShell({
             id: result.threadId,
@@ -720,6 +751,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
             provider: selectedProvider,
             branch: baseBranch,
           }),
+          submittedDraftId,
         )
         onCreated(result.threadId)
       }
@@ -743,6 +775,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       replaceDraft({
         projectId,
         threadId,
+        draftId,
         text: mandateText,
         images: nextImages,
       })
@@ -882,6 +915,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       rememberDraftComposerPreferences({
         projectId,
         threadId,
+        draftId,
         preferences: {
           provider: draftProviderRef.current,
           modelSelection: nextSelection,
@@ -918,6 +952,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     rememberDraftComposerPreferences({
       projectId,
       threadId,
+      draftId,
       preferences: {
         provider: draftProviderRef.current,
         modelSelection,
@@ -935,6 +970,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     rememberDraftComposerPreferences({
       projectId,
       threadId,
+      draftId,
       preferences: {
         provider: nextProvider,
         modelSelection,
@@ -1112,7 +1148,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       onPaste={acceptImages}
       onDrop={acceptImages}
       onImageRemove={(localId) => {
-        removeDraftImage({ projectId, threadId, localId })
+        removeDraftImage({ projectId, threadId, draftId, localId })
         setComposerFailure(undefined)
       }}
       onInterrupt={() => interruptTurn()}

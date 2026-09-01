@@ -71,6 +71,8 @@ const project = Schema.decodeSync(ProjectShell)({
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 })
+const draftA = "30000000-0000-4000-8000-000000000001"
+const draftB = "30000000-0000-4000-8000-000000000002"
 
 describe("ProjectSidebarItem", () => {
   it("places New Thread above Board and starts a draft Thread", async () => {
@@ -130,5 +132,27 @@ describe("ProjectSidebarItem", () => {
 
     expect(screen.getByText("Fix the sidebar draft")).toBeTruthy()
     expect(screen.getByText("Draft")).toBeTruthy()
+  })
+
+  it("lists multiple new-Thread drafts for the same Project", () => {
+    writeComposerDraft(project.id, undefined, "First draft", draftA)
+    writeComposerDraft(project.id, undefined, "Second draft", draftB)
+
+    render(
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ProjectSidebarItem
+            project={project}
+            pathname={`/projects/${project.id}/thread/new`}
+            activeDraftId={draftB}
+            onSelect={vi.fn()}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
+    )
+
+    expect(screen.getByText("First draft")).toBeTruthy()
+    expect(screen.getByText("Second draft")).toBeTruthy()
+    expect(screen.getAllByText("Draft")).toHaveLength(2)
   })
 })
