@@ -230,6 +230,13 @@
     @apply border-border outline-ring/50;
   }
 
+  /* Chromium exposes the native scrollbar track on hover; keep it visually
+     unobtrusive while retaining the system thumb and its hit target. */
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   code,
   kbd,
   samp,
