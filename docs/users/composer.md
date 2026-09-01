@@ -1,6 +1,10 @@
-# Hide the composer
+# Use the composer
 
-The composer is the prompt under a Thread. Hide it when you want more of the conversation on screen.
+The composer is the prompt under a Thread. Use it to choose how the agent runs and to write your message.
+
+## Choose model options
+
+The controls below the prompt show the options supported by the selected model. Open **Service tier** to choose an available tier. Choose **Default** to remove the override and let the provider use its default service tier.
 
 ## Hide or show
 

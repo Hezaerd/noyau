@@ -80,6 +80,8 @@ const runtimeModeIcons = {
   "full-access": LockOpenIcon,
 } satisfies Record<RuntimeMode, ComponentType<{ className?: string }>>
 
+const defaultServiceTierValue = "__noyau_default_service_tier__"
+
 const shouldSubmitComposerOnEnter = (event: {
   readonly key: string
   readonly shiftKey: boolean
@@ -195,6 +197,11 @@ export function ThreadComposer({
   const selectedTier =
     selectedModel?.serviceTiers.find((tier) => tier.value === modelSelection?.serviceTier) ??
     selectedModel?.serviceTiers.find((tier) => tier.isDefault === true)
+  const hasAdvertisedDefaultTier = selectedModel?.serviceTiers.some(
+    (tier) => tier.isDefault === true,
+  )
+  const selectedTierValue =
+    modelSelection?.serviceTier ?? selectedTier?.value ?? defaultServiceTierValue
   const selectedThinking = modelSelection?.thinking ?? selectedModel?.thinking?.defaultValue
   const hasEffort = (selectedModel?.reasoningEfforts.length ?? 0) > 0
   const hasTier = (selectedModel?.serviceTiers.length ?? 0) > 0
@@ -448,17 +455,34 @@ export function ThreadComposer({
                       ariaLabel="Service tier"
                       disabled={controlsDisabled}
                       icon={ZapIcon}
-                      label={selectedTier?.label ?? "Service tier"}
+                      label={selectedTier?.label ?? "Default"}
                       onOpenChange={handleComposerOverlayOpenChange}
                     >
                       <MenuGroup>
                         <MenuGroupLabel>Service tier</MenuGroupLabel>
                         <MenuRadioGroup
-                          value={selectedTier?.value ?? ""}
+                          value={selectedTierValue}
                           onValueChange={(serviceTier) => {
+                            const isDefault =
+                              serviceTier === defaultServiceTierValue ||
+                              selectedModel?.serviceTiers.some(
+                                (tier) => tier.value === serviceTier && tier.isDefault === true,
+                              )
+                            if (isDefault && modelSelection !== null) {
+                              const { serviceTier: _serviceTier, ...selection } = modelSelection
+                              onModelSelectionChange(selection)
+                              return
+                            }
                             onModelSelectionChange({ ...modelSelection, serviceTier })
                           }}
                         >
+                          {hasAdvertisedDefaultTier === false ? (
+                            <ComposerTraitOption
+                              value={defaultServiceTierValue}
+                              label="Default"
+                              description="Use the provider's default service tier."
+                            />
+                          ) : null}
                           {selectedModel?.serviceTiers.map((tier) => (
                             <ComposerTraitOption
                               key={tier.value}
