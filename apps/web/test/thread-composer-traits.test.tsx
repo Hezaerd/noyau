@@ -99,6 +99,11 @@ describe("thread composer traits", () => {
         expect(screen.getByRole("button", { name: "Configuration" }).textContent).toContain(
           "medium",
         )
+        expect(
+          screen
+            .getByRole("button", { name: "Configuration" })
+            .querySelector('[data-icon="inline-start"]'),
+        ).toBeTruthy()
 
         yield* Effect.promise(() =>
           user.click(screen.getByRole("button", { name: "Configuration" })),
@@ -107,6 +112,8 @@ describe("thread composer traits", () => {
         expect(screen.getByText("Service tier")).toBeTruthy()
         expect(screen.getByRole("menuitemradio", { name: /high/ })).toBeTruthy()
         expect(screen.getByRole("menuitemradio", { name: /Fast/ })).toBeTruthy()
+        expect(screen.queryByText("Greater reasoning depth for complex problems.")).toBeNull()
+        expect(screen.queryByText("1.5x speed, increased usage")).toBeNull()
 
         yield* Effect.promise(() => user.click(screen.getByRole("menuitemradio", { name: /high/ })))
         expect(onModelSelectionChange).toHaveBeenCalledWith({
@@ -116,6 +123,16 @@ describe("thread composer traits", () => {
         })
       }),
     ))
+
+  it("does not show an icon when fast service tier is not selected", () => {
+    renderComposer({ modelSelection: { modelId: "composer-2.5", reasoningEffort: "medium" } })
+
+    expect(
+      screen
+        .getByRole("button", { name: "Configuration" })
+        .querySelector('[data-icon="inline-start"]'),
+    ).toBeNull()
+  })
 
   it("changes the service tier from the model configuration dropdown", () =>
     Effect.runPromise(

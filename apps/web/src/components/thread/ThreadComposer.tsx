@@ -17,12 +17,12 @@ import {
   ArrowUpIcon,
   BrainIcon,
   ChevronDownIcon,
-  GaugeIcon,
   LockIcon,
   LockOpenIcon,
   PenLineIcon,
   SparklesIcon,
   SquareIcon,
+  ZapIcon,
   XIcon,
 } from "lucide-react"
 import {
@@ -229,6 +229,8 @@ export function ThreadComposer({
   const defaultServiceTierValue = defaultServiceTierMenuValue(selectedModel?.serviceTiers ?? [])
   const selectedTierValue =
     modelSelection?.serviceTier ?? selectedTier?.value ?? defaultServiceTierValue
+  const isFastServiceTier =
+    selectedTier?.value === "fast" || selectedTier?.label.toLowerCase() === "fast"
   const selectedThinking = modelSelection?.thinking ?? selectedModel?.thinking?.defaultValue
   const hasEffort = (selectedModel?.reasoningEfforts.length ?? 0) > 0
   const hasTier = (selectedModel?.serviceTiers.length ?? 0) > 0
@@ -468,7 +470,7 @@ export function ThreadComposer({
                     <ComposerTraitMenu
                       ariaLabel="Configuration"
                       disabled={controlsDisabled}
-                      icon={GaugeIcon}
+                      icon={isFastServiceTier ? ZapIcon : undefined}
                       label={selectedEffort?.label ?? selectedTier?.label ?? "Configure"}
                       onOpenChange={handleComposerOverlayOpenChange}
                     >
@@ -484,7 +486,6 @@ export function ThreadComposer({
                             {selectedModel?.reasoningEfforts.map((effort) => (
                               <ComposerTraitOption
                                 key={effort.value}
-                                description={effort.description}
                                 isDefault={effort.isDefault}
                                 label={effort.label}
                                 value={effort.value}
@@ -522,7 +523,6 @@ export function ThreadComposer({
                             {selectedModel?.serviceTiers.map((tier) => (
                               <ComposerTraitOption
                                 key={tier.value}
-                                description={tier.description}
                                 isDefault={tier.isDefault}
                                 label={tier.label}
                                 value={tier.value}
@@ -678,7 +678,7 @@ function ComposerTraitMenu({
   children,
 }: {
   readonly ariaLabel: string
-  readonly icon: ComponentType<{ className?: string }>
+  readonly icon?: ComponentType<{ className?: string }> | undefined
   readonly label: string
   readonly disabled: boolean
   readonly onOpenChange: (open: boolean) => void
@@ -697,7 +697,7 @@ function ComposerTraitMenu({
           />
         }
       >
-        <Icon data-icon="inline-start" />
+        {Icon === undefined ? null : <Icon data-icon="inline-start" />}
         <span className="max-w-24 truncate">{label}</span>
         <ChevronDownIcon data-icon="inline-end" />
       </MenuTrigger>
@@ -716,12 +716,10 @@ function ComposerTraitMenu({
 function ComposerTraitOption({
   value,
   label,
-  description,
   isDefault,
 }: {
   readonly value: string
   readonly label: string
-  readonly description?: string | undefined
   readonly isDefault?: boolean | undefined
 }) {
   return (
@@ -740,9 +738,6 @@ function ComposerTraitOption({
             </Badge>
           ) : null}
         </span>
-        {description === undefined ? null : (
-          <span className="whitespace-nowrap text-muted-foreground text-xs">{description}</span>
-        )}
       </span>
     </MenuRadioItem>
   )
