@@ -16,7 +16,18 @@ import {
   type VcsSwitchRefResult,
   type VcsWorktree,
 } from "@noyau/contracts/git"
-import { Context, Effect, FileSystem, Layer, Path, Schema, type Scope } from "effect"
+import {
+  Cache,
+  Context,
+  Duration,
+  Effect,
+  Exit,
+  FileSystem,
+  Layer,
+  Path,
+  Schema,
+  type Scope,
+} from "effect"
 import { ChildProcessSpawner } from "effect/unstable/process"
 
 import {
@@ -44,6 +55,25 @@ const acceptCheckpointDiff = (operation: string, result: CommandResult) => {
 
 const PR_LIST_JSON_FIELDS =
   "number,title,url,baseRefName,headRefName,state,mergeable,updatedAt,statusCheckRollup"
+const PR_LOOKUP_COMMAND_TIMEOUT = Duration.seconds(10)
+const PR_LOOKUP_CACHE_CAPACITY = 512
+
+export const DEFAULT_PR_LOOKUP_CACHE_TTL = Duration.minutes(2)
+export const INITIAL_PR_LOOKUP_FAILURE_TTL = Duration.seconds(20)
+export const MAX_PR_LOOKUP_FAILURE_TTL = Duration.minutes(15)
+
+/**
+ * Keep retrying provider failures, but give GitHub and the local gh process
+ * progressively more room to recover before trying again.
+ */
+export const prLookupFailureTtl = (failureCount: number): Duration.Duration =>
+  Duration.seconds(
+    Math.min(
+      Duration.toSeconds(INITIAL_PR_LOOKUP_FAILURE_TTL) *
+        2 ** Math.max(0, Math.floor(failureCount) - 1),
+      Duration.toSeconds(MAX_PR_LOOKUP_FAILURE_TTL),
+    ),
+  )
 
 const ExistingPullRequest = Schema.Struct({
   url: Schema.optionalKey(Schema.String),
@@ -162,6 +192,19 @@ const deriveLocalBranchName = (refName: string): string => {
 }
 
 const lastKnownPrKey = (cwd: string, branch: string): string => `${cwd}\u0000${branch}`
+
+const makePrLookupCacheKey = (cwd: string, branch: string, isDefaultRef: boolean): string =>
+  `${cwd}\u0000${branch}\u0000${isDefaultRef ? "1" : "0"}`
+
+const parsePrLookupCacheKey = (key: string) => {
+  const firstSeparator = key.indexOf("\u0000")
+  const secondSeparator = key.indexOf("\u0000", firstSeparator + 1)
+  return {
+    cwd: key.slice(0, firstSeparator),
+    branch: key.slice(firstSeparator + 1, secondSeparator),
+    isDefaultRef: key.slice(secondSeparator + 1) === "1",
+  }
+}
 
 /** Un seul segment dossier : `noyau/safer-reconnect` → `safer-reconnect`. */
 export const sanitizeWorktreeFolderName = (raw: string): string => {
@@ -320,6 +363,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
       Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
     )
   const lastKnownPr = new Map<string, VcsStatusResult["pr"]>()
+  const prLookupFailures = new Map<string, number>()
 
   const listPullRequests = Effect.fn("GitRuntime.listPullRequests")(function* (
     cwd: string,
@@ -342,7 +386,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
         "--json",
         PR_LIST_JSON_FIELDS,
       ],
-      { allowNonZero: true },
+      { allowNonZero: true, timeout: PR_LOOKUP_COMMAND_TIMEOUT },
     )
     if (listed.code !== 0) {
       return yield* new GitCommandError({
@@ -361,7 +405,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     )
   })
 
-  const lookupStatusPr = Effect.fn("GitRuntime.lookupStatusPr")(function* (
+  const lookupStatusPrUncached = Effect.fn("GitRuntime.lookupStatusPrUncached")(function* (
     cwd: string,
     details: { readonly branch: string; readonly isDefaultRef: boolean },
   ) {
@@ -377,6 +421,47 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     const remembered = rememberStatusPullRequest(lastKnownPr.get(key), selected)
     lastKnownPr.set(key, remembered)
     return remembered
+  })
+
+  const prLookupCache = yield* Cache.makeWith<
+    string,
+    VcsStatusResult["pr"],
+    GitCommandError,
+    ChildProcessSpawner.ChildProcessSpawner | Scope.Scope,
+    "lookup"
+  >(
+    (key) => {
+      const details = parsePrLookupCacheKey(key)
+      return lookupStatusPrUncached(details.cwd, details)
+    },
+    {
+      capacity: PR_LOOKUP_CACHE_CAPACITY,
+      timeToLive: (exit, key) => {
+        if (Exit.isSuccess(exit)) {
+          prLookupFailures.delete(key)
+          return DEFAULT_PR_LOOKUP_CACHE_TTL
+        }
+        const failureCount = (prLookupFailures.get(key) ?? 0) + 1
+        prLookupFailures.delete(key)
+        if (prLookupFailures.size >= PR_LOOKUP_CACHE_CAPACITY) {
+          const oldestKey = prLookupFailures.keys().next().value
+          if (oldestKey !== undefined) {
+            prLookupFailures.delete(oldestKey)
+          }
+        }
+        prLookupFailures.set(key, failureCount)
+        return prLookupFailureTtl(failureCount)
+      },
+      requireServicesAt: "lookup",
+    },
+  )
+
+  const lookupStatusPr = Effect.fn("GitRuntime.lookupStatusPr")(function* (
+    cwd: string,
+    details: { readonly branch: string; readonly isDefaultRef: boolean },
+  ) {
+    const key = makePrLookupCacheKey(cwd, details.branch, details.isDefaultRef)
+    return yield* Cache.get(prLookupCache, key)
   })
 
   const status = Effect.fn("GitRuntime.status")(function* (

@@ -1,5 +1,5 @@
 import { GitCommandError } from "@noyau/contracts/git"
-import { Effect, Stream } from "effect"
+import { Effect, Schema, Stream, type Duration } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 const collectProcessText = <E>(stream: Stream.Stream<Uint8Array, E>) =>
@@ -31,6 +31,7 @@ export const runCommand = Effect.fn("GitRuntime.runCommand")(function* (
     readonly allowNonZero?: boolean
     readonly env?: Record<string, string>
     readonly stdin?: string
+    readonly timeout?: Duration.Input
   } = {},
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
@@ -42,7 +43,7 @@ export const runCommand = Effect.fn("GitRuntime.runCommand")(function* (
         Object.assign(
           {
             cwd,
-            detached: false,
+            detached: true,
             windowsHide: true,
           },
           options.env === undefined ? {} : { env: options.env, extendEnv: true },
@@ -61,20 +62,35 @@ export const runCommand = Effect.fn("GitRuntime.runCommand")(function* (
           }),
       ),
     )
-  const [stdout, stderr, exitCode] = yield* Effect.all(
+  const output = Effect.all(
     [
       collectProcessText(handle.stdout),
       collectProcessText(handle.stderr),
       handle.exitCode.pipe(Effect.map(Number)),
     ],
     { concurrency: "unbounded" },
-  ).pipe(
-    Effect.mapError(
-      (cause) =>
-        new GitCommandError({
-          operation,
-          detail: cause instanceof Error ? cause.message : `${executable} failed`,
-        }),
+  ).pipe(Effect.onInterrupt(() => handle.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore)))
+  const outputWithTimeout =
+    options.timeout === undefined
+      ? output
+      : Effect.timeoutOrElse(output, {
+          duration: options.timeout,
+          orElse: () =>
+            Effect.fail(
+              new GitCommandError({
+                operation,
+                detail: `${executable} timed out`,
+              }),
+            ),
+        })
+  const [stdout, stderr, exitCode] = yield* outputWithTimeout.pipe(
+    Effect.mapError((cause) =>
+      Schema.is(GitCommandError)(cause)
+        ? cause
+        : new GitCommandError({
+            operation,
+            detail: cause instanceof Error ? cause.message : `${executable} failed`,
+          }),
     ),
   )
   const result: CommandResult = { stdout, stderr, code: exitCode }
@@ -94,6 +110,7 @@ export const runGit = (
     readonly allowNonZero?: boolean
     readonly env?: Record<string, string>
     readonly stdin?: string
+    readonly timeout?: Duration.Input
   } = {},
 ) => runCommand(operation, "git", args, cwd, options)
 
@@ -101,5 +118,9 @@ export const runGh = (
   operation: string,
   cwd: string,
   args: ReadonlyArray<string>,
-  options: { readonly allowNonZero?: boolean; readonly stdin?: string } = {},
+  options: {
+    readonly allowNonZero?: boolean
+    readonly stdin?: string
+    readonly timeout?: Duration.Input
+  } = {},
 ) => runCommand(operation, "gh", args, cwd, options)
