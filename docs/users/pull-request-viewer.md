@@ -14,7 +14,7 @@ The tab shows the pull request for that Thread. If the Thread has none yet, the 
 
 ## Status and automatic settling
 
-Noyau refreshes local Git status every 30 seconds. GitHub pull-request metadata is refreshed at most once every two minutes per branch, so a faster status refresh does not create a matching increase in GitHub requests.
+Noyau refreshes local Git status every 30 seconds. GitHub pull-request metadata is refreshed at most once every two minutes per worktree and branch, so a faster status refresh does not create a matching increase in GitHub requests.
 
 If GitHub or `gh` is temporarily unavailable, Noyau keeps the last known pull-request state and retries with increasing delays. When the pull request reaches a closed or merged state, the Thread settles according to the automatic-settling setting.
 
@@ -40,7 +40,7 @@ Line comments are written against the complete pull request:
 
 Line comments stay private in the tab until you submit the review. Remove a pending comment from its line to discard it. Close the review form to keep the draft and return to the diff.
 
-Reload the tab to fetch a fresh snapshot. Closing the tab is the way out; hiding the panel keeps the tab.
+Reload the tab to fetch a fresh pull-request viewer snapshot. The Thread status badge still uses its two-minute pull-request metadata cache, while local Git status refreshes independently. Closing the tab is the way out; hiding the panel keeps the tab.
 
 ## When it is missing
 

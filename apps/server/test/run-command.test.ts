@@ -5,13 +5,16 @@ import { Effect } from "effect"
 import { TestClock } from "effect/testing"
 
 layer(NodeServices.layer)("Git command execution", (it) => {
-  it.effect("turns a hung child process into a domain failure", () =>
+  it.effect("kills a timed-out command's process group", () =>
     TestClock.withLive(
       Effect.gen(function* () {
         const error = yield* runCommand(
           "test.timeout",
           process.execPath,
-          ["-e", "setTimeout(() => undefined, 5000)"],
+          [
+            "-e",
+            "const { spawn } = require('node:child_process'); spawn(process.execPath, ['-e', 'setTimeout(() => undefined, 5000)'], { stdio: 'inherit' }); setTimeout(() => undefined, 5000)",
+          ],
           process.cwd(),
           { timeout: "100 millis" },
         ).pipe(Effect.flip)

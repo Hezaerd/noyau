@@ -56,6 +56,7 @@ const acceptCheckpointDiff = (operation: string, result: CommandResult) => {
 const PR_LIST_JSON_FIELDS =
   "number,title,url,baseRefName,headRefName,state,mergeable,updatedAt,statusCheckRollup"
 const PR_LOOKUP_COMMAND_TIMEOUT = Duration.seconds(10)
+const PR_LOOKUP_CACHE_CAPACITY = 512
 
 export const DEFAULT_PR_LOOKUP_CACHE_TTL = Duration.minutes(2)
 export const INITIAL_PR_LOOKUP_FAILURE_TTL = Duration.seconds(20)
@@ -434,13 +435,20 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
       return lookupStatusPrUncached(details.cwd, details)
     },
     {
-      capacity: 512,
+      capacity: PR_LOOKUP_CACHE_CAPACITY,
       timeToLive: (exit, key) => {
         if (Exit.isSuccess(exit)) {
           prLookupFailures.delete(key)
           return DEFAULT_PR_LOOKUP_CACHE_TTL
         }
         const failureCount = (prLookupFailures.get(key) ?? 0) + 1
+        prLookupFailures.delete(key)
+        if (prLookupFailures.size >= PR_LOOKUP_CACHE_CAPACITY) {
+          const oldestKey = prLookupFailures.keys().next().value
+          if (oldestKey !== undefined) {
+            prLookupFailures.delete(oldestKey)
+          }
+        }
         prLookupFailures.set(key, failureCount)
         return prLookupFailureTtl(failureCount)
       },

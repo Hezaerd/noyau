@@ -43,7 +43,7 @@ export const runCommand = Effect.fn("GitRuntime.runCommand")(function* (
         Object.assign(
           {
             cwd,
-            detached: false,
+            detached: true,
             windowsHide: true,
           },
           options.env === undefined ? {} : { env: options.env, extendEnv: true },
