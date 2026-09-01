@@ -41,7 +41,6 @@ import {
   type ThreadTurnDiffTarget,
 } from "@/components/thread/ThreadTurnDiffPanel"
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
-import { WorkspacePanel } from "@/components/workspace-panel/WorkspacePanel"
 import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
 import { useProjects, useProviders, useThreadShell } from "@/hooks/use-control-plane"
@@ -1163,7 +1162,6 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
               </div>
             ) : null}
           </div>
-          {threadId === undefined ? null : <WorkspacePanel threadId={threadId} />}
           <ThreadTurnDiffPanel target={turnDiffTarget} onClose={() => setTurnDiffTarget(null)} />
         </div>
       )}

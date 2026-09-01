@@ -10,6 +10,7 @@ import { ThreadHeaderActions } from "@/components/thread/ThreadHeaderActions"
 import { Button } from "@/components/ui/button"
 import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { WorkspacePanel } from "@/components/workspace-panel/WorkspacePanel"
 import { SettingsPageTitle, ThreadPageTitle } from "@/components/WorkspaceBreadcrumb"
 import {
   useAppliedShell,
@@ -122,6 +123,12 @@ function ThreadHeaderActionsSlot() {
   )
 }
 
+function WorkspacePanelSlot() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const threadId = threadIdFromPathname(pathname)
+  return threadId === undefined ? null : <WorkspacePanel threadId={threadId} />
+}
+
 function ShellConnectionNotice() {
   const shell = useAppliedShell()
   const subscriptionStatus = useSubscriptionStatus()
@@ -179,21 +186,26 @@ export function RootLayout() {
             {isSettings ? <SettingsSidebar /> : <AppSidebar />}
           </Sidebar>
           <SidebarInset className="min-h-0 min-w-0 overflow-hidden overscroll-y-none">
-            {/* Keep the page titlebar mounted: swapping it with the Settings
-                header unmounts the chrome for one frame. */}
-            <header
-              className={`drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background px-3 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none sm:px-5 ${COLLAPSED_PAGE_TITLEBAR_INSET_CLASS} ${NARROW_PAGE_TITLEBAR_INSET_CLASS}`}
-              data-desktop-page-titlebar=""
-            >
-              <div className="flex min-w-0 items-center text-sm">
-                <DesktopPageTitle />
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                {/* Keep the page titlebar mounted: swapping it with the Settings
+                    header unmounts the chrome for one frame. */}
+                <header
+                  className={`drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background px-3 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none sm:px-5 ${COLLAPSED_PAGE_TITLEBAR_INSET_CLASS} ${NARROW_PAGE_TITLEBAR_INSET_CLASS}`}
+                  data-desktop-page-titlebar=""
+                >
+                  <div className="flex min-w-0 items-center text-sm">
+                    <DesktopPageTitle />
+                  </div>
+                  {isSettings ? <SettingsRestoreAction /> : <ThreadHeaderActionsSlot />}
+                </header>
+
+                <ShellConnectionNotice />
+
+                <Outlet />
               </div>
-              {isSettings ? <SettingsRestoreAction /> : <ThreadHeaderActionsSlot />}
-            </header>
-
-            <ShellConnectionNotice />
-
-            <Outlet />
+              <WorkspacePanelSlot />
+            </div>
           </SidebarInset>
           <SidebarControl />
         </SidebarProvider>
