@@ -161,7 +161,11 @@ describe("ThreadHeaderActions", () => {
     renderHeader(makeThread())
 
     expect(screen.queryByRole("button", { name: "Open browser" })).toBeNull()
-    expect(screen.getByRole("button", { name: "Show workspace panel" })).toBeTruthy()
+    const workspacePanelToggle = screen.getByRole("button", { name: "Show workspace panel" })
+    expect(workspacePanelToggle).toBeTruthy()
+    expect(
+      workspacePanelToggle.closest("[data-slot='workspace-panel-toggle']")?.className,
+    ).toContain("fixed")
     const toggle = registeredPaletteActions.find(
       (action) => action.id === "thread.workspace-panel.toggle",
     )

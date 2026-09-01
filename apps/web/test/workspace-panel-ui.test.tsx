@@ -36,11 +36,34 @@ describe("WorkspacePanel", () => {
       </AppAtomRegistryProvider>,
     )
 
+    expect(screen.queryByRole("button", { name: "Add workspace tab" })).toBeNull()
     await user.click(screen.getByRole("button", { name: "Probe" }))
 
     expect(screen.getByRole("tab", { name: "Probe" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Add workspace tab" })).toBeTruthy()
     expect(screen.getByText(/Surface /)).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Probe" })).toBeNull()
+  })
+
+  it("places the add menu after the rightmost tab and gives its popup a glass surface", async () => {
+    const user = userEvent.setup()
+    openWorkspaceTab(threadId, probe)
+    openWorkspaceTab(threadId, probe)
+    setWorkspacePanelOpen(threadId, true)
+    render(
+      <AppAtomRegistryProvider>
+        <WorkspacePanel kinds={[probe]} threadId={threadId} />
+      </AppAtomRegistryProvider>,
+    )
+
+    const tabs = screen.getAllByRole("tab", { name: "Probe" })
+    const add = screen.getByRole("button", { name: "Add workspace tab" })
+    expect(tabs.at(-1)?.closest("[data-slot='workspace-panel-tab']")?.nextElementSibling).toBe(add)
+
+    await user.click(add)
+    expect(document.querySelector("[data-slot='menu-popup']")?.className).toContain(
+      "dropdown-glass",
+    )
   })
 
   it("can host two instances of the same kind", () => {

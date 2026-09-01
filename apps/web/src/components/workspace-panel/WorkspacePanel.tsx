@@ -122,7 +122,7 @@ export function WorkspacePanel({
     >
       <WorkspacePanelResizeHandle width={width} />
       <header className="flex h-10 shrink-0 items-center gap-1 border-b border-border/70 px-1.5">
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        <div className="min-w-0 flex-1 overflow-x-auto pe-8">
           <div className="flex min-w-max items-center gap-0.5" role="tablist">
             {state.tabs.map((tab) => {
               const kind = kindByName.get(tab.kind)
@@ -150,35 +150,14 @@ export function WorkspacePanel({
                 />
               )
             })}
+            {state.tabs.length > 0 && availableKinds.length > 0 ? (
+              <WorkspacePanelAddMenu
+                kinds={availableKinds}
+                onOpen={(kind) => openKind(threadId, kind)}
+              />
+            ) : null}
           </div>
         </div>
-        {availableKinds.length > 0 ? (
-          <Menu>
-            <MenuTrigger
-              render={
-                <Button
-                  aria-label="Add workspace tab"
-                  className="text-muted-foreground"
-                  size="icon-xs"
-                  variant="ghost"
-                />
-              }
-            >
-              <PlusIcon />
-            </MenuTrigger>
-            <MenuPopup align="end" side="bottom">
-              {availableKinds.map((kind) => {
-                const Icon = kind.icon
-                return (
-                  <MenuItem key={kind.kind} onClick={() => openKind(threadId, kind)}>
-                    <Icon />
-                    {kind.label}
-                  </MenuItem>
-                )
-              })}
-            </MenuPopup>
-          </Menu>
-        ) : null}
       </header>
       <div className="relative min-h-0 flex-1">
         {activeTab === null ? (
@@ -211,6 +190,46 @@ export function WorkspacePanel({
         })}
       </div>
     </aside>
+  )
+}
+
+function WorkspacePanelAddMenu({
+  kinds,
+  onOpen,
+}: {
+  readonly kinds: ReadonlyArray<WorkspaceTabRegistration>
+  readonly onOpen: (kind: WorkspaceTabRegistration) => void
+}): ReactElement {
+  return (
+    <Menu>
+      <MenuTrigger
+        render={
+          <Button
+            aria-label="Add workspace tab"
+            className="text-muted-foreground"
+            size="icon-xs"
+            variant="ghost"
+          />
+        }
+      >
+        <PlusIcon />
+      </MenuTrigger>
+      <MenuPopup
+        align="start"
+        className="dropdown-glass shadow-xl shadow-black/25 before:hidden"
+        side="bottom"
+      >
+        {kinds.map((kind) => {
+          const Icon = kind.icon
+          return (
+            <MenuItem key={kind.kind} onClick={() => onOpen(kind)}>
+              <Icon />
+              {kind.label}
+            </MenuItem>
+          )
+        })}
+      </MenuPopup>
+    </Menu>
   )
 }
 
