@@ -5,6 +5,7 @@ import { memo } from "react"
 
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
 import { ThreadMessageMeta } from "@/components/thread/ThreadMessageMeta"
+import { ThreadPlanCard } from "@/components/thread/ThreadPlanCard"
 import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
 import { ThreadTurnDiffCard } from "@/components/thread/ThreadTurnDiffCard"
 import { ThreadTurnImages } from "@/components/thread/ThreadTurnImages"
@@ -107,6 +108,7 @@ function ThreadTranscriptItemImpl({
   turnDiff,
   onOpenTurnDiff,
   isLatestTurn,
+  planActive = false,
 }: {
   readonly item: TranscriptItem
   readonly streaming: boolean
@@ -115,6 +117,7 @@ function ThreadTranscriptItemImpl({
   readonly turnDiff?: TurnDiff | undefined
   readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
   readonly isLatestTurn?: boolean
+  readonly planActive?: boolean
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
@@ -185,17 +188,12 @@ function ThreadTranscriptItemImpl({
     return (
       <Message align="start">
         <MessageContent>
-          <MessageHeader>{transcriptLabel(item)}</MessageHeader>
-          <Bubble variant="muted" align="start">
-            <BubbleContent>
-              <ThreadMarkdown
-                text={item.markdown}
-                streaming={streaming}
-                workspaceRoot={workspaceRoot}
-                projectId={projectId}
-              />
-            </BubbleContent>
-          </Bubble>
+          <ThreadPlanCard
+            markdown={item.markdown}
+            active={planActive}
+            workspaceRoot={workspaceRoot}
+            projectId={projectId}
+          />
         </MessageContent>
       </Message>
     )

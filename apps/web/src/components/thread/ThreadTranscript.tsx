@@ -214,6 +214,11 @@ export function ThreadTranscript({
                 <ThreadTranscriptItem
                   item={row.item}
                   streaming={streaming}
+                  planActive={
+                    row.item._tag === "transcript.plan" &&
+                    isRunning &&
+                    row.item.turnId === latestTurn?.turnId
+                  }
                   flushedPrefix={flushedPrefix}
                   turn={turnById.get(row.item.turnId)}
                   {...turnDiffProps}
