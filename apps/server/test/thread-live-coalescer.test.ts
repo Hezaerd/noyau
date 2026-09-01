@@ -7,7 +7,7 @@ import {
   coalescePersistedForThread,
   makeThreadLiveEventCoalescer,
 } from "@noyau/server/thread-live-coalescer"
-import { DateTime, Effect, Fiber, Stream } from "effect"
+import { DateTime, Deferred, Effect, Fiber, Stream } from "effect"
 import { TestClock } from "effect/testing"
 import { describe, expect } from "vite-plus/test"
 
@@ -113,7 +113,10 @@ describe("coalescePersistedForThread", () => {
   it.effect("flushes a quiet update run after the bounded window", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        const coalescer = yield* makeThreadLiveEventCoalescer()
+        const windowSleepStarted = yield* Deferred.make<void>()
+        const coalescer = yield* makeThreadLiveEventCoalescer({
+          beforeWindowSleep: Deferred.succeed(windowSleepStarted, undefined),
+        })
         const frames = yield* coalescer.stream.pipe(
           Stream.take(1),
           Stream.runCollect,
@@ -121,7 +124,7 @@ describe("coalescePersistedForThread", () => {
         )
         yield* coalescer.offer({ kind: "event", event: persisted(tool(1, "tool-a")) })
         yield* coalescer.offer({ kind: "event", event: persisted(tool(2, "tool-a")) })
-        yield* Effect.yieldNow
+        yield* Deferred.await(windowSleepStarted)
         yield* TestClock.adjust("50 millis")
 
         expect(

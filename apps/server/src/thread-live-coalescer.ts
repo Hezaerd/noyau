@@ -66,7 +66,10 @@ export const coalescePersistedForThread = <
 }
 
 export const makeThreadLiveEventCoalescer = Effect.fn("makeThreadLiveEventCoalescer")(
-  function* (options?: { readonly coalesceWindow?: Duration.Input }) {
+  function* (options?: {
+    readonly coalesceWindow?: Duration.Input
+    readonly beforeWindowSleep?: Effect.Effect<void>
+  }) {
     const output = yield* Queue.unbounded<ThreadLiveInput>()
     const mutex = yield* Semaphore.make(1)
     const coalesceWindow = options?.coalesceWindow ?? THREAD_TOOL_COALESCE_WINDOW
@@ -99,7 +102,8 @@ export const makeThreadLiveEventCoalescer = Effect.fn("makeThreadLiveEventCoales
     })
 
     const flushWindow = (generation: number) =>
-      Effect.sleep(coalesceWindow).pipe(
+      (options?.beforeWindowSleep ?? Effect.void).pipe(
+        Effect.andThen(Effect.sleep(coalesceWindow)),
         Effect.andThen(
           mutex.withPermits(1)(
             Effect.suspend(() => (generation === windowGeneration ? flushPending() : Effect.void)),
