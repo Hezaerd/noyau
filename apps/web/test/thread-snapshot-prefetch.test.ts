@@ -1,21 +1,28 @@
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
-import { ProjectId, ThreadId } from "@noyau/contracts/ids"
-import { Schema } from "effect"
+import { ProjectId, Sequence, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ThreadShell } from "@noyau/contracts/shell"
+import { Deferred, Effect, Schema } from "effect"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { invalidInputFailure } from "../src/lib/app-failure"
 import {
   prefetchThreadSnapshot,
+  refreshThreadSnapshot,
   resetThreadSnapshotPrefetchForTests,
   setThreadSnapshotPrefetchLoaderForTests,
   THREAD_SNAPSHOT_PREFETCH_DEBOUNCE_MS,
 } from "../src/lib/thread-snapshot-prefetch"
 import { resetAppAtomRegistryForTests } from "../src/state/atom-registry"
-import { getThreadSnapshot, replaceThreadSnapshot } from "../src/state/thread-snapshot"
+import {
+  getThreadSnapshot,
+  replaceThreadSnapshot,
+  requireTerminalThreadSnapshot,
+} from "../src/state/thread-snapshot"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadA = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const threadB = ThreadId.make("20000000-0000-4000-8000-000000000002")
+const turnId = TurnId.make("30000000-0000-4000-8000-000000000001")
 
 const makeSnapshot = (threadId: string, sequence: number): ThreadSnapshot =>
   Schema.decodeSync(ThreadSnapshot)({
@@ -38,6 +45,28 @@ const makeSnapshot = (threadId: string, sequence: number): ThreadSnapshot =>
     turns: [],
     transcript: [],
   })
+
+const terminalShell = Schema.decodeSync(ThreadShell)({
+  id: threadA,
+  projectId,
+  title: "Thread A",
+  provider: "cursor",
+  runtimeMode: "auto",
+  modelSelection: null,
+  status: "active",
+  sessionStatus: "ready",
+  lastError: null,
+  latestTurn: {
+    turnId,
+    state: "completed",
+    requestedAt: "2026-08-19T12:00:00.000Z",
+    startedAt: "2026-08-19T12:00:00.000Z",
+    completedAt: "2026-08-19T12:01:00.000Z",
+  },
+  createdAt: "2026-08-19T12:00:00.000Z",
+  listedAt: "2026-08-19T12:00:00.000Z",
+  updatedAt: "2026-08-19T12:01:00.000Z",
+})
 
 afterEach(() => {
   resetThreadSnapshotPrefetchForTests()
@@ -90,14 +119,31 @@ describe("prefetchThreadSnapshot", () => {
     expect(getThreadSnapshot(threadA)?.snapshotSequence).toBe(3)
   })
 
+  it("refreshes a warm Thread marked stale by terminal shell state", async () => {
+    vi.useFakeTimers()
+    const load = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: makeSnapshot(threadA, 9) }),
+    )
+    setThreadSnapshotPrefetchLoaderForTests(load)
+    replaceThreadSnapshot(makeSnapshot(threadA, 3))
+    requireTerminalThreadSnapshot(terminalShell, Sequence.make(8))
+
+    prefetchThreadSnapshot(threadA)
+    await vi.advanceTimersByTimeAsync(THREAD_SNAPSHOT_PREFETCH_DEBOUNCE_MS)
+
+    expect(load).toHaveBeenCalledWith(threadA)
+    expect(getThreadSnapshot(threadA)?.snapshotSequence).toBe(9)
+  })
+
   it("queues the next hover until the in-flight snapshot returns", async () => {
     vi.useFakeTimers()
-    let releaseA: ((snapshot: ThreadSnapshot) => void) | undefined
+    const pendingA = Deferred.makeUnsafe<{
+      readonly ok: true
+      readonly value: ThreadSnapshot
+    }>()
     const load = vi.fn((threadId: ThreadId) => {
       if (threadId === threadA) {
-        return new Promise<{ readonly ok: true; readonly value: ThreadSnapshot }>((resolve) => {
-          releaseA = (snapshot) => resolve({ ok: true, value: snapshot })
-        })
+        return Effect.runPromise(Deferred.await(pendingA))
       }
       return Promise.resolve({ ok: true as const, value: makeSnapshot(threadId, 2) })
     })
@@ -111,13 +157,44 @@ describe("prefetchThreadSnapshot", () => {
     expect(load).toHaveBeenCalledTimes(1)
     expect(load).toHaveBeenCalledWith(threadA)
 
-    releaseA?.(makeSnapshot(threadA, 1))
+    Effect.runSync(
+      Deferred.succeed(pendingA, { ok: true as const, value: makeSnapshot(threadA, 1) }),
+    )
     await vi.advanceTimersByTimeAsync(0)
 
     expect(load).toHaveBeenCalledTimes(2)
     expect(load).toHaveBeenLastCalledWith(threadB)
     expect(getThreadSnapshot(threadA)?.snapshotSequence).toBe(1)
     expect(getThreadSnapshot(threadB)?.snapshotSequence).toBe(2)
+  })
+
+  it("keeps every terminal refresh queued behind an in-flight load", async () => {
+    vi.useFakeTimers()
+    const threadC = ThreadId.make("20000000-0000-4000-8000-000000000003")
+    const pendingA = Deferred.makeUnsafe<{
+      readonly ok: true
+      readonly value: ThreadSnapshot
+    }>()
+    const load = vi.fn((threadId: ThreadId) => {
+      if (threadId === threadA) {
+        return Effect.runPromise(Deferred.await(pendingA))
+      }
+      return Promise.resolve({ ok: true as const, value: makeSnapshot(threadId, 2) })
+    })
+    setThreadSnapshotPrefetchLoaderForTests(load)
+
+    refreshThreadSnapshot(threadA)
+    refreshThreadSnapshot(threadB)
+    refreshThreadSnapshot(threadC)
+    expect(load).toHaveBeenCalledTimes(1)
+
+    Effect.runSync(
+      Deferred.succeed(pendingA, { ok: true as const, value: makeSnapshot(threadA, 1) }),
+    )
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(load.mock.calls.map(([threadId]) => threadId)).toEqual([threadA, threadB, threadC])
   })
 
   it("swallows a failed speculative fetch", async () => {

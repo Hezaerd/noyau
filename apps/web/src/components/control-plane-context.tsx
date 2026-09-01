@@ -6,6 +6,7 @@ import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-
 import { dismissBootSplash } from "@/lib/boot-splash"
 import { subscribeShell } from "@/lib/control-plane"
 import { resolveStartupDestination, shouldHoldBootSplash } from "@/lib/last-screen"
+import { warmTerminalThreadSnapshot } from "@/lib/thread-snapshot-shell-sync"
 import { hydrateKeybindingsFromServer } from "@/state/keybindings"
 import {
   hydrateLastScreen,
@@ -32,7 +33,10 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
         replaceAppliedShell(next)
         hydrateKeybindingsFromServer()
       },
-      onEvent: (event) => reduceAppliedShellEvent(event),
+      onEvent: (event) => {
+        warmTerminalThreadSnapshot(event)
+        return reduceAppliedShellEvent(event)
+      },
       onStatus: setSubscriptionStatus,
     })
   }, [])

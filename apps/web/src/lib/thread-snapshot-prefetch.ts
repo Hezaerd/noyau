@@ -2,7 +2,7 @@ import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import type { ThreadId } from "@noyau/contracts/ids"
 
 import { loadThreadSnapshot, type ControlPlaneResult } from "@/lib/control-plane"
-import { getThreadSnapshot, replaceThreadSnapshot } from "@/state/thread-snapshot"
+import { replaceThreadSnapshot, threadSnapshotNeedsLoad } from "@/state/thread-snapshot"
 
 export const THREAD_SNAPSHOT_PREFETCH_DEBOUNCE_MS = 120
 
@@ -13,8 +13,9 @@ export type ThreadSnapshotLoader = (
 let loadSnapshot: ThreadSnapshotLoader | undefined
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
 let hoverTarget: ThreadId | undefined
-let queued: ThreadId | undefined
+const queued = new Map<ThreadId, boolean>()
 let inflightThreadId: ThreadId | undefined
+let inflightForce = false
 let inflight: Promise<void> | undefined
 let generation = 0
 
@@ -28,16 +29,41 @@ const clearDebounce = (): void => {
   debounceTimer = undefined
 }
 
-const startLoad = (threadId: ThreadId): void => {
-  if (getThreadSnapshot(threadId) !== undefined || inflightThreadId === threadId) {
+const queueLoad = (threadId: ThreadId, force: boolean): void => {
+  queued.set(threadId, (queued.get(threadId) ?? false) || force)
+}
+
+const startNextQueuedLoad = (): void => {
+  if (inflight !== undefined) {
+    return
+  }
+  const next = queued.entries().next().value
+  if (next === undefined) {
+    return
+  }
+  const [nextThreadId, nextForce] = next
+  queued.delete(nextThreadId)
+  startLoad(nextThreadId, nextForce)
+}
+
+const startLoad = (threadId: ThreadId, force = false): void => {
+  if (!force && !threadSnapshotNeedsLoad(threadId)) {
+    startNextQueuedLoad()
+    return
+  }
+  if (inflightThreadId === threadId) {
+    if (force && !inflightForce) {
+      queueLoad(threadId, true)
+    }
     return
   }
   if (inflight !== undefined) {
-    queued = threadId
+    queueLoad(threadId, force)
     return
   }
   const started = generation
   inflightThreadId = threadId
+  inflightForce = force
   inflight = resolveLoader()(threadId)
     .then((result) => {
       if (started === generation && result.ok) {
@@ -51,12 +77,9 @@ const startLoad = (threadId: ThreadId): void => {
         return
       }
       inflightThreadId = undefined
+      inflightForce = false
       inflight = undefined
-      const next = queued
-      queued = undefined
-      if (next !== undefined) {
-        startLoad(next)
-      }
+      startNextQueuedLoad()
     })
 }
 
@@ -71,12 +94,17 @@ const commitHoverTarget = (): void => {
 
 /** One-shot snapshot into the idle cache. Does not open a live subscribe. */
 export const prefetchThreadSnapshot = (threadId: ThreadId): void => {
-  if (getThreadSnapshot(threadId) !== undefined || inflightThreadId === threadId) {
+  if (!threadSnapshotNeedsLoad(threadId) || inflightThreadId === threadId) {
     return
   }
   hoverTarget = threadId
   clearDebounce()
   debounceTimer = setTimeout(commitHoverTarget, THREAD_SNAPSHOT_PREFETCH_DEBOUNCE_MS)
+}
+
+/** Refresh a known-stale body immediately when its shell Turn settles. */
+export const refreshThreadSnapshot = (threadId: ThreadId): void => {
+  startLoad(threadId, true)
 }
 
 export const setThreadSnapshotPrefetchLoaderForTests = (loader: ThreadSnapshotLoader): void => {
@@ -87,8 +115,9 @@ export const resetThreadSnapshotPrefetchForTests = (): void => {
   generation += 1
   clearDebounce()
   hoverTarget = undefined
-  queued = undefined
+  queued.clear()
   inflightThreadId = undefined
+  inflightForce = false
   inflight = undefined
   loadSnapshot = undefined
 }
