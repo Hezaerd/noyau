@@ -137,11 +137,11 @@ The open tab is client-only; it binds a server-owned
 
 #### PR tab
 
-Workspace tab kind `pr`. It is the read-only GitHub pull request chrome in the
-workspace panel: description, review timeline, file list, and diff. The open
-tab is client-only; it fetches a live snapshot through `git.getPullRequest`.
-Shape is in [git.ts][32]. Implementation: [pr-tab.tsx][33] and
-[PullRequestView.tsx][34]. It is not event-sourced and it is not a
+Workspace tab kind `pr`. It is the GitHub pull request review surface in the
+workspace panel: summary, activity timeline, commit-scoped diffs, line-comment
+drafts, and review submission. The open tab is client-only; it fetches live
+snapshots and submits reviews through the git RPCs. Shape is in [git.ts][32].
+Implementation: [pr-tab.tsx][33] and [PullRequestView.tsx][34]. It is not event-sourced and it is not a
 [browser tab](#browser-tab).
 
 #### Preview guest

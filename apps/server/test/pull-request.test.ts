@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
+  buildPullRequestReviewJson,
   decodeListedPullRequests,
   decodeViewedPullRequest,
   foldCiStatus,
@@ -10,7 +11,9 @@ import {
   selectStatusPullRequest,
   toListedPullRequest,
 } from "@noyau/server/git/pull-request"
-import { Effect, Exit } from "effect"
+import { Effect, Exit, Schema } from "effect"
+
+const UnknownJson = Schema.fromJsonString(Schema.Unknown)
 
 const item = (
   overrides: Partial<Parameters<typeof toListedPullRequest>[0]> & { readonly number: number },
@@ -129,39 +132,62 @@ describe("pull-request helpers", () => {
 
   it.effect("décode une vue gh avec reviews, commentaires, fichiers et patch", () =>
     Effect.gen(function* () {
+      const viewedJson = yield* Schema.encodeEffect(UnknownJson)({
+        number: 42,
+        title: "Add the PR viewer",
+        url: "https://github.com/hezaerd/noyau/pull/42",
+        body: "Description here.",
+        author: { login: "hezaerd" },
+        state: "OPEN",
+        baseRefName: "main",
+        headRefName: "feat/pr-viewer",
+        createdAt: "2026-08-31T09:00:00Z",
+        updatedAt: "2026-08-31T12:00:00Z",
+        additions: 12,
+        deletions: 1,
+        mergeable: "MERGEABLE",
+        statusCheckRollup: [{ name: "Verify", status: "COMPLETED", conclusion: "SUCCESS" }],
+        reviews: [
+          {
+            author: { login: "reviewer" },
+            body: "Looks good.",
+            state: "APPROVED",
+            submittedAt: "2026-08-31T12:00:00Z",
+          },
+        ],
+        comments: [
+          {
+            author: { login: "commenter" },
+            body: "Please ship it.",
+            createdAt: "2026-08-31T11:00:00Z",
+          },
+          { author: { login: "ghost" }, body: "dropped", createdAt: "" },
+        ],
+        commits: [
+          {
+            oid: "0123456789abcdef0123456789abcdef01234567",
+            messageHeadline: "feat: add the viewer",
+            committedDate: "2026-08-31T10:00:00Z",
+          },
+        ],
+        files: [{ path: "apps/web/src/pr.tsx", additions: 12, deletions: 1 }],
+      })
       const viewed = yield* decodeViewedPullRequest(
-        JSON.stringify({
-          number: 42,
-          title: "Add the PR viewer",
-          url: "https://github.com/hezaerd/noyau/pull/42",
-          body: "Description here.",
-          author: { login: "hezaerd" },
-          state: "OPEN",
-          baseRefName: "main",
-          headRefName: "feat/pr-viewer",
-          reviews: [
-            {
-              author: { login: "reviewer" },
-              body: "Looks good.",
-              state: "APPROVED",
-              submittedAt: "2026-08-31T12:00:00Z",
-            },
-          ],
-          comments: [
-            {
-              author: { login: "commenter" },
-              body: "Please ship it.",
-              createdAt: "2026-08-31T11:00:00Z",
-            },
-            { author: { login: "ghost" }, body: "dropped", createdAt: "" },
-          ],
-          files: [{ path: "apps/web/src/pr.tsx", additions: 12, deletions: 1 }],
-        }),
+        viewedJson,
         "diff --git a/apps/web/src/pr.tsx b/apps/web/src/pr.tsx\n",
       )
       expect(viewed.number).toBe(42)
       expect(viewed.body).toBe("Description here.")
       expect(viewed.author).toEqual({ login: "hezaerd" })
+      expect(viewed.mergeability).toBe("mergeable")
+      expect(viewed.ciStatus).toBe("passing")
+      expect(viewed.commits).toEqual([
+        {
+          oid: "0123456789abcdef0123456789abcdef01234567",
+          messageHeadline: "feat: add the viewer",
+          committedAt: "2026-08-31T10:00:00Z",
+        },
+      ])
       expect(viewed.reviews).toEqual([
         {
           author: { login: "reviewer" },
@@ -183,4 +209,34 @@ describe("pull-request helpers", () => {
       expect(Exit.isFailure(invalid)).toBe(true)
     }),
   )
+
+  it("construit une review GitHub atomique avec ses commentaires de ligne", () => {
+    expect(
+      Schema.decodeSync(UnknownJson)(
+        buildPullRequestReviewJson({
+          verdict: "request_changes",
+          body: "Please address these notes.",
+          comments: [
+            {
+              path: "apps/web/src/pr.tsx",
+              line: 26,
+              side: "right",
+              body: "Handle the empty state here.",
+            },
+          ],
+        }),
+      ),
+    ).toEqual({
+      event: "REQUEST_CHANGES",
+      body: "Please address these notes.",
+      comments: [
+        {
+          path: "apps/web/src/pr.tsx",
+          line: 26,
+          side: "RIGHT",
+          body: "Handle the empty state here.",
+        },
+      ],
+    })
+  })
 })

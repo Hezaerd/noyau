@@ -11,6 +11,12 @@ export type PullRequestTabFields = {
 }
 
 export type PullRequestTimelineItem =
+  | { readonly kind: "opened"; readonly at: string }
+  | {
+      readonly kind: "commit"
+      readonly at: string
+      readonly commit: GitPullRequest["commits"][number]
+    }
   | { readonly kind: "review"; readonly at: string | null; readonly review: GitPullRequestReview }
   | { readonly kind: "comment"; readonly at: string; readonly comment: GitPullRequestComment }
 
@@ -23,9 +29,11 @@ const atMs = (value: string | null): number => {
 }
 
 export const pullRequestTimeline = (
-  pr: Pick<GitPullRequest, "reviews" | "comments">,
+  pr: Pick<GitPullRequest, "createdAt" | "commits" | "reviews" | "comments">,
 ): ReadonlyArray<PullRequestTimelineItem> => {
   const items: Array<PullRequestTimelineItem> = [
+    { kind: "opened", at: pr.createdAt },
+    ...pr.commits.map((commit) => ({ kind: "commit" as const, at: commit.committedAt, commit })),
     ...pr.comments.map((comment) => ({ kind: "comment" as const, at: comment.createdAt, comment })),
     ...pr.reviews.map((review) => ({ kind: "review" as const, at: review.submittedAt, review })),
   ]
@@ -60,3 +68,33 @@ export const resolvedPullRequestUrl = (
   payload: PullRequestTabFields,
   live: { readonly url: string } | null,
 ): string | null => (payload.url === null || payload.url === "" ? (live?.url ?? null) : payload.url)
+
+export const pullRequestRepositoryLabel = (url: string): string => {
+  try {
+    const segments = new URL(url).pathname.split("/").filter(Boolean)
+    return segments.length >= 2 ? `${segments[0]}/${segments[1]}` : "GitHub"
+  } catch {
+    return "GitHub"
+  }
+}
+
+export type PullRequestLinePosition = {
+  readonly line: number
+  readonly side: "left" | "right"
+}
+
+export const pullRequestLinePosition = (range: {
+  readonly start: number
+  readonly end: number
+  readonly side?: "deletions" | "additions"
+  readonly endSide?: "deletions" | "additions"
+}): PullRequestLinePosition => ({
+  line: range.end,
+  side: (range.endSide ?? range.side) === "deletions" ? "left" : "right",
+})
+
+export const canSubmitPullRequestReview = (
+  verdict: "comment" | "approve" | "request_changes",
+  body: string,
+  commentCount: number,
+): boolean => verdict === "approve" || body.trim() !== "" || commentCount > 0

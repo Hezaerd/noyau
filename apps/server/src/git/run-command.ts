@@ -27,7 +27,11 @@ export const runCommand = Effect.fn("GitRuntime.runCommand")(function* (
   executable: string,
   args: ReadonlyArray<string>,
   cwd: string,
-  options: { readonly allowNonZero?: boolean; readonly env?: Record<string, string> } = {},
+  options: {
+    readonly allowNonZero?: boolean
+    readonly env?: Record<string, string>
+    readonly stdin?: string
+  } = {},
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const handle = yield* spawner
@@ -42,6 +46,9 @@ export const runCommand = Effect.fn("GitRuntime.runCommand")(function* (
             windowsHide: true,
           },
           options.env === undefined ? {} : { env: options.env, extendEnv: true },
+          options.stdin === undefined
+            ? {}
+            : { stdin: Stream.make(options.stdin).pipe(Stream.encodeText) },
         ),
       ),
     )
@@ -83,12 +90,16 @@ export const runGit = (
   operation: string,
   cwd: string,
   args: ReadonlyArray<string>,
-  options: { readonly allowNonZero?: boolean; readonly env?: Record<string, string> } = {},
+  options: {
+    readonly allowNonZero?: boolean
+    readonly env?: Record<string, string>
+    readonly stdin?: string
+  } = {},
 ) => runCommand(operation, "git", args, cwd, options)
 
 export const runGh = (
   operation: string,
   cwd: string,
   args: ReadonlyArray<string>,
-  options: { readonly allowNonZero?: boolean } = {},
+  options: { readonly allowNonZero?: boolean; readonly stdin?: string } = {},
 ) => runCommand(operation, "gh", args, cwd, options)

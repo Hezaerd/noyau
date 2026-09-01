@@ -2,7 +2,10 @@ import {
   type GitPullRequest,
   type GitPullRequestAuthor,
   type GitPullRequestComment,
+  type GitPullRequestCommit,
   type GitPullRequestFile,
+  type GitPullRequestReviewCommentDraft,
+  type GitPullRequestReviewVerdict,
   type GitPullRequestReview,
   type GitPullRequestReviewState,
   type VcsStatusCiVerdict,
@@ -228,7 +231,7 @@ export const decodeListedPullRequests = (stdout: string) =>
   )
 
 export const PR_VIEW_JSON_FIELDS =
-  "number,title,url,body,author,state,baseRefName,headRefName,reviews,comments,files"
+  "number,title,url,body,author,state,baseRefName,headRefName,createdAt,updatedAt,additions,deletions,mergeable,statusCheckRollup,reviews,comments,commits,files"
 
 const GhAuthor = Schema.Struct({
   login: Schema.optionalKey(Schema.NullOr(Schema.String)),
@@ -253,6 +256,12 @@ const GhFile = Schema.Struct({
   deletions: Schema.optionalKey(Schema.NullOr(Schema.Int)),
 })
 
+const GhCommit = Schema.Struct({
+  oid: Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/i)),
+  messageHeadline: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  committedDate: Schema.NonEmptyString,
+})
+
 const GhPullRequestView = Schema.Struct({
   number: Schema.Int.check(Schema.isGreaterThan(0)),
   title: Schema.NonEmptyString,
@@ -262,8 +271,15 @@ const GhPullRequestView = Schema.Struct({
   state: GhPullRequestState,
   baseRefName: Schema.NonEmptyString,
   headRefName: Schema.NonEmptyString,
+  createdAt: Schema.NonEmptyString,
+  updatedAt: Schema.NonEmptyString,
+  additions: Schema.optionalKey(Schema.NullOr(Schema.Int)),
+  deletions: Schema.optionalKey(Schema.NullOr(Schema.Int)),
+  mergeable: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  statusCheckRollup: Schema.optionalKey(Schema.NullOr(Schema.Array(GhCheck))),
   reviews: Schema.optionalKey(Schema.NullOr(Schema.Array(GhReview))),
   comments: Schema.optionalKey(Schema.NullOr(Schema.Array(GhComment))),
+  commits: Schema.optionalKey(Schema.NullOr(Schema.Array(GhCommit))),
   files: Schema.optionalKey(Schema.NullOr(Schema.Array(GhFile))),
 })
 
@@ -323,26 +339,65 @@ export const toGitPullRequestFile = (item: typeof GhFile.Type): GitPullRequestFi
   deletions: item.deletions ?? 0,
 })
 
+export const toGitPullRequestCommit = (item: typeof GhCommit.Type): GitPullRequestCommit => ({
+  oid: item.oid,
+  messageHeadline: item.messageHeadline ?? "",
+  committedAt: item.committedDate,
+})
+
 export const toGitPullRequest = (
   item: typeof GhPullRequestView.Type,
   patch: string,
-): GitPullRequest => ({
-  number: item.number,
-  title: item.title,
-  url: item.url,
-  body: item.body ?? "",
-  author: toAuthor(item.author),
-  state: normalizePullRequestState(item.state),
-  baseRef: item.baseRefName,
-  headRef: item.headRefName,
-  reviews: (item.reviews ?? []).map(toGitPullRequestReview),
-  comments: (item.comments ?? []).flatMap((comment) => {
-    const mapped = toGitPullRequestComment(comment)
-    return mapped === null ? [] : [mapped]
-  }),
-  files: (item.files ?? []).map(toGitPullRequestFile),
-  patch,
-})
+): GitPullRequest => {
+  const ci = foldCiStatus(item.statusCheckRollup)
+  return {
+    number: item.number,
+    title: item.title,
+    url: item.url,
+    body: item.body ?? "",
+    author: toAuthor(item.author),
+    state: normalizePullRequestState(item.state),
+    baseRef: item.baseRefName,
+    headRef: item.headRefName,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    additions: item.additions ?? 0,
+    deletions: item.deletions ?? 0,
+    mergeability: normalizeMergeability(item.mergeable),
+    ciStatus: ci.ciStatus,
+    failedChecks: ci.failedChecks,
+    reviews: (item.reviews ?? []).map(toGitPullRequestReview),
+    comments: (item.comments ?? []).flatMap((comment) => {
+      const mapped = toGitPullRequestComment(comment)
+      return mapped === null ? [] : [mapped]
+    }),
+    commits: (item.commits ?? []).map(toGitPullRequestCommit),
+    files: (item.files ?? []).map(toGitPullRequestFile),
+    patch,
+  }
+}
+
+const REVIEW_EVENTS = {
+  comment: "COMMENT",
+  approve: "APPROVE",
+  request_changes: "REQUEST_CHANGES",
+} satisfies Record<GitPullRequestReviewVerdict, string>
+
+export const buildPullRequestReviewJson = (input: {
+  readonly verdict: GitPullRequestReviewVerdict
+  readonly body: string
+  readonly comments: ReadonlyArray<GitPullRequestReviewCommentDraft>
+}): string =>
+  JSON.stringify({
+    event: REVIEW_EVENTS[input.verdict],
+    body: input.body,
+    comments: input.comments.map((comment) => ({
+      path: comment.path,
+      line: comment.line,
+      side: comment.side === "left" ? "LEFT" : "RIGHT",
+      body: comment.body,
+    })),
+  })
 
 export const decodeViewedPullRequest = (stdout: string, patch: string) =>
   decodeGhPullRequestViewJson(stdout).pipe(Effect.map((item) => toGitPullRequest(item, patch)))
