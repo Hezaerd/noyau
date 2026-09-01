@@ -219,6 +219,9 @@ describe("ThreadSidebarItem", () => {
     const pin = screen.getByLabelText("Pinned")
     expect(link.querySelector("[data-slot='thread-sidebar-last-activity']")).toBeNull()
     expect(link.querySelector("[data-slot='thread-sidebar-project']")?.contains(status)).toBe(false)
+    expect(
+      link.querySelector("[data-slot='thread-sidebar-activity']")?.lastElementChild?.className,
+    ).toContain("w-20")
     expect(pin.parentElement?.contains(status)).toBe(true)
     expect(pin.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
