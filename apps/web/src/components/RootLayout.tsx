@@ -126,7 +126,7 @@ function ThreadHeaderActionsSlot() {
 function WorkspacePanelSlot() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const threadId = threadIdFromPathname(pathname)
-  return threadId === undefined ? null : <WorkspacePanel threadId={threadId} />
+  return threadId === undefined ? null : <WorkspacePanel key={threadId} threadId={threadId} />
 }
 
 function ShellConnectionNotice() {
