@@ -38,25 +38,33 @@ function WorkspacePanelToggleControl({
   )
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            aria-label={panel.open ? "Hide workspace panel" : "Show workspace panel"}
-            aria-pressed={panel.open}
-            className="text-muted-foreground"
-            disabled={disabled}
-            size="icon-xs"
-            variant="ghost"
-            onClick={() => toggleWorkspacePanel(threadId)}
-          />
-        }
+    <>
+      <span aria-hidden="true" className="size-7 shrink-0 sm:size-6" />
+      <div
+        className="pointer-events-none fixed end-3 top-0 z-50 flex h-(--desktop-titlebar-height) items-center"
+        data-slot="workspace-panel-toggle"
       >
-        {panel.open ? <PanelRightCloseIcon /> : <PanelRightIcon />}
-      </TooltipTrigger>
-      <TooltipPopup side="bottom">
-        {panel.open ? "Hide workspace panel" : "Show workspace panel"}
-      </TooltipPopup>
-    </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label={panel.open ? "Hide workspace panel" : "Show workspace panel"}
+                aria-pressed={panel.open}
+                className="pointer-events-auto text-muted-foreground"
+                disabled={disabled}
+                size="icon-xs"
+                variant="ghost"
+                onClick={() => toggleWorkspacePanel(threadId)}
+              />
+            }
+          >
+            {panel.open ? <PanelRightCloseIcon /> : <PanelRightIcon />}
+          </TooltipTrigger>
+          <TooltipPopup side="bottom">
+            {panel.open ? "Hide workspace panel" : "Show workspace panel"}
+          </TooltipPopup>
+        </Tooltip>
+      </div>
+    </>
   )
 }

@@ -7,7 +7,7 @@ The workspace panel can show the GitHub pull request for the open Thread: descri
 On a Thread that already has a pull request:
 
 1. Open the workspace panel, or press **Mod+Shift+B**.
-2. Choose **Pull request** from the panel launcher or the **+** menu.
+2. Choose **Pull request** from the launcher cards. When another tab is already open, use the **+** menu beside the rightmost tab.
 3. Or press **Mod+Shift+P**, pick **Open pull request** in the Palette, or select the **#N** badge on the Thread in the sidebar.
 
 The tab shows the pull request for that Thread. If the Thread has none yet, the tab stays empty.
