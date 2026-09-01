@@ -46,6 +46,7 @@
     "./server": "./src/server.ts",
     "./shell-live": "./src/shell-live.ts",
     "./thread-live": "./src/thread-live.ts",
+    "./thread-live-coalescer": "./src/thread-live-coalescer.ts",
     "./workspace-cwd": "./src/workspace-cwd.ts",
     "./workspace-root": "./src/workspace-root.ts",
     "./workspace-path-search": "./src/workspace-path-search.ts",
