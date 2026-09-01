@@ -34,6 +34,7 @@ interface WarmTarget {
 
 interface ThreadSnapshotWriter {
   background: boolean
+  lastStatus: SubscriptionStatus | undefined
   readonly listeners: Set<ThreadSnapshotSubscriptionCallbacks>
   readonly releaseAtom: () => void
   stop: (() => void) | undefined
@@ -48,7 +49,11 @@ const latestTurnMatches = (
   latestTurn: ThreadShell["latestTurn"],
 ): boolean =>
   snapshot?.thread.latestTurn?.turnId === latestTurn?.turnId &&
-  snapshot?.thread.latestTurn?.state === latestTurn?.state
+  snapshot?.thread.latestTurn?.state === latestTurn?.state &&
+  (snapshot?.thread.latestTurn?.completedAt === null) === (latestTurn?.completedAt === null)
+
+const isRunningTurn = (latestTurn: ThreadShell["latestTurn"]): boolean =>
+  latestTurn?.state === "running" && latestTurn.completedAt === null
 
 const stopUnretainedWriter = (threadId: ThreadId, writer: ThreadSnapshotWriter): void => {
   if (writer.background || writer.listeners.size > 0 || writers.get(threadId) !== writer) {
@@ -83,6 +88,7 @@ const ensureWriter = (threadId: ThreadId): ThreadSnapshotWriter => {
   }
   const writer: ThreadSnapshotWriter = {
     background: false,
+    lastStatus: undefined,
     listeners: new Set(),
     releaseAtom: appAtomRegistry.subscribe(threadSnapshotAtom(threadId), () => undefined),
     stop: undefined,
@@ -122,6 +128,7 @@ const ensureWriter = (threadId: ThreadId): ThreadSnapshotWriter => {
     },
     onStatus: (status) => {
       if (writers.get(threadId) === writer) {
+        writer.lastStatus = status
         for (const listener of writer.listeners) {
           listener.onStatus(status)
         }
@@ -166,7 +173,7 @@ const finishWarmingThread = (
 export const syncWarmThreadSnapshots = (threads: ReadonlyArray<ThreadShell>): void => {
   const shellsById = new Map(threads.map((thread) => [thread.id, thread]))
   for (const thread of threads) {
-    if (thread.latestTurn?.state === "running") {
+    if (isRunningTurn(thread.latestTurn)) {
       keepRunningThreadWarm(thread.id)
     }
   }
@@ -181,7 +188,7 @@ export const syncWarmThreadSnapshots = (threads: ReadonlyArray<ThreadShell>): vo
       stopUnretainedWriter(threadId, writer)
       continue
     }
-    if (thread.latestTurn?.state !== "running") {
+    if (!isRunningTurn(thread.latestTurn)) {
       finishWarmingThread(threadId, thread.latestTurn)
     }
   }
@@ -201,7 +208,7 @@ export const syncWarmThreadSnapshotEvent = (event: ShellLiveEvent): void => {
   if (event._tag !== "thread-upserted" || event.thread.latestTurn === null) {
     return
   }
-  if (event.thread.latestTurn.state === "running") {
+  if (isRunningTurn(event.thread.latestTurn)) {
     keepRunningThreadWarm(event.thread.id)
     return
   }
@@ -215,6 +222,13 @@ export const retainThreadSnapshotSubscription = (
 ): (() => void) => {
   const writer = ensureWriter(threadId)
   writer.listeners.add(callbacks)
+  const cached = getThreadSnapshot(threadId)
+  if (cached !== undefined) {
+    callbacks.onSnapshot(cached)
+  }
+  if (writer.lastStatus !== undefined) {
+    callbacks.onStatus(writer.lastStatus)
+  }
   return () => {
     writer.listeners.delete(callbacks)
     stopUnretainedWriter(threadId, writer)

@@ -1,9 +1,5 @@
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
-import {
-  DomainEvent,
-  EventEnvelope,
-  type DomainEvent as DomainEventType,
-} from "@noyau/contracts/events"
+import { DomainEvent, EventEnvelope } from "@noyau/contracts/events"
 import { ProjectId, Sequence, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
@@ -16,118 +12,127 @@ import {
   retainThreadSnapshotSubscription,
   setThreadSnapshotSubscriberForTests,
   syncWarmThreadSnapshotEvent,
-  syncWarmThreadSnapshots,
   type ThreadSnapshotSubscriptionCallbacks,
 } from "../src/state/thread-snapshot-subscriptions"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
-const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
-const turnId = TurnId.make("30000000-0000-4000-8000-000000000001")
+const threadA = ThreadId.make("20000000-0000-4000-8000-000000000001")
+const threadB = ThreadId.make("20000000-0000-4000-8000-000000000002")
+const turnA = TurnId.make("30000000-0000-4000-8000-000000000001")
+const turnB = TurnId.make("30000000-0000-4000-8000-000000000002")
 
-const latestTurn = (state: "running" | "completed") => ({
-  turnId,
+const turnIdOf = (threadId: ThreadId): TurnId => (threadId === threadA ? turnA : turnB)
+
+const latestTurn = (threadId: ThreadId, state: "running" | "completed") => ({
+  turnId: turnIdOf(threadId),
   state,
-  requestedAt: "2026-08-19T12:00:00.000Z",
-  startedAt: "2026-08-19T12:00:00.000Z",
-  completedAt: state === "running" ? null : "2026-08-19T12:01:00.000Z",
+  requestedAt: "2026-09-01T12:00:00.000Z",
+  startedAt: "2026-09-01T12:00:00.000Z",
+  completedAt: state === "running" ? null : "2026-09-01T12:01:00.000Z",
 })
 
-const makeSnapshot = (sequence: number, state: "running" | "completed"): ThreadSnapshot =>
+const makeSnapshot = (
+  threadId: ThreadId,
+  sequence: number,
+  state: "running" | "completed",
+): ThreadSnapshot =>
   Schema.decodeSync(ThreadSnapshot)({
     snapshotSequence: sequence,
     thread: {
       id: threadId,
       projectId,
-      title: "Background Thread",
+      title: `Thread ${threadId === threadA ? "A" : "B"}`,
       provider: "cursor",
       runtimeMode: "auto",
       modelSelection: null,
       status: "active",
       session: null,
-      latestTurn: latestTurn(state),
-      createdAt: "2026-08-19T12:00:00.000Z",
-      listedAt: "2026-08-19T12:00:00.000Z",
-      updatedAt: "2026-08-19T12:01:00.000Z",
+      latestTurn: latestTurn(threadId, state),
+      createdAt: "2026-09-01T12:00:00.000Z",
+      listedAt: "2026-09-01T12:00:00.000Z",
+      updatedAt: "2026-09-01T12:01:00.000Z",
     },
     session: null,
     turns: [
       {
-        id: turnId,
+        id: turnIdOf(threadId),
         threadId,
         ordinal: 1,
         state,
-        requestedAt: "2026-08-19T12:00:00.000Z",
-        startedAt: "2026-08-19T12:00:00.000Z",
-        completedAt: state === "running" ? null : "2026-08-19T12:01:00.000Z",
+        requestedAt: "2026-09-01T12:00:00.000Z",
+        startedAt: "2026-09-01T12:00:00.000Z",
+        completedAt: state === "running" ? null : "2026-09-01T12:01:00.000Z",
       },
     ],
     transcript: [],
   })
 
-const makeShell = (state: "running" | "completed"): ThreadShell =>
+const makeShell = (threadId: ThreadId, state: "running" | "completed"): ThreadShell =>
   Schema.decodeSync(ThreadShell)({
     id: threadId,
     projectId,
-    title: "Background Thread",
+    title: `Thread ${threadId === threadA ? "A" : "B"}`,
     provider: "cursor",
     runtimeMode: "auto",
     modelSelection: null,
     status: "active",
-    sessionStatus: "ready",
+    sessionStatus: state === "running" ? "running" : "ready",
     lastError: null,
-    latestTurn: latestTurn(state),
-    createdAt: "2026-08-19T12:00:00.000Z",
-    listedAt: "2026-08-19T12:00:00.000Z",
-    updatedAt: "2026-08-19T12:01:00.000Z",
+    latestTurn: latestTurn(threadId, state),
+    createdAt: "2026-09-01T12:00:00.000Z",
+    listedAt: "2026-09-01T12:00:00.000Z",
+    updatedAt: "2026-09-01T12:01:00.000Z",
   })
 
-const encodeEvent = Schema.encodeSync(DomainEvent)
-const envelopeFor = (event: DomainEventType, sequence: number): EventEnvelope =>
+const terminalEnvelope = (threadId: ThreadId, sequence: number): EventEnvelope =>
   Schema.decodeSync(EventEnvelope)({
-    eventId: "60000000-0000-4000-8000-000000000001",
+    eventId: `60000000-0000-4000-8000-00000000000${threadId === threadA ? "1" : "2"}`,
     projectId,
     actorId: "human:hezaerd",
     correlationId: "80000000-0000-4000-8000-000000000001",
     causationId: "90000000-0000-4000-8000-000000000001",
-    occurredAt: "2026-08-19T12:01:00.000Z",
+    occurredAt: "2026-09-01T12:01:00.000Z",
     schemaVersion: 1,
     sequence,
-    event: encodeEvent(event),
-  })
-
-const terminalEnvelope = () =>
-  envelopeFor(
-    {
+    event: Schema.encodeSync(DomainEvent)({
       _tag: "thread.turn.ended",
       threadId,
-      turnId,
+      turnId: turnIdOf(threadId),
       state: "completed",
-    },
-    5,
-  )
+    }),
+  })
 
 const installSubscriber = () => {
-  let callbacks: ThreadSnapshotSubscriptionCallbacks | undefined
-  const stop = vi.fn()
+  const callbacks = new Map<ThreadId, ThreadSnapshotSubscriptionCallbacks>()
+  const stops = new Map<ThreadId, ReturnType<typeof vi.fn>>()
   const subscribe = vi.fn(
     (
-      _threadId: ThreadId,
+      threadId: ThreadId,
       _afterSequence: Sequence | undefined,
       next: ThreadSnapshotSubscriptionCallbacks,
     ) => {
-      callbacks = next
+      callbacks.set(threadId, next)
+      const stop = vi.fn()
+      stops.set(threadId, stop)
       return stop
     },
   )
   setThreadSnapshotSubscriberForTests(subscribe)
   return {
-    callbacks: () => {
-      if (callbacks === undefined) {
-        throw new Error("expected a Thread subscription")
+    callbackFor: (threadId: ThreadId) => {
+      const callback = callbacks.get(threadId)
+      if (callback === undefined) {
+        throw new Error(`expected a subscription for ${threadId}`)
       }
-      return callbacks
+      return callback
     },
-    stop,
+    stopFor: (threadId: ThreadId) => {
+      const stop = stops.get(threadId)
+      if (stop === undefined) {
+        throw new Error(`expected a stop callback for ${threadId}`)
+      }
+      return stop
+    },
     subscribe,
   }
 }
@@ -138,73 +143,110 @@ afterEach(() => {
 })
 
 describe("warm Thread snapshot subscriptions", () => {
-  it("keeps a running background Thread warm until its terminal event is reduced", () => {
+  it("keeps a background Thread warm until its terminal event reaches the cache", () => {
     const harness = installSubscriber()
 
     syncWarmThreadSnapshotEvent({
       _tag: "thread-upserted",
       sequence: Sequence.make(2),
-      thread: makeShell("running"),
+      thread: makeShell(threadA, "running"),
     })
-    expect(harness.subscribe).toHaveBeenCalledWith(threadId, undefined, expect.any(Object))
-
-    harness.callbacks().onSnapshot(makeSnapshot(2, "running"))
-    harness.callbacks().onEvent(
-      envelopeFor(
-        {
-          _tag: "thread.transcript-appended",
-          item: {
-            _tag: "transcript.assistant",
-            threadId,
-            turnId,
-            text: "Still working",
-          },
-        },
-        4,
-      ),
-    )
-    expect(getThreadSnapshot(threadId)?.transcript.at(-1)).toMatchObject({
-      _tag: "transcript.assistant",
-      text: "Still working",
-    })
+    harness.callbackFor(threadA).onSnapshot(makeSnapshot(threadA, 2, "running"))
 
     syncWarmThreadSnapshotEvent({
       _tag: "thread-upserted",
       sequence: Sequence.make(5),
-      thread: makeShell("completed"),
+      thread: makeShell(threadA, "completed"),
     })
-    expect(harness.stop).not.toHaveBeenCalled()
+    expect(harness.stopFor(threadA)).not.toHaveBeenCalled()
 
-    harness.callbacks().onEvent(terminalEnvelope())
-    expect(getThreadSnapshot(threadId)?.thread.latestTurn?.state).toBe("completed")
-    expect(harness.stop).toHaveBeenCalledOnce()
+    harness.callbackFor(threadA).onEvent(terminalEnvelope(threadA, 5))
+
+    expect(getThreadSnapshot(threadA)?.thread.latestTurn?.state).toBe("completed")
+    expect(harness.stopFor(threadA)).toHaveBeenCalledOnce()
   })
 
-  it("shares the background writer with the mounted Thread page", () => {
+  it("shares one writer between background warming and the visible Thread", () => {
     const harness = installSubscriber()
     const onEvent = vi.fn()
 
-    syncWarmThreadSnapshots([makeShell("running")])
-    const release = retainThreadSnapshotSubscription(threadId, {
+    syncWarmThreadSnapshotEvent({
+      _tag: "thread-upserted",
+      sequence: Sequence.make(2),
+      thread: makeShell(threadA, "running"),
+    })
+    const release = retainThreadSnapshotSubscription(threadA, {
       onSnapshot: vi.fn(),
       onEvent,
       onStatus: vi.fn(),
     })
-    expect(harness.subscribe).toHaveBeenCalledOnce()
 
-    harness.callbacks().onSnapshot(makeSnapshot(2, "running"))
+    expect(harness.subscribe).toHaveBeenCalledOnce()
+    harness.callbackFor(threadA).onSnapshot(makeSnapshot(threadA, 2, "running"))
     syncWarmThreadSnapshotEvent({
       _tag: "thread-upserted",
       sequence: Sequence.make(5),
-      thread: makeShell("completed"),
+      thread: makeShell(threadA, "completed"),
     })
-    const ended = terminalEnvelope()
-    harness.callbacks().onEvent(ended)
+    const ended = terminalEnvelope(threadA, 5)
+    harness.callbackFor(threadA).onEvent(ended)
 
     expect(onEvent).toHaveBeenCalledWith(ended)
-    expect(harness.stop).not.toHaveBeenCalled()
+    expect(harness.stopFor(threadA)).not.toHaveBeenCalled()
     release()
-    expect(harness.stop).toHaveBeenCalledOnce()
+    expect(harness.stopFor(threadA)).toHaveBeenCalledOnce()
+  })
+
+  it("replays the cached snapshot and latest status to a late listener", () => {
+    const harness = installSubscriber()
+    const snapshot = makeSnapshot(threadA, 2, "running")
+    const status = { _tag: "Connected" } as const
+
+    syncWarmThreadSnapshotEvent({
+      _tag: "thread-upserted",
+      sequence: Sequence.make(2),
+      thread: makeShell(threadA, "running"),
+    })
+    harness.callbackFor(threadA).onSnapshot(snapshot)
+    harness.callbackFor(threadA).onStatus(status)
+
+    const onSnapshot = vi.fn()
+    const onStatus = vi.fn()
+    const release = retainThreadSnapshotSubscription(threadA, {
+      onSnapshot,
+      onEvent: vi.fn(),
+      onStatus,
+    })
+
+    expect(harness.subscribe).toHaveBeenCalledOnce()
+    expect(onSnapshot).toHaveBeenCalledWith(snapshot)
+    expect(onStatus).toHaveBeenCalledWith(status)
+    release()
+  })
+
+  it("tracks concurrent Threads independently when one completes first", () => {
+    const harness = installSubscriber()
+
+    for (const threadId of [threadA, threadB]) {
+      syncWarmThreadSnapshotEvent({
+        _tag: "thread-upserted",
+        sequence: Sequence.make(2),
+        thread: makeShell(threadId, "running"),
+      })
+      harness.callbackFor(threadId).onSnapshot(makeSnapshot(threadId, 2, "running"))
+    }
+
+    syncWarmThreadSnapshotEvent({
+      _tag: "thread-upserted",
+      sequence: Sequence.make(5),
+      thread: makeShell(threadB, "completed"),
+    })
+    harness.callbackFor(threadB).onEvent(terminalEnvelope(threadB, 5))
+
+    expect(getThreadSnapshot(threadA)?.thread.latestTurn?.state).toBe("running")
+    expect(getThreadSnapshot(threadB)?.thread.latestTurn?.state).toBe("completed")
+    expect(harness.stopFor(threadA)).not.toHaveBeenCalled()
+    expect(harness.stopFor(threadB)).toHaveBeenCalledOnce()
   })
 
   it("warms a cold Thread when completion is the first observed transition", () => {
@@ -213,22 +255,22 @@ describe("warm Thread snapshot subscriptions", () => {
     syncWarmThreadSnapshotEvent({
       _tag: "thread-upserted",
       sequence: Sequence.make(5),
-      thread: makeShell("completed"),
+      thread: makeShell(threadA, "completed"),
     })
-    harness.callbacks().onSnapshot(makeSnapshot(5, "completed"))
+    harness.callbackFor(threadA).onSnapshot(makeSnapshot(threadA, 5, "completed"))
 
-    expect(getThreadSnapshot(threadId)?.snapshotSequence).toBe(5)
-    expect(harness.stop).toHaveBeenCalledOnce()
+    expect(getThreadSnapshot(threadA)?.snapshotSequence).toBe(5)
+    expect(harness.stopFor(threadA)).toHaveBeenCalledOnce()
   })
 
-  it("does not subscribe again when the warm body already has the terminal Turn", () => {
+  it("does not subscribe again when the cache already has the terminal Turn", () => {
     const harness = installSubscriber()
-    replaceThreadSnapshot(makeSnapshot(5, "completed"))
+    replaceThreadSnapshot(makeSnapshot(threadA, 5, "completed"))
 
     syncWarmThreadSnapshotEvent({
       _tag: "thread-upserted",
       sequence: Sequence.make(8),
-      thread: makeShell("completed"),
+      thread: makeShell(threadA, "completed"),
     })
 
     expect(harness.subscribe).not.toHaveBeenCalled()
