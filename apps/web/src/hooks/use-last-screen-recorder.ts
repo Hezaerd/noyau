@@ -6,12 +6,13 @@ import { rememberLastScreen } from "@/state/shell"
 
 export const useLastScreenRecorder = (): void => {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const search = useRouterState({ select: (state) => state.location.searchStr })
 
   useEffect(() => {
-    const next = lastScreenFromPathname(pathname)
+    const next = lastScreenFromPathname(pathname, search)
     if (next === undefined) {
       return
     }
     rememberLastScreen(next)
-  }, [pathname])
+  }, [pathname, search])
 }

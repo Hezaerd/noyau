@@ -40,6 +40,9 @@ import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
 export function AppSidebar() {
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const activeDraftId = useRouterState({
+    select: (state) => new URLSearchParams(state.location.searchStr).get("draft") ?? undefined,
+  })
   const { isMobile, setOpenMobile } = useSidebar()
   const paletteHotkey = useKeybinding("palette.open")
   const settingsHotkey = useKeybinding("settings.open")
@@ -178,6 +181,7 @@ export function AppSidebar() {
                   key={selectedProject.id}
                   project={selectedProject}
                   pathname={pathname}
+                  activeDraftId={activeDraftId}
                   onSelect={selectSelectedProject}
                 />
               )}

@@ -10,6 +10,7 @@ import {
   sessionDraftsFromStoredTexts,
   storedTextsFromSessionDrafts,
   type ComposerDraftSessionValue,
+  type NewThreadDraftId,
 } from "@/lib/composer-drafts"
 import { revokeComposerImages, type ComposerImage } from "@/lib/composer-images"
 import { appAtomRegistry } from "@/state/atom-registry"
@@ -48,23 +49,32 @@ export const initializeComposerDrafts = (): void => {
   })
 }
 
-const readDraft = (projectId: ProjectId, threadId: ThreadId | undefined): ComposerDraftValue =>
-  appAtomRegistry.get(draftAtom(composerDraftStoreKey(projectId, threadId)))
+const readDraft = (
+  projectId: ProjectId,
+  threadId: ThreadId | undefined,
+  draftId?: NewThreadDraftId,
+): ComposerDraftValue =>
+  appAtomRegistry.get(draftAtom(composerDraftStoreKey(projectId, threadId, draftId)))
 
-export const readComposerDraft = (projectId: ProjectId, threadId: ThreadId | undefined): string =>
-  readDraft(projectId, threadId).text
+export const readComposerDraft = (
+  projectId: ProjectId,
+  threadId: ThreadId | undefined,
+  draftId?: NewThreadDraftId,
+): string => readDraft(projectId, threadId, draftId).text
 
 export const readComposerDraftImages = (
   projectId: ProjectId,
   threadId: ThreadId | undefined,
-): ReadonlyArray<ComposerImage> => readDraft(projectId, threadId).images
+  draftId?: NewThreadDraftId,
+): ReadonlyArray<ComposerImage> => readDraft(projectId, threadId, draftId).images
 
 const writeDraft = (
   projectId: ProjectId,
   threadId: ThreadId | undefined,
   nextDraft: ComposerDraftValue,
+  draftId?: NewThreadDraftId,
 ): void => {
-  const key = composerDraftStoreKey(projectId, threadId)
+  const key = composerDraftStoreKey(projectId, threadId, draftId)
   const current = appAtomRegistry.get(composerDraftsAtom)
   const existing = current.get(key)
   if (isComposerDraftEmpty(nextDraft)) {
@@ -87,12 +97,18 @@ const writeDraft = (
 export type ComposerDraftReplacement = {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
+  readonly draftId?: NewThreadDraftId | undefined
   readonly text: string
   readonly images: ReadonlyArray<ComposerImage>
 }
 
 export const replaceComposerDraft = (input: ComposerDraftReplacement): void => {
-  writeDraft(input.projectId, input.threadId, { text: input.text, images: input.images })
+  writeDraft(
+    input.projectId,
+    input.threadId,
+    { text: input.text, images: input.images },
+    input.draftId,
+  )
 }
 
 export const replaceComposerDraftAtom = Atom.writable(
@@ -106,12 +122,14 @@ export const writeComposerDraft = (
   projectId: ProjectId,
   threadId: ThreadId | undefined,
   text: string,
+  draftId?: NewThreadDraftId,
 ): void => {
   replaceComposerDraft({
     projectId,
     threadId,
+    draftId,
     text,
-    images: readDraft(projectId, threadId).images,
+    images: readDraft(projectId, threadId, draftId).images,
   })
 }
 
@@ -119,19 +137,26 @@ export const writeComposerDraftImages = (
   projectId: ProjectId,
   threadId: ThreadId | undefined,
   images: ReadonlyArray<ComposerImage>,
+  draftId?: NewThreadDraftId,
 ): void => {
   replaceComposerDraft({
     projectId,
     threadId,
-    text: readDraft(projectId, threadId).text,
+    draftId,
+    text: readDraft(projectId, threadId, draftId).text,
     images,
   })
 }
 
-export const clearComposerDraft = (projectId: ProjectId, threadId: ThreadId | undefined): void => {
+export const clearComposerDraft = (
+  projectId: ProjectId,
+  threadId: ThreadId | undefined,
+  draftId?: NewThreadDraftId,
+): void => {
   replaceComposerDraft({
     projectId,
     threadId,
+    draftId,
     text: emptyComposerDraft.text,
     images: emptyComposerDraft.images,
   })
@@ -140,11 +165,12 @@ export const clearComposerDraft = (projectId: ProjectId, threadId: ThreadId | un
 export type ComposerDraftImageRemoval = {
   readonly projectId: ProjectId
   readonly threadId: ThreadId | undefined
+  readonly draftId?: NewThreadDraftId | undefined
   readonly localId: string
 }
 
 export const removeComposerDraftImage = (input: ComposerDraftImageRemoval): void => {
-  const current = readDraft(input.projectId, input.threadId)
+  const current = readDraft(input.projectId, input.threadId, input.draftId)
   const removed = current.images.find((image) => image.localId === input.localId)
   if (removed === undefined) {
     return
@@ -153,6 +179,7 @@ export const removeComposerDraftImage = (input: ComposerDraftImageRemoval): void
   replaceComposerDraft({
     projectId: input.projectId,
     threadId: input.threadId,
+    draftId: input.draftId,
     text: current.text,
     images: current.images.filter((image) => image.localId !== input.localId),
   })
@@ -166,8 +193,12 @@ export const removeComposerDraftImageAtom = Atom.writable(
 ).pipe(Atom.keepAlive, Atom.withLabel("chrome:remove-composer-draft-image"))
 
 /** Move a leftover new-Thread Brouillon onto the created Thread. */
-export const promoteComposerDraft = (projectId: ProjectId, threadId: ThreadId): void => {
-  const fromKey = composerDraftStoreKey(projectId, undefined)
+export const promoteComposerDraft = (
+  projectId: ProjectId,
+  threadId: ThreadId,
+  draftId?: NewThreadDraftId,
+): void => {
+  const fromKey = composerDraftStoreKey(projectId, undefined, draftId)
   const toKey = composerDraftStoreKey(projectId, threadId)
   const current = appAtomRegistry.get(composerDraftsAtom)
   const from = current.get(fromKey)

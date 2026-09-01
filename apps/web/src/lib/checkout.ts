@@ -1,7 +1,9 @@
 import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
 import { threadBranchOf, threadWorktreePathOf } from "@noyau/contracts/entities/checkout"
 import type { PrepareWorktree, VcsRef, VcsStatusResult } from "@noyau/contracts/git"
-import type { ThreadId } from "@noyau/contracts/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
+
+import { composerDraftStoreKey, type NewThreadDraftId } from "@/lib/composer-drafts"
 
 /** Intention et `startFromOrigin` d'un draft, avant bind. */
 export const draftCheckoutOf = (envMode: ThreadEnvMode) => ({
@@ -37,6 +39,29 @@ export type OpenedThreadCheckout = {
   readonly envMode: ThreadEnvMode
   readonly startFromOrigin: boolean
   readonly baseBranch: string | null
+}
+
+const draftCheckouts = new Map<string, OpenedThreadCheckout>()
+
+export const rememberDraftCheckout = (input: {
+  readonly projectId: ProjectId
+  readonly draftId?: NewThreadDraftId | undefined
+  readonly checkout: OpenedThreadCheckout
+}): void => {
+  draftCheckouts.set(
+    composerDraftStoreKey(input.projectId, undefined, input.draftId),
+    input.checkout,
+  )
+}
+
+export const peekDraftCheckout = (
+  projectId: ProjectId,
+  draftId?: NewThreadDraftId,
+): OpenedThreadCheckout | undefined =>
+  draftCheckouts.get(composerDraftStoreKey(projectId, undefined, draftId))
+
+export const clearDraftCheckout = (projectId: ProjectId, draftId?: NewThreadDraftId): void => {
+  draftCheckouts.delete(composerDraftStoreKey(projectId, undefined, draftId))
 }
 
 /**

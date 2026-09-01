@@ -20,16 +20,20 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
+import { clearDraftCheckout } from "@/lib/checkout"
+import type { NewThreadDraftId } from "@/lib/composer-drafts"
 import { clearDraftComposerPreferences } from "@/lib/draft-composer-preferences"
 import { clearComposerDraft } from "@/state/composer-drafts"
 
 export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
   project,
+  draftId,
   title,
   isActive,
   onSelect,
 }: {
   readonly project: Pick<ProjectShell, "id" | "name">
+  readonly draftId?: NewThreadDraftId | undefined
   readonly title: string
   readonly isActive: boolean
   readonly onSelect: () => void
@@ -46,6 +50,7 @@ export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
               <Link
                 to="/projects/$projectId/thread/$threadId"
                 params={{ projectId: project.id, threadId: "new" }}
+                search={draftId === undefined ? {} : { draft: draftId }}
                 onClick={onSelect}
               />
             }
@@ -104,8 +109,9 @@ export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
             <AlertDialogClose
               render={<Button type="button" variant="destructive" />}
               onClick={() => {
-                clearComposerDraft(project.id, undefined)
-                clearDraftComposerPreferences(project.id, undefined)
+                clearComposerDraft(project.id, undefined, draftId)
+                clearDraftComposerPreferences(project.id, undefined, draftId)
+                clearDraftCheckout(project.id, draftId)
               }}
             >
               Discard

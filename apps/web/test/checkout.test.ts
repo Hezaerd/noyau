@@ -1,16 +1,19 @@
 import type { VcsStatusResult } from "@noyau/contracts/git"
-import { ThreadId } from "@noyau/contracts/ids"
+import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
   branchPickerBadge,
+  clearDraftCheckout,
   envModeLockedOf,
   envModeOf,
   isSelectingWorktreeBase,
   clearCreatedCheckout,
   peekCreatedCheckout,
+  peekDraftCheckout,
   draftCheckoutOf,
   rememberCreatedCheckout,
+  rememberDraftCheckout,
   resolveOpenedThreadCheckout,
   resolveBranchSelectionTarget,
   resolveBranchTriggerLabel,
@@ -356,6 +359,29 @@ describe("checkout helpers", () => {
     expect(peekCreatedCheckout(first)).toBeUndefined()
     expect(peekCreatedCheckout(second)?.envMode).toBe("local")
     clearCreatedCheckout(second)
+  })
+
+  it("isole l'intention de plusieurs nouveaux Threads", () => {
+    const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
+    const first = "30000000-0000-4000-8000-000000000001"
+    const second = "30000000-0000-4000-8000-000000000002"
+    rememberDraftCheckout({
+      projectId,
+      draftId: first,
+      checkout: { envMode: "worktree", baseBranch: "main", startFromOrigin: true },
+    })
+    rememberDraftCheckout({
+      projectId,
+      draftId: second,
+      checkout: { envMode: "local", baseBranch: null, startFromOrigin: false },
+    })
+
+    expect(peekDraftCheckout(projectId, first)?.baseBranch).toBe("main")
+    expect(peekDraftCheckout(projectId, second)?.envMode).toBe("local")
+    clearDraftCheckout(projectId, first)
+    expect(peekDraftCheckout(projectId, first)).toBeUndefined()
+    expect(peekDraftCheckout(projectId, second)?.envMode).toBe("local")
+    clearDraftCheckout(projectId, second)
   })
 
   it("restaure l'intention worktree après create → navigation", () => {

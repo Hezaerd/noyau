@@ -30,7 +30,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut"
-import { useProjectNewThreadDraft } from "@/hooks/use-composer-draft"
+import { useProjectNewThreadDrafts } from "@/hooks/use-composer-draft"
 import { useLastProjectId, useProjects, useProjectThreads } from "@/hooks/use-control-plane"
 import { useCreateDraftThread } from "@/hooks/use-create-draft-thread"
 import { useKeybindingHandler } from "@/hooks/use-keybinding-handler"
@@ -71,7 +71,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   const lastProjectId = useLastProjectId()
   const projects = useProjects()
   const threads = useProjectThreads(lastProjectId)
-  const newThreadDraft = useProjectNewThreadDraft(lastProjectId)
+  const newThreadDrafts = useProjectNewThreadDrafts(lastProjectId)
   const createDraftThread = useCreateDraftThread()
   const threadCreateHotkey = useKeybinding("thread.create")
   const [open, setOpen] = useState(false)
@@ -191,7 +191,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
   )
   const threadActions = useMemo<ReadonlyArray<AppPaletteAction>>(
     () =>
-      paletteThreadItems(threads, lastProjectId, newThreadDraft).map((thread) => {
+      paletteThreadItems(threads, lastProjectId, newThreadDrafts).map((thread) => {
         const action: AppPaletteAction = {
           id: thread.id,
           label: thread.label,
@@ -205,6 +205,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
             void navigate({
               to: "/projects/$projectId/thread/$threadId",
               params: { projectId: lastProjectId, threadId: thread.threadId },
+              search: thread.draftId === undefined ? {} : { draft: thread.draftId },
             })
           },
         }
@@ -215,7 +216,7 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
           prefetch: () => prefetchThreadSnapshot(ThreadId.make(thread.threadId)),
         })
       }),
-    [lastProjectId, navigate, newThreadDraft, threads],
+    [lastProjectId, navigate, newThreadDrafts, threads],
   )
   const groups = useMemo(() => {
     const baseGroups = buildPaletteGroups(contextualActions, navigationActions, recentActionIds)

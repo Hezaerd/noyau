@@ -8,6 +8,7 @@ import type {
 } from "@noyau/contracts/shell"
 import { Atom } from "effect/unstable/reactivity"
 
+import type { NewThreadDraftId } from "@/lib/composer-drafts"
 import type { SubscriptionStatus } from "@/lib/control-plane"
 import { applyShellEvent } from "@/lib/control-plane-state"
 import {
@@ -209,11 +210,11 @@ export const upsertAppliedShellThread = (thread: ThreadShell): boolean => {
 }
 
 /** Optimistic sidebar row + promote the new-Thread Brouillon in one notification. */
-export const publishCreatedThread = (thread: ThreadShell): boolean => {
+export const publishCreatedThread = (thread: ThreadShell, draftId?: NewThreadDraftId): boolean => {
   let inserted = false
   Atom.batch(() => {
     inserted = upsertAppliedShellThread(thread)
-    promoteComposerDraft(thread.projectId, thread.id)
+    promoteComposerDraft(thread.projectId, thread.id, draftId)
   })
   return inserted
 }

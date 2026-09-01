@@ -10,6 +10,7 @@ import { emptyComposerDraft } from "../src/lib/composer-drafts"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
+const draftId = "30000000-0000-4000-8000-000000000001"
 
 describe("paletteThreadItems", () => {
   it("omits an empty /thread/new draft and prepends a typed one", () => {
@@ -22,7 +23,9 @@ describe("paletteThreadItems", () => {
       },
     ]
 
-    expect(paletteThreadItems(persisted, projectId, emptyComposerDraft)).toEqual([
+    expect(
+      paletteThreadItems(persisted, projectId, [{ id: draftId, value: emptyComposerDraft }]),
+    ).toEqual([
       {
         id: `thread.open.${threadId}`,
         threadId,
@@ -31,11 +34,14 @@ describe("paletteThreadItems", () => {
       },
     ])
     expect(
-      paletteThreadItems(persisted, projectId, { text: "Fix the sidebar draft", images: [] }),
+      paletteThreadItems(persisted, projectId, [
+        { id: draftId, value: { text: "Fix the sidebar draft", images: [] } },
+      ]),
     ).toEqual([
       {
-        id: `thread.open.new.${projectId}`,
+        id: `thread.open.new.${projectId}.${draftId}`,
         threadId: NEW_THREAD_PALETTE_THREAD_ID,
+        draftId,
         label: "Fix the sidebar draft",
         searchValue: "Fix the sidebar draft draft new thread",
       },
@@ -52,8 +58,13 @@ describe("paletteThreadItems", () => {
 describe("paletteNewThreadDraftItem", () => {
   it("is absent without a Project or composer content", () => {
     expect(
-      paletteNewThreadDraftItem(undefined, { text: "Fix the sidebar draft", images: [] }),
+      paletteNewThreadDraftItem(undefined, {
+        id: draftId,
+        value: { text: "Fix the sidebar draft", images: [] },
+      }),
     ).toBeUndefined()
-    expect(paletteNewThreadDraftItem(projectId, emptyComposerDraft)).toBeUndefined()
+    expect(
+      paletteNewThreadDraftItem(projectId, { id: draftId, value: emptyComposerDraft }),
+    ).toBeUndefined()
   })
 })

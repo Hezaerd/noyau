@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test"
 import {
   composerDraftStoreKey,
   parseComposerDrafts,
+  parseThreadRouteSearch,
+  projectNewThreadDrafts,
   serializeComposerDrafts,
   sessionDraftsFromStoredTexts,
   storedTextsFromSessionDrafts,
@@ -25,6 +27,8 @@ const projectA = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const projectB = ProjectId.make("10000000-0000-4000-8000-000000000002")
 const threadA = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const threadB = ThreadId.make("20000000-0000-4000-8000-000000000002")
+const draftA = "30000000-0000-4000-8000-000000000001"
+const draftB = "30000000-0000-4000-8000-000000000002"
 
 afterEach(() => {
   resetComposerDrafts()
@@ -44,6 +48,41 @@ describe("composer drafts", () => {
     expect(readComposerDraft(projectB, undefined)).toBe("new B")
     expect(composerDraftStoreKey(projectA, undefined)).toBe(`new:${projectA}`)
     expect(composerDraftStoreKey(projectA, threadA)).toBe(`thread:${threadA}`)
+  })
+
+  it("keeps multiple new-Thread drafts isolated in one Project", () => {
+    writeComposerDraft(projectA, undefined, "first idea", draftA)
+    writeComposerDraft(projectA, undefined, "second idea", draftB)
+
+    expect(readComposerDraft(projectA, undefined, draftA)).toBe("first idea")
+    expect(readComposerDraft(projectA, undefined, draftB)).toBe("second idea")
+    expect(
+      projectNewThreadDrafts(
+        new Map([
+          [composerDraftStoreKey(projectA, undefined, draftA), { text: "first idea", images: [] }],
+          [composerDraftStoreKey(projectA, undefined, draftB), { text: "second idea", images: [] }],
+        ]),
+        projectA,
+      ),
+    ).toEqual([
+      { id: draftA, value: { text: "first idea", images: [] } },
+      { id: draftB, value: { text: "second idea", images: [] } },
+    ])
+  })
+
+  it("accepts only UUID draft identities from the Thread route", () => {
+    expect(parseThreadRouteSearch({ draft: draftA })).toEqual({ draft: draftA })
+    expect(parseThreadRouteSearch({ draft: "not-a-uuid" })).toEqual({})
+  })
+
+  it("promotes only the submitted new-Thread draft", () => {
+    writeComposerDraft(projectA, undefined, "first idea", draftA)
+    writeComposerDraft(projectA, undefined, "second idea", draftB)
+    promoteComposerDraft(projectA, threadA, draftA)
+
+    expect(readComposerDraft(projectA, undefined, draftA)).toBe("")
+    expect(readComposerDraft(projectA, undefined, draftB)).toBe("second idea")
+    expect(readComposerDraft(projectA, threadA)).toBe("first idea")
   })
 
   it("drops an empty draft and resets the session store", () => {
@@ -79,6 +118,7 @@ describe("composer drafts", () => {
     const drafts = new Map([
       [composerDraftStoreKey(projectA, threadA), "from A"],
       [composerDraftStoreKey(projectA, undefined), "new A"],
+      [composerDraftStoreKey(projectA, undefined, draftA), "another new A"],
     ])
 
     expect(parseComposerDrafts(serializeComposerDrafts(drafts))).toEqual(drafts)

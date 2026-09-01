@@ -11,6 +11,7 @@ const LastScreenStored = Schema.Union([
   }),
   Schema.TaggedStruct("new-thread", {
     projectId: ProjectId,
+    draftId: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
   }),
   Schema.TaggedStruct("thread", {
     projectId: ProjectId,
@@ -34,6 +35,7 @@ export type StartupNavigateTarget =
   | {
       readonly to: "/projects/$projectId/thread/$threadId"
       readonly params: { readonly projectId: ProjectId; readonly threadId: ThreadId | "new" }
+      readonly search?: { readonly draft?: string }
     }
 
 type ProjectRef = { readonly id: ProjectId }
@@ -52,7 +54,12 @@ export const lastScreensEqual = (
   if (left.projectId !== right.projectId) {
     return false
   }
-  return left._tag === "thread" && right._tag === "thread" ? left.threadId === right.threadId : true
+  if (left._tag === "thread" && right._tag === "thread") {
+    return left.threadId === right.threadId
+  }
+  return left._tag === "new-thread" && right._tag === "new-thread"
+    ? left.draftId === right.draftId
+    : true
 }
 
 export const parseLastScreen = (value: string | null): LastScreen | undefined => {
@@ -77,7 +84,7 @@ export const lastScreenFromLegacyProjectId = (value: string | null): LastScreen 
     onSome: (projectId) => ({ _tag: "board", projectId }),
   })
 
-export const lastScreenFromPathname = (pathname: string): LastScreen | undefined => {
+export const lastScreenFromPathname = (pathname: string, search = ""): LastScreen | undefined => {
   const boardMatch = /^\/projects\/([^/]+)\/board$/.exec(pathname)
   if (boardMatch !== null) {
     return Option.match(decodeProjectId(boardMatch[1]), {
@@ -94,7 +101,10 @@ export const lastScreenFromPathname = (pathname: string): LastScreen | undefined
     onNone: () => undefined,
     onSome: (projectId) => {
       if (threadMatch[2] === "new") {
-        return { _tag: "new-thread", projectId }
+        const draftId = new URLSearchParams(search).get("draft")
+        return draftId !== null && Option.isSome(decodeThreadId(draftId))
+          ? { _tag: "new-thread", projectId, draftId }
+          : { _tag: "new-thread", projectId }
       }
       return Option.match(decodeThreadId(threadMatch[2]), {
         onNone: () => undefined,
@@ -139,10 +149,13 @@ export const startupNavigateTarget = (destination: LastScreen): StartupNavigateT
         params: { projectId: destination.projectId },
       }
     case "new-thread":
-      return {
-        to: "/projects/$projectId/thread/$threadId",
-        params: { projectId: destination.projectId, threadId: "new" },
-      }
+      return Object.assign(
+        {
+          to: "/projects/$projectId/thread/$threadId" as const,
+          params: { projectId: destination.projectId, threadId: "new" as const },
+        },
+        destination.draftId === undefined ? {} : { search: { draft: destination.draftId } },
+      )
     case "thread":
       return {
         to: "/projects/$projectId/thread/$threadId",

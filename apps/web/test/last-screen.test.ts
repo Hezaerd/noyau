@@ -30,6 +30,7 @@ import {
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const otherProjectId = ProjectId.make("10000000-0000-4000-8000-000000000002")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
+const draftId = "30000000-0000-4000-8000-000000000001"
 
 const board = { _tag: "board" as const, projectId }
 const newThread = { _tag: "new-thread" as const, projectId }
@@ -60,6 +61,9 @@ describe("last screen", () => {
     expect(lastScreenFromPathname(`/projects/${projectId}/board`)).toEqual(board)
     expect(lastScreenFromPathname(`/projects/${projectId}/thread/${threadId}`)).toEqual(thread)
     expect(lastScreenFromPathname(`/projects/${projectId}/thread/new`)).toEqual(newThread)
+    expect(
+      lastScreenFromPathname(`/projects/${projectId}/thread/new`, `?draft=${draftId}`),
+    ).toEqual({ ...newThread, draftId })
     expect(lastScreenFromPathname(`/projects/${projectId}/thread/not-a-thread-id`)).toBeUndefined()
     expect(lastScreenFromPathname("/")).toBeUndefined()
     expect(lastScreenFromPathname("/settings/general")).toBeUndefined()
@@ -105,6 +109,11 @@ describe("last screen", () => {
     expect(startupNavigateTarget(board)).toEqual({
       to: "/projects/$projectId/board",
       params: { projectId },
+    })
+    expect(startupNavigateTarget({ ...newThread, draftId })).toEqual({
+      to: "/projects/$projectId/thread/$threadId",
+      params: { projectId, threadId: "new" },
+      search: { draft: draftId },
     })
   })
 
