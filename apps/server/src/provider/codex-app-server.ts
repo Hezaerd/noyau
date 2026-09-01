@@ -338,12 +338,16 @@ const mapCodexModels = (
           ? Object.assign(mapped, { isDefault: true })
           : mapped
       })
-      return {
+      const mapped: CursorModel = {
         modelId: model.id,
         label: model.displayName,
         reasoningEfforts,
         serviceTiers,
       }
+      if (model.upgrade !== undefined && model.upgrade !== null) {
+        Object.assign(mapped, { isLegacy: true })
+      }
+      return mapped
     })
 
 const accountPlan = (account: CodexSchema.V2GetAccountResponse__Account | null | undefined) => {

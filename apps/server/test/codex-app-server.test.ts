@@ -234,6 +234,15 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
                       { value: "fast", label: "Fast" },
                     ],
                   },
+                  {
+                    modelId: "gpt-4",
+                    label: "GPT-4",
+                    isLegacy: true,
+                    reasoningEfforts: [
+                      { value: "low", label: "low", description: "Low", isDefault: true },
+                    ],
+                    serviceTiers: [],
+                  },
                 ],
               })
             }),

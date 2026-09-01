@@ -105,6 +105,17 @@ const models = [
   },
   {
     defaultReasoningEffort: "low",
+    description: "GPT-4",
+    displayName: "GPT-4",
+    hidden: false,
+    id: "gpt-4",
+    isDefault: false,
+    model: "gpt-4",
+    supportedReasoningEfforts: [{ description: "Low", reasoningEffort: "low" }],
+    upgrade: "gpt-5",
+  },
+  {
+    defaultReasoningEffort: "low",
     description: "Hidden",
     displayName: "Hidden",
     hidden: true,

@@ -10,6 +10,18 @@ Sending a draft creates its Thread. Your other drafts remain in the sidebar.
 
 To remove a draft, open its sidebar menu, choose **Discard**, and confirm. Discarding removes only that draft and cannot be undone.
 
+## Choose a model
+
+Open the model control below the prompt. The left rail shows Favorites first, followed by each available provider. Choose a provider to see its models.
+
+Choose the star beside a model to add it to Favorites. Favorite models also stay at the top of their provider's list. Choose the filled star again to remove the model from Favorites.
+
+Older models appear under **Legacy models**. Choose that row to expand or collapse the older models. The row opens automatically when the Thread already uses a legacy model.
+
+Type in the search field to search every available provider. Search results include legacy models even when their section is collapsed.
+
+Choose the pin beside a model to make it the default for new Threads in the Project. Choose the filled pin again to remove the default.
+
 ## Choose model options
 
 The controls below the prompt show the options supported by the selected model. Open **Service tier** to choose an available tier. To remove the override, choose the tier marked **Default**. If the provider does not name its default tier, choose the **Default** item instead.
