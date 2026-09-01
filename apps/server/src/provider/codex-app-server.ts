@@ -948,6 +948,27 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     yield* userInputs.unbindTurn(control.input.threadId)
   })
 
+  const requestTurnInterrupt = (
+    session: CodexSession,
+    control: ActiveTurn,
+  ): Effect.Effect<void> => {
+    const providerTurnId = control.providerTurnId
+    if (providerTurnId === undefined) {
+      return Effect.void
+    }
+    return codexCall(
+      session.client.request("turn/interrupt", {
+        threadId: session.providerThreadId,
+        turnId: providerTurnId,
+      }),
+    ).pipe(
+      Effect.timeout("2 seconds"),
+      Effect.ignore,
+      Effect.forkIn(providerScope, { startImmediately: true }),
+      Effect.asVoid,
+    )
+  }
+
   const openThread = Effect.fn("CodexAdapter.openThread")(function* (
     client: CodexAppServerClient.CodexAppServerClient["Service"],
     input: ProviderTurnInput,
@@ -1092,12 +1113,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     }
     control.providerTurnId = started.turn.id
     if (control.cancelRequested) {
-      yield* codexCall(
-        session.client.request("turn/interrupt", {
-          threadId: session.providerThreadId,
-          turnId: control.providerTurnId,
-        }),
-      ).pipe(Effect.timeout("2 seconds"), Effect.ignore)
+      yield* requestTurnInterrupt(session, control)
       yield* settleTurn(control, "interrupted")
       yield* closeSession(session)
       return
@@ -1195,13 +1211,8 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       queued.delete(threadId)
     }
     const session = control.session
-    if (session !== undefined && control.providerTurnId !== undefined) {
-      yield* codexCall(
-        session.client.request("turn/interrupt", {
-          threadId: session.providerThreadId,
-          turnId: control.providerTurnId,
-        }),
-      ).pipe(Effect.timeout("2 seconds"), Effect.ignore)
+    if (session !== undefined) {
+      yield* requestTurnInterrupt(session, control)
     }
     yield* settleTurn(control, "interrupted")
     if (session !== undefined) {
