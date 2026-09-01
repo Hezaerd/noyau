@@ -463,7 +463,7 @@ export function ThreadComposer({
                 <>
                   {hasEffort || hasTier ? (
                     <ComposerTraitMenu
-                      ariaLabel="Model configuration"
+                      ariaLabel="Configuration"
                       disabled={controlsDisabled}
                       icon={GaugeIcon}
                       label={selectedEffort?.label ?? selectedTier?.label ?? "Configure"}

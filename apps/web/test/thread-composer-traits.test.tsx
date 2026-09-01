@@ -96,12 +96,12 @@ describe("thread composer traits", () => {
         renderComposer({ onModelSelectionChange })
         yield* Effect.promise(() => Promise.resolve())
 
-        expect(screen.getByRole("button", { name: "Model configuration" }).textContent).toContain(
+        expect(screen.getByRole("button", { name: "Configuration" }).textContent).toContain(
           "medium",
         )
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Model configuration" })),
+          user.click(screen.getByRole("button", { name: "Configuration" })),
         )
         expect(screen.getByText("Reasoning")).toBeTruthy()
         expect(screen.getByText("Service tier")).toBeTruthy()
@@ -126,10 +126,10 @@ describe("thread composer traits", () => {
         yield* Effect.promise(() => Promise.resolve())
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Model configuration" })),
+          user.click(screen.getByRole("button", { name: "Configuration" })),
         )
         expect(screen.getByRole("menuitemradio", { name: /Standard/ })).toBeTruthy()
-        expect(screen.queryByRole("menuitemradio", { name: /high/ })).toBeNull()
+        expect(screen.getByRole("menuitemradio", { name: /high/ })).toBeTruthy()
 
         yield* Effect.promise(() =>
           user.click(screen.getByRole("menuitemradio", { name: /Standard/ })),
@@ -159,13 +159,13 @@ describe("thread composer traits", () => {
         yield* Effect.promise(() => Promise.resolve())
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Model configuration" })),
+          user.click(screen.getByRole("button", { name: "Configuration" })),
         )
-        expect(screen.getByRole("menuitemradio", { name: /Default/ })).toBeTruthy()
+        expect(screen.getByRole("menuitemradio", { name: /^Default$/ })).toBeTruthy()
         expect(screen.queryByText("Use the provider's default service tier.")).toBeNull()
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("menuitemradio", { name: /Default/ })),
+          user.click(screen.getByRole("menuitemradio", { name: /^Default$/ })),
         )
         expect(onModelSelectionChange).toHaveBeenCalledWith({
           modelId: "composer-2.5",
@@ -191,7 +191,7 @@ describe("thread composer traits", () => {
         yield* Effect.promise(() => Promise.resolve())
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Model configuration" })),
+          user.click(screen.getByRole("button", { name: "Configuration" })),
         )
         yield* Effect.promise(() =>
           user.click(screen.getByRole("menuitemradio", { name: "Provider tier" })),
@@ -212,7 +212,7 @@ describe("thread composer traits", () => {
       modelSelection: { modelId: "composer-2.5", serviceTier: "fast", thinking: false },
     })
 
-    expect(screen.getByRole("button", { name: "Model configuration" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Configuration" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Thinking" }).textContent).toContain("Off")
   })
 
@@ -229,7 +229,7 @@ describe("thread composer traits", () => {
         expect(composerPromptFieldCaretOffset(field)).toBe(caret)
 
         yield* Effect.promise(() =>
-          user.click(screen.getByRole("button", { name: "Model configuration" })),
+          user.click(screen.getByRole("button", { name: "Configuration" })),
         )
         yield* Effect.promise(() => user.click(screen.getByRole("menuitemradio", { name: /high/ })))
 
