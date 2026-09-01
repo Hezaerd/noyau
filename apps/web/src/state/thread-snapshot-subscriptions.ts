@@ -6,6 +6,7 @@ import type { ThreadAssistantLive } from "@noyau/contracts/thread/live"
 
 import { subscribeThread, type SubscriptionStatus } from "@/lib/control-plane"
 import { appAtomRegistry } from "@/state/atom-registry"
+import { patchAppliedShellThread } from "@/state/shell"
 import {
   getThreadSnapshot,
   reduceThreadSnapshotEnvelope,
@@ -55,6 +56,26 @@ const latestTurnMatches = (
 const isRunningTurn = (latestTurn: ThreadShell["latestTurn"]): boolean =>
   latestTurn?.state === "running" && latestTurn.completedAt === null
 
+/** Repair chrome state when a detailed Thread stream observes the terminal event first. */
+export const reconcileThreadShellFromSnapshot = (snapshot: ThreadSnapshot): boolean => {
+  const latestTurn = snapshot.thread.latestTurn
+  if (latestTurn === null || latestTurn.state === "running" || latestTurn.completedAt === null) {
+    return false
+  }
+  return patchAppliedShellThread(snapshot.thread.id, (thread) => {
+    if (!isRunningTurn(thread.latestTurn) || thread.latestTurn?.turnId !== latestTurn.turnId) {
+      return thread
+    }
+    return {
+      ...thread,
+      latestTurn,
+      sessionStatus: snapshot.session?.status ?? null,
+      lastError: snapshot.session?.lastError ?? null,
+      updatedAt: snapshot.thread.updatedAt,
+    }
+  })
+}
+
 const stopUnretainedWriter = (threadId: ThreadId, writer: ThreadSnapshotWriter): void => {
   if (writer.background || writer.listeners.size > 0 || writers.get(threadId) !== writer) {
     return
@@ -103,6 +124,7 @@ const ensureWriter = (threadId: ThreadId): ThreadSnapshotWriter => {
       replaceThreadSnapshot(incoming)
       const snapshot = getThreadSnapshot(threadId)
       if (snapshot !== undefined) {
+        reconcileThreadShellFromSnapshot(snapshot)
         for (const listener of writer.listeners) {
           listener.onSnapshot(snapshot)
         }
@@ -113,7 +135,10 @@ const ensureWriter = (threadId: ThreadId): ThreadSnapshotWriter => {
       if (writers.get(threadId) !== writer) {
         return
       }
-      reduceThreadSnapshotEnvelope(threadId, event)
+      const snapshot = reduceThreadSnapshotEnvelope(threadId, event)
+      if (snapshot !== undefined) {
+        reconcileThreadShellFromSnapshot(snapshot)
+      }
       for (const listener of writer.listeners) {
         listener.onEvent(event)
       }

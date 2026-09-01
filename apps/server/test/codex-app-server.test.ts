@@ -32,15 +32,16 @@ const staticMcpCredential = {
     authorizationHeader: "Bearer test-mcp-token",
   },
 }
-const testMcpSessionsLayer = Layer.succeed(McpSessionRegistry)({
-  issue: () => Effect.succeed(staticMcpCredential),
-  resolve: () => Effect.succeed(missingMcpScope),
-  activateTurn: () => Effect.void,
-  deactivateTurn: () => Effect.void,
-  touchSession: () => Effect.succeed(true),
-  revokeSession: () => Effect.void,
-  revokeAll: Effect.void,
-})
+const testMcpSessionsLayer = (onRevoke: (threadId: ThreadId) => void = () => undefined) =>
+  Layer.succeed(McpSessionRegistry)({
+    issue: () => Effect.succeed(staticMcpCredential),
+    resolve: () => Effect.succeed(missingMcpScope),
+    activateTurn: () => Effect.void,
+    deactivateTurn: () => Effect.void,
+    touchSession: () => Effect.succeed(true),
+    revokeSession: (revokedThreadId) => Effect.sync(() => onRevoke(revokedThreadId)),
+    revokeAll: Effect.void,
+  })
 
 const input = (
   runtimeMode: ProviderTurnInput["runtimeMode"] = "full-access",
@@ -84,18 +85,27 @@ const withProvider = <A, E, R>(
   scenario: string,
   use: (
     provider: ProviderPort["Service"],
-    evidence: { readonly requestLog: string; readonly exitLog: string },
+    evidence: {
+      readonly requestLog: string
+      readonly exitLog: string
+      readonly revokedSessions: ReadonlyArray<ThreadId>
+    },
   ) => Effect.Effect<A, E, R>,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
       const evidence = yield* makeOptions(scenario)
+      const revokedSessions: Array<ThreadId> = []
       const services = yield* Layer.build(
-        codexProviderLayer(evidence.options).pipe(Layer.provide(testMcpSessionsLayer)),
+        codexProviderLayer(evidence.options).pipe(
+          Layer.provide(
+            testMcpSessionsLayer((revokedThreadId) => revokedSessions.push(revokedThreadId)),
+          ),
+        ),
       )
       return yield* Effect.gen(function* () {
         const provider = yield* ProviderPort
-        return yield* use(provider, evidence)
+        return yield* use(provider, { ...evidence, revokedSessions })
       }).pipe(Effect.provide(services))
     }),
   )
@@ -439,5 +449,103 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
           }),
         )
       }),
+  )
+
+  it.effect("isolates child-thread notifications from the active root Turn", () =>
+    withProvider("cross-talk", (provider) =>
+      Effect.gen(function* () {
+        const signals = yield* capture(provider, input())
+        const assistantTexts = signals.flatMap((signal) =>
+          signal._tag === "transcript" && signal.item._tag === "transcript.assistant"
+            ? [signal.item.text]
+            : [],
+        )
+        assert.deepStrictEqual(assistantTexts, ["hello from fake Codex"])
+        assert.deepStrictEqual(
+          signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+          ["completed"],
+        )
+        assert.isFalse(signals.some((signal) => signal._tag === "context-usage"))
+      }),
+    ),
+  )
+
+  it.effect("coalesces root context usage and flushes the latest value before settlement", () =>
+    withProvider("usage-burst", (provider) =>
+      Effect.gen(function* () {
+        const signals = yield* capture(provider, input())
+        const usage = signals.flatMap((signal) =>
+          signal._tag === "context-usage" ? [{ used: signal.used, window: signal.window }] : [],
+        )
+        assert.deepStrictEqual(usage, [{ used: 10, window: 100 }])
+        const usageIndex = signals.findIndex((signal) => signal._tag === "context-usage")
+        const terminalIndex = signals.findIndex((signal) => signal._tag === "turn-ended")
+        assert.isTrue(usageIndex !== -1 && terminalIndex !== -1 && usageIndex < terminalIndex)
+      }),
+    ),
+  )
+
+  it.effect("settles an interrupted Turn when Codex never sends turn/completed", () =>
+    withProvider("hang-no-completion", (provider, evidence) =>
+      Effect.gen(function* () {
+        const signals: Array<ProviderSignal> = []
+        yield* provider.startTurn(input(), (signal) =>
+          Effect.sync(() => {
+            signals.push(signal)
+          }),
+        )
+        yield* waitForLog(evidence.requestLog, '"method":"turn/start"')
+        yield* provider.interrupt(threadId)
+        yield* provider.drain
+
+        assert.deepStrictEqual(
+          signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+          ["interrupted"],
+        )
+        assert.isTrue(
+          signals.some((signal) => signal._tag === "session" && signal.status === "ready"),
+        )
+
+        yield* waitForLog(evidence.exitLog, "SIGTERM")
+      }),
+    ),
+  )
+
+  it.effect("settles an active Turn when the Codex process exits", () =>
+    withProvider("exit-active", (provider) =>
+      Effect.gen(function* () {
+        const signals = yield* capture(provider, input())
+        assert.deepStrictEqual(
+          signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+          ["error"],
+        )
+        assert.isTrue(
+          signals.some((signal) => signal._tag === "session" && signal.status === "error"),
+        )
+        const terminalIndex = signals.findIndex((signal) => signal._tag === "turn-ended")
+        assert.isFalse(
+          signals
+            .slice(terminalIndex + 1)
+            .some((signal) => signal._tag === "session" && signal.status === "running"),
+        )
+      }),
+    ),
+  )
+
+  it.effect("releases startup resources when Codex exits before Session assignment", () =>
+    Effect.gen(function* () {
+      for (const scenario of ["exit-during-initialize", "exit-during-thread-start"]) {
+        yield* withProvider(scenario, (provider, evidence) =>
+          Effect.gen(function* () {
+            const signals = yield* capture(provider, input())
+            assert.deepStrictEqual(
+              signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+              ["error"],
+            )
+            assert.deepStrictEqual(evidence.revokedSessions, [threadId])
+          }),
+        )
+      }
+    }),
   )
 })
