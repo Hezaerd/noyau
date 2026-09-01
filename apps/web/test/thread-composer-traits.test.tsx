@@ -171,6 +171,36 @@ describe("thread composer traits", () => {
       }),
     ))
 
+  it("keeps a provider tier whose value matches the default menu marker", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onModelSelectionChange = vi.fn()
+        renderComposer({
+          catalog: [
+            model({
+              serviceTiers: [{ value: "__noyau_default_service_tier__", label: "Provider tier" }],
+            }),
+          ],
+          modelSelection: { modelId: "composer-2.5", reasoningEffort: "medium" },
+          onModelSelectionChange,
+        })
+        yield* Effect.promise(() => Promise.resolve())
+
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("button", { name: "Service tier" })),
+        )
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("menuitemradio", { name: "Provider tier" })),
+        )
+        expect(onModelSelectionChange).toHaveBeenCalledWith({
+          modelId: "composer-2.5",
+          reasoningEffort: "medium",
+          serviceTier: "__noyau_default_service_tier__",
+        })
+      }),
+    ))
+
   it("hides a trait dropdown the model does not advertise", () => {
     renderComposer({
       catalog: [

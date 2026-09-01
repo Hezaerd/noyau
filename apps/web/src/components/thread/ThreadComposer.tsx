@@ -80,7 +80,14 @@ const runtimeModeIcons = {
   "full-access": LockOpenIcon,
 } satisfies Record<RuntimeMode, ComponentType<{ className?: string }>>
 
-const defaultServiceTierValue = "__noyau_default_service_tier__"
+const defaultServiceTierMenuValue = (serviceTiers: CursorModel["serviceTiers"]) => {
+  const providerValues = new Set(serviceTiers.map((tier) => tier.value))
+  let value = "__noyau_default_service_tier__"
+  while (providerValues.has(value)) {
+    value += "_"
+  }
+  return value
+}
 
 const shouldSubmitComposerOnEnter = (event: {
   readonly key: string
@@ -200,6 +207,7 @@ export function ThreadComposer({
   const hasAdvertisedDefaultTier = selectedModel?.serviceTiers.some(
     (tier) => tier.isDefault === true,
   )
+  const defaultServiceTierValue = defaultServiceTierMenuValue(selectedModel?.serviceTiers ?? [])
   const selectedTierValue =
     modelSelection?.serviceTier ?? selectedTier?.value ?? defaultServiceTierValue
   const selectedThinking = modelSelection?.thinking ?? selectedModel?.thinking?.defaultValue
