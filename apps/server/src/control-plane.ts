@@ -122,6 +122,7 @@ import { coalescePersistedForShell, threadEventTouchesShell, threadIdOf } from "
 import { TextGeneration } from "./text-generation/text-generation.ts"
 import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
 import { makeWorktreeBranchReactor } from "./text-generation/worktree-branch-reactor.ts"
+import { makeThreadLiveEventCoalescer } from "./thread-live-coalescer.ts"
 import { searchWorkspacePathsInRoot } from "./workspace-path-search.ts"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root.ts"
 
@@ -224,6 +225,34 @@ const bufferedTail = <A, E = never, R = never>(
       )
     : stream
 }
+
+const threadLiveTail = Effect.fn("ControlPlane.threadLiveTail")(function* (
+  buffer: Queue.Dequeue<LiveInput> & Queue.Enqueue<LiveInput>,
+  boundary: number,
+  requestCompletionMarker: boolean | undefined,
+  matches: (event: PersistedEvent<DomainEventType>) => boolean,
+) {
+  const coalescer = yield* makeThreadLiveEventCoalescer()
+  yield* Stream.fromQueue(buffer).pipe(
+    Stream.filter(
+      (item) =>
+        item.kind === "synchronized" || (eventSequence(item) > boundary && matches(item.event)),
+    ),
+    Stream.runForEach(coalescer.offer),
+    Effect.forkScoped,
+  )
+  if (requestCompletionMarker === true) {
+    yield* Queue.offer(buffer, { kind: "synchronized" })
+  }
+  return coalescer.stream.pipe(
+    Stream.mapEffect((item): Effect.Effect<ThreadStreamItem> => {
+      if (item.kind === "synchronized") {
+        return Effect.succeed({ kind: "synchronized" })
+      }
+      return toEnvelope(item.event).pipe(Effect.map((event) => ({ kind: "event" as const, event })))
+    }),
+  )
+})
 
 const assistantLiveFrames = (threadLive: ThreadLive["Service"], threadId: ThreadId) =>
   threadLive
@@ -799,19 +828,11 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
                   Stream.mapEffect(toEnvelope),
                   Stream.map((event): ThreadStreamItem => ({ kind: "event" as const, event })),
                 )
-              const tail = bufferedTail<ThreadStreamItem>(
+              const tail = yield* threadLiveTail(
                 buffer,
                 head,
                 input.requestCompletionMarker,
-                (event) =>
-                  matches(event)
-                    ? toEnvelope(event).pipe(
-                        Effect.map((envelope) => [
-                          { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
-                        ]),
-                      )
-                    : Effect.succeed([]),
-                { kind: "synchronized" },
+                matches,
               )
               return withAssistantLive(threadLive, input.threadId, historical, tail)
             }
@@ -829,19 +850,11 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
                 kind: "snapshot" as const,
                 snapshot: snapshot.value,
               } satisfies ThreadStreamItem),
-              bufferedTail<ThreadStreamItem>(
+              yield* threadLiveTail(
                 buffer,
                 snapshot.value.snapshotSequence,
                 input.requestCompletionMarker,
-                (event) =>
-                  matches(event)
-                    ? toEnvelope(event).pipe(
-                        Effect.map((envelope) => [
-                          { kind: "event" as const, event: envelope } satisfies ThreadStreamItem,
-                        ]),
-                      )
-                    : Effect.succeed([]),
-                { kind: "synchronized" },
+                matches,
               ),
             )
           }),

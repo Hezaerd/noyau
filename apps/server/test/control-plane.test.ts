@@ -122,8 +122,8 @@ const controlPlaneTestLayer = (
     Layer.provide(Layer.succeed(Crypto.Crypto)(testCrypto())),
   )
 
-const cursorControlPlaneTestLayer = (scenario: string) =>
-  makeControlPlaneLayer().pipe(
+const cursorControlPlaneTestLayer = (scenario: string, hooks: ControlPlaneHooks = {}) =>
+  makeControlPlaneLayer(hooks).pipe(
     Layer.provideMerge(unavailableAgentSkillInstallerLayer),
     Layer.provideMerge(memoryLayer),
     Layer.provideMerge(testServerConfigLayer()),
@@ -563,6 +563,96 @@ describe("ControlPlane", () => {
       })
       yield* run(program, hooks)
     }),
+  )
+
+  it.effect("coalesces buffered live tool updates before the synchronization marker", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const snapshotRead = yield* Deferred.make<void>()
+        const releaseSnapshot = yield* Deferred.make<void>()
+        const hooks: ControlPlaneHooks = {
+          afterThreadSnapshot: () =>
+            Deferred.succeed(snapshotRead, undefined).pipe(
+              Effect.andThen(Deferred.await(releaseSnapshot)),
+            ),
+        }
+        const services = yield* Layer.build(cursorControlPlaneTestLayer("chatty-tool", hooks))
+        const controlPlane = yield* ControlPlane.pipe(Effect.provide(services))
+        yield* controlPlane.dispatch(
+          request({
+            _tag: "project.create",
+            commandId: uuid(20),
+            payload: {
+              projectId,
+              name: "Cursor tool coalescing",
+              workspaceRoot: process.cwd(),
+            },
+          }),
+          actorId,
+        )
+        yield* controlPlane.dispatch(threadCreate, actorId)
+
+        const subscription = yield* controlPlane
+          .subscribeThread({ threadId, requestCompletionMarker: true })
+          .pipe(
+            Stream.takeUntil((frame) => frame.kind === "synchronized"),
+            Stream.runCollect,
+            Effect.forkChild,
+          )
+        yield* Deferred.await(snapshotRead)
+        const started = yield* controlPlane.dispatch(
+          request({
+            _tag: "thread.turn.start",
+            commandId: uuid(21),
+            payload: { threadId, text: "Run chatty fake Cursor" },
+          }),
+          actorId,
+        )
+        yield* controlPlane.drainReactors
+        yield* Deferred.succeed(releaseSnapshot, undefined)
+        const frames = yield* Fiber.join(subscription)
+        const toolFrames = frames.filter(
+          (frame) =>
+            frame.kind === "event" &&
+            frame.event.event._tag === "thread.transcript-appended" &&
+            frame.event.event.item._tag === "transcript.tool" &&
+            frame.event.event.item.toolCallId === "fake-tool-1",
+        )
+
+        assert.strictEqual(frames[0]?.kind, "snapshot")
+        assert.strictEqual(frames.at(-1)?.kind, "synchronized")
+        assert.deepStrictEqual(
+          toolFrames.map((frame) =>
+            frame.kind === "event" &&
+            frame.event.event._tag === "thread.transcript-appended" &&
+            frame.event.event.item._tag === "transcript.tool"
+              ? frame.event.event.item.status
+              : null,
+          ),
+          ["in_progress", "completed"],
+        )
+
+        const replay = yield* controlPlane
+          .subscribeThread({
+            threadId,
+            afterSequence: started.sequence,
+            requestCompletionMarker: true,
+          })
+          .pipe(
+            Stream.takeUntil((frame) => frame.kind === "synchronized"),
+            Stream.runCollect,
+          )
+        const replayedUpdates = replay.filter(
+          (frame) =>
+            frame.kind === "event" &&
+            frame.event.event._tag === "thread.transcript-appended" &&
+            frame.event.event.item._tag === "transcript.tool" &&
+            frame.event.event.item.toolCallId === "fake-tool-1" &&
+            frame.event.event.item.status === "in_progress",
+        )
+        assert.strictEqual(replayedUpdates.length, 21)
+      }),
+    ),
   )
 
   it.effect("streams Cursor Session dates and durably completes end_turn", () =>

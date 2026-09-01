@@ -206,6 +206,19 @@ const emitLiveUpdates = () => {
       rawInput: { query: "mentions légales" },
     },
   })
+  if (scenario === "chatty-tool") {
+    for (let index = 1; index <= 20; index += 1) {
+      notify("session/update", {
+        sessionId: activeSessionId,
+        update: {
+          sessionUpdate: "tool_call_update",
+          toolCallId: "fake-tool-1",
+          status: "in_progress",
+          rawOutput: { content: `update-${String(index)}` },
+        },
+      })
+    }
+  }
   notify("session/update", {
     sessionId: activeSessionId,
     update: {
