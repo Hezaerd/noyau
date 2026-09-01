@@ -354,7 +354,7 @@ function ThreadSidebarItemContent({
           <FolderIcon aria-hidden className="size-3 shrink-0 opacity-70" />
           <span className="min-w-0 truncate">{projectName}</span>
         </span>
-        <span className="ml-auto grid h-4 w-20 shrink-0 justify-items-end">
+        <span className="ml-auto grid min-h-4 shrink-0 justify-items-end">
           <span
             className={
               settleable
