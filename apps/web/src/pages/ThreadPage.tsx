@@ -78,6 +78,12 @@ import {
   type SubscriptionStatus,
 } from "@/lib/control-plane"
 import { makeOptimisticThreadShell } from "@/lib/control-plane-state"
+import {
+  clearDraftComposerPreferences,
+  peekDraftComposerPreferences,
+  promoteDraftComposerPreferences,
+  rememberDraftComposerPreferences,
+} from "@/lib/draft-composer-preferences"
 import { isDraftThreadView, resolveDraftLatestTurn } from "@/lib/draft-thread"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { resolveDraftDefaultModelSelection } from "@/lib/model-picker-preferences"
@@ -193,6 +199,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   } = useComposerDraft(projectId, threadId)
   const replaceDraft = useAtomSet(replaceComposerDraftAtom)
   const removeDraftImage = useAtomSet(removeComposerDraftImageAtom)
+  const initialComposerPreferences = useState(() =>
+    peekDraftComposerPreferences(projectId, threadId),
+  )[0]
   const initialCheckout = useState(() => {
     const cached = threadId === undefined ? undefined : getThreadSnapshot(threadId)
     return openedCheckoutOf({
@@ -205,8 +214,12 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
   const [envMode, setEnvMode] = useState<ThreadEnvMode>(initialCheckout.envMode)
   const [baseBranch, setBaseBranch] = useState<string | null>(initialCheckout.baseBranch)
   const [startFromOrigin, setStartFromOrigin] = useState(initialCheckout.startFromOrigin)
-  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("full-access")
-  const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null)
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>(
+    initialComposerPreferences?.runtimeMode ?? "full-access",
+  )
+  const [modelSelection, setModelSelection] = useState<ModelSelection | null>(
+    initialComposerPreferences?.modelSelection ?? null,
+  )
   const [defaultModelSelection, setDefaultModelSelection] = useState<DefaultModelSelection | null>(
     null,
   )
@@ -215,7 +228,11 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     undefined,
   )
   const persistedDefaultModelSelectionRef = useRef<DefaultModelSelection | null>(null)
-  const [draftProvider, setDraftProvider] = useState<Provider>(DEFAULT_PROVIDER_INSTANCE_ID)
+  const [draftProvider, setDraftProvider] = useState<Provider>(
+    initialComposerPreferences?.provider ?? DEFAULT_PROVIDER_INSTANCE_ID,
+  )
+  const draftProviderRef = useRef(draftProvider)
+  draftProviderRef.current = draftProvider
   const [draftByRequest, setDraftByRequest] = useState<Record<string, DraftAnswers>>({})
   const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
   const [optimisticSend, setOptimisticSendState] = useState<OptimisticSend | null>(() =>
@@ -258,7 +275,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     }
   }, [project?.defaultModelSelection])
 
-  const initializedDraftModelRef = useRef<ProjectId>(undefined)
+  const initializedDraftModelRef = useRef<ProjectId>(
+    initialComposerPreferences === undefined ? undefined : projectId,
+  )
   useEffect(() => {
     if (
       threadId !== undefined ||
@@ -399,6 +418,9 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       return
     }
     const cached = getThreadSnapshot(threadId)
+    const rememberedPreferences = peekDraftComposerPreferences(projectId, threadId)
+    const cachedIsDraft =
+      cached !== undefined && cached.thread.latestTurn === null && cached.transcript.length === 0
     const opened = openedCheckoutOf({
       threadId,
       worktreePath: threadWorktreePathOf(cached?.thread ?? shellThreadRef.current ?? {}),
@@ -411,19 +433,38 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
     setLoading(cached === undefined)
     setSubscriptionStatus(undefined)
     if (cached !== undefined) {
-      setRuntimeMode(cached.thread.runtimeMode)
-      setModelSelection(cached.thread.modelSelection)
+      setRuntimeMode(
+        cachedIsDraft && rememberedPreferences !== undefined
+          ? rememberedPreferences.runtimeMode
+          : cached.thread.runtimeMode,
+      )
+      setModelSelection(
+        cachedIsDraft && rememberedPreferences !== undefined
+          ? rememberedPreferences.modelSelection
+          : cached.thread.modelSelection,
+      )
     } else {
-      setRuntimeMode("full-access")
-      setModelSelection(null)
+      setRuntimeMode(rememberedPreferences?.runtimeMode ?? "full-access")
+      setModelSelection(rememberedPreferences?.modelSelection ?? null)
     }
     const commitSnapshot = (next: ThreadSnapshot) => {
       if (next.thread.id !== threadId) {
         return
       }
       replaceThreadSnapshot(next)
-      setRuntimeMode(next.thread.runtimeMode)
-      setModelSelection(next.thread.modelSelection)
+      const remembered = peekDraftComposerPreferences(projectId, threadId)
+      const nextIsDraft = next.thread.latestTurn === null && next.transcript.length === 0
+      setRuntimeMode(
+        nextIsDraft && remembered !== undefined ? remembered.runtimeMode : next.thread.runtimeMode,
+      )
+      setModelSelection(
+        nextIsDraft && remembered !== undefined
+          ? remembered.modelSelection
+          : next.thread.modelSelection,
+      )
+      if (!nextIsDraft) {
+        clearDraftComposerPreferences(projectId, threadId)
+      }
       const boundPath = threadWorktreePathOf(next.thread)
       const nextCheckout = openedCheckoutOf({
         threadId: next.thread.id,
@@ -493,7 +534,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
       unsubscribe()
       clearAssistantPaint(threadId)
     }
-  }, [threadId])
+  }, [projectId, threadId])
 
   const { isAuthoritativeWorking: isRunning, isWorking } = resolveOpenThreadWorking({
     openThreadId: threadId,
@@ -667,6 +708,7 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
           baseBranch,
           startFromOrigin,
         })
+        promoteDraftComposerPreferences(submittedProjectId, result.threadId)
         publishCreatedThread(
           makeOptimisticThreadShell({
             id: result.threadId,
@@ -837,6 +879,17 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
 
   const changeModelSelection = (nextSelection: ModelSelection | null) => {
     setModelSelection(nextSelection)
+    if (isDraftThread) {
+      rememberDraftComposerPreferences({
+        projectId,
+        threadId,
+        preferences: {
+          provider: draftProviderRef.current,
+          modelSelection: nextSelection,
+          runtimeMode,
+        },
+      })
+    }
     setComposerFailure(undefined)
     if (threadId === undefined) {
       return
@@ -856,6 +909,39 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         return undefined
       },
     )
+  }
+
+  const changeRuntimeMode = (nextRuntimeMode: RuntimeMode) => {
+    setRuntimeMode(nextRuntimeMode)
+    if (!isDraftThread) {
+      return
+    }
+    rememberDraftComposerPreferences({
+      projectId,
+      threadId,
+      preferences: {
+        provider: draftProviderRef.current,
+        modelSelection,
+        runtimeMode: nextRuntimeMode,
+      },
+    })
+  }
+
+  const changeDraftProvider = (nextProvider: Provider) => {
+    draftProviderRef.current = nextProvider
+    setDraftProvider(nextProvider)
+    if (!isDraftThread) {
+      return
+    }
+    rememberDraftComposerPreferences({
+      projectId,
+      threadId,
+      preferences: {
+        provider: nextProvider,
+        modelSelection,
+        runtimeMode,
+      },
+    })
   }
 
   const changeDefaultModelSelection = (nextSelection: DefaultModelSelection | null) => {
@@ -1020,10 +1106,10 @@ export function ThreadPage({ projectId, threadId, onCreated, onSelectProject }: 
         setText(value)
         setComposerFailure(undefined)
       }}
-      onRuntimeModeChange={setRuntimeMode}
+      onRuntimeModeChange={changeRuntimeMode}
       onModelSelectionChange={changeModelSelection}
       onDefaultModelSelectionChange={changeDefaultModelSelection}
-      onProviderChange={setDraftProvider}
+      onProviderChange={changeDraftProvider}
       onPaste={acceptImages}
       onDrop={acceptImages}
       onImageRemove={(localId) => {
