@@ -3,10 +3,15 @@ import {
   buildGeneratedWorktreeBranchName,
   buildTemporaryWorktreeBranchName,
   deriveRepositoryUrlFromCreateOutput,
+  DEFAULT_PR_LOOKUP_CACHE_TTL,
+  INITIAL_PR_LOOKUP_FAILURE_TTL,
   isTemporaryWorktreeBranch,
+  MAX_PR_LOOKUP_FAILURE_TTL,
+  prLookupFailureTtl,
   sanitizeWorktreeFolderName,
   unavailableVcsStatus,
 } from "@noyau/server/git/git-runtime"
+import { Duration } from "effect"
 
 describe("GitRuntime helpers", () => {
   it("forme une branche temporaire noyau/<8 hex>", () => {
@@ -66,5 +71,19 @@ describe("GitRuntime helpers", () => {
       worktreePath: null,
       pr: null,
     })
+  })
+
+  it("applique un TTL de PR de deux minutes et un backoff plafonné", () => {
+    expect(Duration.toSeconds(DEFAULT_PR_LOOKUP_CACHE_TTL)).toBe(120)
+    expect(Duration.toSeconds(prLookupFailureTtl(1))).toBe(
+      Duration.toSeconds(INITIAL_PR_LOOKUP_FAILURE_TTL),
+    )
+    expect(Duration.toSeconds(prLookupFailureTtl(2))).toBe(40)
+    expect(Duration.toSeconds(prLookupFailureTtl(7))).toBe(
+      Duration.toSeconds(MAX_PR_LOOKUP_FAILURE_TTL),
+    )
+    expect(Duration.toSeconds(prLookupFailureTtl(100))).toBe(
+      Duration.toSeconds(MAX_PR_LOOKUP_FAILURE_TTL),
+    )
   })
 })

@@ -12,6 +12,12 @@ On a Thread that already has a pull request:
 
 The tab shows the pull request for that Thread. If the Thread has none yet, the tab stays empty.
 
+## Status and automatic settling
+
+Noyau refreshes local Git status every 30 seconds. GitHub pull-request metadata is refreshed at most once every two minutes per branch, so a faster status refresh does not create a matching increase in GitHub requests.
+
+If GitHub or `gh` is temporarily unavailable, Noyau keeps the last known pull-request state and retries with increasing delays. When the pull request reaches a closed or merged state, the Thread settles according to the automatic-settling setting.
+
 ## Read the pull request
 
 The **Summary** tab shows the description, review activity, comments, and check status.

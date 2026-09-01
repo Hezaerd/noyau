@@ -32,7 +32,7 @@ export const recoverVcsStatusSnapshot = (
     ),
   )
 
-export const DEFAULT_VCS_STATUS_REFRESH_INTERVAL = Duration.seconds(60)
+export const DEFAULT_VCS_STATUS_REFRESH_INTERVAL = Duration.seconds(30)
 
 interface VcsStatusChange {
   readonly cwd: string
@@ -102,11 +102,8 @@ export const make = Effect.gen(function* () {
     return yield* publishIfChanged(cwd, status)
   })
 
-  const pollOnce = Effect.fn("VcsStatusBroadcaster.pollOnce")(function* (
-    cwd: string,
-    includePr: boolean,
-  ) {
-    const status = yield* git.status(cwd, { includePr })
+  const pollOnce = Effect.fn("VcsStatusBroadcaster.pollOnce")(function* (cwd: string) {
+    const status = yield* git.status(cwd, { includePr: true })
     return yield* publishIfChanged(cwd, status)
   })
 
@@ -121,12 +118,8 @@ export const make = Effect.gen(function* () {
         next.set(cwd, { ...existing, subscriberCount: existing.subscriberCount + 1 })
         return Effect.succeed([undefined, next] as const)
       }
-      const pollerState = { pollCount: 0 }
       const loop = Effect.gen(function* () {
-        pollerState.pollCount += 1
-        // PR metadata (gh) is expensive — only every 3rd tick; git status stays frequent enough.
-        const includePr = pollerState.pollCount % 3 === 1
-        yield* pollOnce(cwd, includePr).pipe(
+        yield* pollOnce(cwd).pipe(
           Effect.catchTag("GitCommandError", (error) =>
             Effect.logWarning("VCS status refresh failed").pipe(
               Effect.annotateLogs({
