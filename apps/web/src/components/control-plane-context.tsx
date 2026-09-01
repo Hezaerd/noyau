@@ -6,7 +6,6 @@ import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-
 import { dismissBootSplash } from "@/lib/boot-splash"
 import { subscribeShell } from "@/lib/control-plane"
 import { resolveStartupDestination, shouldHoldBootSplash } from "@/lib/last-screen"
-import { warmTerminalThreadSnapshot } from "@/lib/thread-snapshot-shell-sync"
 import { hydrateKeybindingsFromServer } from "@/state/keybindings"
 import {
   hydrateLastScreen,
@@ -14,6 +13,11 @@ import {
   replaceAppliedShell,
   setSubscriptionStatus,
 } from "@/state/shell"
+import {
+  resetThreadSnapshotSubscriptions,
+  syncWarmThreadSnapshotEvent,
+  syncWarmThreadSnapshots,
+} from "@/state/thread-snapshot-subscriptions"
 
 export function ControlPlaneProvider({ children }: { readonly children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
@@ -28,17 +32,22 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
 
   useEffect(() => {
     hydrateLastScreen()
-    return subscribeShell(undefined, {
+    const unsubscribe = subscribeShell(undefined, {
       onSnapshot: (next) => {
         replaceAppliedShell(next)
+        syncWarmThreadSnapshots(next.threads)
         hydrateKeybindingsFromServer()
       },
       onEvent: (event) => {
-        warmTerminalThreadSnapshot(event)
+        syncWarmThreadSnapshotEvent(event)
         return reduceAppliedShellEvent(event)
       },
       onStatus: setSubscriptionStatus,
     })
+    return () => {
+      unsubscribe()
+      resetThreadSnapshotSubscriptions()
+    }
   }, [])
 
   useEffect(() => {

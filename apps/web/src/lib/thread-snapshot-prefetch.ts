@@ -13,7 +13,7 @@ export type ThreadSnapshotLoader = (
 let loadSnapshot: ThreadSnapshotLoader | undefined
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
 let hoverTarget: ThreadId | undefined
-const queued = new Map<ThreadId, boolean>()
+const queued = new Set<ThreadId>()
 let inflightThreadId: ThreadId | undefined
 let inflight: Promise<void> | undefined
 let generation = 0
@@ -28,36 +28,28 @@ const clearDebounce = (): void => {
   debounceTimer = undefined
 }
 
-const queueLoad = (threadId: ThreadId, force: boolean): void => {
-  queued.set(threadId, (queued.get(threadId) ?? false) || force)
-}
-
 const startNextQueuedLoad = (): void => {
   if (inflight !== undefined) {
     return
   }
-  const next = queued.entries().next().value
-  if (next === undefined) {
+  const nextThreadId = queued.values().next().value
+  if (nextThreadId === undefined) {
     return
   }
-  const [nextThreadId, nextForce] = next
   queued.delete(nextThreadId)
-  startLoad(nextThreadId, nextForce)
+  startLoad(nextThreadId)
 }
 
-const startLoad = (threadId: ThreadId, force = false): void => {
-  if (!force && !threadSnapshotNeedsLoad(threadId)) {
+const startLoad = (threadId: ThreadId): void => {
+  if (!threadSnapshotNeedsLoad(threadId)) {
     startNextQueuedLoad()
     return
   }
   if (inflightThreadId === threadId) {
-    if (force) {
-      queueLoad(threadId, true)
-    }
     return
   }
   if (inflight !== undefined) {
-    queueLoad(threadId, force)
+    queued.add(threadId)
     return
   }
   const started = generation
@@ -97,11 +89,6 @@ export const prefetchThreadSnapshot = (threadId: ThreadId): void => {
   hoverTarget = threadId
   clearDebounce()
   debounceTimer = setTimeout(commitHoverTarget, THREAD_SNAPSHOT_PREFETCH_DEBOUNCE_MS)
-}
-
-/** Refresh a known-stale body immediately when its shell Turn settles. */
-export const refreshThreadSnapshot = (threadId: ThreadId): void => {
-  startLoad(threadId, true)
 }
 
 export const setThreadSnapshotPrefetchLoaderForTests = (loader: ThreadSnapshotLoader): void => {
