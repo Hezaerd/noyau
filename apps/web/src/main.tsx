@@ -15,7 +15,6 @@ import {
   initializeProjectFolderStartDirectory,
   initializeThreadEnvModePreference,
   initializeTurnCuePreference,
-  initializeTurnNotificationPreference,
 } from "@/state/preferences"
 import { initializeThreadPins } from "@/state/thread-pins"
 import { initializeThreadSettlePreference } from "@/state/thread-settle"
@@ -33,7 +32,6 @@ initializeDiscordPresencePreference()
 initializeThreadEnvModePreference()
 initializeThreadSettlePreference()
 initializeTurnCuePreference()
-initializeTurnNotificationPreference()
 initializeThreadPins()
 initializeThreadVisits()
 initializeComposerDrafts()

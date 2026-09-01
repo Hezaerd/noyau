@@ -8,7 +8,6 @@ import {
   useAutoSettleOnMergeEnabled,
 } from "@/hooks/use-thread-settle-preference"
 import { useTurnCuePreference } from "@/hooks/use-turn-cue"
-import { useTurnNotificationEnabled } from "@/hooks/use-turn-notification"
 import { DEFAULT_DISCORD_PRESENCE_ENABLED } from "@/lib/discord-presence-preference"
 import type { SettingsTabId } from "@/lib/settings-catalog"
 import {
@@ -16,11 +15,9 @@ import {
   DEFAULT_AUTO_SETTLE_ON_MERGE,
 } from "@/lib/thread-settle-preference"
 import { isTurnCuePreferenceDefault } from "@/lib/turn-cue-preference"
-import { DEFAULT_TURN_NOTIFICATION_ENABLED } from "@/lib/turn-notification-preference"
 import { hasCustomKeybindings } from "@/state/keybindings"
 import {
   resetTurnCuePreference,
-  resetTurnNotificationPreference,
   setAppearancePreference,
   setDiscordPresenceEnabled,
   setProjectFolderStartDirectory,
@@ -40,7 +37,6 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
   const autoSettleAfterDays = useAutoSettleAfterDays()
   const discordPresenceEnabled = useDiscordPresenceEnabled()
   const turnCue = useTurnCuePreference()
-  const turnNotificationEnabled = useTurnNotificationEnabled()
 
   switch (tabId) {
     case "general":
@@ -50,14 +46,12 @@ export const useSettingsTabRestore = (tabId: SettingsTabId): SettingsTabRestore 
           autoSettleOnMerge !== DEFAULT_AUTO_SETTLE_ON_MERGE ||
           autoSettleAfterDays !== DEFAULT_AUTO_SETTLE_AFTER_DAYS ||
           discordPresenceEnabled !== DEFAULT_DISCORD_PRESENCE_ENABLED ||
-          !isTurnCuePreferenceDefault(turnCue) ||
-          turnNotificationEnabled !== DEFAULT_TURN_NOTIFICATION_ENABLED,
+          !isTurnCuePreferenceDefault(turnCue),
         restore: () => {
           setProjectFolderStartDirectory("")
           resetThreadSettlePreference()
           setDiscordPresenceEnabled(DEFAULT_DISCORD_PRESENCE_ENABLED)
           resetTurnCuePreference()
-          resetTurnNotificationPreference()
         },
       }
     case "appearance":

@@ -12,7 +12,6 @@ import {
   Menu,
   nativeTheme,
   net,
-  Notification,
   type OpenDialogOptions,
   protocol,
   session,
@@ -20,19 +19,6 @@ import {
 } from "electron"
 
 import { applicationMenuTemplate } from "./application-menu"
-import {
-  normalizeBadgeCount,
-  openThreadFromNotification,
-  shouldShowTurnNotification,
-  turnNotificationOptions,
-} from "./attention"
-import {
-  decodeBadgeCount,
-  decodeTurnNotification,
-  OPEN_THREAD_FROM_NOTIFICATION_CHANNEL,
-  SET_BADGE_COUNT_CHANNEL,
-  SHOW_TURN_NOTIFICATION_CHANNEL,
-} from "./attention-contract"
 import {
   openCheckedDesktopInstaller,
   resolveDesktopUpdateCheckChannel,
@@ -271,68 +257,6 @@ const registerDesktopUpdateBridge = (): void => {
             shell.openExternal(url),
           ),
         ),
-      ),
-    ),
-  )
-}
-
-const focusMainWindow = (): void => {
-  if (mainWindow === undefined || mainWindow.isDestroyed()) {
-    return
-  }
-  if (mainWindow.isMinimized()) {
-    mainWindow.restore()
-  }
-  mainWindow.show()
-  mainWindow.focus()
-}
-
-const turnNotificationsByThread = new Map<string, Notification>()
-
-const registerAttentionBridge = (): void => {
-  ipcMain.handle(SET_BADGE_COUNT_CHANNEL, (_event, input) =>
-    desktopRuntime.runPromise(
-      decodeBadgeCount(input).pipe(
-        Effect.map((count) => {
-          app.setBadgeCount(normalizeBadgeCount(count))
-          return undefined
-        }),
-      ),
-    ),
-  )
-  ipcMain.handle(SHOW_TURN_NOTIFICATION_CHANNEL, (_event, input) =>
-    desktopRuntime.runPromise(
-      decodeTurnNotification(input).pipe(
-        Effect.map((notificationInput) => {
-          if (
-            !Notification.isSupported() ||
-            (mainWindow !== undefined &&
-              !mainWindow.isDestroyed() &&
-              !shouldShowTurnNotification(mainWindow.isFocused()))
-          ) {
-            return undefined
-          }
-          turnNotificationsByThread.get(notificationInput.threadId)?.close()
-          const notification = new Notification(turnNotificationOptions(notificationInput))
-          turnNotificationsByThread.set(notificationInput.threadId, notification)
-          notification.on("click", () => {
-            focusMainWindow()
-            if (mainWindow === undefined || mainWindow.isDestroyed()) {
-              return
-            }
-            mainWindow.webContents.send(
-              OPEN_THREAD_FROM_NOTIFICATION_CHANNEL,
-              openThreadFromNotification(notificationInput),
-            )
-          })
-          notification.on("close", () => {
-            if (turnNotificationsByThread.get(notificationInput.threadId) === notification) {
-              turnNotificationsByThread.delete(notificationInput.threadId)
-            }
-          })
-          notification.show()
-          return undefined
-        }),
       ),
     ),
   )
@@ -594,7 +518,6 @@ const launch = Effect.fn("launch")(function* () {
   registerFolderPickerBridge()
   registerOpenPathBridge()
   registerDesktopUpdateBridge()
-  registerAttentionBridge()
   const previewApp: PreviewApp = {
     on: (event, listener) => {
       app.on(event, (createdEvent, contents) => {

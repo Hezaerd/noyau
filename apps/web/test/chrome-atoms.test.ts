@@ -6,12 +6,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test"
 import { appAtomRegistry, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { nowMinuteAtom } from "../src/state/now"
 import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
-import {
-  sidebarQueuesAtom,
-  threadActivityAtom,
-  threadUnreadAtom,
-  waitingThreadCountAtom,
-} from "../src/state/sidebar"
+import { sidebarQueuesAtom, threadActivityAtom, threadUnreadAtom } from "../src/state/sidebar"
 import {
   isThreadComposerOpen,
   setThreadComposerOpen,
@@ -122,41 +117,6 @@ describe("threadUnreadAtom", () => {
 
     markThreadVisited(threadId, Date.parse("2026-08-25T12:11:00.000Z"))
     expect(appAtomRegistry.get(threadUnreadAtom(threadId))).toBe(false)
-  })
-
-  it("counts waiting Threads across the shell", () => {
-    const otherId = ThreadId.make("20000000-0000-4000-8000-000000000002")
-    replaceAppliedShell(
-      makeSnapshot([
-        makeThread({
-          latestTurn: {
-            turnId,
-            state: "completed",
-            requestedAt: "2026-08-25T12:00:00.000Z",
-            startedAt: "2026-08-25T12:00:00.000Z",
-            completedAt: "2026-08-25T12:10:00.000Z",
-          },
-        }),
-        makeThread({
-          id: otherId,
-          title: "Other",
-          latestTurn: {
-            turnId: TurnId.make("40000000-0000-4000-8000-000000000002"),
-            state: "completed",
-            requestedAt: "2026-08-25T12:00:00.000Z",
-            startedAt: "2026-08-25T12:00:00.000Z",
-            completedAt: "2026-08-25T12:10:00.000Z",
-          },
-        }),
-      ]),
-    )
-    markThreadVisited(threadId, Date.parse("2026-08-25T12:05:00.000Z"))
-    markThreadVisited(otherId, Date.parse("2026-08-25T12:05:00.000Z"))
-
-    expect(appAtomRegistry.get(waitingThreadCountAtom)).toBe(2)
-
-    markThreadVisited(threadId, Date.parse("2026-08-25T12:11:00.000Z"))
-    expect(appAtomRegistry.get(waitingThreadCountAtom)).toBe(1)
   })
 })
 

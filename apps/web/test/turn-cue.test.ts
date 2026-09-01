@@ -1,27 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { isRendererForeground } from "../src/lib/renderer-foreground"
 import { settledTurns } from "../src/lib/turn-cue"
-import { isRendererForeground, turnNotificationBody } from "../src/lib/turn-notification"
-import { parseTurnNotificationEnabled } from "../src/lib/turn-notification-preference"
 
-describe("turn notification", () => {
-  it("defaults on and only accepts on/off", () => {
-    expect(parseTurnNotificationEnabled(null)).toBe(true)
-    expect(parseTurnNotificationEnabled("off")).toBe(false)
-    expect(parseTurnNotificationEnabled("on")).toBe(true)
-    expect(parseTurnNotificationEnabled("nope")).toBe(true)
-  })
-
+describe("turn cue", () => {
   it("treats the renderer as foreground only when visible and focused", () => {
     expect(isRendererForeground({ visibilityState: "visible", hasFocus: true })).toBe(true)
     expect(isRendererForeground({ visibilityState: "visible", hasFocus: false })).toBe(false)
     expect(isRendererForeground({ visibilityState: "hidden", hasFocus: true })).toBe(false)
-  })
-
-  it("labels the banner with the Project and settlement", () => {
-    expect(turnNotificationBody("completed", "Noyau")).toBe("Noyau · Done")
-    expect(turnNotificationBody("interrupted", undefined)).toBe("Interrupted")
-    expect(turnNotificationBody("error", "")).toBe("Error")
   })
 
   it("detects a Turn leaving running", () => {
