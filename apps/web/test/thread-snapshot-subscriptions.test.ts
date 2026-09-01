@@ -207,7 +207,7 @@ describe("warm Thread snapshot subscriptions", () => {
     expect(harness.stopFor(threadA)).toHaveBeenCalledOnce()
   })
 
-  it("shares one writer between background warming and the visible Thread", () => {
+  it("reconnects a background writer when its Thread becomes visible", () => {
     const harness = installSubscriber()
     const onEvent = vi.fn()
 
@@ -216,13 +216,15 @@ describe("warm Thread snapshot subscriptions", () => {
       sequence: Sequence.make(2),
       thread: makeShell(threadA, "running"),
     })
+    const backgroundStop = harness.stopFor(threadA)
     const release = retainThreadSnapshotSubscription(threadA, {
       onSnapshot: vi.fn(),
       onEvent,
       onStatus: vi.fn(),
     })
 
-    expect(harness.subscribe).toHaveBeenCalledOnce()
+    expect(backgroundStop).toHaveBeenCalledOnce()
+    expect(harness.subscribe).toHaveBeenCalledTimes(2)
     harness.callbackFor(threadA).onSnapshot(makeSnapshot(threadA, 2, "running"))
     syncWarmThreadSnapshotEvent({
       _tag: "thread-upserted",
@@ -238,7 +240,7 @@ describe("warm Thread snapshot subscriptions", () => {
     expect(harness.stopFor(threadA)).toHaveBeenCalledOnce()
   })
 
-  it("replays the cached snapshot and latest status to a late listener", () => {
+  it("replays the cached snapshot and takes status from the fresh visible stream", () => {
     const harness = installSubscriber()
     const snapshot = makeSnapshot(threadA, 2, "running")
     const status = { _tag: "Connected" } as const
@@ -259,8 +261,10 @@ describe("warm Thread snapshot subscriptions", () => {
       onStatus,
     })
 
-    expect(harness.subscribe).toHaveBeenCalledOnce()
+    expect(harness.subscribe).toHaveBeenCalledTimes(2)
     expect(onSnapshot).toHaveBeenCalledWith(snapshot)
+    expect(onStatus).not.toHaveBeenCalled()
+    harness.callbackFor(threadA).onStatus(status)
     expect(onStatus).toHaveBeenCalledWith(status)
     release()
   })

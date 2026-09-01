@@ -240,11 +240,17 @@ export const syncWarmThreadSnapshotEvent = (event: ShellLiveEvent): void => {
   finishWarmingThread(event.thread.id, event.thread.latestTurn, event.sequence)
 }
 
-/** Share the warm writer with the mounted Thread page instead of opening a duplicate stream. */
+/** Reconnect a background writer when its Thread becomes visible again. */
 export const retainThreadSnapshotSubscription = (
   threadId: ThreadId,
   callbacks: ThreadSnapshotSubscriptionCallbacks,
 ): (() => void) => {
+  const background = writers.get(threadId)
+  if (background?.background === true && background.listeners.size === 0) {
+    writers.delete(threadId)
+    background.stop?.()
+    background.releaseAtom()
+  }
   const writer = ensureWriter(threadId)
   writer.listeners.add(callbacks)
   const cached = getThreadSnapshot(threadId)
