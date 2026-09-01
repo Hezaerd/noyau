@@ -130,7 +130,9 @@ describe("ThreadSidebarItem", () => {
     const link = screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ })
     const activity = link.querySelector("[data-slot='thread-sidebar-activity']")
     const project = link.querySelector("[data-slot='thread-sidebar-project']")
+    const checkout = link.querySelector("[data-slot='thread-sidebar-checkout']")
     const lastActivity = link.querySelector("[data-slot='thread-sidebar-last-activity']")
+    const provider = document.querySelector("[data-slot='thread-sidebar-provider']")
     const pin = screen.getByLabelText("Pinned")
     expect(activity).not.toBeNull()
     expect(project).not.toBeNull()
@@ -144,6 +146,8 @@ describe("ThreadSidebarItem", () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
     expect(activity?.nextElementSibling?.textContent).toBe("Stores Zustand t3code vs shell")
+    expect(checkout?.className).toContain("pe-5")
+    expect(provider?.parentElement?.className).toContain("absolute")
     expect(lastActivity?.querySelector("[aria-hidden='true']")).toBeNull()
     expect(lastActivity?.textContent).toMatch(/^Last activity: /)
   })
@@ -424,7 +428,7 @@ describe("ThreadSidebarItem", () => {
     ).toBe("true")
   })
 
-  it("keeps the PR badge outside the Thread link without narrowing the Thread", () => {
+  it("keeps the PR badge left of the provider and outside the Thread link", () => {
     const onSelect = vi.fn()
     render(
       <AppAtomRegistryProvider>
@@ -459,11 +463,13 @@ describe("ThreadSidebarItem", () => {
     const link = screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ })
     const badge = screen.getByRole("button", { name: "PR #345 · Open" })
     const pullRequest = badge.closest("[data-slot='thread-sidebar-pull-request']")
+    const provider = document.querySelector("[data-slot='thread-sidebar-provider']")
     const checkout = link.querySelector("[data-slot='thread-sidebar-checkout']")
     expect(link.contains(badge)).toBe(false)
     expect(link.className).toContain("w-full")
-    expect(pullRequest?.className).toContain("absolute")
-    expect(checkout?.className).toContain("pe-14")
+    expect(pullRequest?.parentElement?.className).toContain("absolute")
+    expect(pullRequest?.nextElementSibling).toBe(provider)
+    expect(checkout?.className).toContain("pe-20")
 
     fireEvent.click(badge)
     expect(openWorkspacePullRequest).toHaveBeenCalledWith(threadId, {

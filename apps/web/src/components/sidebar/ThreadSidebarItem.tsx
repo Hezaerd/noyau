@@ -248,30 +248,16 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
                 workingStartedAtMs={workingStartedAtMs}
                 lastActivityAtMs={lastActivityAtMs}
                 hasPullRequest={pullRequest !== null}
-                provider={thread.provider}
                 settled={settled}
                 settleable={settled || canSettle(thread)}
                 onSettle={() => dispatchThreadSettle(thread, !settled)}
               />
             </SidebarMenuButton>
-            {pullRequest === null ? null : (
-              <div
-                data-slot="thread-sidebar-pull-request"
-                className="absolute end-7 bottom-2 flex items-center"
-              >
-                <ThreadPullRequestBadge
-                  compact
-                  pr={pullRequest}
-                  onOpen={(event) => {
-                    if (event.metaKey) {
-                      window.open(pullRequest.url, "_blank", "noopener,noreferrer")
-                      return
-                    }
-                    openPullRequest(pullRequest)
-                  }}
-                />
-              </div>
-            )}
+            <ThreadSidebarItemTrailing
+              provider={thread.provider}
+              pullRequest={pullRequest}
+              onOpenPullRequest={openPullRequest}
+            />
           </div>
         </ContextMenuTrigger>
         <ContextMenuPopup align="start" className="w-52">
@@ -338,7 +324,6 @@ function ThreadSidebarItemContent({
   workingStartedAtMs,
   lastActivityAtMs,
   hasPullRequest,
-  provider,
   settled,
   settleable,
   onSettle,
@@ -352,13 +337,10 @@ function ThreadSidebarItemContent({
   readonly workingStartedAtMs: number | null
   readonly lastActivityAtMs: number | null
   readonly hasPullRequest: boolean
-  readonly provider: ThreadShell["provider"]
   readonly settled: boolean
   readonly settleable: boolean
   readonly onSettle: () => void
 }) {
-  const providers = useProviders()
-  const ProviderIcon = providerInstanceIconOf(provider, providers)
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span
@@ -407,7 +389,7 @@ function ThreadSidebarItemContent({
         data-slot="thread-sidebar-checkout"
         className={cn(
           "flex min-h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-foreground/45",
-          hasPullRequest && "pe-14",
+          hasPullRequest ? "pe-20" : "pe-5",
         )}
       >
         {branch === null ? (
@@ -422,9 +404,45 @@ function ThreadSidebarItemContent({
             <span className="min-w-0 flex-1 truncate whitespace-nowrap">{branch}</span>
           </>
         )}
-        <ProviderIcon aria-hidden className="size-3 shrink-0" />
       </span>
     </span>
+  )
+}
+
+function ThreadSidebarItemTrailing({
+  provider,
+  pullRequest,
+  onOpenPullRequest,
+}: {
+  readonly provider: ThreadShell["provider"]
+  readonly pullRequest: VcsStatusPullRequest | null
+  readonly onOpenPullRequest: (pr: VcsStatusPullRequest) => void
+}) {
+  const providers = useProviders()
+  const ProviderIcon = providerInstanceIconOf(provider, providers)
+
+  return (
+    <div className="pointer-events-none absolute end-2 bottom-2 flex items-center gap-1.5">
+      {pullRequest === null ? null : (
+        <div
+          data-slot="thread-sidebar-pull-request"
+          className="pointer-events-auto flex items-center"
+        >
+          <ThreadPullRequestBadge
+            compact
+            pr={pullRequest}
+            onOpen={(event) => {
+              if (event.metaKey) {
+                window.open(pullRequest.url, "_blank", "noopener,noreferrer")
+                return
+              }
+              onOpenPullRequest(pullRequest)
+            }}
+          />
+        </div>
+      )}
+      <ProviderIcon data-slot="thread-sidebar-provider" aria-hidden className="size-3 shrink-0" />
+    </div>
   )
 }
 
