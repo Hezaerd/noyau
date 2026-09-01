@@ -198,7 +198,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
     <>
       <ContextMenu onOpenChange={setMenuOpen}>
         <ContextMenuTrigger render={<div />}>
-          <div className="flex min-w-0 items-stretch">
+          <div className="relative min-w-0">
             <SidebarMenuButton
               render={
                 <Link
@@ -247,6 +247,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
                 activity={activity}
                 workingStartedAtMs={workingStartedAtMs}
                 lastActivityAtMs={lastActivityAtMs}
+                hasPullRequest={pullRequest !== null}
                 provider={thread.provider}
                 settled={settled}
                 settleable={settled || canSettle(thread)}
@@ -254,7 +255,10 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
               />
             </SidebarMenuButton>
             {pullRequest === null ? null : (
-              <div className="flex shrink-0 items-end pb-2 pe-1.5">
+              <div
+                data-slot="thread-sidebar-pull-request"
+                className="absolute end-7 bottom-2 flex items-center"
+              >
                 <ThreadPullRequestBadge
                   compact
                   pr={pullRequest}
@@ -327,6 +331,7 @@ function ThreadSidebarItemContent({
   activity,
   workingStartedAtMs,
   lastActivityAtMs,
+  hasPullRequest,
   provider,
   settled,
   settleable,
@@ -340,6 +345,7 @@ function ThreadSidebarItemContent({
   readonly activity: ThreadActivity | null
   readonly workingStartedAtMs: number | null
   readonly lastActivityAtMs: number | null
+  readonly hasPullRequest: boolean
   readonly provider: ThreadShell["provider"]
   readonly settled: boolean
   readonly settleable: boolean
@@ -393,7 +399,10 @@ function ThreadSidebarItemContent({
       <span className="min-w-0 truncate">{title}</span>
       <span
         data-slot="thread-sidebar-checkout"
-        className="flex min-h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-foreground/45"
+        className={cn(
+          "flex min-h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-foreground/45",
+          hasPullRequest && "pe-14",
+        )}
       >
         {branch === null ? (
           <span className="flex-1" />

@@ -31,13 +31,21 @@ vi.mock("@tanstack/react-router", () => ({
     onPointerEnter,
     onFocus,
     onClick,
+    className,
   }: {
     readonly children?: ReactNode
     readonly onPointerEnter?: () => void
     readonly onFocus?: () => void
     readonly onClick?: () => void
+    readonly className?: string
   }) => (
-    <a href="#thread" onPointerEnter={onPointerEnter} onFocus={onFocus} onClick={onClick}>
+    <a
+      href="#thread"
+      className={className}
+      onPointerEnter={onPointerEnter}
+      onFocus={onFocus}
+      onClick={onClick}
+    >
       {children}
     </a>
   ),
@@ -416,7 +424,7 @@ describe("ThreadSidebarItem", () => {
     ).toBe("true")
   })
 
-  it("keeps the PR badge outside the Thread link", () => {
+  it("keeps the PR badge outside the Thread link without narrowing the Thread", () => {
     const onSelect = vi.fn()
     render(
       <AppAtomRegistryProvider>
@@ -450,7 +458,12 @@ describe("ThreadSidebarItem", () => {
 
     const link = screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ })
     const badge = screen.getByRole("button", { name: "PR #345 · Open" })
+    const pullRequest = badge.closest("[data-slot='thread-sidebar-pull-request']")
+    const checkout = link.querySelector("[data-slot='thread-sidebar-checkout']")
     expect(link.contains(badge)).toBe(false)
+    expect(link.className).toContain("w-full")
+    expect(pullRequest?.className).toContain("absolute")
+    expect(checkout?.className).toContain("pe-14")
 
     fireEvent.click(badge)
     expect(openWorkspacePullRequest).toHaveBeenCalledWith(threadId, {
