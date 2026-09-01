@@ -39,8 +39,11 @@ export function ControlPlaneProvider({ children }: { readonly children: ReactNod
         hydrateKeybindingsFromServer()
       },
       onEvent: (event) => {
-        syncWarmThreadSnapshotEvent(event)
-        return reduceAppliedShellEvent(event)
+        const applied = reduceAppliedShellEvent(event)
+        if (applied) {
+          syncWarmThreadSnapshotEvent(event)
+        }
+        return applied
       },
       onStatus: setSubscriptionStatus,
     })
