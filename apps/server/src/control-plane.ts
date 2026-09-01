@@ -7,7 +7,8 @@ import type { AttachmentPreview, PreviewAttachmentInput } from "@noyau/contracts
 import type { AttachmentPreviewFailed } from "@noyau/contracts/attachment-preview"
 import type { ClientCommandRequest, Command as CommandType } from "@noyau/contracts/commands"
 import { Command } from "@noyau/contracts/commands"
-import { Environment, WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import type { AgentSkillCatalog } from "@noyau/contracts/entities/agent-skill"
+import { Environment, type Provider, WorkspaceRoot } from "@noyau/contracts/entities/environment"
 import { Project } from "@noyau/contracts/entities/project"
 import type { WorkspacePathSearchResult } from "@noyau/contracts/entities/workspace-path"
 import type { CommandIdConflict } from "@noyau/contracts/errors"
@@ -407,6 +408,10 @@ export interface ControlPlaneService {
     WorkspacePathSearchResult,
     ServiceUnavailable | ProjectNotFound | ProjectUnavailable
   >
+  readonly listAgentSkills: (
+    projectId: ProjectIdType,
+    provider: Provider,
+  ) => Effect.Effect<AgentSkillCatalog, ServiceUnavailable | ProjectNotFound | ProjectUnavailable>
   readonly inspectProjectAgentIntegration: (
     input: ProjectAgentIntegrationInput,
   ) => Effect.Effect<ProjectAgentIntegration, ProjectNotFound | ServiceUnavailable>
@@ -973,6 +978,16 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         )
       })
 
+      const listAgentSkills: ControlPlaneService["listAgentSkills"] = Effect.fn(
+        "ControlPlane.listAgentSkills",
+      )(function* (projectId, providerId) {
+        const workspaceRoot = yield* projectWorkspaceRoot(projectId)
+        if (!(yield* workspaceRoots.isAvailable(workspaceRoot))) {
+          return yield* new ProjectUnavailable({ projectId })
+        }
+        return { entries: yield* provider.listSkills(providerId, workspaceRoot) }
+      })
+
       const inspectProjectAgentIntegration: ControlPlaneService["inspectProjectAgentIntegration"] =
         Effect.fn("ControlPlane.inspectProjectAgentIntegration")(function* (input) {
           const workspaceRoot = yield* projectWorkspaceRoot(input.projectId)
@@ -1217,6 +1232,7 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         setShellFocus,
         previewFile,
         searchWorkspacePaths,
+        listAgentSkills,
         inspectProjectAgentIntegration,
         installProjectAgentIntegration,
         removeProjectAgentIntegration,

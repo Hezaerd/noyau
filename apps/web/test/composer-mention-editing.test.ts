@@ -37,4 +37,13 @@ describe("applyComposerMentionKey", () => {
       cursor: 5,
     })
   })
+
+  it("deletes a skill mention as a single chip", () => {
+    expect(
+      applyComposerMentionKey({ key: "Backspace", text: "Use $grill now", cursor: 10 }),
+    ).toEqual({
+      text: "Use  now",
+      cursor: 4,
+    })
+  })
 })

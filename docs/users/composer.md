@@ -14,6 +14,14 @@ To remove a draft, open its sidebar menu, choose **Discard**, and confirm. Disca
 
 The controls below the prompt show the options supported by the selected model. Open **Service tier** to choose an available tier. To remove the override, choose the tier marked **Default**. If the provider does not name its default tier, choose the **Default** item instead.
 
+## Mention files, Tickets, and skills
+
+Type `@` to find Project files and Tickets. Choose a result to add it to the prompt as a chip.
+
+With Codex selected, type `$` to find enabled skills that provide OpenAI interface metadata. Choose a skill to add its `$name` invocation as a chip. The chip keeps the skill's invocation in the message when you send it.
+
+Press Backspace or Delete next to a chip to remove the whole mention. A `$name` that is not in the available skill list stays as ordinary text.
+
 ## Hide or show
 
 On an open Thread:

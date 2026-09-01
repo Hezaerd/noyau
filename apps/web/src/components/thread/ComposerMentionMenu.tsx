@@ -1,4 +1,4 @@
-import { TicketIcon } from "lucide-react"
+import { SparklesIcon, TicketIcon } from "lucide-react"
 import { useLayoutEffect, useRef, useState } from "react"
 
 import { PierreEntryIcon } from "@/components/PierreEntryIcon"
@@ -29,7 +29,8 @@ export function ComposerMentionMenu({
   const listRef = useRef<HTMLUListElement>(null)
   const [fadeBottom, setFadeBottom] = useState(false)
   const ticketCount = entries.filter((entry) => entry.kind === "ticket").length
-  const fileCount = entries.length - ticketCount
+  const fileCount = entries.filter((entry) => entry.kind === "file").length
+  const skillCount = entries.filter((entry) => entry.kind === "skill").length
 
   const syncFade = () => {
     const list = listRef.current
@@ -58,7 +59,7 @@ export function ComposerMentionMenu({
         ref={listRef}
         id={id}
         role="listbox"
-        aria-label="Mentions"
+        aria-label="Composer suggestions"
         className="max-h-56 overflow-y-auto px-1 pt-1 pb-2 text-sm"
         onScroll={syncFade}
       >
@@ -73,9 +74,16 @@ export function ComposerMentionMenu({
           const showTicketHeading = index === 0 && entry.kind === "ticket"
           const showFileHeading =
             entry.kind === "file" && (index === 0 || entries[index - 1]?.kind === "ticket")
+          const showSkillHeading = index === 0 && entry.kind === "skill"
           return (
             <li
-              key={entry.kind === "ticket" ? `ticket:${entry.ticketId}` : `file:${entry.path}`}
+              key={
+                entry.kind === "ticket"
+                  ? `ticket:${entry.ticketId}`
+                  : entry.kind === "skill"
+                    ? `skill:${entry.name}`
+                    : `file:${entry.path}`
+              }
               role="presentation"
             >
               {showTicketHeading && ticketCount > 0 ? (
@@ -88,9 +96,14 @@ export function ComposerMentionMenu({
                   Files
                 </p>
               ) : null}
+              {showSkillHeading && skillCount > 0 ? (
+                <p className="px-2 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground">
+                  Skills
+                </p>
+              ) : null}
               <button
                 type="button"
-                id={`composer-path-option-${index}`}
+                id={`composer-mention-option-${index}`}
                 role="option"
                 aria-selected={selected}
                 className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left ${
@@ -115,6 +128,16 @@ export function ComposerMentionMenu({
                       </span>
                       <span className="min-w-0 flex-1 truncate text-right text-muted-foreground text-xs">
                         {entry.columnName}
+                      </span>
+                    </span>
+                  </>
+                ) : entry.kind === "skill" ? (
+                  <>
+                    <SparklesIcon aria-hidden className="size-4 shrink-0 opacity-85" />
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="shrink-0">{entry.displayName}</span>
+                      <span className="min-w-0 flex-1 truncate text-right text-muted-foreground text-xs">
+                        {entry.description ?? `$${entry.name}`}
                       </span>
                     </span>
                   </>

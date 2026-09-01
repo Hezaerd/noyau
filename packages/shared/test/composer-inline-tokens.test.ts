@@ -163,9 +163,11 @@ describe("composerPromptSegments", () => {
     ])
   })
 
-  it("leaves skills in the surrounding text", () => {
+  it("splits text around skills", () => {
     expect(composerPromptSegments("run $grill now")).toEqual([
-      { type: "text", text: "run $grill now" },
+      { type: "text", text: "run " },
+      { type: "skill", name: "grill", source: "$grill" },
+      { type: "text", text: " now" },
     ])
   })
 })

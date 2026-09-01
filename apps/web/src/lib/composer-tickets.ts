@@ -1,4 +1,7 @@
+import type { AgentSkillEntry } from "@noyau/contracts/entities/agent-skill"
+
 export const EMPTY_COMPOSER_TICKETS: ReadonlyArray<ComposerTicket> = []
+export const EMPTY_COMPOSER_SKILLS: ReadonlyArray<AgentSkillEntry> = []
 
 export interface ComposerTicket {
   readonly ticketId: string
@@ -20,6 +23,7 @@ export type ComposerMentionEntry =
       readonly path: string
       readonly entryKind: "file" | "directory"
     }
+  | ({ readonly kind: "skill" } & AgentSkillEntry)
 
 const normalizeMentionQuery = (value: string): string =>
   value
@@ -53,6 +57,36 @@ export const composerTicketById = (
   tickets: ReadonlyArray<ComposerTicket>,
   ticketId: string,
 ): ComposerTicket | undefined => tickets.find((ticket) => ticket.ticketId === ticketId)
+
+export const filterComposerSkills = (
+  skills: ReadonlyArray<AgentSkillEntry>,
+  query: string,
+): ReadonlyArray<AgentSkillEntry> => {
+  const normalizedQuery = normalizeMentionQuery(query)
+  const matching =
+    normalizedQuery === ""
+      ? skills
+      : skills.filter(
+          (skill) =>
+            normalizeMentionQuery(skill.name).includes(normalizedQuery) ||
+            normalizeMentionQuery(skill.displayName).includes(normalizedQuery) ||
+            normalizeMentionQuery(skill.description ?? "").includes(normalizedQuery),
+        )
+  return matching.toSorted(
+    (left, right) =>
+      left.displayName.localeCompare(right.displayName, "en") ||
+      left.name.localeCompare(right.name),
+  )
+}
+
+export const composerSkillByName = (
+  skills: ReadonlyArray<AgentSkillEntry>,
+  name: string,
+): AgentSkillEntry | undefined => skills.find((skill) => skill.name === name)
+
+export const buildComposerSkillEntries = (
+  skills: ReadonlyArray<AgentSkillEntry>,
+): ReadonlyArray<ComposerMentionEntry> => skills.map((skill) => ({ kind: "skill", ...skill }))
 
 export const buildComposerMentionEntries = (
   tickets: ReadonlyArray<ComposerTicket>,

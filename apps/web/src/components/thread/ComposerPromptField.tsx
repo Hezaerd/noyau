@@ -1,3 +1,4 @@
+import type { AgentSkillEntry } from "@noyau/contracts/entities/agent-skill"
 import { collectComposerInlineTokens } from "@noyau/shared/composer-inline-tokens"
 import { replaceTextRange } from "@noyau/shared/composer-trigger"
 import {
@@ -19,7 +20,11 @@ import {
   serializeComposerPromptSelection,
   setComposerPromptFieldCaret,
 } from "@/lib/composer-prompt-field"
-import { EMPTY_COMPOSER_TICKETS, type ComposerTicket } from "@/lib/composer-tickets"
+import {
+  EMPTY_COMPOSER_SKILLS,
+  EMPTY_COMPOSER_TICKETS,
+  type ComposerTicket,
+} from "@/lib/composer-tickets"
 import { cn } from "@/lib/utils"
 
 export const COMPOSER_PROMPT_FIELD_CLASS_NAME =
@@ -37,6 +42,7 @@ export function ComposerPromptField({
   autoFocus,
   pathMenuOpen,
   tickets = EMPTY_COMPOSER_TICKETS,
+  skills = EMPTY_COMPOSER_SKILLS,
   listboxId,
   activeOptionId,
   onTextChange,
@@ -51,6 +57,7 @@ export function ComposerPromptField({
   readonly autoFocus: boolean
   readonly pathMenuOpen: boolean
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
+  readonly skills?: ReadonlyArray<AgentSkillEntry> | undefined
   readonly listboxId: string
   readonly activeOptionId: string | undefined
   readonly onTextChange: (value: string) => void
@@ -61,6 +68,8 @@ export function ComposerPromptField({
 }) {
   const editorRef = useRef<HTMLDivElement>(null)
   const syncedText = useRef(text)
+  const syncedTickets = useRef(tickets)
+  const syncedSkills = useRef(skills)
   const pendingCaret = useRef<number | null>(null)
   const painted = useRef(false)
   const composing = useRef(false)
@@ -139,7 +148,12 @@ export function ComposerPromptField({
     if (editor === null) {
       return
     }
-    if (text === syncedText.current && painted.current) {
+    if (
+      text === syncedText.current &&
+      tickets === syncedTickets.current &&
+      skills === syncedSkills.current &&
+      painted.current
+    ) {
       const caret = pendingCaret.current
       if (caret !== null) {
         pendingCaret.current = null
@@ -152,14 +166,16 @@ export function ComposerPromptField({
         return
       }
       syncedText.current = text
-      paintComposerPrompt(editorRef.current, text, tickets)
+      syncedTickets.current = tickets
+      syncedSkills.current = skills
+      paintComposerPrompt(editorRef.current, text, tickets, skills)
       painted.current = true
       const caret = pendingCaret.current ?? text.length
       pendingCaret.current = null
       restoreCaret(caret)
     }
     queueMicrotask(paint)
-  }, [text, tickets])
+  }, [text, tickets, skills])
 
   useEffect(() => {
     if (!autoFocus || disabled || didAutoFocus.current) {
@@ -247,8 +263,7 @@ export function ComposerPromptField({
           }
           const pasted = event.clipboardData?.getData("text/plain") ?? ""
           const hasMention = collectComposerInlineTokens(`${pasted}\n`).some(
-            (token) =>
-              (token.type === "mention" || token.type === "ticket") && token.end <= pasted.length,
+            (token) => token.end <= pasted.length,
           )
           if (!hasMention) {
             return

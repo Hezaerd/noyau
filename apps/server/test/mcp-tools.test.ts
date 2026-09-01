@@ -150,6 +150,7 @@ const controlPlane = ControlPlane.of({
   hasRunningTurn: Effect.die("unused"),
   setShellFocus: () => Effect.die("unused"),
   previewFile: () => Effect.die("unused"),
+  listAgentSkills: () => Effect.die("unused"),
   searchWorkspacePaths: () => Effect.die("unused"),
   previewAttachment: () => Effect.die("unused"),
   getTurnDiff: () => Effect.die("unused"),

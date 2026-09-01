@@ -1,6 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as CodexAppServerClient from "@noyau/codex/client"
 import type * as CodexSchema from "@noyau/codex/schema"
+import type { AgentSkillEntry } from "@noyau/contracts/entities/agent-skill"
 import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
@@ -503,6 +504,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
   const sessions = new Map<string, CodexSession>()
   const turnFibers = new Map<string, Fiber.Fiber<void>>()
 
+  const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const executable = yield* resolveCodexExecutable(configuredPath, environment, platform)
 
@@ -564,6 +566,43 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       yield* codexCall(client.notify("initialized", undefined))
       return initialized
     })
+
+  const listSkills = Effect.fn("CodexAdapter.listSkills")(function* (workspaceRoot: string) {
+    if (executable === null) {
+      return []
+    }
+    return yield* Effect.scoped(
+      Effect.gen(function* () {
+        const { client } = yield* openClient(workspaceRoot)
+        yield* initializeClient(client)
+        const listed = yield* codexCall(client.request("skills/list", { cwds: [workspaceRoot] }))
+        const catalog = listed.data.find((entry) => entry.cwd === workspaceRoot) ?? listed.data[0]
+        const entries: AgentSkillEntry[] = []
+        for (const skill of catalog?.skills ?? []) {
+          if (!skill.enabled) {
+            continue
+          }
+          const manifestPath = path.join(path.dirname(skill.path), "agents", "openai.yaml")
+          if (!(yield* fileSystem.exists(manifestPath))) {
+            continue
+          }
+          const description =
+            skill.interface?.shortDescription ?? skill.shortDescription ?? skill.description
+          const baseEntry = {
+            name: skill.name,
+            displayName: skill.interface?.displayName ?? skill.name,
+            scope: skill.scope,
+          }
+          entries.push(description.length === 0 ? baseEntry : { ...baseEntry, description })
+        }
+        return entries.toSorted(
+          (left, right) =>
+            left.displayName.localeCompare(right.displayName, "en") ||
+            left.name.localeCompare(right.name, "en"),
+        )
+      }),
+    ).pipe(Effect.orElseSucceed(() => []))
+  })
 
   const probe =
     executable === null
@@ -1119,6 +1158,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
         }),
       ),
     ),
+    listSkills: (_provider, workspaceRoot) => listSkills(workspaceRoot),
     startTurn: (input, emit) => startTurn(input, emit).pipe(Effect.provideService(Path.Path, path)),
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

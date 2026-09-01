@@ -10,6 +10,7 @@ import type {
   OpenInEditorInput,
   OpenInEditorResult,
 } from "@noyau/contracts/editor"
+import type { AgentSkillCatalog } from "@noyau/contracts/entities/agent-skill"
 import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import type { WorkspacePathSearchResult } from "@noyau/contracts/entities/workspace-path"
 import type { Forbidden, MissingIdentity, ServiceUnavailable } from "@noyau/contracts/errors"
@@ -52,6 +53,7 @@ import type { DispatchResult } from "@noyau/contracts/receipts"
 import {
   ControlPlaneRpcs,
   RPC_METHODS,
+  type ListAgentSkillsInput,
   type ProjectStreamItem,
   type ShellStreamItem,
   type ThreadStreamItem,
@@ -355,6 +357,18 @@ export const searchWorkspacePaths = (
   query: string,
 ): Promise<ControlPlaneResult<WorkspacePathSearchResult>> =>
   runOperation(searchPaths(projectId, query), "snapshot")
+
+const requestAgentSkills = Effect.fn("ControlPlaneClient.listAgentSkills")(function* (
+  input: ListAgentSkillsInput,
+) {
+  const client = yield* ControlPlaneClient
+  return yield* client[RPC_METHODS.listAgentSkills](input)
+})
+
+export const listAgentSkills = (
+  input: ListAgentSkillsInput,
+): Promise<ControlPlaneResult<AgentSkillCatalog>> =>
+  runOperation(requestAgentSkills(input), "snapshot")
 
 const requestAgentIntegration = Effect.fn("ControlPlaneClient.projectAgentIntegration")(function* (
   method:

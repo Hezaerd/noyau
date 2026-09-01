@@ -252,6 +252,37 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
     }),
   )
 
+  it.effect("lists enabled skills that expose OpenAI interface metadata", () =>
+    withProvider("success", (provider) =>
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const workspace = yield* fileSystem.makeTempDirectoryScoped({
+          prefix: "noyau-codex-skills-",
+        })
+        const skillRoot = path.join(workspace, ".agents", "skills", "test-skill")
+        yield* fileSystem.makeDirectory(path.join(skillRoot, "agents"), { recursive: true })
+        yield* fileSystem.writeFileString(path.join(skillRoot, "SKILL.md"), "# Test skill\n")
+        yield* fileSystem.writeFileString(
+          path.join(skillRoot, "agents", "openai.yaml"),
+          'interface:\n  display_name: "Test Skill"\n',
+        )
+
+        assert.deepStrictEqual(
+          yield* provider.listSkills(ProviderInstanceId.make("codex"), workspace),
+          [
+            {
+              name: "test-skill",
+              displayName: "Test Skill",
+              description: "Use the test workflow",
+              scope: "repo",
+            },
+          ],
+        )
+      }),
+    ),
+  )
+
   it.effect("maps deltas, tools, plan, and turn/completed to Noyau signals", () =>
     withProvider("success", (provider, evidence) =>
       Effect.gen(function* () {
