@@ -135,7 +135,68 @@ describe("thread composer traits", () => {
         expect(onModelSelectionChange).toHaveBeenCalledWith({
           modelId: "composer-2.5",
           reasoningEffort: "medium",
-          serviceTier: "standard",
+        })
+      }),
+    ))
+
+  it("clears a service tier override when the provider does not advertise a default", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onModelSelectionChange = vi.fn()
+        renderComposer({
+          catalog: [
+            model({
+              serviceTiers: [
+                { value: "fast", label: "Fast", description: "1.5x speed, increased usage" },
+              ],
+            }),
+          ],
+          onModelSelectionChange,
+        })
+        yield* Effect.promise(() => Promise.resolve())
+
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("button", { name: "Service tier" })),
+        )
+        expect(screen.getByRole("menuitemradio", { name: /Default/ })).toBeTruthy()
+
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("menuitemradio", { name: /Default/ })),
+        )
+        expect(onModelSelectionChange).toHaveBeenCalledWith({
+          modelId: "composer-2.5",
+          reasoningEffort: "medium",
+        })
+      }),
+    ))
+
+  it("keeps a provider tier whose value matches the default menu marker", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const user = userEvent.setup()
+        const onModelSelectionChange = vi.fn()
+        renderComposer({
+          catalog: [
+            model({
+              serviceTiers: [{ value: "__noyau_default_service_tier__", label: "Provider tier" }],
+            }),
+          ],
+          modelSelection: { modelId: "composer-2.5", reasoningEffort: "medium" },
+          onModelSelectionChange,
+        })
+        yield* Effect.promise(() => Promise.resolve())
+
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("button", { name: "Service tier" })),
+        )
+        yield* Effect.promise(() =>
+          user.click(screen.getByRole("menuitemradio", { name: "Provider tier" })),
+        )
+        expect(onModelSelectionChange).toHaveBeenCalledWith({
+          modelId: "composer-2.5",
+          reasoningEffort: "medium",
+          serviceTier: "__noyau_default_service_tier__",
         })
       }),
     ))
