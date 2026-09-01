@@ -258,6 +258,10 @@ for await (const line of lines) {
   await Effect.runPromise(logRequest(message))
 
   if (message.method === "initialize") {
+    if (scenario === "exit-during-initialize") {
+      shutdown("exit-during-initialize", 2)
+      continue
+    }
     if (scenario === "handshake-fail") {
       fail(message.id, "initialize refused")
       continue
@@ -332,6 +336,10 @@ for await (const line of lines) {
   }
 
   if (message.method === "thread/start") {
+    if (scenario === "exit-during-thread-start") {
+      shutdown("exit-during-thread-start", 2)
+      continue
+    }
     respond(message.id, threadResponse(threadId))
     continue
   }

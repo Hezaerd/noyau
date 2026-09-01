@@ -32,15 +32,16 @@ const staticMcpCredential = {
     authorizationHeader: "Bearer test-mcp-token",
   },
 }
-const testMcpSessionsLayer = Layer.succeed(McpSessionRegistry)({
-  issue: () => Effect.succeed(staticMcpCredential),
-  resolve: () => Effect.succeed(missingMcpScope),
-  activateTurn: () => Effect.void,
-  deactivateTurn: () => Effect.void,
-  touchSession: () => Effect.succeed(true),
-  revokeSession: () => Effect.void,
-  revokeAll: Effect.void,
-})
+const testMcpSessionsLayer = (onRevoke: (threadId: ThreadId) => void = () => undefined) =>
+  Layer.succeed(McpSessionRegistry)({
+    issue: () => Effect.succeed(staticMcpCredential),
+    resolve: () => Effect.succeed(missingMcpScope),
+    activateTurn: () => Effect.void,
+    deactivateTurn: () => Effect.void,
+    touchSession: () => Effect.succeed(true),
+    revokeSession: (revokedThreadId) => Effect.sync(() => onRevoke(revokedThreadId)),
+    revokeAll: Effect.void,
+  })
 
 const input = (
   runtimeMode: ProviderTurnInput["runtimeMode"] = "full-access",
@@ -84,18 +85,27 @@ const withProvider = <A, E, R>(
   scenario: string,
   use: (
     provider: ProviderPort["Service"],
-    evidence: { readonly requestLog: string; readonly exitLog: string },
+    evidence: {
+      readonly requestLog: string
+      readonly exitLog: string
+      readonly revokedSessions: ReadonlyArray<ThreadId>
+    },
   ) => Effect.Effect<A, E, R>,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
       const evidence = yield* makeOptions(scenario)
+      const revokedSessions: Array<ThreadId> = []
       const services = yield* Layer.build(
-        codexProviderLayer(evidence.options).pipe(Layer.provide(testMcpSessionsLayer)),
+        codexProviderLayer(evidence.options).pipe(
+          Layer.provide(
+            testMcpSessionsLayer((revokedThreadId) => revokedSessions.push(revokedThreadId)),
+          ),
+        ),
       )
       return yield* Effect.gen(function* () {
         const provider = yield* ProviderPort
-        return yield* use(provider, evidence)
+        return yield* use(provider, { ...evidence, revokedSessions })
       }).pipe(Effect.provide(services))
     }),
   )
@@ -520,5 +530,22 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
         )
       }),
     ),
+  )
+
+  it.effect("releases startup resources when Codex exits before Session assignment", () =>
+    Effect.gen(function* () {
+      for (const scenario of ["exit-during-initialize", "exit-during-thread-start"]) {
+        yield* withProvider(scenario, (provider, evidence) =>
+          Effect.gen(function* () {
+            const signals = yield* capture(provider, input())
+            assert.deepStrictEqual(
+              signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+              ["error"],
+            )
+            assert.deepStrictEqual(evidence.revokedSessions, [threadId])
+          }),
+        )
+      }
+    }),
   )
 })

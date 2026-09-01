@@ -176,26 +176,32 @@ const flushContextUsage = Effect.fn("CodexAdapter.flushContextUsage")(function* 
   yield* emitSignal(control, signal)
 })
 
-const scheduleContextUsage = Effect.fn("CodexAdapter.scheduleContextUsage")(function* (
+const scheduleContextUsage: (
   session: CodexSession,
   control: ActiveTurn,
   usage: ContextUsage,
-) {
-  control.pendingContextUsage = usage
-  if (control.contextUsageFiber !== undefined) {
-    return
-  }
-  const fiber = yield* Effect.sleep("100 millis").pipe(
-    Effect.tap(() =>
-      Effect.sync(() => {
-        control.contextUsageFiber = undefined
-      }),
-    ),
-    Effect.andThen(flushContextUsage(control)),
-    Effect.forkIn(session.scope),
-  )
-  control.contextUsageFiber = fiber
-})
+) => Effect.Effect<void> = Effect.fn("CodexAdapter.scheduleContextUsage")(
+  function* (session, control, usage) {
+    control.pendingContextUsage = usage
+    if (control.contextUsageFiber !== undefined) {
+      return
+    }
+    const fiber = yield* Effect.sleep("100 millis").pipe(
+      Effect.andThen(Effect.uninterruptible(flushContextUsage(control))),
+      Effect.ensuring(
+        Effect.gen(function* () {
+          control.contextUsageFiber = undefined
+          const pending = control.pendingContextUsage
+          if (pending !== undefined && !control.terminalEmitted) {
+            yield* scheduleContextUsage(session, control, pending)
+          }
+        }),
+      ),
+      Effect.forkIn(session.scope),
+    )
+    control.contextUsageFiber = fiber
+  },
+)
 
 const executableExists = (fileSystem: FileSystem.FileSystem, candidate: string) =>
   fileSystem.access(candidate, { ok: true }).pipe(
@@ -907,7 +913,6 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     }
     control.terminalEmitted = true
     const contextUsageFiber = control.contextUsageFiber
-    control.contextUsageFiber = undefined
     if (contextUsageFiber !== undefined) {
       yield* Fiber.interrupt(contextUsageFiber).pipe(Effect.ignore)
     }
@@ -1008,11 +1013,22 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
 
     let spawned = false
     if (session === undefined) {
-      const scope = yield* Scope.make("sequential")
-      let openedSession: CodexSession | undefined
       const credential = yield* mcpSessions.issue({
         projectId: control.input.projectId,
         threadId: control.input.threadId,
+      })
+      const scope = yield* Scope.make("sequential")
+      let openedSession: CodexSession | undefined
+      let startupOwned = true
+      let startupTerminated = false
+      const closeStartup = Effect.suspend(() => {
+        if (!startupOwned) {
+          return Effect.void
+        }
+        startupOwned = false
+        return mcpSessions
+          .revokeSession(control.input.threadId)
+          .pipe(Effect.andThen(Scope.close(scope, Exit.void)), Effect.ignore)
       })
       const token = credential.config.authorizationHeader.replace(/^Bearer\s+/i, "")
       const opened = yield* openClient(
@@ -1027,26 +1043,41 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
         scope,
         {
           onTermination: (error) =>
-            Effect.suspend(() => {
-              const terminated = openedSession
-              if (terminated === undefined || terminated.stopped) {
-                return Effect.void
-              }
-              const activeControl = terminated.activeTurn
-              const settle =
-                activeControl === undefined
-                  ? Effect.void
-                  : settleTurn(
-                      activeControl,
-                      activeControl.cancelRequested ? "interrupted" : "failed",
-                      activeControl.cancelRequested ? undefined : error.message,
-                    )
-              return settle.pipe(Effect.andThen(closeSession(terminated)))
-            }).pipe(Effect.forkIn(providerScope), Effect.asVoid),
+            Effect.sync(() => {
+              startupTerminated = true
+            }).pipe(
+              Effect.andThen(
+                Effect.suspend(() => {
+                  const terminated = openedSession
+                  if (terminated === undefined) {
+                    return closeStartup
+                  }
+                  if (terminated.stopped) {
+                    return Effect.void
+                  }
+                  const activeControl = terminated.activeTurn
+                  const settle =
+                    activeControl === undefined
+                      ? Effect.void
+                      : settleTurn(
+                          activeControl,
+                          activeControl.cancelRequested ? "interrupted" : "failed",
+                          activeControl.cancelRequested ? undefined : error.message,
+                        )
+                  return settle.pipe(Effect.andThen(closeSession(terminated)))
+                }).pipe(Effect.forkIn(providerScope), Effect.asVoid),
+              ),
+            ),
         },
+      ).pipe(Effect.onError(() => closeStartup))
+      yield* initializeClient(opened.client).pipe(Effect.onError(() => closeStartup))
+      const providerThreadId = yield* openThread(opened.client, control.input).pipe(
+        Effect.onError(() => closeStartup),
       )
-      yield* initializeClient(opened.client)
-      const providerThreadId = yield* openThread(opened.client, control.input)
+      if (startupTerminated) {
+        yield* closeStartup
+        return yield* new CodexAdapterFailure({ message: "Codex exited during session startup" })
+      }
       session = {
         threadId: control.input.threadId,
         projectId: control.input.projectId,
@@ -1062,6 +1093,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
         stopped: false,
       }
       openedSession = session
+      startupOwned = false
       sessions.set(control.input.threadId, session)
       spawned = true
     }
