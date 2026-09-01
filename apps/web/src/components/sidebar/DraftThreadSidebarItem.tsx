@@ -20,6 +20,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
+import { clearDraftComposerPreferences } from "@/lib/draft-composer-preferences"
 import { clearComposerDraft } from "@/state/composer-drafts"
 
 export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
@@ -104,6 +105,7 @@ export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
               render={<Button type="button" variant="destructive" />}
               onClick={() => {
                 clearComposerDraft(project.id, undefined)
+                clearDraftComposerPreferences(project.id, undefined)
               }}
             >
               Discard
