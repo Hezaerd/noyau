@@ -126,6 +126,7 @@ const turnStartShared = {
   threadId: ThreadId,
   text: Schema.optionalKey(Schema.NonEmptyString),
   titleSeed: Schema.optionalKey(Schema.NonEmptyString),
+  provider: Schema.optionalKey(Provider),
   runtimeMode: Schema.optionalKey(RuntimeMode),
   modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   prepareWorktree: Schema.optionalKey(PrepareWorktree),

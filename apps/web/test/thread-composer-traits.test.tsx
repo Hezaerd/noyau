@@ -235,4 +235,48 @@ describe("thread composer traits", () => {
         expect(composerPromptFieldCaretOffset(composerField())).toBe(caret)
       }),
     ))
+
+  it("lets an existing composer select a model from another provider", async () => {
+    const user = userEvent.setup()
+    const cursor = ProviderInstanceId.make("cursor")
+    const claude = ProviderInstanceId.make("claude")
+    const claudeModel = model({ modelId: "claude-sonnet-4-5", label: "Claude Sonnet 4.5" })
+    const onProviderChange = vi.fn()
+    const onModelSelectionChange = vi.fn()
+    render(
+      <AppAtomRegistryProvider>
+        <ThreadComposer
+          isRunning={false}
+          disabled={false}
+          text="Review the change"
+          images={[]}
+          runtimeMode="full-access"
+          models={[model()]}
+          modelsByProvider={{ cursor: [model()], claude: [claudeModel] }}
+          availableProviders={[cursor, claude]}
+          selectedProvider={cursor}
+          modelSelection={{ modelId: "composer-2.5" }}
+          defaultModelSelection={null}
+          error={undefined}
+          onSubmit={vi.fn()}
+          onTextChange={vi.fn()}
+          onRuntimeModeChange={vi.fn()}
+          onModelSelectionChange={onModelSelectionChange}
+          onDefaultModelSelectionChange={vi.fn()}
+          onProviderChange={onProviderChange}
+          onPaste={vi.fn()}
+          onDrop={vi.fn()}
+          onImageRemove={vi.fn()}
+          onInterrupt={vi.fn()}
+        />
+      </AppAtomRegistryProvider>,
+    )
+
+    await user.click(screen.getByRole("button", { name: /Model/ }))
+    await user.click(screen.getByRole("tab", { name: "Claude Code" }))
+    await user.click(screen.getByText("Claude Sonnet 4.5"))
+
+    expect(onProviderChange).toHaveBeenCalledWith(claude)
+    expect(onModelSelectionChange).toHaveBeenCalledWith({ modelId: "claude-sonnet-4-5" })
+  })
 })

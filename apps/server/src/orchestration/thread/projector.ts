@@ -262,6 +262,14 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
         ...thread,
         modelSelection: event.modelSelection,
       }))
+    case "thread.provider-handed-off":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        provider: event.provider,
+        modelSelection: event.modelSelection ?? null,
+        session: null,
+        contextUsage: null,
+      }))
     case "thread.turn.started":
       return updateThread(state, event.threadId, (thread) => {
         if (thread.turns.some((turn) => turn.turnId === event.turnId)) {
@@ -282,6 +290,9 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
         }
         if (event.presentation !== undefined) {
           userItem = Object.assign(userItem, { presentation: event.presentation })
+        }
+        if (event.providerHandoff !== undefined) {
+          userItem = Object.assign(userItem, { providerHandoff: event.providerHandoff })
         }
         return {
           ...thread,

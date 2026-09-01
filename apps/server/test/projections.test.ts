@@ -26,6 +26,7 @@ import {
   ThreadCreated,
   ThreadDeleted,
   ThreadModelSelectionSet,
+  ThreadProviderHandedOff,
   ThreadSessionSet,
   ThreadSettled,
   ThreadTranscriptAppended,
@@ -766,6 +767,105 @@ layer(platformLayer)("SQL projections", (it) => {
             shellTurn?.startedAt == null ? null : DateTime.formatIso(shellTurn.startedAt),
             "2026-08-20T00:01:00.000Z",
           )
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    )
+  })
+
+  it.effect("projette un handoff en remplaçant le provider et son curseur de Session", () => {
+    const firstTurnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000020")
+    const handoffTurnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000021")
+    const ready = Schema.decodeSync(Session)({
+      threadId: ids.recoveryThread,
+      status: "ready",
+      lastError: null,
+      activeTurnId: null,
+      runtimeMode: "full-access",
+      resumeCursor: { schemaVersion: 1, sessionId: "cursor-session-handoff" },
+      updatedAt: "2026-08-20T00:02:00.000Z",
+    })
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Provider handoff",
+                provider: ProviderInstanceId.make("cursor"),
+                runtimeMode: "full-access",
+                modelSelection: { modelId: "composer-2.5" },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId: firstTurnId,
+                text: "Implement the change",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(3, ThreadSessionSet.make({ threadId: ids.recoveryThread, session: ready })),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              ThreadProviderHandedOff.make({
+                threadId: ids.recoveryThread,
+                previousProvider: ProviderInstanceId.make("cursor"),
+                provider: ProviderInstanceId.make("claude"),
+                previousModelSelection: { modelId: "composer-2.5" },
+                modelSelection: { modelId: "claude-sonnet-4-5" },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              5,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId: handoffTurnId,
+                text: "Review it critically",
+                providerHandoff: {
+                  previousProvider: ProviderInstanceId.make("cursor"),
+                  provider: ProviderInstanceId.make("claude"),
+                  previousModelSelection: { modelId: "composer-2.5" },
+                  modelSelection: { modelId: "claude-sonnet-4-5" },
+                },
+              }),
+            ),
+          )
+
+          const snapshot = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "Thread should exist",
+          )
+          assert.strictEqual(snapshot.thread.provider, "claude")
+          assert.deepStrictEqual(snapshot.thread.modelSelection, {
+            modelId: "claude-sonnet-4-5",
+          })
+          assert.strictEqual(snapshot.session, null)
+          assert.deepStrictEqual(snapshot.transcript.at(-1), {
+            _tag: "transcript.user",
+            threadId: ids.recoveryThread,
+            turnId: handoffTurnId,
+            text: "Review it critically",
+            providerHandoff: {
+              previousProvider: ProviderInstanceId.make("cursor"),
+              provider: ProviderInstanceId.make("claude"),
+              previousModelSelection: { modelId: "composer-2.5" },
+              modelSelection: { modelId: "claude-sonnet-4-5" },
+            },
+          })
         }).pipe(Effect.provideService(SqlClient, sql))
       }),
     )

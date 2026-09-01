@@ -4,6 +4,7 @@ import type {
   ProviderInstanceViewMap,
 } from "@noyau/contracts/entities/environment"
 import { isBuiltinProviderDriver } from "@noyau/contracts/entities/environment"
+import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 
 import { ClaudeIcon, CodexIcon, CursorIcon, type ProviderIcon } from "@/components/provider-icons"
 
@@ -49,6 +50,18 @@ export const providerInstanceLabelOf = (
   const driver = providerDriverOf(instanceId, providers)
   const label = providerLabelOf(driver)
   return String(instanceId) === driver ? label : `${label} (${instanceId})`
+}
+
+export const providerModelLabelOf = (
+  instanceId: Provider,
+  selection: ModelSelection | null,
+  providers: ProviderInstanceViewMap,
+): string => {
+  if (selection === null) return "Default model"
+  return (
+    providers[instanceId]?.models?.find((model) => model.modelId === selection.modelId)?.label ??
+    selection.modelId
+  )
 }
 
 export const isProviderInstanceReady = (view: ProviderInstanceView | undefined): boolean =>

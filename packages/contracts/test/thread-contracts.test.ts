@@ -6,7 +6,7 @@ import { Thread } from "@noyau/contracts/entities/thread"
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import { CheckpointRef, checkpointRefForTurn, Turn } from "@noyau/contracts/entities/turn"
-import { EventEnvelope } from "@noyau/contracts/events"
+import { DomainEvent, EventEnvelope } from "@noyau/contracts/events"
 import { ThreadId } from "@noyau/contracts/ids"
 import { Receipt } from "@noyau/contracts/receipts"
 import { ThreadStreamItem } from "@noyau/contracts/rpc"
@@ -313,6 +313,50 @@ describe("Thread and Session entities", () => {
 })
 
 describe("Thread commands", () => {
+  it("décode le provider cible d'un handoff sur le prochain Turn", () => {
+    const request = Schema.decodeSync(ThreadTurnStartRequest)({
+      _tag: "thread.turn.start",
+      commandId: ids.command,
+      payload: {
+        threadId: ids.thread,
+        text: "Review the implementation",
+        provider: "claude",
+      },
+    })
+
+    expect(request.payload.provider).toBe("claude")
+    const user = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.user",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "Review the implementation",
+      providerHandoff: {
+        previousProvider: "cursor",
+        provider: "claude",
+        previousModelSelection: { modelId: "composer-2.5" },
+        modelSelection: { modelId: "claude-sonnet-4-5" },
+      },
+    })
+    expect(user).toMatchObject({
+      providerHandoff: {
+        previousProvider: "cursor",
+        provider: "claude",
+        previousModelSelection: { modelId: "composer-2.5" },
+        modelSelection: { modelId: "claude-sonnet-4-5" },
+      },
+    })
+
+    expect(
+      Schema.decodeSync(TranscriptItem)({
+        _tag: "transcript.user",
+        threadId: ids.thread,
+        turnId: ids.turn,
+        text: "Legacy handoff",
+        providerHandoff: { previousProvider: "cursor", provider: "claude" },
+      }),
+    ).toMatchObject({ providerHandoff: { previousProvider: "cursor", provider: "claude" } })
+  })
+
   it("décode une présentation de Turn optionnelle", () => {
     const request = {
       _tag: "thread.turn.start" as const,
@@ -638,6 +682,35 @@ describe("Thread commands", () => {
 })
 
 describe("Thread events and receipts", () => {
+  it("round-trip un événement de handoff provider", () => {
+    const event = Schema.decodeSync(DomainEvent)({
+      _tag: "thread.provider-handed-off",
+      threadId: ids.thread,
+      previousProvider: "cursor",
+      provider: "codex",
+      previousModelSelection: { modelId: "composer-2.5" },
+      modelSelection: { modelId: "gpt-5.6-luna", reasoningEffort: "high" },
+    })
+
+    expect(Schema.encodeSync(DomainEvent)(event)).toEqual({
+      _tag: "thread.provider-handed-off",
+      threadId: ids.thread,
+      previousProvider: "cursor",
+      provider: "codex",
+      previousModelSelection: { modelId: "composer-2.5" },
+      modelSelection: { modelId: "gpt-5.6-luna", reasoningEffort: "high" },
+    })
+
+    expect(
+      Schema.decodeSync(DomainEvent)({
+        _tag: "thread.provider-handed-off",
+        threadId: ids.thread,
+        previousProvider: "cursor",
+        provider: "codex",
+      }),
+    ).toMatchObject({ previousProvider: "cursor", provider: "codex" })
+  })
+
   it("round-trip un événement de Session et un receipt accepté à sequence", () => {
     const envelope = Schema.decodeSync(EventEnvelope)({
       eventId: ids.event,

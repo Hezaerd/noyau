@@ -242,7 +242,12 @@ export function ThreadPage({
   )
   const persistedDefaultModelSelectionRef = useRef<DefaultModelSelection | null>(null)
   const [draftProvider, setDraftProvider] = useState<Provider>(
-    initialComposerPreferences?.provider ?? DEFAULT_PROVIDER_INSTANCE_ID,
+    initialComposerPreferences?.provider ??
+      (threadId === undefined
+        ? DEFAULT_PROVIDER_INSTANCE_ID
+        : (getThreadSnapshot(threadId)?.thread.provider ??
+          shellThread?.provider ??
+          DEFAULT_PROVIDER_INSTANCE_ID)),
   )
   const draftProviderRef = useRef(draftProvider)
   draftProviderRef.current = draftProvider
@@ -269,8 +274,8 @@ export function ThreadPage({
   const composerOpenById = useAppAtomValue(threadComposerOpenByIdAtom)
   const composerOpen = threadId === undefined ? true : (composerOpenById.get(threadId) ?? true)
   const restoredFailedTurnRef = useRef<string>(undefined)
-  const lockedProvider = snapshot?.thread.provider
-  const selectedProvider = lockedProvider ?? draftProvider
+  const currentProvider = snapshot?.thread.provider ?? shellThread?.provider
+  const selectedProvider = draftProvider
   const selectedInstance = providers[selectedProvider]
   const providerReady = isProviderInstanceReady(selectedInstance)
   const providerDisabled = selectedInstance !== undefined && !selectedInstance.enabled
@@ -325,7 +330,7 @@ export function ThreadPage({
   }, [availableProviders, catalogs, project, projectId, threadId])
 
   useEffect(() => {
-    if (lockedProvider !== undefined) {
+    if (threadId !== undefined) {
       return
     }
     if (isProviderInstanceReady(providers[draftProvider])) {
@@ -342,7 +347,7 @@ export function ThreadPage({
         ? selection
         : null,
     )
-  }, [lockedProvider, draftProvider, providers, availableProviders, catalogs])
+  }, [threadId, draftProvider, providers, availableProviders, catalogs])
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
     (query: string) =>
@@ -470,6 +475,8 @@ export function ThreadPage({
     setLoading(threadSnapshotNeedsLoad(threadId))
     setSubscriptionStatus(undefined)
     if (cached !== undefined) {
+      draftProviderRef.current = cached.thread.provider
+      setDraftProvider(cached.thread.provider)
       setRuntimeMode(
         cachedIsDraft && rememberedPreferences !== undefined
           ? rememberedPreferences.runtimeMode
@@ -481,6 +488,9 @@ export function ThreadPage({
           : cached.thread.modelSelection,
       )
     } else {
+      const provider = shellThreadRef.current?.provider ?? DEFAULT_PROVIDER_INSTANCE_ID
+      draftProviderRef.current = provider
+      setDraftProvider(provider)
       setRuntimeMode(rememberedPreferences?.runtimeMode ?? "full-access")
       setModelSelection(rememberedPreferences?.modelSelection ?? null)
     }
@@ -488,6 +498,8 @@ export function ThreadPage({
       if (next.thread.id !== threadId) {
         return
       }
+      draftProviderRef.current = next.thread.provider
+      setDraftProvider(next.thread.provider)
       const remembered = peekDraftComposerPreferences(projectId, threadId, draftId)
       const nextIsDraft = next.thread.latestTurn === null && next.transcript.length === 0
       setRuntimeMode(
@@ -545,6 +557,10 @@ export function ThreadPage({
         }
         if (event._tag === "thread.model-selection-set") {
           setModelSelection(event.modelSelection)
+        }
+        if (event._tag === "thread.provider-handed-off") {
+          draftProviderRef.current = event.provider
+          setDraftProvider(event.provider)
         }
         if (event._tag === "thread.meta-updated") {
           if (event.worktreePath !== undefined) {
@@ -934,7 +950,7 @@ export function ThreadPage({
       })
     }
     setComposerFailure(undefined)
-    if (threadId === undefined) {
+    if (threadId === undefined || draftProviderRef.current !== currentProvider) {
       return
     }
     void setThreadModelSelectionAction({ threadId, modelSelection: nextSelection }).then(
@@ -1121,18 +1137,20 @@ export function ThreadPage({
     }
   }
   const awaitingThread = threadId !== undefined && pageSnapshot === undefined
+  const handoffPending =
+    currentProvider !== undefined && selectedProvider !== currentProvider && !isDraftThread
   const composer = (
     <ThreadComposer
       key={threadId ?? "new"}
       isRunning={isRunning}
-      disabled={awaitingThread || project?.available !== true || !providerReady}
+      disabled={awaitingThread || project?.available !== true}
+      submitDisabled={!providerReady}
       text={text}
       images={images}
       runtimeMode={runtimeMode}
       models={selectedModels}
       modelsByProvider={catalogs}
       availableProviders={availableProviders}
-      lockedProvider={lockedProvider}
       selectedProvider={selectedProvider}
       modelSelection={modelSelection}
       defaultModelSelection={defaultModelSelection}
@@ -1140,7 +1158,15 @@ export function ThreadPage({
       error={
         providerDisabled ? (
           <span className="text-xs text-muted-foreground">
-            This provider is disabled in Settings.
+            This provider is disabled in Settings. Choose another provider to hand off.
+          </span>
+        ) : !providerReady ? (
+          <span className="text-xs text-muted-foreground">
+            This provider is unavailable. Choose another provider to hand off.
+          </span>
+        ) : handoffPending && composerError === undefined ? (
+          <span className="text-xs text-muted-foreground">
+            Your next message hands this Thread off to the selected provider.
           </span>
         ) : composerError === undefined ? undefined : (
           <InlineFailure className="text-xs" presentation={composerError} />

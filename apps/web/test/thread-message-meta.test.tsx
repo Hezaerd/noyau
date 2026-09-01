@@ -39,6 +39,25 @@ const assistantItem = Schema.decodeSync(TranscriptItem)({
   turnId,
   text: "C'est noté.",
 })
+const handedOffItem = Schema.decodeSync(TranscriptItem)({
+  _tag: "transcript.user",
+  threadId,
+  turnId,
+  text: "Review the implementation",
+  providerHandoff: { previousProvider: "cursor", provider: "claude" },
+})
+const modelHandedOffItem = Schema.decodeSync(TranscriptItem)({
+  _tag: "transcript.user",
+  threadId,
+  turnId,
+  text: "Continue the implementation",
+  providerHandoff: {
+    previousProvider: "cursor",
+    provider: "codex",
+    previousModelSelection: { modelId: "composer-2.5" },
+    modelSelection: { modelId: "gpt-5.6-luna" },
+  },
+})
 const turn = Schema.decodeSync(LatestTurn)({
   turnId,
   state: "completed",
@@ -95,5 +114,23 @@ describe("thread message meta", () => {
     const bubbleContent = screen.getByText("C'est noté.").closest("[data-slot='bubble-content']")
     expect(bubbleContent?.className).toContain("w-full")
     expect(bubbleContent?.closest("[data-slot='bubble']")?.className).toContain("w-full")
+  })
+
+  it("keeps provider labels for a legacy handoff Turn", () => {
+    renderItem(handedOffItem)
+
+    expect(screen.getByText("Cursor")).toBeTruthy()
+    expect(screen.getByText("Claude Code")).toBeTruthy()
+    expect(screen.getByText("Review the implementation")).toBeTruthy()
+  })
+
+  it("shows model labels on a model-aware handoff Turn", () => {
+    renderItem(modelHandedOffItem)
+
+    expect(screen.getByText("composer-2.5")).toBeTruthy()
+    expect(screen.getByText("gpt-5.6-luna")).toBeTruthy()
+    expect(
+      screen.getByLabelText("Provider handoff: Cursor, composer-2.5 to Codex, gpt-5.6-luna"),
+    ).toBeTruthy()
   })
 })

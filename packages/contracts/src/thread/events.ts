@@ -9,7 +9,11 @@ import { Provider } from "@noyau/contracts/entities/environment"
 import { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import { Session } from "@noyau/contracts/entities/session"
-import { TranscriptItem, TurnPresentation } from "@noyau/contracts/entities/transcript"
+import {
+  ProviderHandoff,
+  TranscriptItem,
+  TurnPresentation,
+} from "@noyau/contracts/entities/transcript"
 import {
   CheckpointRef,
   TurnDiffFile,
@@ -85,6 +89,15 @@ export const ThreadModelSelectionSet = Schema.TaggedStruct("thread.model-selecti
 })
 export type ThreadModelSelectionSet = (typeof ThreadModelSelectionSet)["Type"]
 
+export const ThreadProviderHandedOff = Schema.TaggedStruct("thread.provider-handed-off", {
+  threadId: ThreadId,
+  previousProvider: Provider,
+  provider: Provider,
+  previousModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+  modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+})
+export type ThreadProviderHandedOff = (typeof ThreadProviderHandedOff)["Type"]
+
 export const ThreadTurnStarted = Schema.TaggedStruct("thread.turn.started", {
   threadId: ThreadId,
   turnId: TurnId,
@@ -95,6 +108,7 @@ export const ThreadTurnStarted = Schema.TaggedStruct("thread.turn.started", {
   prepareWorktree: Schema.optionalKey(PrepareWorktree),
   attachments: Schema.optionalKey(TurnImageAttachments),
   presentation: Schema.optionalKey(TurnPresentation),
+  providerHandoff: Schema.optionalKey(ProviderHandoff),
 })
 export type ThreadTurnStarted = (typeof ThreadTurnStarted)["Type"]
 
@@ -173,6 +187,7 @@ export const ThreadEvent = Schema.Union([
   ThreadMetaUpdated,
   ThreadRuntimeModeSet,
   ThreadModelSelectionSet,
+  ThreadProviderHandedOff,
   ThreadTurnStarted,
   ThreadTurnInterrupted,
   ApprovalResponded,
