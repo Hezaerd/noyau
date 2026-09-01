@@ -107,13 +107,6 @@ export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
     keywords: ["sound", "cuelume", "chime", "arrival", "sparkle", "bloom"],
   },
   {
-    id: "turn-notification",
-    tab: "general",
-    title: "Turn end notifications",
-    description: "OS banner when a Turn finishes while Noyau is not focused.",
-    keywords: ["notification", "badge", "dock", "system", "turn"],
-  },
-  {
     id: "discord-rich-presence",
     tab: "general",
     title: "Discord Rich Presence",

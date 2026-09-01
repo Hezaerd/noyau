@@ -3,18 +3,14 @@ import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import type { ThreadShell } from "@noyau/contracts/shell"
 import { Atom } from "effect/unstable/reactivity"
 
-import {
-  countWaitingThreads,
-  resolveThreadActivity,
-  type ThreadActivity,
-} from "@/lib/thread-activity"
+import { resolveThreadActivity, type ThreadActivity } from "@/lib/thread-activity"
 import { partitionThreadsForSidebar, type SidebarThreadPartition } from "@/lib/thread-sidebar-sort"
 import { appAtomRegistry } from "@/state/atom-registry"
 import { nowMinuteAtom } from "@/state/now"
-import { projectThreadsAtom, threadShellAtom, threadsAtom } from "@/state/shell"
+import { projectThreadsAtom, threadShellAtom } from "@/state/shell"
 import { threadPinsAtom } from "@/state/thread-pins"
 import { autoSettleAfterDaysAtom } from "@/state/thread-settle"
-import { threadVisitsAtom, visitAtom } from "@/state/thread-visits"
+import { visitAtom } from "@/state/thread-visits"
 
 export const EMPTY_PULL_REQUESTS: ReadonlyMap<string, VcsStatusPullRequest> = new Map()
 
@@ -95,8 +91,3 @@ export const threadUnreadAtom = Atom.family((threadId: ThreadId) =>
     return activity?.kind === "completed" || activity?.kind === "interrupted"
   }).pipe(Atom.withLabel(`chrome:thread-unread:${threadId}`)),
 )
-
-export const waitingThreadCountAtom = Atom.make((get): number => {
-  const visits = get(threadVisitsAtom)
-  return countWaitingThreads(get(threadsAtom), (threadId) => visits.get(threadId))
-}).pipe(Atom.withLabel("chrome:waiting-thread-count"))

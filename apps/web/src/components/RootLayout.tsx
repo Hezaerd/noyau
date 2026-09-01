@@ -21,11 +21,9 @@ import {
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useKeybindingDispatcher } from "@/hooks/use-keybinding-dispatcher"
 import { useLastScreenRecorder } from "@/hooks/use-last-screen-recorder"
-import { useOpenThreadFromNotification } from "@/hooks/use-open-thread-from-notification"
 import { useSettingsTabRestore } from "@/hooks/use-settings-tab-restore"
 import { useShellFocusReporter } from "@/hooks/use-shell-focus-reporter"
 import { useTurnSettlementCue } from "@/hooks/use-turn-settlement-cue"
-import { useWaitingThreadBadge } from "@/hooks/use-waiting-thread-badge"
 import {
   COLLAPSED_PAGE_TITLEBAR_INSET_CLASS,
   macosDesktopControlsStyle,
@@ -163,8 +161,6 @@ function KeybindingRuntime() {
 
 function TurnSettlementCue() {
   useTurnSettlementCue()
-  useWaitingThreadBadge()
-  useOpenThreadFromNotification()
   return null
 }
 
