@@ -1,11 +1,12 @@
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import { DomainEvent, EventEnvelope } from "@noyau/contracts/events"
 import { ProjectId, Sequence, ThreadId, TurnId } from "@noyau/contracts/ids"
-import { ThreadShell } from "@noyau/contracts/shell"
+import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { resetAppAtomRegistryForTests } from "../src/state/atom-registry"
+import { getAppliedShell, replaceAppliedShell } from "../src/state/shell"
 import { getThreadSnapshot, replaceThreadSnapshot } from "../src/state/thread-snapshot"
 import {
   resetThreadSnapshotSubscriptionsForTests,
@@ -14,6 +15,7 @@ import {
   syncWarmThreadSnapshotEvent,
   type ThreadSnapshotSubscriptionCallbacks,
 } from "../src/state/thread-snapshot-subscriptions"
+import { encodedTestEnvironment } from "./encoded-environment"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadA = ThreadId.make("20000000-0000-4000-8000-000000000001")
@@ -143,6 +145,45 @@ afterEach(() => {
 })
 
 describe("warm Thread snapshot subscriptions", () => {
+  it("repairs a stale running shell row from a terminal detailed snapshot", () => {
+    const harness = installSubscriber()
+    const shell = {
+      ...Schema.decodeSync(ShellSnapshot)({
+        snapshotSequence: 1,
+        environment: encodedTestEnvironment(),
+        projects: [
+          {
+            id: projectId,
+            name: "Noyau",
+            workspaceRoot: "/tmp/noyau",
+            defaultModelSelection: null,
+            available: true,
+            createdAt: "2026-09-01T12:00:00.000Z",
+            updatedAt: "2026-09-01T12:00:00.000Z",
+          },
+        ],
+        threads: [],
+      }),
+      threads: [makeShell(threadA, "running"), makeShell(threadB, "running")],
+    }
+    replaceAppliedShell(shell)
+
+    for (const threadId of [threadA, threadB]) {
+      syncWarmThreadSnapshotEvent({
+        _tag: "thread-upserted",
+        sequence: Sequence.make(2),
+        thread: makeShell(threadId, "running"),
+      })
+      harness.callbackFor(threadId).onSnapshot(makeSnapshot(threadId, 5, "completed"))
+    }
+
+    expect(getAppliedShell()?.threads.map((thread) => thread.latestTurn?.state)).toEqual([
+      "completed",
+      "completed",
+    ])
+    expect(getAppliedShell()?.threads.map((thread) => thread.sessionStatus)).toEqual([null, null])
+  })
+
   it("keeps a background Thread warm until its terminal event reaches the cache", () => {
     const harness = installSubscriber()
 

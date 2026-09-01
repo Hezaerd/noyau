@@ -440,4 +440,85 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
         )
       }),
   )
+
+  it.effect("isolates child-thread notifications from the active root Turn", () =>
+    withProvider("cross-talk", (provider) =>
+      Effect.gen(function* () {
+        const signals = yield* capture(provider, input())
+        const assistantTexts = signals.flatMap((signal) =>
+          signal._tag === "transcript" && signal.item._tag === "transcript.assistant"
+            ? [signal.item.text]
+            : [],
+        )
+        assert.deepStrictEqual(assistantTexts, ["hello from fake Codex"])
+        assert.deepStrictEqual(
+          signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+          ["completed"],
+        )
+        assert.isFalse(signals.some((signal) => signal._tag === "context-usage"))
+      }),
+    ),
+  )
+
+  it.effect("coalesces root context usage and flushes the latest value before settlement", () =>
+    withProvider("usage-burst", (provider) =>
+      Effect.gen(function* () {
+        const signals = yield* capture(provider, input())
+        const usage = signals.flatMap((signal) =>
+          signal._tag === "context-usage" ? [{ used: signal.used, window: signal.window }] : [],
+        )
+        assert.deepStrictEqual(usage, [{ used: 10, window: 100 }])
+        const usageIndex = signals.findIndex((signal) => signal._tag === "context-usage")
+        const terminalIndex = signals.findIndex((signal) => signal._tag === "turn-ended")
+        assert.isTrue(usageIndex !== -1 && terminalIndex !== -1 && usageIndex < terminalIndex)
+      }),
+    ),
+  )
+
+  it.effect("settles an interrupted Turn when Codex never sends turn/completed", () =>
+    withProvider("hang-no-completion", (provider, evidence) =>
+      Effect.gen(function* () {
+        const signals: Array<ProviderSignal> = []
+        yield* provider.startTurn(input(), (signal) =>
+          Effect.sync(() => {
+            signals.push(signal)
+          }),
+        )
+        yield* waitForLog(evidence.requestLog, '"method":"turn/start"')
+        yield* provider.interrupt(threadId)
+        yield* provider.drain
+
+        assert.deepStrictEqual(
+          signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+          ["interrupted"],
+        )
+        assert.isTrue(
+          signals.some((signal) => signal._tag === "session" && signal.status === "ready"),
+        )
+
+        yield* waitForLog(evidence.exitLog, "SIGTERM")
+      }),
+    ),
+  )
+
+  it.effect("settles an active Turn when the Codex process exits", () =>
+    withProvider("exit-active", (provider) =>
+      Effect.gen(function* () {
+        const signals = yield* capture(provider, input())
+        assert.deepStrictEqual(
+          signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+          ["error"],
+        )
+        assert.isTrue(
+          signals.some((signal) => signal._tag === "session" && signal.status === "error"),
+        )
+        const terminalIndex = signals.findIndex((signal) => signal._tag === "turn-ended")
+        assert.isFalse(
+          signals
+            .slice(terminalIndex + 1)
+            .some((signal) => signal._tag === "session" && signal.status === "running"),
+        )
+      }),
+    ),
+  )
 })

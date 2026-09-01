@@ -126,6 +126,74 @@ await Effect.runPromise(
 let turnOrdinal = 0
 
 const emitTurn = (requestThreadId, turnId) => {
+  if (scenario === "cross-talk") {
+    notify("item/agentMessage/delta", {
+      delta: "child text that must stay isolated",
+      itemId: "child-message",
+      threadId: "child-codex-thread",
+      turnId: "child-codex-turn",
+    })
+    notify("thread/tokenUsage/updated", {
+      threadId: "child-codex-thread",
+      turnId: "child-codex-turn",
+      tokenUsage: {
+        total: {
+          inputTokens: 40,
+          cachedInputTokens: 0,
+          outputTokens: 10,
+          reasoningOutputTokens: 0,
+          totalTokens: 50,
+        },
+        last: {
+          inputTokens: 40,
+          cachedInputTokens: 0,
+          outputTokens: 10,
+          reasoningOutputTokens: 0,
+          totalTokens: 50,
+        },
+        modelContextWindow: 100,
+      },
+    })
+    notify("turn/completed", {
+      threadId: "child-codex-thread",
+      turn: { id: "child-codex-turn", items: [], status: "interrupted" },
+    })
+    notify("item/agentMessage/delta", {
+      delta: "stale text that must stay isolated",
+      itemId: "stale-message",
+      threadId: requestThreadId,
+      turnId: "stale-codex-turn",
+    })
+    notify("turn/completed", {
+      threadId: requestThreadId,
+      turn: { id: "stale-codex-turn", items: [], status: "interrupted" },
+    })
+  }
+  if (scenario === "usage-burst") {
+    for (let index = 1; index <= 10; index += 1) {
+      notify("thread/tokenUsage/updated", {
+        threadId: requestThreadId,
+        turnId,
+        tokenUsage: {
+          total: {
+            inputTokens: index,
+            cachedInputTokens: 0,
+            outputTokens: 0,
+            reasoningOutputTokens: 0,
+            totalTokens: index,
+          },
+          last: {
+            inputTokens: index,
+            cachedInputTokens: 0,
+            outputTokens: 0,
+            reasoningOutputTokens: 0,
+            totalTokens: index,
+          },
+          modelContextWindow: 100,
+        },
+      })
+    }
+  }
   notify("item/agentMessage/delta", {
     delta: "hello from fake Codex",
     itemId: "item-msg-1",
@@ -287,8 +355,12 @@ for await (const line of lines) {
     const requestThreadId = message.params?.threadId ?? threadId
     const turnId = `fake-codex-turn-${turnOrdinal}`
     respond(message.id, { turn: { id: turnId, items: [], status: "inProgress" } })
-    if (scenario !== "hang") {
-      emitTurn(requestThreadId, turnId)
+    if (scenario === "exit-active") {
+      shutdown("active-exit", 2)
+      continue
+    }
+    if (scenario !== "hang" && (scenario !== "hang-no-completion" || turnOrdinal > 1)) {
+      setTimeout(() => emitTurn(requestThreadId, turnId), 0)
     }
     continue
   }
@@ -297,6 +369,9 @@ for await (const line of lines) {
     const requestThreadId = message.params?.threadId ?? threadId
     const interruptedTurnId = message.params?.turnId ?? `fake-codex-turn-${turnOrdinal}`
     respond(message.id, {})
+    if (scenario === "hang-no-completion") {
+      continue
+    }
     notify("turn/completed", {
       threadId: requestThreadId,
       turn: { id: interruptedTurnId, items: [], status: "interrupted" },

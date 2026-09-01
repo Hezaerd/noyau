@@ -97,6 +97,8 @@ interface ActiveTurn {
   flushedAssistantText: string
   session?: CodexSession
   providerTurnId?: string
+  pendingContextUsage: ContextUsage | undefined
+  contextUsageFiber: Fiber.Fiber<void> | undefined
   mcpActivated: boolean
   cancelRequested: boolean
   stopRequested: boolean
@@ -157,20 +159,43 @@ const emitSignal = Effect.fn("CodexAdapter.emitSignal")(function* (
   yield* control.emit(signal)
 })
 
-const emitContextUsage = (session: CodexSession, usage: ContextUsage) => {
-  const control = session.activeTurn
-  const emit = control?.emit ?? session.lastEmit
-  if (emit === undefined) {
-    return Effect.void
+const flushContextUsage = Effect.fn("CodexAdapter.flushContextUsage")(function* (
+  control: ActiveTurn,
+) {
+  const usage = control.pendingContextUsage
+  if (usage === undefined) {
+    return
   }
+  control.pendingContextUsage = undefined
   const signal = {
     _tag: "context-usage" as const,
-    threadId: session.threadId,
+    threadId: control.input.threadId,
     used: usage.used,
     window: usage.window,
   }
-  return control === undefined ? emit(signal) : emitSignal(control, signal)
-}
+  yield* emitSignal(control, signal)
+})
+
+const scheduleContextUsage = Effect.fn("CodexAdapter.scheduleContextUsage")(function* (
+  session: CodexSession,
+  control: ActiveTurn,
+  usage: ContextUsage,
+) {
+  control.pendingContextUsage = usage
+  if (control.contextUsageFiber !== undefined) {
+    return
+  }
+  const fiber = yield* Effect.sleep("100 millis").pipe(
+    Effect.tap(() =>
+      Effect.sync(() => {
+        control.contextUsageFiber = undefined
+      }),
+    ),
+    Effect.andThen(flushContextUsage(control)),
+    Effect.forkIn(session.scope),
+  )
+  control.contextUsageFiber = fiber
+})
 
 const executableExists = (fileSystem: FileSystem.FileSystem, candidate: string) =>
   fileSystem.access(candidate, { ok: true }).pipe(
@@ -387,13 +412,20 @@ const turnEndedSignal = (
         lastError,
       }
 
-const withActiveTurn = <A>(
+const withMatchingActiveTurn = <A>(
   session: CodexSession,
+  providerThreadId: string,
+  providerTurnId: string | undefined,
   run: (control: ActiveTurn) => Effect.Effect<A>,
   fallback: Effect.Effect<A>,
 ) => {
   const control = session.activeTurn
-  return control === undefined ? fallback : run(control)
+  return control === undefined ||
+    providerThreadId !== session.providerThreadId ||
+    providerTurnId === undefined ||
+    providerTurnId !== control.providerTurnId
+    ? fallback
+    : run(control)
 }
 
 const threadStartParams = (input: ProviderTurnInput) => {
@@ -544,11 +576,15 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     extraArgs: ReadonlyArray<string> = [],
     extraEnv: NodeJS.ProcessEnv = {},
     sessionScope?: Scope.Scope,
+    clientOptions: CodexAppServerClient.CodexAppServerClientOptions = {},
   ) {
     const handle = yield* spawnHandle(cwd, extraArgs, extraEnv, sessionScope)
     const context = yield* sessionScope === undefined
-      ? Layer.build(CodexAppServerClient.layerChildProcess(handle))
-      : Layer.buildWithScope(CodexAppServerClient.layerChildProcess(handle), sessionScope)
+      ? Layer.build(CodexAppServerClient.layerChildProcess(handle, clientOptions))
+      : Layer.buildWithScope(
+          CodexAppServerClient.layerChildProcess(handle, clientOptions),
+          sessionScope,
+        )
     const client = yield* Effect.service(CodexAppServerClient.CodexAppServerClient).pipe(
       Effect.provideContext(context),
     )
@@ -697,8 +733,10 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
 
   const bindHandlers = Effect.fn("CodexAdapter.bindHandlers")(function* (session: CodexSession) {
     yield* session.client.handleServerNotification("item/agentMessage/delta", (payload) =>
-      withActiveTurn(
+      withMatchingActiveTurn(
         session,
+        payload.threadId,
+        payload.turnId,
         (control) => enqueueAssistantText(control, payload.delta),
         Effect.void,
       ),
@@ -707,8 +745,10 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       if (payload.item.type === "agentMessage" || payload.item.type === "userMessage") {
         return Effect.void
       }
-      return withActiveTurn(
+      return withMatchingActiveTurn(
         session,
+        payload.threadId,
+        payload.turnId,
         (control) =>
           emitSignal(control, {
             _tag: "transcript",
@@ -727,8 +767,10 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       if (payload.item.type === "agentMessage" || payload.item.type === "userMessage") {
         return Effect.void
       }
-      return withActiveTurn(
+      return withMatchingActiveTurn(
         session,
+        payload.threadId,
+        payload.turnId,
         (control) =>
           emitSignal(control, {
             _tag: "transcript",
@@ -750,8 +792,10 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       if (markdown.trim() === "") {
         return Effect.void
       }
-      return withActiveTurn(
+      return withMatchingActiveTurn(
         session,
+        payload.threadId,
+        payload.turnId,
         (control) =>
           emitSignal(control, {
             _tag: "transcript",
@@ -766,38 +810,57 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       )
     })
     yield* session.client.handleServerNotification("turn/completed", (payload) =>
-      withActiveTurn(
+      withMatchingActiveTurn(
         session,
+        payload.threadId,
+        payload.turn.id,
         (control) => settleTurn(control, payload.turn.status, payload.turn.error?.message),
         Effect.void,
       ),
     )
     yield* session.client.handleServerNotification("thread/tokenUsage/updated", (payload) => {
+      if (payload.threadId !== session.providerThreadId) {
+        return Effect.void
+      }
+      const control = session.activeTurn
+      if (
+        control === undefined ||
+        control.providerTurnId === undefined ||
+        payload.turnId !== control.providerTurnId
+      ) {
+        return Effect.void
+      }
       const usage = contextUsageOf(
         payload.tokenUsage.last.totalTokens,
         payload.tokenUsage.modelContextWindow ?? 0,
       )
-      return usage === null ? Effect.void : emitContextUsage(session, usage)
+      return usage === null ? Effect.void : scheduleContextUsage(session, control, usage)
     })
     yield* session.client.handleServerRequest("item/commandExecution/requestApproval", (payload) =>
-      withActiveTurn(
+      withMatchingActiveTurn(
         session,
+        payload.threadId,
+        payload.turnId,
         (control) =>
           awaitApproval(control, payload.itemId).pipe(Effect.map((decision) => ({ decision }))),
         Effect.succeed({ decision: "cancel" as const }),
       ),
     )
     yield* session.client.handleServerRequest("item/fileChange/requestApproval", (payload) =>
-      withActiveTurn(
+      withMatchingActiveTurn(
         session,
+        payload.threadId,
+        payload.turnId,
         (control) =>
           awaitApproval(control, payload.itemId).pipe(Effect.map((decision) => ({ decision }))),
         Effect.succeed({ decision: "cancel" as const }),
       ),
     )
     yield* session.client.handleServerRequest("item/tool/requestUserInput", (payload) =>
-      withActiveTurn(
+      withMatchingActiveTurn(
         session,
+        payload.threadId,
+        payload.turnId,
         (control) => {
           const requestId = ApprovalRequestId.make(payload.itemId)
           const questions = mapUserInputQuestions(payload.questions)
@@ -843,6 +906,12 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       return
     }
     control.terminalEmitted = true
+    const contextUsageFiber = control.contextUsageFiber
+    control.contextUsageFiber = undefined
+    if (contextUsageFiber !== undefined) {
+      yield* Fiber.interrupt(contextUsageFiber).pipe(Effect.ignore)
+    }
+    yield* flushContextUsage(control)
     if (control.mcpActivated) {
       yield* mcpSessions.deactivateTurn(control.input.threadId, control.input.turnId)
       control.mcpActivated = false
@@ -919,6 +988,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     let spawned = false
     if (session === undefined) {
       const scope = yield* Scope.make("sequential")
+      let openedSession: CodexSession | undefined
       const credential = yield* mcpSessions.issue({
         projectId: control.input.projectId,
         threadId: control.input.threadId,
@@ -934,6 +1004,25 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
         ],
         { [MCP_BEARER_ENV]: token },
         scope,
+        {
+          onTermination: (error) =>
+            Effect.suspend(() => {
+              const terminated = openedSession
+              if (terminated === undefined || terminated.stopped) {
+                return Effect.void
+              }
+              const activeControl = terminated.activeTurn
+              const settle =
+                activeControl === undefined
+                  ? Effect.void
+                  : settleTurn(
+                      activeControl,
+                      activeControl.cancelRequested ? "interrupted" : "failed",
+                      activeControl.cancelRequested ? undefined : error.message,
+                    )
+              return settle.pipe(Effect.andThen(closeSession(terminated)))
+            }).pipe(Effect.forkIn(providerScope), Effect.asVoid),
+        },
       )
       yield* initializeClient(opened.client)
       const providerThreadId = yield* openThread(opened.client, control.input)
@@ -951,6 +1040,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
         handlersBound: false,
         stopped: false,
       }
+      openedSession = session
       sessions.set(control.input.threadId, session)
       spawned = true
     }
@@ -976,6 +1066,11 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     }
 
     const prompt = yield* flattenPrompt(control.input).pipe(Effect.provideService(Path.Path, path))
+    if (control.cancelRequested) {
+      yield* settleTurn(control, "interrupted")
+      yield* closeSession(session)
+      return
+    }
     const turnInput: Array<CodexSchema.V2TurnStartParams__UserInput> = []
     if (prompt.length > 0) {
       turnInput.push({ type: "text", text: prompt })
@@ -992,7 +1087,24 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
         turnStartParams(control, session.providerThreadId, turnInput),
       ),
     )
+    if (control.terminalEmitted) {
+      return
+    }
     control.providerTurnId = started.turn.id
+    if (control.cancelRequested) {
+      yield* codexCall(
+        session.client.request("turn/interrupt", {
+          threadId: session.providerThreadId,
+          turnId: control.providerTurnId,
+        }),
+      ).pipe(Effect.timeout("2 seconds"), Effect.ignore)
+      yield* settleTurn(control, "interrupted")
+      yield* closeSession(session)
+      return
+    }
+    if (control.terminalEmitted) {
+      return
+    }
     yield* emitSignal(control, {
       _tag: "session",
       threadId: control.input.threadId,
@@ -1016,6 +1128,8 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       live: threadLive,
       pendingAssistantText: "",
       flushedAssistantText: "",
+      pendingContextUsage: undefined,
+      contextUsageFiber: undefined,
       mcpActivated: false,
       cancelRequested: false,
       stopRequested: false,
@@ -1077,6 +1191,9 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     if (stop) {
       control.stopRequested = true
     }
+    if (queued.get(threadId) === control) {
+      queued.delete(threadId)
+    }
     const session = control.session
     if (session !== undefined && control.providerTurnId !== undefined) {
       yield* codexCall(
@@ -1084,9 +1201,10 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
           threadId: session.providerThreadId,
           turnId: control.providerTurnId,
         }),
-      ).pipe(Effect.ignore)
+      ).pipe(Effect.timeout("2 seconds"), Effect.ignore)
     }
-    if (stop && session !== undefined) {
+    yield* settleTurn(control, "interrupted")
+    if (session !== undefined) {
       yield* closeSession(session)
     }
   })
