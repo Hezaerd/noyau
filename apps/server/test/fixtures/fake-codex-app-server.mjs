@@ -135,6 +135,7 @@ await Effect.runPromise(
 )
 
 let turnOrdinal = 0
+let latestTurn = null
 
 const emitTurn = (requestThreadId, turnId) => {
   if (scenario === "cross-talk") {
@@ -257,10 +258,13 @@ const emitTurn = (requestThreadId, turnId) => {
     threadId: requestThreadId,
     turnId,
   })
-  notify("turn/completed", {
-    threadId: requestThreadId,
-    turn: { id: turnId, items: [], status: "completed" },
-  })
+  latestTurn = { id: turnId, items: [], status: "completed" }
+  if (scenario !== "idle-without-turn-completed") {
+    notify("turn/completed", {
+      threadId: requestThreadId,
+      turn: latestTurn,
+    })
+  }
 }
 
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity })
@@ -364,6 +368,15 @@ for await (const line of lines) {
     continue
   }
 
+  if (message.method === "thread/read") {
+    const thread = makeThread(message.params?.threadId ?? threadId)
+    thread.status =
+      latestTurn?.status === "inProgress" ? { type: "active", activeFlags: [] } : { type: "idle" }
+    thread.turns = message.params?.includeTurns === true && latestTurn !== null ? [latestTurn] : []
+    respond(message.id, { thread })
+    continue
+  }
+
   if (message.method === "config/mcpServer/reload") {
     respond(message.id, {})
     continue
@@ -373,7 +386,8 @@ for await (const line of lines) {
     turnOrdinal += 1
     const requestThreadId = message.params?.threadId ?? threadId
     const turnId = `fake-codex-turn-${turnOrdinal}`
-    respond(message.id, { turn: { id: turnId, items: [], status: "inProgress" } })
+    latestTurn = { id: turnId, items: [], status: "inProgress" }
+    respond(message.id, { turn: latestTurn })
     if (scenario === "exit-active") {
       shutdown("active-exit", 2)
       continue

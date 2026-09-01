@@ -91,13 +91,14 @@ const withProvider = <A, E, R>(
       readonly revokedSessions: ReadonlyArray<ThreadId>
     },
   ) => Effect.Effect<A, E, R>,
+  optionOverrides: Partial<CodexAdapterOptions> = {},
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
       const evidence = yield* makeOptions(scenario)
       const revokedSessions: Array<ThreadId> = []
       const services = yield* Layer.build(
-        codexProviderLayer(evidence.options).pipe(
+        codexProviderLayer({ ...evidence.options, ...optionOverrides }).pipe(
           Layer.provide(
             testMcpSessionsLayer((revokedThreadId) => revokedSessions.push(revokedThreadId)),
           ),
@@ -517,6 +518,66 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
 
         yield* waitForLog(evidence.exitLog, "SIGTERM")
       }),
+    ),
+  )
+
+  it.effect("reconciles an idle Codex Turn when turn/completed is missing", () =>
+    withProvider(
+      "idle-without-turn-completed",
+      (provider, evidence) =>
+        Effect.gen(function* () {
+          const signals: Array<ProviderSignal> = []
+          yield* provider.startTurn(input(), (signal) =>
+            Effect.sync(() => {
+              signals.push(signal)
+            }),
+          )
+          yield* waitForLog(evidence.requestLog, '"method":"turn/start"')
+          yield* TestClock.adjust("1 second")
+          yield* provider.drain
+
+          assert.deepStrictEqual(
+            signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+            ["completed"],
+          )
+          assert.isTrue(
+            signals.some((signal) => signal._tag === "session" && signal.status === "ready"),
+          )
+          assert.isTrue(
+            parseRequests(yield* readLog(evidence.requestLog)).some(
+              (message) => message.method === "thread/read",
+            ),
+          )
+        }),
+      { turnReconcileInterval: "1 second" },
+    ),
+  )
+
+  it.effect("keeps an active Codex Turn running during reconciliation", () =>
+    withProvider(
+      "hang-no-completion",
+      (provider, evidence) =>
+        Effect.gen(function* () {
+          const signals: Array<ProviderSignal> = []
+          yield* provider.startTurn(input(), (signal) =>
+            Effect.sync(() => {
+              signals.push(signal)
+            }),
+          )
+          yield* waitForLog(evidence.requestLog, '"method":"turn/start"')
+          yield* TestClock.adjust("1 second")
+          yield* waitForLog(evidence.requestLog, '"method":"thread/read"')
+
+          assert.isFalse(signals.some((signal) => signal._tag === "turn-ended"))
+
+          yield* provider.interrupt(threadId)
+          yield* provider.drain
+          assert.deepStrictEqual(
+            signals.flatMap((signal) => (signal._tag === "turn-ended" ? [signal.state] : [])),
+            ["interrupted"],
+          )
+        }),
+      { turnReconcileInterval: "1 second" },
     ),
   )
 

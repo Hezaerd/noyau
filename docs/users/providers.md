@@ -29,3 +29,5 @@ Expand a row to set a binary path. Leave it empty to use the one on PATH. The ch
 To return a Thread to its previous provider, select that provider and model in the composer, then send the next message. This creates another handoff and keeps the same Thread history.
 
 To re-enable a provider, turn its switch back on. Noyau probes it again and, when the handshake succeeds, it returns to the model picker.
+
+If Codex finishes a turn but its completion update is delayed or lost, Noyau checks the provider session and finishes the turn once Codex reports that it is idle. A genuinely active subagent remains in progress. Use **Stop** when a provider or subagent has stopped making progress; the next message resumes the Thread from its saved provider session.
