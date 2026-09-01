@@ -1,7 +1,7 @@
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import { ProjectId, Sequence, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ThreadShell } from "@noyau/contracts/shell"
-import { Schema } from "effect"
+import { Deferred, Effect, Schema } from "effect"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
@@ -99,5 +99,40 @@ describe("warmTerminalThreadSnapshot", () => {
       }),
     ).toBe(false)
     expect(load).not.toHaveBeenCalled()
+  })
+
+  it("follows an in-flight terminal refresh when a newer watermark arrives", async () => {
+    replaceThreadSnapshot(makeSnapshot(3, false))
+    const firstLoad = Deferred.makeUnsafe<{
+      readonly ok: true
+      readonly value: ThreadSnapshot
+    }>()
+    const load = vi
+      .fn(() => Effect.runPromise(Deferred.await(firstLoad)))
+      .mockImplementationOnce(() => Effect.runPromise(Deferred.await(firstLoad)))
+      .mockImplementationOnce(() =>
+        Promise.resolve({ ok: true as const, value: makeSnapshot(10, true) }),
+      )
+    setThreadSnapshotPrefetchLoaderForTests(load)
+
+    expect(
+      warmTerminalThreadSnapshot({
+        _tag: "thread-upserted",
+        sequence: Sequence.make(8),
+        thread: terminalShell,
+      }),
+    ).toBe(true)
+    expect(
+      warmTerminalThreadSnapshot({
+        _tag: "thread-upserted",
+        sequence: Sequence.make(10),
+        thread: terminalShell,
+      }),
+    ).toBe(true)
+    expect(load).toHaveBeenCalledOnce()
+
+    Effect.runSync(Deferred.succeed(firstLoad, { ok: true as const, value: makeSnapshot(8, true) }))
+    await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(getThreadSnapshot(threadId)?.snapshotSequence).toBe(10))
   })
 })

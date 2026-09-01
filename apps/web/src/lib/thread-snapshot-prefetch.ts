@@ -15,7 +15,6 @@ let debounceTimer: ReturnType<typeof setTimeout> | undefined
 let hoverTarget: ThreadId | undefined
 const queued = new Map<ThreadId, boolean>()
 let inflightThreadId: ThreadId | undefined
-let inflightForce = false
 let inflight: Promise<void> | undefined
 let generation = 0
 
@@ -52,7 +51,7 @@ const startLoad = (threadId: ThreadId, force = false): void => {
     return
   }
   if (inflightThreadId === threadId) {
-    if (force && !inflightForce) {
+    if (force) {
       queueLoad(threadId, true)
     }
     return
@@ -63,7 +62,6 @@ const startLoad = (threadId: ThreadId, force = false): void => {
   }
   const started = generation
   inflightThreadId = threadId
-  inflightForce = force
   inflight = resolveLoader()(threadId)
     .then((result) => {
       if (started === generation && result.ok) {
@@ -77,7 +75,6 @@ const startLoad = (threadId: ThreadId, force = false): void => {
         return
       }
       inflightThreadId = undefined
-      inflightForce = false
       inflight = undefined
       startNextQueuedLoad()
     })
@@ -117,7 +114,6 @@ export const resetThreadSnapshotPrefetchForTests = (): void => {
   hoverTarget = undefined
   queued.clear()
   inflightThreadId = undefined
-  inflightForce = false
   inflight = undefined
   loadSnapshot = undefined
 }
