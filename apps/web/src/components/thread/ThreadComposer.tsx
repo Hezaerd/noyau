@@ -102,6 +102,7 @@ const shouldSubmitComposerOnEnter = (event: {
 export function ThreadComposer({
   isRunning,
   disabled,
+  submitDisabled = false,
   text,
   images,
   runtimeMode,
@@ -133,6 +134,7 @@ export function ThreadComposer({
 }: {
   readonly isRunning: boolean
   readonly disabled: boolean
+  readonly submitDisabled?: boolean
   readonly text: string
   readonly images: ReadonlyArray<ComposerImage>
   readonly runtimeMode: RuntimeMode
@@ -212,7 +214,8 @@ export function ThreadComposer({
       ? buildComposerMentionEntries(ticketEntries, pathEntries)
       : buildComposerSkillEntries(filterComposerSkills(skills, skillQuery))
   const controlsDisabled = isRunning || disabled
-  const sendDisabled = (text.trim() === "" && images.length === 0) || controlsDisabled
+  const sendDisabled =
+    (text.trim() === "" && images.length === 0) || controlsDisabled || submitDisabled
   const selectedModel = models.find((model) => model.modelId === modelSelection?.modelId)
   const selectedEffort =
     selectedModel?.reasoningEfforts.find(

@@ -1,5 +1,9 @@
+import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { AttachmentId, ProviderSessionId, ThreadId, TurnId } from "@noyau/contracts/ids"
-import { resolveProviderTurnPrompt } from "@noyau/server/provider/undelivered-mandate"
+import {
+  resolveProviderHandoffPrompt,
+  resolveProviderTurnPrompt,
+} from "@noyau/server/provider/undelivered-mandate"
 import { describe, expect, it } from "vite-plus/test"
 
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
@@ -76,5 +80,45 @@ describe("resolveProviderTurnPrompt", () => {
         transcript: [priorUser],
       }),
     ).toEqual({ text: timerPrompt, attachments: [attachment] })
+  })
+})
+
+describe("resolveProviderHandoffPrompt", () => {
+  it("transmet l'historique au nouveau provider sans réutiliser les anciennes pièces jointes", () => {
+    const current = {
+      _tag: "transcript.user" as const,
+      threadId,
+      turnId: secondTurn,
+      text: "Review the fix",
+    }
+    const result = resolveProviderHandoffPrompt({
+      handoff: {
+        previousProvider: ProviderInstanceId.make("cursor"),
+        provider: ProviderInstanceId.make("claude"),
+        previousModelSelection: { modelId: "composer-2.5" },
+        modelSelection: { modelId: "claude-sonnet-4-5" },
+      },
+      currentText: "Review the fix",
+      currentAttachments: undefined,
+      currentTurnId: secondTurn,
+      transcript: [
+        priorUser,
+        {
+          _tag: "transcript.assistant",
+          threadId,
+          turnId: firstTurn,
+          text: "I fixed the timer and added tests.",
+        },
+        current,
+      ],
+    })
+
+    expect(result.attachments).toBeUndefined()
+    expect(result.text).toContain("moved from provider 'cursor' to 'claude'")
+    expect(result.text).toContain("Model transition: 'composer-2.5' -> 'claude-sonnet-4-5'")
+    expect(result.text).toContain(timerPrompt)
+    expect(result.text).toContain("I fixed the timer and added tests.")
+    expect(result.text.match(/Review the fix/g)).toHaveLength(1)
+    expect(result.text).toContain("Branch and file changes are already present locally")
   })
 })

@@ -638,6 +638,24 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         WHERE thread_id = ${event.threadId}
       `
       return
+    case "thread.provider-handed-off":
+      yield* sql`
+        UPDATE projection_threads
+        SET provider = ${event.provider},
+            model_id = ${event.modelSelection?.modelId ?? null},
+            reasoning_effort = ${event.modelSelection?.reasoningEffort ?? null},
+            service_tier = ${event.modelSelection?.serviceTier ?? null},
+            thinking = ${event.modelSelection?.thinking === undefined ? null : Number(event.modelSelection.thinking)},
+            context_used = NULL,
+            context_window = NULL,
+            updated_at = ${occurredAt}
+        WHERE thread_id = ${event.threadId}
+      `
+      yield* sql`
+        DELETE FROM projection_sessions
+        WHERE thread_id = ${event.threadId}
+      `
+      return
     case "thread.turn.started": {
       const existingRows = yield* sql<(typeof CountRow)["Encoded"]>`
         SELECT COUNT(*) AS count
@@ -714,6 +732,9 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       }
       if (event.presentation !== undefined) {
         userItem = Object.assign(userItem, { presentation: event.presentation })
+      }
+      if (event.providerHandoff !== undefined) {
+        userItem = Object.assign(userItem, { providerHandoff: event.providerHandoff })
       }
       yield* projectTranscriptItem(userItem, persisted.sequence)
       break

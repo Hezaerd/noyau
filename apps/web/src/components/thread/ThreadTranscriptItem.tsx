@@ -1,6 +1,7 @@
-import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import type { ProviderHandoff, TranscriptItem } from "@noyau/contracts/entities/transcript"
 import type { Turn, TurnDiff } from "@noyau/contracts/entities/turn"
 import type { ProjectId } from "@noyau/contracts/ids"
+import { ArrowRightIcon } from "lucide-react"
 import { memo } from "react"
 
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
@@ -19,9 +20,47 @@ import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
 import { useAssistantPaint } from "@/hooks/use-assistant-paint"
+import { useProviders } from "@/hooks/use-control-plane"
 import type { ComposerTicket } from "@/lib/composer-tickets"
+import {
+  providerInstanceIconOf,
+  providerInstanceLabelOf,
+  providerModelLabelOf,
+} from "@/lib/provider-presentation"
 import { transcriptLabel } from "@/lib/thread-transcript"
 import { transcriptItemCopyText, transcriptItemMessageAt } from "@/lib/transcript-message-at"
+
+function ProviderHandoffMarker({ handoff }: { readonly handoff: ProviderHandoff }) {
+  const providers = useProviders()
+  const PreviousProviderIcon = providerInstanceIconOf(handoff.previousProvider, providers)
+  const ProviderIcon = providerInstanceIconOf(handoff.provider, providers)
+  const previousProviderLabel = providerInstanceLabelOf(handoff.previousProvider, providers)
+  const providerLabel = providerInstanceLabelOf(handoff.provider, providers)
+  const hasModelHandoff =
+    handoff.previousModelSelection !== undefined || handoff.modelSelection !== undefined
+  const previousLabel = hasModelHandoff
+    ? providerModelLabelOf(
+        handoff.previousProvider,
+        handoff.previousModelSelection ?? null,
+        providers,
+      )
+    : previousProviderLabel
+  const label = hasModelHandoff
+    ? providerModelLabelOf(handoff.provider, handoff.modelSelection ?? null, providers)
+    : providerLabel
+  return (
+    <div
+      aria-label={`Provider handoff: ${previousProviderLabel}, ${previousLabel} to ${providerLabel}, ${label}`}
+      className="my-3 flex items-center justify-center gap-2 text-muted-foreground text-xs"
+    >
+      <PreviousProviderIcon className="size-3.5" />
+      <span>{previousLabel}</span>
+      <ArrowRightIcon className="size-3.5" aria-hidden="true" />
+      <ProviderIcon className="size-3.5" />
+      <span>{label}</span>
+    </div>
+  )
+}
 
 function LiveAssistantMessage({
   item,
@@ -135,34 +174,40 @@ function ThreadTranscriptItemImpl({
 
   if (item._tag === "transcript.user") {
     const attachments = item.attachments
+    const handoff = item.providerHandoff
     return (
-      <Message align="end">
-        <MessageContent>
-          {item.presentation !== undefined ? (
-            <TurnPresentationBubble presentation={item.presentation} />
-          ) : attachments !== undefined || item.text !== undefined ? (
-            <Bubble variant="default" align="end">
-              <BubbleContent className="flex flex-col items-start gap-2 leading-6">
-                {attachments === undefined ? null : <ThreadTurnImages attachments={attachments} />}
-                {item.text === undefined ? null : (
-                  <ThreadMarkdown
-                    text={item.text}
-                    workspaceRoot={workspaceRoot}
-                    projectId={projectId}
-                    {...(tickets === undefined ? {} : { tickets })}
-                    {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
-                  />
-                )}
-              </BubbleContent>
-            </Bubble>
-          ) : null}
-          <ThreadMessageMeta
-            align="end"
-            at={transcriptItemMessageAt(item, turn)}
-            copyText={transcriptItemCopyText(item)}
-          />
-        </MessageContent>
-      </Message>
+      <>
+        {handoff === undefined ? null : <ProviderHandoffMarker handoff={handoff} />}
+        <Message align="end">
+          <MessageContent>
+            {item.presentation !== undefined ? (
+              <TurnPresentationBubble presentation={item.presentation} />
+            ) : attachments !== undefined || item.text !== undefined ? (
+              <Bubble variant="default" align="end">
+                <BubbleContent className="flex flex-col items-start gap-2 leading-6">
+                  {attachments === undefined ? null : (
+                    <ThreadTurnImages attachments={attachments} />
+                  )}
+                  {item.text === undefined ? null : (
+                    <ThreadMarkdown
+                      text={item.text}
+                      workspaceRoot={workspaceRoot}
+                      projectId={projectId}
+                      {...(tickets === undefined ? {} : { tickets })}
+                      {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
+                    />
+                  )}
+                </BubbleContent>
+              </Bubble>
+            ) : null}
+            <ThreadMessageMeta
+              align="end"
+              at={transcriptItemMessageAt(item, turn)}
+              copyText={transcriptItemCopyText(item)}
+            />
+          </MessageContent>
+        </Message>
+      </>
     )
   }
 

@@ -32,6 +32,9 @@ const userTranscriptFromTurnStarted = (
   if (event.presentation !== undefined) {
     userItem = Object.assign(userItem, { presentation: event.presentation })
   }
+  if (event.providerHandoff !== undefined) {
+    userItem = Object.assign(userItem, { providerHandoff: event.providerHandoff })
+  }
   return userItem
 }
 
@@ -501,6 +504,7 @@ const replaceThread = (
   snapshot: ThreadSnapshot,
   patch: {
     readonly title?: string
+    readonly provider?: Thread["provider"]
     readonly runtimeMode?: Thread["runtimeMode"]
     readonly modelSelection?: Thread["modelSelection"]
     readonly status?: Thread["status"]
@@ -513,7 +517,7 @@ const replaceThread = (
     readonly settledOverride?: Thread["settledOverride"] | null
     readonly settledAt?: Thread["settledAt"] | null
     readonly listedAt?: Thread["listedAt"]
-    readonly contextUsage?: Thread["contextUsage"]
+    readonly contextUsage?: Thread["contextUsage"] | null
   },
 ): Thread => {
   const current = snapshot.thread
@@ -523,7 +527,7 @@ const replaceThread = (
     id: current.id,
     projectId: current.projectId,
     title: patch.title ?? current.title,
-    provider: current.provider,
+    provider: patch.provider ?? current.provider,
     runtimeMode: patch.runtimeMode ?? current.runtimeMode,
     branch: patch.branch !== undefined ? patch.branch : (current.branch ?? null),
     worktreePath:
@@ -540,7 +544,8 @@ const replaceThread = (
   const settledOverride =
     patch.settledOverride === null ? undefined : (patch.settledOverride ?? current.settledOverride)
   const settledAt = patch.settledAt === null ? undefined : (patch.settledAt ?? current.settledAt)
-  const contextUsage = patch.contextUsage ?? current.contextUsage
+  const contextUsage =
+    patch.contextUsage === null ? undefined : (patch.contextUsage ?? current.contextUsage)
   const withSettled =
     settledOverride === undefined ? fields : Object.assign(fields, { settledOverride })
   const withSettledAt =
@@ -713,6 +718,23 @@ export const applyThreadEnvelope = (
           updatedAt: envelope.occurredAt,
         }),
         session: snapshot.session,
+        turns: snapshot.turns,
+        transcript: snapshot.transcript,
+      })
+    }
+    case "thread.provider-handed-off": {
+      if (event.threadId !== snapshot.thread.id) {
+        return withEnvelope(snapshot, envelope, snapshot)
+      }
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, {
+          provider: event.provider,
+          modelSelection: event.modelSelection ?? null,
+          session: null,
+          contextUsage: null,
+          updatedAt: envelope.occurredAt,
+        }),
+        session: null,
         turns: snapshot.turns,
         transcript: snapshot.transcript,
       })

@@ -1,5 +1,7 @@
 import { ProviderUserInputAnswers, UserInputQuestion } from "@noyau/contracts/entities/approvals"
 import { TurnImageAttachments, turnHasPrompt } from "@noyau/contracts/entities/attachment"
+import { Provider } from "@noyau/contracts/entities/environment"
+import { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { ApprovalRequestId, ThreadId, ToolCallId, TurnId } from "@noyau/contracts/ids"
 import { Schema } from "effect"
 
@@ -24,12 +26,22 @@ export type TranscriptRequestStatus = (typeof TranscriptRequestStatus)["Type"]
 export const TurnPresentation = Schema.Literals(["fix-merge-conflicts", "fix-ci"])
 export type TurnPresentation = (typeof TurnPresentation)["Type"]
 
+/** Provider transition carried by the first user Turn after a handoff. */
+export const ProviderHandoff = Schema.Struct({
+  previousProvider: Provider,
+  provider: Provider,
+  previousModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+  modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+})
+export type ProviderHandoff = (typeof ProviderHandoff)["Type"]
+
 export const TranscriptUser = Schema.TaggedStruct("transcript.user", {
   threadId: ThreadId,
   turnId: TurnId,
   text: Schema.optionalKey(Schema.NonEmptyString),
   attachments: Schema.optionalKey(TurnImageAttachments),
   presentation: Schema.optionalKey(TurnPresentation),
+  providerHandoff: Schema.optionalKey(ProviderHandoff),
 }).check(
   Schema.makeFilter(turnHasPrompt, {
     expected: "non-empty text or at least one image attachment",

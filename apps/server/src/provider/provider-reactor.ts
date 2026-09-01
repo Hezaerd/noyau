@@ -32,7 +32,7 @@ import {
   type ProviderTurnAttachment,
   type ProviderTurnInput,
 } from "./provider-port.ts"
-import { resolveProviderTurnPrompt } from "./undelivered-mandate.ts"
+import { resolveProviderHandoffPrompt, resolveProviderTurnPrompt } from "./undelivered-mandate.ts"
 
 const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)
@@ -207,6 +207,7 @@ export const makeProviderReactor = (
     const crypto = yield* Crypto.Crypto
     const git = yield* GitRuntime
     const config = yield* ServerConfig
+    const activeTurns = new Map<ThreadId, Pick<ProviderTurnInput, "provider" | "turnId">>()
 
     return (persisted) => {
       const event = persisted.event
@@ -224,6 +225,12 @@ export const makeProviderReactor = (
             if (Option.isNone(snapshot)) {
               return yield* Effect.die(`Thread ${threadEvent.threadId} projection is missing`)
             }
+            const turnProvider =
+              threadEvent.providerHandoff?.provider ?? snapshot.value.thread.provider
+            activeTurns.set(threadEvent.threadId, {
+              provider: turnProvider,
+              turnId: threadEvent.turnId,
+            })
             const runtimeMode = threadEvent.runtimeMode ?? snapshot.value.thread.runtimeMode
             const workspaceRoot = yield* projectRoot(persisted.projectId).pipe(
               Effect.provideService(SqlClient, sql),
@@ -282,13 +289,29 @@ export const makeProviderReactor = (
               }).pipe(Effect.orDie)
               yield* dispatchInternal(bind)
             }
-            const mandate = resolveProviderTurnPrompt({
-              resumeCursor: snapshot.value.session?.resumeCursor ?? null,
-              currentText: threadEvent.text ?? "",
-              currentAttachments: threadEvent.attachments,
-              currentTurnId: threadEvent.turnId,
-              transcript: snapshot.value.transcript,
-            })
+            if (threadEvent.providerHandoff !== undefined) {
+              yield* provider.stop(threadEvent.threadId)
+            }
+            const resumeCursor =
+              threadEvent.providerHandoff === undefined
+                ? (snapshot.value.session?.resumeCursor ?? null)
+                : null
+            const mandate =
+              threadEvent.providerHandoff === undefined
+                ? resolveProviderTurnPrompt({
+                    resumeCursor,
+                    currentText: threadEvent.text ?? "",
+                    currentAttachments: threadEvent.attachments,
+                    currentTurnId: threadEvent.turnId,
+                    transcript: snapshot.value.transcript,
+                  })
+                : resolveProviderHandoffPrompt({
+                    handoff: threadEvent.providerHandoff,
+                    currentText: threadEvent.text ?? "",
+                    currentAttachments: threadEvent.attachments,
+                    currentTurnId: threadEvent.turnId,
+                    transcript: snapshot.value.transcript,
+                  })
             const attachments =
               mandate.attachments === undefined
                 ? undefined
@@ -314,12 +337,12 @@ export const makeProviderReactor = (
               projectId: ProjectId.make(persisted.projectId),
               threadId: threadEvent.threadId,
               turnId: threadEvent.turnId,
-              provider: snapshot.value.thread.provider,
+              provider: turnProvider,
               text: mandate.text,
               workspaceRoot: cwd,
               runtimeMode,
               modelSelection: snapshot.value.thread.modelSelection,
-              resumeCursor: snapshot.value.session?.resumeCursor ?? null,
+              resumeCursor,
             }
             if (attachments !== undefined) {
               turnInput = Object.assign({}, turnInput, { attachments: attachments.success })
@@ -329,17 +352,24 @@ export const makeProviderReactor = (
                 tickets: promptTicketsFromBoard(board.value),
               })
             }
-            yield* provider.startTurn(turnInput, (signal) =>
-              ingestSignal(dispatchInternal, persisted, runtimeMode, signal).pipe(
-                Effect.provideService(SqlClient, sql),
-                Effect.provideService(Crypto.Crypto, crypto),
-              ),
-            )
+            yield* provider.startTurn(turnInput, (signal) => {
+              const active = activeTurns.get(turnInput.threadId)
+              return active?.provider !== turnInput.provider || active.turnId !== turnInput.turnId
+                ? Effect.void
+                : ingestSignal(dispatchInternal, persisted, runtimeMode, signal).pipe(
+                    Effect.provideService(SqlClient, sql),
+                    Effect.provideService(Crypto.Crypto, crypto),
+                  )
+            })
           })
         case "thread.turn.interrupted":
           return provider.interrupt(threadEvent.threadId)
         case "thread.deleted":
+          activeTurns.delete(threadEvent.threadId)
           return provider.stop(threadEvent.threadId)
+        case "thread.provider-handed-off":
+          activeTurns.delete(threadEvent.threadId)
+          return Effect.void
         case "session.stop-requested":
           return Effect.gen(function* () {
             const snapshot = yield* readThreadSnapshot(threadEvent.threadId).pipe(

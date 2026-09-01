@@ -1,3 +1,4 @@
+import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import { checkpointRefForTurn } from "@noyau/contracts/entities/turn"
@@ -318,6 +319,69 @@ describe("thread transcript projection", () => {
       modelId: "composer-2.5",
       reasoningEffort: "high",
       serviceTier: "fast",
+    })
+  })
+
+  it("applies a provider handoff and marks its first user message", () => {
+    const withUsage = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.context-usage-set",
+        threadId: ids.thread,
+        contextUsage: { used: 12400, window: 200000 },
+      }),
+    )
+    const handedOff =
+      withUsage === undefined
+        ? undefined
+        : applyThreadEnvelope(
+            withUsage,
+            envelopeFor(
+              {
+                _tag: "thread.provider-handed-off",
+                threadId: ids.thread,
+                previousProvider: ProviderInstanceId.make("cursor"),
+                provider: ProviderInstanceId.make("claude"),
+                previousModelSelection: null,
+                modelSelection: { modelId: "claude-sonnet-4-5" },
+              },
+              10,
+            ),
+          )
+    const started =
+      handedOff === undefined
+        ? undefined
+        : applyThreadEnvelope(
+            handedOff,
+            envelopeFor(
+              {
+                _tag: "thread.turn.started",
+                threadId: ids.thread,
+                turnId: ids.nextTurn,
+                text: "Review the change",
+                providerHandoff: {
+                  previousProvider: ProviderInstanceId.make("cursor"),
+                  provider: ProviderInstanceId.make("claude"),
+                  previousModelSelection: null,
+                  modelSelection: { modelId: "claude-sonnet-4-5" },
+                },
+              },
+              11,
+            ),
+          )
+
+    expect(handedOff?.thread.provider).toBe("claude")
+    expect(handedOff?.thread.modelSelection).toEqual({ modelId: "claude-sonnet-4-5" })
+    expect(handedOff?.session).toBeNull()
+    expect(handedOff?.thread.contextUsage).toBeUndefined()
+    expect(started?.transcript.at(-1)).toMatchObject({
+      _tag: "transcript.user",
+      providerHandoff: {
+        previousProvider: "cursor",
+        provider: "claude",
+        previousModelSelection: null,
+        modelSelection: { modelId: "claude-sonnet-4-5" },
+      },
     })
   })
 

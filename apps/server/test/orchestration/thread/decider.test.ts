@@ -170,7 +170,7 @@ const withRunningTurn = () => {
 }
 
 describe("Thread lifecycle", () => {
-  it("crée un Thread titré avec provider cursor immuable et runtimeMode full-access par défaut", () => {
+  it("crée un Thread titré avec provider cursor et runtimeMode full-access par défaut", () => {
     const events = createThread()
     const state = apply(available(), events)
 
@@ -192,7 +192,7 @@ describe("Thread lifecycle", () => {
     })
   })
 
-  it("crée un Thread avec provider Codex immuable", () => {
+  it("crée un Thread avec provider Codex", () => {
     const events = success(
       decide(
         available(),
@@ -222,7 +222,7 @@ describe("Thread lifecycle", () => {
     expect(apply(available(), events).threads[0]?.provider).toBe("codex")
   })
 
-  it("crée un Thread avec provider Claude immuable", () => {
+  it("crée un Thread avec provider Claude", () => {
     const events = success(
       decide(
         available(),
@@ -260,6 +260,108 @@ describe("Thread lifecycle", () => {
       expect(state.threads[0]?.runtimeMode).toBe(runtimeMode)
     },
   )
+
+  it("transfère le prochain Turn à un autre provider sans perdre le Checkout ni le transcript", () => {
+    const firstTurn = withStartedTurn()
+    const ready = apply(firstTurn, setSession(firstTurn, "ready", null, later))
+    const selected = apply(
+      ready,
+      success(
+        decide(
+          ready,
+          command({
+            _tag: "thread.model-selection.set",
+            ...meta,
+            payload: {
+              threadId: ids.thread,
+              modelSelection: { modelId: "composer-2.5" },
+            },
+          }),
+        ),
+      ),
+    )
+    const bound = apply(
+      selected,
+      success(
+        decide(
+          selected,
+          command({
+            _tag: "thread.meta.update",
+            ...meta,
+            commandId: ids.command2,
+            payload: {
+              threadId: ids.thread,
+              branch: "feature/provider-handoff",
+              worktreePath: "/tmp/noyau-provider-handoff",
+            },
+          }),
+        ),
+      ),
+    )
+    const events = success(
+      decide(
+        bound,
+        command({
+          _tag: "thread.turn.start",
+          ...meta,
+          commandId: ids.turn2,
+          payload: {
+            threadId: ids.thread,
+            text: "Review the implementation",
+            provider: "claude",
+            modelSelection: { modelId: "claude-sonnet-4-5" },
+          },
+        }),
+      ),
+    )
+    const handedOff = apply(bound, events)
+    const thread = handedOff.threads[0]
+
+    expect(events).toEqual([
+      {
+        _tag: "thread.provider-handed-off",
+        threadId: ids.thread,
+        previousProvider: "cursor",
+        provider: "claude",
+        previousModelSelection: { modelId: "composer-2.5" },
+        modelSelection: { modelId: "claude-sonnet-4-5" },
+      },
+      {
+        _tag: "thread.turn.started",
+        threadId: ids.thread,
+        turnId: ids.turn2,
+        text: "Review the implementation",
+        titleSeed: "Review the implementation",
+        modelSelection: { modelId: "claude-sonnet-4-5" },
+        providerHandoff: {
+          previousProvider: "cursor",
+          provider: "claude",
+          previousModelSelection: { modelId: "composer-2.5" },
+          modelSelection: { modelId: "claude-sonnet-4-5" },
+        },
+      },
+    ])
+    expect(thread).toMatchObject({
+      provider: "claude",
+      branch: "feature/provider-handoff",
+      worktreePath: "/tmp/noyau-provider-handoff",
+      session: null,
+      modelSelection: { modelId: "claude-sonnet-4-5" },
+    })
+    expect(thread?.transcript).toMatchObject([
+      { _tag: "transcript.user", text: "Premier prompt" },
+      {
+        _tag: "transcript.user",
+        text: "Review the implementation",
+        providerHandoff: {
+          previousProvider: "cursor",
+          provider: "claude",
+          previousModelSelection: { modelId: "composer-2.5" },
+          modelSelection: { modelId: "claude-sonnet-4-5" },
+        },
+      },
+    ])
+  })
 
   it("persiste la modelSelection du Turn et permet de revenir en automatique", () => {
     const state = withThread()

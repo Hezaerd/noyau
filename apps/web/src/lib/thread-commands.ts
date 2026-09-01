@@ -53,6 +53,7 @@ type ThreadTurnStartPayload = {
   readonly threadId: ThreadId
   readonly text?: string
   readonly titleSeed?: string
+  readonly provider?: Provider
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection | null
   readonly prepareWorktree?: PrepareWorktree
@@ -113,6 +114,7 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   readonly threadId: ThreadId
   readonly text: string
   readonly titleSeed?: string
+  readonly provider?: Provider
   readonly runtimeMode?: RuntimeModeType
   readonly modelSelection?: ModelSelection | null
   readonly prepareWorktree?: PrepareWorktree
@@ -128,6 +130,9 @@ export const makeThreadTurnStartRequest = Effect.fnUntraced(function* (input: {
   }
   if (input.titleSeed !== undefined) {
     payload = Object.assign(payload, { titleSeed: input.titleSeed })
+  }
+  if (input.provider !== undefined) {
+    payload = Object.assign(payload, { provider: input.provider })
   }
   if (input.runtimeMode !== undefined) {
     payload = Object.assign(payload, { runtimeMode: input.runtimeMode })

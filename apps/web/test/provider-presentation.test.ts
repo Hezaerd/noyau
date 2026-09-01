@@ -8,6 +8,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   isProviderInstanceReady,
   providerInstanceLabelOf,
+  providerModelLabelOf,
   readyProviderIds,
 } from "../src/lib/provider-presentation"
 import { presentProviderInstanceConnection } from "../src/lib/providers-catalog"
@@ -22,7 +23,14 @@ const ready = providerInstanceView({
     version: "1",
     plan: null,
     binaryPath: "/bin/cursor-agent",
-    models: [],
+    models: [
+      {
+        modelId: "composer-2.5",
+        label: "Composer 2.5",
+        reasoningEfforts: [],
+        serviceTiers: [],
+      },
+    ],
   },
 })
 
@@ -37,6 +45,27 @@ const disabled = providerInstanceView({
     plan: null,
     binaryPath: "/bin/claude",
     models: [],
+  },
+})
+
+const codex = providerInstanceView({
+  instanceId: ProviderInstanceId.make("codex"),
+  driver: ProviderDriverKind.make("codex"),
+  enabled: true,
+  probe: {
+    installed: true,
+    handshakeOk: true,
+    version: "1",
+    plan: null,
+    binaryPath: "/bin/codex",
+    models: [
+      {
+        modelId: "gpt-5.6-luna",
+        label: "GPT-5.6-Luna",
+        reasoningEfforts: [],
+        serviceTiers: [],
+      },
+    ],
   },
 })
 
@@ -64,6 +93,21 @@ describe("provider presentation", () => {
       }),
     ).toBe("Claude Code (claude-work)")
     expect(providerInstanceLabelOf(ready.instanceId, { [ready.instanceId]: ready })).toBe("Cursor")
+  })
+
+  it("uses provider catalog labels for handoff models", () => {
+    const providers = { [ready.instanceId]: ready, [codex.instanceId]: codex }
+
+    expect(providerModelLabelOf(ready.instanceId, { modelId: "composer-2.5" }, providers)).toBe(
+      "Composer 2.5",
+    )
+    expect(providerModelLabelOf(codex.instanceId, { modelId: "gpt-5.6-luna" }, providers)).toBe(
+      "GPT-5.6-Luna",
+    )
+    expect(providerModelLabelOf(codex.instanceId, { modelId: "unknown-model" }, providers)).toBe(
+      "unknown-model",
+    )
+    expect(providerModelLabelOf(codex.instanceId, null, providers)).toBe("Default model")
   })
 
   it("presents a disabled instance without claiming the CLI is missing", () => {

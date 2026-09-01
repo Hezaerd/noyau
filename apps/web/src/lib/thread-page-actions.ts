@@ -165,6 +165,7 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
             runtimeMode: input.runtimeMode,
             modelSelection: input.modelSelection,
           },
+          input.provider === undefined ? {} : { provider: input.provider },
           input.titleSeed === undefined ? {} : { titleSeed: input.titleSeed },
           input.prepareWorktree === undefined ? {} : { prepareWorktree: input.prepareWorktree },
           input.attachments === undefined ? {} : { attachments: input.attachments },

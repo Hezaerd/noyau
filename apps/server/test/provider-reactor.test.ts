@@ -1,0 +1,232 @@
+import { createHash } from "node:crypto"
+
+import { assert, describe, it } from "@effect/vitest"
+import { ProviderInstanceId, WorkspaceRoot } from "@noyau/contracts/entities/environment"
+import type { DomainEvent } from "@noyau/contracts/events"
+import { ActorId, ProjectId, ProviderSessionId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ProjectCreated } from "@noyau/contracts/project/events"
+import {
+  ThreadCreated,
+  ThreadProviderHandedOff,
+  ThreadTurnStarted,
+} from "@noyau/contracts/thread/events"
+import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
+import { projectDomainEvent } from "@noyau/server/persistence/projections"
+import { memoryLayer } from "@noyau/server/persistence/sqlite"
+import {
+  emptyProviderStatuses,
+  ProviderPort,
+  type ProviderEmit,
+  type ProviderPortService,
+  type ProviderTurnInput,
+} from "@noyau/server/provider/provider-port"
+import { makeProviderReactor, type DispatchInternal } from "@noyau/server/provider/provider-reactor"
+import { Context, Crypto, Effect, Layer, Schema } from "effect"
+import { SqlClient } from "effect/unstable/sql/SqlClient"
+
+import { stubGitRuntimeLayer, testServerConfigLayer } from "./fixtures.ts"
+
+const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
+const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
+const firstTurnId = TurnId.make("30000000-0000-4000-8000-000000000001")
+const handoffTurnId = TurnId.make("30000000-0000-4000-8000-000000000002")
+const chainedHandoffTurnId = TurnId.make("30000000-0000-4000-8000-000000000003")
+const actorId = ActorId.make("human:test")
+
+const occurredAt = Schema.decodeSync(Schema.DateTimeUtcFromString)("2026-09-01T12:00:00.000Z")
+const persisted = (sequence: number, event: DomainEvent): PersistedEvent<DomainEvent> => ({
+  eventId: `event-${sequence}`,
+  sequence,
+  projectId,
+  actorId,
+  correlationId: "40000000-0000-4000-8000-000000000001",
+  causationId: "50000000-0000-4000-8000-000000000001",
+  occurredAt,
+  schemaVersion: 1,
+  aggregate: { kind: "project", id: projectId },
+  aggregateVersion: sequence,
+  event,
+})
+
+const testCrypto = Crypto.make({
+  randomBytes: (size) => new Uint8Array(size),
+  digest: (algorithm, data) =>
+    Effect.succeed(
+      new Uint8Array(createHash(algorithm.toLowerCase().replace("-", "")).update(data).digest()),
+    ),
+})
+
+describe("provider handoff reactor", () => {
+  it.effect("stops the old runtime and ignores its stale terminal signal", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const started: Array<ProviderTurnInput> = []
+        const dispatched: Array<Parameters<DispatchInternal>[0]> = []
+        let stops = 0
+        let oldEmit: ProviderEmit | undefined
+        const provider: ProviderPortService = {
+          status: Effect.succeed(emptyProviderStatuses),
+          listSkills: () => Effect.succeed([]),
+          startTurn: (input, emit) =>
+            Effect.sync(() => {
+              started.push(input)
+              if (input.turnId === firstTurnId) oldEmit = emit
+            }),
+          interrupt: () => Effect.void,
+          stop: () =>
+            Effect.gen(function* () {
+              stops += 1
+              if (oldEmit !== undefined) {
+                yield* oldEmit({
+                  _tag: "session",
+                  threadId,
+                  turnId: firstTurnId,
+                  status: "stopped",
+                  resumeCursor: {
+                    schemaVersion: 1,
+                    sessionId: ProviderSessionId.make("cursor-session-old"),
+                  },
+                })
+              }
+            }),
+          reapIdle: () => Effect.succeed(false),
+          stopAll: Effect.void,
+          respondApproval: () => Effect.void,
+          respondUserInput: () => Effect.void,
+          drain: Effect.void,
+        }
+        const services = yield* Layer.build(
+          Layer.mergeAll(
+            memoryLayer,
+            stubGitRuntimeLayer,
+            testServerConfigLayer(),
+            Layer.succeed(ProviderPort)(provider),
+            Layer.succeed(Crypto.Crypto)(testCrypto),
+          ),
+        )
+        const sql = Context.get(services, SqlClient)
+        const reactor = yield* makeProviderReactor(
+          (command) =>
+            Effect.sync(() => {
+              dispatched.push(command)
+            }),
+          () => Effect.succeed([]),
+        ).pipe(Effect.provide(services))
+        const project = persisted(
+          1,
+          ProjectCreated.make({
+            projectId,
+            name: "Noyau",
+            workspaceRoot: WorkspaceRoot.make("/workspace"),
+          }),
+        )
+        const created = persisted(
+          2,
+          ThreadCreated.make({
+            threadId,
+            projectId,
+            title: "Provider handoff",
+            provider: ProviderInstanceId.make("cursor"),
+            runtimeMode: "full-access",
+            modelSelection: { modelId: "composer-2.5" },
+          }),
+        )
+        const firstTurn = persisted(
+          3,
+          ThreadTurnStarted.make({
+            threadId,
+            turnId: firstTurnId,
+            text: "Implement the feature",
+          }),
+        )
+        for (const event of [project, created, firstTurn]) {
+          yield* projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql))
+        }
+        yield* reactor(firstTurn)
+
+        const handedOff = persisted(
+          4,
+          ThreadProviderHandedOff.make({
+            threadId,
+            previousProvider: ProviderInstanceId.make("cursor"),
+            provider: ProviderInstanceId.make("claude"),
+            previousModelSelection: { modelId: "composer-2.5" },
+            modelSelection: { modelId: "claude-sonnet-4-5" },
+          }),
+        )
+        const nextTurn = persisted(
+          5,
+          ThreadTurnStarted.make({
+            threadId,
+            turnId: handoffTurnId,
+            text: "Review it critically",
+            providerHandoff: {
+              previousProvider: ProviderInstanceId.make("cursor"),
+              provider: ProviderInstanceId.make("claude"),
+              previousModelSelection: { modelId: "composer-2.5" },
+              modelSelection: { modelId: "claude-sonnet-4-5" },
+            },
+          }),
+        )
+        for (const event of [handedOff, nextTurn]) {
+          yield* projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql))
+          yield* reactor(event)
+        }
+
+        assert.strictEqual(stops, 1)
+        assert.strictEqual(dispatched.length, 0)
+        assert.strictEqual(started.length, 2)
+        assert.strictEqual(started[1]?.provider, "claude")
+        assert.deepStrictEqual(started[1]?.modelSelection, {
+          modelId: "claude-sonnet-4-5",
+        })
+        assert.strictEqual(started[1]?.resumeCursor, null)
+        assert.match(
+          started[1]?.text ?? "",
+          /Model transition: 'composer-2.5' -> 'claude-sonnet-4-5'/,
+        )
+        assert.match(started[1]?.text ?? "", /Prior transcript/)
+        assert.match(started[1]?.text ?? "", /Implement the feature/)
+        assert.match(started[1]?.text ?? "", /Review it critically/)
+
+        const handedBack = persisted(
+          6,
+          ThreadProviderHandedOff.make({
+            threadId,
+            previousProvider: ProviderInstanceId.make("claude"),
+            provider: ProviderInstanceId.make("cursor"),
+            previousModelSelection: { modelId: "claude-sonnet-4-5" },
+            modelSelection: { modelId: "grok-4.6" },
+          }),
+        )
+        const chainedTurn = persisted(
+          7,
+          ThreadTurnStarted.make({
+            threadId,
+            turnId: chainedHandoffTurnId,
+            text: "Continue with Cursor",
+            providerHandoff: {
+              previousProvider: ProviderInstanceId.make("claude"),
+              provider: ProviderInstanceId.make("cursor"),
+              previousModelSelection: { modelId: "claude-sonnet-4-5" },
+              modelSelection: { modelId: "grok-4.6" },
+            },
+          }),
+        )
+        for (const event of [handedBack, chainedTurn]) {
+          yield* projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql))
+          yield* reactor(event)
+        }
+
+        assert.strictEqual(stops, 2)
+        assert.strictEqual(started.length, 3)
+        assert.strictEqual(started[2]?.provider, "cursor")
+        assert.deepStrictEqual(started[2]?.modelSelection, { modelId: "grok-4.6" })
+        assert.strictEqual(started[2]?.resumeCursor, null)
+        assert.match(started[2]?.text ?? "", /Model transition: 'claude-sonnet-4-5' -> 'grok-4.6'/)
+        assert.match(started[2]?.text ?? "", /Review it critically/)
+        assert.match(started[2]?.text ?? "", /Continue with Cursor/)
+      }),
+    ),
+  )
+})

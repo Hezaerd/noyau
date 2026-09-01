@@ -26,6 +26,7 @@ import {
   ThreadSettled,
   ThreadUnsettled,
   ThreadModelSelectionSet,
+  ThreadProviderHandedOff,
   ThreadRuntimeModeSet,
   ThreadSessionSet,
   ThreadTitleSeeded,
@@ -263,6 +264,15 @@ export const decide = (
           ),
         ),
         Result.map((thread) => {
+          const providerHandoff =
+            command.payload.provider !== undefined && command.payload.provider !== thread.provider
+              ? {
+                  previousProvider: thread.provider,
+                  provider: command.payload.provider,
+                  previousModelSelection: thread.modelSelection,
+                  modelSelection: command.payload.modelSelection ?? null,
+                }
+              : undefined
           let started: Omit<ThreadTurnStarted, "_tag"> = {
             threadId: command.payload.threadId,
             turnId: TurnId.make(command.commandId),
@@ -288,9 +298,22 @@ export const decide = (
           if (command.payload.presentation !== undefined) {
             started = Object.assign(started, { presentation: command.payload.presentation })
           }
+          if (providerHandoff !== undefined) {
+            started = Object.assign(started, { providerHandoff })
+          }
           const startedEvent = ThreadTurnStarted.make(started)
           const unsettle = activityUnsettle(thread)
-          return unsettle === null ? [startedEvent] : [unsettle, startedEvent]
+          const events: Array<ThreadEvent> = unsettle === null ? [] : [unsettle]
+          if (providerHandoff !== undefined) {
+            events.push(
+              ThreadProviderHandedOff.make({
+                threadId: thread.threadId,
+                ...providerHandoff,
+              }),
+            )
+          }
+          events.push(startedEvent)
+          return events
         }),
       )
     case "thread.turn.interrupt":
