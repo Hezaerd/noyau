@@ -601,7 +601,10 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
             left.name.localeCompare(right.name, "en"),
         )
       }),
-    ).pipe(Effect.orElseSucceed(() => []))
+    ).pipe(
+      Effect.timeout("10 seconds"),
+      Effect.orElseSucceed(() => []),
+    )
   })
 
   const probe =

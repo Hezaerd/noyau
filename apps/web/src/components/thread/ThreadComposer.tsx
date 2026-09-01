@@ -247,7 +247,11 @@ export function ThreadComposer({
   }, [text])
 
   useEffect(() => {
-    if (searchPaths === undefined || mentionQuery === null || dismissedQuery === mentionQuery) {
+    if (
+      searchPaths === undefined ||
+      mentionQuery === null ||
+      dismissedQuery === `path:${mentionQuery}`
+    ) {
       setPathEntries([])
       setPathSearchLoading(false)
       return

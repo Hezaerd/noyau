@@ -16,7 +16,7 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
-import { Clock, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
+import { Clock, Effect, Fiber, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { TestClock } from "effect/testing"
 
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
@@ -279,6 +279,19 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
             },
           ],
         )
+      }),
+    ),
+  )
+
+  it.effect("stops skill discovery when Codex does not respond", () =>
+    withProvider("skills-hang", (provider, evidence) =>
+      Effect.gen(function* () {
+        const fiber = yield* provider
+          .listSkills(ProviderInstanceId.make("codex"), process.cwd())
+          .pipe(Effect.forkChild)
+        yield* waitForLog(evidence.requestLog, '"method":"skills/list"')
+        yield* TestClock.adjust("10 seconds")
+        assert.deepStrictEqual(yield* Fiber.join(fiber), [])
       }),
     ),
   )

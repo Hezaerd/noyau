@@ -221,6 +221,9 @@ for await (const line of lines) {
   }
 
   if (message.method === "skills/list") {
+    if (scenario === "skills-hang") {
+      continue
+    }
     const cwd = message.params?.cwds?.[0] ?? process.cwd()
     respond(message.id, {
       data: [
