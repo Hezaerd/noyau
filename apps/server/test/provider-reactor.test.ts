@@ -66,6 +66,7 @@ describe("provider handoff reactor", () => {
         let oldEmit: ProviderEmit | undefined
         const provider: ProviderPortService = {
           status: Effect.succeed(emptyProviderStatuses),
+          listSkills: () => Effect.succeed([]),
           startTurn: (input, emit) =>
             Effect.sync(() => {
               started.push(input)
