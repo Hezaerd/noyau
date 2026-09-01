@@ -24,7 +24,6 @@ import {
   SparklesIcon,
   SquareIcon,
   XIcon,
-  ZapIcon,
 } from "lucide-react"
 import {
   useEffect,
@@ -462,79 +461,73 @@ export function ThreadComposer({
 
               {modelSelection !== null && hasTraits ? (
                 <>
-                  {hasEffort ? (
+                  {hasEffort || hasTier ? (
                     <ComposerTraitMenu
-                      ariaLabel="Effort level"
+                      ariaLabel="Model configuration"
                       disabled={controlsDisabled}
                       icon={GaugeIcon}
-                      label={selectedEffort?.label ?? "Effort"}
+                      label={selectedEffort?.label ?? selectedTier?.label ?? "Configure"}
                       onOpenChange={handleComposerOverlayOpenChange}
                     >
-                      <MenuGroup>
-                        <MenuGroupLabel>Effort level</MenuGroupLabel>
-                        <MenuRadioGroup
-                          value={selectedEffort?.value ?? ""}
-                          onValueChange={(reasoningEffort) => {
-                            onModelSelectionChange({ ...modelSelection, reasoningEffort })
-                          }}
-                        >
-                          {selectedModel?.reasoningEfforts.map((effort) => (
-                            <ComposerTraitOption
-                              key={effort.value}
-                              description={effort.description}
-                              isDefault={effort.isDefault}
-                              label={effort.label}
-                              value={effort.value}
-                            />
-                          ))}
-                        </MenuRadioGroup>
-                      </MenuGroup>
-                    </ComposerTraitMenu>
-                  ) : null}
-                  {hasTier ? (
-                    <ComposerTraitMenu
-                      ariaLabel="Service tier"
-                      disabled={controlsDisabled}
-                      icon={ZapIcon}
-                      label={selectedTier?.label ?? "Default"}
-                      onOpenChange={handleComposerOverlayOpenChange}
-                    >
-                      <MenuGroup>
-                        <MenuGroupLabel>Service tier</MenuGroupLabel>
-                        <MenuRadioGroup
-                          value={selectedTierValue}
-                          onValueChange={(serviceTier) => {
-                            const isDefault =
-                              serviceTier === defaultServiceTierValue ||
-                              selectedModel?.serviceTiers.some(
-                                (tier) => tier.value === serviceTier && tier.isDefault === true,
-                              )
-                            if (isDefault && modelSelection !== null) {
-                              const { serviceTier: _serviceTier, ...selection } = modelSelection
-                              onModelSelectionChange(selection)
-                              return
-                            }
-                            onModelSelectionChange({ ...modelSelection, serviceTier })
-                          }}
-                        >
-                          {hasAdvertisedDefaultTier === false ? (
-                            <ComposerTraitOption
-                              value={defaultServiceTierValue}
-                              label="Default"
-                              description="Use the provider's default service tier."
-                            />
-                          ) : null}
-                          {selectedModel?.serviceTiers.map((tier) => (
-                            <ComposerTraitOption
-                              key={tier.value}
-                              description={tier.description}
-                              isDefault={tier.isDefault}
-                              label={tier.label}
-                              value={tier.value}
-                            />
-                          ))}
-                        </MenuRadioGroup>
-                      </MenuGroup>
+                      {hasEffort ? (
+                        <MenuGroup>
+                          <MenuGroupLabel>Reasoning</MenuGroupLabel>
+                          <MenuRadioGroup
+                            value={selectedEffort?.value ?? ""}
+                            onValueChange={(reasoningEffort) => {
+                              onModelSelectionChange({ ...modelSelection, reasoningEffort })
+                            }}
+                          >
+                            {selectedModel?.reasoningEfforts.map((effort) => (
+                              <ComposerTraitOption
+                                key={effort.value}
+                                description={effort.description}
+                                isDefault={effort.isDefault}
+                                label={effort.label}
+                                value={effort.value}
+                              />
+                            ))}
+                          </MenuRadioGroup>
+                        </MenuGroup>
+                      ) : null}
+                      {hasEffort && hasTier ? <Separator className="my-1" /> : null}
+                      {hasTier ? (
+                        <MenuGroup>
+                          <MenuGroupLabel>Service tier</MenuGroupLabel>
+                          <MenuRadioGroup
+                            value={selectedTierValue}
+                            onValueChange={(serviceTier) => {
+                              const isDefault =
+                                serviceTier === defaultServiceTierValue ||
+                                selectedModel?.serviceTiers.some(
+                                  (tier) => tier.value === serviceTier && tier.isDefault === true,
+                                )
+                              if (isDefault && modelSelection !== null) {
+                                const { serviceTier: _serviceTier, ...selection } = modelSelection
+                                onModelSelectionChange(selection)
+                                return
+                              }
+                              onModelSelectionChange({ ...modelSelection, serviceTier })
+                            }}
+                          >
+                            {hasAdvertisedDefaultTier === false ? (
+                              <ComposerTraitOption
+                                value={defaultServiceTierValue}
+                                label="Default"
+                              />
+                            ) : null}
+                            {selectedModel?.serviceTiers.map((tier) => (
+                              <ComposerTraitOption
+                                key={tier.value}
+                                description={tier.description}
+                                isDefault={tier.isDefault}
+                                label={tier.label}
+                                value={tier.value}
+                              />
+                            ))}
+                          </MenuRadioGroup>
+                        </MenuGroup>
+                      ) : null}
                     </ComposerTraitMenu>
                   ) : null}
                   {hasThinking && selectedModel?.thinking !== undefined ? (
