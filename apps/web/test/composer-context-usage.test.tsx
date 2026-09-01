@@ -79,7 +79,12 @@ describe("composer context usage", () => {
       screen
         .getByRole("progressbar", { name: "Context window usage" })
         .getAttribute("aria-valuenow"),
-    ).toBe("6")
+    ).toBe("6.2")
+    expect(
+      screen
+        .getByRole("progressbar", { name: "Context window usage" })
+        .getAttribute("aria-valuetext"),
+    ).toBe("6.2%")
   })
 
   it("keeps the ring and progress bar bounded when usage overflows", async () => {

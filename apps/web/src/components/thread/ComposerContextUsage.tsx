@@ -113,7 +113,8 @@ export function ComposerContextUsage({ usage }: { readonly usage: ContextUsage }
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={Math.round(ratio * 100)}
+            aria-valuenow={ratio * 100}
+            aria-valuetext={percentage}
             aria-label="Context window usage"
           >
             <div
