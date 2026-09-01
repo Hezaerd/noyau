@@ -137,6 +137,7 @@ import {
   reduceThreadSnapshotEnvelope,
   replaceThreadSnapshot,
   threadSnapshotNeedsLoad,
+  threadSnapshotResumeSequence,
 } from "@/state/thread-snapshot"
 
 interface ThreadPageProps {
@@ -455,7 +456,7 @@ export function ThreadPage({
     setEnvMode(opened.envMode)
     setBaseBranch(opened.baseBranch)
     setStartFromOrigin(opened.startFromOrigin)
-    setLoading(cached === undefined)
+    setLoading(threadSnapshotNeedsLoad(threadId))
     setSubscriptionStatus(undefined)
     if (cached !== undefined) {
       setRuntimeMode(
@@ -509,7 +510,7 @@ export function ThreadPage({
       setActionFailure(undefined)
     }
     clearAssistantPaint()
-    const unsubscribe = subscribeThread(threadId, cached?.snapshotSequence, {
+    const unsubscribe = subscribeThread(threadId, threadSnapshotResumeSequence(threadId), {
       onSnapshot: (next) => {
         commitSnapshot(next)
       },
