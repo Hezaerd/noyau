@@ -472,4 +472,47 @@ describe("ThreadSidebarItem", () => {
     })
     expect(onSelect).toHaveBeenCalled()
   })
+
+  it("opens the GitHub page on command-clicking the PR badge", () => {
+    const onSelect = vi.fn()
+    const openExternal = vi.spyOn(window, "open").mockImplementation(() => null)
+    render(
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ThreadSidebarItem
+            thread={thread}
+            project={{ id: projectId, name: "noyau", workspaceRoot }}
+            pullRequest={{
+              number: 345,
+              title: "Add a pull request viewer",
+              url: "https://github.com/Hezaerd/noyau/pull/345",
+              baseRef: "main",
+              headRef: "feat/pr-viewer",
+              state: "open",
+              mergeability: "mergeable",
+              ciStatus: "passing",
+              failedChecks: [],
+            }}
+            liveBranch={null}
+            isActive={false}
+            settled={false}
+            onSelect={onSelect}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "PR #345 · Open" }), {
+      metaKey: true,
+    })
+
+    expect(openExternal).toHaveBeenCalledWith(
+      "https://github.com/Hezaerd/noyau/pull/345",
+      "_blank",
+      "noopener,noreferrer",
+    )
+    expect(openWorkspacePullRequest).not.toHaveBeenCalled()
+    expect(onSelect).not.toHaveBeenCalled()
+    openExternal.mockRestore()
+  })
 })

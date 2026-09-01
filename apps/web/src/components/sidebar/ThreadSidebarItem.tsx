@@ -262,7 +262,13 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
                 <ThreadPullRequestBadge
                   compact
                   pr={pullRequest}
-                  onOpen={() => openPullRequest(pullRequest)}
+                  onOpen={(event) => {
+                    if (event.metaKey) {
+                      window.open(pullRequest.url, "_blank", "noopener,noreferrer")
+                      return
+                    }
+                    openPullRequest(pullRequest)
+                  }}
                 />
               </div>
             )}

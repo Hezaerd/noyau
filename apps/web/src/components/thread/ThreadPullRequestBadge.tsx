@@ -1,5 +1,6 @@
 import type { VcsStatusPullRequest } from "@noyau/contracts/git"
 import { GitPullRequestIcon } from "lucide-react"
+import type { MouseEvent } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
@@ -23,7 +24,7 @@ export function ThreadPullRequestBadge({
 }: {
   readonly pr: VcsStatusPullRequest
   readonly compact?: boolean
-  readonly onOpen?: () => void
+  readonly onOpen?: (event: MouseEvent<HTMLButtonElement>) => void
 }) {
   const label = `#${pr.number}`
   return (
@@ -42,7 +43,7 @@ export function ThreadPullRequestBadge({
                   onClick={(event) => {
                     event.preventDefault()
                     event.stopPropagation()
-                    onOpen()
+                    onOpen(event)
                   }}
                 />
               )
