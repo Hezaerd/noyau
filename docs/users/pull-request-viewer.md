@@ -1,6 +1,6 @@
 # Review a pull request beside the Thread
 
-The workspace panel can show the GitHub pull request for the open Thread: description, reviews, changed files, and the diff.
+The workspace panel can show and review the GitHub pull request for the open Thread without leaving Noyau.
 
 ## Open the pull request
 
@@ -12,16 +12,30 @@ On a Thread that already has a pull request:
 
 The tab shows the pull request for that Thread. If the Thread has none yet, the tab stays empty.
 
-## Read description, reviews, and the diff
+## Read the pull request
 
-The **Conversation** section shows the title, state, branches, description, and the review timeline (approvals, change requests, and comments).
+The **Summary** tab shows the description, review activity, comments, and check status.
 
-The **Files** section lists the changed paths. Select a path to jump to its diff.
+The **Timeline** tab orders the pull request opening, commits, reviews, and comments. Use the order control to show the newest or oldest activity first.
 
-This view is read-only. It does not approve, comment, or merge. Use **Open on GitHub** in the tab header when you need those actions on GitHub.
+The **Code** tab shows the changed files. Choose **All commits** for the complete pull request, or choose one commit to inspect only that commit. The toolbar switches between unified and split diffs, wraps long lines, and expands or collapses every file.
+
+The pull request header collapses after you scroll so the current tab keeps more room. Scroll back to the top to expand it again.
+
+## Submit a review
+
+Line comments are written against the complete pull request:
+
+1. Open **Code** and choose **All commits**.
+2. Expand a file.
+3. Select a line number, then write the comment and choose **Add to review**.
+4. Choose **Review**. Add an optional summary.
+5. Choose **Comment**, **Approve**, or **Request changes**.
+
+Line comments stay private in the tab until you submit the review. Remove a pending comment from its line to discard it. Close the review form to keep the draft and return to the diff.
 
 Reload the tab to fetch a fresh snapshot. Closing the tab is the way out; hiding the panel keeps the tab.
 
 ## When it is missing
 
-The tab needs GitHub CLI (`gh`) signed in on this machine, the same way creating a pull request does. If `gh` is missing or cannot see the pull request, the tab shows an error instead of the conversation.
+The tab needs GitHub CLI (`gh`) signed in on this machine, the same way creating a pull request does. If `gh` is missing or cannot see the pull request, the tab shows an error with retry and **Open on GitHub** actions.

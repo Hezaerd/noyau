@@ -26,6 +26,8 @@ import type {
   GitPublishRepositoryResult,
   GitRunStackedActionInput,
   GitRunStackedActionResult,
+  GitSubmitPullRequestReviewInput,
+  GitSubmitPullRequestReviewResult,
   VcsCreateRefInput,
   VcsCreateRefResult,
   VcsCreateWorktreeInput,
@@ -499,6 +501,16 @@ export const gitGetPullRequest = (
     Effect.gen(function* () {
       const client = yield* ControlPlaneClient
       return yield* client[RPC_METHODS.gitGetPullRequest](input)
+    }),
+  )
+
+export const gitSubmitPullRequestReview = (
+  input: GitSubmitPullRequestReviewInput,
+): Promise<ControlPlaneResult<GitSubmitPullRequestReviewResult>> =>
+  gitCall(
+    Effect.gen(function* () {
+      const client = yield* ControlPlaneClient
+      return yield* client[RPC_METHODS.gitSubmitPullRequestReview](input)
     }),
   )
 

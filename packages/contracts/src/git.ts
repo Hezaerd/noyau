@@ -253,10 +253,18 @@ export const GitPullRequestFile = Schema.Struct({
 })
 export type GitPullRequestFile = (typeof GitPullRequestFile)["Type"]
 
+export const GitPullRequestCommit = Schema.Struct({
+  oid: Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/i)),
+  messageHeadline: Schema.String,
+  committedAt: Schema.NonEmptyString,
+})
+export type GitPullRequestCommit = (typeof GitPullRequestCommit)["Type"]
+
 /** PR GitHub live : description, reviews, fichiers, patch. Hors journal, via `gh`. */
 export const GitGetPullRequestInput = Schema.Struct({
   ...VcsScope.fields,
   number: Schema.Int.check(Schema.isGreaterThan(0)),
+  commitOid: Schema.optionalKey(GitPullRequestCommit.fields.oid),
 })
 export type GitGetPullRequestInput = (typeof GitGetPullRequestInput)["Type"]
 
@@ -269,12 +277,47 @@ export const GitPullRequest = Schema.Struct({
   state: VcsStatusPullRequestState,
   baseRef: TrimmedNonEmpty,
   headRef: TrimmedNonEmpty,
+  createdAt: Schema.NonEmptyString,
+  updatedAt: Schema.NonEmptyString,
+  additions: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  deletions: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  mergeability: VcsStatusMergeability,
+  ciStatus: VcsStatusCiVerdict,
+  failedChecks: Schema.Array(VcsStatusFailedCheck),
   reviews: Schema.Array(GitPullRequestReview),
   comments: Schema.Array(GitPullRequestComment),
+  commits: Schema.Array(GitPullRequestCommit),
   files: Schema.Array(GitPullRequestFile),
   patch: Schema.String,
 })
 export type GitPullRequest = (typeof GitPullRequest)["Type"]
+
+export const GitPullRequestReviewVerdict = Schema.Literals([
+  "comment",
+  "approve",
+  "request_changes",
+])
+export type GitPullRequestReviewVerdict = (typeof GitPullRequestReviewVerdict)["Type"]
+
+export const GitPullRequestReviewCommentDraft = Schema.Struct({
+  path: TrimmedNonEmpty,
+  line: Schema.Int.check(Schema.isGreaterThan(0)),
+  side: Schema.Literals(["left", "right"]),
+  body: TrimmedNonEmpty,
+})
+export type GitPullRequestReviewCommentDraft = (typeof GitPullRequestReviewCommentDraft)["Type"]
+
+export const GitSubmitPullRequestReviewInput = Schema.Struct({
+  ...VcsScope.fields,
+  number: Schema.Int.check(Schema.isGreaterThan(0)),
+  verdict: GitPullRequestReviewVerdict,
+  body: Schema.String,
+  comments: Schema.Array(GitPullRequestReviewCommentDraft),
+})
+export type GitSubmitPullRequestReviewInput = (typeof GitSubmitPullRequestReviewInput)["Type"]
+
+export const GitSubmitPullRequestReviewResult = Schema.Struct({})
+export type GitSubmitPullRequestReviewResult = (typeof GitSubmitPullRequestReviewResult)["Type"]
 
 export const GitPublishRepositoryInput = Schema.Struct({
   ...VcsScope.fields,

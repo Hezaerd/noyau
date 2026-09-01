@@ -39,6 +39,8 @@ import {
   GitPullRequest,
   GitRunStackedActionInput,
   GitRunStackedActionResult,
+  GitSubmitPullRequestReviewInput,
+  GitSubmitPullRequestReviewResult,
   VcsCreateRefInput,
   VcsCreateRefResult,
   VcsCreateWorktreeInput,
@@ -115,6 +117,7 @@ export const RPC_METHODS = {
   gitRunStackedAction: "git.runStackedAction",
   gitGithubAccount: "git.githubAccount",
   gitGetPullRequest: "git.getPullRequest",
+  gitSubmitPullRequestReview: "git.submitPullRequestReview",
   gitPublishRepository: "git.publishRepository",
   listEditors: "workspace.listEditors",
   openInEditor: "workspace.openInEditor",
@@ -419,6 +422,12 @@ export const GitGetPullRequest = Rpc.make(RPC_METHODS.gitGetPullRequest, {
   error: Schema.Union([GitCommandError, ServiceUnavailable]),
 })
 
+export const GitSubmitPullRequestReview = Rpc.make(RPC_METHODS.gitSubmitPullRequestReview, {
+  payload: GitSubmitPullRequestReviewInput,
+  success: GitSubmitPullRequestReviewResult,
+  error: Schema.Union([GitCommandError, ServiceUnavailable]),
+})
+
 export const GitPublishRepository = Rpc.make(RPC_METHODS.gitPublishRepository, {
   payload: GitPublishRepositoryInput,
   success: GitPublishRepositoryResult,
@@ -472,6 +481,7 @@ export const ControlPlaneRpcs = RpcGroup.make(
   GitRunStackedAction,
   GitGithubAccount,
   GitGetPullRequest,
+  GitSubmitPullRequestReview,
   GitPublishRepository,
   ListEditors,
   OpenInEditor,

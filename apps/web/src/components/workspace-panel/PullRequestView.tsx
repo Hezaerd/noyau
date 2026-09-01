@@ -1,26 +1,39 @@
-import type { GitPullRequest } from "@noyau/contracts/git"
-import { FileDiff, PatchDiff } from "@pierre/diffs/react"
-import { ExternalLinkIcon, RefreshCwIcon } from "lucide-react"
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react"
+import type {
+  GitPullRequest,
+  GitPullRequestReviewCommentDraft,
+  GitPullRequestReviewVerdict,
+} from "@noyau/contracts/git"
+import {
+  ArrowLeftIcon,
+  ExternalLinkIcon,
+  FileDiffIcon,
+  GitPullRequestIcon,
+  RefreshCwIcon,
+} from "lucide-react"
+import { useEffect, useRef, useState, type RefObject, type UIEventHandler } from "react"
 
-import { ThreadPreviewMarkdown } from "@/components/thread/ThreadPreviewMarkdown"
+import { TurnDiffStatLabel } from "@/components/thread/TurnDiffStatLabel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { toastManager } from "@/components/ui/toast"
 import type { WorkspaceTabRenderContext } from "@/components/workspace-panel/define-workspace-tab"
+import { PullRequestCode } from "@/components/workspace-panel/PullRequestCode"
+import { PullRequestSummary } from "@/components/workspace-panel/PullRequestSummary"
+import { PullRequestTimeline } from "@/components/workspace-panel/PullRequestTimeline"
 import { useAppearance } from "@/hooks/use-appearance"
 import { useThreadShell } from "@/hooks/use-control-plane"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { useProjectPullRequests } from "@/hooks/use-sidebar-queues"
 import { resolveAppearance } from "@/lib/appearance"
-import { gitGetPullRequest } from "@/lib/control-plane"
+import { gitGetPullRequest, gitSubmitPullRequestReview } from "@/lib/control-plane"
 import {
-  pullRequestReviewStateLabel,
+  pullRequestRepositoryLabel,
   pullRequestTabTitle,
-  pullRequestTimeline,
   resolvedPullRequestNumber,
   resolvedPullRequestUrl,
 } from "@/lib/pull-request-view"
-import { fileDiffPath, parseTurnDiffPatch, resolveDiffThemeName } from "@/lib/turn-diff-patch"
+import { resolveDiffThemeName } from "@/lib/turn-diff-patch"
 import { cn } from "@/lib/utils"
 import { pullRequestStateLabel, vcsScopeForThread } from "@/lib/vcs-status"
 import { patchWorkspaceTabPayload } from "@/state/workspace-panel"
@@ -30,7 +43,7 @@ export type PullRequestTabPayload = {
   readonly url: string | null
 }
 
-type PullRequestSection = "conversation" | "files"
+type PullRequestSection = "summary" | "timeline" | "code"
 
 export function PullRequestView({
   threadId,
@@ -44,31 +57,31 @@ export function PullRequestView({
   const { preference } = useAppearance()
   const systemDark = useMediaQuery("(prefers-color-scheme: dark)")
   const theme = resolveDiffThemeName(resolveAppearance(preference, systemDark))
-  const [section, setSection] = useState<PullRequestSection>("conversation")
+  const [section, setSection] = useState<PullRequestSection>("summary")
   const [pr, setPr] = useState<GitPullRequest | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [generation, setGeneration] = useState(0)
-  const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const selectedRef = useRef<HTMLDivElement | null>(null)
+  const [commitOid, setCommitOid] = useState<string | null>(null)
+  const [condensed, setCondensed] = useState(false)
+  const expandedHeaderRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (thread === undefined || livePr === null) {
-      return
-    }
-    if (tab.payload.number === livePr.number && tab.payload.url === livePr.url) {
-      return
-    }
-    if (tab.payload.number !== null && tab.payload.number !== livePr.number) {
-      return
-    }
+    if (thread === undefined || livePr === null) return
+    if (tab.payload.number === livePr.number && tab.payload.url === livePr.url) return
+    if (tab.payload.number !== null && tab.payload.number !== livePr.number) return
     patchWorkspaceTabPayload(threadId, tab.id, { number: livePr.number, url: livePr.url })
   }, [livePr, tab.id, tab.payload.number, tab.payload.url, thread, threadId])
 
   useEffect(() => {
+    setPr(null)
+    setError(null)
+    setCommitOid(null)
+    setCondensed(false)
+  }, [number])
+
+  useEffect(() => {
     if (thread === undefined || number === null) {
-      setPr(null)
-      setError(null)
       setLoading(false)
       return
     }
@@ -76,60 +89,181 @@ export function PullRequestView({
     setLoading(true)
     setError(null)
     void (async () => {
-      const result = await gitGetPullRequest({
-        ...vcsScopeForThread(thread.projectId, thread),
-        number,
-      })
-      if (cancelled) {
-        return
-      }
+      const scope = vcsScopeForThread(thread.projectId, thread)
+      const input = commitOid === null ? { ...scope, number } : { ...scope, number, commitOid }
+      const result = await gitGetPullRequest(input)
+      if (cancelled) return
       setLoading(false)
       if (result.ok) {
         setPr(result.value)
         return
       }
-      setPr(null)
-      setError(
-        result.failure._tag === "InvalidInput" && result.failure.message !== undefined
-          ? result.failure.message
-          : "Unable to load this pull request.",
-      )
+      setError("Unable to load this pull request. Check that GitHub CLI can access it.")
     })()
     return () => {
       cancelled = true
     }
-  }, [generation, number, thread])
+  }, [commitOid, generation, number, thread])
 
-  const files = useMemo(() => (pr === null ? [] : parseTurnDiffPatch(pr.patch)), [pr])
+  useEffect(() => setCondensed(false), [section])
 
-  useEffect(() => {
-    if (selectedPath === null || files.length === 0) {
+  const handleScroll: UIEventHandler<HTMLDivElement> = (event) => {
+    const top = event.currentTarget.scrollTop
+    if (condensed) {
+      if (top < 4) setCondensed(false)
       return
     }
-    selectedRef.current?.scrollIntoView({ block: "start" })
-  }, [files, selectedPath])
+    const foldHeight = expandedHeaderRef.current?.scrollHeight ?? 0
+    if (foldHeight > 0 && top > foldHeight + 24) {
+      event.currentTarget.scrollTop = Math.max(0, top - foldHeight)
+      setCondensed(true)
+    }
+  }
 
-  const timeline = useMemo(() => (pr === null ? [] : pullRequestTimeline(pr)), [pr])
+  const submitReview = async (
+    verdict: GitPullRequestReviewVerdict,
+    body: string,
+    comments: ReadonlyArray<GitPullRequestReviewCommentDraft>,
+  ): Promise<boolean> => {
+    if (thread === undefined || number === null) return false
+    const result = await gitSubmitPullRequestReview({
+      ...vcsScopeForThread(thread.projectId, thread),
+      number,
+      verdict,
+      body,
+      comments,
+    })
+    if (!result.ok) {
+      toastManager.add({ type: "error", title: "The review could not be submitted" })
+      return false
+    }
+    toastManager.add({
+      type: "success",
+      title:
+        verdict === "approve"
+          ? "Pull request approved"
+          : verdict === "request_changes"
+            ? "Changes requested"
+            : "Review submitted",
+    })
+    setGeneration((current) => current + 1)
+    return true
+  }
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-slot="workspace-pr">
-      <header
-        className="flex shrink-0 items-center gap-1 border-b border-border/70 px-1.5 py-1"
-        data-slot="workspace-pr-chrome"
-      >
+    <div className="flex h-full min-h-0 flex-col bg-background" data-slot="workspace-pr">
+      <PullRequestHeader
+        condensed={condensed}
+        expandedHeaderRef={expandedHeaderRef}
+        loading={loading}
+        number={number}
+        pr={pr}
+        tab={tab.payload}
+        url={url}
+        onReload={() => setGeneration((current) => current + 1)}
+      />
+      <nav className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border/70 px-3">
+        <div className="flex rounded-lg bg-muted/50 p-0.5">
+          <SectionButton
+            active={section === "summary"}
+            label="Summary"
+            onSelect={() => setSection("summary")}
+          />
+          <SectionButton
+            active={section === "timeline"}
+            label="Timeline"
+            onSelect={() => setSection("timeline")}
+          />
+          <SectionButton
+            active={section === "code"}
+            label="Code"
+            onSelect={() => setSection("code")}
+          />
+        </div>
+        {pr === null ? null : (
+          <span className="hidden items-center gap-1.5 text-muted-foreground text-xs sm:flex">
+            <FileDiffIcon className="size-3.5" />
+            {pr.files.length}
+            <TurnDiffStatLabel additions={pr.additions} deletions={pr.deletions} layout="inline" />
+          </span>
+        )}
+      </nav>
+
+      {number === null ? (
+        <EmptyState />
+      ) : pr === null && loading ? (
+        <PullRequestSkeleton />
+      ) : pr === null ? (
+        <ErrorState error={error} url={url} onRetry={() => setGeneration((value) => value + 1)} />
+      ) : section === "code" ? (
+        <div className="min-h-0 flex-1">
+          <PullRequestCode
+            commitOid={commitOid}
+            loading={loading}
+            pr={pr}
+            theme={theme}
+            onCommitChange={setCommitOid}
+            onScroll={handleScroll}
+            onSubmitReview={submitReview}
+          />
+        </div>
+      ) : (
+        <div
+          className="min-h-0 flex-1 overflow-y-auto"
+          data-slot="workspace-pr-body"
+          onScroll={handleScroll}
+        >
+          {error === null ? null : (
+            <div className="border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-destructive text-xs">
+              {error}
+            </div>
+          )}
+          {section === "summary" ? <PullRequestSummary pr={pr} /> : <PullRequestTimeline pr={pr} />}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PullRequestHeader({
+  condensed,
+  expandedHeaderRef,
+  loading,
+  number,
+  pr,
+  tab,
+  url,
+  onReload,
+}: {
+  readonly condensed: boolean
+  readonly expandedHeaderRef: RefObject<HTMLDivElement | null>
+  readonly loading: boolean
+  readonly number: number | null
+  readonly pr: GitPullRequest | null
+  readonly tab: PullRequestTabPayload
+  readonly url: string | null
+  readonly onReload: () => void
+}) {
+  return (
+    <header className="shrink-0 border-b border-border/70" data-slot="workspace-pr-chrome">
+      <div className="flex h-9 min-w-0 items-center gap-1 px-3">
+        <GitPullRequestIcon className="size-3.5 shrink-0 text-success" />
         <p className="min-w-0 flex-1 truncate text-sm">
           {pr === null
-            ? pullRequestTabTitle(tab.payload)
-            : `${pullRequestTabTitle(pr)} · ${pr.title}`}
+            ? pullRequestTabTitle(tab)
+            : condensed
+              ? `#${pr.number} ${pr.title}`
+              : `${pullRequestRepositoryLabel(pr.url)} #${pr.number}`}
         </p>
         <Button
           aria-label="Reload pull request"
           className="text-muted-foreground"
-          disabled={number === null || loading}
+          disabled={number === null}
+          loading={loading}
           size="icon-xs"
           type="button"
           variant="ghost"
-          onClick={() => setGeneration((current) => current + 1)}
+          onClick={onReload}
         >
           <RefreshCwIcon />
         </Button>
@@ -144,40 +278,51 @@ export function PullRequestView({
             <ExternalLinkIcon />
           </Button>
         )}
-      </header>
-      <div className="flex shrink-0 gap-1 border-b border-border/70 px-1.5 py-1">
-        <SectionButton
-          active={section === "conversation"}
-          label="Conversation"
-          onSelect={() => setSection("conversation")}
-        />
-        <SectionButton
-          active={section === "files"}
-          label={pr === null ? "Files" : `Files · ${pr.files.length}`}
-          onSelect={() => setSection("files")}
-        />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3" data-slot="workspace-pr-body">
-        {number === null ? (
-          <p className="text-muted-foreground text-sm">This Thread has no pull request yet.</p>
-        ) : null}
-        {loading ? <p className="text-muted-foreground text-sm">Loading pull request…</p> : null}
-        {error === null ? null : <p className="text-destructive text-sm">{error}</p>}
-        {pr === null || loading ? null : section === "conversation" ? (
-          <ConversationSection pr={pr} timeline={timeline} />
-        ) : (
-          <FilesSection
-            files={files}
-            listed={pr.files}
-            patch={pr.patch}
-            selectedPath={selectedPath}
-            selectedRef={selectedRef}
-            theme={theme}
-            onSelectPath={setSelectedPath}
-          />
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-150 motion-reduce:transition-none",
+          condensed ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
         )}
+      >
+        <div ref={expandedHeaderRef} className="min-h-0 overflow-hidden">
+          {pr === null ? (
+            <div className="space-y-3 px-4 pb-4 pt-2">
+              <Skeleton className="h-5 w-2/3" />
+              <Skeleton className="h-3.5 w-1/2" />
+            </div>
+          ) : (
+            <div className="px-4 pb-4 pt-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h1 className="min-w-0 flex-1 text-base font-semibold leading-snug">{pr.title}</h1>
+                <Badge
+                  size="sm"
+                  variant={
+                    pr.state === "open" ? "success" : pr.state === "merged" ? "info" : "outline"
+                  }
+                >
+                  {pullRequestStateLabel(pr.state)}
+                </Badge>
+              </div>
+              <p className="mt-2 text-muted-foreground text-xs">
+                {pr.author?.login ?? "Unknown author"} · updated {formatHeaderDate(pr.updatedAt)}
+              </p>
+              <div className="mt-3 flex min-w-0 items-center gap-2 text-muted-foreground text-xs">
+                <code className="max-w-[40%] truncate">{pr.baseRef}</code>
+                <ArrowLeftIcon className="size-3 shrink-0" />
+                <code className="min-w-0 flex-1 truncate">{pr.headRef}</code>
+                <span className="shrink-0">{pr.files.length} files</span>
+                <TurnDiffStatLabel
+                  additions={pr.additions}
+                  deletions={pr.deletions}
+                  layout="inline"
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </header>
   )
 }
 
@@ -193,8 +338,8 @@ function SectionButton({
   return (
     <Button
       aria-pressed={active}
-      className={cn(!active && "text-muted-foreground")}
-      size="sm"
+      className={cn("h-7 rounded-md px-3", !active && "text-muted-foreground")}
+      size="xs"
       type="button"
       variant={active ? "secondary" : "ghost"}
       onClick={onSelect}
@@ -204,149 +349,73 @@ function SectionButton({
   )
 }
 
-function ConversationSection({
-  pr,
-  timeline,
-}: {
-  readonly pr: GitPullRequest
-  readonly timeline: ReturnType<typeof pullRequestTimeline>
-}) {
+function PullRequestSkeleton() {
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <Badge
-          size="sm"
-          variant={pr.state === "open" ? "success" : pr.state === "merged" ? "info" : "outline"}
-        >
-          {pullRequestStateLabel(pr.state)}
-        </Badge>
-        <p className="min-w-0 truncate text-muted-foreground text-xs">
-          {pr.baseRef} ← {pr.headRef}
-          {pr.author === null ? "" : ` · ${pr.author.login}`}
-        </p>
+    <div className="flex min-h-0 flex-1 flex-col gap-5 px-4 py-5" aria-label="Loading pull request">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
       </div>
-      {pr.body.trim() === "" ? (
-        <p className="text-muted-foreground text-sm">No description.</p>
-      ) : (
-        <ThreadPreviewMarkdown text={pr.body} />
-      )}
-      {timeline.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No reviews yet.</p>
-      ) : (
-        <ol className="flex flex-col gap-3">
-          {timeline.map((item) =>
-            item.kind === "review" ? (
-              <li
-                key={`review:${item.review.submittedAt ?? item.review.state}:${item.review.author?.login ?? "unknown"}`}
-              >
-                <p className="text-xs font-medium">
-                  {item.review.author?.login ?? "Unknown"} ·{" "}
-                  {pullRequestReviewStateLabel(item.review.state)}
-                </p>
-                {item.review.body.trim() === "" ? null : (
-                  <ThreadPreviewMarkdown className="mt-1" text={item.review.body} />
-                )}
-              </li>
-            ) : (
-              <li
-                key={`comment:${item.comment.createdAt}:${item.comment.author?.login ?? "unknown"}`}
-              >
-                <p className="text-xs font-medium">
-                  {item.comment.author?.login ?? "Unknown"} · Commented
-                </p>
-                {item.comment.body.trim() === "" ? null : (
-                  <ThreadPreviewMarkdown className="mt-1" text={item.comment.body} />
-                )}
-              </li>
-            ),
-          )}
-        </ol>
-      )}
+      <Skeleton className="h-4 w-28" />
+      <div className="space-y-2">
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-11/12" />
+        <Skeleton className="h-3.5 w-4/5" />
+      </div>
+      <Skeleton className="h-28 w-full" />
     </div>
   )
 }
 
-function FilesSection({
-  files,
-  listed,
-  patch,
-  selectedPath,
-  selectedRef,
-  theme,
-  onSelectPath,
-}: {
-  readonly files: ReturnType<typeof parseTurnDiffPatch>
-  readonly listed: GitPullRequest["files"]
-  readonly patch: string
-  readonly selectedPath: string | null
-  readonly selectedRef: RefObject<HTMLDivElement | null>
-  readonly theme: ReturnType<typeof resolveDiffThemeName>
-  readonly onSelectPath: (path: string) => void
-}) {
-  const paths =
-    listed.length > 0
-      ? listed
-      : files.map((file) => ({
-          path: fileDiffPath(file),
-          additions: 0,
-          deletions: 0,
-        }))
+function EmptyState() {
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      {paths.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No files changed.</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {paths.map((file) => (
-            <li key={file.path}>
-              <button
-                className={cn(
-                  "flex w-full min-w-0 items-baseline gap-2 rounded-md px-1.5 py-1 text-start text-xs hover:bg-accent/60",
-                  selectedPath === file.path && "bg-accent text-accent-foreground",
-                )}
-                type="button"
-                onClick={() => onSelectPath(file.path)}
-              >
-                <span className="min-w-0 flex-1 truncate">{file.path}</span>
-                {file.additions === 0 && file.deletions === 0 ? null : (
-                  <span className="shrink-0 text-muted-foreground">
-                    +{file.additions} −{file.deletions}
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {files.length > 0 ? (
-        files.map((file) => {
-          const path = fileDiffPath(file)
-          const selected = selectedPath === path
-          return (
-            <div key={path} ref={selected ? selectedRef : undefined} className="min-w-0">
-              <FileDiff
-                disableWorkerPool
-                fileDiff={file}
-                options={{
-                  collapsed: false,
-                  diffStyle: "unified",
-                  theme,
-                }}
-              />
-            </div>
-          )
-        })
-      ) : patch.trim() === "" ? null : (
-        <PatchDiff
-          disableWorkerPool
-          options={{
-            collapsed: false,
-            diffStyle: "unified",
-            theme,
-          }}
-          patch={patch}
-        />
-      )}
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+      <GitPullRequestIcon className="size-8 text-muted-foreground" />
+      <p className="text-sm font-medium">No pull request yet</p>
+      <p className="max-w-sm text-muted-foreground text-xs">
+        Open this tab again after the Thread has a pull request.
+      </p>
     </div>
   )
+}
+
+function ErrorState({
+  error,
+  url,
+  onRetry,
+}: {
+  readonly error: string | null
+  readonly url: string | null
+  readonly onRetry: () => void
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+      <p className="text-sm font-medium">Pull request unavailable</p>
+      <p className="max-w-sm text-muted-foreground text-xs">
+        {error ?? "Unable to load this pull request."}
+      </p>
+      <div className="flex gap-2">
+        <Button size="xs" type="button" variant="outline" onClick={onRetry}>
+          <RefreshCwIcon /> Retry
+        </Button>
+        {url === null ? null : (
+          <Button
+            render={<a href={url} rel="noopener noreferrer" target="_blank" />}
+            size="xs"
+            variant="outline"
+          >
+            <ExternalLinkIcon /> Open on GitHub
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const formatHeaderDate = (value: string): string => {
+  const date = new Date(value)
+  return Number.isNaN(date.valueOf())
+    ? value
+    : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date)
 }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  canSubmitPullRequestReview,
+  pullRequestLinePosition,
+  pullRequestRepositoryLabel,
   pullRequestReviewStateLabel,
   pullRequestTabTitle,
   pullRequestTimeline,
@@ -34,6 +37,14 @@ describe("pull request view helpers", () => {
 
   it("orders comments and reviews by time, leaving undated reviews last", () => {
     const timeline = pullRequestTimeline({
+      createdAt: "2026-08-31T09:00:00Z",
+      commits: [
+        {
+          oid: "0123456789abcdef0123456789abcdef01234567",
+          messageHeadline: "feat: add PR review",
+          committedAt: "2026-08-31T10:30:00Z",
+        },
+      ],
       comments: [
         { author: { login: "later" }, body: "after", createdAt: "2026-08-31T12:00:00Z" },
         { author: { login: "first" }, body: "before", createdAt: "2026-08-31T10:00:00Z" },
@@ -49,10 +60,36 @@ describe("pull request view helpers", () => {
       ],
     })
     expect(
-      timeline.map((item) =>
-        item.kind === "comment" ? item.comment.author?.login : item.review.author?.login,
-      ),
-    ).toEqual(["first", "reviewer", "later", "pending"])
+      timeline.map((item) => {
+        switch (item.kind) {
+          case "opened":
+            return "opened"
+          case "commit":
+            return item.commit.oid.slice(0, 7)
+          case "comment":
+            return item.comment.author?.login
+          case "review":
+            return item.review.author?.login
+        }
+      }),
+    ).toEqual(["opened", "first", "0123456", "reviewer", "later", "pending"])
     expect(pullRequestReviewStateLabel("changes_requested")).toBe("Requested changes")
+  })
+
+  it("resolves repository labels and review line coordinates", () => {
+    expect(pullRequestRepositoryLabel("https://github.com/hezaerd/noyau/pull/42")).toBe(
+      "hezaerd/noyau",
+    )
+    expect(pullRequestRepositoryLabel("not a url")).toBe("GitHub")
+    expect(
+      pullRequestLinePosition({ start: 25, end: 26, side: "additions", endSide: "deletions" }),
+    ).toEqual({ line: 26, side: "left" })
+  })
+
+  it("requires words or line comments except for approvals", () => {
+    expect(canSubmitPullRequestReview("approve", "", 0)).toBe(true)
+    expect(canSubmitPullRequestReview("comment", "", 0)).toBe(false)
+    expect(canSubmitPullRequestReview("request_changes", "Please fix", 0)).toBe(true)
+    expect(canSubmitPullRequestReview("comment", "", 1)).toBe(true)
   })
 })

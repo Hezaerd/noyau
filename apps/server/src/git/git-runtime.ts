@@ -4,6 +4,8 @@ import {
   type GitHubAccountResult,
   type GitPublishRepositoryResult,
   type GitPullRequest,
+  type GitPullRequestReviewCommentDraft,
+  type GitPullRequestReviewVerdict,
   type GitRepositoryVisibility,
   type GitRunStackedActionResult,
   type GitStackedAction,
@@ -20,6 +22,7 @@ import { ChildProcessSpawner } from "effect/unstable/process"
 import {
   decodeListedPullRequests,
   decodeViewedPullRequest,
+  buildPullRequestReviewJson,
   PR_VIEW_JSON_FIELDS,
   rememberStatusPullRequest,
   selectStatusPullRequest,
@@ -237,7 +240,15 @@ export interface GitRuntimeService {
   readonly getPullRequest: (
     cwd: string,
     number: number,
+    commitOid?: string,
   ) => Effect.Effect<GitPullRequest, GitCommandError>
+  readonly submitPullRequestReview: (input: {
+    readonly cwd: string
+    readonly number: number
+    readonly verdict: GitPullRequestReviewVerdict
+    readonly body: string
+    readonly comments: ReadonlyArray<GitPullRequestReviewCommentDraft>
+  }) => Effect.Effect<{}, GitCommandError>
   readonly publishRepository: (input: {
     readonly cwd: string
     readonly repository: string
@@ -852,6 +863,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
   const getPullRequest = Effect.fn("GitRuntime.getPullRequest")(function* (
     cwd: string,
     number: number,
+    commitOid?: string,
   ) {
     const viewed = yield* runGh("gh.pr.view", cwd, [
       "pr",
@@ -860,7 +872,14 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
       "--json",
       PR_VIEW_JSON_FIELDS,
     ])
-    const diff = yield* runGh("gh.pr.diff", cwd, ["pr", "diff", String(number)])
+    const diff = yield* commitOid === undefined
+      ? runGh("gh.pr.diff", cwd, ["pr", "diff", String(number)])
+      : runGh("gh.api.commit.diff", cwd, [
+          "api",
+          "-H",
+          "Accept: application/vnd.github.diff",
+          `repos/{owner}/{repo}/commits/${commitOid}`,
+        ])
     return yield* decodeViewedPullRequest(viewed.stdout, diff.stdout).pipe(
       Effect.mapError(
         () =>
@@ -871,6 +890,31 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
       ),
     )
   })
+
+  const submitPullRequestReview = Effect.fn("GitRuntime.submitPullRequestReview")(
+    function* (input: {
+      readonly cwd: string
+      readonly number: number
+      readonly verdict: GitPullRequestReviewVerdict
+      readonly body: string
+      readonly comments: ReadonlyArray<GitPullRequestReviewCommentDraft>
+    }) {
+      yield* runGh(
+        "gh.api.pr.review",
+        input.cwd,
+        [
+          "api",
+          "--method",
+          "POST",
+          `repos/{owner}/{repo}/pulls/${input.number}/reviews`,
+          "--input",
+          "-",
+        ],
+        { stdin: buildPullRequestReviewJson(input) },
+      )
+      return {}
+    },
+  )
 
   const githubAccount = Effect.fn("GitRuntime.githubAccount")(function* (cwd: string) {
     const result = yield* runGh("gh.api.user", cwd, ["api", "user", "--jq", ".login"], {
@@ -942,7 +986,8 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     diffContext: (cwd) => enclose(diffContext(cwd)),
     runStackedAction: (input) => enclose(runStackedAction(input)),
     githubAccount: (cwd) => enclose(githubAccount(cwd)),
-    getPullRequest: (cwd, number) => enclose(getPullRequest(cwd, number)),
+    getPullRequest: (cwd, number, commitOid) => enclose(getPullRequest(cwd, number, commitOid)),
+    submitPullRequestReview: (input) => enclose(submitPullRequestReview(input)),
     publishRepository: (input) => enclose(publishRepository(input)),
   })
 })

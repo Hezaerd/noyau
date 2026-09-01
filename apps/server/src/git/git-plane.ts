@@ -10,6 +10,8 @@ import {
   type GitPublishRepositoryResult,
   type GitRunStackedActionInput,
   type GitRunStackedActionResult,
+  type GitSubmitPullRequestReviewInput,
+  type GitSubmitPullRequestReviewResult,
   type VcsCreateRefInput,
   type VcsCreateRefResult,
   type VcsCreateWorktreeInput,
@@ -61,6 +63,9 @@ export interface GitPlaneService {
   readonly getPullRequest: (
     input: GitGetPullRequestInput,
   ) => Effect.Effect<GitPullRequest, GitCommandError | ServiceUnavailable>
+  readonly submitPullRequestReview: (
+    input: GitSubmitPullRequestReviewInput,
+  ) => Effect.Effect<GitSubmitPullRequestReviewResult, GitCommandError | ServiceUnavailable>
   readonly publishRepository: (
     input: GitPublishRepositoryInput,
   ) => Effect.Effect<GitPublishRepositoryResult, GitCommandError | ServiceUnavailable>
@@ -206,7 +211,21 @@ const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
     getPullRequest: (input) =>
       scoped(
         resolveWorkspaceCwd(input).pipe(
-          Effect.flatMap(({ cwd }) => git.getPullRequest(cwd, input.number)),
+          Effect.flatMap(({ cwd }) => git.getPullRequest(cwd, input.number, input.commitOid)),
+        ),
+      ),
+    submitPullRequestReview: (input) =>
+      scoped(
+        resolveWorkspaceCwd(input).pipe(
+          Effect.flatMap(({ cwd }) =>
+            git.submitPullRequestReview({
+              cwd,
+              number: input.number,
+              verdict: input.verdict,
+              body: input.body,
+              comments: input.comments,
+            }),
+          ),
         ),
       ),
     publishRepository: (input) =>
