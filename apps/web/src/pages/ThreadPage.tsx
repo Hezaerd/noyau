@@ -77,7 +77,6 @@ import { loadComposerImagesFromAttachments } from "@/lib/composer-images-from-at
 import {
   buildAndDispatchCommand,
   searchWorkspacePaths,
-  subscribeThread,
   type SubscriptionStatus,
 } from "@/lib/control-plane"
 import { makeOptimisticThreadShell } from "@/lib/control-plane-state"
@@ -132,13 +131,8 @@ import { removeComposerDraftImageAtom, replaceComposerDraftAtom } from "@/state/
 import { getThreadEnvModePreference } from "@/state/preferences"
 import { publishCreatedThread } from "@/state/shell"
 import { threadComposerOpenByIdAtom } from "@/state/thread-composer"
-import {
-  getThreadSnapshot,
-  reduceThreadSnapshotEnvelope,
-  replaceThreadSnapshot,
-  threadSnapshotNeedsLoad,
-  threadSnapshotResumeSequence,
-} from "@/state/thread-snapshot"
+import { getThreadSnapshot, threadSnapshotNeedsLoad } from "@/state/thread-snapshot"
+import { retainThreadSnapshotSubscription } from "@/state/thread-snapshot-subscriptions"
 
 interface ThreadPageProps {
   readonly projectId: ProjectId
@@ -477,7 +471,6 @@ export function ThreadPage({
       if (next.thread.id !== threadId) {
         return
       }
-      replaceThreadSnapshot(next)
       const remembered = peekDraftComposerPreferences(projectId, threadId, draftId)
       const nextIsDraft = next.thread.latestTurn === null && next.transcript.length === 0
       setRuntimeMode(
@@ -510,7 +503,7 @@ export function ThreadPage({
       setActionFailure(undefined)
     }
     clearAssistantPaint()
-    const unsubscribe = subscribeThread(threadId, threadSnapshotResumeSequence(threadId), {
+    const unsubscribe = retainThreadSnapshotSubscription(threadId, {
       onSnapshot: (next) => {
         commitSnapshot(next)
       },
@@ -521,7 +514,6 @@ export function ThreadPage({
       },
       onEvent: (envelope) => {
         const event = envelope.event
-        reduceThreadSnapshotEnvelope(threadId, envelope)
         if ("threadId" in event && event.threadId !== threadId) {
           return
         }
