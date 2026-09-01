@@ -594,7 +594,6 @@ export function ThreadComposer({
                   className={cn("w-max", composerOverlayGlassClassName)}
                 >
                   <MenuGroup>
-                    <MenuGroupLabel>Access level</MenuGroupLabel>
                     <MenuRadioGroup
                       value={runtimeMode}
                       onValueChange={(value) => {
