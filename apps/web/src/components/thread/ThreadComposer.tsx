@@ -1,3 +1,4 @@
+import type { AgentSkillEntry } from "@noyau/contracts/entities/agent-skill"
 import type { ContextUsage } from "@noyau/contracts/entities/context-usage"
 import type { CursorModel, Provider } from "@noyau/contracts/entities/environment"
 import type {
@@ -64,7 +65,10 @@ import { composerOverlayGlassClassName } from "@/lib/composer-glass"
 import type { ComposerImage } from "@/lib/composer-images"
 import {
   buildComposerMentionEntries,
+  buildComposerSkillEntries,
+  EMPTY_COMPOSER_SKILLS,
   EMPTY_COMPOSER_TICKETS,
+  filterComposerSkills,
   filterComposerTickets,
   type ComposerMentionEntry,
   type ComposerTicket,
@@ -122,6 +126,7 @@ export function ThreadComposer({
   onInterrupt,
   searchPaths,
   tickets = EMPTY_COMPOSER_TICKETS,
+  skills = EMPTY_COMPOSER_SKILLS,
   contextUsage,
   context,
   toolbar,
@@ -152,6 +157,7 @@ export function ThreadComposer({
   readonly onInterrupt: () => void
   readonly searchPaths?: ((query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>) | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
+  readonly skills?: ReadonlyArray<AgentSkillEntry> | undefined
   readonly contextUsage?: ContextUsage | undefined
   readonly context?: ReactNode
   readonly toolbar?: ReactNode | undefined
@@ -188,12 +194,23 @@ export function ThreadComposer({
   const [dismissedQuery, setDismissedQuery] = useState<string | null>(null)
   const trigger = detectComposerTrigger(text, cursor)
   const mentionQuery = trigger?.kind === "path" ? trigger.query : null
+  const skillQuery = trigger?.kind === "skill" ? trigger.query : null
+  const activeQueryKey =
+    mentionQuery === null
+      ? skillQuery === null
+        ? null
+        : `skill:${skillQuery}`
+      : `path:${mentionQuery}`
   const mentionMenuOpen =
-    mentionQuery !== null &&
-    dismissedQuery !== mentionQuery &&
-    (searchPaths !== undefined || tickets.length > 0)
+    activeQueryKey !== null &&
+    dismissedQuery !== activeQueryKey &&
+    ((mentionQuery !== null && (searchPaths !== undefined || tickets.length > 0)) ||
+      (skillQuery !== null && skills.length > 0))
   const ticketEntries = mentionQuery === null ? [] : filterComposerTickets(tickets, mentionQuery)
-  const mentionEntries = buildComposerMentionEntries(ticketEntries, pathEntries)
+  const mentionEntries =
+    skillQuery === null
+      ? buildComposerMentionEntries(ticketEntries, pathEntries)
+      : buildComposerSkillEntries(filterComposerSkills(skills, skillQuery))
   const controlsDisabled = isRunning || disabled
   const sendDisabled = (text.trim() === "" && images.length === 0) || controlsDisabled
   const selectedModel = models.find((model) => model.modelId === modelSelection?.modelId)
@@ -230,7 +247,11 @@ export function ThreadComposer({
   }, [text])
 
   useEffect(() => {
-    if (searchPaths === undefined || mentionQuery === null || dismissedQuery === mentionQuery) {
+    if (
+      searchPaths === undefined ||
+      mentionQuery === null ||
+      dismissedQuery === `path:${mentionQuery}`
+    ) {
       setPathEntries([])
       setPathSearchLoading(false)
       return
@@ -253,14 +274,25 @@ export function ThreadComposer({
     }
   }, [dismissedQuery, mentionQuery, searchPaths])
 
+  useEffect(() => {
+    setHighlightedIndex(0)
+  }, [activeQueryKey])
+
   const insertMention = (entry: ComposerMentionEntry) => {
-    if (trigger === null || trigger.kind !== "path") {
+    if (trigger === null) {
       return
     }
     const mention =
-      entry.kind === "ticket"
-        ? `@${serializeComposerTicketMention(entry.ticketId)} `
-        : `@${serializeComposerMentionPath(entry.path)} `
+      trigger.kind === "skill" && entry.kind === "skill"
+        ? `$${entry.name} `
+        : trigger.kind === "path" && entry.kind === "ticket"
+          ? `@${serializeComposerTicketMention(entry.ticketId)} `
+          : trigger.kind === "path" && entry.kind === "file"
+            ? `@${serializeComposerMentionPath(entry.path)} `
+            : null
+    if (mention === null) {
+      return
+    }
     const next = replaceTextRange(text, trigger.rangeStart, trigger.rangeEnd, mention)
     pendingCursor.current = next.cursor
     setDismissedQuery(null)
@@ -296,7 +328,7 @@ export function ThreadComposer({
       }
       if (event.key === "Escape") {
         event.preventDefault()
-        setDismissedQuery(mentionQuery)
+        setDismissedQuery(activeQueryKey)
         return
       }
     }
@@ -391,10 +423,11 @@ export function ThreadComposer({
                 autoFocus
                 pathMenuOpen={mentionMenuOpen}
                 tickets={tickets}
+                skills={skills}
                 listboxId={listboxId}
                 activeOptionId={
                   mentionMenuOpen && mentionEntries[highlightedIndex] !== undefined
-                    ? `composer-path-option-${highlightedIndex}`
+                    ? `composer-mention-option-${highlightedIndex}`
                     : undefined
                 }
                 onTextChange={(value) => {

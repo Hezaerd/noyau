@@ -1,3 +1,4 @@
+import type { AgentSkillEntry } from "@noyau/contracts/entities/agent-skill"
 import type {
   ProviderApprovalDecision,
   ProviderUserInputAnswers,
@@ -76,6 +77,10 @@ export type ProviderEmit = (signal: ProviderSignal) => Effect.Effect<void>
 
 export interface ProviderPortService {
   readonly status: Effect.Effect<ProviderStatuses>
+  readonly listSkills: (
+    provider: Provider,
+    workspaceRoot: string,
+  ) => Effect.Effect<ReadonlyArray<AgentSkillEntry>>
   /** Starts a Turn, reusing the live provider Session for its Thread when one exists. */
   readonly startTurn: (input: ProviderTurnInput, emit: ProviderEmit) => Effect.Effect<void>
   readonly interrupt: (threadId: ThreadId) => Effect.Effect<void>
@@ -105,6 +110,7 @@ export class ProviderPort extends Context.Service<ProviderPort, ProviderPortServ
 
 export const unavailableProviderLayer = Layer.succeed(ProviderPort)({
   status: Effect.succeed(emptyProviderStatuses),
+  listSkills: (_provider, _workspaceRoot) => Effect.succeed([]),
   startTurn: (_input, _emit) => Effect.void,
   interrupt: (_threadId) => Effect.void,
   stop: (_threadId) => Effect.void,

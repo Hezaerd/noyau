@@ -220,6 +220,49 @@ for await (const line of lines) {
     continue
   }
 
+  if (message.method === "skills/list") {
+    if (scenario === "skills-hang") {
+      continue
+    }
+    const cwd = message.params?.cwds?.[0] ?? process.cwd()
+    respond(message.id, {
+      data: [
+        {
+          cwd,
+          errors: [],
+          skills: [
+            {
+              description: "Fallback description",
+              enabled: true,
+              interface: {
+                displayName: "Test Skill",
+                shortDescription: "Use the test workflow",
+              },
+              name: "test-skill",
+              path: `${cwd}/.agents/skills/test-skill/SKILL.md`,
+              scope: "repo",
+            },
+            {
+              description: "No OpenAI metadata",
+              enabled: true,
+              name: "plain-skill",
+              path: `${cwd}/.agents/skills/plain-skill/SKILL.md`,
+              scope: "repo",
+            },
+            {
+              description: "Disabled skill",
+              enabled: false,
+              name: "disabled-skill",
+              path: `${cwd}/.agents/skills/disabled-skill/SKILL.md`,
+              scope: "repo",
+            },
+          ],
+        },
+      ],
+    })
+    continue
+  }
+
   if (message.method === "thread/start") {
     respond(message.id, threadResponse(threadId))
     continue

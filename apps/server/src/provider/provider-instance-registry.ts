@@ -120,6 +120,14 @@ export const composeProviderPorts = (
 ): ProviderPortService =>
   ProviderPort.of({
     status: registry.status,
+    listSkills: (provider, workspaceRoot) =>
+      registry
+        .get(provider)
+        .pipe(
+          Effect.flatMap((port) =>
+            port === undefined ? Effect.succeed([]) : port.listSkills(provider, workspaceRoot),
+          ),
+        ),
     startTurn: (input, emit) =>
       Effect.gen(function* () {
         const port = yield* registry.get(input.provider)

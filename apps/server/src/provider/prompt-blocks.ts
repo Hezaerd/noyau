@@ -89,6 +89,10 @@ export const promptContentBlocks = Effect.fn("promptContentBlocks")(function* (
       pendingText += segment.text
       continue
     }
+    if (segment.type === "skill") {
+      pendingText += segment.source
+      continue
+    }
     if (segment.type === "ticket") {
       const ticket = ticketsById.get(segment.ticketId)
       if (ticket === undefined) {

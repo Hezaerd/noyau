@@ -1,4 +1,5 @@
 import { useAtomSet } from "@effect/atom-react"
+import type { AgentSkillEntry } from "@noyau/contracts/entities/agent-skill"
 import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
 import { threadBranchOf, threadWorktreePathOf } from "@noyau/contracts/entities/checkout"
 import { DEFAULT_PROVIDER_INSTANCE_ID, type Provider } from "@noyau/contracts/entities/environment"
@@ -76,6 +77,7 @@ import {
 import { loadComposerImagesFromAttachments } from "@/lib/composer-images-from-attachments"
 import {
   buildAndDispatchCommand,
+  listAgentSkills,
   searchWorkspacePaths,
   type SubscriptionStatus,
 } from "@/lib/control-plane"
@@ -186,6 +188,7 @@ export function ThreadPage({
   const projects = useProjects()
   const navigate = useNavigate()
   const tickets = useProjectComposerTickets(projectId)
+  const [skills, setSkills] = useState<ReadonlyArray<AgentSkillEntry>>([])
   const project = projects.find((candidate) => candidate.id === projectId)
   const snapshot = useThreadSnapshot(threadId)
   const shellThread = useThreadShell(threadId)
@@ -274,6 +277,20 @@ export function ThreadPage({
   const catalogs = useMemo(() => modelsByProvider(providers), [providers])
   const availableProviders = useMemo(() => readyProviderIds(providers), [providers])
   const selectedModels = catalogs[selectedProvider] ?? []
+
+  useEffect(() => {
+    let cancelled = false
+    setSkills([])
+    void listAgentSkills({ projectId, provider: selectedProvider }).then((result) => {
+      if (!cancelled && result.ok) {
+        setSkills(result.value.entries)
+      }
+      return undefined
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [projectId, selectedProvider])
 
   useEffect(() => {
     const persisted = project?.defaultModelSelection ?? null
@@ -1147,6 +1164,7 @@ export function ThreadPage({
       onInterrupt={() => interruptTurn()}
       searchPaths={searchPaths}
       tickets={tickets}
+      skills={skills}
       contextUsage={pageSnapshot?.thread.contextUsage}
       toolbar={
         isDraftThread || (conflictingPr === null && failingCiPr === null) ? undefined : (

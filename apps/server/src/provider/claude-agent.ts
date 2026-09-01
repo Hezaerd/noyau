@@ -1342,6 +1342,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
         }),
       ),
     ),
+    listSkills: (_provider, _workspaceRoot) => Effect.succeed([]),
     startTurn: (input, emit) => startTurn(input, emit).pipe(Effect.provideService(Path.Path, path)),
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

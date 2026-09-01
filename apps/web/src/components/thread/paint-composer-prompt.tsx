@@ -1,3 +1,4 @@
+import type { AgentSkillEntry } from "@noyau/contracts/entities/agent-skill"
 import { renderToStaticMarkup } from "react-dom/server"
 
 import { ComposerPromptHighlight } from "@/components/thread/ComposerPromptHighlight"
@@ -15,6 +16,7 @@ export const paintComposerPrompt = (
   editor: HTMLElement,
   text: string,
   tickets: ReadonlyArray<ComposerTicket> = [],
+  skills: ReadonlyArray<AgentSkillEntry> = [],
 ): void => {
   if (text.length === 0) {
     editor.replaceChildren()
@@ -22,7 +24,7 @@ export const paintComposerPrompt = (
   }
   const host = getStaging()
   host.innerHTML = renderToStaticMarkup(
-    <ComposerPromptHighlight text={text} trigger={null} tickets={tickets} />,
+    <ComposerPromptHighlight text={text} trigger={null} tickets={tickets} skills={skills} />,
   )
   editor.replaceChildren(...Array.from(host.content.childNodes))
 }

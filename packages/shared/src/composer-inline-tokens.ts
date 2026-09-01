@@ -25,6 +25,7 @@ export type ComposerPromptSegment =
   | { readonly type: "text"; readonly text: string }
   | { readonly type: "mention"; readonly path: string; readonly source: string }
   | { readonly type: "ticket"; readonly ticketId: string; readonly source: string }
+  | { readonly type: "skill"; readonly name: string; readonly source: string }
 
 const TICKET_MENTION_PREFIX = "ticket:"
 const TICKET_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -185,28 +186,28 @@ export const collectComposerTicketIds = (text: string): ReadonlyArray<string> =>
 }
 
 export function composerPromptSegments(text: string): ReadonlyArray<ComposerPromptSegment> {
-  const mentions = collectComposerInlineTokens(text).filter(
-    (token) => token.type === "mention" || token.type === "ticket",
-  )
-  if (mentions.length === 0) {
+  const tokens = collectComposerInlineTokens(text)
+  if (tokens.length === 0) {
     return text.length === 0 ? [] : [{ type: "text", text }]
   }
 
   const segments: ComposerPromptSegment[] = []
   let cursor = 0
-  for (const mention of mentions) {
-    if (mention.start < cursor) {
+  for (const token of tokens) {
+    if (token.start < cursor) {
       continue
     }
-    if (mention.start > cursor) {
-      segments.push({ type: "text", text: text.slice(cursor, mention.start) })
+    if (token.start > cursor) {
+      segments.push({ type: "text", text: text.slice(cursor, token.start) })
     }
     segments.push(
-      mention.type === "ticket"
-        ? { type: "ticket", ticketId: mention.value, source: mention.source }
-        : { type: "mention", path: mention.value, source: mention.source },
+      token.type === "ticket"
+        ? { type: "ticket", ticketId: token.value, source: token.source }
+        : token.type === "skill"
+          ? { type: "skill", name: token.value, source: token.source }
+          : { type: "mention", path: token.value, source: token.source },
     )
-    cursor = mention.end
+    cursor = token.end
   }
   if (cursor < text.length) {
     segments.push({ type: "text", text: text.slice(cursor) })

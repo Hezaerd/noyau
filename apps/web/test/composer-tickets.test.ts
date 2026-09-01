@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { filterComposerTickets } from "../src/lib/composer-tickets"
+import { filterComposerSkills, filterComposerTickets } from "../src/lib/composer-tickets"
 
 describe("filterComposerTickets", () => {
   const tickets = [
@@ -23,5 +23,27 @@ describe("filterComposerTickets", () => {
       "Mentioner ticket dans transcript",
     ])
     expect(filterComposerTickets(tickets, "").map((ticket) => ticket.done)).toEqual([false, true])
+  })
+})
+
+describe("filterComposerSkills", () => {
+  const skills = [
+    {
+      name: "write-docs",
+      displayName: "Write docs",
+      description: "Update Noyau documentation",
+      scope: "repo" as const,
+    },
+    {
+      name: "imagegen",
+      displayName: "Image generation",
+      description: "Create raster images",
+      scope: "system" as const,
+    },
+  ]
+
+  it("matches names, display names, and descriptions", () => {
+    expect(filterComposerSkills(skills, "write").map((skill) => skill.name)).toEqual(["write-docs"])
+    expect(filterComposerSkills(skills, "raster").map((skill) => skill.name)).toEqual(["imagegen"])
   })
 })

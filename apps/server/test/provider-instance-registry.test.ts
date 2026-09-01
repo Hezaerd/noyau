@@ -47,6 +47,7 @@ const stubPort = (input: {
         }),
       ),
     ),
+    listSkills: () => Effect.succeed([]),
     startTurn: (turn) => Ref.update(input.started, (started) => [...started, turn.provider]),
     interrupt: () => Effect.void,
     stop: () => Effect.void,

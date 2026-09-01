@@ -16,6 +16,8 @@ import {
   OpenInEditorInput,
   OpenInEditorResult,
 } from "@noyau/contracts/editor"
+import { AgentSkillCatalog } from "@noyau/contracts/entities/agent-skill"
+import { Provider } from "@noyau/contracts/entities/environment"
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import { WorkspacePathSearchResult } from "@noyau/contracts/entities/workspace-path"
 import {
@@ -101,6 +103,7 @@ export const RPC_METHODS = {
   getKeybindings: "server.getKeybindings",
   replaceKeybindings: "server.replaceKeybindings",
   probe: "server.probe",
+  listAgentSkills: "workspace.listAgentSkills",
   searchWorkspacePaths: "workspace.searchPaths",
   vcsStatus: "vcs.status",
   subscribeVcsStatus: "vcs.subscribeStatus",
@@ -237,6 +240,18 @@ export const SearchWorkspacePathsInput = Schema.Struct({
   query: Schema.String,
 })
 export type SearchWorkspacePathsInput = (typeof SearchWorkspacePathsInput)["Type"]
+
+export const ListAgentSkillsInput = Schema.Struct({
+  projectId: ProjectId,
+  provider: Provider,
+})
+export type ListAgentSkillsInput = (typeof ListAgentSkillsInput)["Type"]
+
+export const ListAgentSkills = Rpc.make(RPC_METHODS.listAgentSkills, {
+  payload: ListAgentSkillsInput,
+  success: AgentSkillCatalog,
+  error: Schema.Union([ServiceUnavailable, ProjectNotFound, ProjectUnavailable]),
+})
 
 export const SearchWorkspacePaths = Rpc.make(RPC_METHODS.searchWorkspacePaths, {
   payload: SearchWorkspacePathsInput,
@@ -431,6 +446,7 @@ export const ControlPlaneRpcs = RpcGroup.make(
   GetKeybindings,
   ReplaceKeybindings,
   Probe,
+  ListAgentSkills,
   SearchWorkspacePaths,
   SubscribeShell,
   SubscribeProject,

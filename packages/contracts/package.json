@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     "./ids": "./src/ids.ts",
+    "./entities/agent-skill": "./src/entities/agent-skill.ts",
     "./entities/approvals": "./src/entities/approvals.ts",
     "./entities/environment": "./src/entities/environment.ts",
     "./entities/provider-instance": "./src/entities/provider-instance.ts",

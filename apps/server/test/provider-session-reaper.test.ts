@@ -24,6 +24,7 @@ const orphanThreadId = ThreadId.make("20000000-0000-4000-8000-000000000004")
 const providerLayer = (stopped: Array<ThreadId>, liveSessions: ReadonlySet<ThreadId>) => {
   const provider: ProviderPortService = {
     status: Effect.succeed(emptyProviderStatuses),
+    listSkills: () => Effect.succeed([]),
     startTurn: () => Effect.void,
     interrupt: () => Effect.void,
     stop: (threadId) => Effect.sync(() => void stopped.push(threadId)),

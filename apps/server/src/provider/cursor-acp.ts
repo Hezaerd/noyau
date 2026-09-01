@@ -1587,6 +1587,7 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         }),
       ),
     ),
+    listSkills: (_provider, _workspaceRoot) => Effect.succeed([]),
     startTurn,
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),
