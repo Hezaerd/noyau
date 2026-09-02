@@ -113,6 +113,10 @@ export const sessionIdOf = (message: SDKMessage): string | undefined => {
   return sessionId !== undefined && sessionId.length > 0 ? sessionId : undefined
 }
 
+/** UUID accepted by Claude's native `forkSession({ upToMessageId })` boundary. */
+export const assistantMessageUuidOf = (message: SDKMessage): string | undefined =>
+  message.type === "assistant" ? message.uuid : undefined
+
 export const extractAssistantText = (message: SDKMessage): string => {
   const asText = decodeAssistantText(message)
   if (asText._tag === "Some") {

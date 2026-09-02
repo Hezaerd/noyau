@@ -13,6 +13,7 @@ export type FailureOperation =
   | "shell.subscribe"
   | "thread.create"
   | "thread.delete"
+  | "thread.fork"
   | "thread.settle"
   | "thread.unsettle"
   | "thread.model-selection.set"
@@ -122,6 +123,8 @@ const rejectionMessage = (rejection: Rejection): string => {
       return "This Thread already exists."
     case "ThreadNotFound":
       return "This Thread no longer exists."
+    case "ThreadForkOriginMismatch":
+      return "This Thread is not the requested fork."
     case "ThreadArchived":
       return "This Thread is no longer available."
     case "ThreadNotSettleable":

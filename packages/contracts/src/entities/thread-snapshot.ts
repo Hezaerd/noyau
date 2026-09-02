@@ -11,5 +11,7 @@ export const ThreadSnapshot = Schema.Struct({
   session: Schema.NullOr(Session),
   turns: Schema.Array(Turn),
   transcript: Schema.Array(TranscriptItem),
+  /** Read-only transcript inherited at the native provider fork boundary. */
+  inheritedTranscript: Schema.optionalKey(Schema.Array(TranscriptItem)),
 })
 export type ThreadSnapshot = (typeof ThreadSnapshot)["Type"]

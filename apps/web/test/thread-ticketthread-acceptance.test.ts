@@ -1,6 +1,6 @@
-import { CommandId, ProjectId, Sequence, ThreadId, TicketId } from "@noyau/contracts/ids"
+import { CommandId, ProjectId, Sequence, ThreadId, TicketId, TurnId } from "@noyau/contracts/ids"
 import { RPC_METHODS, SubscribeThreadInput } from "@noyau/contracts/rpc"
-import { ThreadTurnStartRequest } from "@noyau/contracts/thread/commands"
+import { ThreadForkRequest, ThreadTurnStartRequest } from "@noyau/contracts/thread/commands"
 import { Crypto, Effect, Schema } from "effect"
 import { describe, expect, it } from "vite-plus/test"
 
@@ -8,6 +8,7 @@ import { acceptsSequence } from "../src/lib/control-plane"
 import {
   DEFAULT_THREAD_TITLE,
   makeThreadDeleteRequest,
+  makeThreadForkRequest,
   makeThreadCreateRequest,
   makeThreadMetaUpdateRequest,
   makeThreadModelSelectionSetRequest,
@@ -30,6 +31,8 @@ const crypto = Crypto.make({
 const ids = {
   projectId: ProjectId.make("10000000-0000-4000-8000-000000000001"),
   threadId: ThreadId.make("20000000-0000-4000-8000-000000000001"),
+  forkThreadId: ThreadId.make("20000000-0000-4000-8000-000000000002"),
+  turnId: TurnId.make("40000000-0000-4000-8000-000000000001"),
   ticketId: TicketId.make("30000000-0000-4000-8000-000000000001"),
 }
 
@@ -37,6 +40,23 @@ const runBuilder = <A, E>(builder: Effect.Effect<A, E, Crypto.Crypto>): A =>
   Effect.runSync(builder.pipe(Effect.provideService(Crypto.Crypto, crypto)))
 
 describe("Thread and TicketThread UI acceptance contract", () => {
+  it("builds a fork request with a client-selected destination Thread", () => {
+    const request = runBuilder(
+      makeThreadForkRequest({
+        threadId: ids.forkThreadId,
+        sourceThreadId: ids.threadId,
+        sourceTurnId: ids.turnId,
+      }),
+    )
+
+    expect(request.payload).toEqual({
+      threadId: ids.forkThreadId,
+      sourceThreadId: ids.threadId,
+      sourceTurnId: ids.turnId,
+    })
+    expect(Schema.is(ThreadForkRequest)(request)).toBe(true)
+  })
+
   it("creates a Thread with the placeholder title and seeds the first Turn", () => {
     const prompt = "  Corriger le flux de reprise  "
     const created = runBuilder(

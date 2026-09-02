@@ -24,6 +24,7 @@ import {
   DEFAULT_THREAD_TITLE,
   makeApprovalRespondRequest,
   makeThreadCreateRequest,
+  makeThreadForkRequest,
   makeThreadId,
   makeThreadModelSelectionSetRequest,
   makeThreadTurnInterruptRequest,
@@ -239,6 +240,34 @@ export const interruptTurnEffect = Effect.fn("interruptTurn")(function* (input: 
 
 export const interruptTurn = (input: { readonly threadId: ThreadId; readonly turnId?: TurnId }) =>
   Effect.runPromise(interruptTurnEffect(input))
+
+export type ForkThreadResult =
+  | { readonly kind: "accepted"; readonly threadId: ThreadId }
+  | { readonly kind: "error"; readonly failure: AppFailure }
+
+export const forkThreadEffect = Effect.fn("forkThread")(function* (input: {
+  readonly sourceThreadId: ThreadId
+  readonly sourceTurnId: TurnId
+}): Effect.fn.Return<ForkThreadResult> {
+  const nextThreadId = yield* Effect.promise(() => buildCommand(makeThreadId()))
+  if (!nextThreadId.ok) {
+    return { kind: "error", failure: nextThreadId.failure }
+  }
+  const threadId = nextThreadId.value
+  const result = yield* buildAndDispatch(
+    makeThreadForkRequest({
+      threadId,
+      sourceThreadId: input.sourceThreadId,
+      sourceTurnId: input.sourceTurnId,
+    }),
+  )
+  return result.ok ? { kind: "accepted", threadId } : { kind: "error", failure: result.failure }
+})
+
+export const forkThread = (input: {
+  readonly sourceThreadId: ThreadId
+  readonly sourceTurnId: TurnId
+}) => Effect.runPromise(forkThreadEffect(input))
 
 export const setThreadModelSelectionEffect = Effect.fn("setThreadModelSelection")(
   function* (input: {

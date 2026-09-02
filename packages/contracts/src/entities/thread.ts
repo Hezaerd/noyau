@@ -5,7 +5,7 @@ import { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import { Session } from "@noyau/contracts/entities/session"
 import { LatestTurn } from "@noyau/contracts/entities/turn"
-import { ProjectId, ThreadId } from "@noyau/contracts/ids"
+import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { Schema } from "effect"
 
 export const ThreadStatus = Schema.Literals(["active", "archived"])
@@ -14,6 +14,13 @@ export type ThreadStatus = (typeof ThreadStatus)["Type"]
 /** Pin utilisateur du cycle settle. Absent = pas de pin ; l'auto-settle s'applique. */
 export const SettledOverride = Schema.Literals(["settled", "active"])
 export type SettledOverride = (typeof SettledOverride)["Type"]
+
+/** Immutable ancestry of a native provider session fork. */
+export const ThreadForkOrigin = Schema.Struct({
+  sourceThreadId: ThreadId,
+  sourceTurnId: TurnId,
+})
+export type ThreadForkOrigin = (typeof ThreadForkOrigin)["Type"]
 
 /** Conversation provider titrée d'un Project. */
 export class Thread extends Schema.Class<Thread>("@noyau/contracts/entities/Thread")({
@@ -36,6 +43,7 @@ export class Thread extends Schema.Class<Thread>("@noyau/contracts/entities/Thre
   listedAt: Schema.DateTimeUtcFromString,
   updatedAt: Schema.DateTimeUtcFromString,
   archivedAt: Schema.optionalKey(Schema.DateTimeUtcFromString),
+  forkOrigin: Schema.optionalKey(ThreadForkOrigin),
 }) {}
 
 export const threadSettledOverrideOf = (

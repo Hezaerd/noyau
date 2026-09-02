@@ -1,5 +1,6 @@
-import { ProjectId, TicketId } from "@noyau/contracts/ids"
+import { ProjectId, ThreadId, TicketId, TurnId } from "@noyau/contracts/ids"
 import { ProjectUnavailable } from "@noyau/contracts/project/errors"
+import { ThreadForkOriginMismatch } from "@noyau/contracts/thread/errors"
 import { TicketDependencyCycle } from "@noyau/contracts/ticket/errors"
 import { describe, expect, it } from "vite-plus/test"
 
@@ -7,8 +8,10 @@ import { invalidInputFailure, type AppFailure } from "../src/lib/app-failure"
 import { presentFailure, type FailureContext } from "../src/lib/failure-presentation"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
+const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const ticketId = TicketId.make("30000000-0000-4000-8000-000000000001")
 const dependencyId = TicketId.make("30000000-0000-4000-8000-000000000002")
+const turnId = TurnId.make("40000000-0000-4000-8000-000000000001")
 
 const context = (patch: Partial<FailureContext> = {}): FailureContext => ({
   operation: "ticket.command",
@@ -42,6 +45,21 @@ describe("failure presentation policy", () => {
       surface: "toast",
       title: "This dependency would create a cycle.",
       dedupeKey: "ticket.command:project",
+    })
+  })
+
+  it("presents a rejected fork completion", () => {
+    const failure: AppFailure = {
+      _tag: "Rejected",
+      rejection: new ThreadForkOriginMismatch({
+        threadId,
+        sourceThreadId: threadId,
+        sourceTurnId: turnId,
+      }),
+    }
+
+    expect(presentFailure(failure, context())).toMatchObject({
+      title: "This Thread is not the requested fork.",
     })
   })
 

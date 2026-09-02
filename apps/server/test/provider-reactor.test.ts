@@ -7,7 +7,10 @@ import { ActorId, ProjectId, ProviderSessionId, ThreadId, TurnId } from "@noyau/
 import { ProjectCreated } from "@noyau/contracts/project/events"
 import {
   ThreadCreated,
+  ThreadForkRequested,
   ThreadProviderHandedOff,
+  ThreadSessionSet,
+  ThreadTurnEnded,
   ThreadTurnStarted,
 } from "@noyau/contracts/thread/events"
 import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
@@ -17,6 +20,7 @@ import {
   emptyProviderStatuses,
   ProviderPort,
   type ProviderEmit,
+  type ProviderForkInput,
   type ProviderPortService,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
@@ -31,11 +35,12 @@ const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const firstTurnId = TurnId.make("30000000-0000-4000-8000-000000000001")
 const handoffTurnId = TurnId.make("30000000-0000-4000-8000-000000000002")
 const chainedHandoffTurnId = TurnId.make("30000000-0000-4000-8000-000000000003")
+const forkThreadId = ThreadId.make("20000000-0000-4000-8000-000000000004")
 const actorId = ActorId.make("human:test")
 
 const occurredAt = Schema.decodeSync(Schema.DateTimeUtcFromString)("2026-09-01T12:00:00.000Z")
 const persisted = (sequence: number, event: DomainEvent): PersistedEvent<DomainEvent> => ({
-  eventId: `event-${sequence}`,
+  eventId: `60000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`,
   sequence,
   projectId,
   actorId,
@@ -57,6 +62,126 @@ const testCrypto = Crypto.make({
 })
 
 describe("provider handoff reactor", () => {
+  it.effect("bridges a requested fork to the provider with its durable exact boundary", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const forks: Array<ProviderForkInput> = []
+        const dispatched: Array<Parameters<DispatchInternal>[0]> = []
+        const provider: ProviderPortService = {
+          status: Effect.succeed(emptyProviderStatuses),
+          listSkills: () => Effect.succeed([]),
+          startTurn: () => Effect.void,
+          fork: (input) =>
+            Effect.sync(() => {
+              forks.push(input)
+              return {
+                schemaVersion: 1 as const,
+                sessionId: ProviderSessionId.make("forked-codex"),
+              }
+            }),
+          interrupt: () => Effect.void,
+          stop: () => Effect.void,
+          reapIdle: () => Effect.succeed(false),
+          stopAll: Effect.void,
+          respondApproval: () => Effect.void,
+          respondUserInput: () => Effect.void,
+          drain: Effect.void,
+        }
+        const services = yield* Layer.build(
+          Layer.mergeAll(
+            memoryLayer,
+            stubGitRuntimeLayer,
+            testServerConfigLayer(),
+            Layer.succeed(ProviderPort)(provider),
+            Layer.succeed(Crypto.Crypto)(testCrypto),
+          ),
+        )
+        const sql = Context.get(services, SqlClient)
+        const reactor = yield* makeProviderReactor(
+          (command) => Effect.sync(() => dispatched.push(command)),
+          () => Effect.succeed([]),
+        ).pipe(Effect.provide(services))
+        const sourceSession = {
+          threadId,
+          status: "ready" as const,
+          lastError: null,
+          activeTurnId: null,
+          runtimeMode: "full-access" as const,
+          resumeCursor: {
+            schemaVersion: 1 as const,
+            sessionId: ProviderSessionId.make("source-codex"),
+          },
+          updatedAt: occurredAt,
+        }
+        const events = [
+          persisted(
+            1,
+            ProjectCreated.make({
+              projectId,
+              name: "Noyau",
+              workspaceRoot: WorkspaceRoot.make("/workspace"),
+            }),
+          ),
+          persisted(
+            2,
+            ThreadCreated.make({
+              threadId,
+              projectId,
+              title: "Source",
+              provider: ProviderInstanceId.make("codex"),
+              runtimeMode: "full-access",
+            }),
+          ),
+          persisted(
+            3,
+            ThreadTurnStarted.make({ threadId, turnId: firstTurnId, text: "Fork here" }),
+          ),
+          persisted(
+            4,
+            ThreadTurnEnded.make({
+              threadId,
+              turnId: firstTurnId,
+              state: "completed",
+              providerForkPoint: { schemaVersion: 1, boundaryId: "provider-turn-1" },
+            }),
+          ),
+          persisted(5, ThreadSessionSet.make({ threadId, session: sourceSession })),
+          persisted(
+            6,
+            ThreadForkRequested.make({
+              threadId: forkThreadId,
+              sourceThreadId: threadId,
+              sourceTurnId: firstTurnId,
+            }),
+          ),
+        ]
+        for (const event of events)
+          yield* projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql))
+        yield* reactor(events.at(-1)!)
+        assert.deepStrictEqual(forks, [
+          {
+            projectId,
+            threadId: forkThreadId,
+            sourceThreadId: threadId,
+            sourceTurnId: firstTurnId,
+            provider: ProviderInstanceId.make("codex"),
+            workspaceRoot: "/workspace",
+            sourceResumeCursor: sourceSession.resumeCursor,
+            sourceForkPoint: { schemaVersion: 1, boundaryId: "provider-turn-1" },
+          },
+        ])
+        assert.strictEqual(dispatched[0]?._tag, "thread.fork.complete")
+        assert.deepStrictEqual(dispatched[0]?.payload, {
+          threadId: forkThreadId,
+          sourceThreadId: threadId,
+          sourceTurnId: firstTurnId,
+          resumeCursor: { schemaVersion: 1, sessionId: ProviderSessionId.make("forked-codex") },
+          providerForkPoint: { schemaVersion: 1, boundaryId: "provider-turn-1" },
+        })
+      }),
+    ),
+  )
+
   it.effect("stops the old runtime and ignores its stale terminal signal", () =>
     Effect.scoped(
       Effect.gen(function* () {

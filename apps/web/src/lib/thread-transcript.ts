@@ -518,6 +518,7 @@ const replaceThread = (
     readonly settledAt?: Thread["settledAt"] | null
     readonly listedAt?: Thread["listedAt"]
     readonly contextUsage?: Thread["contextUsage"] | null
+    readonly forkOrigin?: Thread["forkOrigin"] | null
   },
 ): Thread => {
   const current = snapshot.thread
@@ -540,6 +541,13 @@ const replaceThread = (
     createdAt: current.createdAt,
     listedAt: patch.listedAt ?? current.listedAt,
     updatedAt: patch.updatedAt ?? current.updatedAt,
+    ...(patch.forkOrigin === undefined
+      ? current.forkOrigin === undefined
+        ? {}
+        : { forkOrigin: current.forkOrigin }
+      : patch.forkOrigin === null
+        ? {}
+        : { forkOrigin: patch.forkOrigin }),
   }
   const settledOverride =
     patch.settledOverride === null ? undefined : (patch.settledOverride ?? current.settledOverride)
@@ -561,13 +569,25 @@ const withEnvelope = (
   patch: Omit<ThreadSnapshot, "snapshotSequence" | "thread"> & {
     readonly thread?: Thread
   },
-): ThreadSnapshot => ({
-  snapshotSequence: envelope.sequence,
-  thread: patch.thread ?? snapshot.thread,
-  session: patch.session,
-  turns: patch.turns,
-  transcript: patch.transcript,
-})
+): ThreadSnapshot => {
+  const inheritedTranscript = patch.inheritedTranscript ?? snapshot.inheritedTranscript
+  return inheritedTranscript === undefined
+    ? {
+        snapshotSequence: envelope.sequence,
+        thread: patch.thread ?? snapshot.thread,
+        session: patch.session,
+        turns: patch.turns,
+        transcript: patch.transcript,
+      }
+    : {
+        snapshotSequence: envelope.sequence,
+        thread: patch.thread ?? snapshot.thread,
+        session: patch.session,
+        turns: patch.turns,
+        transcript: patch.transcript,
+        inheritedTranscript,
+      }
+}
 
 const settleTurn = (
   snapshot: ThreadSnapshot,
@@ -868,7 +888,12 @@ export const applyThreadEnvelope = (
       })
     }
     case "thread.turn.ended": {
-      const turns = settleTurn(snapshot, event.turnId, event.state, envelope.occurredAt)
+      const turns = settleTurn(snapshot, event.turnId, event.state, envelope.occurredAt).map(
+        (turn) =>
+          turn.id === event.turnId && event.providerForkPoint !== undefined
+            ? Object.assign({}, turn, { providerForkPoint: event.providerForkPoint })
+            : turn,
+      )
       const session =
         snapshot.session === null
           ? null
@@ -932,6 +957,28 @@ export const applyThreadEnvelope = (
         transcript: snapshot.transcript,
       })
     }
+    case "thread.fork-completed": {
+      const session = event.session
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, { session, updatedAt: envelope.occurredAt }),
+        session,
+        turns: snapshot.turns,
+        transcript: snapshot.transcript,
+      })
+    }
+    case "thread.fork-failed": {
+      const session =
+        snapshot.session === null
+          ? null
+          : { ...snapshot.session, status: "error" as const, lastError: event.detail }
+      return withEnvelope(snapshot, envelope, {
+        thread: replaceThread(snapshot, { session, updatedAt: envelope.occurredAt }),
+        session,
+        turns: snapshot.turns,
+        transcript: snapshot.transcript,
+      })
+    }
+    case "thread.fork-requested":
     case "thread.created":
     case "session.stop-requested":
       return withEnvelope(snapshot, envelope, snapshot)

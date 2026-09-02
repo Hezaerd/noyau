@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { TranscriptItem } from "@noyau/contracts/entities/transcript"
-import { LatestTurn } from "@noyau/contracts/entities/turn"
+import { Turn } from "@noyau/contracts/entities/turn"
 import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -58,15 +58,18 @@ const modelHandedOffItem = Schema.decodeSync(TranscriptItem)({
     modelSelection: { modelId: "gpt-5.6-luna" },
   },
 })
-const turn = Schema.decodeSync(LatestTurn)({
-  turnId,
+const turn = Schema.decodeSync(Turn)({
+  id: turnId,
+  threadId,
+  ordinal: 1,
   state: "completed",
   requestedAt: "2026-08-25T16:54:00.000Z",
   startedAt: "2026-08-25T16:54:00.000Z",
   completedAt: "2026-08-25T16:55:00.000Z",
+  providerForkPoint: { schemaVersion: 1, boundaryId: "assistant-message-1" },
 })
 
-const renderItem = (item: typeof userItem, streaming = false) =>
+const renderItem = (item: typeof userItem, streaming = false, onFork?: (turnId: string) => void) =>
   render(
     <TooltipProvider>
       <ThreadTranscriptItem
@@ -79,6 +82,7 @@ const renderItem = (item: typeof userItem, streaming = false) =>
         onLegacyFreeformChange={() => undefined}
         onRespondApproval={() => undefined}
         onRespondUserInput={() => undefined}
+        {...(onFork === undefined ? {} : { onFork })}
       />
     </TooltipProvider>,
   )
@@ -106,6 +110,39 @@ describe("thread message meta", () => {
 
     renderItem(assistantItem, true)
     expect(screen.queryByRole("button", { name: "Copy message" })).toBeNull()
+  })
+
+  it("forks a settled assistant response without exposing the action while streaming", async () => {
+    const user = userEvent.setup()
+    const onFork = vi.fn()
+    const settled = renderItem(assistantItem, false, onFork)
+    await user.click(screen.getByRole("button", { name: "Fork from this response" }))
+    expect(onFork).toHaveBeenCalledWith(turnId)
+    settled.unmount()
+
+    renderItem(assistantItem, true, onFork)
+    expect(screen.queryByRole("button", { name: "Fork from this response" })).toBeNull()
+  })
+
+  it("does not expose a fork action when the provider did not supply a fork boundary", () => {
+    render(
+      <TooltipProvider>
+        <ThreadTranscriptItem
+          item={assistantItem}
+          streaming={false}
+          turn={{ ...turn, providerForkPoint: undefined }}
+          draftAnswers={{}}
+          legacyFreeform=""
+          onDraftAnswersChange={() => undefined}
+          onLegacyFreeformChange={() => undefined}
+          onRespondApproval={() => undefined}
+          onRespondUserInput={() => undefined}
+          onFork={vi.fn()}
+        />
+      </TooltipProvider>,
+    )
+
+    expect(screen.queryByRole("button", { name: "Fork from this response" })).toBeNull()
   })
 
   it("lets assistant content use the full transcript width", () => {

@@ -44,6 +44,12 @@ On an open Thread:
 
 The transcript uses the space the composer left. Text and images you already typed stay in the composer. Hiding it does not send or discard them.
 
+## Continue from a response
+
+Hover a completed agent response and choose **Fork from this response**. Noyau opens a new Thread with the conversation through that response, ready for your next message. The original Thread stays unchanged.
+
+The action appears only when the selected provider can continue from that response. If Noyau cannot create the provider session, the new Thread shows the reason and links back to the original conversation.
+
 ## Reverse
 
 Press **Mod+L** again, choose **Show composer** in the Palette, or use the same header button. Send and Interrupt live on the composer, so show it when you need them.

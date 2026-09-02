@@ -1,6 +1,9 @@
 import {
+  forkSession,
   query,
   type CanUseTool,
+  type ForkSessionOptions,
+  type ForkSessionResult,
   type Options as ClaudeQueryOptions,
   type PermissionMode,
   type PermissionResult,
@@ -29,6 +32,7 @@ import type {
   TranscriptToolAction,
   TranscriptToolStatus,
 } from "@noyau/contracts/entities/transcript"
+import type { ProviderForkPoint } from "@noyau/contracts/entities/turn"
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/contracts/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { ThreadLive, threadLiveLayer } from "@noyau/server/thread-live"
@@ -49,6 +53,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import { takeBufferedAssistantSpill } from "./assistant-delivery.ts"
 import {
+  assistantMessageUuidOf,
   extractAssistantText,
   extractPlanMarkdown,
   extractResultMessage,
@@ -62,6 +67,7 @@ import {
 import { promptContentBlocks } from "./prompt-blocks.ts"
 import {
   ProviderPort,
+  ProviderForkUnavailable,
   singleInstanceStatuses,
   type ProviderEmit,
   type ProviderSignal,
@@ -269,6 +275,11 @@ export interface ClaudeAdapterOptions {
     readonly prompt: AsyncIterable<SDKUserMessage>
     readonly options: ClaudeQueryOptions
   }) => ClaudeQueryRuntime
+  /** Injectable so the native session mutation can be tested without Claude state on disk. */
+  readonly forkSession?: (
+    sessionId: string,
+    options?: ForkSessionOptions,
+  ) => Promise<ForkSessionResult>
   readonly probeStatus?: ClaudeProviderStatusOverride
 }
 
@@ -320,6 +331,7 @@ interface ActiveTurn {
   cancelRequested: boolean
   stopRequested: boolean
   terminalEmitted: boolean
+  forkPoint?: ProviderForkPoint
   fiber?: Fiber.Fiber<void>
 }
 
@@ -601,6 +613,7 @@ const turnEndedSignal = (
   control: ActiveTurn,
   state: TurnEndedSignal["state"],
   lastError?: string,
+  forkPoint?: ProviderForkPoint,
 ): ProviderSignal =>
   lastError === undefined
     ? {
@@ -608,6 +621,7 @@ const turnEndedSignal = (
         threadId: control.input.threadId,
         turnId: control.input.turnId,
         state,
+        ...(forkPoint === undefined ? {} : { forkPoint }),
       }
     : {
         _tag: "turn-ended",
@@ -615,6 +629,7 @@ const turnEndedSignal = (
         turnId: control.input.turnId,
         state,
         lastError,
+        ...(forkPoint === undefined ? {} : { forkPoint }),
       }
 
 const withActiveTurn = <A>(
@@ -696,6 +711,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
         prompt: input.prompt,
         options: input.options,
       }) as ClaudeQueryRuntime)
+  const forkNative = options.forkSession ?? forkSession
 
   const providerStatus =
     options.probeStatus !== undefined
@@ -795,7 +811,15 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     // turn.ended must land while Session is still `running`. A ready/error
     // session.set projects the Turn as settled, then requireRunningTurn
     // rejects the follow-up and this fiber never unblocks the next Turn.
-    yield* emitSignal(control, turnEndedSignal(control, state, errorMessage)).pipe(
+    yield* emitSignal(
+      control,
+      turnEndedSignal(
+        control,
+        state,
+        errorMessage,
+        state === "completed" ? control.forkPoint : undefined,
+      ),
+    ).pipe(
       Effect.andThen(
         emitSignal(
           control,
@@ -822,6 +846,13 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
       session,
       (control) =>
         Effect.gen(function* () {
+          const assistantMessageUuid = assistantMessageUuidOf(message)
+          if (assistantMessageUuid !== undefined) {
+            control.forkPoint = {
+              schemaVersion: 1,
+              boundaryId: assistantMessageUuid,
+            }
+          }
           const streamText = extractStreamText(message)
           if (streamText.length > 0) {
             control.streamedAssistant = true
@@ -1349,6 +1380,26 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
       ),
     ),
     listSkills: (_provider, _workspaceRoot) => Effect.succeed([]),
+    fork: (input) =>
+      Effect.tryPromise({
+        try: () =>
+          forkNative(input.sourceResumeCursor.sessionId, {
+            dir: input.workspaceRoot,
+            upToMessageId: input.sourceForkPoint.boundaryId,
+          }),
+        catch: (cause) =>
+          new ProviderForkUnavailable({
+            message:
+              cause instanceof Error
+                ? cause.message
+                : `Claude native fork failed: ${String(cause)}`,
+          }),
+      }).pipe(
+        Effect.map((forked) => ({
+          schemaVersion: 1 as const,
+          sessionId: ProviderSessionId.make(forked.sessionId),
+        })),
+      ),
     startTurn: (input, emit) => startTurn(input, emit).pipe(Effect.provideService(Path.Path, path)),
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

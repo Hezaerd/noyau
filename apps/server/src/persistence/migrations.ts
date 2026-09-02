@@ -15,6 +15,7 @@ import ThreadHardDeleteMigration from "./migrations/011_thread_hard_delete.ts"
 import ThreadListedAtMigration from "./migrations/012_thread_listed_at.ts"
 import ThreadContextUsageMigration from "./migrations/013_thread_context_usage.ts"
 import ThreadProviderInstanceMigration from "./migrations/014_thread_provider_instance.ts"
+import ThreadForksMigration from "./migrations/015_thread_forks.ts"
 
 export const migrationsThroughContextUsage: Migrator.Loader = Migrator.fromRecord({
   "1_journal": JournalMigration,
@@ -58,6 +59,7 @@ export const migrations: Migrator.Loader = Migrator.fromRecord({
   "12_thread_listed_at": ThreadListedAtMigration,
   "13_thread_context_usage": ThreadContextUsageMigration,
   "14_thread_provider_instance": ThreadProviderInstanceMigration,
+  "15_thread_forks": ThreadForksMigration,
 })
 
 export { default as threadProviderCodexMigration } from "./migrations/009_thread_provider_codex.ts"

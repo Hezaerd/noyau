@@ -10,6 +10,7 @@ import {
   SessionNotRunning,
   ThreadAlreadyExists,
   ThreadArchived as ThreadArchivedError,
+  ThreadForkOriginMismatch,
   ThreadNotFound,
   ThreadNotSettleable,
   TurnAlreadyActive,
@@ -20,6 +21,9 @@ import {
   SessionStopRequested,
   ThreadContextUsageSet,
   ThreadCreated,
+  ThreadForkCompleted,
+  ThreadForkFailed,
+  ThreadForkRequested,
   ThreadDeleted,
   type ThreadEvent,
   ThreadMetaUpdated,
@@ -49,6 +53,7 @@ export type ThreadDecisionError =
   | SessionNotRunning
   | ThreadAlreadyExists
   | ThreadArchivedError
+  | ThreadForkOriginMismatch
   | ThreadNotFound
   | ThreadNotSettleable
   | TurnAlreadyActive
@@ -180,6 +185,35 @@ export const decide = (
         }),
       )
     }
+    case "thread.fork":
+      if (findThread(state, command.payload.threadId) !== undefined) {
+        return Result.fail(new ThreadAlreadyExists({ threadId: command.payload.threadId }))
+      }
+      return requireThread(state, command.payload.sourceThreadId).pipe(
+        Result.flatMap((source) =>
+          source.session?.resumeCursor !== null &&
+          source.session?.resumeCursor !== undefined &&
+          source.turns.some(
+            (turn) =>
+              turn.turnId === command.payload.sourceTurnId &&
+              turn.state === "completed" &&
+              turn.providerForkPoint !== undefined,
+          )
+            ? Result.succeed([
+                ThreadForkRequested.make({
+                  threadId: command.payload.threadId,
+                  sourceThreadId: command.payload.sourceThreadId,
+                  sourceTurnId: command.payload.sourceTurnId,
+                }),
+              ])
+            : Result.fail(
+                new TurnNotFound({
+                  threadId: command.payload.sourceThreadId,
+                  turnId: command.payload.sourceTurnId,
+                }),
+              ),
+        ),
+      )
     case "thread.delete":
       return requireThread(state, command.payload.threadId).pipe(
         Result.map((thread) => [ThreadDeleted.make({ threadId: thread.threadId })]),
@@ -442,13 +476,20 @@ export const decide = (
                     turnId: turn.turnId,
                     state: command.payload.state,
                   }
-                  return [
+                  const withError =
                     command.payload.lastError === undefined
-                      ? ThreadTurnEnded.make(ended)
-                      : ThreadTurnEnded.make({
-                          ...ended,
-                          lastError: command.payload.lastError,
-                        }),
+                      ? ended
+                      : Object.assign({}, ended, { lastError: command.payload.lastError })
+                  const endedEvent =
+                    command.payload.providerForkPoint === undefined
+                      ? ThreadTurnEnded.make(withError)
+                      : ThreadTurnEnded.make(
+                          Object.assign(withError, {
+                            providerForkPoint: command.payload.providerForkPoint,
+                          }),
+                        )
+                  return [
+                    endedEvent,
                     ThreadSessionSet.make({
                       threadId: thread.threadId,
                       session: terminalSession(session, command),
@@ -492,5 +533,51 @@ export const decide = (
           return [ThreadContextUsageSet.make(command.payload)]
         }),
       )
+    case "thread.fork.complete":
+      return requireThread(state, command.payload.threadId).pipe(
+        Result.flatMap(
+          (destination): Result.Result<ReadonlyArray<ThreadEvent>, ThreadDecisionError> => {
+            if (
+              destination.forkOrigin?.sourceThreadId !== command.payload.sourceThreadId ||
+              destination.forkOrigin.sourceTurnId !== command.payload.sourceTurnId
+            ) {
+              return Result.fail(
+                new ThreadForkOriginMismatch({
+                  threadId: destination.threadId,
+                  sourceThreadId: command.payload.sourceThreadId,
+                  sourceTurnId: command.payload.sourceTurnId,
+                }),
+              )
+            }
+            return requireThread(state, command.payload.sourceThreadId).pipe(
+              Result.map(() => [
+                ThreadForkCompleted.make({
+                  threadId: command.payload.threadId,
+                  sourceThreadId: command.payload.sourceThreadId,
+                  sourceTurnId: command.payload.sourceTurnId,
+                  session: {
+                    threadId: command.payload.threadId,
+                    status: "ready",
+                    lastError: null,
+                    activeTurnId: null,
+                    runtimeMode: destination.runtimeMode,
+                    resumeCursor: command.payload.resumeCursor,
+                    updatedAt: command.issuedAt,
+                  },
+                }),
+              ]),
+            )
+          },
+        ),
+      )
+    case "thread.fork.fail":
+      return Result.succeed([
+        ThreadForkFailed.make({
+          threadId: command.payload.threadId,
+          sourceThreadId: command.payload.sourceThreadId,
+          sourceTurnId: command.payload.sourceTurnId,
+          detail: command.payload.detail,
+        }),
+      ])
   }
 }

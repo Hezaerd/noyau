@@ -30,6 +30,7 @@ import {
   ThreadSessionSet,
   ThreadSettled,
   ThreadTranscriptAppended,
+  ThreadTurnEnded,
   ThreadTurnStarted,
   ThreadUnsettled,
 } from "@noyau/contracts/thread/events"
@@ -175,6 +176,60 @@ const expectSome = <A>(option: Option.Option<A>, message: string): A => {
 }
 
 layer(platformLayer)("SQL projections", (it) => {
+  it.effect("round-trips a persisted provider fork point in ThreadSnapshot", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          const forkTurnId = Schema.decodeSync(TurnId)("30000000-0000-4000-8000-000000000009")
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Fork point",
+                provider: ProviderInstanceId.make("codex"),
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId: forkTurnId,
+                text: "Fork me",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadTurnEnded.make({
+                threadId: ids.recoveryThread,
+                turnId: forkTurnId,
+                state: "completed",
+                providerForkPoint: { schemaVersion: 1, boundaryId: "codex-turn-9" },
+              }),
+            ),
+          )
+          const snapshot = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "fork point thread is projected",
+          )
+          assert.deepStrictEqual(snapshot.turns[0]?.providerForkPoint, {
+            schemaVersion: 1,
+            boundaryId: "codex-turn-9",
+          })
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    ),
+  )
+
   it.effect("résout le propriétaire durable d'un WorkspaceRoot avec exclusion de rebind", () =>
     Effect.scoped(
       Effect.gen(function* () {

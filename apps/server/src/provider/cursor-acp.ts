@@ -45,6 +45,7 @@ import {
 import { promptContentBlocks } from "./prompt-blocks.ts"
 import {
   ProviderPort,
+  ProviderForkUnavailable,
   singleInstanceStatuses,
   type ProviderEmit,
   type ProviderSignal,
@@ -1588,6 +1589,12 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       ),
     ),
     listSkills: (_provider, _workspaceRoot) => Effect.succeed([]),
+    fork: () =>
+      Effect.fail(
+        new ProviderForkUnavailable({
+          message: "Cursor ACP does not expose exact response forks.",
+        }),
+      ),
     startTurn,
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

@@ -17,6 +17,7 @@ import {
   ApprovalRespondRequest,
   ThreadCreateRequest,
   ThreadDeleteRequest,
+  ThreadForkRequest,
   ThreadSettleRequest,
   ThreadUnsettleRequest,
   ThreadMetaUpdateRequest,
@@ -215,6 +216,17 @@ export const makeThreadDeleteRequest = Effect.fnUntraced(function* (input: {
   return ThreadDeleteRequest.make({
     commandId: CommandId.make(yield* uuid()),
     payload: { threadId: input.threadId },
+  })
+})
+
+export const makeThreadForkRequest = Effect.fnUntraced(function* (input: {
+  readonly threadId: ThreadId
+  readonly sourceThreadId: ThreadId
+  readonly sourceTurnId: TurnId
+}) {
+  return ThreadForkRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
   })
 })
 

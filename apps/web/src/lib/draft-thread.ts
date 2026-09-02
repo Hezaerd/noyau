@@ -16,6 +16,7 @@ export const isDraftThreadView = (input: {
   readonly threadId: ThreadId | undefined
   readonly latestTurn: LatestTurn | null | undefined
   readonly transcriptLength: number
+  readonly inheritedTranscriptLength?: number
   readonly sending: boolean
 }): boolean => {
   if (input.sending) {
@@ -27,7 +28,11 @@ export const isDraftThreadView = (input: {
   if (input.latestTurn === undefined) {
     return false
   }
-  return input.latestTurn === null && input.transcriptLength === 0
+  return (
+    input.latestTurn === null &&
+    input.transcriptLength === 0 &&
+    (input.inheritedTranscriptLength ?? 0) === 0
+  )
 }
 
 /** Non-empty `/thread/new` Brouillon, listed until the first send creates a Thread. */

@@ -473,6 +473,24 @@ describe("thread transcript projection", () => {
     expect(next?.session?.activeTurnId).toBeNull()
   })
 
+  it("keeps the native provider fork boundary when a Turn settles", () => {
+    const next = applyThreadEnvelope(
+      snapshot,
+      envelopeFor({
+        _tag: "thread.turn.ended",
+        threadId: ids.thread,
+        turnId: ids.turn,
+        state: "completed",
+        providerForkPoint: { schemaVersion: 1, boundaryId: "provider-turn-1" },
+      }),
+    )
+
+    expect(next?.turns[0]?.providerForkPoint).toEqual({
+      schemaVersion: 1,
+      boundaryId: "provider-turn-1",
+    })
+  })
+
   it("attache le TurnDiff au Turn et le joint à la last assistant row", () => {
     const withAssistant: typeof snapshot = {
       ...snapshot,

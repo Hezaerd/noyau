@@ -25,6 +25,7 @@ import {
 } from "@noyau/server/provider/claude-agent"
 import {
   ProviderPort,
+  type ProviderForkInput,
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
@@ -126,11 +127,16 @@ const input = (extras: Partial<ProviderTurnInput> = {}): ProviderTurnInput => ({
   ...extras,
 })
 
-const assistantMessage = (text: string, sessionId = "11111111-1111-4111-8111-111111111111") =>
+const assistantMessage = (
+  text: string,
+  sessionId = "11111111-1111-4111-8111-111111111111",
+  uuid = "40000000-0000-4000-8000-000000000001",
+) =>
   // SAFETY: fixture partiel ; les extracteurs Schema ne lisent que type / session_id / content.
   ({
     type: "assistant",
     session_id: sessionId,
+    uuid,
     message: {
       role: "assistant",
       content: [{ type: "text", text }],
@@ -179,6 +185,7 @@ const withProvider = <A, E, R>(
   extras: {
     readonly handshakeOk?: boolean
     readonly createQuery?: ClaudeAdapterOptions["createQuery"]
+    readonly forkSession?: ClaudeAdapterOptions["forkSession"]
   } = {},
 ) =>
   Effect.scoped(
@@ -187,7 +194,7 @@ const withProvider = <A, E, R>(
       let lastOptions: ClaudeQueryOptions | undefined
       let lastPrompt: AsyncIterable<SDKUserMessage> | undefined
       let revoked = 0
-      const options: ClaudeAdapterOptions = {
+      const baseOptions: ClaudeAdapterOptions = {
         binaryPath: "/usr/local/bin/claude",
         environment: { PATH: "" },
         createQuery:
@@ -207,6 +214,10 @@ const withProvider = <A, E, R>(
           binaryPath: "/usr/local/bin/claude",
         },
       }
+      const options: ClaudeAdapterOptions =
+        extras.forkSession === undefined
+          ? baseOptions
+          : { ...baseOptions, forkSession: extras.forkSession }
       const services = yield* Layer.build(
         claudeProviderLayer(options).pipe(
           Layer.provide(
@@ -416,6 +427,19 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
         assert.isTrue(
           signals.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
         )
+        assert.deepStrictEqual(
+          signals.find((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
+          {
+            _tag: "turn-ended",
+            threadId,
+            turnId,
+            state: "completed",
+            forkPoint: {
+              schemaVersion: 1,
+              boundaryId: "40000000-0000-4000-8000-000000000001",
+            },
+          },
+        )
         const options = harness.lastOptions()
         assert.strictEqual(options?.mcpServers?.noyau?.type, "http")
         if (options?.mcpServers?.noyau?.type === "http") {
@@ -437,6 +461,58 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
       }),
     ),
   )
+
+  it.effect("forks Claude's persisted session at the selected assistant UUID", () => {
+    const calls: Array<{
+      readonly sessionId: string
+      readonly options: { readonly dir?: string; readonly upToMessageId?: string } | undefined
+    }> = []
+    const forkInput: ProviderForkInput = {
+      projectId,
+      threadId: ThreadId.make("20000000-0000-4000-8000-000000000002"),
+      sourceThreadId: threadId,
+      sourceTurnId: turnId,
+      provider: ProviderInstanceId.make("claude"),
+      workspaceRoot: "/workspace/source",
+      sourceResumeCursor: {
+        schemaVersion: 1,
+        sessionId: ProviderSessionId.make("11111111-1111-4111-8111-111111111111"),
+      },
+      sourceForkPoint: {
+        schemaVersion: 1,
+        boundaryId: "40000000-0000-4000-8000-000000000001",
+      },
+    }
+    return withProvider(
+      (provider) =>
+        Effect.gen(function* () {
+          const fork = provider.fork
+          if (fork === undefined) {
+            return yield* Effect.die("Claude provider does not expose native forks")
+          }
+          const cursor = yield* fork(forkInput)
+          assert.deepStrictEqual(calls, [
+            {
+              sessionId: "11111111-1111-4111-8111-111111111111",
+              options: {
+                dir: "/workspace/source",
+                upToMessageId: "40000000-0000-4000-8000-000000000001",
+              },
+            },
+          ])
+          assert.deepStrictEqual(cursor, {
+            schemaVersion: 1,
+            sessionId: ProviderSessionId.make("55555555-0000-4000-8000-000000000001"),
+          })
+        }),
+      {
+        forkSession: (sessionId, options) => {
+          calls.push({ sessionId, options })
+          return Promise.resolve({ sessionId: "55555555-0000-4000-8000-000000000001" })
+        },
+      },
+    )
+  })
 
   it.effect("reuses one query session across Turns and resumes after stop", () =>
     withProvider((provider, harness) =>

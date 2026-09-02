@@ -16,6 +16,7 @@ import {
 } from "@noyau/contracts/entities/transcript"
 import {
   CheckpointRef,
+  ProviderForkPoint,
   TurnDiffFile,
   TurnDiffStatus,
   TurnSettlementState,
@@ -35,6 +36,29 @@ export const ThreadCreated = Schema.TaggedStruct("thread.created", {
   worktreePath: Schema.optionalKey(ThreadWorktreePath),
 })
 export type ThreadCreated = (typeof ThreadCreated)["Type"]
+
+export const ThreadForkRequested = Schema.TaggedStruct("thread.fork-requested", {
+  threadId: ThreadId,
+  sourceThreadId: ThreadId,
+  sourceTurnId: TurnId,
+})
+export type ThreadForkRequested = (typeof ThreadForkRequested)["Type"]
+
+export const ThreadForkCompleted = Schema.TaggedStruct("thread.fork-completed", {
+  threadId: ThreadId,
+  sourceThreadId: ThreadId,
+  sourceTurnId: TurnId,
+  session: Session,
+})
+export type ThreadForkCompleted = (typeof ThreadForkCompleted)["Type"]
+
+export const ThreadForkFailed = Schema.TaggedStruct("thread.fork-failed", {
+  threadId: ThreadId,
+  sourceThreadId: ThreadId,
+  sourceTurnId: TurnId,
+  detail: Schema.NonEmptyString,
+})
+export type ThreadForkFailed = (typeof ThreadForkFailed)["Type"]
 
 export const ThreadDeleted = Schema.TaggedStruct("thread.deleted", {
   threadId: ThreadId,
@@ -153,6 +177,7 @@ export const ThreadTurnEnded = Schema.TaggedStruct("thread.turn.ended", {
   turnId: TurnId,
   state: TurnSettlementState,
   lastError: Schema.optionalKey(Schema.NonEmptyString),
+  providerForkPoint: Schema.optionalKey(ProviderForkPoint),
 })
 export type ThreadTurnEnded = (typeof ThreadTurnEnded)["Type"]
 
@@ -179,6 +204,9 @@ export type ThreadContextUsageSet = (typeof ThreadContextUsageSet)["Type"]
 
 export const ThreadEvent = Schema.Union([
   ThreadCreated,
+  ThreadForkRequested,
+  ThreadForkCompleted,
+  ThreadForkFailed,
   ThreadDeleted,
   ThreadArchived,
   ThreadRestored,
