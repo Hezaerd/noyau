@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 
 export type { DraftAnswers }
 
-function QuestionChoices({
+export function QuestionChoices({
   question,
   answer,
   disabled,

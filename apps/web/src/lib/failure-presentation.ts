@@ -137,6 +137,8 @@ const rejectionMessage = (rejection: Rejection): string => {
       return "This image could not be attached."
     case "ApprovalRequestNotFound":
       return "This approval request is no longer active."
+    case "UserInputRequestNotFound":
+      return "This question request is no longer available."
     case "SessionNotRunning":
       return "This Thread's Session is not running."
     default:

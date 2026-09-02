@@ -38,6 +38,16 @@ With Codex selected, type `$` to open the toolbar for enabled skills that provid
 
 Press Backspace or Delete next to a chip to remove the whole mention. A `$name` that is not in the available skill list stays as ordinary text.
 
+## Answer agent questions
+
+When an agent needs several decisions, the composer shows one question at a time above the prompt. Choose an option or enter an Other answer, then use **Next** and **Back** to move through the batch. These buttons only change your draft.
+
+Choose **Send answers** on the last question to send the complete batch. Your answers stay in place if sending fails, so you can retry. To leave without answering, choose **Interrupt** in the composer; this stops the waiting turn.
+
+Noyau saves unfinished answer batches on this device. You can reload the app or move between Threads and return without losing selected options, Other answers, or your place in the batch.
+
+If the provider session ends while a question is waiting, the saved batch remains above the composer. Review the answers and choose **Continue with answers**. Noyau starts a new Turn with the selected provider, model, access level, and checkout settings. The draft remains available until the continuation is durably recorded, so a failed attempt can be retried safely.
+
 ## Hide or show
 
 On an open Thread:

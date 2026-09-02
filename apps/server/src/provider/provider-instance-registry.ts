@@ -198,6 +198,24 @@ export const composeProviderPorts = (
           }),
         ),
       ),
+    reserveUserInput: (threadId, requestId) =>
+      Effect.gen(function* () {
+        const ports = yield* registry.values
+        for (const port of ports) {
+          if (yield* port.reserveUserInput(threadId, requestId)) {
+            return true
+          }
+        }
+        return false
+      }),
+    releaseUserInput: (threadId, requestId) =>
+      registry.values.pipe(
+        Effect.flatMap((ports) =>
+          Effect.forEach(ports, (port) => port.releaseUserInput(threadId, requestId), {
+            discard: true,
+          }),
+        ),
+      ),
     drain: registry.values.pipe(
       Effect.flatMap((ports) => Effect.forEach(ports, (port) => port.drain, { discard: true })),
     ),

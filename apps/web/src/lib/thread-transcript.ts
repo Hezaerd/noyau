@@ -113,6 +113,20 @@ const resolveTranscriptRequest = (
     return { ...item, status: "resolved" as const }
   })
 
+const updateUserInputRequest = (
+  transcript: ReadonlyArray<TranscriptItem>,
+  requestId: string,
+  status: Extract<TranscriptItem, { readonly _tag: "transcript.user-input" }>["status"],
+  answers?: Extract<TranscriptItem, { readonly _tag: "transcript.user-input" }>["answers"],
+): ReadonlyArray<TranscriptItem> =>
+  transcript.map((item) =>
+    item._tag !== "transcript.user-input" || item.requestId !== requestId
+      ? item
+      : answers === undefined
+        ? { ...item, status }
+        : { ...item, status, answers },
+  )
+
 export const transcriptLabel = (item: TranscriptItem): string => {
   switch (item._tag) {
     case "transcript.user":
@@ -774,6 +788,28 @@ export const applyThreadEnvelope = (
           snapshot.transcript,
           event.requestId,
           "transcript.user-input",
+          event.answers,
+        ),
+      })
+    case "user-input.detached":
+    case "user-input.cancelled":
+      return withEnvelope(snapshot, envelope, {
+        session: snapshot.session,
+        turns: snapshot.turns,
+        transcript: updateUserInputRequest(
+          snapshot.transcript,
+          event.requestId,
+          event._tag === "user-input.detached" ? "detached" : "cancelled",
+        ),
+      })
+    case "user-input.consumed":
+      return withEnvelope(snapshot, envelope, {
+        session: snapshot.session,
+        turns: snapshot.turns,
+        transcript: updateUserInputRequest(
+          snapshot.transcript,
+          event.requestId,
+          "consumed",
           event.answers,
         ),
       })

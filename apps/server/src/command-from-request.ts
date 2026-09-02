@@ -100,6 +100,7 @@ export const requestProjectId = Effect.fn("CommandFromRequest.requestProjectId")
     case "thread.turn.interrupt":
     case "approval.respond":
     case "user-input.respond":
+    case "user-input.continue":
     case "session.stop":
       return yield* projectForThread(request.payload.threadId)
   }

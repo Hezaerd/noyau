@@ -71,6 +71,14 @@ type InternalCommandBody =
       Extract<InternalCommandEncoded, { readonly _tag: "thread.context-usage.set" }>,
       "_tag" | "payload"
     >
+  | Pick<
+      Extract<InternalCommandEncoded, { readonly _tag: "user-input.detach" }>,
+      "_tag" | "payload"
+    >
+  | Pick<
+      Extract<InternalCommandEncoded, { readonly _tag: "user-input.cancel" }>,
+      "_tag" | "payload"
+    >
 
 const projectRoot = Effect.fn("ProviderReactor.projectRoot")(function* (projectId: string) {
   const sql = yield* SqlClient
@@ -154,6 +162,16 @@ const commandForSignal = (
             window: signal.window,
           },
         },
+      }
+    case "user-input-detached":
+      return {
+        _tag: "user-input.detach",
+        payload: { threadId: signal.threadId, requestId: signal.requestId },
+      }
+    case "user-input-cancelled":
+      return {
+        _tag: "user-input.cancel",
+        payload: { threadId: signal.threadId, requestId: signal.requestId },
       }
   }
 }

@@ -90,6 +90,7 @@ describe("ComposerSuggestionToolbar", () => {
     renderToolbar({ highlightedIndex: 1 })
 
     const listbox = screen.getByRole("listbox", { name: "Composer suggestions" })
+    expect(listbox.closest('[data-slot="composer-toolbar-surface"]')).toBeTruthy()
     expect(listbox.getAttribute("id")).toBe("composer-suggestions")
     expect(within(listbox).getAllByRole("option")).toHaveLength(2)
     expect(within(listbox).getAllByRole("option")[0]?.getAttribute("aria-selected")).toBe("false")

@@ -24,6 +24,7 @@ import {
   ThreadRuntimeModeSetRequest,
   ThreadTurnInterruptRequest,
   ThreadTurnStartRequest,
+  UserInputContinueRequest,
   UserInputRespondRequest,
 } from "@noyau/contracts/thread/commands"
 import {
@@ -287,6 +288,21 @@ export const makeUserInputRespondRequest = Effect.fnUntraced(function* (input: {
       requestId: input.requestId,
       answers: input.answers,
     },
+  })
+})
+
+export const makeUserInputContinueRequest = Effect.fnUntraced(function* (input: {
+  readonly threadId: ThreadId
+  readonly requestId: ApprovalRequestId
+  readonly answers: ProviderUserInputAnswers
+  readonly provider?: Provider
+  readonly runtimeMode?: RuntimeModeType
+  readonly modelSelection?: ModelSelection | null
+  readonly prepareWorktree?: PrepareWorktree
+}) {
+  return UserInputContinueRequest.make({
+    commandId: CommandId.make(yield* uuid()),
+    payload: input,
   })
 })
 

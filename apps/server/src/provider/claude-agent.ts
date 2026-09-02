@@ -60,6 +60,7 @@ import {
   extractStreamText,
   extractToolResults,
   extractToolUses,
+  mapAskUserAnswers,
   mapAskUserQuestions,
   parseClaudeCliVersion,
   sessionIdOf,
@@ -641,17 +642,6 @@ const withActiveTurn = <A>(
   return control === undefined ? fallback : run(control)
 }
 
-const mapAskUserAnswers = (answers: ProviderUserInputAnswers) => {
-  const entries: Array<readonly [string, string]> = []
-  for (const [questionId, answer] of Object.entries(answers)) {
-    const label = answer.optionIds[0] ?? answer.freeform
-    if (label !== undefined && label.length > 0) {
-      entries.push([questionId, label])
-    }
-  }
-  return Object.fromEntries(entries)
-}
-
 type ClaudeUserTextBlock = {
   readonly type: "text"
   readonly text: string
@@ -791,7 +781,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
 
   const settleTurn = Effect.fn("ClaudeAdapter.settleTurn")(function* (
     control: ActiveTurn,
-    state: TurnEndedSignal["state"],
+    initialState: TurnEndedSignal["state"],
     lastError?: string | null,
   ) {
     if (control.terminalEmitted) {
@@ -802,6 +792,15 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
       yield* mcpSessions.deactivateTurn(control.input.threadId, control.input.turnId)
       control.mcpActivated = false
     }
+    yield* userInputs.closeTurn(
+      control.input.threadId,
+      control.input.turnId,
+      initialState === "completed" ? "wait" : control.cancelRequested ? "cancel" : "detach",
+    )
+    const state =
+      initialState === "completed" && (control.stopRequested || control.cancelRequested)
+        ? "interrupted"
+        : initialState
     const session = control.session
     if (session !== undefined) {
       session.activeTurn = undefined
@@ -833,7 +832,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
       ),
       Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)),
     )
-    yield* userInputs.unbindTurn(control.input.threadId)
+    yield* userInputs.unbindTurn(control.input.threadId, control.input.turnId)
     yield* threadLive.clear(control.input.threadId)
   })
 
@@ -919,6 +918,9 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     session.stopped = true
     if (sessions.get(session.threadId) === session) {
       sessions.delete(session.threadId)
+    }
+    if (session.activeTurn !== undefined) {
+      yield* userInputs.closeTurn(session.threadId, session.activeTurn.input.turnId, "detach")
     }
     yield* mcpSessions.revokeSession(session.threadId)
     yield* Queue.offer(session.promptQueue, null).pipe(Effect.ignore)
@@ -1183,7 +1185,9 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
 
     control.session = session
     session.activeTurn = control
-    yield* userInputs.bindTurn(control.input.threadId, (signal) => emitSignal(control, signal))
+    yield* userInputs.bindTurn(control.input.threadId, control.input.turnId, (signal) =>
+      emitSignal(control, signal),
+    )
     if (!control.mcpActivated) {
       yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
       control.mcpActivated = true
@@ -1301,6 +1305,7 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     if (stop) {
       control.stopRequested = true
     }
+    yield* userInputs.closeTurn(threadId, control.input.turnId, "cancel")
     const session = control.session
     if (session !== undefined) {
       yield* Effect.tryPromise({
@@ -1411,6 +1416,8 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     stopAll,
     respondApproval,
     respondUserInput,
+    reserveUserInput: (threadId, requestId) => userInputs.reserve(threadId, requestId),
+    releaseUserInput: (threadId, requestId) => userInputs.release(threadId, requestId),
     drain,
   })
 })

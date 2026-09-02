@@ -170,22 +170,27 @@ const projectTranscriptItem = (
   }
 }
 
-const resolveTranscriptRequest = (
+const resolvePermissionRequest = (
   transcript: ReadonlyArray<TranscriptItem>,
   requestId: string,
-  tag: "transcript.permission" | "transcript.user-input",
+): ReadonlyArray<TranscriptItem> =>
+  transcript.map((item) => {
+    return item._tag === "transcript.permission" && item.requestId === requestId
+      ? { ...item, status: "resolved" as const }
+      : item
+  })
+
+const updateUserInputRequest = (
+  transcript: ReadonlyArray<TranscriptItem>,
+  requestId: string,
+  status: Extract<TranscriptItem, { readonly _tag: "transcript.user-input" }>["status"],
   answers?: Extract<TranscriptItem, { readonly _tag: "transcript.user-input" }>["answers"],
 ): ReadonlyArray<TranscriptItem> =>
   transcript.map((item) => {
-    if (item._tag !== tag || item.requestId !== requestId) {
+    if (item._tag !== "transcript.user-input" || item.requestId !== requestId) {
       return item
     }
-    if (tag === "transcript.user-input" && item._tag === "transcript.user-input") {
-      return answers === undefined
-        ? { ...item, status: "resolved" as const }
-        : { ...item, status: "resolved" as const, answers }
-    }
-    return { ...item, status: "resolved" as const }
+    return answers === undefined ? { ...item, status } : { ...item, status, answers }
   })
 
 const settleRunningTurn = (thread: ThreadProjection, session: Session): ThreadProjection => {
@@ -386,19 +391,35 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
     case "approval.responded":
       return updateThread(state, event.threadId, (thread) => ({
         ...thread,
-        transcript: resolveTranscriptRequest(
-          thread.transcript,
-          event.requestId,
-          "transcript.permission",
-        ),
+        transcript: resolvePermissionRequest(thread.transcript, event.requestId),
       }))
     case "user-input.responded":
       return updateThread(state, event.threadId, (thread) => ({
         ...thread,
-        transcript: resolveTranscriptRequest(
+        transcript: updateUserInputRequest(
           thread.transcript,
           event.requestId,
-          "transcript.user-input",
+          "pending",
+          event.answers,
+        ),
+      }))
+    case "user-input.detached":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        transcript: updateUserInputRequest(thread.transcript, event.requestId, "detached"),
+      }))
+    case "user-input.cancelled":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        transcript: updateUserInputRequest(thread.transcript, event.requestId, "cancelled"),
+      }))
+    case "user-input.consumed":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        transcript: updateUserInputRequest(
+          thread.transcript,
+          event.requestId,
+          "consumed",
           event.answers,
         ),
       }))

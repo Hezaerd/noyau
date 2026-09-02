@@ -29,6 +29,8 @@ export type ComposerToolbarOwnerDefinition = {
   readonly placement: ComposerToolbarPlacement
   readonly content: ReactNode
   readonly active?: boolean | undefined
+  /** Blocking owners preempt transient normal owners in the same area. */
+  readonly priority?: "normal" | "blocking" | undefined
   /** Called when this definition cannot claim its requested placement. It does not auto-retry. */
   readonly onOpenFailure?: ((failure: ToolbarAreaOccupied) => void) | undefined
 }
@@ -62,8 +64,19 @@ export function ComposerToolbarHost({
 }) {
   const [store] = useState(createComposerToolbarStore)
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+  const hasActiveBlockingTop = toolbars.some(
+    (definition) =>
+      definition.placement === "top" &&
+      definition.priority === "blocking" &&
+      definition.active !== false,
+  )
+  const visibleToolbars = hasActiveBlockingTop
+    ? toolbars.filter(
+        (definition) => definition.placement !== "top" || definition.priority === "blocking",
+      )
+    : toolbars
   const occurrences = new Map<string, number>()
-  const owners = toolbars.map((definition) => {
+  const owners = visibleToolbars.map((definition) => {
     const identity = JSON.stringify([definition.placement, definition.id])
     const occurrence = occurrences.get(identity) ?? 0
     occurrences.set(identity, occurrence + 1)

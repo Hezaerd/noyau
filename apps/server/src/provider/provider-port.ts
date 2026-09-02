@@ -89,6 +89,11 @@ export type ProviderSignal =
       readonly used: number
       readonly window: number
     }
+  | {
+      readonly _tag: "user-input-detached" | "user-input-cancelled"
+      readonly threadId: ThreadId
+      readonly requestId: ApprovalRequestId
+    }
 
 export type ProviderEmit = (signal: ProviderSignal) => Effect.Effect<void>
 
@@ -119,6 +124,16 @@ export interface ProviderPortService {
     requestId: ApprovalRequestId,
     answers: ProviderUserInputAnswers,
   ) => Effect.Effect<void>
+  /** Atomically claims one live pending callback; false means absent, already claimed, or not owned. */
+  readonly reserveUserInput: (
+    threadId: ThreadId,
+    requestId: ApprovalRequestId,
+  ) => Effect.Effect<boolean>
+  /** Releases a prior claim after command rejection or failure; safely does nothing when not owned. */
+  readonly releaseUserInput: (
+    threadId: ThreadId,
+    requestId: ApprovalRequestId,
+  ) => Effect.Effect<void>
   /** Waits for the Turn fibers owned by this port; it does not stop idle Sessions. */
   readonly drain: Effect.Effect<void>
 }
@@ -137,5 +152,7 @@ export const unavailableProviderLayer = Layer.succeed(ProviderPort)({
   stopAll: Effect.void,
   respondApproval: (_threadId, _requestId, _decision) => Effect.void,
   respondUserInput: (_threadId, _requestId, _answers) => Effect.void,
+  reserveUserInput: (_threadId, _requestId) => Effect.succeed(false),
+  releaseUserInput: (_threadId, _requestId) => Effect.void,
   drain: Effect.void,
 })

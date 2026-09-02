@@ -56,6 +56,14 @@ export class ApprovalRequestNotFound extends Schema.TaggedError<ApprovalRequestN
   },
 ) {}
 
+export class UserInputRequestNotFound extends Schema.TaggedError<UserInputRequestNotFound>()(
+  "UserInputRequestNotFound",
+  {
+    threadId: ThreadId,
+    requestId: ApprovalRequestId,
+  },
+) {}
+
 export class SessionNotRunning extends Schema.TaggedError<SessionNotRunning>()(
   "SessionNotRunning",
   {
@@ -73,6 +81,7 @@ export const ThreadRejection = Schema.Union([
   TurnNotFound,
   ImageAttachmentRejected,
   ApprovalRequestNotFound,
+  UserInputRequestNotFound,
   SessionNotRunning,
 ])
 export type ThreadRejection = (typeof ThreadRejection)["Type"]

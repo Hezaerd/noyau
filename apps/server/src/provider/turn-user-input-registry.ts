@@ -3,7 +3,7 @@ import type {
   UserInputQuestion,
 } from "@noyau/contracts/entities/approvals"
 import type { TranscriptUserInput } from "@noyau/contracts/entities/transcript"
-import type { ApprovalRequestId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ApprovalRequestId, type ThreadId, type TurnId } from "@noyau/contracts/ids"
 import { Context, Deferred, Effect, Layer, Schema } from "effect"
 
 import type { ProviderEmit } from "./provider-port.ts"
@@ -12,6 +12,17 @@ export class UserInputTurnInactive extends Schema.TaggedError<UserInputTurnInact
   "UserInputTurnInactive",
   { threadId: Schema.String },
 ) {}
+
+export class UserInputRequestClosed extends Schema.TaggedError<UserInputRequestClosed>()(
+  "UserInputRequestClosed",
+  {
+    threadId: Schema.String,
+    requestId: Schema.String,
+    reason: Schema.Literals(["detached", "cancelled"]),
+  },
+) {}
+
+export type UserInputCloseMode = "wait" | "detach" | "cancel"
 
 export interface UserInputRequest {
   readonly threadId: ThreadId
@@ -23,22 +34,38 @@ export interface UserInputRequest {
 }
 
 interface TurnBinding {
+  readonly turnId: TurnId
   readonly emit: ProviderEmit
-  readonly pending: Map<string, Deferred.Deferred<ProviderUserInputAnswers>>
+  accepting: boolean
+  readonly pending: Map<
+    string,
+    {
+      readonly answers: Deferred.Deferred<ProviderUserInputAnswers, UserInputRequestClosed>
+      readonly completed: Deferred.Deferred<void>
+      reserved: boolean
+    }
+  >
 }
 
 export interface TurnUserInputRegistryService {
-  readonly bindTurn: (threadId: ThreadId, emit: ProviderEmit) => Effect.Effect<void>
-  readonly unbindTurn: (threadId: ThreadId) => Effect.Effect<void>
+  readonly bindTurn: (threadId: ThreadId, turnId: TurnId, emit: ProviderEmit) => Effect.Effect<void>
+  readonly unbindTurn: (threadId: ThreadId, turnId: TurnId) => Effect.Effect<void>
   readonly request: (
     input: UserInputRequest,
-  ) => Effect.Effect<ProviderUserInputAnswers, UserInputTurnInactive>
+  ) => Effect.Effect<ProviderUserInputAnswers, UserInputTurnInactive | UserInputRequestClosed>
   readonly resolve: (
     threadId: ThreadId,
     requestId: ApprovalRequestId,
     answers: ProviderUserInputAnswers,
+  ) => Effect.Effect<boolean>
+  readonly reserve: (threadId: ThreadId, requestId: ApprovalRequestId) => Effect.Effect<boolean>
+  readonly release: (threadId: ThreadId, requestId: ApprovalRequestId) => Effect.Effect<void>
+  readonly awaitTurnIdle: (threadId: ThreadId, turnId: TurnId) => Effect.Effect<void>
+  readonly closeTurn: (
+    threadId: ThreadId,
+    turnId: TurnId,
+    mode: UserInputCloseMode,
   ) => Effect.Effect<void>
-  readonly cancelTurn: (threadId: ThreadId) => Effect.Effect<void>
 }
 
 export class TurnUserInputRegistry extends Context.Service<
@@ -51,32 +78,25 @@ const pendingKey = (requestId: ApprovalRequestId): string => requestId
 export const makeTurnUserInputRegistry = Effect.sync(() => {
   const turns = new Map<string, TurnBinding>()
 
-  const bindTurn: TurnUserInputRegistryService["bindTurn"] = (threadId, emit) =>
+  const bindTurn: TurnUserInputRegistryService["bindTurn"] = (threadId, turnId, emit) =>
     Effect.sync(() => {
-      turns.set(threadId, { emit, pending: new Map() })
-    })
-
-  const unbindTurn: TurnUserInputRegistryService["unbindTurn"] = (threadId) =>
-    Effect.gen(function* () {
-      const binding = turns.get(threadId)
-      if (binding === undefined) {
-        return
-      }
-      for (const deferred of binding.pending.values()) {
-        yield* Deferred.succeed(deferred, {})
-      }
-      turns.delete(threadId)
+      turns.set(threadId, { turnId, emit, accepting: true, pending: new Map() })
     })
 
   const request: TurnUserInputRegistryService["request"] = Effect.fn(
     "TurnUserInputRegistry.request",
   )(function* (input) {
     const binding = turns.get(input.threadId)
-    if (binding === undefined) {
+    if (binding === undefined || binding.turnId !== input.turnId || !binding.accepting) {
       return yield* new UserInputTurnInactive({ threadId: input.threadId })
     }
-    const deferred = yield* Deferred.make<ProviderUserInputAnswers>()
-    binding.pending.set(pendingKey(input.requestId), deferred)
+    const key = pendingKey(input.requestId)
+    const pending = {
+      answers: Deferred.makeUnsafe<ProviderUserInputAnswers, UserInputRequestClosed>(),
+      completed: Deferred.makeUnsafe<void>(),
+      reserved: false,
+    }
+    binding.pending.set(key, pending)
 
     let pendingItem: TranscriptUserInput = {
       _tag: "transcript.user-input",
@@ -94,35 +114,108 @@ export const makeTurnUserInputRegistry = Effect.sync(() => {
     if (input.questions !== undefined && input.questions.length > 0) {
       pendingItem = Object.assign(pendingItem, { questions: [...input.questions] })
     }
-    yield* binding.emit({ _tag: "transcript", item: pendingItem })
-
-    const answers = yield* Deferred.await(deferred)
-    binding.pending.delete(pendingKey(input.requestId))
-    yield* binding.emit({
-      _tag: "transcript",
-      item: { ...pendingItem, status: "resolved", answers },
-    })
-    return answers
+    return yield* Effect.gen(function* () {
+      yield* binding.emit({ _tag: "transcript", item: pendingItem })
+      const answers = yield* Deferred.await(pending.answers)
+      yield* binding.emit({
+        _tag: "transcript",
+        item: { ...pendingItem, status: "resolved", answers },
+      })
+      return answers
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (binding.pending.get(key) === pending) {
+            binding.pending.delete(key)
+          }
+        }).pipe(Effect.andThen(Deferred.succeed(pending.completed, undefined))),
+      ),
+    )
   })
 
   const resolve: TurnUserInputRegistryService["resolve"] = (threadId, requestId, answers) =>
     Effect.gen(function* () {
-      const deferred = turns.get(threadId)?.pending.get(pendingKey(requestId))
-      if (deferred !== undefined) {
-        yield* Deferred.succeed(deferred, answers)
+      const pending = turns.get(threadId)?.pending.get(pendingKey(requestId))
+      if (pending === undefined) {
+        return false
+      }
+      yield* Deferred.succeed(pending.answers, answers)
+      return true
+    })
+
+  const reserve: TurnUserInputRegistryService["reserve"] = (threadId, requestId) =>
+    Effect.sync(() => {
+      const pending = turns.get(threadId)?.pending.get(pendingKey(requestId))
+      if (pending === undefined || pending.reserved) {
+        return false
+      }
+      pending.reserved = true
+      return true
+    })
+
+  const release: TurnUserInputRegistryService["release"] = (threadId, requestId) =>
+    Effect.sync(() => {
+      const pending = turns.get(threadId)?.pending.get(pendingKey(requestId))
+      if (pending !== undefined) {
+        pending.reserved = false
       }
     })
 
-  const cancelTurn: TurnUserInputRegistryService["cancelTurn"] = (threadId) =>
-    Effect.gen(function* () {
+  const awaitTurnIdle: TurnUserInputRegistryService["awaitTurnIdle"] = Effect.fn(
+    "TurnUserInputRegistry.awaitTurnIdle",
+  )(function* (threadId, turnId) {
+    while (true) {
       const binding = turns.get(threadId)
-      if (binding === undefined) {
+      const pending =
+        binding === undefined || binding.turnId !== turnId ? [] : [...binding.pending.values()]
+      if (pending.length === 0) {
         return
       }
-      for (const deferred of binding.pending.values()) {
-        yield* Deferred.succeed(deferred, {})
+      yield* Effect.all(
+        pending.map((pendingRequest) => Deferred.await(pendingRequest.completed)),
+        { discard: true },
+      )
+    }
+  })
+
+  const closeTurn: TurnUserInputRegistryService["closeTurn"] = Effect.fn(
+    "TurnUserInputRegistry.closeTurn",
+  )(function* (threadId, turnId, mode) {
+    const binding = turns.get(threadId)
+    if (binding === undefined || binding.turnId !== turnId) {
+      return
+    }
+    binding.accepting = false
+    if (mode !== "wait") {
+      for (const [requestId, pending] of binding.pending) {
+        yield* binding.emit({
+          _tag: mode === "detach" ? "user-input-detached" : "user-input-cancelled",
+          threadId,
+          requestId: ApprovalRequestId.make(requestId),
+        })
+        yield* Deferred.fail(
+          pending.answers,
+          new UserInputRequestClosed({
+            threadId,
+            requestId,
+            reason: mode === "detach" ? "detached" : "cancelled",
+          }),
+        )
       }
-      binding.pending.clear()
+    }
+    yield* awaitTurnIdle(threadId, turnId)
+  })
+
+  const unbindTurn: TurnUserInputRegistryService["unbindTurn"] = (threadId, turnId) =>
+    Effect.gen(function* () {
+      const binding = turns.get(threadId)
+      if (binding === undefined || binding.turnId !== turnId) {
+        return
+      }
+      yield* closeTurn(threadId, turnId, "detach")
+      if (turns.get(threadId) === binding) {
+        turns.delete(threadId)
+      }
     })
 
   return TurnUserInputRegistry.of({
@@ -130,7 +223,10 @@ export const makeTurnUserInputRegistry = Effect.sync(() => {
     unbindTurn,
     request,
     resolve,
-    cancelTurn,
+    reserve,
+    release,
+    awaitTurnIdle,
+    closeTurn,
   })
 })
 

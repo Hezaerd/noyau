@@ -387,7 +387,11 @@ for await (const line of lines) {
 
   if (message.method === "thread/read") {
     const requestedThreadId = message.params?.threadId ?? threadId
-    const latestTurn = latestTurns.get(requestedThreadId) ?? null
+    let latestTurn = latestTurns.get(requestedThreadId) ?? null
+    if (scenario === "pending-user-input-settlement" && latestTurn !== null) {
+      latestTurn = { ...latestTurn, status: "completed" }
+      latestTurns.set(requestedThreadId, latestTurn)
+    }
     const thread = makeThread(requestedThreadId)
     thread.status =
       latestTurn?.status === "inProgress" ? { type: "active", activeFlags: [] } : { type: "idle" }
@@ -408,11 +412,38 @@ for await (const line of lines) {
     const latestTurn = { id: turnId, items: [], status: "inProgress" }
     latestTurns.set(requestThreadId, latestTurn)
     respond(message.id, { turn: latestTurn })
+    if (scenario === "closed-user-input-response") {
+      write({
+        id: 9_001,
+        method: "item/tool/requestUserInput",
+        params: {
+          itemId: "closed-question-batch",
+          questions: [
+            {
+              header: "Runtime",
+              id: "runtime",
+              question: "Which runtime?",
+              options: [
+                { label: "Bun", description: "Use Bun" },
+                { label: "Node", description: "Use Node" },
+              ],
+            },
+          ],
+          threadId: requestThreadId,
+          turnId,
+        },
+      })
+      continue
+    }
     if (scenario === "exit-active") {
       shutdown("active-exit", 2)
       continue
     }
-    if (scenario !== "hang" && (scenario !== "hang-no-completion" || turnOrdinal > 1)) {
+    if (
+      scenario !== "hang" &&
+      scenario !== "pending-user-input-settlement" &&
+      (scenario !== "hang-no-completion" || turnOrdinal > 1)
+    ) {
       setTimeout(() => emitTurn(requestThreadId, turnId), 0)
     }
     continue

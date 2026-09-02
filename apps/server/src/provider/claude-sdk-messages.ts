@@ -1,5 +1,8 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk"
-import type { UserInputQuestion } from "@noyau/contracts/entities/approvals"
+import type {
+  ProviderUserInputAnswers,
+  UserInputQuestion,
+} from "@noyau/contracts/entities/approvals"
 import { Schema } from "effect"
 
 const SessionCarrier = Schema.Struct({
@@ -222,6 +225,27 @@ export const mapAskUserQuestions = (toolInput: unknown): ReadonlyArray<UserInput
       ? [Object.assign(mapped, { allowMultiple: true })]
       : [mapped]
   })
+}
+
+/**
+ * Claude's AskUserQuestion tool keys answers by question text and represents
+ * multi-select answers as a comma-separated string.
+ */
+export const mapAskUserAnswers = (
+  answers: ProviderUserInputAnswers,
+): Readonly<Record<string, string>> => {
+  const entries: Array<readonly [string, string]> = []
+  for (const [questionId, answer] of Object.entries(answers)) {
+    const values = [...answer.optionIds]
+    if (answer.freeform !== undefined) {
+      values.push(answer.freeform)
+    }
+    const value = values.join(", ")
+    if (value.length > 0) {
+      entries.push([questionId, value])
+    }
+  }
+  return Object.fromEntries(entries)
 }
 
 export const parseClaudeCliVersion = (output: string): string | null => {

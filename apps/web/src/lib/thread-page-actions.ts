@@ -28,6 +28,7 @@ import {
   makeThreadModelSelectionSetRequest,
   makeThreadTurnInterruptRequest,
   makeThreadTurnStartRequest,
+  makeUserInputContinueRequest,
   makeUserInputRespondRequest,
   seedTitleFromTurn,
 } from "./thread-commands"
@@ -316,3 +317,67 @@ export const respondToUserInput = (input: {
   readonly requestId: string
   readonly answers: ProviderUserInputAnswers
 }) => Effect.runPromise(respondToUserInputEffect(input))
+
+export const continueUserInputEffect = Effect.fn("continueUserInput")(function* (input: {
+  readonly threadId: ThreadId
+  readonly requestId: string
+  readonly answers: ProviderUserInputAnswers
+  readonly provider?: Provider
+  readonly runtimeMode: RuntimeMode
+  readonly modelSelection: ModelSelection | null
+  readonly prepareWorktree?: PrepareWorktree
+}) {
+  return yield* buildAndDispatch(
+    makeUserInputContinueRequest(
+      Object.assign(
+        {
+          threadId: input.threadId,
+          requestId: ApprovalRequestId.make(input.requestId),
+          answers: input.answers,
+          runtimeMode: input.runtimeMode,
+          modelSelection: input.modelSelection,
+        },
+        input.provider === undefined ? {} : { provider: input.provider },
+        input.prepareWorktree === undefined ? {} : { prepareWorktree: input.prepareWorktree },
+      ),
+    ),
+  )
+})
+
+export const continueUserInput = (input: {
+  readonly threadId: ThreadId
+  readonly requestId: string
+  readonly answers: ProviderUserInputAnswers
+  readonly provider?: Provider
+  readonly runtimeMode: RuntimeMode
+  readonly modelSelection: ModelSelection | null
+  readonly envMode?: ThreadEnvMode
+  readonly baseBranch?: string
+  readonly startFromOrigin?: boolean
+  readonly worktreePath?: string | null
+}) => {
+  const prepareWorktree = resolvePrepareWorktree(
+    Object.assign(
+      {},
+      input.envMode === undefined ? {} : { envMode: input.envMode },
+      input.worktreePath === undefined ? {} : { worktreePath: input.worktreePath },
+      input.baseBranch === undefined ? {} : { baseBranch: input.baseBranch },
+      input.startFromOrigin === undefined ? {} : { startFromOrigin: input.startFromOrigin },
+    ),
+  )
+  return Effect.runPromise(
+    continueUserInputEffect(
+      Object.assign(
+        {
+          threadId: input.threadId,
+          requestId: input.requestId,
+          answers: input.answers,
+          runtimeMode: input.runtimeMode,
+          modelSelection: input.modelSelection,
+        },
+        input.provider === undefined ? {} : { provider: input.provider },
+        prepareWorktree === undefined ? {} : { prepareWorktree },
+      ),
+    ),
+  )
+}

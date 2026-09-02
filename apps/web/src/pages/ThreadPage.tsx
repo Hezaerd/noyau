@@ -29,6 +29,7 @@ import {
   ResourceErrorState,
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
+import { AskQuestionToolbar } from "@/components/thread/AskQuestionToolbar"
 import { ComposerGitToolbar } from "@/components/thread/ComposerGitToolbar"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
@@ -38,8 +39,8 @@ import {
   ThreadTurnDiffPanel,
   type ThreadTurnDiffTarget,
 } from "@/components/thread/ThreadTurnDiffPanel"
-import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useAppAtomValue } from "@/hooks/use-app-atom"
+import { useAskQuestionDraft } from "@/hooks/use-ask-question-draft"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
 import {
   useProjects,
@@ -92,6 +93,7 @@ import {
 import { isDraftThreadView, resolveDraftLatestTurn } from "@/lib/draft-thread"
 import { presentFailure, type FailurePresentation } from "@/lib/failure-presentation"
 import { resolveDraftDefaultModelSelection } from "@/lib/model-picker-preferences"
+import { actionableUserInputForLatestTurn } from "@/lib/pending-user-input"
 import { makeProjectDefaultModelUpdateRequest } from "@/lib/project-commands"
 import {
   isProviderInstanceReady,
@@ -109,6 +111,7 @@ import { seedTitleFromTurn } from "@/lib/thread-commands"
 import { isForkComposerLocked } from "@/lib/thread-fork"
 import {
   interruptTurn as interruptTurnAction,
+  continueUserInput as continueUserInputAction,
   forkThread as forkThreadAction,
   respondToApproval as respondToApprovalAction,
   respondToUserInput as respondToUserInputAction,
@@ -242,8 +245,6 @@ export function ThreadPage({
   )
   const draftProviderRef = useRef(draftProvider)
   draftProviderRef.current = draftProvider
-  const [draftByRequest, setDraftByRequest] = useState<Record<string, DraftAnswers>>({})
-  const [legacyFreeformByRequest, setLegacyFreeformByRequest] = useState<Record<string, string>>({})
   const [optimisticSend, setOptimisticSendState] = useState<OptimisticSend | null>(() =>
     peekOptimisticSend(threadId),
   )
@@ -590,6 +591,20 @@ export function ThreadPage({
     send: optimisticSend,
   })
   const activeTurn = pageSnapshot?.session?.activeTurnId ?? pageSnapshot?.thread.latestTurn?.turnId
+  const pendingAskQuestion = useMemo(
+    () =>
+      actionableUserInputForLatestTurn({
+        transcript: pageSnapshot?.transcript ?? [],
+        latestTurn: pageSnapshot?.thread.latestTurn,
+      }),
+    [pageSnapshot],
+  )
+  const askQuestionDraft = useAskQuestionDraft({
+    projectId,
+    threadId,
+    request: pendingAskQuestion,
+    transcript: pageSnapshot?.transcript ?? [],
+  })
   const latestTurnCompletedAt = pageSnapshot?.thread.latestTurn?.completedAt
 
   useThreadVisitTracking(threadId, latestTurnCompletedAt)
@@ -1018,26 +1033,79 @@ export function ThreadPage({
     })
   }
 
-  const respondToUserInput = (requestId: string) => {
+  const respondToUserInput = (requestId: string): Promise<boolean> => {
     if (threadId === undefined) {
-      return
+      return Promise.resolve(false)
     }
-    const item = pageSnapshot?.transcript.find(
+    const currentSnapshot = getThreadSnapshot(threadId) ?? pageSnapshot
+    const item = currentSnapshot?.transcript.find(
       (candidate) =>
         candidate._tag === "transcript.user-input" && candidate.requestId === requestId,
     )
     if (item === undefined || item._tag !== "transcript.user-input") {
-      return
+      return Promise.resolve(false)
     }
     const answers = toProviderAnswers(
       item.questions,
-      draftByRequest[requestId] ?? {},
-      legacyFreeformByRequest[requestId] ?? "",
+      askQuestionDraft.value.answers,
+      askQuestionDraft.value.legacyFreeform,
     )
     if (Object.keys(answers).length === 0) {
-      return
+      return Promise.resolve(false)
     }
-    void respondToUserInputAction({ threadId, requestId, answers }).then((result) => {
+    if (item.status === "detached") {
+      if (
+        envMode === "worktree" &&
+        snapshotWorktreePath === null &&
+        (baseBranch === null || baseBranch.trim() === "")
+      ) {
+        setComposerFailure(
+          presentFailure(invalidInputFailure("Choose a base branch before continuing."), {
+            operation: "thread.turn.start",
+            scope: "field",
+            initiatedByUser: true,
+            hasUsableData: true,
+          }),
+        )
+        return Promise.resolve(false)
+      }
+      setComposerFailure(undefined)
+      setActionFailure(undefined)
+      writeOptimisticSend({ threadId, startedAtMs: Date.now() })
+      return continueUserInputAction(
+        Object.assign(
+          {
+            threadId,
+            requestId,
+            answers,
+            provider: selectedProvider,
+            runtimeMode,
+            modelSelection,
+            envMode,
+            startFromOrigin,
+            worktreePath: snapshotWorktreePath,
+          },
+          baseBranch === null ? {} : { baseBranch },
+        ),
+      ).then((result) => {
+        if (!result.ok) {
+          writeOptimisticSend(null)
+          setActionFailure(
+            presentFailure(result.failure, {
+              operation: "thread.turn.start",
+              scope: "action",
+              initiatedByUser: true,
+              hasUsableData: true,
+            }),
+          )
+        }
+        return result.ok
+      })
+    }
+    if (item.status !== "pending") {
+      return Promise.resolve(false)
+    }
+    return respondToUserInputAction({ threadId, requestId, answers }).then((result) => {
       if (!result.ok) {
         setActionFailure(
           presentFailure(result.failure, {
@@ -1050,7 +1118,7 @@ export function ThreadPage({
       } else {
         setActionFailure(undefined)
       }
-      return undefined
+      return result.ok
     })
   }
 
@@ -1164,6 +1232,29 @@ export function ThreadPage({
       skills={skills}
       contextUsage={pageSnapshot?.thread.contextUsage}
       toolbars={[
+        ...(pendingAskQuestion === undefined
+          ? []
+          : [
+              {
+                id: "composer-ask-question",
+                placement: "top" as const,
+                priority: "blocking" as const,
+                content: (
+                  <AskQuestionToolbar
+                    item={pendingAskQuestion}
+                    draft={askQuestionDraft.value.answers}
+                    legacyFreeform={askQuestionDraft.value.legacyFreeform}
+                    currentQuestionIndex={askQuestionDraft.value.currentQuestionIndex}
+                    onDraftChange={(_, draft) => askQuestionDraft.setAnswers(draft)}
+                    onLegacyFreeformChange={(_, value) => askQuestionDraft.setLegacyFreeform(value)}
+                    onCurrentQuestionIndexChange={(_, index) =>
+                      askQuestionDraft.setCurrentQuestionIndex(index)
+                    }
+                    onSubmit={respondToUserInput}
+                  />
+                ),
+              },
+            ]),
         {
           id: "composer-git",
           placement: "bottom",
@@ -1241,25 +1332,25 @@ export function ThreadPage({
                   />
                 ) : null
               }
-              draftByRequest={draftByRequest}
-              legacyFreeformByRequest={legacyFreeformByRequest}
-              onDraftAnswersChange={(requestId, draft) => {
-                setDraftByRequest((current) => ({
-                  ...current,
-                  [requestId]: draft,
-                }))
-              }}
-              onLegacyFreeformChange={(requestId, value) => {
-                setLegacyFreeformByRequest((current) => ({
-                  ...current,
-                  [requestId]: value,
-                }))
-              }}
+              draftByRequest={
+                pendingAskQuestion === undefined
+                  ? {}
+                  : { [pendingAskQuestion.requestId]: askQuestionDraft.value.answers }
+              }
+              legacyFreeformByRequest={
+                pendingAskQuestion === undefined
+                  ? {}
+                  : {
+                      [pendingAskQuestion.requestId]: askQuestionDraft.value.legacyFreeform,
+                    }
+              }
+              onDraftAnswersChange={(_, draft) => askQuestionDraft.setAnswers(draft)}
+              onLegacyFreeformChange={(_, value) => askQuestionDraft.setLegacyFreeform(value)}
               onRespondApproval={(requestId, decision) => {
                 respondToApproval(requestId, decision)
               }}
               onRespondUserInput={(requestId) => {
-                respondToUserInput(requestId)
+                void respondToUserInput(requestId)
               }}
               {...(threadId === undefined ? {} : { onForkTurn: forkTurn, forkPendingTurnId })}
               {...(threadId === undefined ? {} : { scrollerKey: threadId })}

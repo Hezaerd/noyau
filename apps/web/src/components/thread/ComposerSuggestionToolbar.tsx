@@ -2,6 +2,7 @@ import { SparklesIcon, TicketIcon } from "lucide-react"
 import { useLayoutEffect, useRef, useState } from "react"
 
 import { PierreEntryIcon } from "@/components/PierreEntryIcon"
+import { ComposerToolbarSurface } from "@/components/thread/ComposerToolbarSurface"
 import { composerPathListCanScrollDown } from "@/lib/composer-path-menu"
 import type { ComposerMentionEntry } from "@/lib/composer-tickets"
 import { basenameOfPath } from "@/lib/pierre-icons"
@@ -54,7 +55,7 @@ export function ComposerSuggestionToolbar({
   }, [entries, loading])
 
   return (
-    <div className="surface-glass absolute inset-x-6 bottom-full z-20 translate-y-px overflow-hidden rounded-t-xl border border-b-0">
+    <ComposerToolbarSurface>
       <ul
         ref={listRef}
         id={id}
@@ -168,6 +169,6 @@ export function ComposerSuggestionToolbar({
           className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-linear-to-t from-background/80 to-transparent"
         />
       ) : null}
-    </div>
+    </ComposerToolbarSurface>
   )
 }

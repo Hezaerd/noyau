@@ -9,6 +9,7 @@ import { FilePreviewFailed } from "@noyau/contracts/file-preview"
 import { ActorId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ProjectNotFound, ProjectUnavailable } from "@noyau/contracts/project/errors"
 import { WorkspaceRootNotFound } from "@noyau/contracts/project/errors"
+import { UserInputRequestNotFound } from "@noyau/contracts/thread/errors"
 import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import {
   ControlPlane,
@@ -785,6 +786,92 @@ describe("ControlPlane", () => {
         }
       }),
     ),
+  )
+
+  it.effect(
+    "rejects a live response with no registry callback and delivers one batched response",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const services = yield* Layer.build(
+            cursorControlPlaneTestLayer("pending-user-input-settlement"),
+          )
+          const controlPlane = yield* ControlPlane.pipe(Effect.provide(services))
+          yield* controlPlane.dispatch(
+            request({
+              _tag: "project.create",
+              commandId: uuid(81),
+              payload: { projectId, name: "Cursor questions", workspaceRoot: process.cwd() },
+            }),
+            actorId,
+          )
+          yield* controlPlane.dispatch(threadCreate, actorId)
+          const started = yield* controlPlane.dispatch(
+            request({
+              _tag: "thread.turn.start",
+              commandId: uuid(82),
+              payload: { threadId, text: "Ask questions" },
+            }),
+            actorId,
+          )
+          const pending = yield* controlPlane
+            .subscribeThread({ threadId, afterSequence: started.sequence })
+            .pipe(
+              Stream.filter(
+                (frame) =>
+                  frame.kind === "event" &&
+                  frame.event.event._tag === "thread.transcript-appended" &&
+                  frame.event.event.item._tag === "transcript.user-input" &&
+                  frame.event.event.item.status === "pending",
+              ),
+              Stream.runHead,
+            )
+          assert.isTrue(Option.isSome(pending))
+
+          const missing = yield* controlPlane
+            .dispatch(
+              request({
+                _tag: "user-input.respond",
+                commandId: uuid(83),
+                payload: {
+                  threadId,
+                  requestId: "missing-question",
+                  answers: { runtime: { optionIds: ["bun"] } },
+                },
+              }),
+              actorId,
+            )
+            .pipe(Effect.flip)
+          assert.instanceOf(missing, UserInputRequestNotFound)
+
+          yield* controlPlane.dispatch(
+            request({
+              _tag: "user-input.respond",
+              commandId: uuid(84),
+              payload: {
+                threadId,
+                requestId: "cursor-question-batch",
+                answers: {
+                  runtime: { optionIds: ["bun"] },
+                  clients: { optionIds: ["web", "desktop"] },
+                },
+              },
+            }),
+            actorId,
+          )
+          yield* controlPlane.drainReactors
+          const snapshot = yield* controlPlane
+            .subscribeThread({ threadId })
+            .pipe(Stream.take(1), Stream.runHead)
+          assert.isTrue(Option.isSome(snapshot))
+          if (Option.isSome(snapshot) && snapshot.value.kind === "snapshot") {
+            const input = snapshot.value.snapshot.transcript.find(
+              (item) => item._tag === "transcript.user-input",
+            )
+            assert.deepInclude(input, { status: "resolved" })
+          }
+        }),
+      ),
   )
 
   it.effect("durably projects Cursor rupture as Session and latestTurn error", () =>
