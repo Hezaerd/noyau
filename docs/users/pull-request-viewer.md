@@ -12,6 +12,8 @@ On a Thread that already has a pull request:
 
 The tab shows the pull request for that Thread. If the Thread has none yet, the tab stays empty.
 
+Press **Mod+Shift+C** on a Thread with an open pull request to copy its GitHub link. Noyau shows a **PR link copied** confirmation with the copied URL. You can also choose **Copy pull request link** in the Palette. The shortcut is available in Settings → Keybindings.
+
 ## Status and automatic settling
 
 Noyau refreshes local Git status every 30 seconds. GitHub pull-request metadata is refreshed at most once every two minutes per worktree and branch, so a faster status refresh does not create a matching increase in GitHub requests.

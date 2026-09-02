@@ -2,6 +2,7 @@ import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import {
   CircleCheckIcon,
   CircleDotIcon,
+  CopyIcon,
   GitPullRequestIcon,
   GlobeIcon,
   PanelBottomCloseIcon,
@@ -26,6 +27,7 @@ import { useKeybinding } from "@/hooks/use-keybindings"
 import { useNowMinuteMs } from "@/hooks/use-now-minute"
 import { useProjectPullRequests } from "@/hooks/use-sidebar-queues"
 import { useAutoSettleAfterDays } from "@/hooks/use-thread-settle-preference"
+import { copyPullRequestLink } from "@/lib/pull-request-actions"
 import { dispatchThreadSettle } from "@/lib/thread-settle-actions"
 import { effectiveSettled } from "@/lib/thread-settled"
 import { dispatchThreadTitleRegenerate } from "@/lib/thread-title-actions"
@@ -92,10 +94,13 @@ function ThreadHeaderPalette({
   const workspacePanelHotkey = useKeybinding("thread.workspace-panel.toggle")
   const workspaceBrowserHotkey = useKeybinding("thread.workspace-browser.open")
   const workspacePrHotkey = useKeybinding("thread.workspace-pr.open")
+  const copyWorkspacePrHotkey = useKeybinding("thread.workspace-pr.copy-link")
   const composerOpen = useAppAtomValue(threadComposerOpenAtom(threadId))
   const workspacePanel = useAppAtomValue(workspacePanelAtom(threadId))
   const changeRequestState =
     thread === undefined ? null : (pullRequests.get(thread.id)?.state ?? null)
+  const threadPullRequest = thread === undefined ? undefined : pullRequests.get(thread.id)
+  const openPullRequest = threadPullRequest?.state !== "open" ? null : threadPullRequest
   const settled =
     thread === undefined
       ? false
@@ -173,6 +178,16 @@ function ThreadHeaderPalette({
           },
         },
       )
+      if (openPullRequest !== null) {
+        actions.push({
+          id: "thread.workspace-pr.copy-link",
+          label: "Copy pull request link",
+          searchValue: "Copy pull request PR link URL clipboard GitHub",
+          shortcut: copyWorkspacePrHotkey,
+          icon: <CopyIcon />,
+          execute: () => copyPullRequestLink(openPullRequest.url),
+        })
+      }
     }
     return actions
   }, [
@@ -184,6 +199,8 @@ function ThreadHeaderPalette({
     thread,
     workspaceBrowserHotkey,
     workspacePrHotkey,
+    copyWorkspacePrHotkey,
+    openPullRequest,
     workspacePanel.open,
     workspacePanelHotkey,
     pullRequests,
@@ -198,6 +215,15 @@ function ThreadHeaderPalette({
       }
     },
     thread !== undefined && !disabled,
+  )
+  useKeybindingHandler(
+    "thread.workspace-pr.copy-link",
+    () => {
+      if (openPullRequest !== null) {
+        void copyPullRequestLink(openPullRequest.url)
+      }
+    },
+    !disabled && openPullRequest !== null,
   )
   return null
 }
