@@ -15,12 +15,14 @@ export function ThreadMessageMeta({
   copyText,
   onFork,
   forkPending = false,
+  forkDisabled = false,
 }: {
   readonly align: "start" | "end"
   readonly at?: DateTime.Utc | undefined
   readonly copyText?: string | undefined
   readonly onFork?: (() => void) | undefined
   readonly forkPending?: boolean
+  readonly forkDisabled?: boolean
 }) {
   const hasCopy = copyText !== undefined && copyText.length > 0
   if (at === undefined && !hasCopy && onFork === undefined) {
@@ -38,7 +40,9 @@ export function ThreadMessageMeta({
     )
   const copy = hasCopy ? <MessageCopyButton text={copyText} /> : null
   const fork =
-    onFork === undefined ? null : <MessageForkButton onFork={onFork} pending={forkPending} />
+    onFork === undefined ? null : (
+      <MessageForkButton onFork={onFork} pending={forkPending} disabled={forkDisabled} />
+    )
 
   return (
     <MessageFooter className="-mt-1.5 gap-2 px-1 font-normal opacity-0 transition-opacity duration-200 group-focus-within/message:opacity-100 group-hover/message:opacity-100">

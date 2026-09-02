@@ -306,7 +306,11 @@ export function ThreadTranscript({
                   row.item._tag !== "transcript.assistant" ||
                   lastAssistantByTurn.get(row.item.turnId) !== row.index
                     ? {}
-                    : { onFork: onForkTurn, forkPending: row.item.turnId === forkPendingTurnId })}
+                    : {
+                        onFork: onForkTurn,
+                        forkPending: row.item.turnId === forkPendingTurnId,
+                        forkDisabled: forkPendingTurnId !== undefined,
+                      })}
                   {...(tickets === undefined ? {} : { tickets })}
                   {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
                 />

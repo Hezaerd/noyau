@@ -6,9 +6,11 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 export function MessageForkButton({
   onFork,
   pending = false,
+  disabled = false,
 }: {
   readonly onFork: () => void
   readonly pending?: boolean
+  readonly disabled?: boolean
 }) {
   const label = pending ? "Forking response" : "Fork from this response"
   return (
@@ -19,7 +21,7 @@ export function MessageForkButton({
             variant="ghost"
             size="icon-xs"
             aria-label={label}
-            disabled={pending}
+            disabled={pending || disabled}
             onClick={onFork}
           />
         }

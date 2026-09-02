@@ -24,28 +24,32 @@ const sourceThreadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const destinationThreadId = ThreadId.make("20000000-0000-4000-8000-000000000002")
 const sourceTurnId = TurnId.make("40000000-0000-4000-8000-000000000001")
 const destinationTurnId = TurnId.make("40000000-0000-4000-8000-000000000002")
+const secondDestinationTurnId = TurnId.make("40000000-0000-4000-8000-000000000003")
 
 const item = (threadId: ThreadId, turnId: TurnId, text: string) =>
   Schema.decodeSync(TranscriptItem)({ _tag: "transcript.user", threadId, turnId, text })
 
-const assistantItem = (text: string) =>
+const assistantItem = (turnId: TurnId, text: string) =>
   Schema.decodeSync(TranscriptItem)({
     _tag: "transcript.assistant",
     threadId: destinationThreadId,
-    turnId: destinationTurnId,
+    turnId,
     text,
   })
 
-const completedTurn = Schema.decodeSync(Turn)({
-  id: destinationTurnId,
-  threadId: destinationThreadId,
-  ordinal: 1,
-  state: "completed",
-  requestedAt: "2026-08-25T16:54:00.000Z",
-  startedAt: "2026-08-25T16:54:00.000Z",
-  completedAt: "2026-08-25T16:55:00.000Z",
-  providerForkPoint: { schemaVersion: 1, boundaryId: "provider-final-assistant-message" },
-})
+const completedTurn = (turnId: TurnId) =>
+  Schema.decodeSync(Turn)({
+    id: turnId,
+    threadId: destinationThreadId,
+    ordinal: 1,
+    state: "completed",
+    requestedAt: "2026-08-25T16:54:00.000Z",
+    startedAt: "2026-08-25T16:54:00.000Z",
+    completedAt: "2026-08-25T16:55:00.000Z",
+    providerForkPoint: { schemaVersion: 1, boundaryId: "provider-final-assistant-message" },
+  })
+
+const destinationCompletedTurn = completedTurn(destinationTurnId)
 
 describe("forked Thread transcript", () => {
   it("renders inherited conversation before the destination transcript", () => {
@@ -82,11 +86,11 @@ describe("forked Thread transcript", () => {
     render(
       <ThreadTranscript
         transcript={[
-          assistantItem("First response bubble"),
-          assistantItem("Final response bubble"),
+          assistantItem(destinationTurnId, "First response bubble"),
+          assistantItem(destinationTurnId, "Final response bubble"),
         ]}
         isRunning={false}
-        turns={[completedTurn]}
+        turns={[destinationCompletedTurn]}
         loading={false}
         error={undefined}
         notices={null}
@@ -112,16 +116,16 @@ describe("forked Thread transcript", () => {
     })
     render(
       <ThreadTranscript
-        transcript={[assistantItem("Final response")]}
+        transcript={[assistantItem(destinationTurnId, "Final response")]}
         isRunning={false}
         latestTurn={{
           turnId: destinationTurnId,
           state: "completed",
-          requestedAt: completedTurn.requestedAt,
-          startedAt: completedTurn.startedAt,
-          completedAt: completedTurn.completedAt,
+          requestedAt: destinationCompletedTurn.requestedAt,
+          startedAt: destinationCompletedTurn.startedAt,
+          completedAt: destinationCompletedTurn.completedAt,
         }}
-        turns={[completedTurn]}
+        turns={[destinationCompletedTurn]}
         loading={false}
         error={undefined}
         notices={null}
@@ -138,5 +142,39 @@ describe("forked Thread transcript", () => {
 
     expect(screen.getByRole("button", { name: "Fork from this response" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Copy message" })).toBeTruthy()
+  })
+
+  it("disables every fork action while a fork request is pending", () => {
+    render(
+      <ThreadTranscript
+        transcript={[
+          assistantItem(destinationTurnId, "First response"),
+          assistantItem(secondDestinationTurnId, "Second response"),
+        ]}
+        isRunning={false}
+        turns={[destinationCompletedTurn, completedTurn(secondDestinationTurnId)]}
+        loading={false}
+        error={undefined}
+        notices={null}
+        projectId={projectId}
+        draftByRequest={{}}
+        legacyFreeformByRequest={{}}
+        onDraftAnswersChange={() => undefined}
+        onLegacyFreeformChange={() => undefined}
+        onRespondApproval={() => undefined}
+        onRespondUserInput={() => undefined}
+        onForkTurn={() => undefined}
+        forkPendingTurnId={destinationTurnId}
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: "Forking response" })).toHaveProperty(
+      "disabled",
+      true,
+    )
+    expect(screen.getByRole("button", { name: "Fork from this response" })).toHaveProperty(
+      "disabled",
+      true,
+    )
   })
 })

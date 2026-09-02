@@ -278,6 +278,7 @@ export function ThreadPage({
   const [followLatestKey, setFollowLatestKey] = useState(0)
   const [turnDiffTarget, setTurnDiffTarget] = useState<ThreadTurnDiffTarget | null>(null)
   const [forkPendingTurnId, setForkPendingTurnId] = useState<string>()
+  const forkPendingTurnIdRef = useRef<string | undefined>(undefined)
   const composerDockRef = useRef<HTMLDivElement>(null)
   const [composerDockHeight, setComposerDockHeight] = useState(208)
   const composerOpenById = useAppAtomValue(threadComposerOpenByIdAtom)
@@ -823,17 +824,19 @@ export function ThreadPage({
   }
 
   const forkTurn = (sourceTurnId: string) => {
-    if (threadId === undefined) {
+    if (threadId === undefined || forkPendingTurnIdRef.current !== undefined) {
       return
     }
     const sourceTurn = pageSnapshot?.turns.find((turn) => turn.id === sourceTurnId)
     if (sourceTurn?.state !== "completed" || sourceTurn.providerForkPoint === undefined) {
       return
     }
+    forkPendingTurnIdRef.current = sourceTurnId
     setForkPendingTurnId(sourceTurnId)
     setActionFailure(undefined)
     void forkThreadAction({ sourceThreadId: threadId, sourceTurnId: sourceTurn.id }).then(
       (result) => {
+        forkPendingTurnIdRef.current = undefined
         setForkPendingTurnId(undefined)
         if (result.kind === "error") {
           setActionFailure(
@@ -875,7 +878,13 @@ export function ThreadPage({
   }
 
   const submitPresentedTurn = (presentation: TurnPresentation, prompt: string) => {
-    if (threadId === undefined || isRunning || project?.available !== true || !providerReady) {
+    if (
+      threadId === undefined ||
+      isRunning ||
+      project?.available !== true ||
+      !providerReady ||
+      forkComposerLocked
+    ) {
       return
     }
     setComposerFailure(undefined)
@@ -1266,7 +1275,11 @@ export function ThreadPage({
             {conflictingPr === null ? null : (
               <FixMergeConflictsButton
                 disabled={
-                  awaitingThread || project?.available !== true || !providerReady || isRunning
+                  awaitingThread ||
+                  project?.available !== true ||
+                  !providerReady ||
+                  isRunning ||
+                  forkComposerLocked
                 }
                 onClick={submitFixMergeConflicts}
               />
@@ -1274,7 +1287,11 @@ export function ThreadPage({
             {failingCiPr === null ? null : (
               <FixCiButton
                 disabled={
-                  awaitingThread || project?.available !== true || !providerReady || isRunning
+                  awaitingThread ||
+                  project?.available !== true ||
+                  !providerReady ||
+                  isRunning ||
+                  forkComposerLocked
                 }
                 onClick={submitFixCi}
               />

@@ -76,6 +76,7 @@ function LiveAssistantMessage({
   isLatestTurn,
   onFork,
   forkPending,
+  forkDisabled,
 }: {
   readonly item: Extract<TranscriptItem, { readonly _tag: "transcript.assistant" }>
   readonly streaming: boolean
@@ -92,6 +93,7 @@ function LiveAssistantMessage({
   readonly isLatestTurn?: boolean
   readonly onFork?: ((turnId: string) => void) | undefined
   readonly forkPending?: boolean
+  readonly forkDisabled?: boolean
 }) {
   const paintedText = useAssistantPaint(
     item.text,
@@ -134,7 +136,7 @@ function LiveAssistantMessage({
           turn?.state !== "completed" ||
           turn.providerForkPoint === undefined
             ? {}
-            : { onFork: () => onFork(item.turnId), forkPending })}
+            : { onFork: () => onFork(item.turnId), forkPending, forkDisabled })}
         />
       </MessageContent>
     </Message>
@@ -162,6 +164,7 @@ function ThreadTranscriptItemImpl({
   planActive = false,
   onFork,
   forkPending,
+  forkDisabled,
 }: {
   readonly item: TranscriptItem
   readonly streaming: boolean
@@ -175,6 +178,7 @@ function ThreadTranscriptItemImpl({
   readonly planActive?: boolean
   readonly onFork?: ((turnId: string) => void) | undefined
   readonly forkPending?: boolean
+  readonly forkDisabled?: boolean
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
@@ -243,7 +247,7 @@ function ThreadTranscriptItemImpl({
         turnDiff={turnDiff}
         onOpenTurnDiff={onOpenTurnDiff}
         {...(isLatestTurn === undefined ? {} : { isLatestTurn })}
-        {...(onFork === undefined ? {} : { onFork, forkPending })}
+        {...(onFork === undefined ? {} : { onFork, forkPending, forkDisabled })}
       />
     )
   }
