@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import type { VcsStatusPullRequest } from "@noyau/contracts/git"
 import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
@@ -14,12 +15,18 @@ import {
   appAtomRegistry,
   resetAppAtomRegistryForTests,
 } from "../src/state/atom-registry"
+import {
+  invokeKeybindingHandler,
+  resetKeybindingHandlersForTests,
+} from "../src/state/keybinding-handlers"
 import { nowMinuteAtom } from "../src/state/now"
 import { replaceAppliedShell, resetAppliedShell } from "../src/state/shell"
+import { replaceProjectPullRequests } from "../src/state/sidebar"
 import { encodedTestEnvironment } from "./encoded-environment"
 
 const dispatchThreadSettle = vi.hoisted(() => vi.fn())
 const dispatchThreadTitleRegenerate = vi.hoisted(() => vi.fn())
+const copyPullRequestLink = vi.hoisted(() => vi.fn())
 
 vi.mock("../src/lib/thread-settle-actions", () => ({
   dispatchThreadSettle,
@@ -27,6 +34,10 @@ vi.mock("../src/lib/thread-settle-actions", () => ({
 
 vi.mock("../src/lib/thread-title-actions", () => ({
   dispatchThreadTitleRegenerate,
+}))
+
+vi.mock("../src/lib/pull-request-actions", () => ({
+  copyPullRequestLink,
 }))
 
 vi.mock("../src/components/thread/OpenInPicker", () => ({
@@ -84,6 +95,19 @@ const makeThread = (extra: Partial<(typeof ThreadShell)["Encoded"]> = {}): Threa
     ...extra,
   })
 
+const makePullRequest = (extra: Partial<VcsStatusPullRequest> = {}): VcsStatusPullRequest => ({
+  number: 5,
+  title: "Copy the PR link",
+  url: "https://github.com/hezaerd/noyau/pull/5",
+  baseRef: "main",
+  headRef: "feature/copy-pr-link",
+  state: "open",
+  mergeability: "mergeable",
+  ciStatus: "passing",
+  failedChecks: [],
+  ...extra,
+})
+
 const nowMs = Date.parse("2026-08-25T12:00:00.000Z")
 const registeredPaletteActions: AppPaletteAction[] = []
 const paletteValue = {
@@ -112,9 +136,11 @@ afterEach(() => {
   cleanup()
   resetAppAtomRegistryForTests()
   resetAppliedShell()
+  resetKeybindingHandlersForTests()
   registeredPaletteActions.length = 0
   dispatchThreadSettle.mockClear()
   dispatchThreadTitleRegenerate.mockClear()
+  copyPullRequestLink.mockClear()
 })
 
 describe("ThreadHeaderActions", () => {
@@ -190,6 +216,32 @@ describe("ThreadHeaderActions", () => {
     expect(regenerate?.label).toBe("Regenerate title")
     void regenerate?.execute()
     expect(dispatchThreadTitleRegenerate).toHaveBeenCalledWith(thread.id)
+  })
+
+  it("copies the link of an open pull request from the shortcut and Palette", () => {
+    const pullRequest = makePullRequest()
+    replaceProjectPullRequests(projectId, new Map([[threadId, pullRequest]]))
+    renderHeader(makeThread())
+
+    const copy = registeredPaletteActions.find(
+      (action) => action.id === "thread.workspace-pr.copy-link",
+    )
+    expect(copy?.label).toBe("Copy pull request link")
+    expect(copy?.shortcut).toBe("Mod+Shift+C")
+    expect(invokeKeybindingHandler("thread.workspace-pr.copy-link")).toBe(true)
+    void copy?.execute()
+    expect(copyPullRequestLink).toHaveBeenCalledTimes(2)
+    expect(copyPullRequestLink).toHaveBeenLastCalledWith(pullRequest.url)
+  })
+
+  it("does not offer or register the copy shortcut without an open pull request", () => {
+    renderHeader(makeThread())
+
+    expect(
+      registeredPaletteActions.find((action) => action.id === "thread.workspace-pr.copy-link"),
+    ).toBeUndefined()
+    expect(invokeKeybindingHandler("thread.workspace-pr.copy-link")).toBe(false)
+    expect(copyPullRequestLink).not.toHaveBeenCalled()
   })
 
   it("omits title regeneration from the palette before the first Turn", () => {

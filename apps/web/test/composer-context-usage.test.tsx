@@ -3,6 +3,7 @@
 import type { CursorModel } from "@noyau/contracts/entities/environment"
 import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { cleanup, render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
@@ -55,25 +56,47 @@ const renderComposer = (contextUsage?: { readonly used: number; readonly window:
 describe("composer context usage", () => {
   it("hides the ring until a provider reports fill", () => {
     renderComposer()
-    expect(screen.queryByRole("meter", { name: /Context / })).toBeNull()
+    expect(screen.queryByRole("button", { name: /Context window/ })).toBeNull()
   })
 
   it("shows the last-known fill next to Send", () => {
     renderComposer({ used: 12400, window: 200000 })
-    const meter = screen.getByRole("meter", { name: "Context 12.4k / 200k" })
-    expect(meter).toBeTruthy()
-    expect(meter.getAttribute("aria-valuenow")).toBe("12400")
-    expect(meter.getAttribute("aria-valuemax")).toBe("200000")
-    expect(meter.getAttribute("aria-valuetext")).toBe("12.4k / 200k")
-    expect(meter.getAttribute("tabindex")).toBe("0")
+    const trigger = screen.getByRole("button", { name: "Context window 6.2% used" })
+    expect(trigger).toBeTruthy()
     expect(screen.getByRole("button", { name: "Send" })).toBeTruthy()
   })
 
-  it("keeps the meter value inside the window when usage overflows", () => {
+  it("opens details with percentage, usage, remaining tokens, and a bounded progress bar", async () => {
+    renderComposer({ used: 12400, window: 200000 })
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Context window 6.2% used" }))
+
+    expect(screen.getByText("Context window")).toBeTruthy()
+    expect(screen.getByText("6.2%", { exact: false })).toBeTruthy()
+    expect(screen.getByText("12.4k / 200k")).toBeTruthy()
+    expect(screen.getByText("188k")).toBeTruthy()
+    expect(
+      screen
+        .getByRole("progressbar", { name: "Context window usage" })
+        .getAttribute("aria-valuenow"),
+    ).toBe("6.2")
+    expect(
+      screen
+        .getByRole("progressbar", { name: "Context window usage" })
+        .getAttribute("aria-valuetext"),
+    ).toBe("6.2%")
+  })
+
+  it("keeps the ring and progress bar bounded when usage overflows", async () => {
     renderComposer({ used: 250000, window: 200000 })
-    const meter = screen.getByRole("meter", { name: "Context 250k / 200k" })
-    expect(meter.getAttribute("aria-valuenow")).toBe("200000")
-    expect(meter.getAttribute("aria-valuemax")).toBe("200000")
-    expect(meter.getAttribute("aria-valuetext")).toBe("250k / 200k")
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: "Context window 100% used" }))
+
+    expect(
+      screen
+        .getByRole("progressbar", { name: "Context window usage" })
+        .getAttribute("aria-valuenow"),
+    ).toBe("100")
+    expect(screen.getByText("0")).toBeTruthy()
   })
 })

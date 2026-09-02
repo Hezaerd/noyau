@@ -12,6 +12,7 @@ export const KEYBINDING_IDS = [
   "thread.workspace-panel.toggle",
   "thread.workspace-browser.open",
   "thread.workspace-pr.open",
+  "thread.workspace-pr.copy-link",
   "thread.model-picker.open",
   "thread.composer.toggle",
   "board.search",
@@ -146,6 +147,14 @@ export const KEYBINDINGS: ReadonlyArray<KeybindingDefinition> = [
     title: "Open pull request",
     description: "Open the Pull request tab in the Thread workspace panel.",
     defaultHotkey: "mod+shift+p",
+    when: "thread && !dialogOpen && !commandPaletteOpen",
+  },
+  {
+    id: "thread.workspace-pr.copy-link",
+    group: "thread",
+    title: "Copy pull request link",
+    description: "Copy the open pull request link to the clipboard.",
+    defaultHotkey: "mod+shift+c",
     when: "thread && !dialogOpen && !commandPaletteOpen",
   },
   {

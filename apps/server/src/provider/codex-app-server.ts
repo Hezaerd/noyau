@@ -28,7 +28,19 @@ import type {
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/contracts/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { ThreadLive, threadLiveLayer } from "@noyau/server/thread-live"
-import { Data, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path, Scope } from "effect"
+import {
+  Data,
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Scope,
+} from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import { takeBufferedAssistantSpill } from "./assistant-delivery.ts"
@@ -69,6 +81,7 @@ export interface CodexAdapterOptions {
   readonly binaryArgs?: ReadonlyArray<string>
   readonly environment?: NodeJS.ProcessEnv
   readonly platform?: NodeJS.Platform
+  readonly turnReconcileInterval?: Duration.Input
 }
 
 interface PendingApproval {
@@ -102,6 +115,7 @@ interface ActiveTurn {
   providerTurnId?: string
   pendingContextUsage: ContextUsage | undefined
   contextUsageFiber: Fiber.Fiber<void> | undefined
+  turnReconcileFiber: Fiber.Fiber<void> | undefined
   mcpActivated: boolean
   cancelRequested: boolean
   stopRequested: boolean
@@ -544,6 +558,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     options.binaryPath ??
     instanceConfigBinaryPath(options.instanceConfig)
   const binaryArgs = options.binaryArgs ?? []
+  const turnReconcileInterval = options.turnReconcileInterval ?? Duration.minutes(2)
   const active = new Map<string, ActiveTurn>()
   const queued = new Map<string, ActiveTurn>()
   const sessions = new Map<string, CodexSession>()
@@ -919,6 +934,11 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       return
     }
     control.terminalEmitted = true
+    const turnReconcileFiber = control.turnReconcileFiber
+    control.turnReconcileFiber = undefined
+    if (turnReconcileFiber !== undefined) {
+      yield* Fiber.interrupt(turnReconcileFiber).pipe(Effect.ignore)
+    }
     const contextUsageFiber = control.contextUsageFiber
     if (contextUsageFiber !== undefined) {
       yield* Fiber.interrupt(contextUsageFiber).pipe(Effect.ignore)
@@ -959,6 +979,48 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     )
     yield* userInputs.unbindTurn(control.input.threadId)
   })
+
+  /** Recover when app-server reaches idle but drops the terminal Turn notification. */
+  const scheduleTurnReconciliation: (
+    session: CodexSession,
+    control: ActiveTurn,
+  ) => Effect.Effect<void> = Effect.fn("CodexAdapter.scheduleTurnReconciliation")(
+    function* (session, control) {
+      if (control.terminalEmitted || control.turnReconcileFiber !== undefined) {
+        return
+      }
+      const fiber = yield* Effect.sleep(turnReconcileInterval).pipe(
+        Effect.andThen(
+          Effect.gen(function* () {
+            control.turnReconcileFiber = undefined
+            if (control.terminalEmitted || session.activeTurn !== control) {
+              return
+            }
+            const read = yield* codexCall(
+              session.client.request("thread/read", {
+                threadId: session.providerThreadId,
+              }),
+            ).pipe(Effect.timeout("5 seconds"), Effect.option)
+            if (Option.isNone(read) || control.terminalEmitted) {
+              yield* scheduleTurnReconciliation(session, control)
+              return
+            }
+            if (read.value.thread.status.type === "idle") {
+              yield* settleTurn(control, "completed")
+              return
+            }
+            if (read.value.thread.status.type === "systemError") {
+              yield* settleTurn(control, "failed", "Codex entered a system error state")
+              return
+            }
+            yield* scheduleTurnReconciliation(session, control)
+          }),
+        ),
+        Effect.forkIn(session.scope),
+      )
+      control.turnReconcileFiber = fiber
+    },
+  )
 
   const requestTurnInterrupt = (
     session: CodexSession,
@@ -1165,6 +1227,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       status: "running",
       resumeCursor: session.resumeCursor,
     })
+    yield* scheduleTurnReconciliation(session, control)
     yield* Deferred.await(control.promptSettled)
   })
 
@@ -1183,6 +1246,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       flushedAssistantText: "",
       pendingContextUsage: undefined,
       contextUsageFiber: undefined,
+      turnReconcileFiber: undefined,
       mcpActivated: false,
       cancelRequested: false,
       stopRequested: false,

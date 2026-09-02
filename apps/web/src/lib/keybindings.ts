@@ -49,6 +49,7 @@ export interface ResolvedKeybindings {
   readonly "thread.workspace-panel.toggle": string
   readonly "thread.workspace-browser.open": string
   readonly "thread.workspace-pr.open": string
+  readonly "thread.workspace-pr.copy-link": string
   readonly "thread.model-picker.open": string
   readonly "thread.composer.toggle": string
   readonly "board.search": string
@@ -500,6 +501,12 @@ export const resolveKeybindings = (
     "thread.workspace-pr.open": tanstackLabelForCommand(
       merged,
       "thread.workspace-pr.open",
+      context,
+      platform,
+    ),
+    "thread.workspace-pr.copy-link": tanstackLabelForCommand(
+      merged,
+      "thread.workspace-pr.copy-link",
       context,
       platform,
     ),

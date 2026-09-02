@@ -1,5 +1,4 @@
 import type { SessionStatus } from "@noyau/contracts/entities/session"
-import type { ThreadStatus } from "@noyau/contracts/entities/thread"
 import type { LatestTurn } from "@noyau/contracts/entities/turn"
 import type { ThreadId } from "@noyau/contracts/ids"
 import { DateTime } from "effect"
@@ -256,32 +255,6 @@ export const resolveThreadActivity = (input: {
     return { kind: "completed", label: "Done" }
   }
   return null
-}
-
-export const countWaitingThreads = (
-  threads: ReadonlyArray<{
-    readonly id: ThreadId
-    readonly status: ThreadStatus
-    readonly sessionStatus: SessionStatus | null
-    readonly latestTurn: LatestTurn | null
-  }>,
-  lastVisitedAtMsOf: (threadId: ThreadId) => number | undefined,
-): number => {
-  let count = 0
-  for (const thread of threads) {
-    if (thread.status !== "active") {
-      continue
-    }
-    if (
-      hasUnseenCompletion({
-        completedAt: thread.latestTurn?.completedAt,
-        lastVisitedAtMs: lastVisitedAtMsOf(thread.id),
-      })
-    ) {
-      count += 1
-    }
-  }
-  return count
 }
 
 export const settledTranscriptLabel = (

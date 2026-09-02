@@ -57,7 +57,7 @@ export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
             isActive={isActive}
             aria-label={title}
             {...(menuOpen ? {} : { tooltip: title })}
-            className="group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+            className="group/thread-item h-auto min-h-16 items-start py-2 font-normal text-sidebar-foreground/58 data-[active=true]:font-normal [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span
@@ -78,7 +78,12 @@ export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
                   Draft
                 </span>
               </span>
-              <span className="min-w-0 truncate">{title}</span>
+              <span
+                data-slot="thread-sidebar-title"
+                className="min-w-0 truncate font-normal group-data-[active=true]/thread-item:text-sidebar-accent-foreground"
+              >
+                {title}
+              </span>
             </span>
           </SidebarMenuButton>
         </ContextMenuTrigger>

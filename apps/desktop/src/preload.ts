@@ -1,14 +1,5 @@
-import { Option } from "effect"
 import { contextBridge, ipcRenderer } from "electron"
 
-import {
-  decodeOpenThreadFromNotificationOption,
-  OPEN_THREAD_FROM_NOTIFICATION_CHANNEL,
-  SET_BADGE_COUNT_CHANNEL,
-  SHOW_TURN_NOTIFICATION_CHANNEL,
-  type OpenThreadFromNotification,
-  type TurnNotification,
-} from "./attention-contract"
 import {
   CHECK_DESKTOP_UPDATE_CHANNEL,
   OPEN_DESKTOP_INSTALLER_CHANNEL,
@@ -35,11 +26,6 @@ export interface NoyauDesktopBridge {
   readonly openDesktopInstaller: (
     channel?: DesktopUpdatePackagedChannel,
   ) => Promise<DesktopUpdateOpenResult>
-  readonly setBadgeCount: (count: number) => Promise<void>
-  readonly showTurnNotification: (input: TurnNotification) => Promise<void>
-  readonly onOpenThreadFromNotification: (
-    listener: (input: OpenThreadFromNotification) => void,
-  ) => () => void
 }
 
 const bootstrap = readPreloadBootstrapFromArgv(process.argv)
@@ -59,25 +45,6 @@ const desktopBridge: NoyauDesktopBridge = Object.freeze({
     channel?: DesktopUpdatePackagedChannel,
   ): Promise<DesktopUpdateOpenResult> =>
     ipcRenderer.invoke(OPEN_DESKTOP_INSTALLER_CHANNEL, channel === undefined ? {} : { channel }),
-  setBadgeCount: (count: number): Promise<void> =>
-    ipcRenderer.invoke(SET_BADGE_COUNT_CHANNEL, count).then(() => undefined),
-  showTurnNotification: (input: TurnNotification): Promise<void> =>
-    ipcRenderer.invoke(SHOW_TURN_NOTIFICATION_CHANNEL, input).then(() => undefined),
-  onOpenThreadFromNotification: (
-    listener: (input: OpenThreadFromNotification) => void,
-  ): (() => void) => {
-    const handler: Parameters<typeof ipcRenderer.on>[1] = (_event, payload) => {
-      const parsed = Option.getOrUndefined(decodeOpenThreadFromNotificationOption(payload))
-      if (parsed === undefined) {
-        return
-      }
-      listener(parsed)
-    }
-    ipcRenderer.on(OPEN_THREAD_FROM_NOTIFICATION_CHANNEL, handler)
-    return () => {
-      ipcRenderer.removeListener(OPEN_THREAD_FROM_NOTIFICATION_CHANNEL, handler)
-    }
-  },
 })
 
 contextBridge.exposeInMainWorld("noyauDesktop", desktopBridge)

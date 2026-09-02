@@ -2,7 +2,7 @@ import type { ThreadId } from "@noyau/contracts/ids"
 import { DateTime } from "effect"
 import { useEffect, useEffectEvent } from "react"
 
-import { readRendererForeground } from "@/lib/turn-notification"
+import { readRendererForeground } from "@/lib/renderer-foreground"
 import { markThreadVisited } from "@/state/thread-visits"
 
 export const useThreadVisitTracking = (
