@@ -62,7 +62,7 @@ describe("WorkspacePanel", () => {
 
     await user.click(add)
     expect(document.querySelector("[data-slot='menu-popup']")?.className).toContain(
-      "dropdown-glass",
+      "surface-overlay",
     )
   })
 

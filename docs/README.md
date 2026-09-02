@@ -18,6 +18,7 @@ policy in [CONTRIBUTING.md](../CONTRIBUTING.md); agent rules in [AGENTS.md](../A
 - [Glossary](./internals/glossary.md)
 - [Settings and keybindings files](./internals/settings.md)
 - [Contracts and orchestration](./internals/contracts-and-orchestration.md)
+- [Design system](./internals/design.md)
 - [Workspace panel](./internals/workspace-panel.md)
 - [Preview sessions](./internals/preview-sessions.md)
 - [Last screen restore](./internals/last-screen.md)

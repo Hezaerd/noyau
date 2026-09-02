@@ -115,7 +115,7 @@ export function WorkspacePanel({
   return (
     <aside
       className={cn(
-        "relative flex h-full min-h-0 shrink-0 flex-col border-s border-border/70 bg-background",
+        "surface-panel relative flex h-full min-h-0 shrink-0 flex-col border-s border-border/70",
         !state.open && "hidden",
       )}
       data-slot="workspace-panel"
@@ -215,11 +215,7 @@ function WorkspacePanelAddMenu({
       >
         <PlusIcon />
       </MenuTrigger>
-      <MenuPopup
-        align="start"
-        className="dropdown-glass shadow-xl shadow-black/25 before:hidden"
-        side="bottom"
-      >
+      <MenuPopup align="start" className="surface-overlay before:hidden" side="bottom">
         {kinds.map((kind) => {
           const Icon = kind.icon
           return (

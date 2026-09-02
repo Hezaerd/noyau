@@ -462,7 +462,7 @@ function BoardColumnView({
       ref={setNodeRef}
       aria-labelledby={`column-title-${column.id}`}
       className={cn(
-        "flex h-full w-[304px] shrink-0 flex-col rounded-2xl border border-border/70 bg-card",
+        "surface-panel flex h-full w-[304px] shrink-0 flex-col rounded-2xl border border-border/70",
         selected && "border-primary/55 ring-2 ring-primary/25",
         isOver && "border-primary/45 bg-primary/5",
       )}
