@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/contracts/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { CheckIcon, ListChecksIcon } from "lucide-react"
 
 import { ThreadMarkdown } from "@/components/thread/ThreadMarkdown"
@@ -11,11 +11,13 @@ export function ThreadPlanCard({
   active,
   workspaceRoot,
   projectId,
+  threadId,
 }: {
   readonly markdown: string
   readonly active: boolean
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
+  readonly threadId?: ThreadId | undefined
 }) {
   const steps = parsePlanSteps(markdown)
   const completed = steps?.filter((step) => step.completed).length ?? 0
@@ -65,7 +67,12 @@ export function ThreadPlanCard({
 
       {steps === null ? (
         <div className="px-4 py-3.5">
-          <ThreadMarkdown text={markdown} workspaceRoot={workspaceRoot} projectId={projectId} />
+          <ThreadMarkdown
+            text={markdown}
+            workspaceRoot={workspaceRoot}
+            projectId={projectId}
+            threadId={threadId}
+          />
         </div>
       ) : (
         <>
@@ -117,6 +124,7 @@ export function ThreadPlanCard({
                         text={step.markdown}
                         workspaceRoot={workspaceRoot}
                         projectId={projectId}
+                        threadId={threadId}
                       />
                     </div>
                     {!isActive ? null : (

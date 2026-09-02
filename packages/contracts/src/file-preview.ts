@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import { ProjectId } from "./ids.ts"
+import { ProjectId, ThreadId } from "./ids.ts"
 
 export const FilePreviewImageMime = Schema.Literals([
   "image/png",
@@ -67,6 +67,7 @@ export type FilePreview = (typeof FilePreview)["Type"]
 
 export const PreviewFileInput = Schema.Struct({
   projectId: ProjectId,
+  threadId: Schema.optionalKey(ThreadId),
   path: Schema.NonEmptyString,
 })
 export type PreviewFileInput = (typeof PreviewFileInput)["Type"]

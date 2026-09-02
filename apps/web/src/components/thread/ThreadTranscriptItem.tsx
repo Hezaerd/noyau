@@ -114,6 +114,7 @@ function LiveAssistantMessage({
               streaming={streaming}
               workspaceRoot={workspaceRoot}
               projectId={projectId}
+              threadId={item.threadId}
               {...(tickets === undefined ? {} : { tickets })}
               {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
             />
@@ -212,6 +213,7 @@ function ThreadTranscriptItemImpl({
                       text={item.text}
                       workspaceRoot={workspaceRoot}
                       projectId={projectId}
+                      threadId={item.threadId}
                       {...(tickets === undefined ? {} : { tickets })}
                       {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
                     />
@@ -258,6 +260,7 @@ function ThreadTranscriptItemImpl({
             active={planActive}
             workspaceRoot={workspaceRoot}
             projectId={projectId}
+            threadId={item.threadId}
           />
         </MessageContent>
       </Message>

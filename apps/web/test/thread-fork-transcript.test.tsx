@@ -13,6 +13,7 @@ vi.mock("@tanstack/react-router", () => ({
 
 import { ThreadTranscript } from "../src/components/thread/ThreadTranscript"
 import { clearAssistantPaint, pushAssistantLive } from "../src/lib/assistant-paint"
+import { decodeThreadMarkdownFileHref } from "../src/lib/markdown-file-links"
 
 afterEach(() => {
   cleanup()
@@ -80,6 +81,34 @@ describe("forked Thread transcript", () => {
     ).not.toBe(0)
     expect(screen.getByRole("link", { name: "Forked from Thread smoke test" })).toBeTruthy()
     expect(screen.getByText("Thread smoke test").tagName).toBe("EM")
+  })
+
+  it("resolves inherited file links against the retained thread checkout", () => {
+    render(
+      <ThreadTranscript
+        transcript={[]}
+        inheritedTranscript={[item(sourceThreadId, sourceTurnId, "[source](src/file.ts)")]}
+        isRunning={false}
+        loading={false}
+        error={undefined}
+        notices={null}
+        workspaceRoot="/Users/test/project"
+        cwd="/Users/test/worktree"
+        projectId={projectId}
+        draftByRequest={{}}
+        legacyFreeformByRequest={{}}
+        onDraftAnswersChange={() => undefined}
+        onLegacyFreeformChange={() => undefined}
+        onRespondApproval={() => undefined}
+        onRespondUserInput={() => undefined}
+      />,
+    )
+
+    const link = document.querySelector("[data-thread-markdown-file-chip]")
+    expect(link).not.toBeNull()
+    expect(decodeThreadMarkdownFileHref(link?.getAttribute("href") ?? "")).toBe(
+      "/Users/test/worktree/src/file.ts",
+    )
   })
 
   it("only exposes a fork action on the final assistant item for a Turn", () => {

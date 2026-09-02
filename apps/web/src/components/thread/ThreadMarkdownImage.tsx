@@ -1,4 +1,5 @@
 import type { FilePreview } from "@noyau/contracts/file-preview"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { useEffect, useState, type ComponentProps } from "react"
 import type { ExtraProps } from "streamdown"
 
@@ -10,50 +11,74 @@ import { loadFilePreview, peekFilePreview } from "@/lib/file-preview"
 import { createImagePreviewUrl } from "@/lib/image-preview-url"
 import { fileLinkSuffixKey, lookupThreadMarkdownFileLinkMeta } from "@/lib/markdown-file-links"
 
+interface ScopedPreview {
+  readonly projectId: ProjectId
+  readonly threadId: ThreadId | undefined
+  readonly path: string
+  readonly value: FilePreview | undefined
+}
+
+interface PreviewImageUrl {
+  readonly preview: FilePreview
+  readonly url: string
+}
+
 export function ThreadMarkdownImage({ src, alt, node: _node }: ComponentProps<"img"> & ExtraProps) {
   const fileLinks = useThreadMarkdownFileLinks()
   const meta = lookupThreadMarkdownFileLinkMeta(src, fileLinks)
   const filePath = meta?.filePath
-  const [preview, setPreview] = useState<FilePreview | undefined>()
-  const [imageUrl, setImageUrl] = useState<string>()
+  const [loadedPreview, setLoadedPreview] = useState<ScopedPreview>()
+  const [loadedImageUrl, setLoadedImageUrl] = useState<PreviewImageUrl>()
   const [expanded, setExpanded] = useState(false)
+  const preview =
+    loadedPreview !== undefined &&
+    loadedPreview.projectId === fileLinks.projectId &&
+    loadedPreview.threadId === fileLinks.threadId &&
+    loadedPreview.path === filePath
+      ? loadedPreview.value
+      : undefined
+  const imageUrl =
+    loadedImageUrl !== undefined && loadedImageUrl.preview === preview
+      ? loadedImageUrl.url
+      : undefined
 
   useEffect(() => {
     if (filePath === undefined) {
-      setPreview(undefined)
+      setLoadedPreview(undefined)
       return
     }
     const projectId = fileLinks.projectId
     if (projectId === undefined) {
-      setPreview(undefined)
+      setLoadedPreview(undefined)
       return
     }
-    const cached = peekFilePreview(projectId, filePath)
+    const scope = { projectId, threadId: fileLinks.threadId, path: filePath }
+    const cached = peekFilePreview(projectId, fileLinks.threadId, filePath)
     if (cached !== undefined) {
-      setPreview(cached)
+      setLoadedPreview({ ...scope, value: cached })
       return
     }
     let cancelled = false
-    void loadFilePreview(projectId, filePath).then((value) => {
+    void loadFilePreview(projectId, fileLinks.threadId, filePath).then((value) => {
       if (!cancelled) {
-        setPreview(value)
+        setLoadedPreview({ ...scope, value })
       }
       return undefined
     })
     return () => {
       cancelled = true
     }
-  }, [fileLinks.projectId, filePath])
+  }, [fileLinks.projectId, fileLinks.threadId, filePath])
 
   useEffect(() => {
     if (preview?.kind !== "image") {
       return
     }
     const url = createImagePreviewUrl(preview.bytes, preview.mime)
-    setImageUrl(url)
+    setLoadedImageUrl({ preview, url })
     return () => {
       URL.revokeObjectURL(url)
-      setImageUrl(undefined)
+      setLoadedImageUrl(undefined)
     }
   }, [preview])
 
