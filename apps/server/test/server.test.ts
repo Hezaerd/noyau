@@ -1,4 +1,5 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import { assert, describe, it } from "@effect/vitest"
 import { ActorId, EnvironmentId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
@@ -10,7 +11,7 @@ import { previewSessionsLayer } from "@noyau/server/preview/preview-sessions"
 import { staticProviderRegistryLayer } from "@noyau/server/provider/provider-instance-registry"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import { turnUserInputRegistryLayer } from "@noyau/server/provider/turn-user-input-registry"
-import { serverRoutesLayer } from "@noyau/server/server"
+import { nodeServerLayer, serverRoutesLayer } from "@noyau/server/server"
 import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
 import { threadLiveLayer } from "@noyau/server/thread-live"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
@@ -89,6 +90,50 @@ const infrastructure = controlPlaneLayer.pipe(
 )
 
 describe("server routes", () => {
+  it.effect("negotiates permessage-deflate for RPC WebSocket clients that offer it", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const runtime = ManagedRuntime.make(infrastructure)
+        yield* Effect.addFinalizer(() => Effect.promise(() => runtime.dispose()))
+        const context = yield* Effect.promise(() => runtime.context())
+        const serverContext = yield* Layer.build(
+          nodeServerLayer.pipe(Layer.provide(Layer.succeedContext(context))),
+        )
+        yield* Layer.build(
+          HttpRouter.serve(serverRoutesLayer).pipe(
+            Layer.provide(Layer.succeedContext(serverContext)),
+            Layer.provide(Layer.succeedContext(context)),
+          ),
+        )
+        const server = Context.get(serverContext, HttpServer.HttpServer)
+        const port = (server.address as HttpServer.TcpAddress).port
+        const connect = (perMessageDeflate: boolean) =>
+          Effect.acquireRelease(
+            Effect.callback<NodeSocket.NodeWS.WebSocket, Error>((resume) => {
+              const socket = new NodeSocket.NodeWS.WebSocket(
+                `ws://127.0.0.1:${port}/rpc`,
+                "noyau-bearer.test-launch-token",
+                { perMessageDeflate },
+              )
+              socket.once("open", () => resume(Effect.succeed(socket)))
+              socket.once("error", (error) => resume(Effect.fail(error)))
+            }),
+            (socket) =>
+              Effect.callback<void>((resume) => {
+                socket.once("close", () => resume(Effect.void))
+                socket.close()
+              }),
+          )
+
+        const compressed = yield* connect(true)
+        assert.include(compressed.extensions, "permessage-deflate")
+
+        const plain = yield* connect(false)
+        assert.notInclude(plain.extensions, "permessage-deflate")
+      }),
+    ),
+  )
+
   it.effect("exposes readiness only after the control plane and protects the RPC upgrade", () =>
     Effect.gen(function* () {
       const runtime = ManagedRuntime.make(infrastructure)
