@@ -129,7 +129,6 @@ export function ThreadComposer({
   skills = EMPTY_COMPOSER_SKILLS,
   contextUsage,
   context,
-  toolbar,
 }: {
   readonly isRunning: boolean
   readonly disabled: boolean
@@ -161,7 +160,6 @@ export function ThreadComposer({
   readonly skills?: ReadonlyArray<AgentSkillEntry> | undefined
   readonly contextUsage?: ContextUsage | undefined
   readonly context?: ReactNode
-  readonly toolbar?: ReactNode | undefined
 }) {
   const listboxId = useId()
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
@@ -368,11 +366,6 @@ export function ThreadComposer({
             onSelect={insertMention}
           />
         ) : null}
-        {toolbar === undefined ? null : (
-          <div data-slot="composer-toolbar" className="z-10 mb-2 flex justify-start">
-            <div className="flex items-center gap-2">{toolbar}</div>
-          </div>
-        )}
         <div
           className={cn(
             "composer-glass-shell relative",

@@ -13,7 +13,7 @@ import { Provider } from "@noyau/contracts/entities/environment"
 import { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import { ResumeCursor, Session } from "@noyau/contracts/entities/session"
-import { TranscriptItem, TurnPresentation } from "@noyau/contracts/entities/transcript"
+import { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import { ProviderForkPoint } from "@noyau/contracts/entities/turn"
 import {
   CheckpointRef,
@@ -138,7 +138,6 @@ const turnStartShared = {
   runtimeMode: Schema.optionalKey(RuntimeMode),
   modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   prepareWorktree: Schema.optionalKey(PrepareWorktree),
-  presentation: Schema.optionalKey(TurnPresentation),
   image: Schema.optionalKey(Schema.Unknown),
   images: Schema.optionalKey(Schema.Unknown),
 } as const

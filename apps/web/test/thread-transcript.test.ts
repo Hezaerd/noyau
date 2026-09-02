@@ -191,23 +191,6 @@ describe("thread transcript projection", () => {
     expect(twice?.turns).toHaveLength(2)
   })
 
-  it("porte la présentation de Turn dans la row utilisateur", () => {
-    const started = envelopeFor({
-      _tag: "thread.turn.started",
-      threadId: ids.thread,
-      turnId: ids.nextTurn,
-      text: "PR #12 conflicts with main.",
-      presentation: "fix-merge-conflicts",
-      titleSeed: "Fix merge conflicts",
-    })
-    const next = applyThreadEnvelope(snapshot, started)
-    expect(next?.transcript.at(-1)).toMatchObject({
-      _tag: "transcript.user",
-      turnId: ids.nextTurn,
-      presentation: "fix-merge-conflicts",
-    })
-  })
-
   it("resolves a pending permission locally", () => {
     const withPermission: typeof snapshot = {
       ...snapshot,

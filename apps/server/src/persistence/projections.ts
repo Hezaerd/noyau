@@ -828,9 +828,6 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       if (event.attachments !== undefined) {
         userItem = Object.assign(userItem, { attachments: event.attachments })
       }
-      if (event.presentation !== undefined) {
-        userItem = Object.assign(userItem, { presentation: event.presentation })
-      }
       if (event.providerHandoff !== undefined) {
         userItem = Object.assign(userItem, { providerHandoff: event.providerHandoff })
       }

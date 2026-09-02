@@ -357,44 +357,6 @@ describe("Thread commands", () => {
     ).toMatchObject({ providerHandoff: { previousProvider: "cursor", provider: "claude" } })
   })
 
-  it("décode une présentation de Turn optionnelle", () => {
-    const request = {
-      _tag: "thread.turn.start" as const,
-      commandId: ids.command,
-      payload: {
-        threadId: ids.thread,
-        text: "PR #12 conflicts with main.",
-        presentation: "fix-merge-conflicts" as const,
-        titleSeed: "Fix merge conflicts",
-      },
-    }
-    expect(Schema.decodeSync(ThreadTurnStartRequest)(request).payload.presentation).toBe(
-      "fix-merge-conflicts",
-    )
-    expect(
-      Schema.decodeSync(ThreadTurnStartRequest)({
-        ...request,
-        payload: {
-          ...request.payload,
-          text: "PR #12 has failing CI.",
-          presentation: "fix-ci" as const,
-          titleSeed: "Fix CI",
-        },
-      }).payload.presentation,
-    ).toBe("fix-ci")
-    const user = Schema.decodeSync(TranscriptItem)({
-      _tag: "transcript.user",
-      threadId: ids.thread,
-      turnId: ids.turn,
-      text: "PR #12 conflicts with main.",
-      presentation: "fix-merge-conflicts",
-    })
-    expect(user._tag).toBe("transcript.user")
-    if (user._tag === "transcript.user") {
-      expect(user.presentation).toBe("fix-merge-conflicts")
-    }
-  })
-
   it("décode thread.turn.start texte seul sans acteur", () => {
     const request = {
       _tag: "thread.turn.start" as const,

@@ -1,13 +1,12 @@
 import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
 
 import { transcriptToolCaption } from "@/lib/thread-transcript"
-import { turnPresentationLabel } from "@/lib/turn-presentation"
 
 const transcriptLine = (item: TranscriptItem): string | undefined => {
   switch (item._tag) {
     case "transcript.user": {
       const parts = [
-        item.presentation === undefined ? item.text : turnPresentationLabel(item.presentation),
+        item.text,
         item.attachments?.map((attachment) => `[image: ${attachment.name}]`).join(" "),
       ].filter((part): part is string => part !== undefined && part.trim().length > 0)
       return parts.length === 0 ? undefined : `You:\n${parts.join("\n")}`

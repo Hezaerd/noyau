@@ -22,10 +22,6 @@ export type TranscriptToolAction = (typeof TranscriptToolAction)["Type"]
 export const TranscriptRequestStatus = Schema.Literals(["pending", "resolved"])
 export type TranscriptRequestStatus = (typeof TranscriptRequestStatus)["Type"]
 
-/** Comment le prompt utilisateur est montré. Le `text` reste le prompt Provider. */
-export const TurnPresentation = Schema.Literals(["fix-merge-conflicts", "fix-ci"])
-export type TurnPresentation = (typeof TurnPresentation)["Type"]
-
 /** Provider transition carried by the first user Turn after a handoff. */
 export const ProviderHandoff = Schema.Struct({
   previousProvider: Provider,
@@ -40,7 +36,6 @@ export const TranscriptUser = Schema.TaggedStruct("transcript.user", {
   turnId: TurnId,
   text: Schema.optionalKey(Schema.NonEmptyString),
   attachments: Schema.optionalKey(TurnImageAttachments),
-  presentation: Schema.optionalKey(TurnPresentation),
   providerHandoff: Schema.optionalKey(ProviderHandoff),
 }).check(
   Schema.makeFilter(turnHasPrompt, {
