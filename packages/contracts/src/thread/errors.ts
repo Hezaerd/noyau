@@ -10,6 +10,15 @@ export class ThreadNotFound extends Schema.TaggedError<ThreadNotFound>()("Thread
   threadId: ThreadId,
 }) {}
 
+export class ThreadForkOriginMismatch extends Schema.TaggedError<ThreadForkOriginMismatch>()(
+  "ThreadForkOriginMismatch",
+  {
+    threadId: ThreadId,
+    sourceThreadId: ThreadId,
+    sourceTurnId: TurnId,
+  },
+) {}
+
 export class ThreadArchived extends Schema.TaggedError<ThreadArchived>()("ThreadArchived", {
   threadId: ThreadId,
 }) {}
@@ -57,6 +66,7 @@ export class SessionNotRunning extends Schema.TaggedError<SessionNotRunning>()(
 export const ThreadRejection = Schema.Union([
   ThreadAlreadyExists,
   ThreadNotFound,
+  ThreadForkOriginMismatch,
   ThreadArchived,
   ThreadNotSettleable,
   TurnAlreadyActive,

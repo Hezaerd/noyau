@@ -249,6 +249,7 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
             ...source,
             threadId: event.threadId,
             title: `Fork of ${source.title}`,
+            status: "active",
             session: {
               threadId: event.threadId,
               status: "starting",

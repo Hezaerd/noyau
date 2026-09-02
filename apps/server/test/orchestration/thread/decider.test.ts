@@ -317,6 +317,176 @@ describe("Thread lifecycle", () => {
     expect(completed.threads[0]?.turns[0]?.state).toBe("completed")
   })
 
+  it("keeps the fork destination runtime mode when the source changes while forking", () => {
+    const state = withThread()
+    const started = apply(state, startTurn(state))
+    const running = apply(started, setSession(started, "running"))
+    const completed = apply(
+      running,
+      success(
+        decide(
+          running,
+          command({
+            _tag: "thread.turn.ended",
+            ...meta,
+            payload: {
+              threadId: ids.thread,
+              turnId: ids.turn1,
+              state: "completed",
+              providerForkPoint: { schemaVersion: 1, boundaryId: "provider-turn-1" },
+            },
+          }),
+        ),
+      ),
+    )
+    const forked = apply(
+      completed,
+      success(
+        decide(
+          completed,
+          command({
+            _tag: "thread.fork",
+            ...meta,
+            payload: {
+              threadId: ids.otherThread,
+              sourceThreadId: ids.thread,
+              sourceTurnId: ids.turn1,
+            },
+          }),
+        ),
+      ),
+    )
+    const sourceModeChanged = apply(
+      forked,
+      success(
+        decide(
+          forked,
+          command({
+            _tag: "thread.runtime-mode.set",
+            ...meta,
+            payload: { threadId: ids.thread, runtimeMode: "approval-required" },
+          }),
+        ),
+      ),
+    )
+
+    const mismatch = failure(
+      decide(
+        sourceModeChanged,
+        command({
+          _tag: "thread.fork.complete",
+          ...meta,
+          payload: {
+            threadId: ids.otherThread,
+            sourceThreadId: ids.thread,
+            sourceTurnId: ids.turn2,
+            resumeCursor,
+            providerForkPoint: { schemaVersion: 1, boundaryId: "provider-turn-2" },
+          },
+        }),
+      ),
+    )
+    expect(mismatch._tag).toBe("ThreadForkOriginMismatch")
+    expect(
+      sourceModeChanged.threads.find((thread) => thread.threadId === ids.otherThread)?.session,
+    ).toMatchObject({ status: "starting" })
+
+    const forkCompleted = success(
+      decide(
+        sourceModeChanged,
+        command({
+          _tag: "thread.fork.complete",
+          ...meta,
+          payload: {
+            threadId: ids.otherThread,
+            sourceThreadId: ids.thread,
+            sourceTurnId: ids.turn1,
+            resumeCursor,
+            providerForkPoint: { schemaVersion: 1, boundaryId: "provider-turn-1" },
+          },
+        }),
+      ),
+    )
+
+    expect(forkCompleted[0]).toMatchObject({
+      _tag: "thread.fork-completed",
+      session: { runtimeMode: "full-access" },
+    })
+  })
+
+  it("refuses a fork completion for a Thread that was not forked", () => {
+    const state = withThread()
+
+    const rejected = failure(
+      decide(
+        state,
+        command({
+          _tag: "thread.fork.complete",
+          ...meta,
+          payload: {
+            threadId: ids.thread,
+            sourceThreadId: ids.thread,
+            sourceTurnId: ids.turn1,
+            resumeCursor,
+            providerForkPoint: { schemaVersion: 1, boundaryId: "provider-turn-1" },
+          },
+        }),
+      ),
+    )
+
+    expect(rejected._tag).toBe("ThreadForkOriginMismatch")
+    expect(state.threads[0]?.session).toBeNull()
+  })
+
+  it("projects a fork from an archived source as active", () => {
+    const state = withThread()
+    const started = apply(state, startTurn(state))
+    const running = apply(started, setSession(started, "running"))
+    const completed = apply(
+      running,
+      success(
+        decide(
+          running,
+          command({
+            _tag: "thread.turn.ended",
+            ...meta,
+            payload: {
+              threadId: ids.thread,
+              turnId: ids.turn1,
+              state: "completed",
+              providerForkPoint: { schemaVersion: 1, boundaryId: "provider-turn-1" },
+            },
+          }),
+        ),
+      ),
+    )
+    const archived = apply(completed, [
+      threadEvent({ _tag: "thread.archived", threadId: ids.thread }),
+    ])
+
+    const forked = apply(
+      archived,
+      success(
+        decide(
+          archived,
+          command({
+            _tag: "thread.fork",
+            ...meta,
+            payload: {
+              threadId: ids.otherThread,
+              sourceThreadId: ids.thread,
+              sourceTurnId: ids.turn1,
+            },
+          }),
+        ),
+      ),
+    )
+
+    expect(forked.threads.find((thread) => thread.threadId === ids.otherThread)?.status).toBe(
+      "active",
+    )
+  })
+
   it("crée un Thread titré avec provider cursor et runtimeMode full-access par défaut", () => {
     const events = createThread()
     const state = apply(available(), events)
