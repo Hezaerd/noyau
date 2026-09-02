@@ -329,9 +329,6 @@ export const decide = (
           if (command.payload.prepareWorktree !== undefined) {
             started = Object.assign(started, { prepareWorktree: command.payload.prepareWorktree })
           }
-          if (command.payload.presentation !== undefined) {
-            started = Object.assign(started, { presentation: command.payload.presentation })
-          }
           if (providerHandoff !== undefined) {
             started = Object.assign(started, { providerHandoff })
           }

@@ -40,7 +40,7 @@ export function ComposerPromptField({
   text,
   disabled,
   autoFocus,
-  pathMenuOpen,
+  suggestionsOpen,
   tickets = EMPTY_COMPOSER_TICKETS,
   skills = EMPTY_COMPOSER_SKILLS,
   listboxId,
@@ -55,7 +55,7 @@ export function ComposerPromptField({
   readonly text: string
   readonly disabled: boolean
   readonly autoFocus: boolean
-  readonly pathMenuOpen: boolean
+  readonly suggestionsOpen: boolean
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly skills?: ReadonlyArray<AgentSkillEntry> | undefined
   readonly listboxId: string
@@ -204,9 +204,9 @@ export function ComposerPromptField({
         aria-multiline="true"
         aria-label="Compose a message"
         aria-disabled={disabled}
-        aria-autocomplete={pathMenuOpen ? "list" : undefined}
-        aria-controls={pathMenuOpen ? listboxId : undefined}
-        aria-expanded={pathMenuOpen ? true : undefined}
+        aria-autocomplete={suggestionsOpen ? "list" : undefined}
+        aria-controls={suggestionsOpen ? listboxId : undefined}
+        aria-expanded={suggestionsOpen ? true : undefined}
         aria-activedescendant={activeOptionId}
         data-slot="input-group-control"
         data-composer-value={text}

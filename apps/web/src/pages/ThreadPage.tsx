@@ -9,7 +9,6 @@ import type {
 } from "@noyau/contracts/entities/model-selection"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import type { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
-import type { TurnPresentation } from "@noyau/contracts/entities/transcript"
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { isResumePrompt } from "@noyau/shared/resume-prompt"
 import { useNavigate } from "@tanstack/react-router"
@@ -30,9 +29,7 @@ import {
   ResourceErrorState,
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
-import { FixCiButton } from "@/components/thread/FixCiButton"
-import { FixMergeConflictsButton } from "@/components/thread/FixMergeConflictsButton"
-import { ThreadCheckoutBar } from "@/components/thread/ThreadCheckoutBar"
+import { ComposerGitToolbar } from "@/components/thread/ComposerGitToolbar"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
@@ -54,7 +51,6 @@ import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useThreadSnapshot } from "@/hooks/use-thread-snapshot"
 import { useThreadVisitTracking } from "@/hooks/use-thread-visit-tracking"
-import { useVcsStatus } from "@/hooks/use-vcs-status"
 import { invalidInputFailure } from "@/lib/app-failure"
 import { clearAssistantPaint, pushAssistantLive } from "@/lib/assistant-paint"
 import {
@@ -121,21 +117,8 @@ import {
 } from "@/lib/thread-page-actions"
 import { threadStatusNoticesVisible } from "@/lib/thread-transcript"
 import { shouldCatchUpTranscriptOnOpen } from "@/lib/thread-transcript-catch-up"
-import {
-  buildFixCiPrompt,
-  buildFixMergeConflictsPrompt,
-  FIX_CI_PRESENTATION,
-  FIX_MERGE_CONFLICTS_PRESENTATION,
-  turnPresentationLabel,
-} from "@/lib/turn-presentation"
 import { retryableFailedTurnMandate } from "@/lib/undelivered-mandate"
 import { toProviderAnswers } from "@/lib/user-input-answers"
-import {
-  displayedThreadPr,
-  isConflictingOpenPullRequest,
-  isFailingCiOpenPullRequest,
-  vcsScopeForThread,
-} from "@/lib/vcs-status"
 import { removeComposerDraftImageAtom, replaceComposerDraftAtom } from "@/state/composer-drafts"
 import { getThreadEnvModePreference } from "@/state/preferences"
 import { publishCreatedThread } from "@/state/shell"
@@ -434,21 +417,6 @@ export function ThreadPage({
       startFromOrigin,
     })
   }, [baseBranch, draftId, envMode, isDraftThread, projectId, startFromOrigin, threadId])
-  const gitStatus = useVcsStatus(
-    threadId === undefined
-      ? null
-      : vcsScopeForThread(projectId, { id: threadId, worktreePath: snapshotWorktreePath }),
-  )
-  const displayedPr = displayedThreadPr({
-    thread: {
-      branch: pageSnapshot === undefined ? baseBranch : threadBranchOf(pageSnapshot.thread),
-      worktreePath: snapshotWorktreePath,
-    },
-    gitStatus,
-    snapshot: undefined,
-  })
-  const conflictingPr = isConflictingOpenPullRequest(displayedPr) ? displayedPr : null
-  const failingCiPr = isFailingCiOpenPullRequest(displayedPr) ? displayedPr : null
   const retryMandate = retryableFailedTurnMandate({
     resumeCursor: pageSnapshot?.session?.resumeCursor,
     sessionStatus: pageSnapshot?.session?.status,
@@ -877,80 +845,6 @@ export function ThreadPage({
     })
   }
 
-  const submitPresentedTurn = (presentation: TurnPresentation, prompt: string) => {
-    if (
-      threadId === undefined ||
-      isRunning ||
-      project?.available !== true ||
-      !providerReady ||
-      forkComposerLocked
-    ) {
-      return
-    }
-    setComposerFailure(undefined)
-    writeOptimisticSend({ threadId, startedAtMs: Date.now() })
-    setFollowLatestKey((current) => current + 1)
-    const input = {
-      projectId,
-      threadId,
-      prompt,
-      titleSeed: turnPresentationLabel(presentation),
-      presentation,
-      runtimeMode,
-      modelSelection,
-      envMode,
-      startFromOrigin,
-      worktreePath: snapshotWorktreePath,
-    } as const
-    void submitTurnAction(
-      baseBranch === null ? input : Object.assign({}, input, { baseBranch }),
-    ).then((result) => {
-      if (result.kind === "composer-error") {
-        writeOptimisticSend(null)
-        setComposerFailure(
-          presentFailure(result.failure, {
-            operation: "thread.turn.start",
-            scope: "action",
-            initiatedByUser: true,
-            hasUsableData: snapshot !== undefined,
-          }),
-        )
-        return undefined
-      }
-      if (result.kind === "error") {
-        writeOptimisticSend(null)
-        setActionFailure(
-          presentFailure(result.failure, {
-            operation: "thread.turn.start",
-            scope: "action",
-            initiatedByUser: true,
-            hasUsableData: snapshot !== undefined,
-          }),
-        )
-        return undefined
-      }
-      setActionFailure(undefined)
-      return undefined
-    })
-  }
-
-  const submitFixMergeConflicts = () => {
-    if (conflictingPr === null) {
-      return
-    }
-    submitPresentedTurn(
-      FIX_MERGE_CONFLICTS_PRESENTATION,
-      buildFixMergeConflictsPrompt(conflictingPr),
-    )
-  }
-
-  const submitFixCi = () => {
-    if (failingCiPr === null) {
-      return
-    }
-    submitPresentedTurn(FIX_CI_PRESENTATION, buildFixCiPrompt(failingCiPr))
-  }
-
   const interruptTurn = () => {
     if (threadId === undefined) {
       return
@@ -1269,55 +1163,31 @@ export function ThreadPage({
       tickets={tickets}
       skills={skills}
       contextUsage={pageSnapshot?.thread.contextUsage}
-      toolbar={
-        isDraftThread || (conflictingPr === null && failingCiPr === null) ? undefined : (
-          <>
-            {conflictingPr === null ? null : (
-              <FixMergeConflictsButton
-                disabled={
-                  awaitingThread ||
-                  project?.available !== true ||
-                  !providerReady ||
-                  isRunning ||
-                  forkComposerLocked
-                }
-                onClick={submitFixMergeConflicts}
-              />
-            )}
-            {failingCiPr === null ? null : (
-              <FixCiButton
-                disabled={
-                  awaitingThread ||
-                  project?.available !== true ||
-                  !providerReady ||
-                  isRunning ||
-                  forkComposerLocked
-                }
-                onClick={submitFixCi}
-              />
-            )}
-          </>
-        )
-      }
-      context={
-        <ThreadCheckoutBar
-          projectId={projectId}
-          threadId={threadId}
-          branch={baseBranch}
-          worktreePath={worktreePath}
-          disabled={loading || project?.available !== true}
-          envMode={effectiveEnvMode}
-          envModeLocked={envModeLockedOf({
-            worktreePath,
-            latestTurn: pageSnapshot?.thread.latestTurn,
-            isRunning,
-          })}
-          startFromOrigin={startFromOrigin}
-          onEnvModeChange={changeEnvMode}
-          onBaseBranchChange={setBaseBranch}
-          onStartFromOriginChange={setStartFromOrigin}
-        />
-      }
+      toolbars={[
+        {
+          id: "composer-git",
+          placement: "bottom",
+          content: (
+            <ComposerGitToolbar
+              projectId={projectId}
+              threadId={threadId}
+              branch={baseBranch}
+              worktreePath={worktreePath}
+              disabled={loading || project?.available !== true}
+              envMode={effectiveEnvMode}
+              envModeLocked={envModeLockedOf({
+                worktreePath,
+                latestTurn: pageSnapshot?.thread.latestTurn,
+                isRunning,
+              })}
+              startFromOrigin={startFromOrigin}
+              onEnvModeChange={changeEnvMode}
+              onBaseBranchChange={setBaseBranch}
+              onStartFromOriginChange={setStartFromOrigin}
+            />
+          ),
+        },
+      ]}
     />
   )
 

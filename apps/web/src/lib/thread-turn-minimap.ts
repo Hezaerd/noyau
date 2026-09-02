@@ -2,7 +2,6 @@ import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import type { TurnId } from "@noyau/contracts/ids"
 
 import { transcriptRowId } from "@/lib/thread-transcript"
-import { turnPresentationLabel } from "@/lib/turn-presentation"
 
 export const TURN_MINIMAP_MIN_ITEMS = 2
 export const TURN_MINIMAP_ITEM_SPACING = 8
@@ -63,10 +62,8 @@ export const deriveTurnMinimapItems = (
         turnId: item.turnId,
         messageId: transcriptRowId(item, 0),
         userText:
-          item.presentation === undefined
-            ? (trimTurnMinimapPreview(item.text) ??
-              compactTurnMinimapPreview(item.attachments?.[0]?.name))
-            : turnPresentationLabel(item.presentation),
+          trimTurnMinimapPreview(item.text) ??
+          compactTurnMinimapPreview(item.attachments?.[0]?.name),
         assistantText: null,
       }
       items.push(current)

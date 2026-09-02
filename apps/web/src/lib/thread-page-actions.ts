@@ -5,7 +5,6 @@ import type { ThreadEnvMode } from "@noyau/contracts/entities/checkout"
 import type { Provider } from "@noyau/contracts/entities/environment"
 import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
-import type { TurnPresentation } from "@noyau/contracts/entities/transcript"
 import type { PrepareWorktree } from "@noyau/contracts/git"
 import {
   ApprovalRequestId,
@@ -85,7 +84,6 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
   readonly prepareWorktree?: PrepareWorktree
   readonly attachments?: ReadonlyArray<TurnImageUpload>
   readonly titleSeed?: string
-  readonly presentation?: TurnPresentation
 }): Effect.fn.Return<SubmitTurnResult> {
   const threadId = input.threadId
   if (threadId === undefined) {
@@ -137,7 +135,6 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
             },
             input.prepareWorktree === undefined ? {} : { prepareWorktree: input.prepareWorktree },
             input.attachments === undefined ? {} : { attachments: input.attachments },
-            input.presentation === undefined ? {} : { presentation: input.presentation },
           ),
         ),
       ),
@@ -170,7 +167,6 @@ export const submitTurnEffect = Effect.fn("submitTurn")(function* (input: {
           input.titleSeed === undefined ? {} : { titleSeed: input.titleSeed },
           input.prepareWorktree === undefined ? {} : { prepareWorktree: input.prepareWorktree },
           input.attachments === undefined ? {} : { attachments: input.attachments },
-          input.presentation === undefined ? {} : { presentation: input.presentation },
         ),
       ),
     ),
@@ -198,7 +194,6 @@ export const submitTurn = (input: {
   readonly worktreePath?: string | null
   readonly attachments?: ReadonlyArray<TurnImageUpload>
   readonly titleSeed?: string
-  readonly presentation?: TurnPresentation
 }) => {
   const prepareWorktree = resolvePrepareWorktree(
     Object.assign(
@@ -225,7 +220,6 @@ export const submitTurn = (input: {
         prepareWorktree === undefined ? {} : { prepareWorktree },
         input.attachments === undefined ? {} : { attachments: input.attachments },
         input.titleSeed === undefined ? {} : { titleSeed: input.titleSeed },
-        input.presentation === undefined ? {} : { presentation: input.presentation },
       ),
     ),
   )

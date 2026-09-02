@@ -9,11 +9,7 @@ import { Provider } from "@noyau/contracts/entities/environment"
 import { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import { Session } from "@noyau/contracts/entities/session"
-import {
-  ProviderHandoff,
-  TranscriptItem,
-  TurnPresentation,
-} from "@noyau/contracts/entities/transcript"
+import { ProviderHandoff, TranscriptItem } from "@noyau/contracts/entities/transcript"
 import {
   CheckpointRef,
   ProviderForkPoint,
@@ -131,7 +127,6 @@ export const ThreadTurnStarted = Schema.TaggedStruct("thread.turn.started", {
   modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   prepareWorktree: Schema.optionalKey(PrepareWorktree),
   attachments: Schema.optionalKey(TurnImageAttachments),
-  presentation: Schema.optionalKey(TurnPresentation),
   providerHandoff: Schema.optionalKey(ProviderHandoff),
 })
 export type ThreadTurnStarted = (typeof ThreadTurnStarted)["Type"]

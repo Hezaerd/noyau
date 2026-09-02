@@ -5,8 +5,6 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   applyVcsStatusStreamEvent,
   displayedThreadPr,
-  isConflictingOpenPullRequest,
-  isFailingCiOpenPullRequest,
   nextThreadChangeRequestSnapshot,
   resolveThreadPr,
   resolveGitActionsScope,
@@ -55,25 +53,6 @@ describe("vcs-status", () => {
         status: status({ pr: pr({ state: "merged" }) }),
       }).pr?.state,
     ).toBe("merged")
-  })
-
-  it("n’offre Fix merge conflicts que pour une PR ouverte conflicting", () => {
-    expect(isConflictingOpenPullRequest(pr({ mergeability: "conflicting" }))).toBe(true)
-    expect(isConflictingOpenPullRequest(pr({ mergeability: "unknown" }))).toBe(false)
-    expect(isConflictingOpenPullRequest(pr({ mergeability: "mergeable" }))).toBe(false)
-    expect(isConflictingOpenPullRequest(pr({ state: "merged", mergeability: "conflicting" }))).toBe(
-      false,
-    )
-    expect(isConflictingOpenPullRequest(null)).toBe(false)
-  })
-
-  it("n’offre Fix CI que pour une PR ouverte failing", () => {
-    expect(isFailingCiOpenPullRequest(pr({ ciStatus: "failing" }))).toBe(true)
-    expect(isFailingCiOpenPullRequest(pr({ ciStatus: "pending" }))).toBe(false)
-    expect(isFailingCiOpenPullRequest(pr({ ciStatus: "passing" }))).toBe(false)
-    expect(isFailingCiOpenPullRequest(pr({ ciStatus: "none" }))).toBe(false)
-    expect(isFailingCiOpenPullRequest(pr({ state: "merged", ciStatus: "failing" }))).toBe(false)
-    expect(isFailingCiOpenPullRequest(null)).toBe(false)
   })
 
   it("n’affiche la PR live que si la branche du Thread matche HEAD", () => {

@@ -15,7 +15,6 @@ import {
   ThreadUserInputQuestionnaire,
   type DraftAnswers,
 } from "@/components/thread/ThreadUserInputQuestionnaire"
-import { TurnPresentationBubble } from "@/components/thread/TurnPresentationBubble"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message"
@@ -202,9 +201,7 @@ function ThreadTranscriptItemImpl({
         {handoff === undefined ? null : <ProviderHandoffMarker handoff={handoff} />}
         <Message align="end">
           <MessageContent>
-            {item.presentation !== undefined ? (
-              <TurnPresentationBubble presentation={item.presentation} />
-            ) : attachments !== undefined || item.text !== undefined ? (
+            {attachments !== undefined || item.text !== undefined ? (
               <Bubble variant="default" align="end">
                 <BubbleContent className="flex flex-col items-start gap-2 leading-6">
                   {attachments === undefined ? null : (
