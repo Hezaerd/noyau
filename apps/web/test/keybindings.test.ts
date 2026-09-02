@@ -187,6 +187,32 @@ describe("resolveMatchingKeybinding", () => {
     ).toBeUndefined()
   })
 
+  it("copies an open pull request link with mod+shift+c while the composer can be focused", () => {
+    const event = keyEvent({ key: "c", metaKey: true, shiftKey: true })
+    expect(resolveMatchingKeybinding(event, merged, context({ thread: true }), "mac")).toBe(
+      "thread.workspace-pr.copy-link",
+    )
+    expect(
+      resolveMatchingKeybinding(
+        event,
+        merged,
+        context({ thread: true, editableFocused: true }),
+        "mac",
+      ),
+    ).toBe("thread.workspace-pr.copy-link")
+    expect(
+      resolveMatchingKeybinding(
+        event,
+        merged,
+        context({ thread: true, commandPaletteOpen: true }),
+        "mac",
+      ),
+    ).toBeUndefined()
+    expect(
+      resolveMatchingKeybinding(event, merged, context({ tableau: true }), "mac"),
+    ).toBeUndefined()
+  })
+
   it("opens the model picker only on a Thread", () => {
     const event = keyEvent({ key: ";", metaKey: true, ctrlKey: false })
     expect(resolveMatchingKeybinding(event, merged, context({ thread: true }), "mac")).toBe(
