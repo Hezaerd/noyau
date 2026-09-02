@@ -170,22 +170,14 @@ const projectTranscriptItem = (
   }
 }
 
-const resolveTranscriptRequest = (
+const resolvePermissionRequest = (
   transcript: ReadonlyArray<TranscriptItem>,
   requestId: string,
-  tag: "transcript.permission" | "transcript.user-input",
-  answers?: Extract<TranscriptItem, { readonly _tag: "transcript.user-input" }>["answers"],
 ): ReadonlyArray<TranscriptItem> =>
   transcript.map((item) => {
-    if (item._tag !== tag || item.requestId !== requestId) {
-      return item
-    }
-    if (tag === "transcript.user-input" && item._tag === "transcript.user-input") {
-      return answers === undefined
-        ? { ...item, status: "resolved" as const }
-        : { ...item, status: "resolved" as const, answers }
-    }
-    return { ...item, status: "resolved" as const }
+    return item._tag === "transcript.permission" && item.requestId === requestId
+      ? { ...item, status: "resolved" as const }
+      : item
   })
 
 const updateUserInputRequest = (
@@ -399,11 +391,7 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
     case "approval.responded":
       return updateThread(state, event.threadId, (thread) => ({
         ...thread,
-        transcript: resolveTranscriptRequest(
-          thread.transcript,
-          event.requestId,
-          "transcript.permission",
-        ),
+        transcript: resolvePermissionRequest(thread.transcript, event.requestId),
       }))
     case "user-input.responded":
       return updateThread(state, event.threadId, (thread) => ({

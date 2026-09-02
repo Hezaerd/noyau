@@ -87,7 +87,7 @@ export const TranscriptUserInput = Schema.TaggedStruct("transcript.user-input", 
   prompt: Schema.optionalKey(Schema.NonEmptyString),
   title: Schema.optionalKey(Schema.NonEmptyString),
   questions: Schema.optionalKey(Schema.Array(UserInputQuestion)),
-  /** Present after live delivery (`resolved`) or detached continuation (`consumed`). */
+  /** May be present while submitted (`pending`), after live delivery (`resolved`), or after detached continuation (`consumed`). */
   answers: Schema.optionalKey(ProviderUserInputAnswers),
   status: TranscriptUserInputStatus,
 })

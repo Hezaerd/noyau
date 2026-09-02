@@ -1069,6 +1069,7 @@ export function ThreadPage({
         )
         return Promise.resolve(false)
       }
+      setComposerFailure(undefined)
       setActionFailure(undefined)
       writeOptimisticSend({ threadId, startedAtMs: Date.now() })
       return continueUserInputAction(

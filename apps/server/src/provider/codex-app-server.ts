@@ -907,7 +907,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
             Effect.map((answers) => ({ answers: mapUserInputAnswers(answers) })),
             Effect.catchTags({
               UserInputTurnInactive: () => Effect.succeed({ answers: {} }),
-              UserInputRequestClosed: (error) => Effect.die(error),
+              UserInputRequestClosed: () => Effect.succeed({ answers: {} }),
             }),
           )
         },

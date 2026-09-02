@@ -412,6 +412,29 @@ for await (const line of lines) {
     const latestTurn = { id: turnId, items: [], status: "inProgress" }
     latestTurns.set(requestThreadId, latestTurn)
     respond(message.id, { turn: latestTurn })
+    if (scenario === "closed-user-input-response") {
+      write({
+        id: 9_001,
+        method: "item/tool/requestUserInput",
+        params: {
+          itemId: "closed-question-batch",
+          questions: [
+            {
+              header: "Runtime",
+              id: "runtime",
+              question: "Which runtime?",
+              options: [
+                { label: "Bun", description: "Use Bun" },
+                { label: "Node", description: "Use Node" },
+              ],
+            },
+          ],
+          threadId: requestThreadId,
+          turnId,
+        },
+      })
+      continue
+    }
     if (scenario === "exit-active") {
       shutdown("active-exit", 2)
       continue

@@ -124,10 +124,12 @@ export interface ProviderPortService {
     requestId: ApprovalRequestId,
     answers: ProviderUserInputAnswers,
   ) => Effect.Effect<void>
+  /** Atomically claims one live pending callback; false means absent, already claimed, or not owned. */
   readonly reserveUserInput: (
     threadId: ThreadId,
     requestId: ApprovalRequestId,
   ) => Effect.Effect<boolean>
+  /** Releases a prior claim after command rejection or failure; safely does nothing when not owned. */
   readonly releaseUserInput: (
     threadId: ThreadId,
     requestId: ApprovalRequestId,

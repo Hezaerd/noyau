@@ -152,10 +152,12 @@ const readLog = Effect.fn("CodexAdapterTest.readLog")(function* (filePath: strin
 })
 
 const LoggedRequest = Schema.Struct({
+  id: Schema.optionalKey(Schema.Union([Schema.Finite, Schema.String])),
   method: Schema.optionalKey(Schema.String),
   argv: Schema.optionalKey(Schema.Array(Schema.String)),
   envToken: Schema.optionalKey(Schema.NullOr(Schema.String)),
   params: Schema.optionalKey(Schema.Unknown),
+  result: Schema.optionalKey(Schema.Unknown),
 })
 const decodeLoggedRequest = Schema.decodeUnknownOption(LoggedRequest)
 
@@ -474,6 +476,51 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
           )
         }),
       { turnReconcileInterval: "1 second" },
+    ),
+  )
+
+  it.effect("answers a detached Codex user-input request without resolving it", () =>
+    withProvider("closed-user-input-response", (provider, evidence, userInputs) =>
+      Effect.gen(function* () {
+        const signals: Array<ProviderSignal> = []
+        const pendingVisible = yield* Deferred.make<void>()
+        yield* provider.startTurn(input(), (signal) => {
+          const record = Effect.sync(() => {
+            signals.push(signal)
+          })
+          return signal._tag === "transcript" &&
+            signal.item._tag === "transcript.user-input" &&
+            signal.item.requestId === "closed-question-batch" &&
+            signal.item.status === "pending"
+            ? record.pipe(Effect.andThen(Deferred.succeed(pendingVisible, undefined)))
+            : record
+        })
+        yield* Deferred.await(pendingVisible)
+
+        yield* userInputs.closeTurn(threadId, turnId, "detach")
+        const log = yield* waitForLog(evidence.requestLog, '"id":9001,"result":{"answers":{}}')
+        const response = parseRequests(log).find((message) => message.id === 9_001)
+
+        assert.deepStrictEqual(response?.result, { answers: {} })
+        assert.isTrue(
+          signals.some(
+            (signal) =>
+              signal._tag === "user-input-detached" && signal.requestId === "closed-question-batch",
+          ),
+        )
+        assert.isFalse(
+          signals.some(
+            (signal) =>
+              signal._tag === "transcript" &&
+              signal.item._tag === "transcript.user-input" &&
+              signal.item.requestId === "closed-question-batch" &&
+              signal.item.status === "resolved",
+          ),
+        )
+
+        yield* provider.interrupt(threadId)
+        yield* provider.drain
+      }),
     ),
   )
 
