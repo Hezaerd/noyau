@@ -6,7 +6,7 @@ import {
   type DesktopUpdateCheckResult,
   type DesktopUpdateOpenResult,
   type DesktopUpdatePackagedChannel,
-} from "./desktop-update-contract"
+} from "./desktop-update-bridge"
 import { PICK_FOLDER_CHANNEL, type FolderPickerOptions } from "./folder-picker-contract"
 import { OPEN_PATH_CHANNEL } from "./open-path-contract"
 import { readPreloadBootstrapFromArgv } from "./preload-bootstrap"
