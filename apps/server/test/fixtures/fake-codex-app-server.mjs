@@ -135,7 +135,7 @@ await Effect.runPromise(
 )
 
 let turnOrdinal = 0
-let latestTurn = null
+const latestTurns = new Map()
 
 const emitTurn = (requestThreadId, turnId) => {
   if (scenario === "cross-talk") {
@@ -258,7 +258,8 @@ const emitTurn = (requestThreadId, turnId) => {
     threadId: requestThreadId,
     turnId,
   })
-  latestTurn = { id: turnId, items: [], status: "completed" }
+  const latestTurn = { id: turnId, items: [], status: "completed" }
+  latestTurns.set(requestThreadId, latestTurn)
   if (scenario !== "idle-without-turn-completed") {
     notify("turn/completed", {
       threadId: requestThreadId,
@@ -385,7 +386,9 @@ for await (const line of lines) {
   }
 
   if (message.method === "thread/read") {
-    const thread = makeThread(message.params?.threadId ?? threadId)
+    const requestedThreadId = message.params?.threadId ?? threadId
+    const latestTurn = latestTurns.get(requestedThreadId) ?? null
+    const thread = makeThread(requestedThreadId)
     thread.status =
       latestTurn?.status === "inProgress" ? { type: "active", activeFlags: [] } : { type: "idle" }
     thread.turns = message.params?.includeTurns === true && latestTurn !== null ? [latestTurn] : []
@@ -402,7 +405,8 @@ for await (const line of lines) {
     turnOrdinal += 1
     const requestThreadId = message.params?.threadId ?? threadId
     const turnId = `fake-codex-turn-${turnOrdinal}`
-    latestTurn = { id: turnId, items: [], status: "inProgress" }
+    const latestTurn = { id: turnId, items: [], status: "inProgress" }
+    latestTurns.set(requestThreadId, latestTurn)
     respond(message.id, { turn: latestTurn })
     if (scenario === "exit-active") {
       shutdown("active-exit", 2)
