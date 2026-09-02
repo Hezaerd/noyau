@@ -74,7 +74,7 @@ function CheckoutMenuTrigger({
   )
 }
 
-export function ThreadCheckoutBar({
+export function ComposerGitToolbar({
   projectId,
   threadId,
   branch,
@@ -266,8 +266,8 @@ export function ThreadCheckoutBar({
   return (
     <div className="flex flex-col gap-1">
       <div
-        data-slot="thread-checkout-bar"
-        className="composer-context-strip mx-6 -mt-px flex items-center gap-1 overflow-x-clip rounded-b-xl px-2 py-1"
+        data-slot="composer-git-toolbar"
+        className="composer-toolbar-strip mx-6 -mt-px flex items-center gap-1 overflow-x-clip rounded-b-xl px-2 py-1"
       >
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <Menu>

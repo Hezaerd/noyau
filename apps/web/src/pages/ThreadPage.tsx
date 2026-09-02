@@ -29,7 +29,7 @@ import {
   ResourceErrorState,
   ScopeBanner,
 } from "@/components/failure/FailureSurfaces"
-import { ThreadCheckoutBar } from "@/components/thread/ThreadCheckoutBar"
+import { ComposerGitToolbar } from "@/components/thread/ComposerGitToolbar"
 import { ThreadComposer } from "@/components/thread/ThreadComposer"
 import { ThreadDraftHero } from "@/components/thread/ThreadDraftHero"
 import { ThreadStatusNotices } from "@/components/thread/ThreadStatusNotices"
@@ -1163,25 +1163,31 @@ export function ThreadPage({
       tickets={tickets}
       skills={skills}
       contextUsage={pageSnapshot?.thread.contextUsage}
-      context={
-        <ThreadCheckoutBar
-          projectId={projectId}
-          threadId={threadId}
-          branch={baseBranch}
-          worktreePath={worktreePath}
-          disabled={loading || project?.available !== true}
-          envMode={effectiveEnvMode}
-          envModeLocked={envModeLockedOf({
-            worktreePath,
-            latestTurn: pageSnapshot?.thread.latestTurn,
-            isRunning,
-          })}
-          startFromOrigin={startFromOrigin}
-          onEnvModeChange={changeEnvMode}
-          onBaseBranchChange={setBaseBranch}
-          onStartFromOriginChange={setStartFromOrigin}
-        />
-      }
+      toolbars={[
+        {
+          id: "composer-git",
+          placement: "bottom",
+          content: (
+            <ComposerGitToolbar
+              projectId={projectId}
+              threadId={threadId}
+              branch={baseBranch}
+              worktreePath={worktreePath}
+              disabled={loading || project?.available !== true}
+              envMode={effectiveEnvMode}
+              envModeLocked={envModeLockedOf({
+                worktreePath,
+                latestTurn: pageSnapshot?.thread.latestTurn,
+                isRunning,
+              })}
+              startFromOrigin={startFromOrigin}
+              onEnvModeChange={changeEnvMode}
+              onBaseBranchChange={setBaseBranch}
+              onStartFromOriginChange={setStartFromOrigin}
+            />
+          ),
+        },
+      ]}
     />
   )
 

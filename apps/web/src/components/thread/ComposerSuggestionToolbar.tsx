@@ -11,7 +11,7 @@ const directoryOfPath = (relativePath: string): string => {
   return separatorIndex >= 0 ? relativePath.slice(0, separatorIndex) : ""
 }
 
-export function ComposerMentionMenu({
+export function ComposerSuggestionToolbar({
   entries,
   highlightedIndex,
   id,

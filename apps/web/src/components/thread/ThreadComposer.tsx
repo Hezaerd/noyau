@@ -39,11 +39,15 @@ import {
 } from "react"
 
 import { ComposerContextUsage } from "@/components/thread/ComposerContextUsage"
-import { ComposerMentionMenu } from "@/components/thread/ComposerMentionMenu"
 import {
   ComposerPromptField,
   type ComposerPromptFieldHandle,
 } from "@/components/thread/ComposerPromptField"
+import { ComposerSuggestionToolbar } from "@/components/thread/ComposerSuggestionToolbar"
+import {
+  ComposerToolbarHost,
+  type ComposerToolbarOwnerDefinition,
+} from "@/components/thread/ComposerToolbarHost"
 import { ExpandedImageDialog } from "@/components/thread/ExpandedImageDialog"
 import { ImageThumbnail } from "@/components/thread/ImageThumbnail"
 import { ThreadModelPicker } from "@/components/thread/ThreadModelPicker"
@@ -92,6 +96,8 @@ const defaultServiceTierMenuValue = (serviceTiers: CursorModel["serviceTiers"]) 
   return value
 }
 
+const EMPTY_TOOLBARS: ReadonlyArray<ComposerToolbarOwnerDefinition> = []
+
 const shouldSubmitComposerOnEnter = (event: {
   readonly key: string
   readonly shiftKey: boolean
@@ -128,7 +134,7 @@ export function ThreadComposer({
   tickets = EMPTY_COMPOSER_TICKETS,
   skills = EMPTY_COMPOSER_SKILLS,
   contextUsage,
-  context,
+  toolbars,
 }: {
   readonly isRunning: boolean
   readonly disabled: boolean
@@ -159,7 +165,7 @@ export function ThreadComposer({
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly skills?: ReadonlyArray<AgentSkillEntry> | undefined
   readonly contextUsage?: ContextUsage | undefined
-  readonly context?: ReactNode
+  readonly toolbars?: ReadonlyArray<ComposerToolbarOwnerDefinition> | undefined
 }) {
   const listboxId = useId()
   const fieldRef = useRef<ComposerPromptFieldHandle>(null)
@@ -210,6 +216,7 @@ export function ThreadComposer({
     skillQuery === null
       ? buildComposerMentionEntries(ticketEntries, pathEntries)
       : buildComposerSkillEntries(filterComposerSkills(skills, skillQuery))
+  const activeToolbars = toolbars ?? EMPTY_TOOLBARS
   const controlsDisabled = isRunning || disabled
   const sendDisabled =
     (text.trim() === "" && images.length === 0) || controlsDisabled || submitDisabled
@@ -301,6 +308,40 @@ export function ThreadComposer({
     onTextChange(next.text)
   }
 
+  const toolbarDefinitions: ReadonlyArray<ComposerToolbarOwnerDefinition> = [
+    ...activeToolbars,
+    {
+      id: "composer-mention-suggestions",
+      placement: "top",
+      active: mentionMenuOpen && trigger?.kind === "path",
+      content: (
+        <ComposerSuggestionToolbar
+          entries={mentionEntries}
+          highlightedIndex={highlightedIndex}
+          id={listboxId}
+          loading={pathSearchLoading}
+          onHighlight={setHighlightedIndex}
+          onSelect={insertMention}
+        />
+      ),
+    },
+    {
+      id: "composer-skill-suggestions",
+      placement: "top",
+      active: mentionMenuOpen && trigger?.kind === "skill",
+      content: (
+        <ComposerSuggestionToolbar
+          entries={mentionEntries}
+          highlightedIndex={highlightedIndex}
+          id={listboxId}
+          loading={pathSearchLoading}
+          onHighlight={setHighlightedIndex}
+          onSelect={insertMention}
+        />
+      ),
+    },
+  ]
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" && event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault()
@@ -353,301 +394,285 @@ export function ThreadComposer({
         className={cn(
           "composer-glass relative flex flex-col",
           placement === "hero" ? "w-full" : "mx-auto max-w-3xl",
-          context === undefined ? "gap-2" : "gap-0",
+          "gap-2",
         )}
       >
-        {mentionMenuOpen ? (
-          <ComposerMentionMenu
-            entries={mentionEntries}
-            highlightedIndex={highlightedIndex}
-            id={listboxId}
-            loading={pathSearchLoading}
-            onHighlight={setHighlightedIndex}
-            onSelect={insertMention}
-          />
-        ) : null}
-        <div
-          className={cn(
-            "composer-glass-shell relative",
-            context === undefined ? undefined : "composer-glass-shell-with-context",
-          )}
-        >
-          <InputGroup className="composer-glass-host relative z-10 rounded-xl border-transparent bg-transparent shadow-none dark:bg-transparent has-[[data-slot=input-group-control]:disabled]:bg-transparent has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0">
-            {images.length === 0 ? null : (
-              <div className="flex w-full flex-wrap justify-start gap-2 px-3 pt-3">
-                {images.map((image) => (
-                  <ImageThumbnail
-                    key={image.localId}
-                    alt={image.upload.name}
-                    src={image.previewUrl}
-                    className="size-16"
-                    onExpand={() => {
-                      const preview = buildExpandedImagePreview(
-                        images.map((candidate) => ({
-                          id: candidate.localId,
-                          name: candidate.upload.name,
-                          previewUrl: candidate.previewUrl,
-                        })),
-                        image.localId,
-                      )
-                      if (preview !== null) {
-                        setExpandedImage(preview)
-                      }
-                    }}
-                  >
-                    <Button
-                      type="button"
-                      size="icon-xs"
-                      variant="secondary"
-                      disabled={controlsDisabled}
-                      aria-label={`Remove ${image.upload.name}`}
-                      className="absolute top-0.5 right-0.5 size-5"
-                      onClick={() => {
-                        onImageRemove(image.localId)
-                      }}
-                    >
-                      <XIcon className="size-3" />
-                    </Button>
-                  </ImageThumbnail>
-                ))}
-              </div>
-            )}
-            <span className="relative inline-flex w-full flex-1 before:hidden">
-              <ComposerPromptField
-                ref={fieldRef}
-                text={text}
-                disabled={controlsDisabled}
-                autoFocus
-                pathMenuOpen={mentionMenuOpen}
-                tickets={tickets}
-                skills={skills}
-                listboxId={listboxId}
-                activeOptionId={
-                  mentionMenuOpen && mentionEntries[highlightedIndex] !== undefined
-                    ? `composer-mention-option-${highlightedIndex}`
-                    : undefined
-                }
-                onTextChange={(value) => {
-                  setDismissedQuery(null)
-                  onTextChange(value)
-                }}
-                onCursorChange={setCursor}
-                onKeyDown={handleKeyDown}
-                onPaste={onPaste}
-                onDrop={onDrop}
-              />
-            </span>
-            <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
-              <ThreadModelPicker
-                modelsByProvider={modelsByProvider}
-                availableProviders={availableProviders}
-                lockedProvider={lockedProvider}
-                selectedProvider={selectedProvider}
-                modelSelection={modelSelection}
-                defaultModelSelection={defaultModelSelection}
-                disabled={
-                  controlsDisabled ||
-                  Object.values(modelsByProvider).every((catalog) => catalog.length === 0)
-                }
-                onModelSelectionChange={onModelSelectionChange}
-                onDefaultModelSelectionChange={onDefaultModelSelectionChange}
-                onProviderChange={onProviderChange}
-                onOpenChange={handleComposerOverlayOpenChange}
-              />
-
-              <Separator orientation="vertical" className="mx-0.5 h-4" />
-
-              {modelSelection !== null && hasTraits ? (
-                <>
-                  {hasEffort || hasTier ? (
-                    <ComposerTraitMenu
-                      ariaLabel="Configuration"
-                      disabled={controlsDisabled}
-                      icon={isFastServiceTier ? ZapIcon : undefined}
-                      label={selectedEffort?.label ?? selectedTier?.label ?? "Configure"}
-                      onOpenChange={handleComposerOverlayOpenChange}
-                    >
-                      {hasEffort ? (
-                        <MenuGroup>
-                          <MenuGroupLabel>Reasoning</MenuGroupLabel>
-                          <MenuRadioGroup
-                            value={selectedEffort?.value ?? ""}
-                            onValueChange={(reasoningEffort) => {
-                              onModelSelectionChange({ ...modelSelection, reasoningEffort })
-                            }}
-                          >
-                            {selectedModel?.reasoningEfforts.map((effort) => (
-                              <ComposerTraitOption
-                                key={effort.value}
-                                isDefault={effort.isDefault}
-                                label={effort.label}
-                                value={effort.value}
-                              />
-                            ))}
-                          </MenuRadioGroup>
-                        </MenuGroup>
-                      ) : null}
-                      {hasEffort && hasTier ? <Separator className="my-1" /> : null}
-                      {hasTier ? (
-                        <MenuGroup>
-                          <MenuGroupLabel>Service tier</MenuGroupLabel>
-                          <MenuRadioGroup
-                            value={selectedTierValue}
-                            onValueChange={(serviceTier) => {
-                              const isDefault =
-                                serviceTier === defaultServiceTierValue ||
-                                selectedModel?.serviceTiers.some(
-                                  (tier) => tier.value === serviceTier && tier.isDefault === true,
-                                )
-                              if (isDefault && modelSelection !== null) {
-                                const { serviceTier: _serviceTier, ...selection } = modelSelection
-                                onModelSelectionChange(selection)
-                                return
-                              }
-                              onModelSelectionChange({ ...modelSelection, serviceTier })
-                            }}
-                          >
-                            {hasAdvertisedDefaultTier === false ? (
-                              <ComposerTraitOption
-                                value={defaultServiceTierValue}
-                                label="Default"
-                              />
-                            ) : null}
-                            {selectedModel?.serviceTiers.map((tier) => (
-                              <ComposerTraitOption
-                                key={tier.value}
-                                isDefault={tier.isDefault}
-                                label={tier.label}
-                                value={tier.value}
-                              />
-                            ))}
-                          </MenuRadioGroup>
-                        </MenuGroup>
-                      ) : null}
-                    </ComposerTraitMenu>
-                  ) : null}
-                  {hasThinking && selectedModel?.thinking !== undefined ? (
-                    <ComposerTraitMenu
-                      ariaLabel="Thinking"
-                      disabled={controlsDisabled}
-                      icon={BrainIcon}
-                      label={selectedThinking === true ? "On" : "Off"}
-                      onOpenChange={handleComposerOverlayOpenChange}
-                    >
-                      <MenuGroup>
-                        <MenuGroupLabel>{selectedModel.thinking.label}</MenuGroupLabel>
-                        <MenuRadioGroup
-                          value={selectedThinking === true ? "on" : "off"}
-                          onValueChange={(value) => {
-                            onModelSelectionChange({
-                              ...modelSelection,
-                              thinking: value === "on",
-                            })
-                          }}
-                        >
-                          <ComposerTraitOption
-                            isDefault={selectedModel.thinking.defaultValue === false}
-                            label="Off"
-                            value="off"
-                          />
-                          <ComposerTraitOption
-                            isDefault={selectedModel.thinking.defaultValue === true}
-                            label="On"
-                            value="on"
-                          />
-                        </MenuRadioGroup>
-                      </MenuGroup>
-                    </ComposerTraitMenu>
-                  ) : null}
-                  <Separator orientation="vertical" className="mx-0.5 h-4" />
-                </>
-              ) : null}
-
-              <Menu onOpenChange={handleComposerOverlayOpenChange}>
-                <MenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={controlsDisabled}
-                      aria-label="Access level"
-                      className="max-w-52"
-                    />
-                  }
-                >
-                  <SelectedRuntimeModeIcon data-icon="inline-start" />
-                  <span className="truncate">{selectedRuntimeMode.label}</span>
-                  <ChevronDownIcon data-icon="inline-end" />
-                </MenuTrigger>
-                <MenuPopup
-                  side="top"
-                  align="start"
-                  finalFocus={false}
-                  className={cn("w-max", composerOverlayGlassClassName)}
-                >
-                  <MenuGroup>
-                    <MenuRadioGroup
-                      value={runtimeMode}
-                      onValueChange={(value) => {
-                        if (isRuntimeMode(value)) {
-                          onRuntimeModeChange(value)
+        <ComposerToolbarHost toolbars={toolbarDefinitions}>
+          <div className="composer-glass-shell relative">
+            <InputGroup className="composer-glass-host relative z-10 rounded-xl border-transparent bg-transparent shadow-none dark:bg-transparent has-[[data-slot=input-group-control]:disabled]:bg-transparent has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+              {images.length === 0 ? null : (
+                <div className="flex w-full flex-wrap justify-start gap-2 px-3 pt-3">
+                  {images.map((image) => (
+                    <ImageThumbnail
+                      key={image.localId}
+                      alt={image.upload.name}
+                      src={image.previewUrl}
+                      className="size-16"
+                      onExpand={() => {
+                        const preview = buildExpandedImagePreview(
+                          images.map((candidate) => ({
+                            id: candidate.localId,
+                            name: candidate.upload.name,
+                            previewUrl: candidate.previewUrl,
+                          })),
+                          image.localId,
+                        )
+                        if (preview !== null) {
+                          setExpandedImage(preview)
                         }
                       }}
                     >
-                      {runtimeModes.map((mode) => {
-                        const ModeIcon = runtimeModeIcons[mode.value]
-                        return (
-                          <MenuRadioItem
-                            key={mode.value}
-                            value={mode.value}
-                            closeOnClick
-                            hideIndicator
-                            className="py-2 data-checked:bg-accent data-checked:text-accent-foreground data-highlighted:bg-accent/60"
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant="secondary"
+                        disabled={controlsDisabled}
+                        aria-label={`Remove ${image.upload.name}`}
+                        className="absolute top-0.5 right-0.5 size-5"
+                        onClick={() => {
+                          onImageRemove(image.localId)
+                        }}
+                      >
+                        <XIcon className="size-3" />
+                      </Button>
+                    </ImageThumbnail>
+                  ))}
+                </div>
+              )}
+              <span className="relative inline-flex w-full flex-1 before:hidden">
+                <ComposerPromptField
+                  ref={fieldRef}
+                  text={text}
+                  disabled={controlsDisabled}
+                  autoFocus
+                  suggestionsOpen={mentionMenuOpen}
+                  tickets={tickets}
+                  skills={skills}
+                  listboxId={listboxId}
+                  activeOptionId={
+                    mentionMenuOpen && mentionEntries[highlightedIndex] !== undefined
+                      ? `composer-mention-option-${highlightedIndex}`
+                      : undefined
+                  }
+                  onTextChange={(value) => {
+                    setDismissedQuery(null)
+                    onTextChange(value)
+                  }}
+                  onCursorChange={setCursor}
+                  onKeyDown={handleKeyDown}
+                  onPaste={onPaste}
+                  onDrop={onDrop}
+                />
+              </span>
+              <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
+                <ThreadModelPicker
+                  modelsByProvider={modelsByProvider}
+                  availableProviders={availableProviders}
+                  lockedProvider={lockedProvider}
+                  selectedProvider={selectedProvider}
+                  modelSelection={modelSelection}
+                  defaultModelSelection={defaultModelSelection}
+                  disabled={
+                    controlsDisabled ||
+                    Object.values(modelsByProvider).every((catalog) => catalog.length === 0)
+                  }
+                  onModelSelectionChange={onModelSelectionChange}
+                  onDefaultModelSelectionChange={onDefaultModelSelectionChange}
+                  onProviderChange={onProviderChange}
+                  onOpenChange={handleComposerOverlayOpenChange}
+                />
+
+                <Separator orientation="vertical" className="mx-0.5 h-4" />
+
+                {modelSelection !== null && hasTraits ? (
+                  <>
+                    {hasEffort || hasTier ? (
+                      <ComposerTraitMenu
+                        ariaLabel="Configuration"
+                        disabled={controlsDisabled}
+                        icon={isFastServiceTier ? ZapIcon : undefined}
+                        label={selectedEffort?.label ?? selectedTier?.label ?? "Configure"}
+                        onOpenChange={handleComposerOverlayOpenChange}
+                      >
+                        {hasEffort ? (
+                          <MenuGroup>
+                            <MenuGroupLabel>Reasoning</MenuGroupLabel>
+                            <MenuRadioGroup
+                              value={selectedEffort?.value ?? ""}
+                              onValueChange={(reasoningEffort) => {
+                                onModelSelectionChange({ ...modelSelection, reasoningEffort })
+                              }}
+                            >
+                              {selectedModel?.reasoningEfforts.map((effort) => (
+                                <ComposerTraitOption
+                                  key={effort.value}
+                                  isDefault={effort.isDefault}
+                                  label={effort.label}
+                                  value={effort.value}
+                                />
+                              ))}
+                            </MenuRadioGroup>
+                          </MenuGroup>
+                        ) : null}
+                        {hasEffort && hasTier ? <Separator className="my-1" /> : null}
+                        {hasTier ? (
+                          <MenuGroup>
+                            <MenuGroupLabel>Service tier</MenuGroupLabel>
+                            <MenuRadioGroup
+                              value={selectedTierValue}
+                              onValueChange={(serviceTier) => {
+                                const isDefault =
+                                  serviceTier === defaultServiceTierValue ||
+                                  selectedModel?.serviceTiers.some(
+                                    (tier) => tier.value === serviceTier && tier.isDefault === true,
+                                  )
+                                if (isDefault && modelSelection !== null) {
+                                  const { serviceTier: _serviceTier, ...selection } = modelSelection
+                                  onModelSelectionChange(selection)
+                                  return
+                                }
+                                onModelSelectionChange({ ...modelSelection, serviceTier })
+                              }}
+                            >
+                              {hasAdvertisedDefaultTier === false ? (
+                                <ComposerTraitOption
+                                  value={defaultServiceTierValue}
+                                  label="Default"
+                                />
+                              ) : null}
+                              {selectedModel?.serviceTiers.map((tier) => (
+                                <ComposerTraitOption
+                                  key={tier.value}
+                                  isDefault={tier.isDefault}
+                                  label={tier.label}
+                                  value={tier.value}
+                                />
+                              ))}
+                            </MenuRadioGroup>
+                          </MenuGroup>
+                        ) : null}
+                      </ComposerTraitMenu>
+                    ) : null}
+                    {hasThinking && selectedModel?.thinking !== undefined ? (
+                      <ComposerTraitMenu
+                        ariaLabel="Thinking"
+                        disabled={controlsDisabled}
+                        icon={BrainIcon}
+                        label={selectedThinking === true ? "On" : "Off"}
+                        onOpenChange={handleComposerOverlayOpenChange}
+                      >
+                        <MenuGroup>
+                          <MenuGroupLabel>{selectedModel.thinking.label}</MenuGroupLabel>
+                          <MenuRadioGroup
+                            value={selectedThinking === true ? "on" : "off"}
+                            onValueChange={(value) => {
+                              onModelSelectionChange({
+                                ...modelSelection,
+                                thinking: value === "on",
+                              })
+                            }}
                           >
-                            <span className="flex items-start gap-2">
-                              <ModeIcon className="mt-0.5 shrink-0" />
-                              <span className="flex flex-col gap-0.5">
-                                <span className="font-medium">{mode.label}</span>
-                                <span className="whitespace-nowrap text-muted-foreground text-xs leading-snug">
-                                  {mode.description}
+                            <ComposerTraitOption
+                              isDefault={selectedModel.thinking.defaultValue === false}
+                              label="Off"
+                              value="off"
+                            />
+                            <ComposerTraitOption
+                              isDefault={selectedModel.thinking.defaultValue === true}
+                              label="On"
+                              value="on"
+                            />
+                          </MenuRadioGroup>
+                        </MenuGroup>
+                      </ComposerTraitMenu>
+                    ) : null}
+                    <Separator orientation="vertical" className="mx-0.5 h-4" />
+                  </>
+                ) : null}
+
+                <Menu onOpenChange={handleComposerOverlayOpenChange}>
+                  <MenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={controlsDisabled}
+                        aria-label="Access level"
+                        className="max-w-52"
+                      />
+                    }
+                  >
+                    <SelectedRuntimeModeIcon data-icon="inline-start" />
+                    <span className="truncate">{selectedRuntimeMode.label}</span>
+                    <ChevronDownIcon data-icon="inline-end" />
+                  </MenuTrigger>
+                  <MenuPopup
+                    side="top"
+                    align="start"
+                    finalFocus={false}
+                    className={cn("w-max", composerOverlayGlassClassName)}
+                  >
+                    <MenuGroup>
+                      <MenuRadioGroup
+                        value={runtimeMode}
+                        onValueChange={(value) => {
+                          if (isRuntimeMode(value)) {
+                            onRuntimeModeChange(value)
+                          }
+                        }}
+                      >
+                        {runtimeModes.map((mode) => {
+                          const ModeIcon = runtimeModeIcons[mode.value]
+                          return (
+                            <MenuRadioItem
+                              key={mode.value}
+                              value={mode.value}
+                              closeOnClick
+                              hideIndicator
+                              className="py-2 data-checked:bg-accent data-checked:text-accent-foreground data-highlighted:bg-accent/60"
+                            >
+                              <span className="flex items-start gap-2">
+                                <ModeIcon className="mt-0.5 shrink-0" />
+                                <span className="flex flex-col gap-0.5">
+                                  <span className="font-medium">{mode.label}</span>
+                                  <span className="whitespace-nowrap text-muted-foreground text-xs leading-snug">
+                                    {mode.description}
+                                  </span>
                                 </span>
                               </span>
-                            </span>
-                          </MenuRadioItem>
-                        )
-                      })}
-                    </MenuRadioGroup>
-                  </MenuGroup>
-                </MenuPopup>
-              </Menu>
+                            </MenuRadioItem>
+                          )
+                        })}
+                      </MenuRadioGroup>
+                    </MenuGroup>
+                  </MenuPopup>
+                </Menu>
 
-              <div className="ml-auto flex items-center gap-2">
-                {contextUsage === undefined ? null : <ComposerContextUsage usage={contextUsage} />}
-                <Button
-                  type={isRunning ? "button" : "submit"}
-                  size="icon-sm"
-                  variant={isRunning ? "destructive" : "default"}
-                  disabled={isRunning ? false : sendDisabled}
-                  aria-label={isRunning ? "Interrupt" : "Send"}
-                  onClick={isRunning ? onInterrupt : undefined}
-                >
-                  {isRunning ? (
-                    <SquareIcon aria-hidden="true" className="size-3 fill-current" />
-                  ) : (
-                    <ArrowUpIcon aria-hidden="true" />
+                <div className="ml-auto flex items-center gap-2">
+                  {contextUsage === undefined ? null : (
+                    <ComposerContextUsage usage={contextUsage} />
                   )}
-                </Button>
-              </div>
-            </InputGroupAddon>
-          </InputGroup>
-        </div>
-        {context}
-        {error === undefined ? null : (
-          <div id="thread-composer-error" className={context === undefined ? undefined : "pt-2"}>
-            {error}
+                  <Button
+                    type={isRunning ? "button" : "submit"}
+                    size="icon-sm"
+                    variant={isRunning ? "destructive" : "default"}
+                    disabled={isRunning ? false : sendDisabled}
+                    aria-label={isRunning ? "Interrupt" : "Send"}
+                    onClick={isRunning ? onInterrupt : undefined}
+                  >
+                    {isRunning ? (
+                      <SquareIcon aria-hidden="true" className="size-3 fill-current" />
+                    ) : (
+                      <ArrowUpIcon aria-hidden="true" />
+                    )}
+                  </Button>
+                </div>
+              </InputGroupAddon>
+            </InputGroup>
           </div>
-        )}
+        </ComposerToolbarHost>
+        {error === undefined ? null : <div id="thread-composer-error">{error}</div>}
       </div>
       {expandedImage === null ? null : (
         <ExpandedImageDialog
