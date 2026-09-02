@@ -26,6 +26,7 @@ import {
   XIcon,
 } from "lucide-react"
 import {
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -197,6 +198,7 @@ export function ThreadComposer({
   const [pathSearchLoading, setPathSearchLoading] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const [dismissedQuery, setDismissedQuery] = useState<string | null>(null)
+  const [blockedSuggestionQuery, setBlockedSuggestionQuery] = useState<string | null>(null)
   const trigger = detectComposerTrigger(text, cursor)
   const mentionQuery = trigger?.kind === "path" ? trigger.query : null
   const skillQuery = trigger?.kind === "skill" ? trigger.query : null
@@ -211,6 +213,10 @@ export function ThreadComposer({
     dismissedQuery !== activeQueryKey &&
     ((mentionQuery !== null && (searchPaths !== undefined || tickets.length > 0)) ||
       (skillQuery !== null && skills.length > 0))
+  const suggestionsVisible = mentionMenuOpen && blockedSuggestionQuery !== activeQueryKey
+  const handleSuggestionOpenFailure = useCallback(() => {
+    setBlockedSuggestionQuery(activeQueryKey)
+  }, [activeQueryKey])
   const ticketEntries = mentionQuery === null ? [] : filterComposerTickets(tickets, mentionQuery)
   const mentionEntries =
     skillQuery === null
@@ -285,6 +291,9 @@ export function ThreadComposer({
 
   useEffect(() => {
     setHighlightedIndex(0)
+    if (activeQueryKey === null) {
+      setBlockedSuggestionQuery(null)
+    }
   }, [activeQueryKey])
 
   const insertMention = (entry: ComposerMentionEntry) => {
@@ -313,7 +322,8 @@ export function ThreadComposer({
     {
       id: "composer-mention-suggestions",
       placement: "top",
-      active: mentionMenuOpen && trigger?.kind === "path",
+      active: suggestionsVisible && trigger?.kind === "path",
+      onOpenFailure: handleSuggestionOpenFailure,
       content: (
         <ComposerSuggestionToolbar
           entries={mentionEntries}
@@ -328,7 +338,8 @@ export function ThreadComposer({
     {
       id: "composer-skill-suggestions",
       placement: "top",
-      active: mentionMenuOpen && trigger?.kind === "skill",
+      active: suggestionsVisible && trigger?.kind === "skill",
+      onOpenFailure: handleSuggestionOpenFailure,
       content: (
         <ComposerSuggestionToolbar
           entries={mentionEntries}
@@ -350,7 +361,7 @@ export function ThreadComposer({
       onTextChange(next.text)
       return
     }
-    if (mentionMenuOpen && mentionEntries.length > 0) {
+    if (suggestionsVisible && mentionEntries.length > 0) {
       if (event.key === "ArrowDown") {
         event.preventDefault()
         setHighlightedIndex((index) => Math.min(mentionEntries.length - 1, index + 1))
@@ -445,12 +456,12 @@ export function ThreadComposer({
                   text={text}
                   disabled={controlsDisabled}
                   autoFocus
-                  suggestionsOpen={mentionMenuOpen}
+                  suggestionsOpen={suggestionsVisible}
                   tickets={tickets}
                   skills={skills}
                   listboxId={listboxId}
                   activeOptionId={
-                    mentionMenuOpen && mentionEntries[highlightedIndex] !== undefined
+                    suggestionsVisible && mentionEntries[highlightedIndex] !== undefined
                       ? `composer-mention-option-${highlightedIndex}`
                       : undefined
                   }

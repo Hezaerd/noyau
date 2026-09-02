@@ -4,7 +4,7 @@ import type { AgentSkillEntry } from "@noyau/contracts/entities/agent-skill"
 import type { CursorModel } from "@noyau/contracts/entities/environment"
 import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import type { WorkspacePathEntry } from "@noyau/contracts/entities/workspace-path"
-import { cleanup, render, screen, within } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { ComposerToolbarOwnerDefinition } from "../src/components/thread/ComposerToolbarHost"
@@ -61,6 +61,8 @@ const renderComposer = ({
   skills = [],
   searchPaths,
   toolbars,
+  onTextChange = vi.fn(),
+  onSubmit = vi.fn(),
 }: {
   readonly placement?: "docked" | "hero"
   readonly text?: string
@@ -68,6 +70,8 @@ const renderComposer = ({
   readonly skills?: ReadonlyArray<AgentSkillEntry>
   readonly searchPaths?: ((query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>) | undefined
   readonly toolbars?: ReadonlyArray<ComposerToolbarOwnerDefinition> | undefined
+  readonly onTextChange?: (value: string) => void
+  readonly onSubmit?: () => void
 } = {}) =>
   render(
     <AppAtomRegistryProvider>
@@ -85,8 +89,8 @@ const renderComposer = ({
         defaultModelSelection={null}
         error={undefined}
         placement={placement}
-        onSubmit={vi.fn()}
-        onTextChange={vi.fn()}
+        onSubmit={onSubmit}
+        onTextChange={onTextChange}
         onRuntimeModeChange={vi.fn()}
         onModelSelectionChange={vi.fn()}
         onDefaultModelSelectionChange={vi.fn()}
@@ -166,12 +170,14 @@ describe("ThreadComposer toolbar composition", () => {
     expect(within(listbox).getByRole("option", { name: /Write docs/ })).toBeTruthy()
   })
 
-  it("keeps an occupied external top toolbar instead of replacing it", () => {
-    // ComposerToolbarOwner currently keeps the typed failure internal, so this verifies the
-    // reachable contract: the incumbent remains mounted and the failed suggestion owner is absent.
+  it("suppresses suggestion behavior when an external toolbar occupies the top area", () => {
+    const onTextChange = vi.fn()
+    const onSubmit = vi.fn()
     renderComposer({
       text: "@",
       tickets: [ticket],
+      onTextChange,
+      onSubmit,
       toolbars: [
         {
           id: "external-top",
@@ -183,6 +189,14 @@ describe("ThreadComposer toolbar composition", () => {
 
     expect(screen.getByTestId("external-top-toolbar")).toBeTruthy()
     expect(screen.queryByRole("listbox", { name: "Composer suggestions" })).toBeNull()
+    const textbox = screen.getByRole("textbox", { name: "Compose a message" })
+    expect(textbox.getAttribute("aria-expanded")).toBeNull()
+    expect(textbox.getAttribute("aria-controls")).toBeNull()
+    expect(textbox.getAttribute("aria-activedescendant")).toBeNull()
+
+    fireEvent.keyDown(textbox, { key: "Enter" })
+    expect(onTextChange).not.toHaveBeenCalled()
+    expect(onSubmit).toHaveBeenCalledOnce()
   })
 
   it("does not create empty placement regions and preserves hero/docked sizing classes", () => {
