@@ -28,13 +28,13 @@ export function ThreadMarkdownImage({ src, alt, node: _node }: ComponentProps<"i
       setPreview(undefined)
       return
     }
-    const cached = peekFilePreview(projectId, filePath)
+    const cached = peekFilePreview(projectId, fileLinks.threadId, filePath)
     if (cached !== undefined) {
       setPreview(cached)
       return
     }
     let cancelled = false
-    void loadFilePreview(projectId, filePath).then((value) => {
+    void loadFilePreview(projectId, fileLinks.threadId, filePath).then((value) => {
       if (!cancelled) {
         setPreview(value)
       }
@@ -43,7 +43,7 @@ export function ThreadMarkdownImage({ src, alt, node: _node }: ComponentProps<"i
     return () => {
       cancelled = true
     }
-  }, [fileLinks.projectId, filePath])
+  }, [fileLinks.projectId, fileLinks.threadId, filePath])
 
   useEffect(() => {
     if (preview?.kind !== "image") {

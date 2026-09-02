@@ -64,7 +64,7 @@ export function ThreadMarkdownFileChip({
       setLoading(false)
       return
     }
-    const cached = peekFilePreview(projectId, meta.filePath)
+    const cached = peekFilePreview(projectId, fileLinks.threadId, meta.filePath)
     if (cached !== undefined) {
       setPreview(cached)
       setLoading(false)
@@ -72,7 +72,7 @@ export function ThreadMarkdownFileChip({
     }
     let cancelled = false
     setLoading(true)
-    void loadFilePreview(projectId, meta.filePath).then((value) => {
+    void loadFilePreview(projectId, fileLinks.threadId, meta.filePath).then((value) => {
       if (cancelled) {
         return undefined
       }
@@ -83,7 +83,7 @@ export function ThreadMarkdownFileChip({
     return () => {
       cancelled = true
     }
-  }, [fileLinks.projectId, meta.filePath, open])
+  }, [fileLinks.projectId, fileLinks.threadId, meta.filePath, open])
 
   useEffect(() => {
     if (preview?.kind !== "image") {

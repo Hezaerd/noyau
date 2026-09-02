@@ -5,6 +5,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it } from "@effect/vitest"
 import { ClientCommandRequest } from "@noyau/contracts/commands"
 import { CommandIdConflict } from "@noyau/contracts/errors"
+import { FilePreviewFailed } from "@noyau/contracts/file-preview"
 import { ActorId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ProjectNotFound, ProjectUnavailable } from "@noyau/contracts/project/errors"
 import { WorkspaceRootNotFound } from "@noyau/contracts/project/errors"
@@ -35,6 +36,7 @@ import {
   Schema,
   Stream,
 } from "effect"
+import type { Scope } from "effect"
 import { TestClock } from "effect/testing"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
@@ -151,7 +153,11 @@ const cursorControlPlaneTestLayer = (scenario: string, hooks: ControlPlaneHooks 
   )
 
 const run = <A, E>(
-  effect: Effect.Effect<A, E, ControlPlane | SqlClient | ThreadLive>,
+  effect: Effect.Effect<
+    A,
+    E,
+    ControlPlane | FileSystem.FileSystem | Path.Path | Scope.Scope | SqlClient | ThreadLive
+  >,
   hooks: ControlPlaneHooks = {},
   workspaceRoots: WorkspaceRootAccessService = availableWorkspaceRoots,
 ) =>
@@ -163,6 +169,56 @@ const run = <A, E>(
   )
 
 describe("ControlPlane", () => {
+  it.effect("previews files from a thread worktree", () =>
+    run(
+      Effect.gen(function* () {
+        const controlPlane = yield* ControlPlane
+        const fileSystem = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const workspaceRoot = yield* fileSystem.makeTempDirectoryScoped({
+          prefix: "noyau-preview-workspace-",
+        })
+        const worktreeRoot = yield* fileSystem.makeTempDirectoryScoped({
+          prefix: "noyau-preview-worktree-",
+        })
+        yield* fileSystem.writeFileString(path.join(workspaceRoot, "shared.txt"), "workspace")
+        yield* fileSystem.writeFileString(path.join(workspaceRoot, "workspace-only.txt"), "main")
+        yield* fileSystem.writeFileString(path.join(worktreeRoot, "shared.txt"), "worktree")
+
+        yield* controlPlane.dispatch(projectCreate(uuid(20), projectId, workspaceRoot), actorId)
+        yield* controlPlane.dispatch(threadCreate, actorId)
+        const sql = yield* SqlClient
+        yield* sql`UPDATE projection_threads SET worktree_path = ${worktreeRoot} WHERE thread_id = ${threadId}`
+
+        const relative = yield* controlPlane.previewFile({
+          projectId,
+          threadId,
+          path: "shared.txt",
+        })
+        assert.strictEqual(relative.kind, "text")
+        if (relative.kind === "text") {
+          assert.strictEqual(relative.text, "worktree")
+        }
+
+        const workspaceAbsolute = yield* controlPlane.previewFile({
+          projectId,
+          threadId,
+          path: path.join(workspaceRoot, "workspace-only.txt"),
+        })
+        assert.strictEqual(workspaceAbsolute.kind, "text")
+        if (workspaceAbsolute.kind === "text") {
+          assert.strictEqual(workspaceAbsolute.text, "main")
+        }
+
+        const deletedInWorktree = yield* controlPlane
+          .previewFile({ projectId, threadId, path: "workspace-only.txt" })
+          .pipe(Effect.flip)
+        assert.instanceOf(deletedInWorktree, FilePreviewFailed)
+        assert.strictEqual(deletedInWorktree.reason, "not-found")
+      }),
+    ),
+  )
+
   it.effect("dispatches durably, retries a command, and rejects commandId scope reuse", () =>
     run(
       Effect.gen(function* () {

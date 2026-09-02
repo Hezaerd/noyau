@@ -29,7 +29,7 @@ export const resolveWorkspaceCwd = Effect.fn("resolveWorkspaceCwd")(function* (s
   }
   const threadRows = yield* sql<
     (typeof ThreadCheckoutRow)["Encoded"]
-  >`SELECT worktree_path FROM projection_threads WHERE thread_id = ${scope.threadId}`.pipe(
+  >`SELECT worktree_path FROM projection_threads WHERE thread_id = ${scope.threadId} AND project_id = ${scope.projectId}`.pipe(
     Effect.mapError(() => unavailable("sqlite")),
   )
   const threadRow = threadRows[0]

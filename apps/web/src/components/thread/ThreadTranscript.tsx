@@ -284,9 +284,7 @@ export function ThreadTranscript({
                   flushedPrefix={flushedPrefix}
                   turn={turnById.get(row.item.turnId)}
                   {...turnDiffProps}
-                  workspaceRoot={
-                    row.item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
-                  }
+                  workspaceRoot={cwd ?? workspaceRoot}
                   projectId={projectId}
                   draftAnswers={
                     row.item._tag === "transcript.user-input"

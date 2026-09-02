@@ -1,4 +1,4 @@
-import type { ProjectId } from "@noyau/contracts/ids"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { memo, useCallback, useMemo } from "react"
 import { defaultUrlTransform, Streamdown, type ExtraProps } from "streamdown"
 
@@ -38,6 +38,7 @@ export const ThreadMarkdown = memo(function ThreadMarkdown({
   streaming = false,
   workspaceRoot,
   projectId,
+  threadId,
   tickets = EMPTY_COMPOSER_TICKETS,
   onOpenTicket,
 }: {
@@ -45,6 +46,7 @@ export const ThreadMarkdown = memo(function ThreadMarkdown({
   readonly streaming?: boolean
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
+  readonly threadId?: ThreadId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly onOpenTicket?: ((ticketId: string) => void) | undefined
 }) {
@@ -58,9 +60,10 @@ export const ThreadMarkdown = memo(function ThreadMarkdown({
         collectThreadMarkdownFileLinks(mentionExpanded, workspaceRoot),
         { tickets },
         projectId === undefined ? {} : { projectId },
+        threadId === undefined ? {} : { threadId },
         onOpenTicket === undefined ? {} : { onOpenTicket },
       ),
-    [mentionExpanded, onOpenTicket, projectId, tickets, workspaceRoot],
+    [mentionExpanded, onOpenTicket, projectId, threadId, tickets, workspaceRoot],
   )
   const renderedText = useMemo(
     () =>

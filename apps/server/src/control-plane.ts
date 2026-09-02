@@ -123,6 +123,7 @@ import { TextGeneration } from "./text-generation/text-generation.ts"
 import { makeThreadTitleReactor } from "./text-generation/thread-title-reactor.ts"
 import { makeWorktreeBranchReactor } from "./text-generation/worktree-branch-reactor.ts"
 import { makeThreadLiveEventCoalescer } from "./thread-live-coalescer.ts"
+import { resolveWorkspaceCwd } from "./workspace-cwd.ts"
 import { searchWorkspacePathsInRoot } from "./workspace-path-search.ts"
 import { WorkspaceRootAccess, type WorkspaceRootAccessService } from "./workspace-root.ts"
 
@@ -955,12 +956,36 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         if (Option.isNone(workspaceRoot)) {
           return yield* new ProjectNotFound({ projectId: input.projectId })
         }
-        return yield* readFilePreview({
+        const cwd =
+          input.threadId === undefined
+            ? workspaceRoot.value
+            : (yield* resolveWorkspaceCwd({
+                projectId: input.projectId,
+                threadId: input.threadId,
+              }).pipe(Effect.provideService(SqlClient, sql))).cwd
+        const previewRoot = yield* Schema.decodeEffect(WorkspaceRoot)(cwd).pipe(Effect.orDie)
+        const preview = readFilePreview({
           requestedPath: input.path,
-          workspaceRoot: workspaceRoot.value,
+          workspaceRoot: previewRoot,
         }).pipe(
           Effect.provideService(FileSystem.FileSystem, fileSystem),
           Effect.provideService(Path.Path, path),
+        )
+        if (cwd === workspaceRoot.value) {
+          return yield* preview
+        }
+        return yield* preview.pipe(
+          Effect.catchTag("FilePreviewFailed", (error) =>
+            error.reason === "outside-workspace"
+              ? readFilePreview({
+                  requestedPath: input.path,
+                  workspaceRoot: workspaceRoot.value,
+                }).pipe(
+                  Effect.provideService(FileSystem.FileSystem, fileSystem),
+                  Effect.provideService(Path.Path, path),
+                )
+              : Effect.fail(error),
+          ),
         )
       })
 
