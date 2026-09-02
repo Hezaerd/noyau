@@ -427,7 +427,7 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
   )
 
   it.effect(
-    "resumes a Codex thread after stop, and falls back to thread/start when resume fails",
+    "resumes a Codex thread after stop, and never replaces a failed resume with a new thread",
     () =>
       Effect.gen(function* () {
         yield* withProvider("success", (provider, evidence) =>
@@ -460,13 +460,11 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
               },
             })
             assert.isTrue(
-              signals.some(
-                (signal) => signal._tag === "turn-ended" && signal.state === "completed",
-              ),
+              signals.some((signal) => signal._tag === "turn-ended" && signal.state === "error"),
             )
             const requests = parseRequests(yield* readLog(evidence.requestLog))
             assert.isTrue(requests.some((message) => message.method === "thread/resume"))
-            assert.isTrue(requests.some((message) => message.method === "thread/start"))
+            assert.isFalse(requests.some((message) => message.method === "thread/start"))
           }),
         )
       }),
@@ -532,48 +530,128 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
     ),
   )
 
-  it.effect("forks through the exact native turn using a live source client", () =>
+  it.effect("owns the forked thread on its destination client through the first Turn", () =>
     withProvider("success", (provider, evidence) =>
       Effect.gen(function* () {
         yield* capture(provider, input())
         const before = parseRequests(yield* readLog(evidence.requestLog))
-        const cursor = yield* provider.fork!(forkInput())
+        const fork = forkInput()
+        const cursor = yield* provider.fork!(fork)
         assert.strictEqual(cursor.sessionId, "forked-fake-codex-thread")
+        const destinationSignals = yield* capture(provider, {
+          ...input(),
+          threadId: fork.threadId,
+          turnId: secondTurnId,
+          text: "Continue from the native fork",
+          resumeCursor: cursor,
+        })
+        assert.isTrue(
+          destinationSignals.some(
+            (signal) => signal._tag === "turn-ended" && signal.state === "completed",
+          ),
+        )
         const requests = parseRequests(yield* readLog(evidence.requestLog))
-        const fork = requests.find((request) => request.method === "thread/fork")
-        assert.deepStrictEqual(fork?.params, {
+        const forkRequest = requests.find((request) => request.method === "thread/fork")
+        assert.deepStrictEqual(forkRequest?.params, {
           threadId: "fake-codex-thread",
           lastTurnId: "fake-codex-turn-1",
           cwd: process.cwd(),
         })
         assert.strictEqual(
           requests.filter((request) => request.method === "_spawn").length,
-          before.filter((request) => request.method === "_spawn").length,
+          before.filter((request) => request.method === "_spawn").length + 1,
+        )
+        assert.strictEqual(
+          requests.filter((request) => request.method === "thread/start").length,
+          before.filter((request) => request.method === "thread/start").length,
+        )
+        assert.strictEqual(
+          requests.filter((request) => request.method === "thread/resume").length,
+          before.filter((request) => request.method === "thread/resume").length,
+        )
+        assert.isTrue(
+          requests.some(
+            (request) =>
+              request.method === "turn/start" &&
+              JSON.stringify(request.params).includes('"threadId":"forked-fake-codex-thread"'),
+          ),
         )
       }),
     ),
   )
 
-  it.effect("opens and closes a temporary client when the source session was reaped", () =>
+  it.effect("creates an owned destination client after the source session was reaped", () =>
     withProvider("success", (provider, evidence) =>
       Effect.gen(function* () {
         yield* capture(provider, input())
         assert.isTrue(yield* provider.reapIdle(threadId))
+        const exitsAfterSourceReap = (yield* readLog(evidence.exitLog)).split("SIGTERM").length - 1
         const before = parseRequests(yield* readLog(evidence.requestLog))
-        const cursor = yield* provider.fork!(forkInput())
+        const fork = forkInput()
+        const cursor = yield* provider.fork!(fork)
         assert.strictEqual(cursor.sessionId, "forked-fake-codex-thread")
         const requests = parseRequests(yield* readLog(evidence.requestLog))
         assert.strictEqual(
           requests.filter((request) => request.method === "_spawn").length,
           before.filter((request) => request.method === "_spawn").length + 1,
         )
-        const fork = requests.findLast((request) => request.method === "thread/fork")
-        assert.deepStrictEqual(fork?.params, {
+        const forkRequest = requests.findLast((request) => request.method === "thread/fork")
+        assert.deepStrictEqual(forkRequest?.params, {
           threadId: "fake-codex-thread",
           lastTurnId: "fake-codex-turn-1",
           cwd: process.cwd(),
         })
-        yield* waitForLog(evidence.exitLog, "SIGTERM")
+        yield* provider.stop(fork.threadId)
+        const exitLog = yield* waitForLog(evidence.exitLog, "SIGTERM")
+        assert.strictEqual(exitLog.split("SIGTERM").length - 1, exitsAfterSourceReap + 1)
+      }),
+    ),
+  )
+
+  it.effect("resumes the persisted fork after its owned destination client is reaped", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        const fork = forkInput()
+        const cursor = yield* provider.fork!(fork)
+        yield* capture(provider, {
+          ...input(),
+          threadId: fork.threadId,
+          turnId: secondTurnId,
+          resumeCursor: cursor,
+        })
+        assert.isTrue(yield* provider.reapIdle(fork.threadId))
+        const before = parseRequests(yield* readLog(evidence.requestLog))
+        const thirdTurnId = TurnId.make("30000000-0000-4000-8000-000000000004")
+        const signals = yield* capture(provider, {
+          ...input(),
+          threadId: fork.threadId,
+          turnId: thirdTurnId,
+          resumeCursor: cursor,
+        })
+        assert.isTrue(
+          signals.some((signal) => signal._tag === "turn-ended" && signal.state === "completed"),
+        )
+        const requests = parseRequests(yield* readLog(evidence.requestLog))
+        assert.strictEqual(
+          requests.filter((request) => request.method === "thread/resume").length,
+          before.filter((request) => request.method === "thread/resume").length + 1,
+        )
+        assert.strictEqual(
+          requests.filter((request) => request.method === "thread/start").length,
+          before.filter((request) => request.method === "thread/start").length,
+        )
+      }),
+    ),
+  )
+
+  it.effect("rejects a native fork whose returned history ends at another Turn", () =>
+    withProvider("fork-wrong-boundary", (provider, evidence) =>
+      Effect.gen(function* () {
+        const fork = forkInput()
+        const failure = yield* Effect.flip(provider.fork!(fork))
+        assert.strictEqual(failure._tag, "ProviderForkUnavailable")
+        assert.match(failure.message, /wrong Turn boundary/)
+        assert.deepStrictEqual(evidence.revokedSessions, [fork.threadId])
       }),
     ),
   )

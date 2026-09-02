@@ -28,7 +28,7 @@ import type {
 import { ApprovalRequestId, ProviderSessionId, ToolCallId } from "@noyau/contracts/ids"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import { ThreadLive, threadLiveLayer } from "@noyau/server/thread-live"
-import { Data, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Option, Path, Scope } from "effect"
+import { Data, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path, Scope } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import { takeBufferedAssistantSpill } from "./assistant-delivery.ts"
@@ -990,10 +990,8 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     if (resumeId !== undefined) {
       const resumed = yield* codexCall(
         client.request("thread/resume", Object.assign({}, startParams, { threadId: resumeId })),
-      ).pipe(Effect.option)
-      if (Option.isSome(resumed)) {
-        return resumed.value.thread.id
-      }
+      )
+      return resumed.thread.id
     }
     const started = yield* codexCall(client.request("thread/start", startParams))
     return started.thread.id
@@ -1330,30 +1328,99 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       ),
     ),
     listSkills: (_provider, workspaceRoot) => listSkills(workspaceRoot),
-    fork: (input: ProviderForkInput) => {
-      const source = sessions.get(input.sourceThreadId)
-      const requestFork = (client: CodexAppServerClient.CodexAppServerClient["Service"]) =>
-        codexCall(
-          client.request("thread/fork", {
+    fork: (input: ProviderForkInput) =>
+      Effect.gen(function* () {
+        const existing = sessions.get(input.threadId)
+        if (existing !== undefined) {
+          yield* closeSession(existing)
+        }
+        const credential = yield* mcpSessions.issue({
+          projectId: input.projectId,
+          threadId: input.threadId,
+        })
+        const scope = yield* Scope.make("sequential")
+        let openedSession: CodexSession | undefined
+        let startupOwned = true
+        const closeStartup = Effect.suspend(() => {
+          if (!startupOwned) {
+            return Effect.void
+          }
+          startupOwned = false
+          return mcpSessions
+            .revokeSession(input.threadId)
+            .pipe(Effect.andThen(Scope.close(scope, Exit.void)), Effect.ignore)
+        })
+        const token = credential.config.authorizationHeader.replace(/^Bearer\s+/i, "")
+        const opened = yield* openClient(
+          input.workspaceRoot,
+          [
+            "-c",
+            `mcp_servers.noyau.url=${credential.config.endpoint}`,
+            "-c",
+            `mcp_servers.noyau.bearer_token_env_var="${MCP_BEARER_ENV}"`,
+          ],
+          { [MCP_BEARER_ENV]: token },
+          scope,
+          {
+            onTermination: (error) =>
+              Effect.suspend(() => {
+                const terminated = openedSession
+                if (terminated === undefined) {
+                  return closeStartup
+                }
+                if (terminated.stopped) {
+                  return Effect.void
+                }
+                const activeControl = terminated.activeTurn
+                const settle =
+                  activeControl === undefined
+                    ? Effect.void
+                    : settleTurn(
+                        activeControl,
+                        activeControl.cancelRequested ? "interrupted" : "failed",
+                        activeControl.cancelRequested ? undefined : error.message,
+                      )
+                return settle.pipe(Effect.andThen(closeSession(terminated)))
+              }).pipe(Effect.forkIn(providerScope), Effect.asVoid),
+          },
+        ).pipe(Effect.onError(() => closeStartup))
+        yield* initializeClient(opened.client).pipe(Effect.onError(() => closeStartup))
+        const forked = yield* codexCall(
+          opened.client.request("thread/fork", {
             threadId: input.sourceResumeCursor.sessionId,
             lastTurnId: input.sourceForkPoint.boundaryId,
             cwd: input.workspaceRoot,
           }),
-        ).pipe(Effect.map((forked) => makeResumeCursor(forked.thread.id)))
-      const effect =
-        source !== undefined && !source.stopped
-          ? requestFork(source.client)
-          : Effect.scoped(
-              Effect.gen(function* () {
-                const temporary = yield* openClient(input.workspaceRoot)
-                yield* initializeClient(temporary.client)
-                return yield* requestFork(temporary.client)
-              }),
-            )
-      return effect.pipe(
+        ).pipe(Effect.onError(() => closeStartup))
+        if (forked.thread.turns.at(-1)?.id !== input.sourceForkPoint.boundaryId) {
+          yield* closeStartup
+          return yield* new CodexAdapterFailure({
+            message: "Codex returned a fork at the wrong Turn boundary",
+          })
+        }
+        const resumeCursor = makeResumeCursor(forked.thread.id)
+        const session: CodexSession = {
+          threadId: input.threadId,
+          projectId: input.projectId,
+          workspaceRoot: input.workspaceRoot,
+          scope,
+          client: opened.client,
+          handle: opened.handle,
+          providerThreadId: forked.thread.id,
+          resumeCursor,
+          activeTurn: undefined,
+          lastEmit: undefined,
+          handlersBound: false,
+          stopped: false,
+        }
+        openedSession = session
+        startupOwned = false
+        sessions.set(input.threadId, session)
+        return resumeCursor
+      }).pipe(
+        Effect.provideService(Scope.Scope, providerScope),
         Effect.mapError((error) => new ProviderForkUnavailable({ message: error.message })),
-      )
-    },
+      ),
     startTurn: (input, emit) => startTurn(input, emit).pipe(Effect.provideService(Path.Path, path)),
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

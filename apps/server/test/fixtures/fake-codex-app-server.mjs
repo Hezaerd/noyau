@@ -365,7 +365,18 @@ for await (const line of lines) {
   }
 
   if (message.method === "thread/fork") {
-    respond(message.id, threadResponse(`forked-${message.params?.threadId ?? threadId}`))
+    const response = threadResponse(`forked-${message.params?.threadId ?? threadId}`)
+    response.thread.turns = [
+      {
+        id:
+          scenario === "fork-wrong-boundary"
+            ? "wrong-fork-boundary"
+            : (message.params?.lastTurnId ?? "missing-fork-boundary"),
+        items: [],
+        status: "completed",
+      },
+    ]
+    respond(message.id, response)
     continue
   }
 
