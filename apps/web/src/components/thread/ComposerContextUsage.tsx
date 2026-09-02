@@ -12,7 +12,7 @@ import {
 import { cn } from "@/lib/utils"
 
 const RING_SIZE = 20
-const RING_STROKE = 3
+const RING_STROKE = 2
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 
@@ -63,7 +63,7 @@ export function ComposerContextUsage({ usage }: { readonly usage: ContextUsage }
           <svg
             aria-hidden="true"
             viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
-            className="absolute inset-0 size-full -rotate-90 transform-gpu"
+            className="absolute inset-0 size-full !mx-0 -rotate-90 transform-gpu"
           >
             <circle
               cx={RING_SIZE / 2}
