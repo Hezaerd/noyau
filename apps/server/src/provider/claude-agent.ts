@@ -958,6 +958,8 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
       projectId: control.input.projectId,
       threadId: control.input.threadId,
     })
+    yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
+    control.mcpActivated = true
     const promptQueue = yield* Queue.unbounded<SDKUserMessage | null>()
     const prompt = Stream.fromQueue(promptQueue).pipe(
       Stream.takeWhile((item) => item !== null),
@@ -1182,8 +1184,10 @@ export const makeClaudeProvider = Effect.fn("ClaudeAdapter.make")(function* (
     control.session = session
     session.activeTurn = control
     yield* userInputs.bindTurn(control.input.threadId, (signal) => emitSignal(control, signal))
-    yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
-    control.mcpActivated = true
+    if (!control.mcpActivated) {
+      yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
+      control.mcpActivated = true
+    }
 
     const prompt = yield* flattenPrompt(control.input).pipe(Effect.provideService(Path.Path, path))
     const content: Array<ClaudeUserContentBlock> = []
