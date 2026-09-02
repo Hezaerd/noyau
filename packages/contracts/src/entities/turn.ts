@@ -39,6 +39,13 @@ export const TurnDiff = Schema.Struct({
 })
 export type TurnDiff = (typeof TurnDiff)["Type"]
 
+/** Opaque provider boundary that can be used to fork through this settled turn. */
+export const ProviderForkPoint = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  boundaryId: Schema.NonEmptyString,
+})
+export type ProviderForkPoint = (typeof ProviderForkPoint)["Type"]
+
 export const LatestTurn = Schema.Struct({
   turnId: TurnId,
   state: TurnState,
@@ -58,5 +65,6 @@ export const Turn = Schema.Struct({
   startedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
   completedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
   turnDiff: Schema.optionalKey(TurnDiff),
+  providerForkPoint: Schema.optionalKey(ProviderForkPoint),
 })
 export type Turn = (typeof Turn)["Type"]

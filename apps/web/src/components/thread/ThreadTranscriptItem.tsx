@@ -74,11 +74,15 @@ function LiveAssistantMessage({
   turnDiff,
   onOpenTurnDiff,
   isLatestTurn,
+  onFork,
+  forkPending,
 }: {
   readonly item: Extract<TranscriptItem, { readonly _tag: "transcript.assistant" }>
   readonly streaming: boolean
   readonly flushedPrefix: string
-  readonly turn?: Pick<Turn, "requestedAt" | "completedAt"> | undefined
+  readonly turn?:
+    | Pick<Turn, "requestedAt" | "completedAt" | "state" | "providerForkPoint">
+    | undefined
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
@@ -86,6 +90,8 @@ function LiveAssistantMessage({
   readonly turnDiff?: TurnDiff | undefined
   readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
   readonly isLatestTurn?: boolean
+  readonly onFork?: ((turnId: string) => void) | undefined
+  readonly forkPending?: boolean
 }) {
   const paintedText = useAssistantPaint(
     item.text,
@@ -123,6 +129,12 @@ function LiveAssistantMessage({
           align="start"
           at={transcriptItemMessageAt(item, turn, streaming)}
           copyText={transcriptItemCopyText(item, streaming)}
+          {...(onFork === undefined ||
+          streaming ||
+          turn?.state !== "completed" ||
+          turn.providerForkPoint === undefined
+            ? {}
+            : { onFork: () => onFork(item.turnId), forkPending })}
         />
       </MessageContent>
     </Message>
@@ -148,15 +160,21 @@ function ThreadTranscriptItemImpl({
   onOpenTurnDiff,
   isLatestTurn,
   planActive = false,
+  onFork,
+  forkPending,
 }: {
   readonly item: TranscriptItem
   readonly streaming: boolean
   readonly flushedPrefix?: string
-  readonly turn?: Pick<Turn, "requestedAt" | "completedAt"> | undefined
+  readonly turn?:
+    | Pick<Turn, "requestedAt" | "completedAt" | "state" | "providerForkPoint">
+    | undefined
   readonly turnDiff?: TurnDiff | undefined
   readonly onOpenTurnDiff?: ((filePath?: string) => void) | undefined
   readonly isLatestTurn?: boolean
   readonly planActive?: boolean
+  readonly onFork?: ((turnId: string) => void) | undefined
+  readonly forkPending?: boolean
   readonly workspaceRoot?: string | undefined
   readonly projectId?: ProjectId | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
@@ -225,6 +243,7 @@ function ThreadTranscriptItemImpl({
         turnDiff={turnDiff}
         onOpenTurnDiff={onOpenTurnDiff}
         {...(isLatestTurn === undefined ? {} : { isLatestTurn })}
+        {...(onFork === undefined ? {} : { onFork, forkPending })}
       />
     )
   }

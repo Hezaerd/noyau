@@ -17,6 +17,7 @@ import type { ChildProcessSpawner } from "effect/unstable/process"
 
 import {
   ProviderPort,
+  ProviderForkUnavailable,
   type ProviderEmit,
   type ProviderPortService,
   type ProviderTurnInput,
@@ -140,6 +141,22 @@ export const composeProviderPorts = (
         }
         return yield* port.startTurn(input, emit)
       }),
+    fork: (input) =>
+      registry.get(input.provider).pipe(
+        Effect.flatMap((port) =>
+          port === undefined
+            ? Effect.fail(
+                new ProviderForkUnavailable({
+                  message: `Provider instance '${input.provider}' is disabled or missing.`,
+                }),
+              )
+            : port.fork === undefined
+              ? Effect.fail(
+                  new ProviderForkUnavailable({ message: "This provider cannot fork sessions." }),
+                )
+              : port.fork(input),
+        ),
+      ),
     interrupt: (threadId) =>
       registry.values.pipe(
         Effect.flatMap((ports) =>

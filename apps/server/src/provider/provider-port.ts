@@ -14,9 +14,10 @@ import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import type { ResumeCursor, SessionStatus } from "@noyau/contracts/entities/session"
 import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import type { ProviderForkPoint } from "@noyau/contracts/entities/turn"
 import type { TurnSettlementState } from "@noyau/contracts/entities/turn"
 import type { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
-import { Context, Effect, Layer } from "effect"
+import { Context, Data, Effect, Layer } from "effect"
 
 import type { PromptTicket } from "./prompt-blocks.ts"
 
@@ -46,6 +47,21 @@ export interface ProviderTurnInput {
   readonly tickets?: ReadonlyArray<PromptTicket> | undefined
 }
 
+export interface ProviderForkInput {
+  readonly projectId: ProjectId
+  readonly threadId: ThreadId
+  readonly sourceThreadId: ThreadId
+  readonly sourceTurnId: TurnId
+  readonly provider: Provider
+  readonly workspaceRoot: string
+  readonly sourceResumeCursor: ResumeCursor
+  readonly sourceForkPoint: ProviderForkPoint
+}
+
+export class ProviderForkUnavailable extends Data.TaggedError("ProviderForkUnavailable")<{
+  readonly message: string
+}> {}
+
 export type ProviderSignal =
   | {
       readonly _tag: "session"
@@ -65,6 +81,7 @@ export type ProviderSignal =
       readonly turnId: TurnId
       readonly state: TurnSettlementState
       readonly lastError?: string
+      readonly forkPoint?: ProviderForkPoint
     }
   | {
       readonly _tag: "context-usage"
@@ -83,6 +100,8 @@ export interface ProviderPortService {
   ) => Effect.Effect<ReadonlyArray<AgentSkillEntry>>
   /** Starts a Turn, reusing the live provider Session for its Thread when one exists. */
   readonly startTurn: (input: ProviderTurnInput, emit: ProviderEmit) => Effect.Effect<void>
+  /** Creates an independent native provider session; never reconstructs a prompt. */
+  readonly fork?: (input: ProviderForkInput) => Effect.Effect<ResumeCursor, ProviderForkUnavailable>
   readonly interrupt: (threadId: ThreadId) => Effect.Effect<void>
   /** Stops the provider Session, including when it is idle between Turns. */
   readonly stop: (threadId: ThreadId) => Effect.Effect<void>

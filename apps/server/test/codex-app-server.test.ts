@@ -13,6 +13,7 @@ import {
 } from "@noyau/server/provider/codex-app-server"
 import {
   ProviderPort,
+  type ProviderForkInput,
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
@@ -57,6 +58,17 @@ const input = (
   runtimeMode,
   modelSelection,
   resumeCursor,
+})
+
+const forkInput = (): ProviderForkInput => ({
+  projectId,
+  threadId: ThreadId.make("20000000-0000-4000-8000-000000000003"),
+  sourceThreadId: threadId,
+  sourceTurnId: turnId,
+  provider: ProviderInstanceId.make("codex"),
+  workspaceRoot: process.cwd(),
+  sourceResumeCursor: { schemaVersion: 1, sessionId: ProviderSessionId.make("fake-codex-thread") },
+  sourceForkPoint: { schemaVersion: 1, boundaryId: "fake-codex-turn-1" },
 })
 
 const makeOptions = Effect.fn("CodexAdapterTest.makeOptions")(function* (scenario: string) {
@@ -515,6 +527,52 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
           signals.some((signal) => signal._tag === "session" && signal.status === "ready"),
         )
 
+        yield* waitForLog(evidence.exitLog, "SIGTERM")
+      }),
+    ),
+  )
+
+  it.effect("forks through the exact native turn using a live source client", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        yield* capture(provider, input())
+        const before = parseRequests(yield* readLog(evidence.requestLog))
+        const cursor = yield* provider.fork!(forkInput())
+        assert.strictEqual(cursor.sessionId, "forked-fake-codex-thread")
+        const requests = parseRequests(yield* readLog(evidence.requestLog))
+        const fork = requests.find((request) => request.method === "thread/fork")
+        assert.deepStrictEqual(fork?.params, {
+          threadId: "fake-codex-thread",
+          lastTurnId: "fake-codex-turn-1",
+          cwd: process.cwd(),
+        })
+        assert.strictEqual(
+          requests.filter((request) => request.method === "_spawn").length,
+          before.filter((request) => request.method === "_spawn").length,
+        )
+      }),
+    ),
+  )
+
+  it.effect("opens and closes a temporary client when the source session was reaped", () =>
+    withProvider("success", (provider, evidence) =>
+      Effect.gen(function* () {
+        yield* capture(provider, input())
+        assert.isTrue(yield* provider.reapIdle(threadId))
+        const before = parseRequests(yield* readLog(evidence.requestLog))
+        const cursor = yield* provider.fork!(forkInput())
+        assert.strictEqual(cursor.sessionId, "forked-fake-codex-thread")
+        const requests = parseRequests(yield* readLog(evidence.requestLog))
+        assert.strictEqual(
+          requests.filter((request) => request.method === "_spawn").length,
+          before.filter((request) => request.method === "_spawn").length + 1,
+        )
+        const fork = requests.findLast((request) => request.method === "thread/fork")
+        assert.deepStrictEqual(fork?.params, {
+          threadId: "fake-codex-thread",
+          lastTurnId: "fake-codex-turn-1",
+          cwd: process.cwd(),
+        })
         yield* waitForLog(evidence.exitLog, "SIGTERM")
       }),
     ),

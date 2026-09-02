@@ -70,6 +70,8 @@ export const requestProjectId = Effect.fn("CommandFromRequest.requestProjectId")
     case "ticket.create":
     case "thread.create":
       return request.payload.projectId
+    case "thread.fork":
+      return yield* projectForThread(request.payload.sourceThreadId)
     case "kanbanColumn.create":
       return request.payload.projectId
     case "kanbanColumn.update":

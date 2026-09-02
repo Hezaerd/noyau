@@ -3,9 +3,11 @@ import type { Provider } from "@noyau/contracts/entities/environment"
 import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import type { Session, SessionStatus } from "@noyau/contracts/entities/session"
+import type { ThreadForkOrigin } from "@noyau/contracts/entities/thread"
 import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import type {
   TurnDiff,
+  ProviderForkPoint,
   TurnSettlementState,
   TurnState as TurnLifecycleState,
 } from "@noyau/contracts/entities/turn"
@@ -19,6 +21,7 @@ export interface TurnProjection {
   readonly ordinal: number
   readonly state: TurnLifecycleState
   readonly turnDiff?: TurnDiff
+  readonly providerForkPoint?: ProviderForkPoint
 }
 
 export interface ThreadProjection {
@@ -37,6 +40,8 @@ export interface ThreadProjection {
   readonly settledAt: DateTime.Utc | null
   readonly turns: ReadonlyArray<TurnProjection>
   readonly transcript: ReadonlyArray<TranscriptItem>
+  readonly inheritedTranscript: ReadonlyArray<TranscriptItem>
+  readonly forkOrigin: ThreadForkOrigin | null
 }
 
 export interface ThreadState {
@@ -92,6 +97,9 @@ const updateThread = (
   ...state,
   threads: state.threads.map((thread) => (thread.threadId === threadId ? update(thread) : thread)),
 })
+
+const findThread = (state: ThreadState, threadId: ThreadId) =>
+  state.threads.find((thread) => thread.threadId === threadId)
 
 const updateTurn = (
   thread: ThreadProjection,
@@ -219,9 +227,69 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
             settledAt: null,
             turns: [],
             transcript: [],
+            inheritedTranscript: [],
+            forkOrigin: null,
           },
         ],
       }
+    case "thread.fork-requested": {
+      if (findThread(state, event.threadId) !== undefined) return state
+      const source = findThread(state, event.sourceThreadId)
+      if (source === undefined || source.session === null) return state
+      const cutoff = source.turns.find((turn) => turn.turnId === event.sourceTurnId)?.ordinal
+      if (cutoff === undefined) return state
+      const sourceTurnIds = new Set(
+        source.turns.filter((turn) => turn.ordinal <= cutoff).map((turn) => turn.turnId),
+      )
+      return {
+        ...state,
+        threads: [
+          ...state.threads,
+          {
+            ...source,
+            threadId: event.threadId,
+            title: `Fork of ${source.title}`,
+            session: {
+              threadId: event.threadId,
+              status: "starting",
+              lastError: null,
+              activeTurnId: null,
+              runtimeMode: source.runtimeMode,
+              resumeCursor: null,
+              updatedAt: source.session.updatedAt,
+            },
+            contextUsage: null,
+            settledOverride: null,
+            settledAt: null,
+            turns: [],
+            transcript: [],
+            inheritedTranscript: [
+              ...source.inheritedTranscript,
+              ...source.transcript.filter((item) => sourceTurnIds.has(item.turnId)),
+            ],
+            forkOrigin: { sourceThreadId: event.sourceThreadId, sourceTurnId: event.sourceTurnId },
+          },
+        ],
+      }
+    }
+    case "thread.fork-completed":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        session: event.session,
+      }))
+    case "thread.fork-failed":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        session:
+          thread.session === null
+            ? null
+            : {
+                ...thread.session,
+                status: "error",
+                lastError: event.detail,
+                updatedAt: thread.session.updatedAt,
+              },
+      }))
     case "thread.deleted":
       return {
         ...state,
@@ -354,7 +422,14 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
     case "thread.turn.ended":
       // Le decider persiste ce fait puis émet `thread.session-set`. Seule la
       // sortie de `running` de la Session settle le Turn.
-      return state
+      const providerForkPoint = event.providerForkPoint
+      if (providerForkPoint === undefined) return state
+      return updateThread(state, event.threadId, (thread) =>
+        updateTurn(thread, event.turnId, (turn) => ({
+          ...turn,
+          providerForkPoint,
+        })),
+      )
     case "thread.title-seeded":
       return updateThread(state, event.threadId, (thread) => ({ ...thread, title: event.title }))
     case "thread.turn-diff-completed":

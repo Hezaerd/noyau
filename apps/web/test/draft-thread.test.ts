@@ -93,6 +93,18 @@ describe("isDraftThreadView", () => {
       }),
     ).toBe(false)
   })
+
+  it("is false when a fork has inherited transcript but no destination Turn yet", () => {
+    expect(
+      isDraftThreadView({
+        threadId,
+        latestTurn: null,
+        transcriptLength: 0,
+        inheritedTranscriptLength: 2,
+        sending: false,
+      }),
+    ).toBe(false)
+  })
 })
 
 describe("isListableNewThreadDraft", () => {

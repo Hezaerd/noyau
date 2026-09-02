@@ -20,6 +20,7 @@ import {
   type ProviderInstanceConfigBlob,
 } from "@noyau/contracts/entities/environment"
 import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import type { ResumeCursor } from "@noyau/contracts/entities/session"
 import type {
   TranscriptToolAction,
   TranscriptToolStatus,
@@ -36,6 +37,8 @@ import {
   ProviderPort,
   singleInstanceStatuses,
   type ProviderEmit,
+  type ProviderForkInput,
+  ProviderForkUnavailable,
   type ProviderSignal,
   type ProviderTurnInput,
 } from "./provider-port.ts"
@@ -287,7 +290,7 @@ const runtimeModeToTurnSandboxPolicy = (runtimeMode: RuntimeMode) => {
   }
 }
 
-const makeResumeCursor = (providerThreadId: string): ProviderTurnInput["resumeCursor"] => ({
+const makeResumeCursor = (providerThreadId: string): ResumeCursor => ({
   schemaVersion: 1,
   sessionId: ProviderSessionId.make(providerThreadId),
 })
@@ -406,21 +409,21 @@ const turnEndedSignal = (
   control: ActiveTurn,
   state: TurnEndedSignal["state"],
   lastError?: string,
-): ProviderSignal =>
-  lastError === undefined
-    ? {
-        _tag: "turn-ended",
-        threadId: control.input.threadId,
-        turnId: control.input.turnId,
-        state,
-      }
-    : {
-        _tag: "turn-ended",
-        threadId: control.input.threadId,
-        turnId: control.input.turnId,
-        state,
-        lastError,
-      }
+): ProviderSignal => {
+  const signal = {
+    _tag: "turn-ended" as const,
+    threadId: control.input.threadId,
+    turnId: control.input.turnId,
+    state,
+  }
+  if (lastError !== undefined) Object.assign(signal, { lastError })
+  if (control.providerTurnId !== undefined) {
+    Object.assign(signal, {
+      forkPoint: { schemaVersion: 1 as const, boundaryId: control.providerTurnId },
+    })
+  }
+  return signal
+}
 
 const withMatchingActiveTurn = <A>(
   session: CodexSession,
@@ -1327,6 +1330,30 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       ),
     ),
     listSkills: (_provider, workspaceRoot) => listSkills(workspaceRoot),
+    fork: (input: ProviderForkInput) => {
+      const source = sessions.get(input.sourceThreadId)
+      const requestFork = (client: CodexAppServerClient.CodexAppServerClient["Service"]) =>
+        codexCall(
+          client.request("thread/fork", {
+            threadId: input.sourceResumeCursor.sessionId,
+            lastTurnId: input.sourceForkPoint.boundaryId,
+            cwd: input.workspaceRoot,
+          }),
+        ).pipe(Effect.map((forked) => makeResumeCursor(forked.thread.id)))
+      const effect =
+        source !== undefined && !source.stopped
+          ? requestFork(source.client)
+          : Effect.scoped(
+              Effect.gen(function* () {
+                const temporary = yield* openClient(input.workspaceRoot)
+                yield* initializeClient(temporary.client)
+                return yield* requestFork(temporary.client)
+              }),
+            )
+      return effect.pipe(
+        Effect.mapError((error) => new ProviderForkUnavailable({ message: error.message })),
+      )
+    },
     startTurn: (input, emit) => startTurn(input, emit).pipe(Effect.provideService(Path.Path, path)),
     interrupt: (threadId) => cancel(threadId, false),
     stop: (threadId) => cancel(threadId, true),

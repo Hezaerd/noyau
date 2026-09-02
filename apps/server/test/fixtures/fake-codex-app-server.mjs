@@ -364,6 +364,11 @@ for await (const line of lines) {
     continue
   }
 
+  if (message.method === "thread/fork") {
+    respond(message.id, threadResponse(`forked-${message.params?.threadId ?? threadId}`))
+    continue
+  }
+
   if (message.method === "config/mcpServer/reload") {
     respond(message.id, {})
     continue

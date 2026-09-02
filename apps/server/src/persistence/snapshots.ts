@@ -7,7 +7,7 @@ import {
 import { ResumeCursor } from "@noyau/contracts/entities/session"
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/contracts/entities/transcript"
-import { TurnDiffFile } from "@noyau/contracts/entities/turn"
+import { ProviderForkPoint, TurnDiffFile } from "@noyau/contracts/entities/turn"
 import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Effect, Option, Schema } from "effect"
@@ -90,6 +90,8 @@ const ThreadRow = Schema.Struct({
   settled_at: Schema.NullOr(Schema.String),
   context_used: Schema.NullOr(Schema.Int),
   context_window: Schema.NullOr(Schema.Int),
+  fork_source_thread_id: Schema.NullOr(Schema.String),
+  fork_source_turn_id: Schema.NullOr(Schema.String),
 })
 const SessionRow = Schema.Struct({
   thread_id: Schema.String,
@@ -111,6 +113,7 @@ const TurnRow = Schema.Struct({
   checkpoint_ref: Schema.NullOr(Schema.String),
   checkpoint_status: Schema.NullOr(Schema.Literals(["ready", "missing", "error"])),
   checkpoint_files_json: Schema.NullOr(Schema.String),
+  provider_fork_point: Schema.optionalKey(Schema.NullOr(Schema.String)),
 })
 const TranscriptRow = Schema.Struct({
   item: Schema.String,
@@ -496,7 +499,8 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         SELECT
           thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
           service_tier, thinking, branch, worktree_path, status, created_at, listed_at, updated_at,
-          archived_at, settled_override, settled_at, context_used, context_window
+          archived_at, settled_override, settled_at, context_used, context_window,
+          fork_source_thread_id, fork_source_turn_id
         FROM projection_threads
         WHERE thread_id = ${threadId}
       `
@@ -505,29 +509,33 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
         return Option.none()
       }
       const thread = yield* decodeThreadRow(rawThread).pipe(Effect.orDie)
-      const [snapshotSequence, rawSessions, rawTurns, rawTranscript] = yield* Effect.all([
-        readLatestSequence(),
-        sql<(typeof SessionRow)["Encoded"]>`
+      const [snapshotSequence, rawSessions, rawTurns, rawTranscript, rawInheritedTranscript] =
+        yield* Effect.all([
+          readLatestSequence(),
+          sql<(typeof SessionRow)["Encoded"]>`
           SELECT
             thread_id, status, last_error, active_turn_id, runtime_mode, resume_cursor, updated_at
           FROM projection_sessions
           WHERE thread_id = ${threadId}
         `,
-        sql<(typeof TurnRow)["Encoded"]>`
+          sql<(typeof TurnRow)["Encoded"]>`
           SELECT
             turn_id, thread_id, ordinal, state, requested_at, started_at, completed_at,
-            checkpoint_ref, checkpoint_status, checkpoint_files_json
+            checkpoint_ref, checkpoint_status, checkpoint_files_json, provider_fork_point
           FROM projection_turns
           WHERE thread_id = ${threadId}
           ORDER BY ordinal
         `,
-        sql<(typeof TranscriptRow)["Encoded"]>`
+          sql<(typeof TranscriptRow)["Encoded"]>`
           SELECT item
           FROM projection_transcript
           WHERE thread_id = ${threadId}
           ORDER BY ordinal
         `,
-      ])
+          sql<(typeof TranscriptRow)["Encoded"]>`
+          SELECT item FROM projection_inherited_transcript WHERE thread_id = ${threadId} ORDER BY ordinal
+        `,
+        ])
       const rawSession = rawSessions[0]
       const session =
         rawSession === undefined
@@ -547,26 +555,41 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
                 startedAt: row.started_at,
                 completedAt: row.completed_at,
               }
+              let projected = encoded
               if (
-                row.checkpoint_ref === null ||
-                row.checkpoint_status === null ||
-                row.checkpoint_files_json === null
+                row.checkpoint_ref !== null &&
+                row.checkpoint_status !== null &&
+                row.checkpoint_files_json !== null
               ) {
-                return encoded
+                const files = yield* decodeTurnDiffFiles(row.checkpoint_files_json).pipe(
+                  Effect.orDie,
+                )
+                projected = Object.assign(projected, {
+                  turnDiff: {
+                    checkpointRef: row.checkpoint_ref,
+                    status: row.checkpoint_status,
+                    files,
+                  },
+                })
               }
-              const files = yield* decodeTurnDiffFiles(row.checkpoint_files_json).pipe(Effect.orDie)
-              return Object.assign(encoded, {
-                turnDiff: {
-                  checkpointRef: row.checkpoint_ref,
-                  status: row.checkpoint_status,
-                  files,
-                },
-              })
+              return row.provider_fork_point === null || row.provider_fork_point === undefined
+                ? projected
+                : Object.assign(projected, {
+                    providerForkPoint: yield* Schema.decodeUnknownEffect(ProviderForkPoint)(
+                      JSON.parse(row.provider_fork_point),
+                    ).pipe(Effect.orDie),
+                  })
             }),
           ),
         ),
       )
       const transcript = yield* Effect.forEach(rawTranscript, (raw) =>
+        decodeTranscriptRow(raw).pipe(
+          Effect.orDie,
+          Effect.flatMap((row) => decodeTranscriptItem(row.item).pipe(Effect.orDie)),
+        ),
+      )
+      const inheritedTranscript = yield* Effect.forEach(rawInheritedTranscript, (raw) =>
         decodeTranscriptRow(raw).pipe(
           Effect.orDie,
           Effect.flatMap((row) => decodeTranscriptItem(row.item).pipe(Effect.orDie)),
@@ -608,12 +631,21 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
           contextUsage: { used: thread.context_used, window: thread.context_window },
         })
       }
+      if (thread.fork_source_thread_id !== null && thread.fork_source_turn_id !== null) {
+        Object.assign(encodedThread, {
+          forkOrigin: {
+            sourceThreadId: thread.fork_source_thread_id,
+            sourceTurnId: thread.fork_source_turn_id,
+          },
+        })
+      }
       const snapshot = yield* decodeThreadSnapshot({
         snapshotSequence,
         thread: encodedThread,
         session,
         turns,
         transcript,
+        inheritedTranscript,
       }).pipe(Effect.orDie)
       return Option.some(snapshot)
     }),

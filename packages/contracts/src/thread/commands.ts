@@ -12,8 +12,9 @@ import { ContextUsage } from "@noyau/contracts/entities/context-usage"
 import { Provider } from "@noyau/contracts/entities/environment"
 import { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
-import { Session } from "@noyau/contracts/entities/session"
+import { ResumeCursor, Session } from "@noyau/contracts/entities/session"
 import { TranscriptItem, TurnPresentation } from "@noyau/contracts/entities/transcript"
+import { ProviderForkPoint } from "@noyau/contracts/entities/turn"
 import {
   CheckpointRef,
   TurnDiffFile,
@@ -82,6 +83,13 @@ const threadCreatePayload = {
 
 const threadIdPayload = {
   threadId: ThreadId,
+} as const
+
+const threadForkPayload = {
+  /** Chosen by the client so navigation can target the eventual Thread. */
+  threadId: ThreadId,
+  sourceThreadId: ThreadId,
+  sourceTurnId: TurnId,
 } as const
 
 const exclusiveTitleIntent = Schema.makeFilter(
@@ -169,6 +177,7 @@ const threadUnsettlePayload = {
 } as const
 
 export const ThreadCreateRequest = request("thread.create", Schema.Struct(threadCreatePayload))
+export const ThreadForkRequest = request("thread.fork", Schema.Struct(threadForkPayload))
 export const ThreadDeleteRequest = request("thread.delete", Schema.Struct(threadIdPayload))
 export const ThreadSettleRequest = request("thread.settle", Schema.Struct(threadIdPayload))
 export const ThreadUnsettleRequest = request(
@@ -201,6 +210,7 @@ export const SessionStopRequest = request("session.stop", Schema.Struct(threadId
 
 export const ThreadCommandRequest = Schema.Union([
   ThreadCreateRequest,
+  ThreadForkRequest,
   ThreadDeleteRequest,
   ThreadSettleRequest,
   ThreadUnsettleRequest,
@@ -217,6 +227,7 @@ export type ThreadCommandRequest = (typeof ThreadCommandRequest)["Type"]
 export const decodeThreadCommandRequest = Schema.decodeUnknownEffect(ThreadCommandRequest)
 
 export const ThreadCreate = command("thread.create", Schema.Struct(threadCreatePayload))
+export const ThreadFork = command("thread.fork", Schema.Struct(threadForkPayload))
 export const ThreadDelete = command("thread.delete", Schema.Struct(threadIdPayload))
 export const ThreadSettle = command("thread.settle", Schema.Struct(threadIdPayload))
 export const ThreadUnsettle = command("thread.unsettle", Schema.Struct(threadUnsettlePayload))
@@ -243,6 +254,7 @@ export const SessionStop = command("session.stop", Schema.Struct(threadIdPayload
 
 export const ClientThreadCommand = Schema.Union([
   ThreadCreate,
+  ThreadFork,
   ThreadDelete,
   ThreadSettle,
   ThreadUnsettle,
@@ -271,6 +283,7 @@ const turnEndedPayload = {
   turnId: TurnId,
   state: TurnSettlementState,
   lastError: Schema.optionalKey(Schema.NonEmptyString),
+  providerForkPoint: Schema.optionalKey(ProviderForkPoint),
 } as const
 
 const titleSeededPayload = {
@@ -291,6 +304,21 @@ const contextUsageSetPayload = {
   contextUsage: ContextUsage,
 } as const
 
+const threadForkCompletePayload = {
+  threadId: ThreadId,
+  sourceThreadId: ThreadId,
+  sourceTurnId: TurnId,
+  resumeCursor: ResumeCursor,
+  providerForkPoint: ProviderForkPoint,
+} as const
+
+const threadForkFailPayload = {
+  threadId: ThreadId,
+  sourceThreadId: ThreadId,
+  sourceTurnId: TurnId,
+  detail: Schema.NonEmptyString,
+} as const
+
 export const ThreadSessionSet = command("thread.session.set", Schema.Struct(sessionSetPayload))
 export const ThreadTranscriptAppend = command(
   "thread.transcript.append",
@@ -306,6 +334,11 @@ export const ThreadContextUsageSet = command(
   "thread.context-usage.set",
   Schema.Struct(contextUsageSetPayload),
 )
+export const ThreadForkComplete = command(
+  "thread.fork.complete",
+  Schema.Struct(threadForkCompletePayload),
+)
+export const ThreadForkFail = command("thread.fork.fail", Schema.Struct(threadForkFailPayload))
 
 export const InternalThreadCommand = Schema.Union([
   ThreadSessionSet,
@@ -314,6 +347,8 @@ export const InternalThreadCommand = Schema.Union([
   ThreadTitleSeeded,
   ThreadTurnDiffComplete,
   ThreadContextUsageSet,
+  ThreadForkComplete,
+  ThreadForkFail,
 ])
 export type InternalThreadCommand = (typeof InternalThreadCommand)["Type"]
 

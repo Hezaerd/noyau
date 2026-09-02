@@ -55,6 +55,11 @@ type InternalCommandBody =
       "_tag" | "payload"
     >
   | Pick<
+      Extract<InternalCommandEncoded, { readonly _tag: "thread.fork.complete" }>,
+      "_tag" | "payload"
+    >
+  | Pick<Extract<InternalCommandEncoded, { readonly _tag: "thread.fork.fail" }>, "_tag" | "payload">
+  | Pick<
       Extract<InternalCommandEncoded, { readonly _tag: "thread.transcript.append" }>,
       "_tag" | "payload"
     >
@@ -129,24 +134,16 @@ const commandForSignal = (
         payload: { item: signal.item },
       }
     case "turn-ended":
-      return signal.lastError === undefined
-        ? {
-            _tag: "thread.turn.ended",
-            payload: {
-              threadId: signal.threadId,
-              turnId: signal.turnId,
-              state: signal.state,
-            },
-          }
-        : {
-            _tag: "thread.turn.ended",
-            payload: {
-              threadId: signal.threadId,
-              turnId: signal.turnId,
-              state: signal.state,
-              lastError: signal.lastError,
-            },
-          }
+      const payload = {
+        threadId: signal.threadId,
+        turnId: signal.turnId,
+        state: signal.state,
+      }
+      if (signal.lastError !== undefined) Object.assign(payload, { lastError: signal.lastError })
+      if (signal.forkPoint !== undefined) {
+        Object.assign(payload, { providerForkPoint: signal.forkPoint })
+      }
+      return { _tag: "thread.turn.ended", payload }
     case "context-usage":
       return {
         _tag: "thread.context-usage.set",
@@ -216,6 +213,74 @@ export const makeProviderReactor = (
       }
       const threadEvent = event
       switch (threadEvent._tag) {
+        case "thread.fork-requested":
+          return Effect.gen(function* () {
+            const source = yield* readThreadSnapshot(threadEvent.sourceThreadId).pipe(
+              Effect.provideService(SqlClient, sql),
+              Effect.orDie,
+            )
+            if (Option.isNone(source)) return
+            const sourceTurn = source.value.turns.find(
+              (turn) => turn.id === threadEvent.sourceTurnId,
+            )
+            const resumeCursor = source.value.session?.resumeCursor
+            const point = sourceTurn?.providerForkPoint
+            const fork = provider.fork
+            const workspaceRoot =
+              source.value.thread.worktreePath ??
+              (yield* projectRoot(persisted.projectId).pipe(Effect.provideService(SqlClient, sql)))
+            const body =
+              resumeCursor === null ||
+              resumeCursor === undefined ||
+              point === undefined ||
+              fork === undefined
+                ? {
+                    _tag: "thread.fork.fail" as const,
+                    payload: {
+                      threadId: threadEvent.threadId,
+                      sourceThreadId: threadEvent.sourceThreadId,
+                      sourceTurnId: threadEvent.sourceTurnId,
+                      detail: "The selected response has no native provider fork boundary.",
+                    },
+                  }
+                : yield* fork({
+                    projectId: source.value.thread.projectId,
+                    threadId: threadEvent.threadId,
+                    sourceThreadId: threadEvent.sourceThreadId,
+                    sourceTurnId: threadEvent.sourceTurnId,
+                    provider: source.value.thread.provider,
+                    workspaceRoot,
+                    sourceResumeCursor: resumeCursor,
+                    sourceForkPoint: point,
+                  }).pipe(
+                    Effect.map((nextCursor) => ({
+                      _tag: "thread.fork.complete" as const,
+                      payload: {
+                        threadId: threadEvent.threadId,
+                        sourceThreadId: threadEvent.sourceThreadId,
+                        sourceTurnId: threadEvent.sourceTurnId,
+                        resumeCursor: nextCursor,
+                        providerForkPoint: point,
+                      },
+                    })),
+                    Effect.catch((error) =>
+                      Effect.succeed({
+                        _tag: "thread.fork.fail" as const,
+                        payload: {
+                          threadId: threadEvent.threadId,
+                          sourceThreadId: threadEvent.sourceThreadId,
+                          sourceTurnId: threadEvent.sourceTurnId,
+                          detail: error.message,
+                        },
+                      }),
+                    ),
+                  )
+            const command = yield* makeInternalCommand(persisted, body).pipe(
+              Effect.provideService(SqlClient, sql),
+              Effect.provideService(Crypto.Crypto, crypto),
+            )
+            yield* dispatchInternal(command)
+          })
         case "thread.turn.started":
           return Effect.gen(function* () {
             const snapshot = yield* readThreadSnapshot(threadEvent.threadId).pipe(

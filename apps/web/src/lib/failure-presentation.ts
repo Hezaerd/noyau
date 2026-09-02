@@ -13,6 +13,7 @@ export type FailureOperation =
   | "shell.subscribe"
   | "thread.create"
   | "thread.delete"
+  | "thread.fork"
   | "thread.settle"
   | "thread.unsettle"
   | "thread.model-selection.set"

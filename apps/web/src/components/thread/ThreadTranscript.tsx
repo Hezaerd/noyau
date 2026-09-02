@@ -1,6 +1,8 @@
+import type { Thread } from "@noyau/contracts/entities/thread"
 import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import type { LatestTurn, Turn } from "@noyau/contracts/entities/turn"
 import type { ProjectId } from "@noyau/contracts/ids"
+import { Link } from "@tanstack/react-router"
 import { ArrowDownIcon } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 
@@ -33,6 +35,7 @@ import {
 import { deriveTurnMinimapItems, TURN_MINIMAP_MIN_ITEMS } from "@/lib/thread-turn-minimap"
 
 const EMPTY_TURNS: ReadonlyArray<Turn> = []
+const EMPTY_TRANSCRIPT: ReadonlyArray<TranscriptItem> = []
 
 const transcriptTurnDiffProps = (
   item: TranscriptItem,
@@ -112,6 +115,11 @@ export function ThreadTranscript({
   scrollerKey,
   followLatestKey = 0,
   composerDockHeight = 0,
+  onForkTurn,
+  forkPendingTurnId,
+  inheritedTranscript = EMPTY_TRANSCRIPT,
+  forkOrigin,
+  forkSourceTitle,
 }: {
   readonly transcript: ReadonlyArray<TranscriptItem>
   readonly isRunning: boolean
@@ -135,6 +143,11 @@ export function ThreadTranscript({
   readonly scrollerKey?: string
   readonly followLatestKey?: number
   readonly composerDockHeight?: number
+  readonly onForkTurn?: ((turnId: string) => void) | undefined
+  readonly forkPendingTurnId?: string | undefined
+  readonly inheritedTranscript?: ReadonlyArray<TranscriptItem>
+  readonly forkOrigin?: Thread["forkOrigin"] | undefined
+  readonly forkSourceTitle?: string | undefined
 }) {
   const liveTarget = useAssistantPaintTarget()
   const paintedTranscript = useMemo(
@@ -143,8 +156,10 @@ export function ThreadTranscript({
   )
   const lastItem = paintedTranscript.at(-1)
   const lastAssistant = lastItem?._tag === "transcript.assistant" ? lastItem : undefined
+  const latestTurnSettled = latestTurn !== null && latestTurn.state !== "running"
   const streamingLast =
     lastAssistant !== undefined &&
+    !latestTurnSettled &&
     (isRunning || (liveTarget !== undefined && liveTarget.turnId === lastAssistant.turnId))
   const settledLabel = isRunning ? null : settledTranscriptLabel(latestTurn)
   const minimapItems = useMemo(() => deriveTurnMinimapItems(paintedTranscript), [paintedTranscript])
@@ -181,6 +196,53 @@ export function ThreadTranscript({
             )}
             {notices === null || notices === undefined ? null : (
               <MessageScrollerItem messageId="thread-notices">{notices}</MessageScrollerItem>
+            )}
+
+            {inheritedTranscript.length === 0 ? null : (
+              <>
+                <MessageScrollerItem messageId="thread-fork-origin">
+                  <div className="my-3 flex items-center gap-3 text-muted-foreground text-xs">
+                    <span className="h-px flex-1 bg-border" aria-hidden="true" />
+                    {forkOrigin === undefined || projectId === undefined ? (
+                      <span>Conversation inherited from a fork</span>
+                    ) : (
+                      <Link
+                        to="/projects/$projectId/thread/$threadId"
+                        params={{ projectId, threadId: forkOrigin.sourceThreadId }}
+                        search={{}}
+                        className="underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        Forked from <em>{forkSourceTitle ?? "this conversation"}</em>
+                      </Link>
+                    )}
+                    <span className="h-px flex-1 bg-border" aria-hidden="true" />
+                  </div>
+                </MessageScrollerItem>
+                {inheritedTranscript.map((item, index) => (
+                  <MessageScrollerItem
+                    key={`inherited:${transcriptRowId(item, index)}`}
+                    messageId={`inherited:${transcriptRowId(item, index)}`}
+                  >
+                    <ThreadTranscriptItem
+                      item={item}
+                      streaming={false}
+                      turn={undefined}
+                      workspaceRoot={
+                        item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
+                      }
+                      projectId={projectId}
+                      draftAnswers={{}}
+                      legacyFreeform=""
+                      onDraftAnswersChange={onDraftAnswersChange}
+                      onLegacyFreeformChange={onLegacyFreeformChange}
+                      onRespondApproval={onRespondApproval}
+                      onRespondUserInput={onRespondUserInput}
+                      {...(tickets === undefined ? {} : { tickets })}
+                      {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
+                    />
+                  </MessageScrollerItem>
+                ))}
+              </>
             )}
 
             {rows.map((row) => {
@@ -240,6 +302,11 @@ export function ThreadTranscript({
                   onLegacyFreeformChange={onLegacyFreeformChange}
                   onRespondApproval={onRespondApproval}
                   onRespondUserInput={onRespondUserInput}
+                  {...(onForkTurn === undefined ||
+                  row.item._tag !== "transcript.assistant" ||
+                  lastAssistantByTurn.get(row.item.turnId) !== row.index
+                    ? {}
+                    : { onFork: onForkTurn, forkPending: row.item.turnId === forkPendingTurnId })}
                   {...(tickets === undefined ? {} : { tickets })}
                   {...(onOpenTicket === undefined ? {} : { onOpenTicket })}
                 />

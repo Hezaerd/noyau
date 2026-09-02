@@ -1,6 +1,7 @@
 import { ProviderUserInputAnswers } from "@noyau/contracts/entities/approvals"
 import type { WorkspaceRoot } from "@noyau/contracts/entities/environment"
 import { DefaultModelSelection } from "@noyau/contracts/entities/model-selection"
+import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import { TranscriptItem as TranscriptItemSchema } from "@noyau/contracts/entities/transcript"
 import { TurnDiffFile } from "@noyau/contracts/entities/turn"
@@ -41,12 +42,25 @@ const ActiveTurnRow = Schema.Struct({
   active_turn_id: Schema.NullOr(Schema.String),
 })
 const ProjectOwnerRow = Schema.Struct({ project_id: ProjectId })
+const ForkSourceRow = Schema.Struct({
+  project_id: ProjectId,
+  title: Schema.String,
+  provider: Schema.String,
+  runtime_mode: RuntimeMode,
+  model_id: Schema.NullOr(Schema.String),
+  reasoning_effort: Schema.NullOr(Schema.String),
+  service_tier: Schema.NullOr(Schema.String),
+  thinking: Schema.NullOr(Schema.Int),
+  branch: Schema.NullOr(Schema.String),
+  worktree_path: Schema.NullOr(Schema.String),
+})
 
 const decodeCountRow = Schema.decodeEffect(CountRow)
 const decodeOrdinalRow = Schema.decodeEffect(OrdinalRow)
 const decodeTranscriptRow = Schema.decodeEffect(TranscriptRow)
 const decodeActiveTurnRow = Schema.decodeEffect(ActiveTurnRow)
 const decodeProjectOwnerRow = Schema.decodeEffect(ProjectOwnerRow)
+const decodeForkSourceRow = Schema.decodeEffect(ForkSourceRow)
 
 /**
  * Resolves the current owner of a WorkspaceRoot from the durable projection.
@@ -550,6 +564,85 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         )
       `
       return
+    case "thread.fork-requested": {
+      const sourceRows = yield* sql<(typeof ForkSourceRow)["Encoded"]>`
+        SELECT project_id, title, provider, runtime_mode, model_id, reasoning_effort, service_tier,
+          thinking, branch, worktree_path
+        FROM projection_threads WHERE thread_id = ${event.sourceThreadId}
+      `
+      const sourceRow = sourceRows[0]
+      if (sourceRow === undefined) return
+      const source = yield* decodeForkSourceRow(sourceRow).pipe(Effect.orDie)
+      yield* sql`
+        INSERT INTO projection_threads (
+          thread_id, project_id, title, provider, runtime_mode, model_id, reasoning_effort,
+          service_tier, thinking, branch, worktree_path, status, created_at, listed_at, updated_at,
+          fork_source_thread_id, fork_source_turn_id
+        ) VALUES (
+          ${event.threadId}, ${source.project_id}, ${`Fork of ${source.title}`}, ${source.provider},
+          ${source.runtime_mode}, ${source.model_id}, ${source.reasoning_effort}, ${source.service_tier},
+          ${source.thinking}, ${source.branch}, ${source.worktree_path}, 'active', ${occurredAt},
+          ${occurredAt}, ${occurredAt}, ${event.sourceThreadId}, ${event.sourceTurnId}
+        )
+      `
+      const cutoffRows =
+        yield* sql`SELECT ordinal FROM projection_turns WHERE turn_id = ${event.sourceTurnId}`
+      const cutoff = cutoffRows[0]
+      if (cutoff !== undefined) {
+        yield* sql`
+          INSERT INTO projection_inherited_transcript (thread_id, ordinal, item)
+          SELECT ${event.threadId}, inherited.ordinal, inherited.item
+          FROM projection_inherited_transcript AS inherited
+          WHERE inherited.thread_id = ${event.sourceThreadId}
+          ORDER BY inherited.ordinal
+        `
+        yield* sql`
+          INSERT INTO projection_inherited_transcript (thread_id, ordinal, item)
+          SELECT
+            ${event.threadId},
+            transcript.ordinal + (
+              SELECT COUNT(*) FROM projection_inherited_transcript
+              WHERE thread_id = ${event.sourceThreadId}
+            ),
+            transcript.item
+          FROM projection_transcript AS transcript
+          JOIN projection_turns AS turns ON turns.turn_id = transcript.turn_id
+          WHERE transcript.thread_id = ${event.sourceThreadId} AND turns.ordinal <= ${cutoff.ordinal}
+          ORDER BY transcript.ordinal
+        `
+      }
+      yield* projectSession(persisted, {
+        _tag: "thread.session-set",
+        threadId: event.threadId,
+        session: {
+          threadId: event.threadId,
+          status: "starting",
+          lastError: null,
+          activeTurnId: null,
+          runtimeMode: source.runtime_mode,
+          resumeCursor: null,
+          updatedAt: persisted.occurredAt,
+        },
+      })
+      return
+    }
+    case "thread.fork-completed":
+      yield* projectSession(persisted, {
+        _tag: "thread.session-set",
+        threadId: event.threadId,
+        session: event.session,
+      })
+      return
+    case "thread.fork-failed":
+      yield* sql`
+        UPDATE projection_sessions
+        SET status = 'error', last_error = ${event.detail}, updated_at = ${occurredAt}
+        WHERE thread_id = ${event.threadId}
+      `
+      yield* sql`
+        UPDATE projection_threads SET updated_at = ${occurredAt} WHERE thread_id = ${event.threadId}
+      `
+      return
     case "thread.deleted":
       yield* sql`
         DELETE FROM projection_threads
@@ -793,6 +886,15 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       `
       break
     }
+    case "thread.turn.ended":
+      if (event.providerForkPoint !== undefined) {
+        yield* sql`
+          UPDATE projection_turns
+          SET provider_fork_point = ${JSON.stringify(event.providerForkPoint)}
+          WHERE turn_id = ${event.turnId} AND thread_id = ${event.threadId}
+        `
+      }
+      break
     case "thread.context-usage-set":
       yield* sql`
         UPDATE projection_threads
@@ -802,7 +904,6 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
       `
       break
     case "thread.turn.interrupted":
-    case "thread.turn.ended":
     case "session.stop-requested":
       break
     default:

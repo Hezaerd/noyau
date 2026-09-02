@@ -44,7 +44,12 @@ import {
 import type { DraftAnswers } from "@/components/thread/ThreadUserInputQuestionnaire"
 import { useAppAtomValue } from "@/hooks/use-app-atom"
 import { useComposerDraft } from "@/hooks/use-composer-draft"
-import { useProjects, useProviders, useThreadShell } from "@/hooks/use-control-plane"
+import {
+  useProjects,
+  useProjectThreads,
+  useProviders,
+  useThreadShell,
+} from "@/hooks/use-control-plane"
 import { useDelayedSubscriptionFailure } from "@/hooks/use-delayed-subscription-failure"
 import { useProjectComposerTickets } from "@/hooks/use-project-composer-tickets"
 import { useThreadSnapshot } from "@/hooks/use-thread-snapshot"
@@ -105,8 +110,10 @@ import {
   type OptimisticSend,
 } from "@/lib/thread-activity"
 import { seedTitleFromTurn } from "@/lib/thread-commands"
+import { isForkComposerLocked } from "@/lib/thread-fork"
 import {
   interruptTurn as interruptTurnAction,
+  forkThread as forkThreadAction,
   respondToApproval as respondToApprovalAction,
   respondToUserInput as respondToUserInputAction,
   setThreadModelSelection as setThreadModelSelectionAction,
@@ -190,6 +197,7 @@ export function ThreadPage({
   const tickets = useProjectComposerTickets(projectId)
   const [skills, setSkills] = useState<ReadonlyArray<AgentSkillEntry>>([])
   const project = projects.find((candidate) => candidate.id === projectId)
+  const projectThreads = useProjectThreads(projectId)
   const snapshot = useThreadSnapshot(threadId)
   const shellThread = useThreadShell(threadId)
   const shellThreadRef = useRef(shellThread)
@@ -269,6 +277,7 @@ export function ThreadPage({
   )
   const [followLatestKey, setFollowLatestKey] = useState(0)
   const [turnDiffTarget, setTurnDiffTarget] = useState<ThreadTurnDiffTarget | null>(null)
+  const [forkPendingTurnId, setForkPendingTurnId] = useState<string>()
   const composerDockRef = useRef<HTMLDivElement>(null)
   const [composerDockHeight, setComposerDockHeight] = useState(208)
   const composerOpenById = useAppAtomValue(threadComposerOpenByIdAtom)
@@ -388,6 +397,9 @@ export function ThreadPage({
   }, [composerOpen, threadId])
   const pageSnapshot =
     snapshot !== undefined && snapshot.thread.id === threadId ? snapshot : undefined
+  const forkSourceTitle = projectThreads.find(
+    (candidate) => candidate.id === pageSnapshot?.thread.forkOrigin?.sourceThreadId,
+  )?.title
   const isDraftThread = isDraftThreadView({
     threadId,
     latestTurn: resolveDraftLatestTurn(
@@ -396,6 +408,7 @@ export function ThreadPage({
       pageSnapshot !== undefined,
     ),
     transcriptLength: pageSnapshot?.transcript.length ?? 0,
+    inheritedTranscriptLength: pageSnapshot?.inheritedTranscript?.length ?? 0,
     sending: optimisticSend !== null,
   })
   const snapshotWorktreePath =
@@ -501,7 +514,10 @@ export function ThreadPage({
       draftProviderRef.current = next.thread.provider
       setDraftProvider(next.thread.provider)
       const remembered = peekDraftComposerPreferences(projectId, threadId, draftId)
-      const nextIsDraft = next.thread.latestTurn === null && next.transcript.length === 0
+      const nextIsDraft =
+        next.thread.latestTurn === null &&
+        next.transcript.length === 0 &&
+        (next.inheritedTranscript?.length ?? 0) === 0
       setRuntimeMode(
         nextIsDraft && remembered !== undefined ? remembered.runtimeMode : next.thread.runtimeMode,
       )
@@ -575,6 +591,16 @@ export function ThreadPage({
             setBaseBranch(event.branch)
           }
         }
+        if (event._tag === "thread.fork-failed") {
+          setActionFailure(
+            presentFailure(invalidInputFailure(event.detail), {
+              operation: "thread.fork",
+              scope: "action",
+              initiatedByUser: true,
+              hasUsableData: true,
+            }),
+          )
+        }
       },
       onStatus: (status) => {
         setSubscriptionStatus(status)
@@ -622,6 +648,10 @@ export function ThreadPage({
 
   useEffect(() => {
     restoredFailedTurnRef.current = undefined
+  }, [threadId])
+
+  useEffect(() => {
+    setForkPendingTurnId(undefined)
   }, [threadId])
 
   useEffect(() => {
@@ -790,6 +820,40 @@ export function ThreadPage({
   const submitTurn = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     dispatchTurn(text, images, threadId)
+  }
+
+  const forkTurn = (sourceTurnId: string) => {
+    if (threadId === undefined) {
+      return
+    }
+    const sourceTurn = pageSnapshot?.turns.find((turn) => turn.id === sourceTurnId)
+    if (sourceTurn?.state !== "completed" || sourceTurn.providerForkPoint === undefined) {
+      return
+    }
+    setForkPendingTurnId(sourceTurnId)
+    setActionFailure(undefined)
+    void forkThreadAction({ sourceThreadId: threadId, sourceTurnId: sourceTurn.id }).then(
+      (result) => {
+        setForkPendingTurnId(undefined)
+        if (result.kind === "error") {
+          setActionFailure(
+            presentFailure(result.failure, {
+              operation: "thread.fork",
+              scope: "action",
+              initiatedByUser: true,
+              hasUsableData: true,
+            }),
+          )
+          return undefined
+        }
+        void navigate({
+          to: "/projects/$projectId/thread/$threadId",
+          params: { projectId, threadId: result.threadId },
+          search: {},
+        })
+        return undefined
+      },
+    )
   }
 
   const retryFailedTurn = () => {
@@ -1137,14 +1201,18 @@ export function ThreadPage({
     }
   }
   const awaitingThread = threadId !== undefined && pageSnapshot === undefined
+  const forkComposerLocked = isForkComposerLocked({
+    forkOrigin: pageSnapshot?.thread.forkOrigin,
+    sessionStatus: pageSnapshot?.session?.status,
+  })
   const handoffPending =
     currentProvider !== undefined && selectedProvider !== currentProvider && !isDraftThread
   const composer = (
     <ThreadComposer
       key={threadId ?? "new"}
       isRunning={isRunning}
-      disabled={awaitingThread || project?.available !== true}
-      submitDisabled={!providerReady}
+      disabled={awaitingThread || project?.available !== true || forkComposerLocked}
+      submitDisabled={!providerReady || forkComposerLocked}
       text={text}
       images={images}
       runtimeMode={runtimeMode}
@@ -1253,6 +1321,13 @@ export function ThreadPage({
             <ThreadTranscript
               composerDockHeight={composerDockHeight}
               transcript={pageSnapshot?.transcript ?? []}
+              {...(pageSnapshot?.inheritedTranscript === undefined
+                ? {}
+                : { inheritedTranscript: pageSnapshot.inheritedTranscript })}
+              {...(pageSnapshot?.thread.forkOrigin === undefined
+                ? {}
+                : { forkOrigin: pageSnapshot.thread.forkOrigin })}
+              {...(forkSourceTitle === undefined ? {} : { forkSourceTitle })}
               isRunning={isWorking}
               latestTurn={pageSnapshot?.thread.latestTurn ?? null}
               turns={pageSnapshot?.turns ?? []}
@@ -1299,6 +1374,7 @@ export function ThreadPage({
               onRespondUserInput={(requestId) => {
                 respondToUserInput(requestId)
               }}
+              {...(threadId === undefined ? {} : { onForkTurn: forkTurn, forkPendingTurnId })}
               {...(threadId === undefined ? {} : { scrollerKey: threadId })}
               followLatestKey={followLatestKey}
               onOpenTurnDiff={(openedTurnId, filePath) => {
