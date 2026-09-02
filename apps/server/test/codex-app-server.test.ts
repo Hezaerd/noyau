@@ -3,7 +3,13 @@ import { fileURLToPath } from "node:url"
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, layer } from "@effect/vitest"
 import { ProviderDriverKind, ProviderInstanceId } from "@noyau/contracts/entities/environment"
-import { ProjectId, ProviderSessionId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import {
+  ApprovalRequestId,
+  ProjectId,
+  ProviderSessionId,
+  ThreadId,
+  TurnId,
+} from "@noyau/contracts/ids"
 import type { McpInvocationScope } from "@noyau/server/mcp/mcp-invocation-context"
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import {
@@ -17,7 +23,8 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
-import { Clock, Effect, Fiber, FileSystem, Layer, Option, Path, Schema } from "effect"
+import { TurnUserInputRegistry } from "@noyau/server/provider/turn-user-input-registry"
+import { Clock, Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { TestClock } from "effect/testing"
 
 const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
@@ -102,6 +109,7 @@ const withProvider = <A, E, R>(
       readonly exitLog: string
       readonly revokedSessions: ReadonlyArray<ThreadId>
     },
+    userInputs: TurnUserInputRegistry["Service"],
   ) => Effect.Effect<A, E, R>,
   optionOverrides: Partial<CodexAdapterOptions> = {},
 ) =>
@@ -118,7 +126,8 @@ const withProvider = <A, E, R>(
       )
       return yield* Effect.gen(function* () {
         const provider = yield* ProviderPort
-        return yield* use(provider, { ...evidence, revokedSessions })
+        const userInputs = yield* TurnUserInputRegistry
+        return yield* use(provider, { ...evidence, revokedSessions }, userInputs)
       }).pipe(Effect.provide(services))
     }),
   )
@@ -385,6 +394,86 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
         assert.strictEqual(spawn?.envToken, "test-mcp-token")
         assert.isTrue(requests.some((message) => message.method === "config/mcpServer/reload"))
       }),
+    ),
+  )
+
+  it.effect("keeps the Turn alive until a pending batched user input resolves", () =>
+    withProvider(
+      "pending-user-input-settlement",
+      (provider, evidence, userInputs) =>
+        Effect.gen(function* () {
+          const signals: Array<ProviderSignal> = []
+          const pendingVisible = yield* Deferred.make<void>()
+          yield* provider.startTurn(input(), (signal) => {
+            const record = Effect.sync(() => {
+              signals.push(signal)
+            })
+            return signal._tag === "transcript" &&
+              signal.item._tag === "transcript.user-input" &&
+              signal.item.status === "pending"
+              ? record.pipe(Effect.andThen(Deferred.succeed(pendingVisible, undefined)))
+              : record
+          })
+          yield* waitForLog(evidence.requestLog, '"method":"turn/start"')
+
+          const requestId = ApprovalRequestId.make("pending-question-batch")
+          const request = yield* userInputs
+            .request({
+              threadId,
+              turnId,
+              requestId,
+              questions: [
+                {
+                  id: "runtime",
+                  prompt: "Which runtime?",
+                  options: [
+                    { id: "bun", label: "Bun" },
+                    { id: "node", label: "Node" },
+                  ],
+                },
+                {
+                  id: "surface",
+                  prompt: "Which surface?",
+                  options: [
+                    { id: "web", label: "Web" },
+                    { id: "desktop", label: "Desktop" },
+                  ],
+                },
+              ],
+            })
+            .pipe(Effect.forkChild)
+          yield* Deferred.await(pendingVisible)
+
+          yield* TestClock.adjust("1 second")
+          yield* waitForLog(evidence.requestLog, '"method":"thread/read"')
+          assert.isFalse(signals.some((signal) => signal._tag === "turn-ended"))
+
+          const answers = {
+            runtime: { optionIds: ["bun"] },
+            surface: { optionIds: ["web", "desktop"] },
+          }
+          yield* provider.respondUserInput(threadId, requestId, answers)
+          assert.deepStrictEqual(yield* Fiber.join(request), answers)
+          yield* provider.drain
+
+          const pendingIndex = signals.findIndex(
+            (signal) =>
+              signal._tag === "transcript" &&
+              signal.item._tag === "transcript.user-input" &&
+              signal.item.status === "pending",
+          )
+          const resolvedIndex = signals.findIndex(
+            (signal) =>
+              signal._tag === "transcript" &&
+              signal.item._tag === "transcript.user-input" &&
+              signal.item.status === "resolved",
+          )
+          const endedIndex = signals.findIndex((signal) => signal._tag === "turn-ended")
+          assert.isTrue(
+            pendingIndex !== -1 && resolvedIndex > pendingIndex && endedIndex > resolvedIndex,
+          )
+        }),
+      { turnReconcileInterval: "1 second" },
     ),
   )
 

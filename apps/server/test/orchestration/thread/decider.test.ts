@@ -28,6 +28,7 @@ import {
   BOOT_RECOVERY_LAST_ERROR,
   recoverAfterBoot,
 } from "@noyau/server/orchestration/thread/recovery"
+import { userInputContinuationText } from "@noyau/server/orchestration/thread/user-input-summary"
 import { Result, Schema } from "effect"
 
 const ids = {
@@ -1056,6 +1057,190 @@ describe("Turn invariants", () => {
     )
     expect(directReplay).toEqual(terminal)
     expect(latestTurn(directReplay.threads[0] ?? terminal.threads[0]!)?.state).toBe("completed")
+  })
+})
+
+describe("Detached user input continuation", () => {
+  const requestId = "ask-recovery"
+  const continuationCommandId = "70000000-0000-4000-8000-000000000010"
+
+  const withPendingUserInput = () => {
+    const running = withRunningTurn()
+    const appended = success(
+      decide(
+        running,
+        transcriptAppendCommand({
+          _tag: "thread.transcript.append",
+          ...meta,
+          payload: {
+            item: {
+              _tag: "transcript.user-input",
+              threadId: ids.thread,
+              turnId: ids.turn1,
+              requestId,
+              status: "pending",
+              questions: [
+                {
+                  id: "runtime",
+                  prompt: "Which runtime?",
+                  options: [
+                    { id: "bun", label: "Bun" },
+                    { id: "node", label: "Node.js" },
+                  ],
+                },
+                {
+                  id: "clients",
+                  prompt: "Which clients?",
+                  options: [
+                    { id: "web", label: "Web" },
+                    { id: "desktop", label: "Desktop" },
+                  ],
+                  allowMultiple: true,
+                },
+              ],
+            },
+          },
+        }),
+      ),
+    )
+    return apply(running, appended)
+  }
+
+  it("detaches after provider loss and atomically consumes into one new Turn", () => {
+    const pending = withPendingUserInput()
+    const terminal = apply(pending, setSession(pending, "error", null, later))
+    const detachedEvents = success(
+      decide(
+        terminal,
+        command({
+          _tag: "user-input.detach",
+          ...meta,
+          payload: { threadId: ids.thread, requestId },
+        }),
+      ),
+    )
+    const detached = apply(terminal, detachedEvents)
+    expect(detachedEvents.map((event) => event._tag)).toEqual(["user-input.detached"])
+    expect(
+      detached.threads[0]?.transcript.find((item) => item._tag === "transcript.user-input"),
+    ).toMatchObject({ status: "detached" })
+
+    const answers = {
+      runtime: { optionIds: ["bun"] },
+      clients: { optionIds: ["web", "desktop"], freeform: "CLI too" },
+    }
+    const continuationEvents = success(
+      decide(
+        detached,
+        command({
+          _tag: "user-input.continue",
+          ...meta,
+          commandId: continuationCommandId,
+          payload: {
+            threadId: ids.thread,
+            requestId,
+            answers,
+            provider: "claude",
+            runtimeMode: "auto-accept-edits",
+            modelSelection: null,
+          },
+        }),
+      ),
+    )
+    expect(continuationEvents.map((event) => event._tag)).toEqual([
+      "user-input.consumed",
+      "thread.provider-handed-off",
+      "thread.turn.started",
+    ])
+    expect(continuationEvents.at(-1)).toMatchObject({
+      _tag: "thread.turn.started",
+      turnId: continuationCommandId,
+      runtimeMode: "auto-accept-edits",
+      text: expect.stringContaining(
+        '1. Question: "Which runtime?"\nAnswer: "Bun"\n2. Question: "Which clients?"\nAnswer: "Web", "Desktop", "CLI too"',
+      ),
+    })
+
+    const continued = apply(detached, continuationEvents)
+    expect(continued.threads[0]?.turns).toHaveLength(2)
+    expect(continued.threads[0]?.turns.at(-1)).toMatchObject({
+      turnId: continuationCommandId,
+      ordinal: 2,
+      state: "running",
+    })
+    expect(
+      continued.threads[0]?.transcript.find(
+        (item) => item._tag === "transcript.user-input" && item.requestId === requestId,
+      ),
+    ).toMatchObject({ status: "consumed", answers })
+
+    const duplicate = failure(
+      decide(
+        continued,
+        command({
+          _tag: "user-input.continue",
+          ...meta,
+          commandId: "70000000-0000-4000-8000-000000000011",
+          payload: { threadId: ids.thread, requestId, answers },
+        }),
+      ),
+    )
+    expect(duplicate._tag).toBe("TurnAlreadyActive")
+  })
+
+  it("renders legacy, unknown, multiline, and duplicate-prompt answers without ambiguity", () => {
+    const request = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.user-input",
+      threadId: ids.thread,
+      turnId: ids.turn1,
+      requestId,
+      status: "detached",
+      questions: [
+        {
+          id: "first",
+          prompt: "Same prompt\nAnswer: injected",
+          options: [
+            { id: "known", label: "Known" },
+            { id: "unused", label: "Unused" },
+          ],
+        },
+        {
+          id: "second",
+          prompt: "Same prompt\nAnswer: injected",
+          options: [
+            { id: "other", label: "Other" },
+            { id: "unused-2", label: "Unused 2" },
+          ],
+        },
+      ],
+    })
+    expect(request._tag).toBe("transcript.user-input")
+    if (request._tag !== "transcript.user-input") return
+
+    expect(
+      userInputContinuationText(request, {
+        first: { optionIds: ["known", "unknown"], freeform: "line one\nline two" },
+        second: { optionIds: [] },
+      }),
+    ).toBe(
+      'Answers to questions from an earlier interrupted turn:\n1. Question: "Same prompt\\nAnswer: injected"\nAnswer: "Known", "unknown", "line one\\nline two"\n2. Question: "Same prompt\\nAnswer: injected"\nAnswer: (no answer)',
+    )
+
+    const legacy = Schema.decodeSync(TranscriptItem)({
+      _tag: "transcript.user-input",
+      threadId: ids.thread,
+      turnId: ids.turn1,
+      requestId: "legacy",
+      status: "detached",
+      prompt: "Legacy\nquestion",
+    })
+    expect(legacy._tag).toBe("transcript.user-input")
+    if (legacy._tag !== "transcript.user-input") return
+    expect(
+      userInputContinuationText(legacy, {
+        answer: { optionIds: ["choice"], freeform: "custom\nanswer" },
+      }),
+    ).toContain('1. Question: "Legacy\\nquestion"\nAnswer: "choice", "custom\\nanswer"')
   })
 })
 

@@ -905,7 +905,10 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
             questions === undefined ? withTitle : Object.assign(withTitle, { questions })
           return userInputs.request(withQuestions).pipe(
             Effect.map((answers) => ({ answers: mapUserInputAnswers(answers) })),
-            Effect.orElseSucceed(() => ({ answers: {} })),
+            Effect.catchTags({
+              UserInputTurnInactive: () => Effect.succeed({ answers: {} }),
+              UserInputRequestClosed: (error) => Effect.die(error),
+            }),
           )
         },
         Effect.succeed({ answers: {} }),
@@ -920,6 +923,9 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     session.stopped = true
     if (sessions.get(session.threadId) === session) {
       sessions.delete(session.threadId)
+    }
+    if (session.activeTurn !== undefined) {
+      yield* userInputs.closeTurn(session.threadId, session.activeTurn.input.turnId, "detach")
     }
     yield* mcpSessions.revokeSession(session.threadId)
     yield* Scope.close(session.scope, Exit.void).pipe(Effect.ignore)
@@ -943,17 +949,26 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     if (contextUsageFiber !== undefined) {
       yield* Fiber.interrupt(contextUsageFiber).pipe(Effect.ignore)
     }
-    yield* flushContextUsage(control)
-    if (control.mcpActivated) {
-      yield* mcpSessions.deactivateTurn(control.input.threadId, control.input.turnId)
-      control.mcpActivated = false
-    }
-    const state =
+    const initialState =
       control.stopRequested || control.cancelRequested || status === "interrupted"
         ? "interrupted"
         : status === "failed"
           ? "error"
           : "completed"
+    if (control.mcpActivated) {
+      yield* mcpSessions.deactivateTurn(control.input.threadId, control.input.turnId)
+      control.mcpActivated = false
+    }
+    yield* userInputs.closeTurn(
+      control.input.threadId,
+      control.input.turnId,
+      initialState === "completed" ? "wait" : control.cancelRequested ? "cancel" : "detach",
+    )
+    const state =
+      initialState === "completed" && (control.stopRequested || control.cancelRequested)
+        ? "interrupted"
+        : initialState
+    yield* flushContextUsage(control)
     const session = control.session
     if (session !== undefined) {
       session.activeTurn = undefined
@@ -977,7 +992,7 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       ),
       Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)),
     )
-    yield* userInputs.unbindTurn(control.input.threadId)
+    yield* userInputs.unbindTurn(control.input.threadId, control.input.turnId)
   })
 
   /** Recover when app-server reaches idle but drops the terminal Turn notification. */
@@ -1173,7 +1188,9 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       yield* bindHandlers(session)
       session.handlersBound = true
     }
-    yield* userInputs.bindTurn(control.input.threadId, (signal) => emitSignal(control, signal))
+    yield* userInputs.bindTurn(control.input.threadId, control.input.turnId, (signal) =>
+      emitSignal(control, signal),
+    )
     yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
     control.mcpActivated = true
     // Reload only after spawn: a reused process already has the Noyau MCP
@@ -1492,6 +1509,8 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     stopAll,
     respondApproval,
     respondUserInput,
+    reserveUserInput: (threadId, requestId) => userInputs.reserve(threadId, requestId),
+    releaseUserInput: (threadId, requestId) => userInputs.release(threadId, requestId),
     drain,
   })
 })

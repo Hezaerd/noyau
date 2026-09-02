@@ -222,6 +222,50 @@ describe("thread transcript projection", () => {
     }
   })
 
+  it("projects detached and consumed user-input status without losing answers", () => {
+    const withQuestion: typeof snapshot = {
+      ...snapshot,
+      transcript: [
+        ...snapshot.transcript,
+        decodeTranscript({
+          _tag: "transcript.user-input",
+          threadId: ids.thread,
+          turnId: ids.turn,
+          requestId: ids.request,
+          prompt: "Choose",
+          status: "pending",
+        }),
+      ],
+    }
+    const detached = applyThreadEnvelope(
+      withQuestion,
+      envelopeFor({
+        _tag: "user-input.detached",
+        threadId: ids.thread,
+        requestId: ids.request,
+      }),
+    )
+    const consumed =
+      detached === undefined
+        ? undefined
+        : applyThreadEnvelope(
+            detached,
+            envelopeFor({
+              _tag: "user-input.consumed",
+              threadId: ids.thread,
+              requestId: ids.request,
+              turnId: ids.nextTurn,
+              answers: { answer: { optionIds: [], freeform: "Continue" } },
+            }),
+          )
+
+    expect(detached?.transcript.at(-1)).toMatchObject({ status: "detached" })
+    expect(consumed?.transcript.at(-1)).toMatchObject({
+      status: "consumed",
+      answers: { answer: { optionIds: [], freeform: "Continue" } },
+    })
+  })
+
   it("applies context-usage-set locally without a snapshot reload", () => {
     const next = applyThreadEnvelope(
       snapshot,

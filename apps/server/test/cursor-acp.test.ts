@@ -455,6 +455,110 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
     ),
   )
 
+  it.effect("keeps the Turn alive while a batched Cursor question waits", () =>
+    withProvider("pending-user-input-settlement", (provider) =>
+      Effect.gen(function* () {
+        const signals: Array<ProviderSignal> = []
+        const pendingVisible = yield* Deferred.make<void>()
+        yield* provider.startTurn(input(), (signal) => {
+          const record = Effect.sync(() => {
+            signals.push(signal)
+          })
+          return signal._tag === "transcript" &&
+            signal.item._tag === "transcript.user-input" &&
+            signal.item.status === "pending"
+            ? record.pipe(Effect.andThen(Deferred.succeed(pendingVisible, undefined)))
+            : record
+        })
+        yield* Deferred.await(pendingVisible)
+        assert.isFalse(signals.some((signal) => signal._tag === "turn-ended"))
+
+        yield* provider.respondUserInput(
+          threadId,
+          ApprovalRequestId.make("cursor-question-batch"),
+          {
+            runtime: { optionIds: ["bun"] },
+            surfaces: { optionIds: ["web", "desktop"] },
+          },
+        )
+        yield* provider.drain
+
+        const resolvedIndex = signals.findIndex(
+          (signal) =>
+            signal._tag === "transcript" &&
+            signal.item._tag === "transcript.user-input" &&
+            signal.item.status === "resolved",
+        )
+        const endedIndex = signals.findIndex((signal) => signal._tag === "turn-ended")
+        assert.isTrue(resolvedIndex !== -1 && endedIndex > resolvedIndex)
+      }),
+    ),
+  )
+
+  it.effect("interrupts a Turn that is settling on a pending Cursor question", () =>
+    withProvider("pending-user-input-settlement", (provider) =>
+      Effect.gen(function* () {
+        const signals: Array<ProviderSignal> = []
+        const pendingVisible = yield* Deferred.make<void>()
+        yield* provider.startTurn(input(), (signal) => {
+          const record = Effect.sync(() => {
+            signals.push(signal)
+          })
+          return signal._tag === "transcript" &&
+            signal.item._tag === "transcript.user-input" &&
+            signal.item.status === "pending"
+            ? record.pipe(Effect.andThen(Deferred.succeed(pendingVisible, undefined)))
+            : record
+        })
+        yield* Deferred.await(pendingVisible)
+
+        yield* provider.interrupt(threadId)
+        yield* provider.drain
+
+        const cancelledIndex = signals.findIndex((signal) => signal._tag === "user-input-cancelled")
+        const endedIndex = signals.findIndex((signal) => signal._tag === "turn-ended")
+        assert.isTrue(cancelledIndex !== -1 && endedIndex > cancelledIndex)
+        assert.strictEqual(
+          signals.find((signal) => signal._tag === "turn-ended")?.state,
+          "interrupted",
+        )
+      }),
+    ),
+  )
+
+  it.effect("detaches a pending Cursor question during graceful provider shutdown", () =>
+    withProvider("pending-user-input-settlement", (provider) =>
+      Effect.gen(function* () {
+        const signals: Array<ProviderSignal> = []
+        const pendingVisible = yield* Deferred.make<void>()
+        yield* provider.startTurn(input(), (signal) => {
+          const record = Effect.sync(() => {
+            signals.push(signal)
+          })
+          return signal._tag === "transcript" &&
+            signal.item._tag === "transcript.user-input" &&
+            signal.item.status === "pending"
+            ? record.pipe(Effect.andThen(Deferred.succeed(pendingVisible, undefined)))
+            : record
+        })
+        yield* Deferred.await(pendingVisible)
+
+        yield* provider.stopAll
+        yield* provider.drain
+
+        assert.isTrue(signals.some((signal) => signal._tag === "user-input-detached"))
+        assert.isFalse(
+          signals.some(
+            (signal) =>
+              signal._tag === "transcript" &&
+              signal.item._tag === "transcript.user-input" &&
+              signal.item.status === "resolved",
+          ),
+        )
+      }),
+    ),
+  )
+
   it.effect("keeps one ACP subprocess across Turns and closes it on session stop", () =>
     withProvider("success", (provider, evidence) =>
       Effect.gen(function* () {

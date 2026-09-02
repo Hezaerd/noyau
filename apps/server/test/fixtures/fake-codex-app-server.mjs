@@ -387,7 +387,11 @@ for await (const line of lines) {
 
   if (message.method === "thread/read") {
     const requestedThreadId = message.params?.threadId ?? threadId
-    const latestTurn = latestTurns.get(requestedThreadId) ?? null
+    let latestTurn = latestTurns.get(requestedThreadId) ?? null
+    if (scenario === "pending-user-input-settlement" && latestTurn !== null) {
+      latestTurn = { ...latestTurn, status: "completed" }
+      latestTurns.set(requestedThreadId, latestTurn)
+    }
     const thread = makeThread(requestedThreadId)
     thread.status =
       latestTurn?.status === "inProgress" ? { type: "active", activeFlags: [] } : { type: "idle" }
@@ -412,7 +416,11 @@ for await (const line of lines) {
       shutdown("active-exit", 2)
       continue
     }
-    if (scenario !== "hang" && (scenario !== "hang-no-completion" || turnOrdinal > 1)) {
+    if (
+      scenario !== "hang" &&
+      scenario !== "pending-user-input-settlement" &&
+      (scenario !== "hang-no-completion" || turnOrdinal > 1)
+    ) {
       setTimeout(() => emitTurn(requestThreadId, turnId), 0)
     }
     continue

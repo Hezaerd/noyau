@@ -542,6 +542,21 @@ describe("Thread commands", () => {
     )
   })
 
+  it.each(["user-input.detach", "user-input.cancel"] as const)(
+    "décode %s comme commande interne seulement",
+    (tag) => {
+      const lifecycle = {
+        _tag: tag,
+        commandId: ids.command,
+        payload: { threadId: ids.thread, requestId: "ask-1" },
+      }
+      expect(() => Schema.decodeUnknownSync(ThreadCommandRequest)(lifecycle)).toThrow()
+      expect(
+        Schema.decodeUnknownSync(InternalThreadCommand)({ ...lifecycle, ...commandMeta })._tag,
+      ).toBe(tag)
+    },
+  )
+
   it.each([
     "thread.create",
     "thread.delete",
@@ -553,6 +568,7 @@ describe("Thread commands", () => {
     "thread.turn.interrupt",
     "approval.respond",
     "user-input.respond",
+    "user-input.continue",
     "session.stop",
   ] as const)("accepte la commande client %s", (tag) => {
     const payloads = {
@@ -585,6 +601,12 @@ describe("Thread commands", () => {
         threadId: ids.thread,
         requestId: "req-2",
         answers: { q: { optionIds: ["yes"] } },
+      },
+      "user-input.continue": {
+        threadId: ids.thread,
+        requestId: "req-2",
+        answers: { q: { optionIds: ["yes"] } },
+        runtimeMode: "full-access",
       },
       "session.stop": { threadId: ids.thread },
     } as const
@@ -644,6 +666,33 @@ describe("Thread commands", () => {
 })
 
 describe("Thread events and receipts", () => {
+  it.each(["detached", "cancelled", "consumed"] as const)(
+    "round-trip un user-input %s sans élargir les permissions",
+    (status) => {
+      const userInput = Schema.decodeSync(TranscriptItem)({
+        _tag: "transcript.user-input",
+        threadId: ids.thread,
+        turnId: ids.turn,
+        requestId: "ask-1",
+        status,
+      })
+      expect(userInput._tag).toBe("transcript.user-input")
+      if (userInput._tag !== "transcript.user-input") {
+        throw new Error("Expected user input transcript item")
+      }
+      expect(userInput.status).toBe(status)
+      expect(() =>
+        Schema.decodeUnknownSync(TranscriptItem)({
+          _tag: "transcript.permission",
+          threadId: ids.thread,
+          turnId: ids.turn,
+          requestId: "permission-1",
+          status,
+        }),
+      ).toThrow()
+    },
+  )
+
   it("round-trip un événement de handoff provider", () => {
     const event = Schema.decodeSync(DomainEvent)({
       _tag: "thread.provider-handed-off",

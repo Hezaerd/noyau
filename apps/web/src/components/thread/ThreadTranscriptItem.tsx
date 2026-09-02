@@ -11,7 +11,6 @@ import { ThreadTranscriptTool } from "@/components/thread/ThreadTranscriptTool"
 import { ThreadTurnDiffCard } from "@/components/thread/ThreadTurnDiffCard"
 import { ThreadTurnImages } from "@/components/thread/ThreadTurnImages"
 import {
-  StickyUserInputShell,
   ThreadUserInputQuestionnaire,
   type DraftAnswers,
 } from "@/components/thread/ThreadUserInputQuestionnaire"
@@ -302,7 +301,21 @@ function ThreadTranscriptItemImpl({
     <Message align="start">
       <MessageContent>
         <MessageHeader>{transcriptLabel(item)}</MessageHeader>
-        <StickyUserInputShell pending={item.status === "pending"}>
+        {item.status === "pending" || item.status === "detached" ? (
+          <Bubble variant="muted" align="start">
+            <BubbleContent>
+              {item.status === "detached"
+                ? "The provider session ended. Your answer draft can be continued from the composer."
+                : item.questions === undefined || item.questions.length === 0
+                  ? "Waiting for your response."
+                  : `Waiting for your response · ${item.questions.length} questions.`}
+            </BubbleContent>
+          </Bubble>
+        ) : item.status === "cancelled" ? (
+          <Bubble variant="muted" align="start">
+            <BubbleContent>Questionnaire cancelled.</BubbleContent>
+          </Bubble>
+        ) : (
           <ThreadUserInputQuestionnaire
             item={item}
             draft={draftAnswers}
@@ -311,7 +324,7 @@ function ThreadTranscriptItemImpl({
             onLegacyFreeformChange={onLegacyFreeformChange}
             onSubmit={onRespondUserInput}
           />
-        </StickyUserInputShell>
+        )}
       </MessageContent>
     </Message>
   )

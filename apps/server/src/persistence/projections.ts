@@ -858,7 +858,34 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
         UPDATE projection_transcript
         SET item = json_set(
           item,
-          '$.status', 'resolved',
+          '$.answers', json(${answersJson})
+        ),
+        event_sequence = ${persisted.sequence}
+        WHERE thread_id = ${event.threadId}
+          AND kind = 'transcript.user-input'
+          AND json_extract(item, '$.requestId') = ${event.requestId}
+      `
+      break
+    }
+    case "user-input.detached":
+    case "user-input.cancelled": {
+      const status = event._tag === "user-input.detached" ? "detached" : "cancelled"
+      yield* sql`
+        UPDATE projection_transcript
+        SET item = json_set(item, '$.status', ${status}), event_sequence = ${persisted.sequence}
+        WHERE thread_id = ${event.threadId}
+          AND kind = 'transcript.user-input'
+          AND json_extract(item, '$.requestId') = ${event.requestId}
+      `
+      break
+    }
+    case "user-input.consumed": {
+      const answersJson = yield* encodeUserInputAnswers(event.answers).pipe(Effect.orDie)
+      yield* sql`
+        UPDATE projection_transcript
+        SET item = json_set(
+          item,
+          '$.status', 'consumed',
           '$.answers', json(${answersJson})
         ),
         event_sequence = ${persisted.sequence}

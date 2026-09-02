@@ -961,7 +961,7 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       for (const pending of control.pendingApprovals.values()) {
         yield* Deferred.succeed(pending.decision, "cancel").pipe(Effect.ignore)
       }
-      yield* userInputs.cancelTurn(session.threadId)
+      yield* userInputs.closeTurn(session.threadId, control.input.turnId, "detach")
     }
     yield* Scope.close(session.scope, Exit.void).pipe(Effect.ignore)
   })
@@ -1282,6 +1282,7 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
 
       if (control.cancelRequested) {
         control.terminalEmitted = true
+        yield* userInputs.closeTurn(control.input.threadId, control.input.turnId, "cancel")
         yield* emitSignal(control, {
           _tag: "turn-ended",
           threadId: control.input.threadId,
@@ -1324,11 +1325,25 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         })
         .pipe(Effect.ensuring(Deferred.succeed(control.promptSettled, undefined)))
       control.terminalEmitted = true
+      const initiallyCompleted = response.stopReason === "end_turn"
+      if (control.mcpActivated) {
+        yield* mcpSessions.deactivateTurn(control.input.threadId, control.input.turnId)
+        control.mcpActivated = false
+      }
+      yield* userInputs.closeTurn(
+        control.input.threadId,
+        control.input.turnId,
+        initiallyCompleted ? "wait" : control.cancelRequested ? "cancel" : "detach",
+      )
+      const state =
+        initiallyCompleted && !control.cancelRequested && !control.stopRequested
+          ? "completed"
+          : "interrupted"
       yield* emitSignal(control, {
         _tag: "turn-ended",
         threadId: control.input.threadId,
         turnId: control.input.turnId,
-        state: response.stopReason === "end_turn" ? "completed" : "interrupted",
+        state,
       })
       if (control.stopRequested) {
         yield* emitSignal(control, sessionSignal(control, "stopped", currentSession.resumeCursor))
@@ -1343,6 +1358,15 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
               control.terminalEmitted = true
               const currentSession = control.session
               const resumeCursor = turnResumeCursor(control)
+              if (control.mcpActivated) {
+                yield* mcpSessions.deactivateTurn(control.input.threadId, control.input.turnId)
+                control.mcpActivated = false
+              }
+              yield* userInputs.closeTurn(
+                control.input.threadId,
+                control.input.turnId,
+                control.cancelRequested || control.stopRequested ? "cancel" : "detach",
+              )
               if (currentSession !== undefined) {
                 yield* closeSession(currentSession)
               }
@@ -1360,7 +1384,7 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
       Effect.ensuring(
         flushAssistantText(control).pipe(
           Effect.andThen(threadLive.clear(control.input.threadId)),
-          Effect.andThen(userInputs.unbindTurn(control.input.threadId)),
+          Effect.andThen(userInputs.unbindTurn(control.input.threadId, control.input.turnId)),
           Effect.andThen(
             Effect.suspend(() =>
               control.mcpActivated
@@ -1437,7 +1461,9 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         }
       }
 
-      yield* userInputs.bindTurn(input.threadId, (signal) => emitSignal(control, signal))
+      yield* userInputs.bindTurn(input.threadId, input.turnId, (signal) =>
+        emitSignal(control, signal),
+      )
       active.set(input.threadId, control)
       yield* emitSignal(
         control,
@@ -1477,7 +1503,7 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     for (const pending of control.pendingApprovals.values()) {
       yield* Deferred.succeed(pending.decision, "cancel")
     }
-    yield* userInputs.cancelTurn(threadId)
+    yield* userInputs.closeTurn(threadId, control.input.turnId, "cancel")
     if (!control.promptStarted || control.acp === undefined || control.sessionId === undefined) {
       const session = control.session ?? sessions.get(threadId)
       if (session !== undefined && (stop || sessions.get(threadId) !== session)) {
@@ -1606,6 +1632,8 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
     stopAll,
     respondApproval,
     respondUserInput,
+    reserveUserInput: (threadId, requestId) => userInputs.reserve(threadId, requestId),
+    releaseUserInput: (threadId, requestId) => userInputs.release(threadId, requestId),
     drain,
   })
 })

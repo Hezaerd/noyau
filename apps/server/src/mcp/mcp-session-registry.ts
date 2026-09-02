@@ -25,13 +25,11 @@ export interface McpSessionRegistryService {
   readonly issue: (request: McpCredentialRequest) => Effect.Effect<McpIssuedCredential>
   /**
    * Records the Turn that should own later tool attribution on this Session
-   * credential. Resolution stays available until the Session is revoked.
+   * credential. The credential stays reusable until revocation, but resolution
+   * is available only while a Turn is active.
    */
   readonly activateTurn: (threadId: ThreadId, turnId: TurnId) => Effect.Effect<void>
-  /**
-   * Touches the Session lease. A late Turn finalizer must not revoke the
-   * credential or unbind a newer Turn.
-   */
+  /** Clears matching Turn attribution without revoking the reusable Session credential. */
   readonly deactivateTurn: (threadId: ThreadId, turnId: TurnId) => Effect.Effect<void>
   /** Refreshes the liveness lease without changing the active Turn. Returns false when absent/expired. */
   readonly touchSession: (threadId: ThreadId) => Effect.Effect<boolean>
@@ -158,8 +156,17 @@ export const makeMcpSessionRegistry = Effect.fn("McpSessionRegistry.make")(funct
 
   const deactivateTurn: McpSessionRegistryService["deactivateTurn"] = Effect.fn(
     "McpSessionRegistry.deactivateTurn",
-  )(function* (threadId, _turnId) {
-    yield* touchSession(threadId)
+  )(function* (threadId, turnId) {
+    const timestamp = yield* currentTimeMillis
+    yield* SynchronizedRef.update(state, ({ records }) => {
+      const next = new Map(pruneExpired(records, timestamp))
+      for (const [hash, record] of next) {
+        if (record.scope.threadId === threadId && record.activeTurnId === turnId) {
+          next.set(hash, { ...record, activeTurnId: null, lastAliveAt: timestamp })
+        }
+      }
+      return { records: next }
+    })
   })
 
   const resolve: McpSessionRegistryService["resolve"] = Effect.fn("McpSessionRegistry.resolve")(

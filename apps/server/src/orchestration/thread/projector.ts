@@ -188,6 +188,19 @@ const resolveTranscriptRequest = (
     return { ...item, status: "resolved" as const }
   })
 
+const updateUserInputRequest = (
+  transcript: ReadonlyArray<TranscriptItem>,
+  requestId: string,
+  status: Extract<TranscriptItem, { readonly _tag: "transcript.user-input" }>["status"],
+  answers?: Extract<TranscriptItem, { readonly _tag: "transcript.user-input" }>["answers"],
+): ReadonlyArray<TranscriptItem> =>
+  transcript.map((item) => {
+    if (item._tag !== "transcript.user-input" || item.requestId !== requestId) {
+      return item
+    }
+    return answers === undefined ? { ...item, status } : { ...item, status, answers }
+  })
+
 const settleRunningTurn = (thread: ThreadProjection, session: Session): ThreadProjection => {
   const settlement = settledTurnStateForSessionStatus(session.status)
   if (settlement === null) {
@@ -395,10 +408,30 @@ export const evolve = (state: ThreadState, event: ThreadEvent): ThreadState => {
     case "user-input.responded":
       return updateThread(state, event.threadId, (thread) => ({
         ...thread,
-        transcript: resolveTranscriptRequest(
+        transcript: updateUserInputRequest(
           thread.transcript,
           event.requestId,
-          "transcript.user-input",
+          "pending",
+          event.answers,
+        ),
+      }))
+    case "user-input.detached":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        transcript: updateUserInputRequest(thread.transcript, event.requestId, "detached"),
+      }))
+    case "user-input.cancelled":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        transcript: updateUserInputRequest(thread.transcript, event.requestId, "cancelled"),
+      }))
+    case "user-input.consumed":
+      return updateThread(state, event.threadId, (thread) => ({
+        ...thread,
+        transcript: updateUserInputRequest(
+          thread.transcript,
+          event.requestId,
+          "consumed",
           event.answers,
         ),
       }))

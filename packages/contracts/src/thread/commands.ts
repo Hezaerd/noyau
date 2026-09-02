@@ -169,6 +169,16 @@ const userInputRespondPayload = {
   answers: ProviderUserInputAnswers,
 } as const
 
+const userInputContinuePayload = {
+  threadId: ThreadId,
+  requestId: ApprovalRequestId,
+  answers: ProviderUserInputAnswers,
+  provider: Schema.optionalKey(Provider),
+  runtimeMode: Schema.optionalKey(RuntimeMode),
+  modelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+  prepareWorktree: Schema.optionalKey(PrepareWorktree),
+} as const
+
 const threadUnsettlePayload = {
   threadId: ThreadId,
   // Commands only carry "user": activity un-settles are decided server-side.
@@ -205,6 +215,10 @@ export const UserInputRespondRequest = request(
   "user-input.respond",
   Schema.Struct(userInputRespondPayload),
 )
+export const UserInputContinueRequest = request(
+  "user-input.continue",
+  Schema.Struct(userInputContinuePayload),
+)
 export const SessionStopRequest = request("session.stop", Schema.Struct(threadIdPayload))
 
 export const ThreadCommandRequest = Schema.Union([
@@ -220,6 +234,7 @@ export const ThreadCommandRequest = Schema.Union([
   ThreadTurnInterruptRequest,
   ApprovalRespondRequest,
   UserInputRespondRequest,
+  UserInputContinueRequest,
   SessionStopRequest,
 ])
 export type ThreadCommandRequest = (typeof ThreadCommandRequest)["Type"]
@@ -249,6 +264,10 @@ export const UserInputRespond = command(
   "user-input.respond",
   Schema.Struct(userInputRespondPayload),
 )
+export const UserInputContinue = command(
+  "user-input.continue",
+  Schema.Struct(userInputContinuePayload),
+)
 export const SessionStop = command("session.stop", Schema.Struct(threadIdPayload))
 
 export const ClientThreadCommand = Schema.Union([
@@ -264,6 +283,7 @@ export const ClientThreadCommand = Schema.Union([
   ThreadTurnInterrupt,
   ApprovalRespond,
   UserInputRespond,
+  UserInputContinue,
   SessionStop,
 ])
 export type ClientThreadCommand = (typeof ClientThreadCommand)["Type"]
@@ -303,6 +323,11 @@ const contextUsageSetPayload = {
   contextUsage: ContextUsage,
 } as const
 
+const userInputLifecyclePayload = {
+  threadId: ThreadId,
+  requestId: ApprovalRequestId,
+} as const
+
 const threadForkCompletePayload = {
   threadId: ThreadId,
   sourceThreadId: ThreadId,
@@ -338,6 +363,14 @@ export const ThreadForkComplete = command(
   Schema.Struct(threadForkCompletePayload),
 )
 export const ThreadForkFail = command("thread.fork.fail", Schema.Struct(threadForkFailPayload))
+export const UserInputDetach = command(
+  "user-input.detach",
+  Schema.Struct(userInputLifecyclePayload),
+)
+export const UserInputCancel = command(
+  "user-input.cancel",
+  Schema.Struct(userInputLifecyclePayload),
+)
 
 export const InternalThreadCommand = Schema.Union([
   ThreadSessionSet,
@@ -348,6 +381,8 @@ export const InternalThreadCommand = Schema.Union([
   ThreadContextUsageSet,
   ThreadForkComplete,
   ThreadForkFail,
+  UserInputDetach,
+  UserInputCancel,
 ])
 export type InternalThreadCommand = (typeof InternalThreadCommand)["Type"]
 

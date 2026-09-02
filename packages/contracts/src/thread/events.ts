@@ -151,6 +151,26 @@ export const UserInputResponded = Schema.TaggedStruct("user-input.responded", {
 })
 export type UserInputResponded = (typeof UserInputResponded)["Type"]
 
+export const UserInputDetached = Schema.TaggedStruct("user-input.detached", {
+  threadId: ThreadId,
+  requestId: ApprovalRequestId,
+})
+export type UserInputDetached = (typeof UserInputDetached)["Type"]
+
+export const UserInputCancelled = Schema.TaggedStruct("user-input.cancelled", {
+  threadId: ThreadId,
+  requestId: ApprovalRequestId,
+})
+export type UserInputCancelled = (typeof UserInputCancelled)["Type"]
+
+export const UserInputConsumed = Schema.TaggedStruct("user-input.consumed", {
+  threadId: ThreadId,
+  requestId: ApprovalRequestId,
+  turnId: TurnId,
+  answers: ProviderUserInputAnswers,
+})
+export type UserInputConsumed = (typeof UserInputConsumed)["Type"]
+
 export const SessionStopRequested = Schema.TaggedStruct("session.stop-requested", {
   threadId: ThreadId,
 })
@@ -215,6 +235,9 @@ export const ThreadEvent = Schema.Union([
   ThreadTurnInterrupted,
   ApprovalResponded,
   UserInputResponded,
+  UserInputDetached,
+  UserInputCancelled,
+  UserInputConsumed,
   SessionStopRequested,
   ThreadSessionSet,
   ThreadTranscriptAppended,

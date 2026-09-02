@@ -22,6 +22,15 @@ export type TranscriptToolAction = (typeof TranscriptToolAction)["Type"]
 export const TranscriptRequestStatus = Schema.Literals(["pending", "resolved"])
 export type TranscriptRequestStatus = (typeof TranscriptRequestStatus)["Type"]
 
+export const TranscriptUserInputStatus = Schema.Literals([
+  "pending",
+  "resolved",
+  "detached",
+  "cancelled",
+  "consumed",
+])
+export type TranscriptUserInputStatus = (typeof TranscriptUserInputStatus)["Type"]
+
 /** Provider transition carried by the first user Turn after a handoff. */
 export const ProviderHandoff = Schema.Struct({
   previousProvider: Provider,
@@ -78,9 +87,9 @@ export const TranscriptUserInput = Schema.TaggedStruct("transcript.user-input", 
   prompt: Schema.optionalKey(Schema.NonEmptyString),
   title: Schema.optionalKey(Schema.NonEmptyString),
   questions: Schema.optionalKey(Schema.Array(UserInputQuestion)),
-  /** Présent quand `status` est `resolved`. */
+  /** Present after live delivery (`resolved`) or detached continuation (`consumed`). */
   answers: Schema.optionalKey(ProviderUserInputAnswers),
-  status: TranscriptRequestStatus,
+  status: TranscriptUserInputStatus,
 })
 export type TranscriptUserInput = (typeof TranscriptUserInput)["Type"]
 

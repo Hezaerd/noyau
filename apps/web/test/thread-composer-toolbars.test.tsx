@@ -72,8 +72,8 @@ const renderComposer = ({
   readonly toolbars?: ReadonlyArray<ComposerToolbarOwnerDefinition> | undefined
   readonly onTextChange?: (value: string) => void
   readonly onSubmit?: () => void
-} = {}) =>
-  render(
+} = {}) => {
+  const renderTree = (nextToolbars = toolbars) => (
     <AppAtomRegistryProvider>
       <ThreadComposer
         isRunning={false}
@@ -101,10 +101,17 @@ const renderComposer = ({
         searchPaths={searchPaths}
         tickets={tickets}
         skills={skills}
-        toolbars={toolbars}
+        toolbars={nextToolbars}
       />
-    </AppAtomRegistryProvider>,
+    </AppAtomRegistryProvider>
   )
+  const result = render(renderTree())
+  return {
+    ...result,
+    rerenderToolbars: (nextToolbars: ReadonlyArray<ComposerToolbarOwnerDefinition>) =>
+      result.rerender(renderTree(nextToolbars)),
+  }
+}
 
 describe("ThreadComposer toolbar composition", () => {
   it("renders an external bottom toolbar immediately after the composer shell", () => {
@@ -197,6 +204,23 @@ describe("ThreadComposer toolbar composition", () => {
     fireEvent.keyDown(textbox, { key: "Enter" })
     expect(onTextChange).not.toHaveBeenCalled()
     expect(onSubmit).toHaveBeenCalledOnce()
+  })
+
+  it("preempts open suggestions when a blocking toolbar appears", () => {
+    const rendered = renderComposer({ text: "@", tickets: [ticket] })
+    expect(screen.getByRole("listbox", { name: "Composer suggestions" })).toBeTruthy()
+
+    rendered.rerenderToolbars([
+      {
+        id: "composer-ask-question",
+        placement: "top",
+        priority: "blocking",
+        content: <span data-testid="ask-question-toolbar">Ask</span>,
+      },
+    ])
+
+    expect(screen.getByTestId("ask-question-toolbar")).toBeTruthy()
+    expect(screen.queryByRole("listbox", { name: "Composer suggestions" })).toBeNull()
   })
 
   it("does not create empty placement regions and preserves hero/docked sizing classes", () => {

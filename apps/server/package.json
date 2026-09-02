@@ -67,6 +67,7 @@
     "./persistence/node-sqlite-client": "./src/persistence/node-sqlite-client.ts",
     "./persistence/projections": "./src/persistence/projections.ts",
     "./persistence/session-recovery": "./src/persistence/session-recovery.ts",
+    "./persistence/user-input-recovery": "./src/persistence/user-input-recovery.ts",
     "./persistence/snapshots": "./src/persistence/snapshots.ts",
     "./persistence/sqlite": "./src/persistence/sqlite.ts",
     "./orchestration/control-state": "./src/orchestration/control-state.ts",
@@ -76,7 +77,8 @@
     "./orchestration/project/projector": "./src/orchestration/project/projector.ts",
     "./orchestration/thread/decider": "./src/orchestration/thread/decider.ts",
     "./orchestration/thread/projector": "./src/orchestration/thread/projector.ts",
-    "./orchestration/thread/recovery": "./src/orchestration/thread/recovery.ts"
+    "./orchestration/thread/recovery": "./src/orchestration/thread/recovery.ts",
+    "./orchestration/thread/user-input-summary": "./src/orchestration/thread/user-input-summary.ts"
   },
   "scripts": {
     "dev": "node --watch src/main.ts",

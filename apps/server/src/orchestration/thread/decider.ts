@@ -15,6 +15,7 @@ import {
   ThreadNotSettleable,
   TurnAlreadyActive,
   TurnNotFound,
+  UserInputRequestNotFound,
 } from "@noyau/contracts/thread/errors"
 import {
   ApprovalResponded,
@@ -40,11 +41,15 @@ import {
   ThreadTurnInterrupted,
   ThreadTurnStarted,
   UserInputResponded,
+  UserInputDetached,
+  UserInputCancelled,
+  UserInputConsumed,
 } from "@noyau/contracts/thread/events"
 import { seedTitleFromTurn } from "@noyau/contracts/thread/title"
 import { Result } from "effect"
 
 import type { ThreadProjection, ThreadState, TurnProjection } from "./projector.ts"
+import { userInputContinuationText } from "./user-input-summary.ts"
 
 export type ThreadDecisionError =
   | ApprovalRequestNotFound
@@ -58,6 +63,7 @@ export type ThreadDecisionError =
   | ThreadNotSettleable
   | TurnAlreadyActive
   | TurnNotFound
+  | UserInputRequestNotFound
 
 const findThread = (state: ThreadState, threadId: ThreadProjection["threadId"]) =>
   state.threads.find((thread) => thread.threadId === threadId)
@@ -125,6 +131,36 @@ const activityUnsettle = (thread: ThreadProjection): ThreadUnsettled | null =>
 const hasLeakedImageUpload = (
   payload: Extract<ThreadCommand, { _tag: "thread.turn.start" }>["payload"],
 ): boolean => payload.image !== undefined || payload.images !== undefined
+
+const requireTurnStartable = (
+  state: ThreadState,
+  threadId: ThreadProjection["threadId"],
+  leakedImageUpload: boolean,
+): Result.Result<ThreadProjection, ThreadDecisionError> =>
+  requireThread(state, threadId).pipe(
+    Result.flatMap((thread): Result.Result<ThreadProjection, ThreadDecisionError> =>
+      requireActiveThread(thread).pipe(
+        Result.flatMap(() => requireAvailableProject(state, thread)),
+        Result.flatMap(() => {
+          const active = runningTurn(thread)
+          return active === undefined
+            ? Result.succeed(undefined)
+            : Result.fail(
+                new TurnAlreadyActive({
+                  threadId: thread.threadId,
+                  turnId: active.turnId,
+                }),
+              )
+        }),
+        Result.flatMap(() =>
+          leakedImageUpload
+            ? Result.fail(new ImageAttachmentRejected({ threadId: thread.threadId }))
+            : Result.succeed(undefined),
+        ),
+        Result.map(() => thread),
+      ),
+    ),
+  )
 
 const terminalSession = (
   session: Session,
@@ -274,29 +310,11 @@ export const decide = (
         Result.map(() => [ThreadModelSelectionSet.make(command.payload)]),
       )
     case "thread.turn.start":
-      return requireThread(state, command.payload.threadId).pipe(
-        Result.flatMap((thread): Result.Result<ThreadProjection, ThreadDecisionError> =>
-          requireActiveThread(thread).pipe(
-            Result.flatMap(() => requireAvailableProject(state, thread)),
-            Result.flatMap(() => {
-              const active = runningTurn(thread)
-              return active === undefined
-                ? Result.succeed(undefined)
-                : Result.fail(
-                    new TurnAlreadyActive({
-                      threadId: thread.threadId,
-                      turnId: active.turnId,
-                    }),
-                  )
-            }),
-            Result.flatMap(() =>
-              hasLeakedImageUpload(command.payload)
-                ? Result.fail(new ImageAttachmentRejected({ threadId: thread.threadId }))
-                : Result.succeed(undefined),
-            ),
-            Result.map(() => thread),
-          ),
-        ),
+      return requireTurnStartable(
+        state,
+        command.payload.threadId,
+        hasLeakedImageUpload(command.payload),
+      ).pipe(
         Result.map((thread) => {
           const providerHandoff =
             command.payload.provider !== undefined && command.payload.provider !== thread.provider
@@ -388,11 +406,101 @@ export const decide = (
           return pending
             ? Result.succeed([UserInputResponded.make(command.payload)])
             : Result.fail(
-                new ApprovalRequestNotFound({
+                new UserInputRequestNotFound({
                   threadId: command.payload.threadId,
                   requestId: command.payload.requestId,
                 }),
               )
+        }),
+      )
+    case "user-input.continue":
+      return requireTurnStartable(state, command.payload.threadId, false).pipe(
+        Result.flatMap((thread) => {
+          const request = thread.transcript.find(
+            (item) =>
+              item._tag === "transcript.user-input" &&
+              item.requestId === command.payload.requestId &&
+              item.status === "detached",
+          )
+          if (request === undefined || request._tag !== "transcript.user-input") {
+            return Result.fail(
+              new UserInputRequestNotFound({
+                threadId: command.payload.threadId,
+                requestId: command.payload.requestId,
+              }),
+            )
+          }
+          const turnId = TurnId.make(command.commandId)
+          const providerHandoff =
+            command.payload.provider !== undefined && command.payload.provider !== thread.provider
+              ? {
+                  previousProvider: thread.provider,
+                  provider: command.payload.provider,
+                  previousModelSelection: thread.modelSelection,
+                  modelSelection: command.payload.modelSelection ?? null,
+                }
+              : undefined
+          let started: Omit<ThreadTurnStarted, "_tag"> = {
+            threadId: thread.threadId,
+            turnId,
+            text: userInputContinuationText(request, command.payload.answers),
+          }
+          if (command.payload.runtimeMode !== undefined) {
+            started = Object.assign(started, { runtimeMode: command.payload.runtimeMode })
+          }
+          if (command.payload.modelSelection !== undefined) {
+            started = Object.assign(started, { modelSelection: command.payload.modelSelection })
+          }
+          if (command.payload.prepareWorktree !== undefined) {
+            started = Object.assign(started, { prepareWorktree: command.payload.prepareWorktree })
+          }
+          if (providerHandoff !== undefined) {
+            started = Object.assign(started, { providerHandoff })
+          }
+          const events: Array<ThreadEvent> = [
+            UserInputConsumed.make({
+              threadId: thread.threadId,
+              requestId: request.requestId,
+              turnId,
+              answers: command.payload.answers,
+            }),
+          ]
+          const unsettle = activityUnsettle(thread)
+          if (unsettle !== null) {
+            events.push(unsettle)
+          }
+          if (providerHandoff !== undefined) {
+            events.push(
+              ThreadProviderHandedOff.make({ threadId: thread.threadId, ...providerHandoff }),
+            )
+          }
+          events.push(ThreadTurnStarted.make(started))
+          return Result.succeed(events)
+        }),
+      )
+    case "user-input.detach":
+    case "user-input.cancel":
+      return requireThread(state, command.payload.threadId).pipe(
+        Result.flatMap((thread) => {
+          const pending = thread.transcript.some(
+            (item) =>
+              item._tag === "transcript.user-input" &&
+              item.requestId === command.payload.requestId &&
+              item.status === "pending",
+          )
+          if (!pending) {
+            return Result.fail(
+              new UserInputRequestNotFound({
+                threadId: command.payload.threadId,
+                requestId: command.payload.requestId,
+              }),
+            )
+          }
+          return Result.succeed([
+            command._tag === "user-input.detach"
+              ? UserInputDetached.make(command.payload)
+              : UserInputCancelled.make(command.payload),
+          ])
         }),
       )
     case "session.stop":

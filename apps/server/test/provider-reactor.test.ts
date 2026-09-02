@@ -85,6 +85,8 @@ describe("provider handoff reactor", () => {
           stopAll: Effect.void,
           respondApproval: () => Effect.void,
           respondUserInput: () => Effect.void,
+          reserveUserInput: () => Effect.succeed(false),
+          releaseUserInput: () => Effect.void,
           drain: Effect.void,
         }
         const services = yield* Layer.build(
@@ -218,6 +220,8 @@ describe("provider handoff reactor", () => {
           stopAll: Effect.void,
           respondApproval: () => Effect.void,
           respondUserInput: () => Effect.void,
+          reserveUserInput: () => Effect.succeed(false),
+          releaseUserInput: () => Effect.void,
           drain: Effect.void,
         }
         const services = yield* Layer.build(

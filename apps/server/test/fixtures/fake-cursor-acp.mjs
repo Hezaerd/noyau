@@ -437,6 +437,39 @@ for await (const line of lines) {
       })
       continue
     }
+    if (scenario === "pending-user-input-settlement") {
+      write({
+        jsonrpc: "2.0",
+        id: 901,
+        method: "cursor/ask_question",
+        params: {
+          sessionId: activeSessionId,
+          toolCallId: "cursor-question-batch",
+          title: "Choose the direction",
+          questions: [
+            {
+              id: "runtime",
+              prompt: "Which runtime?",
+              options: [
+                { id: "bun", label: "Bun" },
+                { id: "node", label: "Node" },
+              ],
+            },
+            {
+              id: "surfaces",
+              prompt: "Which surfaces?",
+              options: [
+                { id: "web", label: "Web" },
+                { id: "desktop", label: "Desktop" },
+              ],
+              allowMultiple: true,
+            },
+          ],
+        },
+      })
+      completePrompt("end_turn")
+      continue
+    }
     emitLiveUpdates()
     completePrompt(scenario === "non-end-turn" ? "refusal" : "end_turn")
     continue
@@ -452,6 +485,10 @@ for await (const line of lines) {
   if (message.id === 900) {
     emitLiveUpdates()
     completePrompt("end_turn")
+    continue
+  }
+
+  if (message.id === 901) {
     continue
   }
 

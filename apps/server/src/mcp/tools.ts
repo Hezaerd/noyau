@@ -26,6 +26,7 @@ import {
 import { ControlPlane } from "@noyau/server/control-plane"
 import {
   TurnUserInputRegistry,
+  UserInputRequestClosed,
   UserInputTurnInactive,
 } from "@noyau/server/provider/turn-user-input-registry"
 import { Crypto, Effect, Schema } from "effect"
@@ -540,7 +541,7 @@ export const NoyauAskQuestionTool = Tool.make("noyau_ask_question", {
     questions: Schema.Array(UserInputQuestion).check(Schema.isMinLength(1)),
   }),
   success: AskQuestionResult,
-  failure: Schema.Union([McpCapabilityMissing, UserInputTurnInactive]),
+  failure: Schema.Union([McpCapabilityMissing, UserInputTurnInactive, UserInputRequestClosed]),
   dependencies: [McpInvocationContext, TurnUserInputRegistry, Crypto.Crypto],
 })
   .annotate(Tool.Title, "Ask Noyau questions")

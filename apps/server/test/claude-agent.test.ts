@@ -641,6 +641,99 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
     ),
   )
 
+  it.effect("keeps the Turn alive while AskUserQuestion waits for a batched response", () =>
+    withProvider((provider, harness) =>
+      Effect.gen(function* () {
+        const signals: Array<ProviderSignal> = []
+        const pendingVisible = yield* Deferred.make<void>()
+        yield* provider.startTurn(input(), (signal) => {
+          const record = Effect.sync(() => {
+            signals.push(signal)
+          })
+          return signal._tag === "transcript" &&
+            signal.item._tag === "transcript.user-input" &&
+            signal.item.status === "pending"
+            ? record.pipe(Effect.andThen(Deferred.succeed(pendingVisible, undefined)))
+            : record
+        })
+        const query = yield* waitForQuery(harness.queries)
+        const canUseTool = harness.lastOptions()?.canUseTool
+        assert.isDefined(canUseTool)
+        const abortSignal = yield* Effect.abortSignal
+        const pending = canUseTool(
+          "AskUserQuestion",
+          {
+            questions: [
+              {
+                question: "Which runtime?",
+                header: "Runtime",
+                options: [{ label: "Bun" }, { label: "Node" }],
+              },
+              {
+                question: "Which surfaces?",
+                header: "Surfaces",
+                options: [{ label: "Web" }, { label: "Desktop" }],
+                multiSelect: true,
+              },
+            ],
+          },
+          {
+            signal: abortSignal,
+            toolUseID: "claude-question-batch",
+            requestId: "claude-question-batch",
+          },
+        )
+        yield* Deferred.await(pendingVisible)
+
+        query.emit(resultMessage())
+        yield* Effect.yieldNow
+        assert.isFalse(signals.some((signal) => signal._tag === "turn-ended"))
+
+        yield* provider.respondUserInput(
+          threadId,
+          ApprovalRequestId.make("claude-question-batch"),
+          {
+            "Which runtime?": { optionIds: ["Bun"] },
+            "Which surfaces?": { optionIds: ["Web", "Desktop"] },
+          },
+        )
+        const answer = yield* Effect.promise(() => pending)
+        assert.deepStrictEqual(answer, {
+          behavior: "allow",
+          updatedInput: {
+            questions: [
+              {
+                question: "Which runtime?",
+                header: "Runtime",
+                options: [{ label: "Bun" }, { label: "Node" }],
+              },
+              {
+                question: "Which surfaces?",
+                header: "Surfaces",
+                options: [{ label: "Web" }, { label: "Desktop" }],
+                multiSelect: true,
+              },
+            ],
+            answers: {
+              "Which runtime?": "Bun",
+              "Which surfaces?": "Web, Desktop",
+            },
+          },
+        })
+        query.finish()
+        yield* provider.drain
+        const resolvedIndex = signals.findIndex(
+          (signal) =>
+            signal._tag === "transcript" &&
+            signal.item._tag === "transcript.user-input" &&
+            signal.item.status === "resolved",
+        )
+        const endedIndex = signals.findIndex((signal) => signal._tag === "turn-ended")
+        assert.isTrue(resolvedIndex !== -1 && endedIndex > resolvedIndex)
+      }),
+    ),
+  )
+
   it.effect("interrupts the live query", () =>
     withProvider((provider, harness) =>
       Effect.gen(function* () {

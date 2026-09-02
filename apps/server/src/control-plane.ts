@@ -61,6 +61,7 @@ import type {
   ServerSettingsPatch,
 } from "@noyau/contracts/settings"
 import type { SetShellFocusInput, ShellLiveEvent, ShellSnapshot } from "@noyau/contracts/shell"
+import { UserInputRequestNotFound } from "@noyau/contracts/thread/errors"
 import { ThreadEvent } from "@noyau/contracts/thread/events"
 import { TicketEvent } from "@noyau/contracts/ticket/events"
 import type { GetTurnDiffInput, TurnDiffPatch } from "@noyau/contracts/turn-diff"
@@ -113,6 +114,7 @@ import {
   readThreadShellById,
   readThreadSnapshot,
 } from "./persistence/snapshots.ts"
+import { recoverPendingUserInputsAfterBoot } from "./persistence/user-input-recovery.ts"
 import { ProviderInstanceRegistry } from "./provider/provider-instance-registry.ts"
 import { ProviderPort } from "./provider/provider-port.ts"
 import { makeProviderReactor, type DispatchInternal } from "./provider/provider-reactor.ts"
@@ -628,7 +630,23 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         recoverStateAfterReplay: (state) => recoverControlStateAfterBoot(state, recoveredAt),
         decide,
         evolve,
-        validate: validateWorkspaceRootOwner,
+        validate: (command) =>
+          Effect.gen(function* () {
+            const workspaceConflict = yield* validateWorkspaceRootOwner(command)
+            if (workspaceConflict !== null || command._tag !== "user-input.respond") {
+              return workspaceConflict
+            }
+            const reserved = yield* provider.reserveUserInput(
+              command.payload.threadId,
+              command.payload.requestId,
+            )
+            return reserved
+              ? null
+              : new UserInputRequestNotFound({
+                  threadId: command.payload.threadId,
+                  requestId: command.payload.requestId,
+                })
+          }),
         project: (event) => projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql)),
         reactor,
       })
@@ -641,6 +659,10 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
           ),
           Effect.orDie,
         )
+      yield* recoverPendingUserInputsAfterBoot(dispatchInternal).pipe(
+        Effect.provideService(SqlClient, sql),
+        Effect.provideService(Crypto.Crypto, crypto),
+      )
       yield* providerSessionReaper.start
 
       const ensureWorkspaceAvailable = Effect.fn("ControlPlane.ensureWorkspaceAvailable")(
@@ -716,15 +738,21 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
             Effect.provideService(ServerConfig, config),
             Effect.catchTag("SqlError", unavailable("sqlite")),
           )
-          const receipt = yield* worker
-            .dispatch(command)
-            .pipe(
-              Effect.mapError((error) =>
-                error._tag === "CommandIdConflict"
-                  ? error
-                  : new ServiceUnavailable({ service: "sqlite" }),
-              ),
-            )
+          const receipt = yield* worker.dispatch(command).pipe(
+            Effect.tapError(() =>
+              request._tag === "user-input.respond"
+                ? provider.releaseUserInput(request.payload.threadId, request.payload.requestId)
+                : Effect.void,
+            ),
+            Effect.mapError((error) =>
+              error._tag === "CommandIdConflict"
+                ? error
+                : new ServiceUnavailable({ service: "sqlite" }),
+            ),
+          )
+          if (receipt.response._tag === "rejected" && request._tag === "user-input.respond") {
+            yield* provider.releaseUserInput(request.payload.threadId, request.payload.requestId)
+          }
           return receipt.response._tag === "accepted"
             ? { sequence: Sequence.make(receipt.response.sequence) }
             : yield* receipt.response.error
@@ -1284,8 +1312,8 @@ export const makeControlPlaneLayer = (hooks: ControlPlaneHooks = {}) =>
         drainReactors: Effect.gen(function* () {
           yield* providerSessionReaper.stop
           yield* worker.drainReactors
-          yield* provider.drain
           yield* provider.stopAll
+          yield* provider.drain
           yield* worker.drainReactors
           yield* worker.drainReactors
         }),

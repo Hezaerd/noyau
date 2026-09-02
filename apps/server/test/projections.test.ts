@@ -33,6 +33,9 @@ import {
   ThreadTurnEnded,
   ThreadTurnStarted,
   ThreadUnsettled,
+  UserInputConsumed,
+  UserInputDetached,
+  UserInputResponded,
 } from "@noyau/contracts/thread/events"
 import { TicketCommand } from "@noyau/contracts/ticket/commands"
 import { TicketRejection } from "@noyau/contracts/ticket/errors"
@@ -176,6 +179,108 @@ const expectSome = <A>(option: Option.Option<A>, message: string): A => {
 }
 
 layer(platformLayer)("SQL projections", (it) => {
+  it.effect("persists detached and consumed user-input lifecycle states", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          const requestId = ApprovalRequestId.make("ask-recovery")
+          const turnId = TurnId.make("30000000-0000-4000-8000-000000000008")
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Recovery",
+                provider: ProviderInstanceId.make("codex"),
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId,
+                text: "Ask",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.user-input",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  requestId,
+                  prompt: "Which runtime?",
+                  status: "pending",
+                },
+              }),
+            ),
+          )
+          const submittedAnswers = { answer: { optionIds: [], freeform: "Use Bun" } }
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              UserInputResponded.make({
+                threadId: ids.recoveryThread,
+                requestId,
+                answers: submittedAnswers,
+              }),
+            ),
+          )
+          let snapshot = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "submitted callback remains recoverable until provider delivery",
+          )
+          assert.deepInclude(snapshot.transcript[1], {
+            requestId,
+            status: "pending",
+            answers: submittedAnswers,
+          })
+
+          yield* projectDomainEvent(
+            persisted(5, UserInputDetached.make({ threadId: ids.recoveryThread, requestId })),
+          )
+          snapshot = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "detached input is projected",
+          )
+          assert.deepInclude(snapshot.transcript[1], { requestId, status: "detached" })
+
+          const answers = submittedAnswers
+          yield* projectDomainEvent(
+            persisted(
+              6,
+              UserInputConsumed.make({
+                threadId: ids.recoveryThread,
+                requestId,
+                turnId: TurnId.make("30000000-0000-4000-8000-000000000009"),
+                answers,
+              }),
+            ),
+          )
+          snapshot = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "consumed input is projected",
+          )
+          assert.deepInclude(snapshot.transcript[1], {
+            requestId,
+            status: "consumed",
+            answers,
+          })
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    ),
+  )
+
   it.effect("round-trips a persisted provider fork point in ThreadSnapshot", () =>
     Effect.scoped(
       Effect.gen(function* () {
