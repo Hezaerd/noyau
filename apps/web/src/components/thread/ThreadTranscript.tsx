@@ -169,7 +169,7 @@ export function ThreadTranscript({
           <MessageScrollerContent
             aria-busy={isRunning}
             className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6"
-            style={{ paddingBottom: composerDockHeight }}
+            style={{ paddingBottom: composerDockHeight + 24 }}
           >
             {loading ? (
               <MessageScrollerItem messageId="thread-loading">
