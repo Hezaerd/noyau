@@ -4,7 +4,7 @@ import { DefaultModelSelection } from "@noyau/contracts/entities/model-selection
 import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import { TranscriptItem as TranscriptItemSchema } from "@noyau/contracts/entities/transcript"
-import { TurnDiffFile } from "@noyau/contracts/entities/turn"
+import { ProviderForkPoint, TurnDiffFile } from "@noyau/contracts/entities/turn"
 import type { DomainEvent } from "@noyau/contracts/events"
 import { ProjectId, type ProjectId as ProjectIdType } from "@noyau/contracts/ids"
 import { DEFAULT_THREAD_TITLE, LEGACY_DEFAULT_THREAD_TITLES } from "@noyau/contracts/thread/title"
@@ -21,6 +21,8 @@ const JsonUserInputAnswers = Schema.fromJsonString(ProviderUserInputAnswers)
 const encodeUserInputAnswers = Schema.encodeEffect(JsonUserInputAnswers)
 const JsonTurnDiffFiles = Schema.fromJsonString(Schema.Array(TurnDiffFile))
 const encodeTurnDiffFiles = Schema.encodeEffect(JsonTurnDiffFiles)
+const JsonProviderForkPoint = Schema.fromJsonString(ProviderForkPoint)
+const encodeProviderForkPoint = Schema.encodeEffect(JsonProviderForkPoint)
 const JsonDefaultModelSelection = Schema.fromJsonString(DefaultModelSelection)
 const encodeDefaultModelSelection = Schema.encodeEffect(JsonDefaultModelSelection)
 
@@ -585,9 +587,12 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
           ${occurredAt}, ${occurredAt}, ${event.sourceThreadId}, ${event.sourceTurnId}
         )
       `
-      const cutoffRows =
-        yield* sql`SELECT ordinal FROM projection_turns WHERE turn_id = ${event.sourceTurnId}`
-      const cutoff = cutoffRows[0]
+      const cutoffRows = yield* sql<(typeof OrdinalRow)["Encoded"]>`
+        SELECT ordinal FROM projection_turns WHERE turn_id = ${event.sourceTurnId}
+      `
+      const cutoffRow = cutoffRows[0]
+      const cutoff =
+        cutoffRow === undefined ? undefined : yield* decodeOrdinalRow(cutoffRow).pipe(Effect.orDie)
       if (cutoff !== undefined) {
         yield* sql`
           INSERT INTO projection_inherited_transcript (thread_id, ordinal, item)
@@ -888,9 +893,12 @@ const projectThreadEvent = Effect.fn("Projections.projectThreadEvent")(function*
     }
     case "thread.turn.ended":
       if (event.providerForkPoint !== undefined) {
+        const providerForkPoint = yield* encodeProviderForkPoint(event.providerForkPoint).pipe(
+          Effect.orDie,
+        )
         yield* sql`
           UPDATE projection_turns
-          SET provider_fork_point = ${JSON.stringify(event.providerForkPoint)}
+          SET provider_fork_point = ${providerForkPoint}
           WHERE turn_id = ${event.turnId} AND thread_id = ${event.threadId}
         `
       }

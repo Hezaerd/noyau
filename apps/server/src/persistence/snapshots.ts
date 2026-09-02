@@ -13,6 +13,9 @@ import { ProjectShell, ShellSnapshot, ThreadShell } from "@noyau/contracts/shell
 import { Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
+const JsonProviderForkPoint = Schema.fromJsonString(ProviderForkPoint)
+const decodeProviderForkPoint = Schema.decodeEffect(JsonProviderForkPoint)
+
 const SequenceRow = Schema.Struct({ sequence: Schema.Int })
 const ProjectRow = Schema.Struct({
   project_id: Schema.String,
@@ -575,9 +578,9 @@ export const readThreadSnapshot = Effect.fn("readThreadSnapshot")(function* (thr
               return row.provider_fork_point === null || row.provider_fork_point === undefined
                 ? projected
                 : Object.assign(projected, {
-                    providerForkPoint: yield* Schema.decodeUnknownEffect(ProviderForkPoint)(
-                      JSON.parse(row.provider_fork_point),
-                    ).pipe(Effect.orDie),
+                    providerForkPoint: yield* decodeProviderForkPoint(row.provider_fork_point).pipe(
+                      Effect.orDie,
+                    ),
                   })
             }),
           ),
