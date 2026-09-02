@@ -152,6 +152,37 @@ describe("ThreadSidebarItem", () => {
     expect(lastActivity?.textContent).toMatch(/^Last activity: /)
   })
 
+  it("brightens the title when selected without changing its weight", () => {
+    render(
+      <AppAtomRegistryProvider>
+        <SidebarProvider>
+          <ThreadSidebarItem
+            thread={thread}
+            project={{
+              id: projectId,
+              name: "noyau",
+              workspaceRoot,
+            }}
+            pullRequest={null}
+            liveBranch={null}
+            isActive
+            settled={false}
+            onSelect={vi.fn()}
+          />
+        </SidebarProvider>
+      </AppAtomRegistryProvider>,
+    )
+
+    const link = screen.getByRole("link", { name: /Stores Zustand t3code vs shell/ })
+    const title = link.querySelector("[data-slot='thread-sidebar-title']")
+    expect(link.className).toContain("data-[active=true]:font-normal")
+    expect(link.className).not.toContain("data-[active=true]:font-medium")
+    expect(title?.className).toContain("font-normal")
+    expect(title?.className).toContain(
+      "group-data-[active=true]/thread-item:text-sidebar-accent-foreground",
+    )
+  })
+
   it("replaces the elapsed timer with status and keeps the pin on its left", () => {
     const working = Schema.decodeSync(ThreadShell)({
       id: threadId,

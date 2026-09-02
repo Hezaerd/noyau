@@ -232,7 +232,7 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
                 ),
               }}
               className={cn(
-                "min-w-0 flex-1",
+                "min-w-0 flex-1 font-normal data-[active=true]:font-normal",
                 settled && !isActive
                   ? "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/38 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
                   : "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal",
@@ -384,7 +384,12 @@ function ThreadSidebarItemContent({
           ) : null}
         </span>
       </span>
-      <span className="min-w-0 truncate">{title}</span>
+      <span
+        data-slot="thread-sidebar-title"
+        className="min-w-0 truncate font-normal group-data-[active=true]/thread-item:text-sidebar-accent-foreground"
+      >
+        {title}
+      </span>
       <span
         data-slot="thread-sidebar-checkout"
         className={cn(
