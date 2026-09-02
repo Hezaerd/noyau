@@ -19,11 +19,11 @@ export const isDraftThreadView = (input: {
   readonly inheritedTranscriptLength?: number
   readonly sending: boolean
 }): boolean => {
-  if (input.sending) {
-    return false
-  }
   if (input.threadId === undefined) {
     return true
+  }
+  if (input.sending) {
+    return false
   }
   if (input.latestTurn === undefined) {
     return false
