@@ -2,6 +2,8 @@ import {
   forkSession,
   query,
   type CanUseTool,
+  type ForkSessionOptions,
+  type ForkSessionResult,
   type Options as ClaudeQueryOptions,
   type PermissionMode,
   type PermissionResult,
@@ -276,8 +278,8 @@ export interface ClaudeAdapterOptions {
   /** Injectable so the native session mutation can be tested without Claude state on disk. */
   readonly forkSession?: (
     sessionId: string,
-    options?: { readonly dir?: string; readonly upToMessageId?: string },
-  ) => Promise<{ readonly sessionId: string }>
+    options?: ForkSessionOptions,
+  ) => Promise<ForkSessionResult>
   readonly probeStatus?: ClaudeProviderStatusOverride
 }
 
