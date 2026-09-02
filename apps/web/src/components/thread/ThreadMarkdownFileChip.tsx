@@ -1,4 +1,5 @@
 import type { FilePreview } from "@noyau/contracts/file-preview"
+import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { useEffect, useState } from "react"
 
 import { PierreEntryIcon } from "@/components/PierreEntryIcon"
@@ -21,6 +22,13 @@ import { cn } from "@/lib/utils"
 
 const PREVIEW_DELAY_MS = import.meta.env.MODE === "test" ? 0 : 400
 const PREVIEW_CLOSE_DELAY_MS = import.meta.env.MODE === "test" ? 0 : 200
+
+interface ScopedPreview {
+  readonly projectId: ProjectId
+  readonly threadId: ThreadId | undefined
+  readonly path: string
+  readonly value: FilePreview | undefined
+}
 
 const openFileChip = (path: string): void => {
   void openFilesystemPath(path).then(
@@ -51,8 +59,15 @@ export function ThreadMarkdownFileChip({
   const label = fileLinkChipLabel(meta, parentSuffix)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [preview, setPreview] = useState<FilePreview | undefined>()
+  const [loadedPreview, setLoadedPreview] = useState<ScopedPreview>()
   const [imageUrl, setImageUrl] = useState<string>()
+  const preview =
+    loadedPreview !== undefined &&
+    loadedPreview.projectId === fileLinks.projectId &&
+    loadedPreview.threadId === fileLinks.threadId &&
+    loadedPreview.path === meta.filePath
+      ? loadedPreview.value
+      : undefined
 
   useEffect(() => {
     if (!open) {
@@ -60,13 +75,14 @@ export function ThreadMarkdownFileChip({
     }
     const projectId = fileLinks.projectId
     if (projectId === undefined) {
-      setPreview(undefined)
+      setLoadedPreview(undefined)
       setLoading(false)
       return
     }
+    const scope = { projectId, threadId: fileLinks.threadId, path: meta.filePath }
     const cached = peekFilePreview(projectId, fileLinks.threadId, meta.filePath)
     if (cached !== undefined) {
-      setPreview(cached)
+      setLoadedPreview({ ...scope, value: cached })
       setLoading(false)
       return
     }
@@ -76,7 +92,7 @@ export function ThreadMarkdownFileChip({
       if (cancelled) {
         return undefined
       }
-      setPreview(value)
+      setLoadedPreview({ ...scope, value })
       setLoading(false)
       return undefined
     })

@@ -227,9 +227,7 @@ export function ThreadTranscript({
                       item={item}
                       streaming={false}
                       turn={undefined}
-                      workspaceRoot={
-                        item._tag === "transcript.tool" ? (cwd ?? workspaceRoot) : workspaceRoot
-                      }
+                      workspaceRoot={cwd ?? workspaceRoot}
                       projectId={projectId}
                       draftAnswers={{}}
                       legacyFreeform=""
