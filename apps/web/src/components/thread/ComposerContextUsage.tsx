@@ -63,7 +63,7 @@ export function ComposerContextUsage({ usage }: { readonly usage: ContextUsage }
           <svg
             aria-hidden="true"
             viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
-            className="absolute inset-0 size-full -rotate-90 transform-gpu"
+            className="absolute inset-0 size-full !mx-0 -rotate-90 transform-gpu"
           >
             <circle
               cx={RING_SIZE / 2}
