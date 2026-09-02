@@ -1,7 +1,9 @@
 import { Schema } from "effect"
 
-export const CHECK_DESKTOP_UPDATE_CHANNEL = "noyau:desktop-update-check"
-export const OPEN_DESKTOP_INSTALLER_CHANNEL = "noyau:desktop-update-open-installer"
+export {
+  CHECK_DESKTOP_UPDATE_CHANNEL,
+  OPEN_DESKTOP_INSTALLER_CHANNEL,
+} from "./desktop-update-bridge"
 
 export const DesktopUpdatePackagedChannel = Schema.Literals(["latest", "nightly"])
 export type DesktopUpdatePackagedChannel = typeof DesktopUpdatePackagedChannel.Type

@@ -332,6 +332,10 @@ const run = Effect.fn("runDesktopSmoke")(function* () {
       ? undefined
       : Math.round(now - shutdownEndpointRequestedAt)
   assert.equal(exit.code, 0, `Electron exited via ${String(exit.signal)}\n${desktopOutput}`)
+  assert.match(
+    desktopOutput,
+    /NOYAU_DESKTOP_BRIDGE \{"bridge":"object","keys":\["platform","releaseChannel","appVersion","setTheme","pickFolder","openPath","checkDesktopUpdate","openDesktopInstaller"\]\}/,
+  )
   assert.match(desktopOutput, /NOYAU_DESKTOP_SMOKE_TEST_OK/)
   assert.ok(shutdownDuration !== undefined && shutdownDuration < 2_000)
 

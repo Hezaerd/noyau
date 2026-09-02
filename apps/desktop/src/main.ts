@@ -456,6 +456,14 @@ const createMainWindow = Effect.fn("createMainWindow")(function* (bootstrap: Ser
   })
   window.webContents.once("did-finish-load", () => {
     if (flags.isSmokeTest) {
+      void window.webContents
+        .executeJavaScript(
+          "JSON.stringify({ bridge: typeof window.noyauDesktop, keys: Object.keys(window.noyauDesktop ?? {}) })",
+        )
+        .then((value) => {
+          process.stdout.write(`NOYAU_DESKTOP_BRIDGE ${String(value)}\n`)
+          return undefined
+        })
       void desktopRuntime
         .runPromise(
           waitForSmokeCompletion().pipe(
