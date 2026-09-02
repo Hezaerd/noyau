@@ -44,11 +44,14 @@ const staticMcpCredential = {
     authorizationHeader: "Bearer test-mcp-token",
   },
 }
-const testMcpSessionsLayer = (onRevoke: () => void = () => undefined) =>
+const testMcpSessionsLayer = (
+  onRevoke: () => void = () => undefined,
+  onActivate: () => void = () => undefined,
+) =>
   Layer.succeed(McpSessionRegistry)({
     issue: () => Effect.succeed(staticMcpCredential),
     resolve: () => Effect.succeed(missingMcpScope),
-    activateTurn: () => Effect.void,
+    activateTurn: () => Effect.sync(onActivate),
     deactivateTurn: () => Effect.void,
     touchSession: () => Effect.succeed(true),
     revokeSession: () => Effect.sync(onRevoke),
@@ -179,6 +182,7 @@ const withProvider = <A, E, R>(
       readonly queries: Array<FakeClaudeQuery>
       readonly lastOptions: () => ClaudeQueryOptions | undefined
       readonly lastPrompt: () => AsyncIterable<SDKUserMessage> | undefined
+      readonly mcpWasActiveAtQueryCreation: () => boolean
       readonly revoked: () => number
     },
   ) => Effect.Effect<A, E, R>,
@@ -193,19 +197,23 @@ const withProvider = <A, E, R>(
       const queries: Array<FakeClaudeQuery> = []
       let lastOptions: ClaudeQueryOptions | undefined
       let lastPrompt: AsyncIterable<SDKUserMessage> | undefined
+      let mcpActive = false
+      let mcpWasActiveAtQueryCreation = false
       let revoked = 0
       const baseOptions: ClaudeAdapterOptions = {
         binaryPath: "/usr/local/bin/claude",
         environment: { PATH: "" },
-        createQuery:
-          extras.createQuery ??
-          ((created) => {
-            lastOptions = created.options
-            lastPrompt = created.prompt
-            const fake = new FakeClaudeQuery()
-            queries.push(fake)
-            return fake
-          }),
+        createQuery: (created) => {
+          mcpWasActiveAtQueryCreation = mcpActive
+          if (extras.createQuery !== undefined) {
+            return extras.createQuery(created)
+          }
+          lastOptions = created.options
+          lastPrompt = created.prompt
+          const fake = new FakeClaudeQuery()
+          queries.push(fake)
+          return fake
+        },
         probeStatus: {
           installed: true,
           handshakeOk: extras.handshakeOk ?? true,
@@ -221,9 +229,14 @@ const withProvider = <A, E, R>(
       const services = yield* Layer.build(
         claudeProviderLayer(options).pipe(
           Layer.provide(
-            testMcpSessionsLayer(() => {
-              revoked += 1
-            }),
+            testMcpSessionsLayer(
+              () => {
+                revoked += 1
+              },
+              () => {
+                mcpActive = true
+              },
+            ),
           ),
         ),
       )
@@ -233,6 +246,7 @@ const withProvider = <A, E, R>(
           queries,
           lastOptions: () => lastOptions,
           lastPrompt: () => lastPrompt,
+          mcpWasActiveAtQueryCreation: () => mcpWasActiveAtQueryCreation,
           revoked: () => revoked,
         })
       }).pipe(Effect.provide(services))
@@ -441,6 +455,7 @@ layer(platformLayer)("Claude Agent SDK adapter", (it) => {
           },
         )
         const options = harness.lastOptions()
+        assert.isTrue(harness.mcpWasActiveAtQueryCreation())
         assert.strictEqual(options?.mcpServers?.noyau?.type, "http")
         if (options?.mcpServers?.noyau?.type === "http") {
           assert.strictEqual(options.mcpServers.noyau.url, "http://127.0.0.1:43123/mcp")

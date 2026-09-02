@@ -51,11 +51,13 @@ const testMcpSessionsLayer = Layer.succeed(McpSessionRegistry)({
 
 const recordingMcpSessions = (touchAlive = true) => {
   const issued: Array<string> = []
+  const activated: Array<TurnId> = []
   const revoked: Array<string> = []
   let nextToken = 0
   let alive = touchAlive
   return {
     issued,
+    activated,
     revoked,
     setTouchAlive: (value: boolean) => {
       alive = value
@@ -74,7 +76,10 @@ const recordingMcpSessions = (touchAlive = true) => {
           }
         }),
       resolve: () => Effect.succeed(missingMcpScope),
-      activateTurn: () => Effect.void,
+      activateTurn: (_threadId, activeTurnId) =>
+        Effect.sync(() => {
+          activated.push(activeTurnId)
+        }),
       deactivateTurn: () => Effect.void,
       touchSession: () => Effect.sync(() => alive),
       revokeSession: () =>
@@ -1141,22 +1146,27 @@ layer(platformLayer)("Cursor ACP adapter", (it) => {
     ),
   )
 
-  it.effect("stops a Session whose handshake is still in flight", () =>
-    withProvider("hang-new", (provider, evidence) =>
-      Effect.gen(function* () {
-        yield* provider.startTurn(input(), () => Effect.void)
-        yield* waitForLog(evidence.requestLog, '"method":"session/new"')
-        const stop = yield* provider.stop(threadId).pipe(Effect.forkChild)
-        yield* TestClock.adjust("2 seconds")
-        yield* Fiber.join(stop)
-        yield* provider.drain
-        const exits = yield* readLog(evidence.exitLog).pipe(Effect.orElseSucceed(() => ""))
-        assert.isTrue(
-          exits.includes("SIGTERM") || exits.includes("SIGKILL") || exits.includes("exit"),
-        )
-      }),
-    ),
-  )
+  it.effect("activates MCP before Cursor discovers servers during Session setup", () => {
+    const mcp = recordingMcpSessions()
+    return withProvider(
+      "hang-new",
+      (provider, evidence) =>
+        Effect.gen(function* () {
+          yield* provider.startTurn(input(), () => Effect.void)
+          yield* waitForLog(evidence.requestLog, '"method":"session/new"')
+          assert.deepStrictEqual(mcp.activated, [turnId])
+          const stop = yield* provider.stop(threadId).pipe(Effect.forkChild)
+          yield* TestClock.adjust("2 seconds")
+          yield* Fiber.join(stop)
+          yield* provider.drain
+          const exits = yield* readLog(evidence.exitLog).pipe(Effect.orElseSucceed(() => ""))
+          assert.isTrue(
+            exits.includes("SIGTERM") || exits.includes("SIGKILL") || exits.includes("exit"),
+          )
+        }),
+      { mcp: mcp.layer },
+    )
+  })
 
   it.effect("does not reap a Session that has an in-flight Turn", () =>
     withProvider("cancel", (provider, evidence) =>

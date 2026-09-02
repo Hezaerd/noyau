@@ -1048,6 +1048,8 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
           threadId: control.input.threadId,
         })
         yield* Scope.addFinalizer(sessionScope, mcpSessions.revokeSession(control.input.threadId))
+        yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
+        control.mcpActivated = true
         const mcpServers: ReadonlyArray<AcpSchema.McpServer> = [
           {
             type: "http",
@@ -1293,8 +1295,10 @@ export const makeCursorProvider = Effect.fn("CursorAdapter.make")(function* (
         return
       }
 
-      yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
-      control.mcpActivated = true
+      if (!control.mcpActivated) {
+        yield* mcpSessions.activateTurn(control.input.threadId, control.input.turnId)
+        control.mcpActivated = true
+      }
       control.promptStarted = true
       const prompt: Array<AcpSchema.ContentBlock> = []
       if (control.input.text.trim().length > 0) {
