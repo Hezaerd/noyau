@@ -106,7 +106,12 @@ describe("server routes", () => {
           ),
         )
         const server = Context.get(serverContext, HttpServer.HttpServer)
-        const port = (server.address as HttpServer.TcpAddress).port
+        const address = server.address
+        assert.strictEqual(address._tag, "TcpAddress")
+        if (address._tag !== "TcpAddress") {
+          return
+        }
+        const port = address.port
         const connect = (perMessageDeflate: boolean) =>
           Effect.acquireRelease(
             Effect.callback<NodeSocket.NodeWS.WebSocket, Error>((resume) => {
