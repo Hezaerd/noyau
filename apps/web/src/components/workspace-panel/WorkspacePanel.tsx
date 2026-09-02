@@ -33,7 +33,11 @@ import {
   reconcileKeepMountedTabIds,
   resolveActiveWorkspaceTab,
 } from "@/lib/workspace-panel"
-import { MIN_WORKSPACE_PANEL_WIDTH } from "@/lib/workspace-panel-persist"
+import {
+  clampWorkspacePanelWidth,
+  maxWorkspacePanelWidth,
+  MIN_WORKSPACE_PANEL_WIDTH,
+} from "@/lib/workspace-panel-persist"
 import {
   activateWorkspaceTab,
   closeAllWorkspaceTabs,
@@ -69,7 +73,10 @@ export function WorkspacePanel({
 }): ReactElement | null {
   const state = useAppAtomValue(workspacePanelAtom(threadId))
   const width = useAppAtomValue(workspacePanelWidthAtom)
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
   const activeTab = resolveActiveWorkspaceTab(state)
+  const maxWidth = maxWorkspacePanelWidth(viewportWidth)
+  const panelWidth = clampWorkspacePanelWidth(width, viewportWidth)
   const keepMountedKinds = useMemo(
     () =>
       kinds === workspaceTabCatalog
@@ -100,6 +107,12 @@ export function WorkspacePanel({
     })
   }, [activeTab?.id, keepMountedKinds, state.tabs])
 
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth)
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [])
+
   if (!state.open && state.tabs.length === 0) {
     return null
   }
@@ -108,10 +121,6 @@ export function WorkspacePanel({
     (kind) => kind.launchable !== false && (kind.available === undefined || kind.available()),
   )
   const kindByName = new Map(kinds.map((kind) => [kind.kind, kind]))
-  const renderedTabs = state.tabs.filter(
-    (tab) => tab.id === activeTab?.id || renderedTabIds.has(tab.id),
-  )
-
   return (
     <aside
       className={cn(
@@ -119,12 +128,16 @@ export function WorkspacePanel({
         !state.open && "hidden",
       )}
       data-slot="workspace-panel"
-      style={{ width }}
+      style={{ width: panelWidth }}
     >
-      <WorkspacePanelResizeHandle width={width} />
+      <WorkspacePanelResizeHandle width={panelWidth} maxWidth={maxWidth} />
       <header className="flex h-10 shrink-0 items-center gap-1 border-b border-border/70 px-1.5">
         <div className="min-w-0 flex-1 overflow-x-auto pe-8">
-          <div className="flex min-w-max items-center gap-0.5" role="tablist">
+          <div
+            aria-label="Workspace panel tabs"
+            className="flex min-w-max items-center gap-0.5"
+            role="tablist"
+          >
             {state.tabs.map((tab) => {
               const kind = kindByName.get(tab.kind)
               const label = kind?.titleOf?.(tab) ?? kind?.label ?? tab.kind
@@ -132,7 +145,33 @@ export function WorkspacePanel({
               return (
                 <WorkspacePanelTab
                   key={tab.id}
+                  threadId={threadId}
+                  id={workspaceTabDomId(tab.id)}
+                  panelId={workspaceTabPanelDomId(tab.id)}
                   active={tab.id === activeTab?.id}
+                  onNavigate={(direction, currentTab) => {
+                    const tabElements = Array.from(
+                      currentTab
+                        .closest('[role="tablist"]')
+                        ?.querySelectorAll<HTMLElement>('[role="tab"]') ?? [],
+                    )
+                    const currentIndex = tabElements.findIndex(
+                      (element) => element.id === workspaceTabDomId(tab.id),
+                    )
+                    if (currentIndex < 0 || tabElements.length === 0) {
+                      return
+                    }
+                    const nextIndex =
+                      direction === "previous"
+                        ? (currentIndex - 1 + tabElements.length) % tabElements.length
+                        : (currentIndex + 1) % tabElements.length
+                    const nextTab = tabElements[nextIndex]
+                    nextTab?.focus()
+                    const nextTabId = nextTab?.getAttribute("data-tab-id")
+                    if (nextTabId !== null && nextTabId !== undefined) {
+                      activateWorkspaceTab(threadId, nextTabId)
+                    }
+                  }}
                   label={label}
                   icon={Icon === undefined ? null : <Icon />}
                   onActivate={() => activateWorkspaceTab(threadId, tab.id)}
@@ -148,6 +187,7 @@ export function WorkspacePanel({
                   onCloseAll={() =>
                     closeAndRelease(threadId, () => closeAllWorkspaceTabs(threadId))
                   }
+                  tabId={tab.id}
                 />
               )
             })}
@@ -167,13 +207,14 @@ export function WorkspacePanel({
             onOpen={(kind) => openKind(threadId, kind)}
           />
         ) : null}
-        {renderedTabs.map((tab) => {
+        {state.tabs.map((tab) => {
           const kind = kindByName.get(tab.kind)
           if (kind === undefined) {
             return null
           }
           const isActive = tab.id === activeTab?.id
           const isVisible = isActive && state.open
+          const shouldRender = tab.id === activeTab?.id || renderedTabIds.has(tab.id)
           return (
             <div
               key={tab.id}
@@ -184,8 +225,13 @@ export function WorkspacePanel({
               data-slot="workspace-tab-surface"
               data-tab-id={tab.id}
               data-tab-kind={tab.kind}
+              id={workspaceTabPanelDomId(tab.id)}
+              aria-labelledby={workspaceTabDomId(tab.id)}
+              aria-hidden={!isVisible}
+              hidden={!isVisible}
+              role="tabpanel"
             >
-              {kind.render({ threadId, tab, isActive, isVisible })}
+              {shouldRender ? kind.render({ threadId, tab, isActive, isVisible }) : null}
             </div>
           )
         })}
@@ -231,6 +277,10 @@ function WorkspacePanelAddMenu({
 }
 
 function WorkspacePanelTab({
+  threadId,
+  id,
+  panelId,
+  tabId,
   active,
   label,
   icon,
@@ -239,7 +289,12 @@ function WorkspacePanelTab({
   onCloseOthers,
   onCloseToRight,
   onCloseAll,
+  onNavigate,
 }: {
+  readonly threadId: ThreadId
+  readonly id: string
+  readonly panelId: string
+  readonly tabId: string
   readonly active: boolean
   readonly label: string
   readonly icon: ReactNode
@@ -248,6 +303,7 @@ function WorkspacePanelTab({
   readonly onCloseOthers: () => void
   readonly onCloseToRight: () => void
   readonly onCloseAll: () => void
+  readonly onNavigate: (direction: "next" | "previous", currentTab: HTMLElement) => void
 }): ReactElement {
   return (
     <ContextMenu>
@@ -261,6 +317,7 @@ function WorkspacePanelTab({
                 : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
             )}
             data-active={active ? "" : undefined}
+            data-tab-id={tabId}
             data-slot="workspace-panel-tab"
           />
         }
@@ -268,25 +325,56 @@ function WorkspacePanelTab({
         <button
           type="button"
           role="tab"
+          id={id}
+          data-tab-id={tabId}
+          aria-controls={panelId}
           aria-label={label}
           aria-selected={active}
-          className="flex min-w-0 flex-1 items-center gap-1 text-start"
+          className="flex min-w-0 flex-1 items-center gap-1 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          tabIndex={active ? 0 : -1}
           onClick={onActivate}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight") {
+              event.preventDefault()
+              onNavigate("next", event.currentTarget)
+            } else if (event.key === "ArrowLeft") {
+              event.preventDefault()
+              onNavigate("previous", event.currentTarget)
+            } else if (event.key === "Home" || event.key === "End") {
+              event.preventDefault()
+              const tabs = Array.from(
+                event.currentTarget
+                  .closest('[role="tablist"]')
+                  ?.querySelectorAll<HTMLElement>('[role="tab"]') ?? [],
+              )
+              const target = event.key === "Home" ? tabs[0] : tabs.at(-1)
+              target?.focus()
+              const targetTabId = target?.getAttribute("data-tab-id")
+              if (targetTabId !== null && targetTabId !== undefined) {
+                activateWorkspaceTab(threadId, targetTabId)
+              }
+            } else if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault()
+              onActivate()
+            }
+          }}
         >
           <span aria-hidden="true">{icon}</span>
           <span className="truncate">{label}</span>
         </button>
-        <button
+        <Button
           type="button"
+          size="icon-xs"
+          variant="ghost"
           aria-label={`Close ${label}`}
-          className="rounded-sm p-0.5 text-muted-foreground opacity-0 hover:bg-background/80 hover:text-foreground group-hover:opacity-100 group-data-active:opacity-100"
+          className="text-muted-foreground opacity-0 focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 hover:bg-background/80 hover:text-foreground"
           onClick={(event) => {
             event.stopPropagation()
             onClose()
           }}
         >
           <XIcon className="size-3" />
-        </button>
+        </Button>
       </ContextMenuTrigger>
       <ContextMenuPopup align="start" side="bottom">
         <ContextMenuItem onClick={onClose}>Close</ContextMenuItem>
@@ -336,7 +424,13 @@ function WorkspacePanelLauncher({
   )
 }
 
-function WorkspacePanelResizeHandle({ width }: { readonly width: number }): ReactElement {
+function WorkspacePanelResizeHandle({
+  width,
+  maxWidth,
+}: {
+  readonly width: number
+  readonly maxWidth: number
+}): ReactElement {
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
   const pendingWidthRef = useRef<number | undefined>(undefined)
   const pendingFrameRef = useRef<number | undefined>(undefined)
@@ -390,14 +484,33 @@ function WorkspacePanelResizeHandle({ width }: { readonly width: number }): Reac
     dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: width }
   }
 
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = 16
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault()
+      setWorkspacePanelWidth(
+        clampWorkspacePanelWidth(
+          width + (event.key === "ArrowLeft" ? step : -step),
+          window.innerWidth,
+        ),
+      )
+    } else if (event.key === "Home") {
+      event.preventDefault()
+      setWorkspacePanelWidth(MIN_WORKSPACE_PANEL_WIDTH)
+    } else if (event.key === "End") {
+      event.preventDefault()
+      setWorkspacePanelWidth(maxWidth)
+    }
+  }
+
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
     if (drag === null || drag.pointerId !== event.pointerId) {
       return
     }
-    const nextWidth = Math.max(
-      MIN_WORKSPACE_PANEL_WIDTH,
+    const nextWidth = clampWorkspacePanelWidth(
       drag.startWidth + (drag.startX - event.clientX),
+      window.innerWidth,
     )
     scheduleWidth(nextWidth)
   }
@@ -415,12 +528,20 @@ function WorkspacePanelResizeHandle({ width }: { readonly width: number }): Reac
       role="separator"
       aria-orientation="vertical"
       aria-label="Resize workspace panel"
-      className="absolute inset-y-0 -start-1 z-10 w-2 cursor-col-resize"
+      aria-valuemin={MIN_WORKSPACE_PANEL_WIDTH}
+      aria-valuemax={maxWidth}
+      aria-valuenow={width}
+      className="absolute inset-y-0 -start-1 z-10 w-2 cursor-col-resize outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background pointer-coarse:before:absolute pointer-coarse:before:inset-y-0 pointer-coarse:before:-start-5 pointer-coarse:before:w-11"
+      tabIndex={0}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onLostPointerCapture={onPointerUp}
+      onKeyDown={onKeyDown}
     />
   )
 }
+
+const workspaceTabDomId = (tabId: string): string => `workspace-tab-${tabId}`
+const workspaceTabPanelDomId = (tabId: string): string => `workspace-tabpanel-${tabId}`

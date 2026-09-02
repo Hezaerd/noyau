@@ -202,14 +202,14 @@ export function SettingsSidebar(): ReactElement {
                   ? `settings-search-result-${results[activeResultIndex].id}`
                   : undefined
               }
-              className="min-w-0 flex-1 [&_[data-slot=input]]:h-auto [&_[data-slot=input]]:p-0 [&_[data-slot=input]]:text-xs [&_[data-slot=input]]:text-sidebar-foreground [&_[data-slot=input]]:placeholder:text-sidebar-foreground/50"
+              className="min-w-0 flex-1 [&_[data-slot=input]]:h-auto [&_[data-slot=input]]:p-0 [&_[data-slot=input]]:text-xs [&_[data-slot=input]]:text-sidebar-foreground [&_[data-slot=input]]:placeholder:text-sidebar-foreground/72"
             />
             {isSearching ? (
               <Button
                 type="button"
                 size="icon-xs"
                 variant="ghost"
-                className="ml-auto shrink-0 text-sidebar-foreground/55 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden"
+                className="ml-auto shrink-0 text-sidebar-foreground/80 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden"
                 aria-label="Clear search"
                 onClick={() => {
                   clearSearch()
@@ -230,7 +230,7 @@ export function SettingsSidebar(): ReactElement {
       <SidebarContent className="overflow-x-hidden">
         <SidebarGroup className="gap-2 px-3 pt-0 pb-3">
           {isSearching && results.length === 0 ? (
-            <p role="status" className="px-2 py-6 text-center text-xs text-sidebar-foreground/50">
+            <p role="status" className="px-2 py-6 text-center text-xs text-sidebar-foreground/72">
               No settings found
             </p>
           ) : null}
@@ -258,7 +258,7 @@ export function SettingsSidebar(): ReactElement {
                         <Icon />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium">{item.title}</span>
-                          <span className="block truncate text-[11px] text-sidebar-foreground/50">
+                          <span className="block truncate text-[11px] text-sidebar-foreground/72">
                             {item.tab.label}
                           </span>
                         </span>

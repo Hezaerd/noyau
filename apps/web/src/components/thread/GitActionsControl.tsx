@@ -358,27 +358,35 @@ export function GitActionsControl({
   }
 
   const primaryButton = (
-    <Button
-      type="button"
-      size="xs"
-      variant="outline"
-      className="no-drag ps-[8.5px]"
-      disabled={quickAction.disabled || busy}
-      onClick={() => {
-        if (quickAction.kind === "open_publish") {
-          openPublish()
-          return
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            className="no-drag ps-[8.5px]"
+            aria-label={quickAction.label}
+            disabled={quickAction.disabled || busy}
+            onClick={() => {
+              if (quickAction.kind === "open_publish") {
+                openPublish()
+                return
+              }
+              if (quickAction.action !== undefined) {
+                requestAction(quickAction.action)
+              }
+            }}
+          />
         }
-        if (quickAction.action !== undefined) {
-          requestAction(quickAction.action)
-        }
-      }}
-    >
-      <GitActionIcon
-        icon={quickAction.kind === "open_publish" ? "publish" : (quickAction.action ?? "commit")}
-      />
-      <span className="hidden @3xl/header-actions:inline">{quickAction.label}</span>
-    </Button>
+      >
+        <GitActionIcon
+          icon={quickAction.kind === "open_publish" ? "publish" : (quickAction.action ?? "commit")}
+        />
+        <span className="hidden @3xl/header-actions:inline">{quickAction.label}</span>
+      </TooltipTrigger>
+      <TooltipPopup side="bottom">{quickAction.label}</TooltipPopup>
+    </Tooltip>
   )
 
   return (

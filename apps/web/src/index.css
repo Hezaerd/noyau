@@ -316,6 +316,22 @@
   transition-duration: 0s !important;
 }
 
+/* A finite emphasis cue for genuinely in-progress transcript work. It settles
+   into the same readable state instead of looping like a decorative shimmer. */
+@keyframes state-working {
+  from {
+    opacity: 0.72;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility state-working {
+  font-weight: 500;
+  animation: state-working var(--motion-slow) var(--ease-standard) 1 both;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;

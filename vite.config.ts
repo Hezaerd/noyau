@@ -62,6 +62,7 @@ export default defineConfig({
   },
   staged: {
     "*.{js,ts,tsx,json,md,yml,yaml}": "vp fmt",
+    "apps/web/src/**/*.{ts,tsx,css}": "bun tools/design-contract-check.js",
   },
   fmt: {
     printWidth: 100,

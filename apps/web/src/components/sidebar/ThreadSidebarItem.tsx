@@ -234,8 +234,8 @@ export const ThreadSidebarItem = memo(function ThreadSidebarItem({
               className={cn(
                 "min-w-0 flex-1 font-normal data-[active=true]:font-normal",
                 settled && !isActive
-                  ? "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/38 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
-                  : "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/58 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal",
+                  ? "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground/72 [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+                  : "group/thread-item h-auto min-h-16 items-start py-2 text-sidebar-foreground [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal",
               )}
             >
               <ThreadSidebarItemContent
@@ -349,7 +349,7 @@ function ThreadSidebarItemContent({
       >
         <span
           data-slot="thread-sidebar-project"
-          className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-sidebar-foreground/45"
+          className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-sidebar-foreground/72"
         >
           <FolderIcon aria-hidden className="size-3 shrink-0 opacity-70" />
           <span className="min-w-0 truncate">{projectName}</span>
@@ -371,7 +371,7 @@ function ThreadSidebarItemContent({
                 <LiveElapsed
                   startedAtMs={lastActivityAtMs}
                   format={formatAgoCompactLabel}
-                  className="font-mono text-[11px] tabular-nums text-sidebar-foreground/45"
+                  className="font-mono text-[11px] tabular-nums text-sidebar-foreground/72"
                 />
               </span>
             )}
@@ -393,7 +393,7 @@ function ThreadSidebarItemContent({
       <span
         data-slot="thread-sidebar-checkout"
         className={cn(
-          "flex min-h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-foreground/45",
+          "flex min-h-4 min-w-0 items-center gap-1.5 text-xs text-sidebar-foreground/72",
           hasPullRequest ? "pe-20" : "pe-5",
         )}
       >
@@ -456,7 +456,7 @@ function ThreadSidebarPinnedMark({ labeled = false }: { readonly labeled?: boole
     <PinIcon
       aria-label={labeled ? "Pinned" : undefined}
       aria-hidden={labeled ? undefined : true}
-      className="size-3 shrink-0 text-sidebar-foreground/55"
+      className="size-3 shrink-0 text-sidebar-foreground/80"
     />
   )
 }
@@ -474,7 +474,7 @@ function ThreadSidebarSettleButton({
       tabIndex={-1}
       data-slot="thread-sidebar-settle"
       aria-label={settled ? "Unsettle Thread" : "Settle Thread"}
-      className="inline-flex cursor-pointer items-center self-center whitespace-nowrap text-[11px] font-medium text-sidebar-foreground/45 transition-colors duration-150 ease-out motion-reduce:transition-none hover:text-sidebar-accent-foreground"
+      className="inline-flex cursor-pointer items-center self-center whitespace-nowrap text-[11px] font-medium text-sidebar-foreground/80 transition-colors duration-120 ease-out motion-reduce:transition-none hover:text-sidebar-accent-foreground"
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()

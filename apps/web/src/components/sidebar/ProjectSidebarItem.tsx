@@ -46,7 +46,7 @@ export function ProjectSidebarItem({
               </>
             ),
           }}
-          className="h-8 text-sidebar-foreground/58"
+          className="h-8 text-sidebar-foreground"
           onClick={() => {
             onSelect()
             void createDraftThread(project)
@@ -67,7 +67,7 @@ export function ProjectSidebarItem({
           }
           isActive={pathname === `/projects/${project.id}/board`}
           tooltip="Board"
-          className="h-8 text-sidebar-foreground/58"
+          className="h-8 text-sidebar-foreground"
         >
           <LayoutGridIcon />
           <span>Board</span>
