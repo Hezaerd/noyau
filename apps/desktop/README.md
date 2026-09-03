@@ -73,13 +73,13 @@ ne traite pas le bundle comme corrompu. Sequoia+ exige ensuite Réglages systèm
 Confidentialité et sécurité → **Ouvrir quand même**. Sur Windows, SmartScreen demande
 **Informations complémentaires** → **Exécuter quand même**.
 
-| Sujet           | macOS                          | Windows                                       |
-| --------------- | ------------------------------ | --------------------------------------------- |
-| Commande locale | `bun run dist:desktop:mac`     | `bun run dist:desktop:win` (machine Windows)  |
-| Installateur    | `bun run dist:desktop:mac:dmg` | `bun run dist:desktop:win:nsis`               |
-| Release CI      | DMG arm64                      | NSIS x64                                      |
-| Icône           | `assets/prod/app-icon.icns`    | `assets/prod/app-icon.png` (`.ico` plus tard) |
-| Signature       | ad-hoc (`codesign --sign -`)   | `signAndEditExecutable: false`                |
+| Sujet           | macOS                          | Windows                                      |
+| --------------- | ------------------------------ | -------------------------------------------- |
+| Commande locale | `bun run dist:desktop:mac`     | `bun run dist:desktop:win` (machine Windows) |
+| Installateur    | `bun run dist:desktop:mac:dmg` | `bun run dist:desktop:win:nsis`              |
+| Release CI      | DMG arm64                      | NSIS x64                                     |
+| Icône           | `assets/prod/app-icon.icns`    | `assets/prod/app-icon.png`                   |
+| Signature       | ad-hoc (`codesign --sign -`)   | non signé                                    |
 
 Pas de cross-compile : packager mac depuis un Mac, Windows depuis Windows. Le chrome de fenêtre
 (title bar overlay) et `--no-sandbox` sont déjà gérés hors packager.

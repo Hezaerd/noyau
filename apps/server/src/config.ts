@@ -1,7 +1,9 @@
+import * as NodeFileSystem from "node:fs"
+
 import { EnvironmentId } from "@noyau/contracts/ids"
 import { resolveConfigDirectory } from "@noyau/shared/dev-home"
 import { RELEASE_CHANNELS, type ReleaseChannel } from "@noyau/shared/release-brand"
-import { Config, Context, Effect, FileSystem, Layer, Path, Redacted, Schema } from "effect"
+import { Config, Context, Effect, Layer, Path, Redacted, Schema } from "effect"
 
 import { resolveWorktreesDir } from "./worktree-home.ts"
 
@@ -67,11 +69,17 @@ export const decodeBootstrap = Effect.fn("ServerConfig.decodeBootstrap")(functio
 })
 
 export const readBootstrapFd = Effect.fn("ServerConfig.readBootstrapFd")(function* (fd: number) {
-  const fileSystem = yield* FileSystem.FileSystem
-  const encoded = yield* fileSystem
-    .readFileString(`/dev/fd/${fd}`)
-    .pipe(Effect.mapError((cause) => new BootstrapConfigError({ source: `fd${fd}`, cause })))
-  return yield* decodeBootstrap(`fd${fd}`, encoded)
+  const source = `fd${fd}`
+  const encoded = yield* Effect.callback<string, BootstrapConfigError>((resume) => {
+    NodeFileSystem.readFile(fd, "utf8", (cause, contents) => {
+      resume(
+        cause === null
+          ? Effect.succeed(contents)
+          : Effect.fail(new BootstrapConfigError({ source, cause })),
+      )
+    })
+  })
+  return yield* decodeBootstrap(source, encoded)
 })
 
 const standaloneBootstrap = (dataDirectory: string) =>

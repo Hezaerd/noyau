@@ -40,7 +40,6 @@ mac:
   target:
     - dir
 win:
-  signAndEditExecutable: false
   icon: assets/prod/app-icon.png
   target:
     - dir
