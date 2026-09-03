@@ -6,7 +6,7 @@ import {
   ThreadTurnStarted,
 } from "@noyau/contracts/thread/events"
 import { coalescePersistedForShell, threadEventTouchesShell } from "@noyau/server/shell-live"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const turnId = TurnId.make("30000000-0000-4000-8000-000000000001")

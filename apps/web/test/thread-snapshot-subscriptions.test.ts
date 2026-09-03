@@ -3,7 +3,7 @@ import { DomainEvent, EventEnvelope } from "@noyau/contracts/events"
 import { ProjectId, Sequence, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { getAppliedShell, replaceAppliedShell } from "../src/state/shell"

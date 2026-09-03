@@ -6,7 +6,7 @@ import { ThreadShell, type ThreadShell as ThreadShellType } from "@noyau/contrac
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect, Schema } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { TicketActivityThreadChip } from "../src/components/board/TicketActivityThreadChip"
 import { TicketDialog } from "../src/components/board/TicketDialog"

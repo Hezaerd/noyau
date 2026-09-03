@@ -1,7 +1,7 @@
 import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { appAtomRegistry, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import { nowMinuteAtom } from "../src/state/now"

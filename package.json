@@ -48,7 +48,10 @@
     "@effect/vitest": "4.0.0-rc.112",
     "effect": "4.0.0-rc.112",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.2.9",
-    "vitest": "4.1.10",
+    "vitest": "5.0.0",
     "vite-plus": "0.2.9"
+  },
+  "patchedDependencies": {
+    "@effect/vitest@4.0.0-rc.112": "patches/@effect%2Fvitest@4.0.0-rc.112.patch"
   }
 }

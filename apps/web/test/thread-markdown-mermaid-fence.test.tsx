@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { cleanup, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadMarkdown } from "../src/components/thread/ThreadMarkdown"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"

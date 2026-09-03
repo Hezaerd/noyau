@@ -2,7 +2,7 @@ import { TranscriptUserInput } from "@noyau/contracts/entities/transcript"
 import type { LatestTurn, TurnState } from "@noyau/contracts/entities/turn"
 import { ApprovalRequestId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { Schema } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { actionableUserInputForLatestTurn } from "../src/lib/pending-user-input"
 

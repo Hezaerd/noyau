@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { paintComposerPrompt } from "../src/components/thread/paint-composer-prompt"
 import { serializeComposerPromptField } from "../src/lib/composer-prompt-field"

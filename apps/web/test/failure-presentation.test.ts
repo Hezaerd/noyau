@@ -2,7 +2,7 @@ import { ProjectId, ThreadId, TicketId, TurnId } from "@noyau/contracts/ids"
 import { ProjectUnavailable } from "@noyau/contracts/project/errors"
 import { ThreadForkOriginMismatch } from "@noyau/contracts/thread/errors"
 import { TicketDependencyCycle } from "@noyau/contracts/ticket/errors"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { invalidInputFailure, type AppFailure } from "../src/lib/app-failure"
 import { presentFailure, type FailureContext } from "../src/lib/failure-presentation"

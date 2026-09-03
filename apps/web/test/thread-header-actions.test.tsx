@@ -5,7 +5,7 @@ import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { AppPaletteContext, type AppPaletteAction } from "../src/components/app-palette-context"
 import { ThreadHeaderActions } from "../src/components/thread/ThreadHeaderActions"

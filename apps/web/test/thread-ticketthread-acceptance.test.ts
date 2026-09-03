@@ -2,7 +2,7 @@ import { CommandId, ProjectId, Sequence, ThreadId, TicketId, TurnId } from "@noy
 import { RPC_METHODS, SubscribeThreadInput } from "@noyau/contracts/rpc"
 import { ThreadForkRequest, ThreadTurnStartRequest } from "@noyau/contracts/thread/commands"
 import { Crypto, Effect, Schema } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { acceptsSequence } from "../src/lib/control-plane"
 import {

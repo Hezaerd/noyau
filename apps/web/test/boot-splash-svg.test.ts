@@ -6,7 +6,7 @@ import { createRequire } from "node:module"
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { RELEASE_BRANDS, RELEASE_CHANNELS, type ReleaseChannel } from "@noyau/shared/release-brand"
 import { Effect, FileSystem, ManagedRuntime } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import developmentSplash from "../public/boot-splash-development.svg?raw"
 import latestSplash from "../public/boot-splash-latest.svg?raw"

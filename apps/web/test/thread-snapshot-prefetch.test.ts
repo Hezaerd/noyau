@@ -1,7 +1,7 @@
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { Deferred, Effect, Schema } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { invalidInputFailure } from "../src/lib/app-failure"
 import {

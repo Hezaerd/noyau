@@ -1,6 +1,6 @@
 import { Sequence } from "@noyau/contracts/ids"
 import { Effect } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { invalidInputFailure, subscriptionEnded, type AppFailure } from "../src/lib/app-failure"
 import {

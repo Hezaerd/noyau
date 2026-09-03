@@ -11,7 +11,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"
 import type { ReactNode } from "react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadSidebarItem } from "../src/components/sidebar/ThreadSidebarItem"
 import { SidebarProvider } from "../src/components/ui/sidebar"

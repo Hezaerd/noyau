@@ -1,7 +1,7 @@
 import { PreviewTabId, ThreadId } from "@noyau/contracts/ids"
 import { PreviewSessionSnapshot } from "@noyau/contracts/preview"
 import { Schema } from "effect"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { PREVIEW_TAB_GONE_MESSAGE } from "../src/lib/app-failure"
 import {

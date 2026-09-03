@@ -1,5 +1,5 @@
 import { isResumePrompt } from "@noyau/shared/resume-prompt"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 describe("isResumePrompt", () => {
   it("accepte les jetons de reprise", () => {

@@ -9,7 +9,7 @@ import {
 } from "@noyau/server/thread-live-coalescer"
 import { DateTime, Deferred, Effect, Fiber, Stream } from "effect"
 import { TestClock } from "effect/testing"
-import { describe, expect } from "vite-plus/test"
+import { describe, expect } from "vitest"
 
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const turnId = TurnId.make("30000000-0000-4000-8000-000000000001")

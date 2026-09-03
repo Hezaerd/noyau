@@ -5,7 +5,7 @@ import { Turn } from "@noyau/contracts/entities/turn"
 import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { cleanup, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children }: { readonly children: string }) => <a href="/source-thread">{children}</a>,

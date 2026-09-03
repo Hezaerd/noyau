@@ -4,7 +4,7 @@ import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { ShellSnapshot } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { ThreadSidebarPopover } from "../src/components/sidebar/ThreadSidebarPopover"
 import { catalogModels, threadModelLabel } from "../src/lib/thread-sidebar-popover"

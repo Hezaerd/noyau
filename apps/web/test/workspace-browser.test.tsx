@@ -5,7 +5,7 @@ import { PreviewSessionSnapshot } from "@noyau/contracts/preview"
 import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { browserWorkspaceTab } from "../src/components/workspace-panel/browser-tab"
 import { workspaceTabSanitizeKinds } from "../src/components/workspace-panel/catalog"

@@ -7,7 +7,7 @@ import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import {

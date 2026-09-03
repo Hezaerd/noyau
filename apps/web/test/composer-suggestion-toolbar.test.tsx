@@ -2,7 +2,7 @@
 
 import { cleanup, createEvent, fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ComposerSuggestionToolbar } from "../src/components/thread/ComposerSuggestionToolbar"
 import type { ComposerMentionEntry } from "../src/lib/composer-tickets"

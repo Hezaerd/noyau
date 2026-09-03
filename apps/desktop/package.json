@@ -8,7 +8,7 @@
     "start": "node scripts/start-electron.ts",
     "export-app-icon": "node scripts/export-app-icon.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vp test run",
+    "test": "vitest run",
     "smoke-test": "node scripts/smoke-test.ts"
   },
   "dependencies": {

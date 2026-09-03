@@ -2,7 +2,7 @@
 
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { Effect } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { useDelayedSubscriptionFailure } from "../src/hooks/use-delayed-subscription-failure"
 import { invalidInputFailure, type AppFailure } from "../src/lib/app-failure"

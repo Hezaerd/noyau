@@ -9,7 +9,7 @@ import {
 import { ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { useThreadSnapshot } from "../src/hooks/use-thread-snapshot"
 import { resetAppAtomRegistryForTests } from "../src/state/atom-registry"

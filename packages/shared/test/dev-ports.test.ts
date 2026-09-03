@@ -9,7 +9,7 @@ import {
   readDevPort,
   resolveOffset,
 } from "@noyau/shared/dev-ports"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 describe("dev ports", () => {
   it("keeps the documented pair on offset 0", () => {

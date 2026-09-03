@@ -5,7 +5,7 @@ import { ThreadShell } from "@noyau/contracts/shell"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadSidebarSection } from "../src/components/sidebar/ThreadSidebarSection"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { RENDERER_CLIPBOARD_WRITE_PERMISSION, isRendererPermissionAllowed } from "./permissions"
 

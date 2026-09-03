@@ -4,7 +4,7 @@ import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { Effect, Schema } from "effect"
 import type { ReactNode } from "react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadMarkdownContext } from "../src/components/thread/thread-markdown-context"
 import { ThreadMarkdownFileChip } from "../src/components/thread/ThreadMarkdownFileChip"

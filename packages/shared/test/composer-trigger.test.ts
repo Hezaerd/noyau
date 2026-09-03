@@ -3,7 +3,7 @@ import {
   replaceTextRange,
   serializeComposerMentionPath,
 } from "@noyau/shared/composer-trigger"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 describe("serializeComposerMentionPath", () => {
   it("keeps simple mention paths unquoted", () => {

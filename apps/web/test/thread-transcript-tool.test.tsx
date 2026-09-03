@@ -4,7 +4,7 @@ import { TranscriptTool } from "@noyau/contracts/entities/transcript"
 import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { cleanup, render, screen } from "@testing-library/react"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import {
   ThreadTranscriptTool,

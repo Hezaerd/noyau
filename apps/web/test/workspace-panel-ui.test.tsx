@@ -3,7 +3,7 @@
 import { ThreadId } from "@noyau/contracts/ids"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { defineWorkspaceTab } from "../src/components/workspace-panel/define-workspace-tab"
 import type { WorkspaceTabRenderContext } from "../src/components/workspace-panel/define-workspace-tab"

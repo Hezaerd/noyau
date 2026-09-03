@@ -5,7 +5,7 @@ import { PreviewTabId, TicketId, ThreadId } from "@noyau/contracts/ids"
 import { PreviewTabNotFound, PreviewUrlInvalid } from "@noyau/contracts/preview"
 import { TicketDependencyCycle } from "@noyau/contracts/ticket/errors"
 import { Cause } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import {
   invalidInputFailure,

@@ -2,7 +2,7 @@ import type { ClientCommandRequest } from "@noyau/contracts/commands"
 import { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import { KanbanColumnId, ProjectId, ThreadId, TurnId, type TicketId } from "@noyau/contracts/ids"
 import { Crypto, Effect, Schema } from "effect"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
 import { invalidInputFailure } from "../src/lib/app-failure"
 import {

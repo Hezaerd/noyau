@@ -1,5 +1,5 @@
 import { ThreadId, TurnId } from "@noyau/contracts/ids"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import {
   clearAssistantPaint,

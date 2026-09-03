@@ -8,7 +8,7 @@ import {
   shouldSeedWorktreeConfig,
   worktreeNoyauHome,
 } from "@noyau/shared/dev-home"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 const normalize = (path: string): string => path.replaceAll(/\/+/g, "/")
 const join = (...segments: string[]) => segments.join("/")

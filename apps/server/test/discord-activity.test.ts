@@ -8,7 +8,7 @@ import {
 } from "@noyau/contracts/thread/events"
 import { journalEventTouchesPresence } from "@noyau/server/discord/activity"
 import { Schema } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
