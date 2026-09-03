@@ -117,6 +117,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Test Windows desktop bootstrap
+        if: matrix.platform == 'win'
+        run: vp -C apps/server test run test/config.test.ts
+
       - name: Build desktop
         run: bun run build
 

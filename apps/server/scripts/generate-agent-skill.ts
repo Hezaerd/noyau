@@ -26,7 +26,7 @@ const generateAgentSkill = Effect.gen(function* () {
   const files = yield* Effect.forEach(paths, (relativePath) =>
     path.fromFileUrl(new URL(relativePath, skillRoot)).pipe(
       Effect.flatMap(fileSystem.readFileString),
-      Effect.map((content) => ({ path: relativePath, content })),
+      Effect.map((content) => ({ path: relativePath, content: content.replaceAll("\r\n", "\n") })),
     ),
   )
   const encoded = yield* encodeFiles(files)

@@ -98,7 +98,7 @@ describe("package desktop", () => {
   })
 
   it("resolves the electron-builder CLI from the desktop workspace", () => {
-    expect(resolveElectronBuilderCli().endsWith("electron-builder/cli.js")).toBe(true)
+    expect(resolveElectronBuilderCli().replaceAll("\\", "/")).toMatch(/electron-builder\/cli\.js$/)
   })
 
   it("recompresses only publishable mac DMGs after a dmg target", () => {
@@ -185,6 +185,8 @@ it.layer(NodeServices.layer)("electron-builder config", (spec) => {
       expect(config).toContain("identity: null")
       expect(config).toContain("afterPack: scripts/after-pack.cjs")
       expect(config).toContain("icon: assets/prod/app-icon.icns")
+      expect(config).toContain("icon: assets/prod/app-icon.png")
+      expect(config).not.toContain("signAndEditExecutable: false")
       expect(config).toContain("dist-electron/release-channel.json")
       expect(config).toContain('"!**/node_modules/**"')
       expect(config).toContain("artifactName: Noyau-${version}-${os}-${arch}.${ext}")
