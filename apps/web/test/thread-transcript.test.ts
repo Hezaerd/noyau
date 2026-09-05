@@ -1,7 +1,7 @@
 import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { ThreadSnapshot } from "@noyau/contracts/entities/thread-snapshot"
 import { TranscriptItem } from "@noyau/contracts/entities/transcript"
-import { checkpointRefForTurn } from "@noyau/contracts/entities/turn"
+import { checkpointRefForTurn, type Turn } from "@noyau/contracts/entities/turn"
 import {
   DomainEvent,
   EventEnvelope,
@@ -9,7 +9,7 @@ import {
 } from "@noyau/contracts/events"
 import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { DateTime, Schema } from "effect"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import {
   applyThreadEnvelope,
@@ -551,13 +551,65 @@ describe("thread transcript projection", () => {
     expect(next?.turns[0]?.turnDiff?.files).toEqual([
       { path: "src/app.ts", kind: "modified", additions: 2, deletions: 1 },
     ])
+    const turnById = new Map(next!.turns.map((turn) => [turn.id, turn] as const))
     const lastByTurn = lastAssistantIndexByTurnId(next?.transcript ?? [])
+    expect(turnDiffForTranscriptItem(next!.transcript[0], 0, turnById, lastByTurn)).toBeUndefined()
+    expect(turnDiffForTranscriptItem(next!.transcript[1], 1, turnById, lastByTurn)).toBeUndefined()
+    const expectedTurnDiff = next!.turns[0]?.turnDiff
+    expect(turnDiffForTranscriptItem(next!.transcript[2], 2, turnById, lastByTurn)).toBe(
+      expectedTurnDiff,
+    )
+    const emptyDiffTurn = {
+      ...next!.turns[0],
+      turnDiff: { ...expectedTurnDiff!, files: [] },
+    }
     expect(
-      turnDiffForTranscriptItem(next!.transcript[1], 1, next!.turns, lastByTurn),
+      turnDiffForTranscriptItem(
+        next!.transcript[2],
+        2,
+        new Map([[emptyDiffTurn.id, emptyDiffTurn]]),
+        lastByTurn,
+      ),
     ).toBeUndefined()
-    expect(
-      turnDiffForTranscriptItem(next!.transcript[2], 2, next!.turns, lastByTurn)?.files,
-    ).toHaveLength(1)
+    expect(turnDiffForTranscriptItem(next!.transcript[2], 2, new Map(), lastByTurn)).toBeUndefined()
+  })
+
+  it("looks up each final assistant row through the indexed Turn map", () => {
+    const turns: ReadonlyArray<Turn> = [1, 2, 3].map((ordinal) =>
+      Object.assign({}, snapshot.turns[0], {
+        id: TurnId.make(`40000000-0000-4000-8000-00000000000${ordinal}`),
+        ordinal,
+        turnDiff: {
+          checkpointRef: checkpointRefForTurn(ids.thread, ordinal),
+          status: "ready",
+          files: [{ path: `src/app-${ordinal}.ts`, kind: "modified", additions: 1, deletions: 0 }],
+        },
+      }),
+    )
+    const transcript = turns.flatMap((turn) => [
+      decodeTranscript({
+        _tag: "transcript.assistant",
+        threadId: ids.thread,
+        turnId: turn.id,
+        text: "Premier",
+      }),
+      decodeTranscript({
+        _tag: "transcript.assistant",
+        threadId: ids.thread,
+        turnId: turn.id,
+        text: " dernier",
+      }),
+    ])
+    const lastByTurn = lastAssistantIndexByTurnId(transcript)
+    const indexedTurns = new Map(turns.map((turn) => [turn.id, turn] as const))
+    const getSpy = vi.spyOn(indexedTurns, "get")
+
+    const diffs = transcript.map((item, index) =>
+      turnDiffForTranscriptItem(item, index, indexedTurns, lastByTurn),
+    )
+
+    expect(getSpy.mock.calls.map(([turnId]) => turnId)).toEqual(turns.map((turn) => turn.id))
+    expect(diffs.filter((turnDiff) => turnDiff !== undefined)).toHaveLength(turns.length)
   })
 
   it("ignores an envelope that belongs to another Thread", () => {
