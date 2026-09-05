@@ -1,4 +1,4 @@
-import { Effect, Option, Path } from "effect"
+import { Effect, FileSystem, Option, Path } from "effect"
 
 import { DEFAULT_RELEASE_CHANNEL, type DesktopReleaseChannel } from "./release-channel"
 
@@ -56,3 +56,34 @@ export const resolveRendererAssetPath = Effect.fn("resolveRendererAssetPath")(fu
 
   return candidate
 })
+
+const isExistingFile = Effect.fn("isExistingFile")(function* (filePath: string) {
+  const fs = yield* FileSystem.FileSystem
+  const exists = yield* fs.exists(filePath)
+  if (!exists) {
+    return false
+  }
+  const info = yield* fs.stat(filePath)
+  return info.type === "File"
+})
+
+/** Selects a packaged asset, falling back to the SPA entry point for routes. */
+export const resolvePackagedRendererAssetPath = Effect.fn("resolvePackagedRendererAssetPath")(
+  function* (rendererRoot: string, requestPathname: string, requestedAssetPath: string) {
+    const path = yield* Path.Path
+    const servesExistingFile = yield* isExistingFile(requestedAssetPath)
+    if (servesExistingFile) {
+      return requestedAssetPath
+    }
+
+    if (path.extname(requestPathname) !== "") {
+      return undefined
+    }
+
+    const fallbackPath = path.join(rendererRoot, "index.html")
+    if (fallbackPath === requestedAssetPath) {
+      return undefined
+    }
+    return (yield* isExistingFile(fallbackPath)) ? fallbackPath : undefined
+  },
+)
