@@ -1,14 +1,20 @@
-import type { VcsStatusPullRequest, VcsStatusResult } from "@noyau/contracts/git"
+import type {
+  VcsStatusPullRequest,
+  VcsStatusResult,
+  VcsStatusStreamEvent,
+} from "@noyau/contracts/git"
 import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { describe, expect, it } from "vitest"
 
 import {
   applyVcsStatusStreamEvent,
+  createVcsStatusSubscriptionController,
   displayedThreadPr,
   nextThreadChangeRequestSnapshot,
   resolveThreadPr,
   resolveGitActionsScope,
   uniqueVcsScopes,
+  uniqueVcsStatusSubscriptionScopes,
   vcsScopeForThread,
   vcsStatusScopeKey,
 } from "../src/lib/vcs-status"
@@ -136,5 +142,116 @@ describe("vcs-status", () => {
     expect(resolveGitActionsScope(projectId, { threadId: undefined, thread: undefined })).toEqual({
       projectId,
     })
+  })
+
+  it("conserve les streams retenus et réconcilie les changements de portée", () => {
+    const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
+    const nextProjectId = ProjectId.make("10000000-0000-4000-8000-000000000002")
+    const threadA = {
+      id: ThreadId.make("20000000-0000-4000-8000-000000000001"),
+      worktreePath: "/tmp/a",
+    }
+    const threadB = {
+      id: ThreadId.make("20000000-0000-4000-8000-000000000002"),
+      worktreePath: "/tmp/b",
+    }
+    const starts: string[] = []
+    const stops: string[] = []
+    const events: string[] = []
+    const callbacks = new Map<string, Array<(event: VcsStatusStreamEvent) => void>>()
+    const subscribe = (
+      scope: Parameters<typeof vcsStatusScopeKey>[0],
+      onEvent: (event: VcsStatusStreamEvent) => void,
+    ) => {
+      const key = vcsStatusScopeKey(scope)
+      starts.push(key)
+      callbacks.set(key, [...(callbacks.get(key) ?? []), onEvent])
+      return () => stops.push(key)
+    }
+    const controller = createVcsStatusSubscriptionController(subscribe, (scope) =>
+      events.push(vcsStatusScopeKey(scope)),
+    )
+
+    controller.reconcile(uniqueVcsStatusSubscriptionScopes(projectId, [threadA]))
+    expect(starts).toEqual([String(projectId), `${projectId}:${threadA.id}`])
+
+    // New arrays and metadata changes retain both active streams.
+    controller.reconcile(
+      uniqueVcsStatusSubscriptionScopes(projectId, [{ ...threadA, worktreePath: "/tmp/a" }]),
+    )
+    expect(starts).toHaveLength(2)
+    controller.reconcile(uniqueVcsStatusSubscriptionScopes(projectId, [threadB, threadA]))
+    expect(starts).toEqual([
+      String(projectId),
+      `${projectId}:${threadA.id}`,
+      `${projectId}:${threadB.id}`,
+    ])
+
+    controller.reconcile(uniqueVcsStatusSubscriptionScopes(projectId, [threadA]))
+    expect(stops).toEqual([`${projectId}:${threadB.id}`])
+
+    // A reassigned worktree has the same scope key but must start against its new cwd.
+    controller.reconcile(
+      uniqueVcsStatusSubscriptionScopes(projectId, [{ ...threadA, worktreePath: "/tmp/a-new" }]),
+    )
+    expect(stops).toEqual([`${projectId}:${threadB.id}`, `${projectId}:${threadA.id}`])
+    expect(starts).toEqual([
+      String(projectId),
+      `${projectId}:${threadA.id}`,
+      `${projectId}:${threadB.id}`,
+      `${projectId}:${threadA.id}`,
+    ])
+
+    controller.reconcile(uniqueVcsStatusSubscriptionScopes(nextProjectId, [threadA]))
+    expect(stops).toEqual([
+      `${projectId}:${threadB.id}`,
+      `${projectId}:${threadA.id}`,
+      String(projectId),
+      `${projectId}:${threadA.id}`,
+    ])
+    expect(starts.slice(-2)).toEqual([String(nextProjectId), `${nextProjectId}:${threadA.id}`])
+
+    controller.dispose()
+    expect(stops.slice(-2)).toEqual([String(nextProjectId), `${nextProjectId}:${threadA.id}`])
+
+    // A callback from a retired stream is ignored after replacement and teardown.
+    const retired = callbacks.get(`${projectId}:${threadA.id}`)?.[0]
+    const eventCount = events.length
+    retired?.({ _tag: "updated", status: status({ refName: "stale" }) })
+    expect(events).toHaveLength(eventCount)
+  })
+
+  it("invalidates before a replacement can synchronously emit its snapshot", () => {
+    const projectId = ProjectId.make("10000000-0000-4000-8000-000000000001")
+    const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
+    const order: string[] = []
+    const subscribe = (
+      scope: Parameters<typeof vcsStatusScopeKey>[0],
+      onEvent: (event: VcsStatusStreamEvent) => void,
+    ) => {
+      const key = vcsStatusScopeKey(scope)
+      onEvent({ _tag: "snapshot", status: status() })
+      order.push(`subscribed:${key}`)
+      return () => undefined
+    }
+    const controller = createVcsStatusSubscriptionController(
+      subscribe,
+      (scope) => order.push(`event:${vcsStatusScopeKey(scope)}`),
+      (key) => order.push(`invalidated:${key}`),
+    )
+
+    controller.reconcile(
+      uniqueVcsStatusSubscriptionScopes(projectId, [{ id: threadId, worktreePath: "/tmp/old" }]),
+    )
+    order.length = 0
+    controller.reconcile(
+      uniqueVcsStatusSubscriptionScopes(projectId, [{ id: threadId, worktreePath: "/tmp/new" }]),
+    )
+
+    expect(order).toEqual([
+      `invalidated:${projectId}:${threadId}`,
+      `event:${projectId}:${threadId}`,
+      `subscribed:${projectId}:${threadId}`,
+    ])
   })
 })
