@@ -8,6 +8,7 @@ import {
   dependentsForTicket,
   destinationIndexAfterDrop,
   moveTicket,
+  openDependencyCountByTicketId,
   parseBoardSearch,
   placeTicketAt,
   reorderTicket,
@@ -219,6 +220,83 @@ describe("local board preview model", () => {
       ),
     }
     expect(openDependencyTitles(withDonePrerequisite, "ticket-projection")).toEqual([])
+  })
+
+  it("indexes card dependency counts with first matches and missing prerequisites open", () => {
+    const state = {
+      ...initialBoardState,
+      columns: [
+        { id: "column-done", name: "Done", color: "#10B981", done: true },
+        { id: "column-open", name: "Open", color: "#a3a3a3", done: false },
+        { id: "column-ambiguous", name: "Open", color: "#a3a3a3", done: false },
+        { id: "column-ambiguous", name: "Done", color: "#10B981", done: true },
+      ],
+      tickets: [
+        {
+          id: "ticket-target",
+          columnId: "column-open",
+          position: 0,
+          title: "Target",
+          description: "",
+          priority: "normal" as const,
+        },
+        {
+          id: "ticket-prerequisite",
+          columnId: "column-done",
+          position: 1,
+          title: "Done prerequisite",
+          description: "",
+          priority: "normal" as const,
+        },
+        {
+          id: "ticket-prerequisite",
+          columnId: "column-open",
+          position: 2,
+          title: "Duplicate prerequisite",
+          description: "",
+          priority: "normal" as const,
+        },
+        {
+          id: "ticket-ambiguous",
+          columnId: "column-ambiguous",
+          position: 3,
+          title: "Ambiguous prerequisite",
+          description: "",
+          priority: "normal" as const,
+        },
+      ],
+      ticketDependencies: [
+        { ticketId: "ticket-target", dependsOnTicketId: "ticket-prerequisite" },
+        { ticketId: "ticket-target", dependsOnTicketId: "ticket-ambiguous" },
+        { ticketId: "ticket-target", dependsOnTicketId: "ticket-missing" },
+        { ticketId: "ticket-target", dependsOnTicketId: "ticket-missing" },
+        { ticketId: "ticket-other", dependsOnTicketId: "ticket-missing" },
+      ],
+    }
+
+    const counts = openDependencyCountByTicketId(state)
+
+    expect(counts.get("ticket-target")).toBe(3)
+    expect(counts.get("ticket-other")).toBe(1)
+    expect(counts.has("ticket-prerequisite")).toBe(false)
+  })
+
+  it("refreshes dependency counts when a prerequisite moves or its column changes", () => {
+    const movedToDone = {
+      ...initialBoardState,
+      tickets: initialBoardState.tickets.map((ticket) =>
+        ticket.id === "ticket-http" ? { ...ticket, columnId: "column-done" } : ticket,
+      ),
+    }
+    expect(openDependencyCountByTicketId(movedToDone).get("ticket-projection")).toBeUndefined()
+
+    const reopenedDoneColumn = {
+      ...movedToDone,
+      columns: movedToDone.columns.map((column) =>
+        column.id === "column-done" ? Object.assign({}, column, { done: false }) : column,
+      ),
+    }
+    expect(openDependencyCountByTicketId(reopenedDoneColumn).get("ticket-projection")).toBe(1)
   })
 
   it("rejects self, duplicate, and cyclic dependency edges", () => {
