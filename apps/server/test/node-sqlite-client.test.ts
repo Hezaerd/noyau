@@ -4,7 +4,7 @@ import { assert, describe, it } from "@effect/vitest"
 import * as NodeSqliteClient from "@noyau/server/persistence/node-sqlite-client"
 import { Context, Effect, Layer } from "effect"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
-import { afterEach, vi } from "vite-plus/test"
+import { afterEach, vi } from "vitest"
 
 const withClient = <A, E>(
   config: NodeSqliteClient.NodeSqliteClientConfig,
