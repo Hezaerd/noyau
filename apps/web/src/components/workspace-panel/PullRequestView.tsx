@@ -27,6 +27,7 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 import { useProjectPullRequests } from "@/hooks/use-sidebar-queues"
 import { resolveAppearance } from "@/lib/appearance"
 import { gitGetPullRequest, gitSubmitPullRequestReview } from "@/lib/control-plane"
+import { formatDateTime } from "@/lib/format-date-time"
 import {
   pullRequestRepositoryLabel,
   pullRequestTabTitle,
@@ -305,7 +306,7 @@ function PullRequestHeader({
                 </Badge>
               </div>
               <p className="mt-2 text-muted-foreground text-xs">
-                {pr.author?.login ?? "Unknown author"} · updated {formatHeaderDate(pr.updatedAt)}
+                {pr.author?.login ?? "Unknown author"} · updated {formatDateTime(pr.updatedAt)}
               </p>
               <div className="mt-3 flex min-w-0 items-center gap-2 text-muted-foreground text-xs">
                 <code className="max-w-[40%] truncate">{pr.baseRef}</code>
@@ -411,11 +412,4 @@ function ErrorState({
       </div>
     </div>
   )
-}
-
-const formatHeaderDate = (value: string): string => {
-  const date = new Date(value)
-  return Number.isNaN(date.valueOf())
-    ? value
-    : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date)
 }
