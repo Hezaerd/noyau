@@ -1,26 +1,50 @@
 import { createHash } from "node:crypto"
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
-import { assert, describe, it } from "@effect/vitest"
+import { assert, describe, it, layer as effectLayer } from "@effect/vitest"
 import { ClientCommandRequest } from "@noyau/contracts/commands"
-import { ActorId, ProjectId, ThreadId } from "@noyau/contracts/ids"
+import { TurnImageAttachment } from "@noyau/contracts/entities/attachment"
+import { TranscriptAssistant, TranscriptUser } from "@noyau/contracts/entities/transcript"
+import { type DomainEvent } from "@noyau/contracts/events"
+import { ActorId, AttachmentId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
+import { ThreadMetaUpdated, ThreadTurnStarted } from "@noyau/contracts/thread/events"
 import { DEFAULT_THREAD_TITLE } from "@noyau/contracts/thread/title"
 import { unavailableAgentSkillInstallerLayer } from "@noyau/server/agent-skill/installer"
 import { ControlPlane, makeControlPlaneLayer } from "@noyau/server/control-plane"
 import { noopDiscordPresenceLayer } from "@noyau/server/discord/presence"
 import { GitRuntime, type GitRuntimeService } from "@noyau/server/git/git-runtime"
 import { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
+import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
 import { memoryLayer } from "@noyau/server/persistence/sqlite"
 import { staticProviderRegistryLayer } from "@noyau/server/provider/provider-instance-registry"
 import { unavailableProviderLayer } from "@noyau/server/provider/provider-port"
 import {
   TextGeneration,
   type BranchNameGenerationInput,
+  type TextGenerationService,
 } from "@noyau/server/text-generation/text-generation"
 import { threadLiveLayer } from "@noyau/server/thread-live"
 import { WorkspaceRootAccess } from "@noyau/server/workspace-root"
-import { Context, Crypto, Effect, Layer, Path, Schema, Stream } from "effect"
+import {
+  Context,
+  Crypto,
+  DateTime,
+  Deferred,
+  Effect,
+  Fiber,
+  Layer,
+  Path,
+  Schema,
+  Stream,
+} from "effect"
+import { SqlClient } from "effect/unstable/sql/SqlClient"
 
+/* eslint-disable import/no-relative-parent-imports -- Focused reactor coverage uses the real service seams. */
+import {
+  makeWorktreeBranchReactor,
+  type DispatchInternal,
+} from "../src/text-generation/worktree-branch-reactor.ts"
+/* eslint-enable import/no-relative-parent-imports */
 import {
   stubGitRuntimeLayer,
   stubVcsStatusBroadcasterLayer,
@@ -30,8 +54,38 @@ import {
 const actorId = Schema.decodeSync(ActorId)("human:rpc-test")
 const projectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000001")
 const threadId = Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000001")
+const directThreadId = Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000011")
+const directZeroTurnThreadId = Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000012")
+const directMultipleTurnThreadId = Schema.decodeSync(ThreadId)(
+  "20000000-0000-4000-8000-000000000013",
+)
+const directMetaThreadId = Schema.decodeSync(ThreadId)("20000000-0000-4000-8000-000000000014")
 
 const uuid = (index: number) => `30000000-0000-4000-8000-${index.toString().padStart(12, "0")}`
+const directTurnId = Schema.decodeSync(TurnId)(uuid(101))
+const directZeroTurnEventId = Schema.decodeSync(TurnId)(uuid(109))
+const directMultipleTurnFirstId = Schema.decodeSync(TurnId)(uuid(102))
+const directMultipleTurnSecondId = Schema.decodeSync(TurnId)(uuid(103))
+const directMetaTurnId = Schema.decodeSync(TurnId)(uuid(104))
+const encodeTranscriptAssistant = Schema.encodeSync(Schema.fromJsonString(TranscriptAssistant))
+const encodeTranscriptUser = Schema.encodeSync(Schema.fromJsonString(TranscriptUser))
+
+const persistedWorktreeEvent = (
+  event: DomainEvent,
+  eventThreadId: ThreadId,
+): PersistedEvent<DomainEvent> => ({
+  eventId: uuid(105),
+  sequence: 105,
+  projectId,
+  actorId,
+  correlationId: uuid(106),
+  causationId: uuid(107),
+  occurredAt: DateTime.makeUnsafe("2026-08-20T00:00:00.000Z"),
+  schemaVersion: 1,
+  aggregate: { kind: "thread", id: eventThreadId },
+  aggregateVersion: 1,
+  event,
+})
 
 const request = (input: (typeof ClientCommandRequest)["Encoded"]) =>
   Schema.decodeSync(ClientCommandRequest)(input)
@@ -343,4 +397,252 @@ describe("Worktree branch reactor", () => {
       }),
     )
   })
+})
+
+effectLayer(memoryLayer)("Worktree branch reactor SQL", (spec) => {
+  spec.effect("bounds eligibility and preserves first-user and branch guards", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient
+      yield* sql`
+        INSERT INTO projection_projects (
+          project_id, name, workspace_root, available, created_at, updated_at
+        ) VALUES (
+          ${projectId}, 'Noyau', '/tmp', 1,
+          '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+        )
+      `
+      yield* sql`
+        INSERT INTO projection_threads (
+          thread_id, project_id, title, provider, runtime_mode, status, branch, worktree_path,
+          created_at, updated_at
+        ) VALUES
+          (
+            ${directThreadId}, ${projectId}, ${DEFAULT_THREAD_TITLE}, 'cursor', 'full-access', 'active',
+            'noyau/f4ae4e0e', '/tmp/worktrees/noyau/f4ae4e0e',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          ),
+          (
+            ${directZeroTurnThreadId}, ${projectId}, ${DEFAULT_THREAD_TITLE}, 'cursor', 'full-access', 'active',
+            'noyau/zero-turn', '/tmp/worktrees/noyau/zero-turn',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          ),
+          (
+            ${directMultipleTurnThreadId}, ${projectId}, ${DEFAULT_THREAD_TITLE}, 'cursor', 'full-access', 'active',
+            'noyau/multiple-turns', '/tmp/worktrees/noyau/multiple-turns',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          ),
+          (
+            ${directMetaThreadId}, ${projectId}, ${DEFAULT_THREAD_TITLE}, 'cursor', 'full-access', 'active',
+            'noyau/ab12cd34', '/tmp/worktrees/noyau/meta-bind',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+      `
+      yield* sql`
+        INSERT INTO projection_turns (
+          turn_id, thread_id, ordinal, state, requested_at, started_at
+        ) VALUES
+          (
+            ${directTurnId}, ${directThreadId}, 1, 'running',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          ),
+          (
+            ${directMultipleTurnFirstId}, ${directMultipleTurnThreadId}, 1, 'completed',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          ),
+          (
+            ${directMultipleTurnSecondId}, ${directMultipleTurnThreadId}, 2, 'completed',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          ),
+          (
+            ${directMetaTurnId}, ${directMetaThreadId}, 1, 'completed',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+      `
+
+      const attachment = TurnImageAttachment.make({
+        type: "image",
+        id: AttachmentId.make(`${uuid(108)}-0`),
+        name: "first.png",
+        mimeType: "image/png",
+        sizeBytes: 1,
+      })
+      const assistantItem = encodeTranscriptAssistant(
+        TranscriptAssistant.make({
+          threadId: directMetaThreadId,
+          turnId: directMetaTurnId,
+          text: "Earlier response",
+        }),
+      )
+      const firstUserItem = encodeTranscriptUser(
+        TranscriptUser.make({
+          threadId: directMetaThreadId,
+          turnId: directMetaTurnId,
+          text: "   ",
+          attachments: [attachment],
+        }),
+      )
+      const laterUserItem = encodeTranscriptUser(
+        TranscriptUser.make({
+          threadId: directMetaThreadId,
+          turnId: directMetaTurnId,
+          text: "Later prompt should not be selected",
+        }),
+      )
+      yield* sql`
+        INSERT INTO projection_transcript (
+          transcript_id, thread_id, turn_id, ordinal, kind, item, event_sequence
+        ) VALUES
+          (
+            'direct-meta-assistant', ${directMetaThreadId}, ${directMetaTurnId}, 1,
+            'transcript.assistant', ${assistantItem}, 1
+          ),
+          (
+            'direct-meta-first-user', ${directMetaThreadId}, ${directMetaTurnId}, 2,
+            'transcript.user', ${firstUserItem}, 2
+          ),
+          (
+            'direct-meta-later-user', ${directMetaThreadId}, ${directMetaTurnId}, 3,
+            'transcript.user', ${laterUserItem}, 3
+          )
+      `
+
+      const generationStarted = yield* Deferred.make<void>()
+      const releaseGeneration = yield* Deferred.make<void>()
+      const generationInputs: Array<BranchNameGenerationInput> = []
+      let generationCalls = 0
+      const textGeneration: TextGenerationService = {
+        generateThreadTitle: () => Effect.succeed({ title: "unused" }),
+        generateGitDraft: () => Effect.succeed({ title: "unused", body: "unused" }),
+        generateBranchName: (input) =>
+          Effect.gen(function* () {
+            generationCalls += 1
+            generationInputs.push(input)
+            if (input.message === "Start prompt") {
+              yield* Deferred.succeed(generationStarted, undefined)
+              yield* Deferred.await(releaseGeneration)
+              return { branch: "Start prompt" }
+            }
+            assert.strictEqual(input.message, "[image: first.png]")
+            return { branch: "Attachment prompt" }
+          }),
+      }
+      const renames: Array<{ readonly oldBranch: string; readonly newBranch: string }> = []
+      const git = stubGitRuntime({
+        renameBranch: (input) => {
+          renames.push({ oldBranch: input.oldBranch, newBranch: input.newBranch })
+          return Effect.succeed({ branch: input.newBranch })
+        },
+      })
+      const dispatched: Array<unknown> = []
+      const dispatchInternal: DispatchInternal = (command) =>
+        Effect.sync(() => {
+          dispatched.push(command)
+        })
+      const queries: Array<string> = []
+      const trackedSql = new Proxy(sql, {
+        apply(target, _thisArg, args) {
+          const [strings, ...values] = args
+          queries.push(Array.from(strings).join("?"))
+          return target(strings, ...values)
+        },
+      })
+      const reactor = yield* makeWorktreeBranchReactor(dispatchInternal).pipe(
+        Effect.provideService(SqlClient, trackedSql),
+        Effect.provideService(Crypto.Crypto, testCrypto()),
+        Effect.provideService(TextGeneration, textGeneration),
+        Effect.provideService(GitRuntime, git),
+        Effect.provideService(
+          VcsStatusBroadcaster,
+          Context.get(yield* Layer.build(stubVcsStatusBroadcasterLayer()), VcsStatusBroadcaster),
+        ),
+      )
+
+      const fiber = yield* Effect.forkChild(
+        reactor(
+          persistedWorktreeEvent(
+            ThreadTurnStarted.make({
+              threadId: directThreadId,
+              turnId: directTurnId,
+              text: "Start prompt",
+            }),
+            directThreadId,
+          ),
+        ),
+      )
+      yield* Deferred.await(generationStarted)
+      assert.isFalse(queries.some((query) => query.includes("projection_transcript")))
+      yield* sql`
+        UPDATE projection_threads SET branch = 'feature/manual' WHERE thread_id = ${directThreadId}
+      `
+      yield* Deferred.succeed(releaseGeneration, undefined)
+      yield* Fiber.join(fiber)
+
+      assert.strictEqual(generationCalls, 1)
+      assert.deepStrictEqual(renames, [])
+      assert.deepStrictEqual(dispatched, [])
+      assert.strictEqual(queries.length, 2)
+      assert.isTrue(
+        queries.some(
+          (query) => query.includes("SELECT branch") && !query.includes("projection_turns"),
+        ),
+      )
+
+      yield* reactor(
+        persistedWorktreeEvent(
+          ThreadTurnStarted.make({
+            threadId: directZeroTurnThreadId,
+            turnId: directZeroTurnEventId,
+            text: "Zero-turn prompt",
+          }),
+          directZeroTurnThreadId,
+        ),
+      )
+      yield* reactor(
+        persistedWorktreeEvent(
+          ThreadTurnStarted.make({
+            threadId: directMultipleTurnThreadId,
+            turnId: directMultipleTurnSecondId,
+            text: "Multiple-turn prompt",
+          }),
+          directMultipleTurnThreadId,
+        ),
+      )
+      yield* reactor(
+        persistedWorktreeEvent(
+          ThreadMetaUpdated.make({
+            threadId: directMultipleTurnThreadId,
+            branch: "noyau/other-name",
+          }),
+          directMultipleTurnThreadId,
+        ),
+      )
+      assert.strictEqual(generationCalls, 1)
+      assert.strictEqual(queries.length, 5)
+      assert.isFalse(queries.some((query) => query.includes("projection_transcript")))
+
+      yield* reactor(
+        persistedWorktreeEvent(
+          ThreadMetaUpdated.make({
+            threadId: directMetaThreadId,
+            worktreePath: "/tmp/worktrees/noyau/meta-bind",
+          }),
+          directMetaThreadId,
+        ),
+      )
+      assert.strictEqual(generationCalls, 2)
+      assert.deepStrictEqual(generationInputs[1], {
+        cwd: "/tmp/worktrees/noyau/meta-bind",
+        message: "[image: first.png]",
+      })
+      assert.deepStrictEqual(renames, [
+        { oldBranch: "noyau/ab12cd34", newBranch: "noyau/attachment-prompt" },
+      ])
+      assert.strictEqual(dispatched.length, 1)
+      assert.strictEqual(queries.length, 8)
+      assert.strictEqual(
+        queries.filter((query) => query.includes("projection_transcript")).length,
+        1,
+      )
+    }),
+  )
 })
