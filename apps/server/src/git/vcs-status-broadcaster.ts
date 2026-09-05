@@ -1,6 +1,7 @@
 import type { GitCommandError, VcsStatusResult, VcsStatusStreamEvent } from "@noyau/contracts/git"
 import {
   Context,
+  Deferred,
   Duration,
   Effect,
   Exit,
@@ -44,6 +45,8 @@ interface ActivePoller {
   readonly subscriberCount: number
 }
 
+type InitialRead = Deferred.Deferred<VcsStatusResult>
+
 export class VcsStatusBroadcaster extends Context.Service<
   VcsStatusBroadcaster,
   {
@@ -66,6 +69,7 @@ export const make = Effect.gen(function* () {
     Scope.close(scope, Exit.void),
   )
   const cacheRef = yield* Ref.make(new Map<string, VcsStatusResult>())
+  const initialReadsRef = yield* Ref.make(new Map<string, InitialRead>())
   const pollersRef = yield* SynchronizedRef.make(new Map<string, ActivePoller>())
 
   const remember = (cwd: string, status: VcsStatusResult) =>
@@ -74,6 +78,62 @@ export const make = Effect.gen(function* () {
       next.set(cwd, status)
       return next
     })
+
+  const initialStatus = Effect.fn("VcsStatusBroadcaster.initialStatus")((cwd: string) =>
+    Effect.uninterruptibleMask((restore) =>
+      Effect.gen(function* () {
+        const cached = (yield* Ref.get(cacheRef)).get(cwd)
+        if (cached !== undefined) {
+          return cached
+        }
+
+        const candidate = yield* Deferred.make<VcsStatusResult>()
+        const [read, shouldStart] = yield* Ref.modify(
+          initialReadsRef,
+          (reads): readonly [readonly [InitialRead, boolean], Map<string, InitialRead>] => {
+            const existing = reads.get(cwd)
+            if (existing !== undefined) {
+              return [[existing, false] as const, reads] as const
+            }
+            const next = new Map(reads)
+            next.set(cwd, candidate)
+            return [[candidate, true] as const, next] as const
+          },
+        )
+
+        if (shouldStart) {
+          const removeRead = Ref.update(initialReadsRef, (reads) => {
+            if (reads.get(cwd) !== read) {
+              return reads
+            }
+            const next = new Map(reads)
+            next.delete(cwd)
+            return next
+          })
+          const load = Effect.gen(function* () {
+            const cachedAfterRegistration = (yield* Ref.get(cacheRef)).get(cwd)
+            if (cachedAfterRegistration !== undefined) {
+              return cachedAfterRegistration
+            }
+            const status = yield* recoverVcsStatusSnapshot(
+              cwd,
+              git.status(cwd, { includePr: false }),
+            )
+            yield* remember(cwd, status)
+            return status
+          })
+          yield* load.pipe(
+            Effect.exit,
+            Effect.flatMap((exit) => Deferred.done(read, exit)),
+            Effect.ensuring(removeRead),
+            Effect.forkIn(broadcasterScope),
+          )
+        }
+
+        return yield* restore(Deferred.await(read))
+      }),
+    ),
+  )
 
   const publishIfChanged = Effect.fn("VcsStatusBroadcaster.publishIfChanged")(function* (
     cwd: string,
@@ -167,12 +227,7 @@ export const make = Effect.gen(function* () {
       Effect.gen(function* () {
         const interval = options?.interval ?? DEFAULT_VCS_STATUS_REFRESH_INTERVAL
         const subscription = yield* PubSub.subscribe(changes)
-        const cached = (yield* Ref.get(cacheRef)).get(cwd)
-        const initial =
-          cached ?? (yield* recoverVcsStatusSnapshot(cwd, git.status(cwd, { includePr: false })))
-        if (cached === undefined) {
-          yield* remember(cwd, initial)
-        }
+        const initial = yield* initialStatus(cwd)
         yield* retainPoller(cwd, interval)
         return Stream.concat(
           Stream.make({ _tag: "snapshot" as const, status: initial }),
