@@ -1043,12 +1043,12 @@ export const lastAssistantIndexByTurnId = (
 export const turnDiffForTranscriptItem = (
   item: TranscriptItem,
   index: number,
-  turns: ReadonlyArray<Turn>,
+  turnById: ReadonlyMap<Turn["id"], Turn>,
   lastAssistantByTurn: ReadonlyMap<Turn["id"], number>,
 ): TurnDiff | undefined => {
   if (item._tag !== "transcript.assistant" || lastAssistantByTurn.get(item.turnId) !== index) {
     return undefined
   }
-  const turnDiff = turns.find((turn) => turn.id === item.turnId)?.turnDiff
+  const turnDiff = turnById.get(item.turnId)?.turnDiff
   return turnDiff !== undefined && turnDiff.files.length > 0 ? turnDiff : undefined
 }
