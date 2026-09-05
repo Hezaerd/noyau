@@ -1,5 +1,5 @@
 import type { ProjectId } from "@noyau/contracts/ids"
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
+import { useNavigate, useRouterState } from "@tanstack/react-router"
 import { SearchIcon, SettingsIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
@@ -36,6 +36,7 @@ import { showFailureToast } from "@/lib/failure-toast"
 import { makeProjectDeleteRequest } from "@/lib/project-commands"
 import { destinationAfterProjectRemoval, isViewingProject } from "@/lib/project-navigation"
 import { DEFAULT_SETTINGS_TAB } from "@/lib/settings-catalog"
+import { navigateToSettings } from "@/lib/settings-navigation"
 
 export function AppSidebar() {
   const navigate = useNavigate()
@@ -201,13 +202,15 @@ export function AppSidebar() {
                 size="icon"
                 aria-label="Open Settings"
                 className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                render={
-                  <Link
-                    to="/settings/$tab"
-                    params={{ tab: DEFAULT_SETTINGS_TAB }}
-                    onClick={closeMobileNavigation}
-                  />
-                }
+                onClick={() => {
+                  closeMobileNavigation()
+                  void navigateToSettings(() =>
+                    navigate({
+                      to: "/settings/$tab",
+                      params: { tab: DEFAULT_SETTINGS_TAB },
+                    }),
+                  )
+                }}
               >
                 <SettingsIcon />
               </Button>
