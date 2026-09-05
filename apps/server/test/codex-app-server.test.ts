@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url"
 
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import * as NodeServices from "@effect/platform-node/NodeServices"
 import { assert, layer } from "@effect/vitest"
 import { ProviderDriverKind, ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import {
@@ -14,6 +15,7 @@ import type { McpInvocationScope } from "@noyau/server/mcp/mcp-invocation-contex
 import { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import {
   codexProviderLayer,
+  makeCodexProvider,
   resolveCodexExecutable,
   type CodexAdapterOptions,
 } from "@noyau/server/provider/codex-app-server"
@@ -23,7 +25,11 @@ import {
   type ProviderSignal,
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
-import { TurnUserInputRegistry } from "@noyau/server/provider/turn-user-input-registry"
+import {
+  TurnUserInputRegistry,
+  turnUserInputRegistryLayer,
+} from "@noyau/server/provider/turn-user-input-registry"
+import { threadLiveLayer } from "@noyau/server/thread-live"
 import { Clock, Deferred, Effect, Fiber, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { TestClock } from "effect/testing"
 
@@ -112,13 +118,28 @@ const withProvider = <A, E, R>(
     userInputs: TurnUserInputRegistry["Service"],
   ) => Effect.Effect<A, E, R>,
   optionOverrides: Partial<CodexAdapterOptions> = {},
+  fileSystemOverride?: FileSystem.FileSystem,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
       const evidence = yield* makeOptions(scenario)
       const revokedSessions: Array<ThreadId> = []
+      const options = { ...evidence.options, ...optionOverrides }
+      const providerLayer =
+        fileSystemOverride === undefined
+          ? codexProviderLayer(options)
+          : Layer.effect(
+              ProviderPort,
+              makeCodexProvider(options).pipe(
+                Effect.provideService(FileSystem.FileSystem, fileSystemOverride),
+              ),
+            ).pipe(
+              Layer.provide(NodeServices.layer),
+              Layer.provideMerge(turnUserInputRegistryLayer),
+              Layer.provideMerge(threadLiveLayer),
+            )
       const services = yield* Layer.build(
-        codexProviderLayer({ ...evidence.options, ...optionOverrides }).pipe(
+        providerLayer.pipe(
           Layer.provide(
             testMcpSessionsLayer((revokedThreadId) => revokedSessions.push(revokedThreadId)),
           ),
@@ -150,6 +171,25 @@ const readLog = Effect.fn("CodexAdapterTest.readLog")(function* (filePath: strin
   const fileSystem = yield* FileSystem.FileSystem
   return yield* fileSystem.readFileString(filePath)
 })
+
+const makeSkillWorkspace = Effect.fn("CodexAdapterTest.makeSkillWorkspace")(function* () {
+  const fileSystem = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const workspace = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-codex-skills-" })
+  const metadataDirectory = path.join(workspace, ".agents", "skills", "test-skill", "agents")
+  yield* fileSystem.makeDirectory(metadataDirectory, { recursive: true })
+  yield* fileSystem.writeFileString(path.join(metadataDirectory, "openai.yaml"), "interface: {}\n")
+  return workspace
+})
+
+const expectedTestSkill = [
+  {
+    name: "test-skill",
+    displayName: "Test Skill",
+    description: "Use the test workflow",
+    scope: "repo" as const,
+  },
+]
 
 const LoggedRequest = Schema.Struct({
   id: Schema.optionalKey(Schema.Union([Schema.Finite, Schema.String])),
@@ -324,6 +364,242 @@ layer(platformLayer)("Codex app-server adapter", (it) => {
         )
       }),
     ),
+  )
+
+  it.effect("shares concurrent skill discovery and refreshes after completion", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const workspace = yield* makeSkillWorkspace()
+      const discoveryStarted = yield* Deferred.make<void>()
+      const releaseDiscovery = yield* Deferred.make<void>()
+      let gated = false
+      const gatedFileSystem = FileSystem.FileSystem.of({
+        ...fileSystem,
+        exists: (path) => {
+          if (!gated && path.includes("test-skill") && path.endsWith("openai.yaml")) {
+            gated = true
+            return Deferred.succeed(discoveryStarted, undefined).pipe(
+              Effect.andThen(Deferred.await(releaseDiscovery)),
+              Effect.andThen(fileSystem.exists(path)),
+            )
+          }
+          return fileSystem.exists(path)
+        },
+      })
+      yield* withProvider(
+        "success",
+        (provider, evidence) =>
+          Effect.gen(function* () {
+            const before = parseRequests(yield* readLog(evidence.requestLog))
+            const first = yield* provider
+              .listSkills(ProviderInstanceId.make("codex"), workspace)
+              .pipe(Effect.forkChild)
+            yield* Deferred.await(discoveryStarted)
+            const second = yield* provider
+              .listSkills(ProviderInstanceId.make("codex"), workspace)
+              .pipe(Effect.forkChild)
+            yield* Effect.yieldNow
+
+            yield* Deferred.succeed(releaseDiscovery, undefined)
+            assert.deepStrictEqual(yield* Fiber.join(first), expectedTestSkill)
+            assert.deepStrictEqual(yield* Fiber.join(second), expectedTestSkill)
+            const shared = parseRequests(yield* readLog(evidence.requestLog)).slice(before.length)
+            assert.strictEqual(shared.filter((request) => request.method === "_spawn").length, 1)
+            assert.strictEqual(
+              shared.filter((request) => request.method === "skills/list").length,
+              1,
+            )
+
+            assert.deepStrictEqual(
+              yield* provider.listSkills(ProviderInstanceId.make("codex"), workspace),
+              expectedTestSkill,
+            )
+            const refreshed = parseRequests(yield* readLog(evidence.requestLog)).slice(
+              before.length,
+            )
+            assert.strictEqual(refreshed.filter((request) => request.method === "_spawn").length, 2)
+            assert.strictEqual(
+              refreshed.filter((request) => request.method === "skills/list").length,
+              2,
+            )
+          }),
+        {},
+        gatedFileSystem,
+      )
+    }),
+  )
+
+  it.effect("discovers skills for different roots independently", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const firstRoot = yield* makeSkillWorkspace()
+      const secondRoot = yield* makeSkillWorkspace()
+      const twoStarted = yield* Deferred.make<void>()
+      const releaseDiscoveries = yield* Deferred.make<void>()
+      const roots = new Set<string>()
+      const gatedFileSystem = FileSystem.FileSystem.of({
+        ...fileSystem,
+        exists: (path) => {
+          const value = path
+          if (value.includes("test-skill") && value.endsWith("openai.yaml")) {
+            roots.add(value.startsWith(firstRoot) ? firstRoot : secondRoot)
+            return Effect.sync(() => roots.size).pipe(
+              Effect.tap((size) =>
+                size === 2 ? Deferred.succeed(twoStarted, undefined) : Effect.void,
+              ),
+              Effect.andThen(Deferred.await(releaseDiscoveries)),
+              Effect.andThen(fileSystem.exists(path)),
+            )
+          }
+          return fileSystem.exists(path)
+        },
+      })
+      yield* withProvider(
+        "success",
+        (provider, evidence) =>
+          Effect.gen(function* () {
+            const before = parseRequests(yield* readLog(evidence.requestLog))
+            const first = yield* provider
+              .listSkills(ProviderInstanceId.make("codex"), firstRoot)
+              .pipe(Effect.forkChild)
+            const second = yield* provider
+              .listSkills(ProviderInstanceId.make("codex"), secondRoot)
+              .pipe(Effect.forkChild)
+            yield* Deferred.await(twoStarted)
+            yield* Deferred.succeed(releaseDiscoveries, undefined)
+            yield* Fiber.join(first)
+            yield* Fiber.join(second)
+            const requests = parseRequests(yield* readLog(evidence.requestLog)).slice(before.length)
+            assert.strictEqual(requests.filter((request) => request.method === "_spawn").length, 2)
+            assert.strictEqual(
+              requests.filter((request) => request.method === "skills/list").length,
+              2,
+            )
+          }),
+        {},
+        gatedFileSystem,
+      )
+    }),
+  )
+
+  it.effect("keeps shared skill discovery alive when its first waiter is interrupted", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const workspace = yield* makeSkillWorkspace()
+      const discoveryStarted = yield* Deferred.make<void>()
+      const releaseDiscovery = yield* Deferred.make<void>()
+      let gated = false
+      const gatedFileSystem = FileSystem.FileSystem.of({
+        ...fileSystem,
+        exists: (path) => {
+          if (!gated && path.includes("test-skill") && path.endsWith("openai.yaml")) {
+            gated = true
+            return Deferred.succeed(discoveryStarted, undefined).pipe(
+              Effect.andThen(Deferred.await(releaseDiscovery)),
+              Effect.andThen(fileSystem.exists(path)),
+            )
+          }
+          return fileSystem.exists(path)
+        },
+      })
+      yield* withProvider(
+        "success",
+        (provider) =>
+          Effect.gen(function* () {
+            const first = yield* provider
+              .listSkills(ProviderInstanceId.make("codex"), workspace)
+              .pipe(Effect.forkChild)
+            yield* Deferred.await(discoveryStarted)
+            const second = yield* provider
+              .listSkills(ProviderInstanceId.make("codex"), workspace)
+              .pipe(Effect.forkChild)
+            yield* Effect.yieldNow
+            yield* Fiber.interrupt(first)
+            yield* Deferred.succeed(releaseDiscovery, undefined)
+            assert.deepStrictEqual(yield* Fiber.join(second), expectedTestSkill)
+          }),
+        {},
+        gatedFileSystem,
+      )
+    }),
+  )
+
+  it.effect("stops shared skill discovery with the provider", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const workspace = yield* makeSkillWorkspace()
+      const discoveryStarted = yield* Deferred.make<void>()
+      let gated = false
+      const gatedFileSystem = FileSystem.FileSystem.of({
+        ...fileSystem,
+        exists: (path) => {
+          if (!gated && path.includes("test-skill") && path.endsWith("openai.yaml")) {
+            gated = true
+            return Deferred.succeed(discoveryStarted, undefined).pipe(Effect.andThen(Effect.never))
+          }
+          return fileSystem.exists(path)
+        },
+      })
+      yield* withProvider(
+        "success",
+        (provider) =>
+          Effect.gen(function* () {
+            const listing = yield* provider
+              .listSkills(ProviderInstanceId.make("codex"), workspace)
+              .pipe(Effect.forkChild)
+            yield* Deferred.await(discoveryStarted)
+            yield* provider.stopAll
+            assert.strictEqual((yield* Fiber.await(listing))._tag, "Failure")
+            assert.deepStrictEqual(
+              yield* provider.listSkills(ProviderInstanceId.make("codex"), workspace),
+              expectedTestSkill,
+            )
+          }),
+        {},
+        gatedFileSystem,
+      )
+    }),
+  )
+
+  it.effect("retries skill discovery after a failed worker", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const workspace = yield* makeSkillWorkspace()
+      let failMetadataRead = true
+      const failingFileSystem = FileSystem.FileSystem.of({
+        ...fileSystem,
+        exists: (path) => {
+          if (failMetadataRead && path.includes("test-skill") && path.endsWith("openai.yaml")) {
+            failMetadataRead = false
+            return Effect.die("metadata read failed")
+          }
+          return fileSystem.exists(path)
+        },
+      })
+      yield* withProvider(
+        "success",
+        (provider, evidence) =>
+          Effect.gen(function* () {
+            const before = parseRequests(yield* readLog(evidence.requestLog))
+            const failed = yield* Effect.exit(
+              provider.listSkills(ProviderInstanceId.make("codex"), workspace),
+            )
+            assert.strictEqual(failed._tag, "Failure")
+            assert.deepStrictEqual(
+              yield* provider.listSkills(ProviderInstanceId.make("codex"), workspace),
+              expectedTestSkill,
+            )
+            const requests = parseRequests(yield* readLog(evidence.requestLog)).slice(before.length)
+            assert.strictEqual(requests.filter((request) => request.method === "_spawn").length, 2)
+            assert.strictEqual(
+              requests.filter((request) => request.method === "skills/list").length,
+              2,
+            )
+          }),
+        {},
+        failingFileSystem,
+      )
+    }),
   )
 
   it.effect("stops skill discovery when Codex does not respond", () =>
