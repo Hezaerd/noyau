@@ -145,6 +145,98 @@ export const openDependencyTitles = (state: BoardState, ticketId: string): Reado
     return prerequisite !== undefined && column?.done !== true ? [prerequisite.title] : []
   })
 
+interface DependencyAdjacency {
+  readonly dependenciesByTicketId: ReadonlyMap<string, ReadonlyArray<string>>
+  readonly dependentsByTicketId: ReadonlyMap<string, ReadonlyArray<string>>
+}
+
+const buildDependencyAdjacency = (
+  dependencies: ReadonlyArray<BoardTicketDependency>,
+): DependencyAdjacency => {
+  const dependenciesByTicketId = new Map<string, Array<string>>()
+  const dependentsByTicketId = new Map<string, Array<string>>()
+  for (const dependency of dependencies) {
+    const { ticketId, dependsOnTicketId } = dependency
+    const dependencyIdsForSource = dependenciesByTicketId.get(ticketId)
+    if (dependencyIdsForSource === undefined) {
+      dependenciesByTicketId.set(ticketId, [dependsOnTicketId])
+    } else {
+      dependencyIdsForSource.push(dependsOnTicketId)
+    }
+    const dependentIdsForPrerequisite = dependentsByTicketId.get(dependsOnTicketId)
+    if (dependentIdsForPrerequisite === undefined) {
+      dependentsByTicketId.set(dependsOnTicketId, [ticketId])
+    } else {
+      dependentIdsForPrerequisite.push(ticketId)
+    }
+  }
+  return { dependenciesByTicketId, dependentsByTicketId }
+}
+
+const reachableTicketIds = (
+  adjacency: ReadonlyMap<string, ReadonlyArray<string>>,
+  fromTicketId: string,
+): ReadonlySet<string> => {
+  const reachable = new Set<string>()
+  const pending = [fromTicketId]
+  while (pending.length > 0) {
+    const current = pending.pop()
+    if (current === undefined || reachable.has(current)) {
+      continue
+    }
+    reachable.add(current)
+    for (const nextTicketId of adjacency.get(current) ?? []) {
+      pending.push(nextTicketId)
+    }
+  }
+  return reachable
+}
+
+export interface TicketDependencyIssueLookups {
+  readonly dependencies: ReadonlyMap<string, TicketDependencyIssue | undefined>
+  readonly dependents: ReadonlyMap<string, TicketDependencyIssue | undefined>
+}
+
+export const ticketDependencyIssueLookups = (
+  state: Pick<BoardState, "ticketDependencies">,
+  ticketId: string,
+  candidateTicketIds: ReadonlyArray<string>,
+): TicketDependencyIssueLookups => {
+  const adjacency = buildDependencyAdjacency(state.ticketDependencies)
+  const dependenciesOfTicket = new Set(adjacency.dependenciesByTicketId.get(ticketId) ?? [])
+  const dependentsOfTicket = new Set(adjacency.dependentsByTicketId.get(ticketId) ?? [])
+  const prerequisitesReachingTicket = reachableTicketIds(adjacency.dependentsByTicketId, ticketId)
+  const ticketsReachedByPrerequisites = reachableTicketIds(
+    adjacency.dependenciesByTicketId,
+    ticketId,
+  )
+
+  const dependencies = new Map<string, TicketDependencyIssue | undefined>()
+  const dependents = new Map<string, TicketDependencyIssue | undefined>()
+  for (const candidateTicketId of candidateTicketIds) {
+    const dependencyIssue =
+      candidateTicketId === ticketId
+        ? "self"
+        : dependenciesOfTicket.has(candidateTicketId)
+          ? "duplicate"
+          : prerequisitesReachingTicket.has(candidateTicketId)
+            ? "cycle"
+            : undefined
+    const dependentIssue =
+      candidateTicketId === ticketId
+        ? "self"
+        : dependentsOfTicket.has(candidateTicketId)
+          ? "duplicate"
+          : ticketsReachedByPrerequisites.has(candidateTicketId)
+            ? "cycle"
+            : undefined
+    dependencies.set(candidateTicketId, dependencyIssue)
+    dependents.set(candidateTicketId, dependentIssue)
+  }
+
+  return { dependencies, dependents }
+}
+
 const dependencyPathReaches = (
   dependencies: ReadonlyArray<BoardTicketDependency>,
   fromTicketId: string,

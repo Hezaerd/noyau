@@ -43,6 +43,7 @@ import {
   isTicketPriority,
   priorities,
   ticketDependencyIssue,
+  ticketDependencyIssueLookups,
   type BoardColumn,
   type BoardTicket,
   type BoardTicketDependency,
@@ -141,6 +142,17 @@ export function TicketDialog({
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const dependencyState = useMemo(() => ({ ticketDependencies }), [ticketDependencies])
+  const dependencyIssueLookups = useMemo(
+    () =>
+      ticket === undefined
+        ? undefined
+        : ticketDependencyIssueLookups(
+            dependencyState,
+            ticket.id,
+            tickets.map((candidate) => candidate.id),
+          ),
+    [dependencyState, ticket, tickets],
+  )
 
   useEffect(() => {
     setTitle(ticket?.title ?? "")
@@ -215,7 +227,7 @@ export function TicketDialog({
       : tickets.map((candidate) => ({
           value: candidate.id,
           label: candidate.title,
-          issue: ticketDependencyIssue(dependencyState, ticket.id, candidate.id),
+          issue: dependencyIssueLookups?.dependencies.get(candidate.id),
         }))
   const dependentOptions =
     ticket === undefined
@@ -223,7 +235,7 @@ export function TicketDialog({
       : tickets.map((candidate) => ({
           value: candidate.id,
           label: candidate.title,
-          issue: ticketDependencyIssue(dependencyState, candidate.id, ticket.id),
+          issue: dependencyIssueLookups?.dependents.get(candidate.id),
         }))
   const activityContext = useMemo(
     () => ({
