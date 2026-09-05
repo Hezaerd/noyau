@@ -72,6 +72,8 @@ export function ThreadModelPicker({
   onProviderChange,
   onDefaultModelSelectionChange,
   onOpenChange,
+  showDefaultControl = true,
+  enableHotkey = true,
 }: {
   readonly modelsByProvider: Readonly<Record<string, ReadonlyArray<CursorModel>>>
   readonly availableProviders: ReadonlyArray<Provider>
@@ -84,6 +86,8 @@ export function ThreadModelPicker({
   readonly onProviderChange?: ((provider: Provider) => void) | undefined
   readonly onDefaultModelSelectionChange: (selection: DefaultModelSelection | null) => void
   readonly onOpenChange?: ((open: boolean) => void) | undefined
+  readonly showDefaultControl?: boolean | undefined
+  readonly enableHotkey?: boolean | undefined
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -138,7 +142,11 @@ export function ThreadModelPicker({
     if (!nextOpen) setQuery("")
   }
 
-  useKeybindingHandler("thread.model-picker.open", () => changeOpen(true), !disabled)
+  useKeybindingHandler(
+    "thread.model-picker.open",
+    () => changeOpen(true),
+    enableHotkey && !disabled,
+  )
 
   const allItems = useMemo(() => {
     const items = allowedProviders.flatMap((provider) =>
@@ -231,7 +239,7 @@ export function ThreadModelPicker({
             size="sm"
             variant="ghost"
             disabled={disabled}
-            aria-label={`Model (${modelPickerHotkey})`}
+            aria-label={enableHotkey ? `Model (${modelPickerHotkey})` : "Model"}
             className="max-w-52 justify-start"
           />
         }
@@ -358,19 +366,21 @@ export function ThreadModelPicker({
                         {selected ? (
                           <CheckIcon className="size-4" aria-label="Selected model" />
                         ) : null}
-                        <Button
-                          type="button"
-                          size="icon-xs"
-                          variant="ghost"
-                          aria-label={isDefault ? "Remove the default model" : "Set as default"}
-                          title={isDefault ? "Default model" : "Set as default"}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            toggleDefault(item)
-                          }}
-                        >
-                          <PinIcon className={cn("size-3.5", isDefault && "fill-current")} />
-                        </Button>
+                        {showDefaultControl ? (
+                          <Button
+                            type="button"
+                            size="icon-xs"
+                            variant="ghost"
+                            aria-label={isDefault ? "Remove the default model" : "Set as default"}
+                            title={isDefault ? "Default model" : "Set as default"}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              toggleDefault(item)
+                            }}
+                          >
+                            <PinIcon className={cn("size-3.5", isDefault && "fill-current")} />
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           size="icon-xs"

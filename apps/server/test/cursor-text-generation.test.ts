@@ -1,3 +1,4 @@
+import { readFile, rm } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 
 import { assert, describe, it } from "@effect/vitest"
@@ -32,9 +33,7 @@ describe("thread title prompts", () => {
   })
 
   it("asks for a short JSON branch name", () => {
-    const prompt = buildBranchNamePrompt({
-      message: "Add a safer reconnect backoff.",
-    })
+    const prompt = buildBranchNamePrompt({ message: "Add a safer reconnect backoff." })
     assert.include(prompt, "Return a JSON object with key: branch.")
     assert.include(prompt, "Add a safer reconnect backoff.")
   })
@@ -55,10 +54,7 @@ describe("Cursor text generation", () => {
           cursorTextGenerationLayer({
             binaryPath: process.execPath,
             binaryArgs: [fakeAgent],
-            environment: {
-              PATH: "",
-              NOYAU_FAKE_ACP_SCENARIO: "thread-title",
-            },
+            environment: { PATH: "", NOYAU_FAKE_ACP_SCENARIO: "thread-title" },
             clientVersion: "test",
           }),
         )
@@ -79,10 +75,7 @@ describe("Cursor text generation", () => {
           cursorTextGenerationLayer({
             binaryPath: process.execPath,
             binaryArgs: [fakeAgent],
-            environment: {
-              PATH: "",
-              NOYAU_FAKE_ACP_SCENARIO: "branch-name",
-            },
+            environment: { PATH: "", NOYAU_FAKE_ACP_SCENARIO: "branch-name" },
             clientVersion: "test",
           }),
         )
@@ -92,6 +85,124 @@ describe("Cursor text generation", () => {
           message: "Add a safer reconnect backoff.",
         })
         assert.strictEqual(generated.branch, "safer-reconnect-backoff")
+      }),
+    ),
+  )
+
+  it.effect("applies the configured model, effort, and service tier before prompting", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const requestLog = `${process.cwd()}/.noyau-text-generation-requests-${crypto.randomUUID()}.jsonl`
+        yield* Effect.addFinalizer(() => Effect.promise(() => rm(requestLog, { force: true })))
+        const services = yield* Layer.build(
+          cursorTextGenerationLayer({
+            binaryPath: process.execPath,
+            binaryArgs: [fakeAgent],
+            environment: {
+              PATH: "",
+              NOYAU_FAKE_ACP_SCENARIO: "thread-title",
+              NOYAU_FAKE_ACP_REQUEST_LOG: requestLog,
+            },
+            clientVersion: "test",
+            resolveModelSelection: () =>
+              Effect.succeed({
+                modelId: "composer-2.5-fast",
+                reasoningEffort: "high",
+                serviceTier: "fast",
+              }),
+          }),
+        )
+        const textGeneration = yield* TextGeneration.pipe(Effect.provide(services))
+        yield* textGeneration.generateThreadTitle({ cwd: process.cwd(), message: "Fix it" })
+        const requests = (yield* Effect.promise(() => readFile(requestLog, "utf8")))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+        const configured = requests.filter(
+          (request) =>
+            request.method === "session/set_config_option" &&
+            ["model", "effort", "service_tier"].includes(request.params.configId),
+        )
+        assert.deepStrictEqual(
+          configured.map((request) => [request.params.configId, request.params.value]),
+          [
+            ["model", "composer-2.5-fast"],
+            ["effort", "high"],
+            ["service_tier", "fast"],
+          ],
+        )
+        assert.isBelow(
+          requests.findIndex((request) => request.method === "session/set_config_option"),
+          requests.findIndex((request) => request.method === "session/prompt"),
+        )
+      }),
+    ),
+  )
+
+  it.effect("selects a model through the ACP model API when no model option exists", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const requestLog = `${process.cwd()}/.noyau-text-generation-model-api-${crypto.randomUUID()}.jsonl`
+        yield* Effect.addFinalizer(() => Effect.promise(() => rm(requestLog, { force: true })))
+        const services = yield* Layer.build(
+          cursorTextGenerationLayer({
+            binaryPath: process.execPath,
+            binaryArgs: [fakeAgent],
+            environment: {
+              PATH: "",
+              NOYAU_FAKE_ACP_SCENARIO: "thread-title-model-api",
+              NOYAU_FAKE_ACP_REQUEST_LOG: requestLog,
+            },
+            clientVersion: "test",
+            resolveModelSelection: () => Effect.succeed({ modelId: "composer-2.5-fast" }),
+          }),
+        )
+        const textGeneration = yield* TextGeneration.pipe(Effect.provide(services))
+        yield* textGeneration.generateThreadTitle({ cwd: process.cwd(), message: "Fix it" })
+        const requests = (yield* Effect.promise(() => readFile(requestLog, "utf8")))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+        assert.strictEqual(
+          requests.find((request) => request.method === "session/set_model")?.params.modelId,
+          "composer-2.5-fast",
+        )
+      }),
+    ),
+  )
+
+  it.effect("maps fast service tiers onto select-backed ACP options", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const requestLog = `${process.cwd()}/.noyau-text-generation-select-fast-${crypto.randomUUID()}.jsonl`
+        yield* Effect.addFinalizer(() => Effect.promise(() => rm(requestLog, { force: true })))
+        const services = yield* Layer.build(
+          cursorTextGenerationLayer({
+            binaryPath: process.execPath,
+            binaryArgs: [fakeAgent],
+            environment: {
+              PATH: "",
+              NOYAU_FAKE_ACP_SCENARIO: "thread-title-select-fast",
+              NOYAU_FAKE_ACP_REQUEST_LOG: requestLog,
+            },
+            clientVersion: "test",
+            resolveModelSelection: () =>
+              Effect.succeed({ modelId: "composer-2.5", serviceTier: "fast" }),
+          }),
+        )
+        const textGeneration = yield* TextGeneration.pipe(Effect.provide(services))
+        yield* textGeneration.generateThreadTitle({ cwd: process.cwd(), message: "Fix it" })
+        const requests = (yield* Effect.promise(() => readFile(requestLog, "utf8")))
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+        assert.strictEqual(
+          requests.find(
+            (request) =>
+              request.method === "session/set_config_option" && request.params.configId === "fast",
+          )?.params.value,
+          "true",
+        )
       }),
     ),
   )

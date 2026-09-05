@@ -7,6 +7,7 @@ import {
   SettingsSection,
   SettingsTarget,
 } from "@/components/settings/settings-layout"
+import { TextGenerationModelSettings } from "@/components/settings/TextGenerationModelSettings"
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -189,6 +190,9 @@ export function ProvidersSettingsPanel(): ReactElement {
 
   return (
     <SettingsPage>
+      <SettingsSection id="text-generation" title="Text generation">
+        <TextGenerationModelSettings />
+      </SettingsSection>
       <SettingsSection id="providers" title="Providers">
         {rows.map((view) => (
           <ProviderInstanceRow key={view.instanceId} view={view} />

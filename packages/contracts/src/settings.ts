@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect"
 
+import { ModelSelection } from "./entities/model-selection.ts"
 import {
   defaultEnabledForDriver,
   isBuiltinProviderDriver,
@@ -32,6 +33,9 @@ export const defaultProviderInstanceConfigs = (): ProviderInstanceConfigMap => (
 
 export const ServerSettings = Schema.Struct({
   providerInstances: ProviderInstanceConfigMap.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+  textGenerationModel: Schema.NullOr(ModelSelection).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
 })
 export type ServerSettings = (typeof ServerSettings)["Type"]
 
@@ -49,6 +53,7 @@ export const ServerSettingsPatch = Schema.Struct({
   providerInstances: Schema.optionalKey(
     Schema.Record(ProviderInstanceId, ProviderInstanceConfigPatch),
   ),
+  textGenerationModel: Schema.optionalKey(Schema.NullOr(ModelSelection)),
 })
 export type ServerSettingsPatch = (typeof ServerSettingsPatch)["Type"]
 
@@ -69,7 +74,7 @@ export class ServerSettingsError extends Schema.TaggedError<ServerSettingsError>
  * unknown extra instances are kept so a later driver can pick them up.
  */
 export const hydrateProviderInstanceConfigs = (
-  settings: ServerSettings,
+  settings: Pick<ServerSettings, "providerInstances">,
 ): ProviderInstanceConfigMap => ({
   ...defaultProviderInstanceConfigs(),
   ...settings.providerInstances,
@@ -96,8 +101,12 @@ export const mergeServerSettings = (
   current: ServerSettings,
   patch: ServerSettingsPatch,
 ): ServerSettings => {
+  const textGenerationModel =
+    patch.textGenerationModel === undefined
+      ? current.textGenerationModel
+      : patch.textGenerationModel
   if (patch.providerInstances === undefined) {
-    return current
+    return { ...current, textGenerationModel }
   }
   const next = new Map(
     Object.entries({
@@ -129,7 +138,7 @@ export const mergeServerSettings = (
     const merged = config === undefined ? withEnabled : { ...withEnabled, config }
     next.set(instanceId, merged)
   }
-  return { providerInstances: Object.fromEntries(next) }
+  return { providerInstances: Object.fromEntries(next), textGenerationModel }
 }
 
 export const resolveHydratedInstanceEnabled = (

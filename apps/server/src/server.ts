@@ -22,6 +22,7 @@ import { loggerLayer } from "./observability.ts"
 import * as Sqlite from "./persistence/sqlite.ts"
 import { PreviewSessions, previewSessionsLayer } from "./preview/preview-sessions.ts"
 import { providerRuntimeLayer } from "./provider/provider-runtime.ts"
+import { readServerSettings } from "./provider/provider-settings.ts"
 import { rpcHandlersLayer } from "./rpc-handlers.ts"
 import { cursorTextGenerationLayer } from "./text-generation/cursor-text-generation.ts"
 import { workspaceRootAccessLayer } from "./workspace-root.ts"
@@ -183,7 +184,21 @@ export const infrastructureLayer = controlPlaneLayer.pipe(
   Layer.provideMerge(gitPlaneLayer),
   Layer.provideMerge(editorOpenLayer),
   Layer.provideMerge(previewSessionsLayer),
-  Layer.provideMerge(cursorTextGenerationLayer()),
+  Layer.provideMerge(
+    Layer.unwrap(
+      Effect.gen(function* () {
+        const config = yield* ServerConfig
+        return cursorTextGenerationLayer({
+          resolveModelSelection: () =>
+            readServerSettings().pipe(
+              Effect.provideService(ServerConfig, config),
+              Effect.map((settings) => settings.textGenerationModel),
+              Effect.orElseSucceed(() => null),
+            ),
+        })
+      }),
+    ),
+  ),
   Layer.provideMerge(workspaceRootAccessLayer),
   Layer.provide(discordPresenceLayer),
   Layer.provideMerge(

@@ -65,6 +65,32 @@ layer(platformLayer)((it) => {
     }),
   )
 
+  it.effect("persists and clears the text generation model", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const directory = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "noyau-settings-text-model-",
+      })
+      const config = testServerConfig({ dataDirectory: directory })
+      const selected = yield* patchServerSettings({
+        textGenerationModel: {
+          modelId: "composer-2.5-fast",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+        },
+      }).pipe(Effect.provideService(ServerConfig, config))
+      assert.deepStrictEqual(selected.textGenerationModel, {
+        modelId: "composer-2.5-fast",
+        reasoningEffort: "high",
+        serviceTier: "fast",
+      })
+      const cleared = yield* patchServerSettings({ textGenerationModel: null }).pipe(
+        Effect.provideService(ServerConfig, config),
+      )
+      assert.strictEqual(cleared.textGenerationModel, null)
+    }),
+  )
+
   it.effect("copie settings.json hors de dataDirectory vers configDirectory", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem

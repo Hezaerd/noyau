@@ -1,12 +1,18 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as AcpClient from "@noyau/acp/client"
 import type * as AcpSchema from "@noyau/acp/schema"
+import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { sanitizeThreadTitle } from "@noyau/contracts/thread/title"
 import {
+  booleanSelectValue,
   type CursorAdapterOptions,
+  fastOption,
+  reasoningOption,
   resolveCursorExecutable,
+  selectOptions,
+  serviceTierOption,
 } from "@noyau/server/provider/cursor-acp"
-import { Effect, Layer, Option, Ref, Schema } from "effect"
+import { Effect, FileSystem, Layer, Option, Path, Ref, Schema } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
 import {
@@ -72,10 +78,20 @@ const autoApproval = (options: ReadonlyArray<AcpSchema.PermissionOption>) => {
     : { outcome: { outcome: "selected" as const, optionId: selected.optionId } }
 }
 
+export interface CursorTextGenerationOptions extends CursorAdapterOptions {
+  readonly resolveModelSelection?: () => Effect.Effect<
+    ModelSelection | null,
+    never,
+    FileSystem.FileSystem | Path.Path
+  >
+}
+
 const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function* (
-  options: CursorAdapterOptions = {},
+  options: CursorTextGenerationOptions = {},
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+  const fileSystem = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
   const environment = options.environment ?? process.env
   const platform = options.platform ?? process.platform
   const configuredPath = options.binaryPath ?? environment.NOYAU_CURSOR_PATH
@@ -146,6 +162,87 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
         mcpServers: [],
       })
       .pipe(Effect.mapError(() => fail("Cursor ACP session/new failed")))
+    const selection = yield* (
+      options
+        .resolveModelSelection?.()
+        .pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+        ) ?? Effect.succeed(null)
+    )
+    if (selection !== null) {
+      let configOptions = created.configOptions ?? []
+      const modelOption = configOptions.find((option) => option.category === "model")
+      const advertisedModel = selectOptions(modelOption).find(
+        (option) => option.value === selection.modelId,
+      )
+      if (modelOption?.type === "select" && advertisedModel !== undefined) {
+        configOptions = (yield* acp.agent.setSessionConfigOption({
+          sessionId: created.sessionId,
+          configId: modelOption.id,
+          value: advertisedModel.value,
+        })).configOptions
+      } else if (
+        created.models?.availableModels.some((model) => model.modelId === selection.modelId) ===
+        true
+      ) {
+        yield* acp.agent.setSessionModel({
+          sessionId: created.sessionId,
+          modelId: selection.modelId,
+        })
+      } else {
+        return yield* fail(`Cursor model is unavailable: ${selection.modelId}`)
+      }
+      if (selection.reasoningEffort !== undefined) {
+        const option = reasoningOption(configOptions)
+        const advertised = selectOptions(option).find(
+          (entry) => entry.value === selection.reasoningEffort,
+        )
+        if (option?.type !== "select" || advertised === undefined) {
+          return yield* fail(`Cursor reasoning effort is unavailable: ${selection.reasoningEffort}`)
+        }
+        configOptions = (yield* acp.agent.setSessionConfigOption({
+          sessionId: created.sessionId,
+          configId: option.id,
+          value: advertised.value,
+        })).configOptions
+      }
+      if (selection.serviceTier !== undefined) {
+        const tier = serviceTierOption(configOptions)
+        const advertised = selectOptions(tier).find(
+          (entry) => entry.value === selection.serviceTier,
+        )
+        const fast = fastOption(configOptions)
+        const response =
+          tier?.type === "select" && advertised !== undefined
+            ? yield* acp.agent.setSessionConfigOption({
+                sessionId: created.sessionId,
+                configId: tier.id,
+                value: advertised.value,
+              })
+            : fast?.type === "boolean" &&
+                ["standard", "normal", "fast"].includes(selection.serviceTier)
+              ? yield* acp.agent.setSessionConfigOption({
+                  sessionId: created.sessionId,
+                  configId: fast.id,
+                  type: "boolean",
+                  value: selection.serviceTier === "fast",
+                })
+              : fast?.type === "select" &&
+                  ["standard", "normal", "fast"].includes(selection.serviceTier)
+                ? yield* acp.agent.setSessionConfigOption({
+                    sessionId: created.sessionId,
+                    configId: fast.id,
+                    value:
+                      booleanSelectValue(fast, selection.serviceTier === "fast") ??
+                      selection.serviceTier,
+                  })
+                : undefined
+        if (response === undefined) {
+          return yield* fail(`Cursor service tier is unavailable: ${selection.serviceTier}`)
+        }
+      }
+    }
     const askMode = findAskMode(created.modes ?? undefined)
     if (askMode !== undefined && askMode !== created.modes?.currentModeId) {
       yield* acp.agent
@@ -278,7 +375,7 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
   })
 })
 
-export const cursorTextGenerationLayer = (options: CursorAdapterOptions = {}) =>
+export const cursorTextGenerationLayer = (options: CursorTextGenerationOptions = {}) =>
   Layer.effect(TextGeneration, makeCursorTextGeneration(options)).pipe(
     Layer.provide(NodeServices.layer),
   )
