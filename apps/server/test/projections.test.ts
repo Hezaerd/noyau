@@ -33,6 +33,7 @@ import {
   ThreadTurnEnded,
   ThreadTurnStarted,
   ThreadUnsettled,
+  ApprovalResponded,
   UserInputConsumed,
   UserInputDetached,
   UserInputResponded,
@@ -276,6 +277,154 @@ layer(platformLayer)("SQL projections", (it) => {
             status: "consumed",
             answers,
           })
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    ),
+  )
+
+  it.effect("indexes pending prompts for both shell projections", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          const turnId = TurnId.make("30000000-0000-4000-8000-000000000009")
+          const permissionRequestId = ApprovalRequestId.make("permission-index")
+          const userInputRequestId = ApprovalRequestId.make("user-input-index")
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Pending prompts",
+                provider: ProviderInstanceId.make("codex"),
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId,
+                text: "Answer the prompts",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.permission",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  requestId: permissionRequestId,
+                  status: "pending",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.user-input",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  requestId: userInputRequestId,
+                  prompt: "Choose a runtime",
+                  status: "pending",
+                },
+              }),
+            ),
+          )
+
+          const permissionPlan = yield* sql<{ detail: string }>`
+            EXPLAIN QUERY PLAN
+            SELECT EXISTS (
+              SELECT 1
+              FROM projection_transcript AS pending
+              WHERE pending.thread_id = ${ids.recoveryThread}
+                AND pending.kind = 'transcript.permission'
+                AND json_extract(pending.item, '$.status') = 'pending'
+            )
+          `
+          const userInputPlan = yield* sql<{ detail: string }>`
+            EXPLAIN QUERY PLAN
+            SELECT EXISTS (
+              SELECT 1
+              FROM projection_transcript AS pending
+              WHERE pending.thread_id = ${ids.recoveryThread}
+                AND pending.kind = 'transcript.user-input'
+                AND json_extract(pending.item, '$.status') = 'pending'
+            )
+          `
+          assert.isTrue(
+            permissionPlan.some(({ detail }) =>
+              detail.includes("projection_transcript_pending_permission_idx"),
+            ),
+          )
+          assert.isTrue(
+            userInputPlan.some(({ detail }) =>
+              detail.includes("projection_transcript_pending_user_input_idx"),
+            ),
+          )
+
+          const pendingById = expectSome(
+            yield* readThreadShellById(ids.recoveryThread),
+            "Thread shell should exist",
+          )
+          const pendingShell = yield* readShellSnapshot(environment)
+          const pendingFromCatalogue = pendingShell.threads.find(
+            (thread) => thread.id === ids.recoveryThread,
+          )
+          assert.isTrue(pendingById.hasPendingApprovals)
+          assert.isTrue(pendingById.hasPendingUserInput)
+          assert.deepStrictEqual(pendingFromCatalogue, pendingById)
+
+          yield* projectDomainEvent(
+            persisted(
+              5,
+              ApprovalResponded.make({
+                threadId: ids.recoveryThread,
+                requestId: permissionRequestId,
+                decision: "accept",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              6,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.user-input",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  requestId: userInputRequestId,
+                  prompt: "Choose a runtime",
+                  status: "resolved",
+                  answers: { answer: { optionIds: [], freeform: "Bun" } },
+                },
+              }),
+            ),
+          )
+
+          const resolvedById = expectSome(
+            yield* readThreadShellById(ids.recoveryThread),
+            "Resolved Thread shell should exist",
+          )
+          const resolvedShell = yield* readShellSnapshot(environment)
+          const resolvedFromCatalogue = resolvedShell.threads.find(
+            (thread) => thread.id === ids.recoveryThread,
+          )
+          assert.isFalse(resolvedById.hasPendingApprovals)
+          assert.isFalse(resolvedById.hasPendingUserInput)
+          assert.deepStrictEqual(resolvedFromCatalogue, resolvedById)
         }).pipe(Effect.provideService(SqlClient, sql))
       }),
     ),
