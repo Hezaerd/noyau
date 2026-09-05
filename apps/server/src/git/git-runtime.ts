@@ -950,21 +950,20 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     number: number,
     commitOid?: string,
   ) {
-    const viewed = yield* runGh("gh.pr.view", cwd, [
-      "pr",
-      "view",
-      String(number),
-      "--json",
-      PR_VIEW_JSON_FIELDS,
-    ])
-    const diff = yield* commitOid === undefined
-      ? runGh("gh.pr.diff", cwd, ["pr", "diff", String(number)])
-      : runGh("gh.api.commit.diff", cwd, [
-          "api",
-          "-H",
-          "Accept: application/vnd.github.diff",
-          `repos/{owner}/{repo}/commits/${commitOid}`,
-        ])
+    const [viewed, diff] = yield* Effect.all(
+      [
+        runGh("gh.pr.view", cwd, ["pr", "view", String(number), "--json", PR_VIEW_JSON_FIELDS]),
+        commitOid === undefined
+          ? runGh("gh.pr.diff", cwd, ["pr", "diff", String(number)])
+          : runGh("gh.api.commit.diff", cwd, [
+              "api",
+              "-H",
+              "Accept: application/vnd.github.diff",
+              `repos/{owner}/{repo}/commits/${commitOid}`,
+            ]),
+      ],
+      { concurrency: 2 },
+    )
     return yield* decodeViewedPullRequest(viewed.stdout, diff.stdout).pipe(
       Effect.mapError(
         () =>
@@ -1077,6 +1076,10 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
   })
 })
 
-export const gitRuntimeLayer = Layer.effect(GitRuntime, makeGitRuntime()).pipe(
-  Layer.provide(NodeServices.layer),
-)
+const gitRuntimeLayerCore = Layer.effect(GitRuntime, makeGitRuntime())
+
+/** Build GitRuntime with a caller supplied set of Node services. */
+export const makeGitRuntimeLayer = (services: Layer.Layer<NodeServices.NodeServices>) =>
+  gitRuntimeLayerCore.pipe(Layer.provide(services))
+
+export const gitRuntimeLayer = makeGitRuntimeLayer(NodeServices.layer)
