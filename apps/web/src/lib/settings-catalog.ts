@@ -51,6 +51,13 @@ export const SETTINGS_TABS: ReadonlyArray<SettingsTab> = [
 
 export const SETTINGS_ITEMS: ReadonlyArray<SettingsItem> = [
   {
+    id: "text-generation-model",
+    tab: "providers",
+    title: "Text generation model",
+    description: "Model used for Thread titles, worktree names, and Git drafts.",
+    keywords: ["text", "title", "worktree", "branch", "git", "model", "effort", "service tier"],
+  },
+  {
     id: "project-folder-start-directory",
     tab: "general",
     title: "Add a Project starts in",

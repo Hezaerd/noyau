@@ -264,7 +264,7 @@ const requestedMode = (runtimeMode: RuntimeMode, modes: AcpSchema.SessionModeSta
   )?.id
 }
 
-const selectOptions = (
+export const selectOptions = (
   option: AcpSchema.SessionConfigOption | undefined,
 ): ReadonlyArray<AcpSchema.SessionConfigSelectOption> => {
   if (option?.type !== "select") {
@@ -321,7 +321,7 @@ const isReasoningOption = (option: AcpSchema.SessionConfigOption) => {
   )
 }
 
-const reasoningOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
+export const reasoningOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
   options.find(
     (option) =>
       isReasoningOption(option) && normalizedConfigToken(option.category) === "model_option",
@@ -340,7 +340,7 @@ const isServiceTierOption = (option: AcpSchema.SessionConfigOption) => {
   )
 }
 
-const serviceTierOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
+export const serviceTierOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
   options.find(isServiceTierOption)
 
 const isFastOption = (option: AcpSchema.SessionConfigOption) => {
@@ -353,7 +353,7 @@ const isFastOption = (option: AcpSchema.SessionConfigOption) => {
   )
 }
 
-const fastOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
+export const fastOption = (options: ReadonlyArray<AcpSchema.SessionConfigOption>) =>
   options.find(isFastOption)
 
 const isThinkingOption = (option: AcpSchema.SessionConfigOption) => {

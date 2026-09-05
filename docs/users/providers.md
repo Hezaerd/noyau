@@ -24,6 +24,16 @@ A Thread that already uses a disabled provider still opens. Choose another avail
 
 Expand a row to set a binary path. Leave it empty to use the one on PATH. The change applies after you leave the field.
 
+## Choose the text generation model
+
+Noyau uses Cursor to generate Thread titles, worktree names, and Git drafts.
+
+1. Open Settings â†’ Providers.
+2. Under Text generation, open the model picker and choose a model.
+3. Choose a reasoning effort or service tier when the model offers them.
+
+The selection applies to the next generated text. Use the reset button beside the picker to return to Cursor's defaults.
+
 ## Reverse or recover
 
 To return a Thread to its previous provider, select that provider and model in the composer, then send the next message. This creates another handoff and keeps the same Thread history.
