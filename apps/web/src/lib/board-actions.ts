@@ -49,21 +49,86 @@ export interface BoardActions {
   readonly archiveTicket: (ticketId: string) => void
 }
 
-const targetsMatch = (
-  actionTarget: BoardActionTarget | undefined,
-  requestedTarget: BoardActionTarget,
-): boolean => {
-  if (actionTarget === undefined || actionTarget.kind !== requestedTarget.kind) {
-    return false
+type GroupKey = `${BoardActionSurface}:${string}`
+
+type MutableActionGroup = {
+  readonly id: string
+  label: string
+  readonly actions: Array<ExecutableBoardAction>
+}
+
+type ActionGroupIndex = ReadonlyMap<GroupKey, ReadonlyArray<BoardActionGroup>>
+
+const EMPTY_ACTION_GROUPS: ReadonlyArray<BoardActionGroup> = []
+/** Action lists are immutable for their lifetime and recreated by createBoardActions per render. */
+const actionGroupIndexes = new WeakMap<ReadonlyArray<ExecutableBoardAction>, ActionGroupIndex>()
+
+const targetKey = (target: BoardActionTarget): string =>
+  target.kind === "board" ? target.kind : `${target.kind}:${target.id}`
+
+const groupKey = (surface: BoardActionSurface, target: string): GroupKey => `${surface}:${target}`
+
+const appendToGroup = (
+  groups: Map<string, MutableActionGroup>,
+  action: ExecutableBoardAction,
+): void => {
+  const current = groups.get(action.groupId)
+  if (current === undefined) {
+    groups.set(action.groupId, {
+      id: action.groupId,
+      label: action.groupLabel,
+      actions: [action],
+    })
+    return
   }
-  switch (requestedTarget.kind) {
-    case "board":
-      return true
-    case "column":
-      return actionTarget.kind === "column" && actionTarget.id === requestedTarget.id
-    case "ticket":
-      return actionTarget.kind === "ticket" && actionTarget.id === requestedTarget.id
+  current.label = action.groupLabel
+  current.actions.push(action)
+}
+
+const indexBoardActions = (actions: ReadonlyArray<ExecutableBoardAction>): ActionGroupIndex => {
+  const grouped = new Map<GroupKey, Map<string, MutableActionGroup>>()
+
+  for (const action of actions) {
+    const surfaces = new Set(action.surfaces)
+    for (const surface of surfaces) {
+      if (surface === "context-menu") {
+        if (action.target === undefined) {
+          continue
+        }
+        const targetGroupsKey = groupKey(surface, targetKey(action.target))
+        const targetGroups = grouped.get(targetGroupsKey) ?? new Map<string, MutableActionGroup>()
+        grouped.set(targetGroupsKey, targetGroups)
+        appendToGroup(targetGroups, action)
+        continue
+      }
+
+      const surfaceGroups =
+        grouped.get(groupKey(surface, "*")) ?? new Map<string, MutableActionGroup>()
+      grouped.set(groupKey(surface, "*"), surfaceGroups)
+      appendToGroup(surfaceGroups, action)
+    }
   }
+
+  return new Map(
+    [...grouped].map(([key, groups]) => [
+      key,
+      [...groups.values()].map((group) => ({
+        id: group.id,
+        label: group.label,
+        actions: group.actions,
+      })),
+    ]),
+  )
+}
+
+const actionGroupIndexFor = (actions: ReadonlyArray<ExecutableBoardAction>): ActionGroupIndex => {
+  const cached = actionGroupIndexes.get(actions)
+  if (cached !== undefined) {
+    return cached
+  }
+  const index = indexBoardActions(actions)
+  actionGroupIndexes.set(actions, index)
+  return index
 }
 
 export const createBoardActions = (
@@ -167,25 +232,12 @@ export const groupBoardActions = (
   surface: BoardActionSurface,
   target?: BoardActionTarget,
 ): ReadonlyArray<BoardActionGroup> => {
-  const groups = new Map<string, BoardActionGroup>()
-
-  for (const action of actions) {
-    if (!action.surfaces.includes(surface)) {
-      continue
-    }
-    if (
-      surface === "context-menu" &&
-      (target === undefined || !targetsMatch(action.target, target))
-    ) {
-      continue
-    }
-    const group = groups.get(action.groupId)
-    groups.set(action.groupId, {
-      id: action.groupId,
-      label: action.groupLabel,
-      actions: [...(group?.actions ?? []), action],
-    })
+  if (surface === "context-menu" && target === undefined) {
+    return EMPTY_ACTION_GROUPS
   }
-
-  return [...groups.values()]
+  const key = groupKey(
+    surface,
+    surface === "context-menu" && target !== undefined ? targetKey(target) : "*",
+  )
+  return actionGroupIndexFor(actions).get(key) ?? EMPTY_ACTION_GROUPS
 }
