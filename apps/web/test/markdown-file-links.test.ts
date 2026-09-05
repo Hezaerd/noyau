@@ -313,6 +313,75 @@ describe("collectThreadMarkdownFileLinks", () => {
   })
 })
 
+const buildBeforeOptimization = (filePaths: readonly string[]) => {
+  const groups = new Map<string, Set<string>>()
+  for (const filePath of filePaths) {
+    const pathSegments = filePath
+      .replaceAll("\\", "/")
+      .split("/")
+      .filter((segment) => segment.length > 0)
+    const basename = pathSegments[pathSegments.length - 1]
+    if (basename === undefined) {
+      continue
+    }
+    const group = groups.get(basename) ?? new Set<string>()
+    group.add(filePath)
+    groups.set(basename, group)
+  }
+
+  const suffixByPath = new Map<string, string>()
+  for (const group of groups.values()) {
+    const uniquePaths = [...group]
+    if (uniquePaths.length < 2) {
+      continue
+    }
+
+    const parentSegmentsByPath = new Map(
+      uniquePaths.map((filePath) => [
+        filePath,
+        filePath
+          .replaceAll("\\", "/")
+          .split("/")
+          .filter((segment) => segment.length > 0)
+          .slice(0, -1),
+      ]),
+    )
+    const minUniqueDepthByPath = new Map<string, number>()
+
+    for (const filePath of uniquePaths) {
+      const segments = parentSegmentsByPath.get(filePath) ?? []
+      let resolvedDepth = segments.length
+      for (let depth = 1; depth <= segments.length; depth += 1) {
+        const candidate = segments.slice(-depth).join("/")
+        const collision = uniquePaths.some((otherPath) => {
+          if (otherPath === filePath) {
+            return false
+          }
+          const otherSegments = parentSegmentsByPath.get(otherPath) ?? []
+          return otherSegments.slice(-depth).join("/") === candidate
+        })
+        if (!collision) {
+          resolvedDepth = depth
+          break
+        }
+      }
+      minUniqueDepthByPath.set(filePath, resolvedDepth)
+    }
+
+    for (const filePath of uniquePaths) {
+      const segments = parentSegmentsByPath.get(filePath) ?? []
+      if (segments.length === 0) {
+        continue
+      }
+      const minUniqueDepth = minUniqueDepthByPath.get(filePath) ?? 1
+      const suffixDepth = Math.min(segments.length, Math.max(minUniqueDepth, 2))
+      suffixByPath.set(filePath, segments.slice(-suffixDepth).join("/"))
+    }
+  }
+
+  return suffixByPath
+}
+
 describe("buildFileLinkParentSuffixByPath", () => {
   it("adds the shortest unique parent suffix when basenames collide", () => {
     const suffixes = buildFileLinkParentSuffixByPath(["src/foo.ts", "lib/foo.ts"])
@@ -322,5 +391,66 @@ describe("buildFileLinkParentSuffixByPath", () => {
 
   it("leaves unique basenames unsuffixed", () => {
     expect(buildFileLinkParentSuffixByPath(["src/foo.ts", "lib/bar.ts"]).size).toBe(0)
+  })
+
+  it("preserves the previous labels across varied path shapes", () => {
+    const pathSets = [
+      [
+        "src/components/Button.tsx",
+        "src/hooks/Button.tsx",
+        "packages/ui/src/components/Button.tsx",
+        "packages/ui/src/hooks/Button.tsx",
+        "src/components\\Button.tsx",
+        "README.md",
+      ],
+      [
+        "/workspace/app/src/index.ts",
+        "/workspace/app/test/index.ts",
+        "C:\\repo\\src\\index.ts",
+        "C:/repo/lib/index.ts",
+        "C:/repo/src\\index.ts",
+      ],
+      ["foo.ts", "foo.ts", "./foo.ts", "dir/foo.ts", "dir\\foo.ts"],
+      [
+        "a/b/c/config.json",
+        "x/b/c/config.json",
+        "a/y/c/config.json",
+        "z/y/c/config.json",
+        "config.json",
+      ],
+    ]
+
+    for (const filePaths of pathSets) {
+      expect([...buildFileLinkParentSuffixByPath(filePaths).entries()]).toEqual([
+        ...buildBeforeOptimization(filePaths).entries(),
+      ])
+    }
+  })
+
+  it("keeps duplicate raw paths and normalized aliases distinct", () => {
+    const suffixes = buildFileLinkParentSuffixByPath([
+      "src/foo.ts",
+      "src/foo.ts",
+      "src\\foo.ts",
+      "lib/foo.ts",
+    ])
+
+    expect([...suffixes.entries()]).toEqual([
+      ["src/foo.ts", "src"],
+      ["src\\foo.ts", "src"],
+      ["lib/foo.ts", "lib"],
+    ])
+  })
+
+  it("handles many paths sharing a basename", () => {
+    const filePaths = Array.from(
+      { length: 128 },
+      (_, index) => `packages/pkg-${String(index)}/src/components/shared/widget.ts`,
+    )
+    const suffixes = buildFileLinkParentSuffixByPath(filePaths)
+
+    expect(suffixes.size).toBe(filePaths.length)
+    expect(suffixes.get(filePaths[0] ?? "")).toBe("pkg-0/src/components/shared")
+    expect(suffixes.get(filePaths[127] ?? "")).toBe("pkg-127/src/components/shared")
   })
 })

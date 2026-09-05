@@ -826,21 +826,36 @@ export const buildFileLinkParentSuffixByPath = (
     const parentSegmentsByPath = new Map(
       uniquePaths.map((filePath) => [filePath, pathParentSegments(filePath)]),
     )
+    const suffixCountsByDepth = new Map<number, Map<string, number>>()
+
+    for (const filePath of uniquePaths) {
+      const segments = parentSegmentsByPath.get(filePath) ?? []
+      let suffix = ""
+      for (let depth = 1; depth <= segments.length; depth += 1) {
+        const segment = segments[segments.length - depth]
+        if (segment === undefined) {
+          continue
+        }
+        suffix = suffix.length === 0 ? segment : `${segment}/${suffix}`
+        const counts = suffixCountsByDepth.get(depth) ?? new Map<string, number>()
+        counts.set(suffix, (counts.get(suffix) ?? 0) + 1)
+        suffixCountsByDepth.set(depth, counts)
+      }
+    }
+
     const minUniqueDepthByPath = new Map<string, number>()
 
     for (const filePath of uniquePaths) {
       const segments = parentSegmentsByPath.get(filePath) ?? []
       let resolvedDepth = segments.length
+      let suffix = ""
       for (let depth = 1; depth <= segments.length; depth += 1) {
-        const candidate = segments.slice(-depth).join("/")
-        const collision = uniquePaths.some((otherPath) => {
-          if (otherPath === filePath) {
-            return false
-          }
-          const otherSegments = parentSegmentsByPath.get(otherPath) ?? []
-          return otherSegments.slice(-depth).join("/") === candidate
-        })
-        if (!collision) {
+        const segment = segments[segments.length - depth]
+        if (segment === undefined) {
+          continue
+        }
+        suffix = suffix.length === 0 ? segment : `${segment}/${suffix}`
+        if (suffixCountsByDepth.get(depth)?.get(suffix) === 1) {
           resolvedDepth = depth
           break
         }
