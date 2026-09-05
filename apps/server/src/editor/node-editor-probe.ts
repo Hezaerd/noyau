@@ -15,6 +15,7 @@ const commandExists = (command: string): boolean => {
       encoding: "utf8",
       timeout: PROBE_TIMEOUT_MS,
       stdio: ["ignore", "pipe", "ignore"],
+      windowsHide: true,
     })
     return true
   } catch {

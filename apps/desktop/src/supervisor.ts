@@ -481,6 +481,7 @@ export class ServerSupervisor {
         stdin: "ignore",
         stdout: "pipe",
         stderr: "pipe",
+        windowsHide: true,
         additionalFds: {
           fd3: {
             type: "input",
