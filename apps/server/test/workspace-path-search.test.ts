@@ -134,6 +134,39 @@ layer(platformLayer)("searchWorkspacePathsInRoot", (it) => {
     }),
   )
 
+  it.effect("ranks case-insensitive basename matches ahead of path matches", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const workspace = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-ranking-" })
+      for (const directory of ["zoo", "foo-folder", "a", "xfoo", "src"]) {
+        yield* fileSystem.makeDirectory(path.join(workspace, directory), { recursive: true })
+      }
+      for (const file of [
+        "zoo/foo.ts",
+        "foo-folder/notes.md",
+        "a/fOO-copy.ts",
+        "xfoo/inside.txt",
+        "foo.ts",
+        "src/foo-helper.ts",
+      ]) {
+        yield* fileSystem.writeFileString(path.join(workspace, file), "")
+      }
+
+      const result = yield* searchWorkspacePathsInRoot(workspace, "FOO")
+      assert.deepStrictEqual(result.entries, [
+        { path: "foo-folder", kind: "directory" },
+        { path: "foo.ts", kind: "file" },
+        { path: "a/fOO-copy.ts", kind: "file" },
+        { path: "src/foo-helper.ts", kind: "file" },
+        { path: "zoo/foo.ts", kind: "file" },
+        { path: "xfoo", kind: "directory" },
+        { path: "foo-folder/notes.md", kind: "file" },
+        { path: "xfoo/inside.txt", kind: "file" },
+      ])
+    }),
+  )
+
   it.effect("ignores individual stat failures", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem
@@ -223,6 +256,59 @@ layer(platformLayer)("searchWorkspacePathsInRoot", (it) => {
 
       assert.deepStrictEqual(result.entries, [])
       assert.deepStrictEqual(yield* Ref.get(directoriesRead), [workspace, firstDirectory])
+    }),
+  )
+
+  it.effect("caps ranked results at the search limit", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const workspace = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-search-limit-" })
+      for (let index = 0; index < 60; index += 1) {
+        const name = `match-${String(index).padStart(3, "0")}.txt`
+        yield* fileSystem.writeFileString(path.join(workspace, name), "")
+      }
+
+      const result = yield* searchWorkspacePathsInRoot(workspace, "MATCH")
+      assert.strictEqual(result.entries.length, 50)
+      assert.strictEqual(result.entries[0]?.path, "match-000.txt")
+      assert.strictEqual(result.entries.at(-1)?.path, "match-049.txt")
+      assert.ok(!result.entries.some((entry) => entry.path === "match-050.txt"))
+    }),
+  )
+
+  it.effect("orders empty-query results by depth and path", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const workspace = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-empty-query-" })
+      for (const directory of ["deep", "shallow", "middle"]) {
+        yield* fileSystem.makeDirectory(path.join(workspace, directory, "nested"), {
+          recursive: true,
+        })
+      }
+      for (const file of [
+        "middle/nested/item.txt",
+        "deep/nested/item.txt",
+        "shallow/root.txt",
+        "middle/root.txt",
+      ]) {
+        yield* fileSystem.writeFileString(path.join(workspace, file), "")
+      }
+
+      const result = yield* searchWorkspacePathsInRoot(workspace, "   ")
+      assert.deepStrictEqual(result.entries, [
+        { path: "deep", kind: "directory" },
+        { path: "middle", kind: "directory" },
+        { path: "shallow", kind: "directory" },
+        { path: "deep/nested", kind: "directory" },
+        { path: "middle/nested", kind: "directory" },
+        { path: "middle/root.txt", kind: "file" },
+        { path: "shallow/nested", kind: "directory" },
+        { path: "shallow/root.txt", kind: "file" },
+        { path: "deep/nested/item.txt", kind: "file" },
+        { path: "middle/nested/item.txt", kind: "file" },
+      ])
     }),
   )
 })

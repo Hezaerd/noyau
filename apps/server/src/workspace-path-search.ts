@@ -39,47 +39,48 @@ const basenameOfPath = (relativePath: string): string => {
   return separatorIndex >= 0 ? relativePath.slice(separatorIndex + 1) : relativePath
 }
 
-const matchesQuery = (relativePath: string, query: string): boolean => {
-  if (query.length === 0) {
-    return true
-  }
-  const normalizedPath = relativePath.toLowerCase()
-  const normalizedQuery = query.toLowerCase()
-  return (
-    basenameOfPath(normalizedPath).includes(normalizedQuery) ||
-    normalizedPath.includes(normalizedQuery)
-  )
+type RankedWorkspacePathEntry = {
+  entry: WorkspacePathEntry
+  score: number
+  depth: number
 }
 
-const scoreEntry = (relativePath: string, query: string): number => {
-  if (query.length === 0) {
-    return -relativePath.split("/").length
+const rankPath = (
+  relativePath: string,
+  normalizedQuery: string,
+): Pick<RankedWorkspacePathEntry, "score" | "depth"> | undefined => {
+  if (normalizedQuery.length === 0) {
+    const depth = relativePath.split("/").length
+    return { score: -depth, depth }
   }
-  const basename = basenameOfPath(relativePath).toLowerCase()
-  const normalizedQuery = query.toLowerCase()
-  if (basename.startsWith(normalizedQuery)) {
-    return 2
+
+  const normalizedPath = relativePath.toLowerCase()
+  const basename = basenameOfPath(normalizedPath)
+  if (!basename.includes(normalizedQuery) && !normalizedPath.includes(normalizedQuery)) {
+    return undefined
   }
-  if (basename.includes(normalizedQuery)) {
-    return 1
-  }
-  return 0
+  const depth = relativePath.split("/").length
+  const score = basename.startsWith(normalizedQuery)
+    ? 2
+    : basename.includes(normalizedQuery)
+      ? 1
+      : 0
+  return { score, depth }
 }
 
 const compareEntries = (
-  left: WorkspacePathEntry,
-  right: WorkspacePathEntry,
-  query: string,
+  left: RankedWorkspacePathEntry,
+  right: RankedWorkspacePathEntry,
 ): number => {
-  const scoreDelta = scoreEntry(right.path, query) - scoreEntry(left.path, query)
+  const scoreDelta = right.score - left.score
   if (scoreDelta !== 0) {
     return scoreDelta
   }
-  const depthDelta = left.path.split("/").length - right.path.split("/").length
+  const depthDelta = left.depth - right.depth
   if (depthDelta !== 0) {
     return depthDelta
   }
-  return left.path.localeCompare(right.path)
+  return left.entry.path.localeCompare(right.entry.path)
 }
 
 export const searchWorkspacePathsInRoot = Effect.fn("searchWorkspacePathsInRoot")(function* (
@@ -89,8 +90,8 @@ export const searchWorkspacePathsInRoot = Effect.fn("searchWorkspacePathsInRoot"
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const root = path.resolve(workspaceRoot)
-  const trimmedQuery = query.trim()
-  const candidates: WorkspacePathEntry[] = []
+  const normalizedQuery = query.trim().toLowerCase()
+  const candidates: RankedWorkspacePathEntry[] = []
   const queue = [root]
   let scanned = 0
 
@@ -124,21 +125,32 @@ export const searchWorkspacePathsInRoot = Effect.fn("searchWorkspacePathsInRoot"
       if (info.type === "Directory") {
         if (!shouldSkipDirectory(name)) {
           queue.push(absolute)
-          if (matchesQuery(relative, trimmedQuery)) {
-            candidates.push({ path: relative, kind: "directory" })
+          const ranking = rankPath(relative, normalizedQuery)
+          if (ranking !== undefined) {
+            candidates.push({
+              entry: { path: relative, kind: "directory" },
+              ...ranking,
+            })
           }
         }
         continue
       }
-      if (info.type === "File" && matchesQuery(relative, trimmedQuery)) {
-        candidates.push({ path: relative, kind: "file" })
+      if (info.type === "File") {
+        const ranking = rankPath(relative, normalizedQuery)
+        if (ranking !== undefined) {
+          candidates.push({
+            entry: { path: relative, kind: "file" },
+            ...ranking,
+          })
+        }
       }
     }
   }
 
   return {
     entries: candidates
-      .toSorted((left, right) => compareEntries(left, right, trimmedQuery))
-      .slice(0, SEARCH_WORKSPACE_PATHS_LIMIT),
+      .toSorted(compareEntries)
+      .slice(0, SEARCH_WORKSPACE_PATHS_LIMIT)
+      .map(({ entry }) => entry),
   }
 })
