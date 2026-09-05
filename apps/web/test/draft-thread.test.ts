@@ -1,6 +1,6 @@
 import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { DateTime } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { emptyComposerDraft } from "../src/lib/composer-drafts"
 import {

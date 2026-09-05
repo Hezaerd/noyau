@@ -6,7 +6,7 @@ import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadTranscriptItem } from "../src/components/thread/ThreadTranscriptItem"
 import { TooltipProvider } from "../src/components/ui/tooltip"

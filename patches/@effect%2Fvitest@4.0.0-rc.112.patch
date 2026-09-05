@@ -1,0 +1,13 @@
+diff --git a/package.json b/package.json
+index 71fd99cf604e4d946d8789aef86ffaa0d87fcd50..8b6dec508c22525d4108e518735648554bc54ff4 100644
+--- a/package.json
++++ b/package.json
+@@ -37,7 +37,7 @@
+     "provenance": true
+   },
+   "peerDependencies": {
+-    "vitest": ">=4.1.0 <5.0.0",
++    "vitest": ">=4.1.0 <6.0.0",
+     "effect": "^4.0.0-rc.112"
+   },
+   "devDependencies": {

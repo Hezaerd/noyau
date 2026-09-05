@@ -9,7 +9,7 @@ import {
 } from "@noyau/contracts/events"
 import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { DateTime, Schema } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import {
   applyThreadEnvelope,

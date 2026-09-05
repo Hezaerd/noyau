@@ -4,7 +4,7 @@ import { ProjectId } from "@noyau/contracts/ids"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect } from "effect"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ProjectAgentIntegrationSetup } from "../src/components/ProjectAgentIntegrationSetup"
 

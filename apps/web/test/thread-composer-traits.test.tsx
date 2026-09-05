@@ -6,7 +6,7 @@ import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import {

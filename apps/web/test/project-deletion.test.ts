@@ -1,6 +1,6 @@
 import { CommandId, ProjectId } from "@noyau/contracts/ids"
 import { Crypto, Effect } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { makeProjectDeleteRequest } from "../src/lib/project-commands"
 import { destinationAfterProjectRemoval, isViewingProject } from "../src/lib/project-navigation"

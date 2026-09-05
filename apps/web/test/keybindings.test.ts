@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { dispatchKeybindingEvent } from "../src/hooks/use-keybinding-dispatcher"
 import {

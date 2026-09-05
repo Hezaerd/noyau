@@ -1,6 +1,6 @@
 import type { VcsStatusResult } from "@noyau/contracts/git"
 import { ProjectId, ThreadId } from "@noyau/contracts/ids"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import {
   branchPickerBadge,

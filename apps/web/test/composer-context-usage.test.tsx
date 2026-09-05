@@ -4,7 +4,7 @@ import type { CursorModel } from "@noyau/contracts/entities/environment"
 import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { toastManager } from "../src/components/ui/toast"
 import { copyPullRequestLink } from "../src/lib/pull-request-actions"

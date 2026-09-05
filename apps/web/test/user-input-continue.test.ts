@@ -2,7 +2,7 @@ import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { ApprovalRequestId, ThreadId } from "@noyau/contracts/ids"
 import { UserInputContinueRequest } from "@noyau/contracts/thread/commands"
 import { Crypto, Effect, Schema } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { makeUserInputContinueRequest } from "../src/lib/thread-commands"
 

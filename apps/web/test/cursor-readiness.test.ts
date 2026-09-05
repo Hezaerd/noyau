@@ -1,5 +1,5 @@
 import type { CursorProviderStatus } from "@noyau/contracts/entities/environment"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { isCursorReady, resolveCursorReadiness } from "../src/lib/cursor-readiness"
 import {

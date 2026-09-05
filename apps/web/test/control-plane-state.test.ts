@@ -2,7 +2,7 @@ import { Environment, ProviderInstanceId } from "@noyau/contracts/entities/envir
 import { ProjectId, Sequence, ThreadId } from "@noyau/contracts/ids"
 import { ShellSnapshot, ThreadShell } from "@noyau/contracts/shell"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { applyShellEvent, makeOptimisticThreadShell } from "../src/lib/control-plane-state"
 import { appAtomRegistry, resetAppAtomRegistryForTests } from "../src/state/atom-registry"

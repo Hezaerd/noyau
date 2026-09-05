@@ -4,7 +4,7 @@ import {
   resolveProviderHandoffPrompt,
   resolveProviderTurnPrompt,
 } from "@noyau/server/provider/undelivered-mandate"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const firstTurn = TurnId.make("30000000-0000-4000-8000-000000000001")

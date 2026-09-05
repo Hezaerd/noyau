@@ -5,7 +5,7 @@ import type { CursorModel } from "@noyau/contracts/entities/environment"
 import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import type { WorkspacePathEntry } from "@noyau/contracts/entities/workspace-path"
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { ComposerToolbarOwnerDefinition } from "../src/components/thread/ComposerToolbarHost"
 import { ThreadComposer } from "../src/components/thread/ThreadComposer"

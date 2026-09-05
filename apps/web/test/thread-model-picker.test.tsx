@@ -4,7 +4,7 @@ import type { CursorModel, Provider } from "@noyau/contracts/entities/environmen
 import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import { cleanup, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadModelPicker } from "../src/components/thread/ThreadModelPicker"
 import { MODEL_FAVORITES_STORAGE_KEY } from "../src/lib/model-picker-preferences"

@@ -111,6 +111,41 @@ export default defineConfig({
     // la configuration par workspace passe obligatoirement par ces overrides.
     overrides: [
       {
+        // Vitest 5 doit être importé directement : `vite-plus/test` reste lié au
+        // runner Vitest 4 embarqué par Vite+ 0.2.9.
+        files: ["**/*.test.{js,ts,tsx,jsx}", "**/*.spec.{js,ts,tsx,jsx}"],
+        rules: {
+          "vite-plus/prefer-vite-plus-imports": "off",
+        },
+      },
+      {
+        // Ces tests utilisaient déjà vi.mock via `vite-plus/test`. L'import Vitest
+        // direct rend simplement ces appels visibles au plugin anti-slop.
+        files: [
+          "apps/web/test/draft-thread-sidebar-item.test.tsx",
+          "apps/web/test/project-agent-integration-setup.test.tsx",
+          "apps/web/test/project-sidebar-item.test.tsx",
+          "apps/web/test/pull-request-actions.test.ts",
+          "apps/web/test/thread-delete-confirm.test.tsx",
+          "apps/web/test/thread-fork-transcript.test.tsx",
+          "apps/web/test/thread-header-actions.test.tsx",
+          "apps/web/test/thread-markdown-file-chip.test.tsx",
+          "apps/web/test/thread-markdown-mermaid-fence.test.tsx",
+          "apps/web/test/thread-markdown-mermaid-render.test.ts",
+          "apps/web/test/thread-markdown-mermaid.test.tsx",
+          "apps/web/test/thread-message-meta.test.tsx",
+          "apps/web/test/thread-page-detached-continuation.test.tsx",
+          "apps/web/test/thread-page-title.test.tsx",
+          "apps/web/test/thread-sidebar-item.test.tsx",
+          "apps/web/test/thread-sidebar-section.test.tsx",
+          "apps/web/test/workspace-browser-session.test.ts",
+          "apps/web/test/workspace-browser.test.tsx",
+        ],
+        rules: {
+          "anti-slop/no-module-mocking": "off",
+        },
+      },
+      {
         // Fil de fer ACP : codegen + JSON-RPC stdio calqué sur t3code. Les règles
         // anti-slop et les imports `_internal` ne s'appliquent pas à cette frontière.
         files: ["packages/acp/**"],

@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ThreadMarkdownMermaid } from "../src/components/thread/ThreadMarkdownMermaid"
 import { TooltipProvider } from "../src/components/ui/tooltip"

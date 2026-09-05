@@ -2,7 +2,7 @@ import {
   MAX_BUFFERED_ASSISTANT_CHARS,
   takeBufferedAssistantSpill,
 } from "@noyau/server/provider/assistant-delivery"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 describe("assistant delivery", () => {
   it("keeps tokens in memory until the t3code spill cap", () => {

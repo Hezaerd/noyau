@@ -2,7 +2,7 @@ import { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import { LatestTurn } from "@noyau/contracts/entities/turn"
 import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { DateTime, Schema } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import {
   formatTranscriptMessageAt,

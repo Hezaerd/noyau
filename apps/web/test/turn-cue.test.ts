@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { isRendererForeground } from "../src/lib/renderer-foreground"
 import { settledTurns } from "../src/lib/turn-cue"

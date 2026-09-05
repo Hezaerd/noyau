@@ -1,5 +1,5 @@
 import { ProjectId, ThreadId } from "@noyau/contracts/ids"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import {
   composerDraftStoreKey,

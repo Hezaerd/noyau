@@ -3,7 +3,7 @@
 import { TranscriptUserInput } from "@noyau/contracts/entities/transcript"
 import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import {
   ASK_QUESTION_DRAFTS_STORAGE_KEY,

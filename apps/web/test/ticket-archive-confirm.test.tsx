@@ -3,7 +3,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Effect } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { TicketArchiveConfirmDialog } from "../src/components/board/TicketArchiveConfirmDialog"
 import { TicketDialog } from "../src/components/board/TicketDialog"

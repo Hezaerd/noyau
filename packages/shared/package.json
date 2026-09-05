@@ -14,7 +14,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vp test run"
+    "test": "vitest run"
   },
   "devDependencies": {
     "vite-plus": "catalog:",

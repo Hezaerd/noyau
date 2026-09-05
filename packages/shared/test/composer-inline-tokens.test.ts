@@ -5,7 +5,7 @@ import {
   parseComposerTicketMentionId,
   serializeComposerTicketMention,
 } from "@noyau/shared/composer-inline-tokens"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 describe("collectComposerInlineTokens", () => {
   it("collects file links, mentions, and skills with source ranges", () => {

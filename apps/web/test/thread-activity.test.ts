@@ -1,7 +1,7 @@
 import { LatestTurn } from "@noyau/contracts/entities/turn"
 import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { Schema } from "effect"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import {
   clearOptimisticSend,

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { ProjectId, ThreadId } from "@noyau/contracts/ids"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { LAST_PROJECT_STORAGE_KEY } from "../src/lib/control-plane-state"
 import {

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vp dev",
     "preview": "vp preview",
-    "test": "vp test run",
+    "test": "vitest run",
     "export-boot-splash": "node scripts/export-boot-splash.ts"
   },
   "dependencies": {

@@ -4,7 +4,7 @@ import { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type * as CheckoutModule from "../src/lib/checkout"
 

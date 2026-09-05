@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Effect } from "effect"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { openFilesystemPath, openFilesystemPathEffect } from "../src/lib/open-path"
 

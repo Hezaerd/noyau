@@ -4,7 +4,7 @@ import { TranscriptUserInput } from "@noyau/contracts/entities/transcript"
 import { ApprovalRequestId, ProjectId, ThreadId, TurnId } from "@noyau/contracts/ids"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { Schema } from "effect"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { useAskQuestionDraft } from "../src/hooks/use-ask-question-draft"
 

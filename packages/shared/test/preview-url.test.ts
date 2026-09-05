@@ -1,5 +1,5 @@
 import { normalizePreviewUrl, previewPageTitle } from "@noyau/shared/preview-url"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 describe("normalizePreviewUrl", () => {
   it("accepts http(s) and adds http for host-only input", () => {

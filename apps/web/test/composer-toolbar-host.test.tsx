@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { StrictMode, useRef, useState, type ReactNode } from "react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ComposerToolbarHost } from "../src/components/thread/ComposerToolbarHost"
 import { useComposerToolbar } from "../src/components/thread/use-composer-toolbar"
