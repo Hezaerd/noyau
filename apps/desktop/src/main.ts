@@ -64,6 +64,7 @@ import {
   DEFAULT_DEVELOPMENT_RENDERER_URL,
   desktopUrlForServer,
   developmentRendererUrlFromEnv,
+  resolvePackagedRendererAssetPath,
   resolveRendererAssetPath,
 } from "./renderer"
 import {
@@ -312,30 +313,18 @@ const fetchDevelopmentRenderer = Effect.fn("fetchDevelopmentRenderer")(function*
   return withSecurityHeaders(response)
 })
 
-const isExistingFile = Effect.fn("isExistingFile")(function* (filePath: string) {
-  const fs = yield* FileSystem.FileSystem
-  const exists = yield* fs.exists(filePath)
-  if (!exists) {
-    return false
-  }
-  const info = yield* fs.stat(filePath)
-  return info.type === "File"
-})
-
 const fetchProductionRenderer = Effect.fn("fetchProductionRenderer")(function* (requestUrl: URL) {
-  const path = yield* Path.Path
   const requestedAssetPath = yield* resolveRendererAssetPath(rendererRoot, requestUrl.pathname)
   if (requestedAssetPath === undefined) {
     return new Response(null, { status: 400 })
   }
 
-  const servesExistingFile = yield* isExistingFile(requestedAssetPath)
-  const assetPath =
-    servesExistingFile || path.extname(requestUrl.pathname) !== ""
-      ? requestedAssetPath
-      : path.join(rendererRoot, "index.html")
-
-  if (!(yield* isExistingFile(assetPath))) {
+  const assetPath = yield* resolvePackagedRendererAssetPath(
+    rendererRoot,
+    requestUrl.pathname,
+    requestedAssetPath,
+  )
+  if (assetPath === undefined) {
     return new Response(null, { status: 404 })
   }
 
