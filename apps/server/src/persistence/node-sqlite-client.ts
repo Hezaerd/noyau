@@ -10,6 +10,7 @@ import * as Statement from "effect/unstable/sql/Statement"
 export interface NodeSqliteClientConfig {
   readonly filename: string
   readonly readonly?: boolean
+  readonly prepareCacheSize?: number
 }
 
 export class UnsupportedNodeSqliteVersion extends Schema.TaggedError<UnsupportedNodeSqliteVersion>()(
@@ -55,6 +56,11 @@ const hasRows = (query: string) =>
 const make = Effect.fn("NodeSqliteClient.make")(function* (config: NodeSqliteClientConfig) {
   yield* checkCompatibility
   const compiler = Statement.makeCompilerSqlite()
+  const configuredCacheSize = config.prepareCacheSize ?? 200
+  const prepareCacheSize = Number.isFinite(configuredCacheSize)
+    ? Math.max(0, Math.floor(configuredCacheSize))
+    : 200
+  const prepareCache = new Map<string, NodeSqlite.StatementSync>()
 
   const connection = yield* Effect.acquireRelease(
     Effect.try({
@@ -66,16 +72,63 @@ const make = Effect.fn("NodeSqliteClient.make")(function* (config: NodeSqliteCli
     }),
     (database) =>
       Effect.try({
-        try: () => database.close(),
+        try: () => {
+          prepareCache.clear()
+          database.close()
+        },
         catch: (cause) => sqlError("Failed to close database", "close", cause),
       }).pipe(Effect.orDie),
   )
 
-  const prepare = (query: string) =>
+  const prepareUncached = (query: string) =>
     Effect.try({
       try: () => connection.prepare(query),
       catch: (cause) => sqlError("Failed to prepare statement", "prepare", cause),
     })
+
+  const prepare = (query: string) =>
+    Effect.suspend(() => {
+      const cached = prepareCache.get(query)
+      if (cached !== undefined) {
+        prepareCache.delete(query)
+        prepareCache.set(query, cached)
+        return Effect.succeed(cached)
+      }
+      return prepareUncached(query).pipe(
+        Effect.tap((statement) =>
+          Effect.sync(() => {
+            if (prepareCacheSize === 0) return
+            prepareCache.set(query, statement)
+            if (prepareCache.size > prepareCacheSize) {
+              const oldest = prepareCache.keys().next().value
+              if (oldest !== undefined) prepareCache.delete(oldest)
+            }
+          }),
+        ),
+      )
+    })
+
+  const executeRowsWith = (
+    statement: NodeSqlite.StatementSync,
+    query: string,
+    params: ReadonlyArray<unknown>,
+    transformRows: (<A extends object>(rows: ReadonlyArray<A>) => ReadonlyArray<A>) | undefined,
+  ) =>
+    Effect.withFiber((fiber) =>
+      Effect.try({
+        try: () => {
+          statement.setReadBigInts(Context.get(fiber.context, SqlClient.SafeIntegers))
+          statement.setReturnArrays(false)
+          if (hasRows(query)) {
+            const rows = statement.all(...bindParameters(params))
+            return transformRows === undefined ? rows : transformRows(rows)
+          }
+          statement.run(...bindParameters(params))
+          return []
+        },
+        catch: (cause) => sqlError("Failed to execute statement", "execute", cause),
+      }),
+    )
 
   const executeRows = (
     query: string,
@@ -83,70 +136,78 @@ const make = Effect.fn("NodeSqliteClient.make")(function* (config: NodeSqliteCli
     transformRows: (<A extends object>(rows: ReadonlyArray<A>) => ReadonlyArray<A>) | undefined,
   ) =>
     prepare(query).pipe(
-      Effect.flatMap((statement) =>
-        Effect.withFiber((fiber) =>
-          Effect.try({
-            try: () => {
-              statement.setReadBigInts(Context.get(fiber.context, SqlClient.SafeIntegers))
-              if (hasRows(query)) {
-                const rows = statement.all(...bindParameters(params))
-                return transformRows === undefined ? rows : transformRows(rows)
-              }
-              statement.run(...bindParameters(params))
-              return []
-            },
-            catch: (cause) => sqlError("Failed to execute statement", "execute", cause),
-          }),
-        ),
-      ),
+      Effect.flatMap((statement) => executeRowsWith(statement, query, params, transformRows)),
     )
 
   const executeRaw = (query: string, params: ReadonlyArray<unknown>) =>
     prepare(query).pipe(
       Effect.flatMap((statement) =>
         Effect.try({
-          try: () =>
-            hasRows(query)
+          try: () => {
+            statement.setReadBigInts(false)
+            statement.setReturnArrays(false)
+            return hasRows(query)
               ? statement.all(...bindParameters(params))
-              : statement.run(...bindParameters(params)),
+              : statement.run(...bindParameters(params))
+          },
           catch: (cause) => sqlError("Failed to execute statement", "execute", cause),
         }),
       ),
     )
 
+  const executeValuesWith = (
+    statement: NodeSqlite.StatementSync,
+    query: string,
+    params: ReadonlyArray<unknown>,
+    resetReturnArrays: boolean,
+  ) =>
+    Effect.try({
+      try: () => {
+        statement.setReadBigInts(false)
+        statement.setReturnArrays(true)
+        try {
+          if (!hasRows(query)) {
+            statement.run(...bindParameters(params))
+            return []
+          }
+          return statement
+            .all(...bindParameters(params))
+            .map((row) => (Array.isArray(row) ? row : Object.values(row)))
+        } finally {
+          if (resetReturnArrays) {
+            statement.setReturnArrays(false)
+          }
+        }
+      },
+      catch: (cause) => sqlError("Failed to execute statement", "execute", cause),
+    })
+
   const executeValues = (query: string, params: ReadonlyArray<unknown>) =>
     prepare(query).pipe(
-      Effect.flatMap((statement) =>
-        Effect.acquireUseRelease(
-          Effect.sync(() => {
-            statement.setReturnArrays(true)
-            return statement
-          }),
-          (arrayStatement) =>
-            Effect.try({
-              try: () => {
-                if (!hasRows(query)) {
-                  arrayStatement.run(...bindParameters(params))
-                  return []
-                }
-                return arrayStatement
-                  .all(...bindParameters(params))
-                  .map((row) => (Array.isArray(row) ? row : Object.values(row)))
-              },
-              catch: (cause) => sqlError("Failed to execute statement", "execute", cause),
-            }),
-          (arrayStatement) => Effect.sync(() => arrayStatement.setReturnArrays(false)),
-        ),
-      ),
+      Effect.flatMap((statement) => executeValuesWith(statement, query, params, true)),
+    )
+
+  const executeRowsUnprepared = (
+    query: string,
+    params: ReadonlyArray<unknown>,
+    transformRows: (<A extends object>(rows: ReadonlyArray<A>) => ReadonlyArray<A>) | undefined,
+  ) =>
+    prepareUncached(query).pipe(
+      Effect.flatMap((statement) => executeRowsWith(statement, query, params, transformRows)),
+    )
+
+  const executeValuesUnprepared = (query: string, params: ReadonlyArray<unknown>) =>
+    prepareUncached(query).pipe(
+      Effect.flatMap((statement) => executeValuesWith(statement, query, params, false)),
     )
 
   const driverConnection: Connection = {
     execute: executeRows,
     executeRaw,
     executeStream: () => Stream.die(new UnsupportedNodeSqliteOperation()),
-    executeUnprepared: executeRows,
+    executeUnprepared: executeRowsUnprepared,
     executeValues,
-    executeValuesUnprepared: executeValues,
+    executeValuesUnprepared,
   }
 
   const semaphore = yield* Semaphore.make(1)
