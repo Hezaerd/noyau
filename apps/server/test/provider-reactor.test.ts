@@ -25,7 +25,7 @@ import {
   type ProviderTurnInput,
 } from "@noyau/server/provider/provider-port"
 import { makeProviderReactor, type DispatchInternal } from "@noyau/server/provider/provider-reactor"
-import { Context, Crypto, Effect, Layer, Schema } from "effect"
+import { Cause, Context, Crypto, Effect, Exit, Layer, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { stubGitRuntimeLayer, testServerConfigLayer } from "./fixtures.ts"
@@ -35,7 +35,10 @@ const threadId = ThreadId.make("20000000-0000-4000-8000-000000000001")
 const firstTurnId = TurnId.make("30000000-0000-4000-8000-000000000001")
 const handoffTurnId = TurnId.make("30000000-0000-4000-8000-000000000002")
 const chainedHandoffTurnId = TurnId.make("30000000-0000-4000-8000-000000000003")
+const resumedTurnId = TurnId.make("30000000-0000-4000-8000-000000000004")
 const forkThreadId = ThreadId.make("20000000-0000-4000-8000-000000000004")
+const missingThreadId = ThreadId.make("20000000-0000-4000-8000-000000000005")
+const nullModelThreadId = ThreadId.make("20000000-0000-4000-8000-000000000006")
 const actorId = ActorId.make("human:test")
 
 const occurredAt = Schema.decodeSync(Schema.DateTimeUtcFromString)("2026-09-01T12:00:00.000Z")
@@ -234,13 +237,20 @@ describe("provider handoff reactor", () => {
           ),
         )
         const sql = Context.get(services, SqlClient)
+        const queries: Array<string> = []
+        const recordingSql = new Proxy(sql, {
+          apply: (target, _thisArg, args: Parameters<typeof sql>) => {
+            queries.push(args[0])
+            return target(...args)
+          },
+        })
         const reactor = yield* makeProviderReactor(
           (command) =>
             Effect.sync(() => {
               dispatched.push(command)
             }),
           () => Effect.succeed([]),
-        ).pipe(Effect.provide(services))
+        ).pipe(Effect.provide(Context.add(services, SqlClient, recordingSql)))
         const project = persisted(
           1,
           ProjectCreated.make({
@@ -257,7 +267,12 @@ describe("provider handoff reactor", () => {
             title: "Provider handoff",
             provider: ProviderInstanceId.make("cursor"),
             runtimeMode: "full-access",
-            modelSelection: { modelId: "composer-2.5" },
+            modelSelection: {
+              modelId: "composer-2.5",
+              reasoningEffort: "high",
+              serviceTier: "fast",
+              thinking: false,
+            },
           }),
         )
         const firstTurn = persisted(
@@ -272,6 +287,12 @@ describe("provider handoff reactor", () => {
           yield* projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql))
         }
         yield* reactor(firstTurn)
+        assert.deepStrictEqual(started[0]?.modelSelection, {
+          modelId: "composer-2.5",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+          thinking: false,
+        })
 
         const handedOff = persisted(
           4,
@@ -355,6 +376,97 @@ describe("provider handoff reactor", () => {
         assert.match(started[2]?.text ?? "", /Model transition: 'claude-sonnet-4-5' -> 'grok-4.6'/)
         assert.match(started[2]?.text ?? "", /Review it critically/)
         assert.match(started[2]?.text ?? "", /Continue with Cursor/)
+
+        const resumedCursor = {
+          schemaVersion: 1 as const,
+          sessionId: ProviderSessionId.make("cursor-session-resumed"),
+        }
+        const resumedSession = persisted(
+          8,
+          ThreadSessionSet.make({
+            threadId,
+            session: {
+              threadId,
+              status: "ready",
+              lastError: null,
+              activeTurnId: null,
+              runtimeMode: "full-access",
+              resumeCursor: resumedCursor,
+              updatedAt: occurredAt,
+            },
+          }),
+        )
+        const resumedTurn = persisted(
+          9,
+          ThreadTurnStarted.make({
+            threadId,
+            turnId: resumedTurnId,
+            text: "Use the live session",
+          }),
+        )
+        for (const event of [resumedSession, resumedTurn]) {
+          yield* projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql))
+        }
+
+        queries.length = 0
+        yield* reactor(resumedTurn)
+        assert.strictEqual(started.length, 4)
+        assert.strictEqual(started[3]?.text, "Use the live session")
+        assert.deepStrictEqual(started[3]?.resumeCursor, resumedCursor)
+        const resumedQueries = queries.join("\n")
+        assert.notMatch(resumedQueries, /projection_transcript/)
+        assert.notMatch(resumedQueries, /projection_inherited_transcript/)
+        assert.notMatch(resumedQueries, /projection_turns/)
+
+        const nullModelCreated = persisted(
+          10,
+          ThreadCreated.make({
+            threadId: nullModelThreadId,
+            projectId,
+            title: "No model selected",
+            provider: ProviderInstanceId.make("codex"),
+            runtimeMode: "full-access",
+          }),
+        )
+        const priorMandate = persisted(
+          11,
+          ThreadTurnStarted.make({
+            threadId: nullModelThreadId,
+            turnId: TurnId.make("30000000-0000-4000-8000-000000000006"),
+            text: "Keep this exact mandate",
+          }),
+        )
+        const resumeWithoutSession = persisted(
+          12,
+          ThreadTurnStarted.make({
+            threadId: nullModelThreadId,
+            turnId: TurnId.make("30000000-0000-4000-8000-000000000007"),
+            text: "continue",
+          }),
+        )
+        for (const event of [nullModelCreated, priorMandate]) {
+          yield* projectDomainEvent(event).pipe(Effect.provideService(SqlClient, sql))
+        }
+        yield* reactor(priorMandate)
+        yield* projectDomainEvent(resumeWithoutSession).pipe(Effect.provideService(SqlClient, sql))
+        yield* reactor(resumeWithoutSession)
+        assert.strictEqual(started[5]?.text, "Keep this exact mandate")
+        assert.strictEqual(started[5]?.modelSelection, null)
+        assert.strictEqual(started[5]?.resumeCursor, null)
+
+        const missing = persisted(
+          13,
+          ThreadTurnStarted.make({
+            threadId: missingThreadId,
+            turnId: TurnId.make("30000000-0000-4000-8000-000000000005"),
+            text: "Missing",
+          }),
+        )
+        const missingExit = yield* Effect.exit(reactor(missing))
+        assert.isTrue(Exit.isFailure(missingExit))
+        if (Exit.isFailure(missingExit)) {
+          assert.match(Cause.pretty(missingExit.cause), /projection is missing/)
+        }
       }),
     ),
   )

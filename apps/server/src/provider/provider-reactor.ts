@@ -3,8 +3,11 @@ import {
   type InternalCommand as InternalCommandType,
 } from "@noyau/contracts/commands"
 import type { TurnImageAttachment } from "@noyau/contracts/entities/attachment"
-import type { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
-import type { ResumeCursor } from "@noyau/contracts/entities/session"
+import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
+import { ModelSelection } from "@noyau/contracts/entities/model-selection"
+import { RuntimeMode } from "@noyau/contracts/entities/runtime-mode"
+import { ResumeCursor } from "@noyau/contracts/entities/session"
+import { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import type { ServiceUnavailable } from "@noyau/contracts/errors"
 import type { DomainEvent } from "@noyau/contracts/events"
 import {
@@ -35,11 +38,85 @@ import {
 import { resolveProviderHandoffPrompt, resolveProviderTurnPrompt } from "./undelivered-mandate.ts"
 
 const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
+const ProviderTurnContextRow = Schema.Struct({
+  provider: ProviderInstanceId,
+  runtime_mode: RuntimeMode,
+  model_id: Schema.NullOr(Schema.NonEmptyString),
+  reasoning_effort: Schema.NullOr(Schema.NonEmptyString),
+  service_tier: Schema.NullOr(Schema.NonEmptyString),
+  thinking: Schema.NullOr(Schema.Int),
+  worktree_path: Schema.NullOr(Schema.String),
+  resume_cursor: Schema.NullOr(Schema.String),
+})
+const ProviderTranscriptRow = Schema.Struct({ item: Schema.String })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)
+const decodeProviderTurnContextRow = Schema.decodeEffect(ProviderTurnContextRow)
+const decodeResumeCursor = Schema.decodeEffect(Schema.fromJsonString(ResumeCursor))
+const decodeProviderTranscriptRow = Schema.decodeEffect(ProviderTranscriptRow)
+const decodeTranscriptItem = Schema.decodeEffect(Schema.fromJsonString(TranscriptItem))
+const decodeModelSelection = Schema.decodeUnknownEffect(ModelSelection)
 const decodeInternalCommand = Schema.decodeUnknownEffect(InternalCommand)
 const decodeThreadMetaUpdate = Schema.decodeUnknownEffect(ThreadMetaUpdate)
 const systemActor = ActorId.make("system:cursor")
 const isThreadEvent = Schema.is(ThreadEvent)
+
+const modelSelectionFromTurnContext = Effect.fn("ProviderReactor.modelSelectionFromTurnContext")(
+  function* (row: (typeof ProviderTurnContextRow)["Type"]) {
+    if (row.model_id === null) return null
+    const selection: ModelSelection = { modelId: row.model_id }
+    if (row.reasoning_effort !== null)
+      Object.assign(selection, { reasoningEffort: row.reasoning_effort })
+    if (row.service_tier !== null) Object.assign(selection, { serviceTier: row.service_tier })
+    if (row.thinking !== null) Object.assign(selection, { thinking: row.thinking === 1 })
+    return yield* decodeModelSelection(selection).pipe(Effect.orDie)
+  },
+)
+
+const readProviderTurnContext = Effect.fn("ProviderReactor.readProviderTurnContext")(function* (
+  threadId: ThreadId,
+  forceTranscript: boolean,
+) {
+  const sql = yield* SqlClient
+  return yield* sql.withTransaction(
+    Effect.gen(function* () {
+      const rows = yield* sql<(typeof ProviderTurnContextRow)["Encoded"]>`
+        SELECT
+          thread.provider, thread.runtime_mode, thread.model_id, thread.reasoning_effort,
+          thread.service_tier, thread.thinking, thread.worktree_path, session.resume_cursor
+        FROM projection_threads AS thread
+        LEFT JOIN projection_sessions AS session ON session.thread_id = thread.thread_id
+        WHERE thread.thread_id = ${threadId}
+      `
+      const raw = rows[0]
+      if (raw === undefined) return Option.none()
+      const row = yield* decodeProviderTurnContextRow(raw).pipe(Effect.orDie)
+      const transcript =
+        forceTranscript || row.resume_cursor === null
+          ? yield* Effect.forEach(
+              yield* sql<(typeof ProviderTranscriptRow)["Encoded"]>`
+              SELECT item FROM projection_transcript WHERE thread_id = ${threadId} ORDER BY ordinal
+            `,
+              (rawItem) =>
+                decodeProviderTranscriptRow(rawItem).pipe(
+                  Effect.orDie,
+                  Effect.flatMap((item) => decodeTranscriptItem(item.item).pipe(Effect.orDie)),
+                ),
+            )
+          : []
+      return Option.some({
+        provider: row.provider,
+        runtimeMode: row.runtime_mode,
+        modelSelection: yield* modelSelectionFromTurnContext(row),
+        worktreePath: row.worktree_path,
+        resumeCursor:
+          row.resume_cursor === null
+            ? null
+            : yield* decodeResumeCursor(row.resume_cursor).pipe(Effect.orDie),
+        transcript,
+      })
+    }),
+  )
+})
 
 export type DispatchInternal = (
   command: InternalCommandType | (typeof ThreadMetaUpdate)["Type"],
@@ -301,26 +378,26 @@ export const makeProviderReactor = (
           })
         case "thread.turn.started":
           return Effect.gen(function* () {
-            const snapshot = yield* readThreadSnapshot(threadEvent.threadId).pipe(
-              Effect.provideService(SqlClient, sql),
-              Effect.orDie,
-            )
-            if (Option.isNone(snapshot)) {
+            const context = yield* readProviderTurnContext(
+              threadEvent.threadId,
+              threadEvent.providerHandoff !== undefined,
+            ).pipe(Effect.provideService(SqlClient, sql), Effect.orDie)
+            if (Option.isNone(context)) {
               return yield* Effect.die(`Thread ${threadEvent.threadId} projection is missing`)
             }
-            const turnProvider =
-              threadEvent.providerHandoff?.provider ?? snapshot.value.thread.provider
+            const turnContext = context.value
+            const turnProvider = threadEvent.providerHandoff?.provider ?? turnContext.provider
             activeTurns.set(threadEvent.threadId, {
               provider: turnProvider,
               turnId: threadEvent.turnId,
             })
-            const runtimeMode = threadEvent.runtimeMode ?? snapshot.value.thread.runtimeMode
+            const runtimeMode = threadEvent.runtimeMode ?? turnContext.runtimeMode
             const workspaceRoot = yield* projectRoot(persisted.projectId).pipe(
               Effect.provideService(SqlClient, sql),
             )
-            let cwd = snapshot.value.thread.worktreePath ?? workspaceRoot
+            let cwd = turnContext.worktreePath ?? workspaceRoot
             const prepare = threadEvent.prepareWorktree
-            if (prepare !== undefined && snapshot.value.thread.worktreePath == null) {
+            if (prepare !== undefined && turnContext.worktreePath == null) {
               const branch =
                 prepare.branch ??
                 buildTemporaryWorktreeBranchName(yield* crypto.randomUUIDv4.pipe(Effect.orDie))
@@ -376,9 +453,7 @@ export const makeProviderReactor = (
               yield* provider.stop(threadEvent.threadId)
             }
             const resumeCursor =
-              threadEvent.providerHandoff === undefined
-                ? (snapshot.value.session?.resumeCursor ?? null)
-                : null
+              threadEvent.providerHandoff === undefined ? turnContext.resumeCursor : null
             const mandate =
               threadEvent.providerHandoff === undefined
                 ? resolveProviderTurnPrompt({
@@ -386,14 +461,14 @@ export const makeProviderReactor = (
                     currentText: threadEvent.text ?? "",
                     currentAttachments: threadEvent.attachments,
                     currentTurnId: threadEvent.turnId,
-                    transcript: snapshot.value.transcript,
+                    transcript: turnContext.transcript,
                   })
                 : resolveProviderHandoffPrompt({
                     handoff: threadEvent.providerHandoff,
                     currentText: threadEvent.text ?? "",
                     currentAttachments: threadEvent.attachments,
                     currentTurnId: threadEvent.turnId,
-                    transcript: snapshot.value.transcript,
+                    transcript: turnContext.transcript,
                   })
             const attachments =
               mandate.attachments === undefined
@@ -424,7 +499,7 @@ export const makeProviderReactor = (
               text: mandate.text,
               workspaceRoot: cwd,
               runtimeMode,
-              modelSelection: snapshot.value.thread.modelSelection,
+              modelSelection: turnContext.modelSelection,
               resumeCursor,
             }
             if (attachments !== undefined) {
