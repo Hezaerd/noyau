@@ -24,7 +24,7 @@ import { useAssistantPaint, useAssistantPaintTarget } from "@/hooks/use-assistan
 import type { ComposerTicket } from "@/lib/composer-tickets"
 import { settledTranscriptLabel } from "@/lib/thread-activity"
 import {
-  flushedAssistantPrefix,
+  flushedAssistantPrefixes,
   groupTranscriptRows,
   lastAssistantIndexByTurnId,
   transcriptGroupRowId,
@@ -174,6 +174,10 @@ export function ThreadTranscript({
     () => lastAssistantIndexByTurnId(paintedTranscript),
     [paintedTranscript],
   )
+  const flushedPrefixesByIndex = useMemo(
+    () => flushedAssistantPrefixes(paintedTranscript),
+    [paintedTranscript],
+  )
   const rows = useMemo(() => groupTranscriptRows(paintedTranscript), [paintedTranscript])
 
   return (
@@ -258,10 +262,7 @@ export function ThreadTranscript({
                 )
               }
               const streaming = streamingLast && row.item === lastAssistant
-              const flushedPrefix =
-                row.item._tag === "transcript.assistant"
-                  ? flushedAssistantPrefix(paintedTranscript, row.item.turnId, row.index)
-                  : ""
+              const flushedPrefix = flushedPrefixesByIndex[row.index] ?? ""
               const turnDiffProps = transcriptTurnDiffProps(
                 row.item,
                 row.index,

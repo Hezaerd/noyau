@@ -424,22 +424,30 @@ export const transcriptRowId = (item: TranscriptItem, index: number): string => 
 }
 
 /**
- * Assistant text already flushed into earlier rows of this Turn. Live paint is
- * the full Turn snapshot, so the streaming row only shows the remainder.
+ * Prefixes of assistant text already flushed before each transcript item.
+ * Keeping the result aligned by index lets the transcript render every row
+ * without rescanning the preceding transcript for each assistant item.
  */
-export const flushedAssistantPrefix = (
+export const flushedAssistantPrefixes = (
   transcript: ReadonlyArray<TranscriptItem>,
-  turnId: TranscriptItem["turnId"],
-  beforeIndex: number,
-): string => {
-  let prefix = ""
-  for (let index = 0; index < beforeIndex; index += 1) {
+): ReadonlyArray<string> => {
+  const prefixes = Array.from({ length: transcript.length }, () => "")
+  const flushedByTurn = new Map<TranscriptItem["turnId"], string>()
+  for (let index = 0; index < transcript.length; index += 1) {
     const item = transcript[index]
-    if (item?._tag === "transcript.assistant" && item.turnId === turnId) {
-      prefix += item.text
+    if (item === undefined) {
+      prefixes[index] = ""
+      continue
     }
+    if (item._tag !== "transcript.assistant") {
+      prefixes[index] = ""
+      continue
+    }
+    const prefix = flushedByTurn.get(item.turnId) ?? ""
+    prefixes[index] = prefix
+    flushedByTurn.set(item.turnId, `${prefix}${item.text}`)
   }
-  return prefix
+  return prefixes
 }
 
 /**
