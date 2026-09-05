@@ -805,6 +805,263 @@ layer(platformLayer)("SQL projections", (it) => {
     )
   })
 
+  it.effect("ignore les items transcript tardifs, inconnus ou liés au mauvais Thread", () => {
+    const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000015")
+    const missingTurnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000016")
+    const readySession = Schema.decodeSync(Session)({
+      threadId: ids.recoveryThread,
+      status: "ready",
+      lastError: null,
+      activeTurnId: null,
+      runtimeMode: "full-access",
+      resumeCursor: null,
+      updatedAt: "2026-08-20T00:05:00.000Z",
+    })
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Recovery",
+                provider: ProviderInstanceId.make("cursor"),
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadCreated.make({
+                threadId: ids.terminalThread,
+                projectId: ids.project,
+                title: "Other Thread",
+                provider: ProviderInstanceId.make("cursor"),
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId,
+                text: "Keep this user item",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId: missingTurnId,
+                  text: "unknown turn",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              5,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.tool",
+                  threadId: ids.terminalThread,
+                  turnId,
+                  toolCallId: ToolCallId.make("wrong-thread"),
+                  name: "Read",
+                  status: "completed",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              6,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: "before terminal",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              7,
+              ThreadSessionSet.make({ threadId: ids.recoveryThread, session: readySession }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              8,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: "late fragment",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              9,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.tool",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  toolCallId: ToolCallId.make("late-tool"),
+                  name: "Read",
+                  status: "completed",
+                },
+              }),
+            ),
+          )
+
+          const recovery = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "recovery Thread should exist",
+          )
+          const other = expectSome(
+            yield* readThreadSnapshot(ids.terminalThread),
+            "other Thread should exist",
+          )
+          assert.strictEqual(recovery.transcript.length, 2)
+          assert.deepInclude(recovery.transcript[0], {
+            _tag: "transcript.user",
+            turnId,
+            text: "Keep this user item",
+          })
+          assert.deepInclude(recovery.transcript[1], {
+            _tag: "transcript.assistant",
+            turnId,
+            text: "before terminal",
+          })
+          const recoveryRows = yield* sql<{
+            readonly transcript_id: string
+            readonly event_sequence: number
+          }>`
+            SELECT transcript_id, event_sequence
+            FROM projection_transcript
+            WHERE thread_id = ${ids.recoveryThread}
+            ORDER BY ordinal
+          `
+          assert.deepStrictEqual(recoveryRows, [
+            { transcript_id: `user:${turnId}`, event_sequence: 3 },
+            { transcript_id: `assistant:${turnId}:6`, event_sequence: 6 },
+          ])
+          assert.strictEqual(other.transcript.length, 0)
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    )
+  })
+
+  it.effect("conserve l'ordinal lors d'un upsert et reprend après le maximum", () => {
+    const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000017")
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Upsert",
+                provider: ProviderInstanceId.make("cursor"),
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId,
+                text: "original",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.tool",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  toolCallId: ToolCallId.make("upsert-tool"),
+                  name: "Read",
+                  status: "completed",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.user",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: "replayed",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              5,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.plan",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  markdown: "- [ ] Later",
+                },
+              }),
+            ),
+          )
+
+          const rows = yield* sql<{
+            readonly transcript_id: string
+            readonly ordinal: number
+            readonly event_sequence: number
+          }>`
+            SELECT transcript_id, ordinal, event_sequence
+            FROM projection_transcript
+            ORDER BY ordinal
+          `
+          assert.deepStrictEqual(rows, [
+            { transcript_id: `user:${turnId}`, ordinal: 1, event_sequence: 4 },
+            { transcript_id: `tool:${turnId}:upsert-tool`, ordinal: 2, event_sequence: 3 },
+            { transcript_id: `plan:${turnId}`, ordinal: 3, event_sequence: 5 },
+          ])
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    )
+  })
+
   it.effect("ne bump pas updated_at sur assistant/tool/plan", () => {
     const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000004")
     return Effect.scoped(
