@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
 import { DEFAULT_SETTINGS_PATH, navigateToSettings } from "../src/lib/settings-navigation"
 

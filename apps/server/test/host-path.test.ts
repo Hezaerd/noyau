@@ -4,7 +4,7 @@ import {
   readPathFromLaunchctl,
   type ExecFileSyncLike,
 } from "@noyau/server/host-path"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 describe("host PATH subprocesses", () => {
   it("hides every environment probe on Windows", () => {

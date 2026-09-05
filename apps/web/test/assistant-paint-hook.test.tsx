@@ -2,7 +2,7 @@
 
 import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { act, cleanup, renderHook } from "@testing-library/react"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { useAssistantPaint } from "../src/hooks/use-assistant-paint"
 import { clearAssistantPaint, pushAssistantLive } from "../src/lib/assistant-paint"
