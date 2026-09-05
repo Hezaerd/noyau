@@ -55,15 +55,18 @@ export const ThreadMarkdown = memo(function ThreadMarkdown({
     [streaming, text, tickets],
   )
   const fileLinks = useMemo(
-    () =>
-      Object.assign(
-        collectThreadMarkdownFileLinks(mentionExpanded, workspaceRoot),
-        { tickets },
-        projectId === undefined ? {} : { projectId },
-        threadId === undefined ? {} : { threadId },
-        onOpenTicket === undefined ? {} : { onOpenTicket },
-      ),
-    [mentionExpanded, onOpenTicket, projectId, threadId, tickets, workspaceRoot],
+    () => collectThreadMarkdownFileLinks(mentionExpanded, workspaceRoot),
+    [mentionExpanded, workspaceRoot],
+  )
+  const contextValue = useMemo(
+    () => ({
+      ...fileLinks,
+      tickets,
+      projectId,
+      threadId,
+      onOpenTicket,
+    }),
+    [fileLinks, onOpenTicket, projectId, threadId, tickets],
   )
   const renderedText = useMemo(
     () =>
@@ -86,7 +89,7 @@ export const ThreadMarkdown = memo(function ThreadMarkdown({
   )
 
   return (
-    <ThreadMarkdownContext.Provider value={fileLinks}>
+    <ThreadMarkdownContext.Provider value={contextValue}>
       <Streamdown
         className={markdownClassName}
         components={streamdownComponents}
