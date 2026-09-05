@@ -40,6 +40,7 @@ import {
   Option,
   Path,
   Scope,
+  Semaphore,
 } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
@@ -563,6 +564,9 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
   const queued = new Map<string, ActiveTurn>()
   const sessions = new Map<string, CodexSession>()
   const turnFibers = new Map<string, Fiber.Fiber<void>>()
+  const skillListings = new Map<string, Deferred.Deferred<ReadonlyArray<AgentSkillEntry>>>()
+  const skillDiscoveryMutex = yield* Semaphore.make(1)
+  let skillDiscoveryScope = yield* Scope.make("sequential")
 
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
@@ -631,7 +635,9 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       return initialized
     })
 
-  const listSkills = Effect.fn("CodexAdapter.listSkills")(function* (workspaceRoot: string) {
+  const discoverSkills = Effect.fn("CodexAdapter.discoverSkills")(function* (
+    workspaceRoot: string,
+  ) {
     if (executable === null) {
       return []
     }
@@ -669,6 +675,34 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
       Effect.timeout("10 seconds"),
       Effect.orElseSucceed(() => []),
     )
+  })
+  const listSkills = Effect.fn("CodexAdapter.listSkills")(function* (workspaceRoot: string) {
+    const pending = yield* skillDiscoveryMutex.withPermits(1)(
+      Effect.uninterruptible(
+        Effect.gen(function* () {
+          const existing = skillListings.get(workspaceRoot)
+          if (existing !== undefined) {
+            return existing
+          }
+          const created = Deferred.makeUnsafe<ReadonlyArray<AgentSkillEntry>>()
+          skillListings.set(workspaceRoot, created)
+          const worker = Effect.uninterruptibleMask((restoreWorker) =>
+            Effect.exit(restoreWorker(discoverSkills(workspaceRoot))).pipe(
+              Effect.flatMap((exit) =>
+                Effect.sync(() => {
+                  if (skillListings.get(workspaceRoot) === created) {
+                    skillListings.delete(workspaceRoot)
+                  }
+                }).pipe(Effect.andThen(Deferred.done(created, exit))),
+              ),
+            ),
+          )
+          yield* Effect.forkIn(worker, skillDiscoveryScope, { startImmediately: true })
+          return created
+        }),
+      ),
+    )
+    return yield* Deferred.await(pending)
   })
 
   const probe =
@@ -1373,10 +1407,25 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     }
   })
 
-  const stopAll = Effect.sync(() => [...sessions.values()]).pipe(
+  const closeSessions = Effect.sync(() => [...sessions.values()]).pipe(
     Effect.flatMap((current) => Effect.forEach(current, closeSession, { discard: true })),
     Effect.ignore,
   )
+
+  const closeSkillDiscovery = (restart: boolean) =>
+    Effect.uninterruptible(
+      skillDiscoveryMutex.withPermits(1)(
+        Effect.gen(function* () {
+          const closing = skillDiscoveryScope
+          if (restart) {
+            skillDiscoveryScope = yield* Scope.make("sequential")
+          }
+          yield* Scope.close(closing, Exit.void)
+        }),
+      ),
+    )
+
+  const stopAll = closeSessions.pipe(Effect.andThen(closeSkillDiscovery(true)), Effect.ignore)
 
   const reapIdle = Effect.fn("CodexAdapter.reapIdle")(function* (
     threadId: ProviderTurnInput["threadId"],
@@ -1395,7 +1444,9 @@ export const makeCodexProvider = Effect.fn("CodexAdapter.make")(function* (
     return true
   })
 
-  yield* Effect.addFinalizer(() => stopAll)
+  yield* Effect.addFinalizer(() =>
+    closeSessions.pipe(Effect.andThen(closeSkillDiscovery(false)), Effect.ignore),
+  )
 
   return ProviderPort.of({
     status: Effect.succeed(
