@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   applyThreadEnvelope,
-  flushedAssistantPrefix,
+  flushedAssistantPrefixes,
   groupTranscriptRows,
   lastAssistantIndexByTurnId,
   presentTranscriptTool,
@@ -804,11 +804,48 @@ describe("thread transcript projection", () => {
       text: "",
     })
     const transcript = [first, tool, second, tool, placeholder]
-    expect(flushedAssistantPrefix(transcript, ids.turn, transcript.length - 1)).toBe(
-      "Address bar first. There's a circular import.",
-    )
-    expect(flushedAssistantPrefix(transcript, ids.turn, 2)).toBe("Address bar first. ")
-    expect(flushedAssistantPrefix([first], ids.turn, 0)).toBe("")
+    const prefixes = flushedAssistantPrefixes(transcript)
+    expect(prefixes[transcript.length - 1]).toBe("Address bar first. There's a circular import.")
+    expect(prefixes[2]).toBe("Address bar first. ")
+    expect(flushedAssistantPrefixes([first])[0]).toBe("")
+  })
+
+  it("precomputes prefixes across Turns, tool boundaries, and empty assistant rows", () => {
+    const first = decodeTranscript({
+      _tag: "transcript.assistant",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "First. ",
+    })
+    const tool = decodeTranscript({
+      _tag: "transcript.tool",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      toolCallId: "tool-prefix",
+      name: "Read file",
+      status: "completed",
+    })
+    const otherTurn = decodeTranscript({
+      _tag: "transcript.assistant",
+      threadId: ids.thread,
+      turnId: ids.nextTurn,
+      text: "Other turn. ",
+    })
+    const empty = decodeTranscript({
+      _tag: "transcript.assistant",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "",
+    })
+    const final = decodeTranscript({
+      _tag: "transcript.assistant",
+      threadId: ids.thread,
+      turnId: ids.turn,
+      text: "Final.",
+    })
+    const transcript = [first, tool, otherTurn, empty, final]
+
+    expect(flushedAssistantPrefixes(transcript)).toEqual(["", "", "", "First. ", "First. "])
   })
 
   it("ignores live paint that belongs to another Turn", () => {
