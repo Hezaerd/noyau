@@ -14,37 +14,48 @@ export const boardStateFromSnapshot = (snapshot: BoardSnapshot): BoardState => {
     done: column.done,
   }))
 
-  const columnPositions = new Map(
-    columns.map((column) => [
-      column.id,
-      snapshot.tickets
-        .filter((ticket) => ticket.columnId === column.id && ticket.archivedAt === undefined)
-        .toSorted(compareRank)
-        .map((ticket, position) => [ticket.id, position] as const),
-    ]),
-  )
+  const columnIds = new Set(columns.map((column) => column.id))
+  const activeTickets = snapshot.tickets.filter((ticket) => ticket.archivedAt === undefined)
+  const ticketsByColumn = new Map<string, Array<(typeof snapshot.tickets)[number]>>()
+  for (const ticket of activeTickets) {
+    if (!columnIds.has(ticket.columnId)) {
+      continue
+    }
+    const columnTickets = ticketsByColumn.get(ticket.columnId)
+    if (columnTickets === undefined) {
+      ticketsByColumn.set(ticket.columnId, [ticket])
+    } else {
+      columnTickets.push(ticket)
+    }
+  }
+
+  const columnPositions = new Map<string, ReadonlyMap<string, number>>()
+  for (const [columnId, columnTickets] of ticketsByColumn) {
+    const positions = new Map<string, number>()
+    for (const [position, ticket] of columnTickets.toSorted(compareRank).entries()) {
+      if (!positions.has(ticket.id)) {
+        positions.set(ticket.id, position)
+      }
+    }
+    columnPositions.set(columnId, positions)
+  }
 
   return {
     columns,
-    tickets: snapshot.tickets
-      .filter((ticket) => ticket.archivedAt === undefined)
-      .map(
-        (ticket) =>
-          Object.assign(
-            {
-              id: ticket.id,
-              columnId: ticket.columnId,
-              position:
-                columnPositions
-                  .get(ticket.columnId)
-                  ?.find(([ticketId]) => ticketId === ticket.id)?.[1] ?? 0,
-              title: ticket.title,
-              description: ticket.description ?? "",
-              priority: ticket.priority,
-            },
-            ticket.dueAt === undefined ? {} : { dueAt: DateTime.formatIso(ticket.dueAt) },
-          ) satisfies BoardTicket,
-      ),
+    tickets: activeTickets.map(
+      (ticket) =>
+        Object.assign(
+          {
+            id: ticket.id,
+            columnId: ticket.columnId,
+            position: columnPositions.get(ticket.columnId)?.get(ticket.id) ?? 0,
+            title: ticket.title,
+            description: ticket.description ?? "",
+            priority: ticket.priority,
+          },
+          ticket.dueAt === undefined ? {} : { dueAt: DateTime.formatIso(ticket.dueAt) },
+        ) satisfies BoardTicket,
+    ),
     ticketDependencies: snapshot.ticketDependencies.map((dependency) => ({
       ticketId: dependency.ticketId,
       dependsOnTicketId: dependency.dependsOnTicketId,
