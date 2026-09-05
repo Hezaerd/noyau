@@ -37,8 +37,9 @@ describe("Node SQLite statement cache", () => {
     )
   })
 
-  it.effect("isole les modes objet, valeurs et entiers sûrs sur une entrée partagée", () =>
-    withClient({ filename: ":memory:" }, (sql) =>
+  it.effect("isole les modes objet, valeurs et entiers sûrs sur une entrée partagée", () => {
+    const prepare = vi.spyOn(NodeSqlite.DatabaseSync.prototype, "prepare")
+    return withClient({ filename: ":memory:" }, (sql) =>
       Effect.gen(function* () {
         const query = "SELECT 42 AS value"
         assert.deepStrictEqual(
@@ -48,9 +49,13 @@ describe("Node SQLite statement cache", () => {
         assert.deepStrictEqual(yield* sql.unsafe(query, []).raw, [{ value: 42 }])
         assert.deepStrictEqual(yield* sql.unsafe(query, []).values, [[42]])
         assert.deepStrictEqual(yield* sql.unsafe(query, []), [{ value: 42 }])
+        assert.strictEqual(
+          prepare.mock.calls.filter(([preparedSql]) => preparedSql === query).length,
+          1,
+        )
       }),
-    ),
-  )
+    )
+  })
 
   it.effect("contourne le cache pour les exécutions unprepared", () => {
     const prepare = vi.spyOn(NodeSqlite.DatabaseSync.prototype, "prepare")
@@ -81,8 +86,9 @@ describe("Node SQLite statement cache", () => {
     )
   })
 
-  it.effect("réutilise une entrée après un changement de schéma compatible", () =>
-    withClient({ filename: ":memory:" }, (sql) =>
+  it.effect("réutilise une entrée après un changement de schéma compatible", () => {
+    const prepare = vi.spyOn(NodeSqlite.DatabaseSync.prototype, "prepare")
+    return withClient({ filename: ":memory:" }, (sql) =>
       Effect.gen(function* () {
         yield* sql`CREATE TABLE probe (value INTEGER NOT NULL)`
         const query = "SELECT value FROM probe ORDER BY value"
@@ -90,7 +96,11 @@ describe("Node SQLite statement cache", () => {
         yield* sql`ALTER TABLE probe ADD COLUMN label TEXT`
         yield* sql`INSERT INTO probe (value, label) VALUES (1, 'one')`
         assert.deepStrictEqual(yield* sql.unsafe(query), [{ value: 1 }])
+        assert.strictEqual(
+          prepare.mock.calls.filter(([preparedSql]) => preparedSql === query).length,
+          1,
+        )
       }),
-    ),
-  )
+    )
+  })
 })
