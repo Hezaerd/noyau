@@ -15,7 +15,7 @@ const WINDOWS_SHELL_CANDIDATES = ["pwsh.exe", "powershell.exe"] as const
 export type ExecFileSyncLike = (
   file: string,
   args: ReadonlyArray<string>,
-  options: { encoding: "utf8"; timeout: number },
+  options: { encoding: "utf8"; timeout: number; windowsHide: true },
 ) => string
 
 const defaultExecFile: ExecFileSyncLike = NodeChildProcess.execFileSync
@@ -148,6 +148,7 @@ export const readPathFromLoginShell = (
   const output = execFile(shell, ["-ilc", buildPosixCaptureCommand(["PATH"])], {
     encoding: "utf8",
     timeout: LOGIN_SHELL_TIMEOUT_MS,
+    windowsHide: true,
   })
   return extractEnvironmentValue(output, "PATH")
 }
@@ -160,6 +161,7 @@ export const readPathFromLaunchctl = (
       execFile("/bin/launchctl", ["getenv", "PATH"], {
         encoding: "utf8",
         timeout: LAUNCHCTL_TIMEOUT_MS,
+        windowsHide: true,
       }),
     )
   } catch {
@@ -182,6 +184,7 @@ export const readPathFromWindowsUserEnvironment = (
       const output = execFile(shell, args, {
         encoding: "utf8",
         timeout: LOGIN_SHELL_TIMEOUT_MS,
+        windowsHide: true,
       })
       return extractEnvironmentValue(output, "PATH")
     } catch {
