@@ -11,8 +11,9 @@ import {
   storedTextsFromSessionDrafts,
 } from "../src/lib/composer-drafts"
 import type { ComposerImage } from "../src/lib/composer-images"
-import { resetAppAtomRegistryForTests } from "../src/state/atom-registry"
+import { appAtomRegistry, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import {
+  projectNewThreadDraftsAtom,
   promoteComposerDraft,
   readComposerDraft,
   readComposerDraftImages,
@@ -68,6 +69,58 @@ describe("composer drafts", () => {
       { id: draftA, value: { text: "first idea", images: [] } },
       { id: draftB, value: { text: "second idea", images: [] } },
     ])
+  })
+
+  it("notifies a Project's new-Thread drafts only for relevant changes", () => {
+    const atom = projectNewThreadDraftsAtom(projectA)
+    const notifications: Array<ReadonlyArray<unknown>> = []
+    const initial = appAtomRegistry.get(atom)
+    const unsubscribe = appAtomRegistry.subscribe(atom, (drafts) => {
+      notifications.push(drafts)
+    })
+    writeComposerDraft(projectB, threadA, "unrelated Thread")
+    writeComposerDraft(projectB, undefined, "unrelated new Thread")
+    expect(notifications).toHaveLength(0)
+    expect(appAtomRegistry.get(atom)).toBe(initial)
+
+    writeComposerDraft(projectA, threadA, "existing Thread")
+    expect(notifications).toHaveLength(0)
+
+    writeComposerDraft(projectA, undefined, "default draft")
+    writeComposerDraft(projectA, undefined, "named draft", draftA)
+    expect(notifications).toHaveLength(2)
+    expect(appAtomRegistry.get(atom)).toEqual([
+      { id: undefined, value: { text: "default draft", images: [] } },
+      { id: draftA, value: { text: "named draft", images: [] } },
+    ])
+    const populated = appAtomRegistry.get(atom)
+    writeComposerDraft(projectA, threadB, "another existing Thread")
+    writeComposerDraft(projectB, undefined, "unrelated new Thread after population")
+    expect(notifications).toHaveLength(2)
+    expect(appAtomRegistry.get(atom)).toBe(populated)
+
+    const beforeImageUpdate = appAtomRegistry.get(atom)
+    const image = draftImage("draft")
+    writeComposerDraftImages(projectA, undefined, [image], draftA)
+    expect(notifications).toHaveLength(3)
+    expect(appAtomRegistry.get(atom)).not.toBe(beforeImageUpdate)
+    expect(appAtomRegistry.get(atom)).toEqual([
+      { id: undefined, value: { text: "default draft", images: [] } },
+      { id: draftA, value: { text: "named draft", images: [image] } },
+    ])
+
+    writeComposerDraft(projectA, undefined, "")
+    expect(notifications).toHaveLength(4)
+    expect(appAtomRegistry.get(atom)).toEqual([
+      { id: draftA, value: { text: "named draft", images: [image] } },
+    ])
+
+    writeComposerDraft(projectA, undefined, "", draftA)
+    expect(notifications).toHaveLength(5)
+    writeComposerDraftImages(projectA, undefined, [], draftA)
+    expect(notifications).toHaveLength(6)
+    expect(appAtomRegistry.get(atom)).toEqual([])
+    unsubscribe()
   })
 
   it("accepts only UUID draft identities from the Thread route", () => {

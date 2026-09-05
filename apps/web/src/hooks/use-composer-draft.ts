@@ -4,15 +4,15 @@ import { useCallback } from "react"
 import { useAppAtomValue } from "@/hooks/use-app-atom"
 import {
   composerDraftStoreKey,
-  projectNewThreadDrafts,
   type NewThreadDraft,
   type NewThreadDraftId,
 } from "@/lib/composer-drafts"
 import type { ComposerImage } from "@/lib/composer-images"
 import {
   clearComposerDraft,
-  composerDraftsAtom,
   draftAtom,
+  emptyNewThreadDraftsAtom,
+  projectNewThreadDraftsAtom,
   writeComposerDraft,
   writeComposerDraftImages,
 } from "@/state/composer-drafts"
@@ -28,8 +28,9 @@ export interface ComposerDraft {
 export function useProjectNewThreadDrafts(
   projectId: ProjectId | undefined,
 ): ReadonlyArray<NewThreadDraft<ComposerImage>> {
-  const drafts = useAppAtomValue(composerDraftsAtom)
-  return projectId === undefined ? [] : projectNewThreadDrafts(drafts, projectId)
+  const draftsAtom =
+    projectId === undefined ? emptyNewThreadDraftsAtom : projectNewThreadDraftsAtom(projectId)
+  return useAppAtomValue(draftsAtom)
 }
 
 export function useComposerDraft(
