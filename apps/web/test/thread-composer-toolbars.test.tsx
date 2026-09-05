@@ -4,7 +4,8 @@ import type { AgentSkillEntry } from "@noyau/contracts/entities/agent-skill"
 import type { CursorModel } from "@noyau/contracts/entities/environment"
 import { ProviderInstanceId } from "@noyau/contracts/entities/environment"
 import type { WorkspacePathEntry } from "@noyau/contracts/entities/workspace-path"
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react"
+import { Deferred, Effect } from "effect"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { ComposerToolbarOwnerDefinition } from "../src/components/thread/ComposerToolbarHost"
@@ -52,6 +53,7 @@ afterEach(() => {
   cleanup()
   resetAppAtomRegistryForTests()
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 const renderComposer = ({
@@ -68,17 +70,19 @@ const renderComposer = ({
   readonly text?: string
   readonly tickets?: ReadonlyArray<ComposerTicket>
   readonly skills?: ReadonlyArray<AgentSkillEntry>
-  readonly searchPaths?: ((query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>) | undefined
+  readonly searchPaths?:
+    | ((query: string, signal: AbortSignal) => Promise<ReadonlyArray<WorkspacePathEntry>>)
+    | undefined
   readonly toolbars?: ReadonlyArray<ComposerToolbarOwnerDefinition> | undefined
   readonly onTextChange?: (value: string) => void
   readonly onSubmit?: () => void
 } = {}) => {
-  const renderTree = (nextToolbars = toolbars) => (
+  const renderTree = (nextToolbars = toolbars, nextText = text) => (
     <AppAtomRegistryProvider>
       <ThreadComposer
         isRunning={false}
         disabled={false}
-        text={text}
+        text={nextText}
         images={[]}
         runtimeMode="full-access"
         models={[model]}
@@ -110,10 +114,86 @@ const renderComposer = ({
     ...result,
     rerenderToolbars: (nextToolbars: ReadonlyArray<ComposerToolbarOwnerDefinition>) =>
       result.rerender(renderTree(nextToolbars)),
+    rerenderText: (nextText: string) => result.rerender(renderTree(toolbars, nextText)),
   }
 }
 
 describe("ThreadComposer toolbar composition", () => {
+  it("aborts an in-flight path search when the query changes and keeps only fresh results", async () => {
+    vi.useFakeTimers()
+    const requests: Array<{
+      readonly query: string
+      readonly signal: AbortSignal
+      readonly resolve: (entries: ReadonlyArray<WorkspacePathEntry>) => void
+    }> = []
+    const searchPaths = vi.fn((query: string, signal: AbortSignal) => {
+      const deferred = Deferred.makeUnsafe<ReadonlyArray<WorkspacePathEntry>>()
+      requests.push({
+        query,
+        signal,
+        resolve: (entries) => Effect.runSync(Deferred.succeed(deferred, entries)),
+      })
+      return Effect.runPromise(Deferred.await(deferred))
+    })
+    const rendered = renderComposer({ text: "@first", searchPaths })
+
+    await act(() => vi.advanceTimersByTimeAsync(150))
+    expect(requests[0]).toMatchObject({ query: "first" })
+
+    rendered.rerenderText("@other")
+    expect(requests[0]?.signal.aborted).toBe(true)
+    await act(() => vi.advanceTimersByTimeAsync(150))
+    expect(requests[1]).toMatchObject({ query: "other" })
+    expect(requests[1]?.signal.aborted).toBe(false)
+
+    await act(async () => {
+      requests[0]?.resolve([{ path: "first-result.ts", kind: "file" }])
+      await Promise.resolve()
+    })
+    expect(screen.queryByText("first-result.ts")).toBeNull()
+
+    await act(async () => {
+      requests[1]?.resolve([{ path: "second-result.ts", kind: "file" }])
+      await Promise.resolve()
+    })
+    expect(screen.getByText("second-result.ts")).toBeTruthy()
+  })
+
+  it("aborts an in-flight path search when suggestions close", async () => {
+    vi.useFakeTimers()
+    let searchSignal: AbortSignal | undefined
+    const searchPaths = vi.fn((_query: string, signal: AbortSignal) => {
+      searchSignal = signal
+      return Effect.runPromise(
+        Deferred.await(Deferred.makeUnsafe<ReadonlyArray<WorkspacePathEntry>>()),
+      )
+    })
+    const rendered = renderComposer({ text: "@first", searchPaths })
+
+    await act(() => vi.advanceTimersByTimeAsync(150))
+    rendered.rerenderText("plain text")
+
+    expect(searchPaths).toHaveBeenCalledOnce()
+    expect(searchSignal?.aborted).toBe(true)
+  })
+
+  it("aborts an in-flight path search when the composer unmounts", async () => {
+    vi.useFakeTimers()
+    let searchSignal: AbortSignal | undefined
+    const searchPaths = vi.fn((_query: string, signal: AbortSignal) => {
+      searchSignal = signal
+      return Effect.runPromise(
+        Deferred.await(Deferred.makeUnsafe<ReadonlyArray<WorkspacePathEntry>>()),
+      )
+    })
+    const rendered = renderComposer({ text: "@first", searchPaths })
+
+    await act(() => vi.advanceTimersByTimeAsync(150))
+    rendered.unmount()
+
+    expect(searchSignal?.aborted).toBe(true)
+  })
+
   it("renders an external bottom toolbar immediately after the composer shell", () => {
     renderComposer({
       toolbars: [

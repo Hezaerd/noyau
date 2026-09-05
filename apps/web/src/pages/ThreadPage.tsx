@@ -344,8 +344,8 @@ export function ThreadPage({
   }, [threadId, draftProvider, providers, availableProviders, catalogs])
   const subscriptionFailure = useDelayedSubscriptionFailure(subscriptionStatus)
   const searchPaths = useCallback(
-    (query: string) =>
-      searchWorkspacePaths(projectId, query).then((result) =>
+    (query: string, signal: AbortSignal) =>
+      searchWorkspacePaths(projectId, query, signal).then((result) =>
         result.ok ? result.value.entries : [],
       ),
     [projectId],

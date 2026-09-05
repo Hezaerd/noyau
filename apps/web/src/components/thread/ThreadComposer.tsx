@@ -162,7 +162,9 @@ export function ThreadComposer({
   readonly onDrop: (event: DragEvent<HTMLElement>) => void
   readonly onImageRemove: (localId: string) => void
   readonly onInterrupt: () => void
-  readonly searchPaths?: ((query: string) => Promise<ReadonlyArray<WorkspacePathEntry>>) | undefined
+  readonly searchPaths?:
+    | ((query: string, signal: AbortSignal) => Promise<ReadonlyArray<WorkspacePathEntry>>)
+    | undefined
   readonly tickets?: ReadonlyArray<ComposerTicket> | undefined
   readonly skills?: ReadonlyArray<AgentSkillEntry> | undefined
   readonly contextUsage?: ContextUsage | undefined
@@ -271,10 +273,11 @@ export function ThreadComposer({
       setPathSearchLoading(false)
       return
     }
+    const controller = new AbortController()
     let cancelled = false
     setPathSearchLoading(true)
     const handle = globalThis.setTimeout(() => {
-      void searchPaths(mentionQuery).then((entries) => {
+      void searchPaths(mentionQuery, controller.signal).then((entries) => {
         if (!cancelled) {
           setPathEntries(entries)
           setHighlightedIndex(0)
@@ -285,6 +288,7 @@ export function ThreadComposer({
     }, 150)
     return () => {
       cancelled = true
+      controller.abort()
       globalThis.clearTimeout(handle)
     }
   }, [dismissedQuery, mentionQuery, searchPaths])
