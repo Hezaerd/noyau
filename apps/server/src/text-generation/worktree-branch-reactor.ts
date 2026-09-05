@@ -1,4 +1,4 @@
-import type { TranscriptItem } from "@noyau/contracts/entities/transcript"
+import { TranscriptItem } from "@noyau/contracts/entities/transcript"
 import type { DomainEvent } from "@noyau/contracts/events"
 import {
   ActorId,
@@ -17,17 +17,93 @@ import {
 } from "@noyau/server/git/git-runtime"
 import { VcsStatusBroadcaster } from "@noyau/server/git/vcs-status-broadcaster"
 import type { PersistedEvent } from "@noyau/server/persistence/command-worker"
-import { readThreadSnapshot } from "@noyau/server/persistence/snapshots"
 import { Crypto, DateTime, Effect, Option, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 
 import { TextGeneration } from "./text-generation.ts"
 
 const decodeThreadMetaUpdate = Schema.decodeUnknownEffect(ThreadMetaUpdate)
+const WorktreeBranchContextRow = Schema.Struct({
+  branch: Schema.NullOr(Schema.String),
+  worktree_path: Schema.NullOr(Schema.String),
+  has_turn: Schema.Int,
+  has_second_turn: Schema.Int,
+})
+const WorktreeBranchRow = Schema.Struct({ branch: Schema.NullOr(Schema.String) })
+const TranscriptRow = Schema.Struct({ item: Schema.String })
+const decodeWorktreeBranchContextRow = Schema.decodeEffect(WorktreeBranchContextRow)
+const decodeWorktreeBranchRow = Schema.decodeEffect(WorktreeBranchRow)
+const decodeTranscriptRow = Schema.decodeEffect(TranscriptRow)
+const decodeTranscriptItem = Schema.decodeEffect(Schema.fromJsonString(TranscriptItem))
 const systemActor = ActorId.make("system:cursor")
 const isThreadEvent = Schema.is(ThreadEvent)
 
 export type DispatchInternal = (command: (typeof ThreadMetaUpdate)["Type"]) => Effect.Effect<void>
+
+const readWorktreeBranchContext = Effect.fn("WorktreeBranchReactor.readWorktreeBranchContext")(
+  function* (threadId: ThreadId) {
+    const sql = yield* SqlClient
+    const rows = yield* sql<(typeof WorktreeBranchContextRow)["Encoded"]>`
+      SELECT
+        thread.branch,
+        thread.worktree_path,
+        EXISTS (
+          SELECT 1
+          FROM projection_turns AS first_turn
+          WHERE first_turn.thread_id = thread.thread_id
+          LIMIT 1
+        ) AS has_turn,
+        EXISTS (
+          SELECT 1
+          FROM projection_turns AS second_turn
+          WHERE second_turn.thread_id = thread.thread_id
+          ORDER BY second_turn.ordinal
+          LIMIT 1 OFFSET 1
+        ) AS has_second_turn
+      FROM projection_threads AS thread
+      WHERE thread.thread_id = ${threadId}
+    `
+    const row = rows[0]
+    return row === undefined
+      ? Option.none()
+      : Option.some(yield* decodeWorktreeBranchContextRow(row).pipe(Effect.orDie))
+  },
+)
+
+const readThreadBranch = Effect.fn("WorktreeBranchReactor.readThreadBranch")(function* (
+  threadId: ThreadId,
+) {
+  const sql = yield* SqlClient
+  const rows = yield* sql<(typeof WorktreeBranchRow)["Encoded"]>`
+    SELECT branch
+    FROM projection_threads
+    WHERE thread_id = ${threadId}
+  `
+  const row = rows[0]
+  return row === undefined
+    ? Option.none()
+    : Option.some(yield* decodeWorktreeBranchRow(row).pipe(Effect.orDie))
+})
+
+const readFirstUserMessage = Effect.fn("WorktreeBranchReactor.readFirstUserMessage")(function* (
+  threadId: ThreadId,
+) {
+  const sql = yield* SqlClient
+  const rows = yield* sql<(typeof TranscriptRow)["Encoded"]>`
+    SELECT item
+    FROM projection_transcript
+    WHERE thread_id = ${threadId}
+      AND kind = 'transcript.user'
+    ORDER BY ordinal
+  `
+  const items = yield* Effect.forEach(rows, (raw) =>
+    decodeTranscriptRow(raw).pipe(
+      Effect.orDie,
+      Effect.flatMap((row) => decodeTranscriptItem(row.item).pipe(Effect.orDie)),
+    ),
+  )
+  return firstUserMessage(items)
+})
 
 const firstUserMessage = (items: ReadonlyArray<TranscriptItem>): string => {
   for (const item of items) {
@@ -117,8 +193,8 @@ const maybeRenameTemporaryWorktreeBranch = Effect.fn(
     return
   }
 
-  const snapshot = yield* readThreadSnapshot(input.threadId).pipe(Effect.orDie)
-  if (Option.isNone(snapshot) || snapshot.value.thread.branch !== branch) {
+  const current = yield* readThreadBranch(input.threadId).pipe(Effect.orDie)
+  if (Option.isNone(current) || current.value.branch !== branch) {
     return
   }
 
@@ -194,11 +270,15 @@ export const makeWorktreeBranchReactor = (
       switch (threadEvent._tag) {
         case "thread.turn.started":
           return Effect.gen(function* () {
-            const snapshot = yield* readThreadSnapshot(threadEvent.threadId).pipe(
+            const context = yield* readWorktreeBranchContext(threadEvent.threadId).pipe(
               Effect.provideService(SqlClient, sql),
               Effect.orDie,
             )
-            if (Option.isNone(snapshot) || snapshot.value.turns.length !== 1) {
+            if (
+              Option.isNone(context) ||
+              context.value.has_turn !== 1 ||
+              context.value.has_second_turn !== 0
+            ) {
               return
             }
             const message =
@@ -209,8 +289,8 @@ export const makeWorktreeBranchReactor = (
               ""
             yield* run(persisted, {
               threadId: threadEvent.threadId,
-              branch: snapshot.value.thread.branch ?? null,
-              worktreePath: snapshot.value.thread.worktreePath ?? null,
+              branch: context.value.branch,
+              worktreePath: context.value.worktree_path,
               message,
             })
           })
@@ -219,18 +299,30 @@ export const makeWorktreeBranchReactor = (
             return Effect.void
           }
           return Effect.gen(function* () {
-            const snapshot = yield* readThreadSnapshot(threadEvent.threadId).pipe(
-              Effect.provideService(SqlClient, sql),
-              Effect.orDie,
-            )
-            if (Option.isNone(snapshot) || snapshot.value.turns.length !== 1) {
+            const eligible = yield* sql
+              .withTransaction(
+                Effect.gen(function* () {
+                  const context = yield* readWorktreeBranchContext(threadEvent.threadId)
+                  if (
+                    Option.isNone(context) ||
+                    context.value.has_turn !== 1 ||
+                    context.value.has_second_turn !== 0
+                  ) {
+                    return Option.none()
+                  }
+                  const message = yield* readFirstUserMessage(threadEvent.threadId)
+                  return Option.some({ context: context.value, message })
+                }).pipe(Effect.provideService(SqlClient, sql)),
+              )
+              .pipe(Effect.orDie)
+            if (Option.isNone(eligible)) {
               return
             }
             yield* run(persisted, {
               threadId: threadEvent.threadId,
-              branch: snapshot.value.thread.branch ?? null,
-              worktreePath: snapshot.value.thread.worktreePath ?? null,
-              message: firstUserMessage(snapshot.value.transcript),
+              branch: eligible.value.context.branch,
+              worktreePath: eligible.value.context.worktree_path,
+              message: eligible.value.message,
             })
           })
         default:
