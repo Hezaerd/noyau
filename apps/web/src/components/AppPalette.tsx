@@ -52,6 +52,7 @@ import {
   paletteItemModifierPressed,
 } from "@/lib/keyboard-shortcut"
 import { DEFAULT_SETTINGS_TAB, isSettingsPath } from "@/lib/settings-catalog"
+import { navigateToSettings } from "@/lib/settings-navigation"
 import { prefetchThreadSnapshot } from "@/lib/thread-snapshot-prefetch"
 import { setKeybindingPaletteOpen } from "@/state/keybinding-context"
 
@@ -112,10 +113,12 @@ export function AppPaletteProvider({ children }: { readonly children: ReactNode 
     }
     setOpen(false)
     setQuery("")
-    void navigate({
-      to: "/settings/$tab",
-      params: { tab: DEFAULT_SETTINGS_TAB },
-    })
+    void navigateToSettings(() =>
+      navigate({
+        to: "/settings/$tab",
+        params: { tab: DEFAULT_SETTINGS_TAB },
+      }),
+    )
   }, [navigate, pathname])
 
   const openNewThread = useCallback(() => {
