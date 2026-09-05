@@ -34,6 +34,112 @@ export const vcsScopeForThread = (
 ): VcsScope =>
   threadWorktreePathOf(thread) === null ? { projectId } : { projectId, threadId: thread.id }
 
+export interface VcsStatusSubscriptionScope {
+  readonly scope: VcsScope
+  /** The server resolves this path when the stream starts. */
+  readonly worktreePath: string | null
+}
+
+export const uniqueVcsStatusSubscriptionScopes = (
+  projectId: ProjectId,
+  threads: ReadonlyArray<{ readonly id: ThreadId; readonly worktreePath?: string | null }>,
+): ReadonlyArray<VcsStatusSubscriptionScope> => {
+  const scopes: Array<VcsStatusSubscriptionScope> = [{ scope: { projectId }, worktreePath: null }]
+  for (const thread of threads) {
+    const worktreePath = threadWorktreePathOf(thread)
+    if (worktreePath !== null) {
+      scopes.push({ scope: { projectId, threadId: thread.id }, worktreePath })
+    }
+  }
+  return scopes
+}
+
+export type VcsStatusSubscribe = (
+  scope: VcsScope,
+  onEvent: (event: VcsStatusStreamEvent) => void,
+) => () => void
+
+export interface VcsStatusSubscriptionController {
+  /** Reconcile membership and paths, invalidating replaced streams before starting replacements. */
+  readonly reconcile: (
+    scopes: ReadonlyArray<VcsStatusSubscriptionScope>,
+    subscribe?: VcsStatusSubscribe,
+  ) => void
+  /** Stop all streams. The controller remains reusable for StrictMode effect replay. */
+  readonly dispose: () => void
+}
+
+export const createVcsStatusSubscriptionController = (
+  subscribe: VcsStatusSubscribe,
+  onEvent: (scope: VcsScope, event: VcsStatusStreamEvent) => void,
+  onInvalidate: (key: string) => void = () => undefined,
+): VcsStatusSubscriptionController => {
+  interface ActiveSubscription {
+    readonly key: string
+    readonly worktreePath: string | null
+    stop: () => void
+  }
+
+  const active = new Map<string, ActiveSubscription>()
+  let currentSubscribe = subscribe
+
+  const stop = (subscription: ActiveSubscription, invalidate: boolean): void => {
+    // Remove first so an already queued callback from the old stream is ignored.
+    active.delete(subscription.key)
+    if (invalidate) {
+      // Invalidate before starting a replacement: subscribe implementations may
+      // deliver their initial snapshot synchronously.
+      onInvalidate(subscription.key)
+    }
+    subscription.stop()
+  }
+
+  return {
+    reconcile: (scopes, nextSubscribe = currentSubscribe) => {
+      if (nextSubscribe !== currentSubscribe) {
+        currentSubscribe = nextSubscribe
+        for (const subscription of active.values()) {
+          stop(subscription, true)
+        }
+      }
+      const desired = new Map(
+        scopes.map((entry) => [vcsStatusScopeKey(entry.scope), entry] as const),
+      )
+
+      for (const subscription of active.values()) {
+        const next = desired.get(subscription.key)
+        if (next === undefined || next.worktreePath !== subscription.worktreePath) {
+          stop(subscription, true)
+        }
+      }
+
+      for (const entry of desired.values()) {
+        const key = vcsStatusScopeKey(entry.scope)
+        if (active.has(key)) {
+          continue
+        }
+
+        const subscription: ActiveSubscription = {
+          key,
+          worktreePath: entry.worktreePath,
+          stop: () => undefined,
+        }
+        active.set(key, subscription)
+        subscription.stop = currentSubscribe(entry.scope, (event) => {
+          if (active.get(key) === subscription) {
+            onEvent(entry.scope, event)
+          }
+        })
+      }
+    },
+    dispose: () => {
+      for (const subscription of active.values()) {
+        stop(subscription, false)
+      }
+    },
+  }
+}
+
 /** `null` = Thread sélectionné pas encore dans le shell : ne pas tomber sur WorkspaceRoot. */
 export const resolveGitActionsScope = (
   projectId: ProjectId,

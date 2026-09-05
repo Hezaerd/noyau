@@ -1,14 +1,16 @@
 import type { VcsStatusPullRequest, VcsStatusResult } from "@noyau/contracts/git"
 import type { ProjectId } from "@noyau/contracts/ids"
 import type { ThreadShell } from "@noyau/contracts/shell"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { subscribeVcsStatus } from "@/lib/control-plane"
 import {
+  createVcsStatusSubscriptionController,
   displayedThreadPr,
   nextThreadChangeRequestSnapshot,
   type ThreadChangeRequestSnapshot,
-  uniqueVcsScopes,
+  type VcsStatusSubscribe,
+  uniqueVcsStatusSubscriptionScopes,
   vcsScopeForThread,
   vcsStatusScopeKey,
 } from "@/lib/vcs-status"
@@ -28,33 +30,52 @@ const sameSnapshot = (
 export const useThreadChangeRequests = (
   projectId: ProjectId,
   threads: ReadonlyArray<ThreadShell>,
+  subscribe: VcsStatusSubscribe = subscribeVcsStatus,
 ): {
   readonly pullRequests: ReadonlyMap<string, VcsStatusPullRequest>
   readonly liveBranches: ReadonlyMap<string, string>
 } => {
-  const scopes = useMemo(() => uniqueVcsScopes(projectId, threads), [projectId, threads])
+  const scopes = useMemo(
+    () => uniqueVcsStatusSubscriptionScopes(projectId, threads),
+    [projectId, threads],
+  )
   const [statuses, setStatuses] = useState<ReadonlyMap<string, VcsStatusResult>>(new Map())
   const [snapshots, setSnapshots] = useState<ReadonlyMap<string, ThreadChangeRequestSnapshot>>(
     new Map(),
   )
-
-  useEffect(() => {
-    const stops = scopes.map((scope) => {
-      const key = vcsStatusScopeKey(scope)
-      return subscribeVcsStatus(scope, (event) => {
+  const controllerRef = useRef<ReturnType<typeof createVcsStatusSubscriptionController>>(null)
+  if (controllerRef.current === null) {
+    controllerRef.current = createVcsStatusSubscriptionController(
+      subscribe,
+      (scope, event) => {
+        const key = vcsStatusScopeKey(scope)
         setStatuses((current) => {
           const next = new Map(current)
           next.set(key, event.status)
           return next
         })
-      })
-    })
-    return () => {
-      for (const stop of stops) {
-        stop()
-      }
-    }
-  }, [projectId, scopes])
+      },
+      (key) => {
+        setStatuses((current) => {
+          if (!current.has(key)) {
+            return current
+          }
+          const next = new Map(current)
+          next.delete(key)
+          return next
+        })
+      },
+    )
+  }
+  const controller = controllerRef.current
+
+  useEffect(() => {
+    return () => controller.dispose()
+  }, [controller])
+
+  useEffect(() => {
+    controller.reconcile(scopes, subscribe)
+  }, [controller, scopes, subscribe])
 
   useEffect(() => {
     setSnapshots((current) => {
