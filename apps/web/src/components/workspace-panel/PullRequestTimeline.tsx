@@ -11,6 +11,7 @@ import { useMemo, useState } from "react"
 
 import { ThreadPreviewMarkdown } from "@/components/thread/ThreadPreviewMarkdown"
 import { Button } from "@/components/ui/button"
+import { formatDateTime } from "@/lib/format-date-time"
 import {
   pullRequestReviewStateLabel,
   pullRequestTimeline,
@@ -21,13 +22,7 @@ const formatActivityTime = (value: string | null): string => {
   if (value === null) {
     return "Pending"
   }
-  const date = new Date(value)
-  return Number.isNaN(date.valueOf())
-    ? value
-    : new Intl.DateTimeFormat(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(date)
+  return formatDateTime(value)
 }
 
 export function PullRequestTimeline({ pr }: { readonly pr: GitPullRequest }) {
