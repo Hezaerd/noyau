@@ -84,20 +84,34 @@ const withoutDueAt = (ticket: TicketState): TicketState => {
   return without
 }
 
-const withDerivedOpenDependencies = (state: BoardState): BoardState => ({
-  ...state,
-  tickets: state.tickets.map((ticket) => ({
-    ...ticket,
-    openDependencyIds: state.dependencies
-      .filter((dependency) => dependency.ticketId === ticket.ticketId)
-      .filter(
-        (dependency) =>
-          state.tickets.find((candidate) => candidate.ticketId === dependency.dependsOnTicketId)
-            ?.done === false,
-      )
-      .map((dependency) => dependency.dependsOnTicketId),
-  })),
-})
+const withDerivedOpenDependencies = (state: BoardState): BoardState => {
+  const ticketsById = new Map<TicketId, TicketState>()
+  for (const ticket of state.tickets) {
+    if (!ticketsById.has(ticket.ticketId)) {
+      ticketsById.set(ticket.ticketId, ticket)
+    }
+  }
+
+  const dependenciesByTicketId = new Map<TicketId, Array<TicketDependencyState>>()
+  for (const dependency of state.dependencies) {
+    const dependencies = dependenciesByTicketId.get(dependency.ticketId)
+    if (dependencies === undefined) {
+      dependenciesByTicketId.set(dependency.ticketId, [dependency])
+    } else {
+      dependencies.push(dependency)
+    }
+  }
+
+  return {
+    ...state,
+    tickets: state.tickets.map((ticket) => ({
+      ...ticket,
+      openDependencyIds: (dependenciesByTicketId.get(ticket.ticketId) ?? [])
+        .filter((dependency) => ticketsById.get(dependency.dependsOnTicketId)?.done === false)
+        .map((dependency) => dependency.dependsOnTicketId),
+    })),
+  }
+}
 
 export const evolve = (state: BoardState, event: TicketEvent): BoardState => {
   switch (event._tag) {
