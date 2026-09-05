@@ -181,6 +181,33 @@ describe("VcsStatusBroadcaster initial snapshots", () => {
     }),
   )
 
+  it.effect("does not let a delayed initial snapshot overwrite a refresh", () =>
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      const stale = { ...statusFor("/repo"), hasWorkingTreeChanges: false }
+      const fresh = { ...statusFor("/repo"), hasWorkingTreeChanges: true }
+      const layer = broadcasterLayer((_cwd, options) =>
+        options?.includePr === false
+          ? Deferred.succeed(started, undefined).pipe(
+              Effect.andThen(Deferred.await(release)),
+              Effect.as(stale),
+            )
+          : Effect.succeed(fresh),
+      )
+      const program = Effect.gen(function* () {
+        const initial = yield* snapshot("/repo").pipe(Effect.forkChild)
+        yield* Deferred.await(started)
+        const broadcaster = yield* VcsStatusBroadcaster
+        expect(yield* broadcaster.refresh("/repo")).toEqual(fresh)
+        yield* Deferred.succeed(release, undefined)
+        expect(yield* Fiber.join(initial)).toEqual(Option.some({ _tag: "snapshot", status: fresh }))
+        expect(yield* snapshot("/repo")).toEqual(Option.some({ _tag: "snapshot", status: fresh }))
+      })
+      yield* runWith(program, layer)
+    }),
+  )
+
   it.effect("interrupts a shared initial read when the broadcaster is disposed", () =>
     Effect.gen(function* () {
       const started = yield* Deferred.make<void>()

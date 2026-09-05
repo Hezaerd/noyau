@@ -72,11 +72,15 @@ export const make = Effect.gen(function* () {
   const initialReadsRef = yield* Ref.make(new Map<string, InitialRead>())
   const pollersRef = yield* SynchronizedRef.make(new Map<string, ActivePoller>())
 
-  const remember = (cwd: string, status: VcsStatusResult) =>
-    Ref.update(cacheRef, (cache) => {
+  const rememberInitial = (cwd: string, status: VcsStatusResult) =>
+    Ref.modify(cacheRef, (cache) => {
+      const existing = cache.get(cwd)
+      if (existing !== undefined) {
+        return [existing, cache] as const
+      }
       const next = new Map(cache)
       next.set(cwd, status)
-      return next
+      return [status, next] as const
     })
 
   const initialStatus = Effect.fn("VcsStatusBroadcaster.initialStatus")((cwd: string) =>
@@ -119,8 +123,7 @@ export const make = Effect.gen(function* () {
               cwd,
               git.status(cwd, { includePr: false }),
             )
-            yield* remember(cwd, status)
-            return status
+            return yield* rememberInitial(cwd, status)
           })
           yield* load.pipe(
             Effect.exit,
