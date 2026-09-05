@@ -40,14 +40,13 @@ export const replaceMermaidFencesForPreview = (text: string): string =>
 
 export const clipTurnMinimapMarkdown = (text: string): string => {
   const withoutDiagrams = replaceMermaidFencesForPreview(text)
-  const lines = withoutDiagrams.split("\n")
+  const clippedToChars = withoutDiagrams.slice(0, TURN_MINIMAP_PREVIEW_MAX_CHARS)
+  const lines = clippedToChars.split("\n")
   const clipped =
     lines.length > TURN_MINIMAP_PREVIEW_MAX_LINES
       ? lines.slice(0, TURN_MINIMAP_PREVIEW_MAX_LINES).join("\n")
-      : withoutDiagrams
-  return clipped.length > TURN_MINIMAP_PREVIEW_MAX_CHARS
-    ? clipped.slice(0, TURN_MINIMAP_PREVIEW_MAX_CHARS)
-    : clipped
+      : clippedToChars
+  return clipped
 }
 
 export const deriveTurnMinimapItems = (
