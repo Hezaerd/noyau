@@ -1,4 +1,5 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import * as NodePath from "@effect/platform-node/NodePath"
 import { assert, layer } from "@effect/vitest"
 import { WorkspaceRoot } from "@noyau/contracts/entities/environment"
 import { FilePreviewFailed } from "@noyau/contracts/file-preview"
@@ -10,7 +11,23 @@ import {
 } from "@noyau/server/file-preview"
 import { Effect, FileSystem, Layer, Path, Schema } from "effect"
 
-const platformLayer = Layer.mergeAll(NodeFileSystem.layer, Path.layer)
+const platformLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)
+
+const withReadCounts = (fileSystem: FileSystem.FileSystem) => {
+  const counts = { readFile: 0, stream: 0 }
+  const counted: FileSystem.FileSystem = {
+    ...fileSystem,
+    readFile: (filePath) => {
+      counts.readFile += 1
+      return fileSystem.readFile(filePath)
+    },
+    stream: (filePath, options) => {
+      counts.stream += 1
+      return fileSystem.stream(filePath, options)
+    },
+  }
+  return { counts, fileSystem: counted }
+}
 
 const workspace = (directory: string) => Schema.decodeEffect(WorkspaceRoot)(directory)
 
@@ -103,6 +120,104 @@ layer(platformLayer)("readFilePreview", (it) => {
         assert.strictEqual(preview.text, "print('salut')")
         assert.isFalse(preview.truncated)
       }
+    }),
+  )
+
+  it.effect("réutilise la tête pour les textes jusqu'à 512 octets", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "noyau-file-preview-",
+      })
+      yield* fileSystem.writeFileString(path.join(directory, "small.txt"), "a")
+      yield* fileSystem.writeFileString(path.join(directory, "boundary.txt"), "a".repeat(512))
+      yield* fileSystem.writeFile(path.join(directory, "invalid.txt"), Uint8Array.of(0xff))
+
+      const counted = withReadCounts(fileSystem)
+      const workspaceRoot = yield* workspace(directory)
+      const small = yield* readFilePreview({
+        requestedPath: "small.txt",
+        workspaceRoot,
+      }).pipe(Effect.provideService(FileSystem.FileSystem, counted.fileSystem))
+      const boundary = yield* readFilePreview({
+        requestedPath: "boundary.txt",
+        workspaceRoot,
+      }).pipe(Effect.provideService(FileSystem.FileSystem, counted.fileSystem))
+      const invalid = yield* readFilePreview({
+        requestedPath: "invalid.txt",
+        workspaceRoot,
+      }).pipe(Effect.provideService(FileSystem.FileSystem, counted.fileSystem))
+
+      assert.strictEqual(small.kind, "text")
+      if (small.kind === "text") {
+        assert.strictEqual(small.text, "a")
+        assert.isFalse(small.truncated)
+      }
+      assert.strictEqual(boundary.kind, "text")
+      if (boundary.kind === "text") {
+        assert.strictEqual(boundary.text, "a".repeat(512))
+        assert.isFalse(boundary.truncated)
+      }
+      assert.strictEqual(invalid.kind, "unsupported")
+      if (invalid.kind === "unsupported") {
+        assert.strictEqual(invalid.reason, "binary")
+      }
+      assert.deepStrictEqual(counted.counts, { readFile: 3, stream: 0 })
+    }),
+  )
+
+  it.effect("garde les lectures séparées au-delà de 512 et de la limite texte", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "noyau-file-preview-",
+      })
+      yield* fileSystem.writeFileString(path.join(directory, "larger.txt"), "a".repeat(513))
+      yield* fileSystem.writeFileString(
+        path.join(directory, "at-limit.txt"),
+        "a".repeat(TEXT_PREVIEW_BYTE_LIMIT),
+      )
+      yield* fileSystem.writeFileString(
+        path.join(directory, "limited.txt"),
+        "a".repeat(TEXT_PREVIEW_BYTE_LIMIT + 1),
+      )
+
+      const counted = withReadCounts(fileSystem)
+      const workspaceRoot = yield* workspace(directory)
+      const larger = yield* readFilePreview({
+        requestedPath: "larger.txt",
+        workspaceRoot,
+      }).pipe(Effect.provideService(FileSystem.FileSystem, counted.fileSystem))
+      assert.strictEqual(larger.kind, "text")
+      if (larger.kind === "text") {
+        assert.strictEqual(larger.text, "a".repeat(513))
+        assert.isFalse(larger.truncated)
+      }
+      assert.deepStrictEqual(counted.counts, { readFile: 1, stream: 1 })
+
+      const atLimit = yield* readFilePreview({
+        requestedPath: "at-limit.txt",
+        workspaceRoot,
+      }).pipe(Effect.provideService(FileSystem.FileSystem, counted.fileSystem))
+      assert.strictEqual(atLimit.kind, "text")
+      if (atLimit.kind === "text") {
+        assert.strictEqual(atLimit.text.length, TEXT_PREVIEW_BYTE_LIMIT)
+        assert.isFalse(atLimit.truncated)
+      }
+      assert.deepStrictEqual(counted.counts, { readFile: 2, stream: 2 })
+
+      const limited = yield* readFilePreview({
+        requestedPath: "limited.txt",
+        workspaceRoot,
+      }).pipe(Effect.provideService(FileSystem.FileSystem, counted.fileSystem))
+      assert.strictEqual(limited.kind, "text")
+      if (limited.kind === "text") {
+        assert.strictEqual(limited.text.length, TEXT_PREVIEW_BYTE_LIMIT)
+        assert.isTrue(limited.truncated)
+      }
+      assert.deepStrictEqual(counted.counts, { readFile: 2, stream: 4 })
     }),
   )
 
@@ -332,8 +447,10 @@ layer(platformLayer)("readFilePreview", (it) => {
       }
     }),
   )
+})
 
-  it.effect("isPathInsideWorkspace refuse le préfixe collant", () =>
+layer(NodePath.layerPosix)("isPathInsideWorkspace", (it) => {
+  it.effect("refuse le préfixe collant", () =>
     Effect.gen(function* () {
       const pathApi = yield* Path.Path
       assert.isTrue(isPathInsideWorkspace("/tmp/proj/src/a.ts", "/tmp/proj", pathApi))
