@@ -41,7 +41,7 @@ function WorkspacePanelToggleControl({
     <>
       <span aria-hidden="true" className="size-7 shrink-0 sm:size-6" />
       <div
-        className="pointer-events-none fixed end-3 top-0 z-50 flex h-(--desktop-titlebar-height) items-center"
+        className="pointer-events-none fixed end-[var(--desktop-titlebar-actions-right)] top-0 z-50 flex h-(--desktop-titlebar-height) items-center"
         data-slot="workspace-panel-toggle"
       >
         <Tooltip>

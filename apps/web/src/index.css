@@ -198,6 +198,7 @@
         var(--desktop-titlebar-control-gap)
     );
     --desktop-titlebar-height: 3.5rem;
+    --desktop-titlebar-actions-right: 0.75rem;
     --desktop-window-right-resize-inset: 0px;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
@@ -273,6 +274,7 @@
   --desktop-native-controls-inset: calc(
     100vw - env(titlebar-area-width, 100vw) - env(titlebar-area-x, 0px) + 0.75rem
   );
+  --desktop-titlebar-actions-right: var(--desktop-native-controls-inset);
   --desktop-titlebar-height: env(titlebar-area-height, 40px);
 }
 
