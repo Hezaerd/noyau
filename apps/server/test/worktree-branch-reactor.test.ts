@@ -69,7 +69,7 @@ const emptyStatus = (cwd: string) => ({
 
 const stubGitRuntime = (overrides: Partial<GitRuntimeService> = {}): GitRuntimeService => ({
   status: (cwd) => Effect.succeed(emptyStatus(cwd)),
-  listRefs: () => Effect.succeed([]),
+  listRefs: () => Effect.succeed({ isRepo: false, refs: [] }),
   listWorktrees: () => Effect.succeed([]),
   switchRef: (_cwd, refName) =>
     Effect.succeed({ refName, worktreePath: null, reusedWorktree: false }),

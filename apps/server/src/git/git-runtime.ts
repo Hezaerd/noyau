@@ -11,6 +11,7 @@ import {
   type GitStackedAction,
   type VcsCreateRefResult,
   type VcsCreateWorktreeResult,
+  type VcsListRefsResult,
   type VcsRef,
   type VcsStatusResult,
   type VcsSwitchRefResult,
@@ -230,7 +231,7 @@ export interface GitRuntimeService {
     cwd: string,
     options?: GitStatusOptions,
   ) => Effect.Effect<VcsStatusResult, GitCommandError>
-  readonly listRefs: (cwd: string) => Effect.Effect<ReadonlyArray<VcsRef>, GitCommandError>
+  readonly listRefs: (cwd: string) => Effect.Effect<VcsListRefsResult, GitCommandError>
   readonly listWorktrees: (
     cwd: string,
   ) => Effect.Effect<ReadonlyArray<VcsWorktree>, GitCommandError>
@@ -540,7 +541,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
 
   const listRefs = Effect.fn("GitRuntime.listRefs")(function* (cwd: string) {
     if (!(yield* isRepo(cwd))) {
-      return []
+      return { isRepo: false, refs: [] } satisfies VcsListRefsResult
     }
     const [refs, worktrees, defaultHead, current] = yield* Effect.all(
       [
@@ -560,7 +561,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
     )
     const defaultRef = firstLine(defaultHead.stdout).replace(/^refs\/remotes\//, "")
     const worktreeByRef = new Map(worktrees.map((worktree) => [worktree.refName, worktree.path]))
-    return refs.stdout.split(/\r?\n/g).flatMap((line): ReadonlyArray<VcsRef> => {
+    const listed = refs.stdout.split(/\r?\n/g).flatMap((line): ReadonlyArray<VcsRef> => {
       const [refname, head] = line.split("\t")
       if (refname === undefined || refname.length === 0) {
         return []
@@ -579,6 +580,7 @@ const makeGitRuntime = Effect.fn("GitRuntime.make")(function* () {
         },
       ]
     })
+    return { isRepo: true, refs: listed } satisfies VcsListRefsResult
   })
 
   const switchRef = Effect.fn("GitRuntime.switchRef")(function* (cwd: string, refName: string) {

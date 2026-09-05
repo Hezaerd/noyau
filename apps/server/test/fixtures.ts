@@ -32,7 +32,7 @@ export const stubVcsStatusBroadcasterLayer = (refresh: (cwd: string) => void = (
 
 export const stubGitRuntimeLayer = Layer.succeed(GitRuntime)({
   status: (cwd) => Effect.succeed(emptyStatus(cwd)),
-  listRefs: () => Effect.succeed([]),
+  listRefs: () => Effect.succeed({ isRepo: false, refs: [] }),
   listWorktrees: () => Effect.succeed([]),
   switchRef: (_cwd, refName) =>
     Effect.succeed({ refName, worktreePath: null, reusedWorktree: false }),

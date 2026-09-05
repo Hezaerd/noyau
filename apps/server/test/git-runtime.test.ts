@@ -1,4 +1,7 @@
-import { describe, expect, it } from "@effect/vitest"
+import * as NodeServices from "@effect/platform-node/NodeServices"
+import { assert, describe, expect, it, layer } from "@effect/vitest"
+import { ProjectId } from "@noyau/contracts/ids"
+import { GitPlane, gitPlaneLayer } from "@noyau/server/git/git-plane"
 import {
   buildGeneratedWorktreeBranchName,
   buildTemporaryWorktreeBranchName,
@@ -10,8 +13,16 @@ import {
   prLookupFailureTtl,
   sanitizeWorktreeFolderName,
   unavailableVcsStatus,
+  GitRuntime,
+  gitRuntimeLayer,
 } from "@noyau/server/git/git-runtime"
-import { Duration } from "effect"
+import { runGit } from "@noyau/server/git/run-command"
+import { memoryLayer } from "@noyau/server/persistence/sqlite"
+import { unavailableTextGenerationLayer } from "@noyau/server/text-generation/text-generation"
+import { Duration, Effect, FileSystem, Layer, Path, Schema } from "effect"
+import { SqlClient } from "effect/unstable/sql/SqlClient"
+
+import { testServerConfigLayer } from "./fixtures.ts"
 
 describe("GitRuntime helpers", () => {
   it("forme une branche temporaire noyau/<8 hex>", () => {
@@ -86,4 +97,114 @@ describe("GitRuntime helpers", () => {
       Duration.toSeconds(MAX_PR_LOOKUP_FAILURE_TTL),
     )
   })
+})
+
+const runtimeTestLayer = Layer.mergeAll(gitRuntimeLayer, NodeServices.layer)
+
+const beginGitTrace = (trace: string) => {
+  const previousTrace = process.env.GIT_TRACE2_EVENT
+  process.env.GIT_TRACE2_EVENT = trace
+  return previousTrace
+}
+
+const restoreGitTrace = (previousTrace: string | undefined) => {
+  if (previousTrace === undefined) delete process.env.GIT_TRACE2_EVENT
+  else process.env.GIT_TRACE2_EVENT = previousTrace
+}
+
+layer(runtimeTestLayer)("GitRuntime refs", (runtimeIt) => {
+  runtimeIt.effect("distinguishes non-repositories from unborn repositories", () =>
+    Effect.gen(function* () {
+      const git = yield* GitRuntime
+      const fileSystem = yield* FileSystem.FileSystem
+      const outside = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-refs-outside-" })
+      const unborn = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-refs-unborn-" })
+      yield* runGit("git.init", unborn, ["init", "-b", "main"])
+
+      assert.deepStrictEqual(yield* git.listRefs(outside), { isRepo: false, refs: [] })
+      assert.deepStrictEqual(yield* git.listRefs(unborn), { isRepo: true, refs: [] })
+    }),
+  )
+})
+
+const planeTestLayer = gitPlaneLayer.pipe(
+  Layer.provideMerge(memoryLayer),
+  Layer.provideMerge(testServerConfigLayer()),
+  Layer.provideMerge(unavailableTextGenerationLayer),
+  Layer.provideMerge(NodeServices.layer),
+)
+const refsProjectId = Schema.decodeSync(ProjectId)("10000000-0000-4000-8000-000000000001")
+
+layer(planeTestLayer)("GitPlane refs", (planeIt) => {
+  planeIt.effect("returns ref metadata without status or upstream commands", () =>
+    Effect.gen(function* () {
+      const gitPlane = yield* GitPlane
+      const sql = yield* SqlClient
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-refs-repo-" })
+      const linked = yield* fileSystem.makeTempDirectoryScoped({ prefix: "noyau-refs-linked-" })
+      const trace = path.join(cwd, "git-trace.json")
+      yield* runGit("git.init", cwd, ["init", "-b", "main"])
+      yield* runGit("git.config-email", cwd, ["config", "user.email", "test@noyau.local"])
+      yield* runGit("git.config-name", cwd, ["config", "user.name", "Noyau Test"])
+      yield* fileSystem.writeFileString(path.join(cwd, "README.md"), "hello\n")
+      yield* runGit("git.add", cwd, ["add", "README.md"])
+      yield* runGit("git.commit", cwd, ["commit", "-m", "init"])
+      yield* runGit("git.branch.feature", cwd, ["branch", "feature"])
+      yield* runGit("git.remote-ref", cwd, ["update-ref", "refs/remotes/origin/main", "HEAD"])
+      yield* runGit("git.remote-head", cwd, [
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/main",
+      ])
+      yield* runGit("git.worktree.add", cwd, ["worktree", "add", linked, "feature"])
+      yield* sql`
+        INSERT INTO projection_projects (
+          project_id, name, workspace_root, available, created_at, updated_at
+        ) VALUES (
+          ${refsProjectId}, 'Refs', ${cwd}, 1,
+          '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+        )
+      `
+
+      const result = yield* Effect.acquireUseRelease(
+        Effect.sync(() => beginGitTrace(trace)),
+        () => gitPlane.listRefs({ projectId: refsProjectId }),
+        (previousTrace) => Effect.sync(() => restoreGitTrace(previousTrace)),
+      )
+      const normalizedCwd = cwd.replaceAll("\\", "/")
+      const normalizedLinked = linked.replaceAll("\\", "/")
+
+      assert.isTrue(result.isRepo)
+      expect(result.refs).toContainEqual({
+        name: "main",
+        isRemote: false,
+        current: true,
+        isDefault: true,
+        worktreePath: normalizedCwd,
+      })
+      expect(result.refs).toContainEqual({
+        name: "feature",
+        isRemote: false,
+        current: false,
+        isDefault: false,
+        worktreePath: normalizedLinked,
+      })
+      expect(result.refs).toContainEqual({
+        name: "origin/main",
+        isRemote: true,
+        current: false,
+        isDefault: true,
+        worktreePath: null,
+      })
+
+      const invocations = yield* fileSystem.readFileString(trace)
+      assert.match(invocations, /"event":"start"/)
+      assert.strictEqual(invocations.match(/--is-inside-work-tree/g)?.length, 1)
+      assert.include(invocations, "for-each-ref")
+      assert.notInclude(invocations, '"status"')
+      assert.notInclude(invocations, "@{upstream}")
+    }),
+  )
 })
