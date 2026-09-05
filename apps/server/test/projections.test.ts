@@ -676,6 +676,135 @@ layer(platformLayer)("SQL projections", (it) => {
     })
   })
 
+  it.effect("fusionne les fragments assistant dans la dernière ligne projetée", () => {
+    const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000014")
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(sqliteLayer({ filename: ":memory:" }))
+        const sql = Context.get(context, SqlClient)
+        return yield* Effect.gen(function* () {
+          yield* projectFixture()
+          yield* projectDomainEvent(
+            persisted(
+              1,
+              ThreadCreated.make({
+                threadId: ids.recoveryThread,
+                projectId: ids.project,
+                title: "Streaming",
+                provider: ProviderInstanceId.make("cursor"),
+                runtimeMode: "full-access",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              2,
+              ThreadTurnStarted.make({
+                threadId: ids.recoveryThread,
+                turnId,
+                text: "Travaille",
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              3,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: 'hello "\\\\\ud83c',
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              4,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: "\udf0dworld\n",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              5,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: "",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              6,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.tool",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  toolCallId: ToolCallId.make("tool-boundary"),
+                  name: "Read",
+                  status: "completed",
+                },
+              }),
+            ),
+          )
+          yield* projectDomainEvent(
+            persisted(
+              7,
+              ThreadTranscriptAppended.make({
+                item: {
+                  _tag: "transcript.assistant",
+                  threadId: ids.recoveryThread,
+                  turnId,
+                  text: "after tool",
+                },
+              }),
+            ),
+          )
+
+          const snapshot = expectSome(
+            yield* readThreadSnapshot(ids.recoveryThread),
+            "Thread should exist",
+          )
+          const rows = yield* sql<{
+            readonly transcript_id: string
+            readonly ordinal: number
+            readonly event_sequence: number
+          }>`
+            SELECT transcript_id, ordinal, event_sequence
+            FROM projection_transcript
+            WHERE kind = 'transcript.assistant'
+            ORDER BY ordinal
+          `
+
+          assert.strictEqual(snapshot.transcript.length, 4)
+          assert.deepStrictEqual(snapshot.transcript[1], {
+            _tag: "transcript.assistant",
+            threadId: ids.recoveryThread,
+            turnId,
+            text: 'hello "\\\\🌍world\n',
+          })
+          assert.deepStrictEqual(rows, [
+            { transcript_id: `assistant:${turnId}:3`, ordinal: 2, event_sequence: 5 },
+            { transcript_id: `assistant:${turnId}:7`, ordinal: 4, event_sequence: 7 },
+          ])
+        }).pipe(Effect.provideService(SqlClient, sql))
+      }),
+    )
+  })
+
   it.effect("ne bump pas updated_at sur assistant/tool/plan", () => {
     const turnId = Schema.decodeSync(TurnId)("80000000-0000-4000-8000-000000000004")
     return Effect.scoped(
