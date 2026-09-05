@@ -151,11 +151,15 @@ const appendAssistantTranscript = Effect.fn("Projections.appendAssistantTranscri
     const decodedRow = yield* decodeTranscriptRow(lastRow).pipe(Effect.orDie)
     const previous = yield* decodeTranscriptItem(decodedRow.item).pipe(Effect.orDie)
     if (previous._tag === "transcript.assistant" && previous.turnId === item.turnId) {
-      yield* putTranscriptItem(
-        decodedRow.transcript_id,
-        { ...previous, text: `${previous.text}${item.text}` },
-        eventSequence,
-      )
+      const encodedItem = yield* encodeTranscriptItem({
+        ...previous,
+        text: `${previous.text}${item.text}`,
+      }).pipe(Effect.orDie)
+      yield* sql`
+        UPDATE projection_transcript
+        SET item = ${encodedItem}, event_sequence = ${eventSequence}
+        WHERE transcript_id = ${decodedRow.transcript_id}
+      `
       return
     }
   }

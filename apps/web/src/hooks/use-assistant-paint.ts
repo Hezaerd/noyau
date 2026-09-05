@@ -9,6 +9,9 @@ import {
   subscribeAssistantPaint,
 } from "@/lib/assistant-paint"
 
+const subscribeNothing = (): (() => void) => () => undefined
+const getNoAssistantPaint = (): undefined => undefined
+
 export const useAssistantPaintTarget = (): ReturnType<typeof getAssistantPaintTarget> => {
   "use no memo"
   return useSyncExternalStore(
@@ -26,7 +29,11 @@ export const useAssistantPaint = (
   flushedPrefix = "",
 ): string => {
   "use no memo"
-  const live = useSyncExternalStore(subscribeAssistantPaint, getAssistantPaint, getAssistantPaint)
+  const live = useSyncExternalStore(
+    streaming ? subscribeAssistantPaint : subscribeNothing,
+    streaming ? getAssistantPaint : getNoAssistantPaint,
+    streaming ? getAssistantPaint : getNoAssistantPaint,
+  )
   if (!streaming) {
     return presentedAssistantText(journalText, flushedPrefix)
   }
