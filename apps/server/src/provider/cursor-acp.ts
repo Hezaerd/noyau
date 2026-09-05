@@ -376,7 +376,10 @@ const currentBooleanValue = (option: AcpSchema.SessionConfigOption | undefined) 
   return option?.type === "select" ? booleanConfigValue(option.currentValue) : undefined
 }
 
-const booleanSelectValue = (option: AcpSchema.SessionConfigOption, requestedValue: boolean) =>
+export const booleanSelectValue = (
+  option: AcpSchema.SessionConfigOption,
+  requestedValue: boolean,
+) =>
   selectOptions(option).find(
     (entry) =>
       (booleanConfigValue(entry.value) ?? booleanConfigValue(entry.name)) === requestedValue,

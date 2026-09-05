@@ -76,6 +76,16 @@ const fastOption = {
   currentValue: false,
 }
 
+const selectFastOption = {
+  ...fastOption,
+  type: "select",
+  currentValue: "false",
+  options: [
+    { value: "false", name: "Off" },
+    { value: "true", name: "On" },
+  ],
+}
+
 const onOffReasoningOption = {
   type: "select",
   id: "reasoning",
@@ -321,11 +331,28 @@ for await (const line of lines) {
       continue
     }
     activeSessionId = sessionId
-    respond(message.id, {
+    const response = {
       sessionId,
       modes,
-      configOptions: scenario === "model-traits" ? traitConfigOptions : configOptions,
-    })
+      configOptions:
+        scenario === "model-traits"
+          ? traitConfigOptions
+          : scenario === "thread-title-model-api"
+            ? [reasoningOption, serviceTierOption]
+            : scenario === "thread-title-select-fast"
+              ? [modelOption, selectFastOption]
+              : configOptions,
+    }
+    if (scenario === "thread-title-model-api") {
+      response.models = {
+        currentModelId: "composer-2.5",
+        availableModels: [
+          { modelId: "composer-2.5", name: "Composer 2.5" },
+          { modelId: "composer-2.5-fast", name: "Composer 2.5 Fast" },
+        ],
+      }
+    }
+    respond(message.id, response)
     continue
   }
 
@@ -372,8 +399,20 @@ for await (const line of lines) {
 
   if (message.method === "session/set_config_option") {
     respond(message.id, {
-      configOptions: scenario === "model-traits" ? traitConfigOptions : configOptions,
+      configOptions:
+        scenario === "model-traits"
+          ? traitConfigOptions
+          : scenario === "thread-title-model-api"
+            ? [reasoningOption, serviceTierOption]
+            : scenario === "thread-title-select-fast"
+              ? [modelOption, selectFastOption]
+              : configOptions,
     })
+    continue
+  }
+
+  if (message.method === "session/set_model") {
+    respond(message.id, {})
     continue
   }
 
@@ -416,7 +455,7 @@ for await (const line of lines) {
       completePrompt("end_turn")
       continue
     }
-    if (scenario === "thread-title") {
+    if (scenario.startsWith("thread-title")) {
       notify("session/update", {
         sessionId: activeSessionId,
         update: {

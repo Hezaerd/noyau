@@ -239,7 +239,7 @@ export function ThreadModelPicker({
             size="sm"
             variant="ghost"
             disabled={disabled}
-            aria-label={`Model (${modelPickerHotkey})`}
+            aria-label={enableHotkey ? `Model (${modelPickerHotkey})` : "Model"}
             className="max-w-52 justify-start"
           />
         }

@@ -1,7 +1,7 @@
 import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { DEFAULT_PROVIDER_INSTANCE_IDS } from "@noyau/contracts/settings"
 import { RotateCcwIcon } from "lucide-react"
-import { useEffect, useMemo, useState, type ReactElement } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react"
 
 import { SettingsRow } from "@/components/settings/settings-layout"
 import { ThreadModelPicker } from "@/components/thread/ThreadModelPicker"
@@ -25,6 +25,8 @@ export function TextGenerationModelSettings(): ReactElement {
   const catalogs = useMemo(() => modelsByProvider(providers), [providers])
   const [selection, setSelection] = useState<ModelSelection | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const mutationQueue = useRef<Promise<void>>(Promise.resolve())
+  const mutationRevision = useRef(0)
   const selectedModel = catalogs[cursor]?.find((model) => model.modelId === selection?.modelId)
 
   useEffect(() => {
@@ -38,14 +40,18 @@ export function TextGenerationModelSettings(): ReactElement {
 
   const save = (next: ModelSelection | null) => {
     const previous = selection
+    const revision = mutationRevision.current + 1
+    mutationRevision.current = revision
     setSelection(next)
-    void patchSettings({ textGenerationModel: next }).then((result) => {
-      if (!result.ok) {
-        setSelection(previous)
-        showFailureToast(failure)
-      }
-      return undefined
-    })
+    mutationQueue.current = mutationQueue.current
+      .then(() => patchSettings({ textGenerationModel: next }))
+      .then((result) => {
+        if (!result.ok && mutationRevision.current === revision) {
+          setSelection(previous)
+          showFailureToast(failure)
+        }
+        return undefined
+      })
   }
 
   return (

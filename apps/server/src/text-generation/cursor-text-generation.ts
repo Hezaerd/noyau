@@ -4,6 +4,7 @@ import type * as AcpSchema from "@noyau/acp/schema"
 import type { ModelSelection } from "@noyau/contracts/entities/model-selection"
 import { sanitizeThreadTitle } from "@noyau/contracts/thread/title"
 import {
+  booleanSelectValue,
   type CursorAdapterOptions,
   fastOption,
   reasoningOption,
@@ -175,14 +176,23 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
       const advertisedModel = selectOptions(modelOption).find(
         (option) => option.value === selection.modelId,
       )
-      if (modelOption?.type !== "select" || advertisedModel === undefined) {
+      if (modelOption?.type === "select" && advertisedModel !== undefined) {
+        configOptions = (yield* acp.agent.setSessionConfigOption({
+          sessionId: created.sessionId,
+          configId: modelOption.id,
+          value: advertisedModel.value,
+        })).configOptions
+      } else if (
+        created.models?.availableModels.some((model) => model.modelId === selection.modelId) ===
+        true
+      ) {
+        yield* acp.agent.setSessionModel({
+          sessionId: created.sessionId,
+          modelId: selection.modelId,
+        })
+      } else {
         return yield* fail(`Cursor model is unavailable: ${selection.modelId}`)
       }
-      configOptions = (yield* acp.agent.setSessionConfigOption({
-        sessionId: created.sessionId,
-        configId: modelOption.id,
-        value: advertisedModel.value,
-      })).configOptions
       if (selection.reasoningEffort !== undefined) {
         const option = reasoningOption(configOptions)
         const advertised = selectOptions(option).find(
@@ -218,7 +228,16 @@ const makeCursorTextGeneration = Effect.fn("CursorTextGeneration.make")(function
                   type: "boolean",
                   value: selection.serviceTier === "fast",
                 })
-              : undefined
+              : fast?.type === "select" &&
+                  ["standard", "normal", "fast"].includes(selection.serviceTier)
+                ? yield* acp.agent.setSessionConfigOption({
+                    sessionId: created.sessionId,
+                    configId: fast.id,
+                    value:
+                      booleanSelectValue(fast, selection.serviceTier === "fast") ??
+                      selection.serviceTier,
+                  })
+                : undefined
         if (response === undefined) {
           return yield* fail(`Cursor service tier is unavailable: ${selection.serviceTier}`)
         }
