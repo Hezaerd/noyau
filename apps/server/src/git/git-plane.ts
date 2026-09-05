@@ -97,25 +97,7 @@ const makeGitPlane = Effect.fn("GitPlane.make")(function* () {
         ),
       ),
     listRefs: (scope) =>
-      scoped(
-        resolveWorkspaceCwd(scope).pipe(
-          Effect.flatMap(({ cwd }) =>
-            git
-              .status(cwd, { includePr: false })
-              .pipe(
-                Effect.flatMap((status) =>
-                  git
-                    .listRefs(cwd)
-                    .pipe(
-                      Effect.map(
-                        (refs) => ({ isRepo: status.isRepo, refs }) satisfies VcsListRefsResult,
-                      ),
-                    ),
-                ),
-              ),
-          ),
-        ),
-      ),
+      scoped(resolveWorkspaceCwd(scope).pipe(Effect.flatMap(({ cwd }) => git.listRefs(cwd)))),
     switchRef: (input) =>
       scoped(
         resolveWorkspaceCwd(input).pipe(
