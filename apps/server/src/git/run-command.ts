@@ -2,19 +2,30 @@ import { GitCommandError } from "@noyau/contracts/git"
 import { Effect, Schema, Stream, type Duration } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 
-const collectProcessText = <E>(stream: Stream.Stream<Uint8Array, E>) =>
-  Stream.runCollect(stream).pipe(
-    Effect.map((chunks) => {
-      const total = chunks.reduce((size, part) => size + part.length, 0)
-      const bytes = new Uint8Array(total)
-      let offset = 0
-      for (const part of chunks) {
-        bytes.set(part, offset)
-        offset += part.length
-      }
-      return new TextDecoder().decode(bytes)
-    }),
-  )
+const collectProcessText = <E>(stream: Stream.Stream<Uint8Array, E>) => {
+  return Effect.suspend(() => {
+    const decoder = new TextDecoder()
+    return stream.pipe(
+      Stream.runFold(
+        () => new Array<string>(),
+        (chunks, chunk) => {
+          const decoded = decoder.decode(chunk, { stream: true })
+          if (decoded.length > 0) {
+            chunks.push(decoded)
+          }
+          return chunks
+        },
+      ),
+      Effect.map((chunks) => {
+        const trailing = decoder.decode()
+        if (trailing.length > 0) {
+          chunks.push(trailing)
+        }
+        return chunks.join("")
+      }),
+    )
+  })
+}
 
 export interface CommandResult {
   readonly stdout: string
