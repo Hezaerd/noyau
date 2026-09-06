@@ -96,22 +96,6 @@ export const findWorkspaceRootOwner = Effect.fn("Projections.findWorkspaceRootOw
 
 const timeOf = (event: PersistedEvent<DomainEvent>) => DateTime.formatIso(event.occurredAt)
 
-const nextTranscriptOrdinal = Effect.fn("Projections.nextTranscriptOrdinal")(function* (
-  threadId: string,
-) {
-  const sql = yield* SqlClient
-  const rows = yield* sql<(typeof OrdinalRow)["Encoded"]>`
-    SELECT COALESCE(MAX(ordinal), 0) + 1 AS ordinal
-    FROM projection_transcript
-    WHERE thread_id = ${threadId}
-  `
-  const row = rows[0]
-  if (row === undefined) {
-    return yield* Effect.die("Transcript ordinal query returned no row")
-  }
-  return (yield* decodeOrdinalRow(row).pipe(Effect.orDie)).ordinal
-})
-
 const putTranscriptItem = Effect.fn("Projections.putTranscriptItem")(function* (
   transcriptId: string,
   item: TranscriptItem,
@@ -119,13 +103,23 @@ const putTranscriptItem = Effect.fn("Projections.putTranscriptItem")(function* (
 ) {
   const sql = yield* SqlClient
   const encodedItem = yield* encodeTranscriptItem(item).pipe(Effect.orDie)
-  const ordinal = yield* nextTranscriptOrdinal(item.threadId)
   yield* sql`
     INSERT INTO projection_transcript (
       transcript_id, thread_id, turn_id, ordinal, kind, item, event_sequence
-    ) VALUES (
-      ${transcriptId}, ${item.threadId}, ${item.turnId}, ${ordinal}, ${item._tag},
-      ${encodedItem}, ${eventSequence}
+    ) SELECT
+      ${transcriptId}, ${item.threadId}, ${item.turnId},
+      (
+        SELECT COALESCE(MAX(ordinal), 0) + 1
+        FROM projection_transcript
+        WHERE thread_id = ${item.threadId}
+      ),
+      ${item._tag}, ${encodedItem}, ${eventSequence}
+    WHERE EXISTS (
+      SELECT 1
+      FROM projection_turns
+      WHERE turn_id = ${item.turnId}
+        AND thread_id = ${item.threadId}
+        AND state = 'running'
     )
     ON CONFLICT (transcript_id) DO UPDATE SET
       kind = excluded.kind,
@@ -143,6 +137,13 @@ const appendAssistantTranscript = Effect.fn("Projections.appendAssistantTranscri
     SELECT transcript_id, item
     FROM projection_transcript
     WHERE thread_id = ${item.threadId}
+      AND EXISTS (
+        SELECT 1
+        FROM projection_turns
+        WHERE turn_id = ${item.turnId}
+          AND thread_id = ${item.threadId}
+          AND state = 'running'
+      )
     ORDER BY ordinal DESC
     LIMIT 1
   `
@@ -159,6 +160,15 @@ const appendAssistantTranscript = Effect.fn("Projections.appendAssistantTranscri
         UPDATE projection_transcript
         SET item = ${encodedItem}, event_sequence = ${eventSequence}
         WHERE transcript_id = ${decodedRow.transcript_id}
+          AND thread_id = ${item.threadId}
+          AND turn_id = ${item.turnId}
+          AND EXISTS (
+            SELECT 1
+            FROM projection_turns
+            WHERE turn_id = ${item.turnId}
+              AND thread_id = ${item.threadId}
+              AND state = 'running'
+          )
       `
       return
     }
@@ -170,19 +180,6 @@ const projectTranscriptItem = Effect.fn("Projections.projectTranscriptItem")(fun
   item: TranscriptItem,
   eventSequence: number,
 ) {
-  const sql = yield* SqlClient
-  const turnRows = yield* sql<(typeof CountRow)["Encoded"]>`
-    SELECT COUNT(*) AS count
-    FROM projection_turns
-    WHERE turn_id = ${item.turnId}
-      AND thread_id = ${item.threadId}
-      AND state = 'running'
-  `
-  const turnRow = turnRows[0]
-  if (turnRow === undefined || (yield* decodeCountRow(turnRow).pipe(Effect.orDie)).count === 0) {
-    return
-  }
-
   switch (item._tag) {
     case "transcript.user":
       yield* putTranscriptItem(`user:${item.turnId}`, item, eventSequence)
