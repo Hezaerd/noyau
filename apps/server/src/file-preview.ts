@@ -291,7 +291,10 @@ export const readFilePreview = Effect.fn("readFilePreview")(function* (
     return unsupported("binary", mtimeMs)
   }
 
-  const textBytes = yield* readCappedBytes(fileSystem, real, byteSize, TEXT_PREVIEW_BYTE_LIMIT)
+  const textBytes =
+    head.length === byteSize
+      ? head
+      : yield* readCappedBytes(fileSystem, real, byteSize, TEXT_PREVIEW_BYTE_LIMIT)
   if (hasNul(textBytes)) {
     return unsupported("binary", mtimeMs)
   }
