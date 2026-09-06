@@ -105,14 +105,26 @@ export const projectNewThreadDrafts = <TImage>(
   drafts: ReadonlyMap<string, ComposerDraftSessionValue<TImage>>,
   projectId: ProjectId,
 ): ReadonlyArray<NewThreadDraft<TImage>> => {
-  const projectDrafts: Array<NewThreadDraft<TImage>> = []
+  return groupNewThreadDrafts(drafts).get(projectId) ?? []
+}
+
+export const groupNewThreadDrafts = <TImage>(
+  drafts: ReadonlyMap<string, ComposerDraftSessionValue<TImage>>,
+): ReadonlyMap<string, ReadonlyArray<NewThreadDraft<TImage>>> => {
+  const groupedDrafts = new Map<string, Array<NewThreadDraft<TImage>>>()
   for (const [key, value] of drafts) {
     const parsed = parseNewThreadDraftKey(key)
-    if (parsed?.projectId === projectId && !isComposerDraftEmpty(value)) {
-      projectDrafts.push({ id: parsed.draftId, value })
+    if (parsed !== undefined && !isComposerDraftEmpty(value)) {
+      const projectDrafts = groupedDrafts.get(parsed.projectId)
+      const draft = { id: parsed.draftId, value }
+      if (projectDrafts === undefined) {
+        groupedDrafts.set(parsed.projectId, [draft])
+      } else {
+        projectDrafts.push(draft)
+      }
     }
   }
-  return projectDrafts
+  return groupedDrafts
 }
 
 const isDraftStoreKey = (key: string): boolean => {

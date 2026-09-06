@@ -4,12 +4,14 @@ import { Atom } from "effect/unstable/reactivity"
 import {
   composerDraftStoreKey,
   emptyComposerDraft,
+  groupNewThreadDrafts,
   isComposerDraftEmpty,
   persistComposerDrafts,
   readStoredComposerDrafts,
   sessionDraftsFromStoredTexts,
   storedTextsFromSessionDrafts,
   type ComposerDraftSessionValue,
+  type NewThreadDraft,
   type NewThreadDraftId,
 } from "@/lib/composer-drafts"
 import { revokeComposerImages, type ComposerImage } from "@/lib/composer-images"
@@ -22,6 +24,38 @@ export type ComposerDraftsState = ReadonlyMap<string, ComposerDraftValue>
 export const composerDraftsAtom = Atom.make<ComposerDraftsState>(new Map()).pipe(
   Atom.keepAlive,
   Atom.withLabel("chrome:composer-drafts"),
+)
+
+const EMPTY_NEW_THREAD_DRAFTS: ReadonlyArray<NewThreadDraft<ComposerImage>> = []
+
+const groupedNewThreadDraftsAtom = Atom.make((get) =>
+  groupNewThreadDrafts(get(composerDraftsAtom)),
+).pipe(Atom.withLabel("chrome:new-thread-drafts:grouped"))
+
+const sameNewThreadDraftRefs = (
+  left: ReadonlyArray<NewThreadDraft<ComposerImage>>,
+  right: ReadonlyArray<NewThreadDraft<ComposerImage>>,
+): boolean =>
+  left.length === right.length &&
+  left.every((draft, index) => {
+    const other = right[index]
+    return (
+      other !== undefined && Object.is(draft.id, other.id) && Object.is(draft.value, other.value)
+    )
+  })
+
+export const emptyNewThreadDraftsAtom = Atom.make(EMPTY_NEW_THREAD_DRAFTS).pipe(
+  Atom.withLabel("chrome:new-thread-drafts:empty"),
+)
+
+export const projectNewThreadDraftsAtom = Atom.family((projectId: ProjectId) =>
+  Atom.make(
+    (get): ReadonlyArray<NewThreadDraft<ComposerImage>> =>
+      get(groupedNewThreadDraftsAtom).get(projectId) ?? EMPTY_NEW_THREAD_DRAFTS,
+  ).pipe(
+    Atom.withEquality<ReadonlyArray<NewThreadDraft<ComposerImage>>>(sameNewThreadDraftRefs),
+    Atom.withLabel(`chrome:new-thread-drafts:${projectId}`),
+  ),
 )
 
 export const draftAtom = Atom.family((key: string) =>
