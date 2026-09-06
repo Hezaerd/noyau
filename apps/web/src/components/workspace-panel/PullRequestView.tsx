@@ -66,6 +66,9 @@ export function PullRequestView({
   const [commitOid, setCommitOid] = useState<string | null>(null)
   const [condensed, setCondensed] = useState(false)
   const expandedHeaderRef = useRef<HTMLDivElement | null>(null)
+  const threadIdFromShell = thread?.id
+  const projectIdFromShell = thread?.projectId
+  const worktreePathFromShell = thread?.worktreePath
 
   useEffect(() => {
     if (thread === undefined || livePr === null) return
@@ -82,7 +85,7 @@ export function PullRequestView({
   }, [number])
 
   useEffect(() => {
-    if (thread === undefined || number === null) {
+    if (threadIdFromShell === undefined || projectIdFromShell === undefined || number === null) {
       setLoading(false)
       return
     }
@@ -90,7 +93,12 @@ export function PullRequestView({
     setLoading(true)
     setError(null)
     void (async () => {
-      const scope = vcsScopeForThread(thread.projectId, thread)
+      const scope = vcsScopeForThread(
+        projectIdFromShell,
+        worktreePathFromShell === undefined
+          ? { id: threadIdFromShell }
+          : { id: threadIdFromShell, worktreePath: worktreePathFromShell },
+      )
       const input = commitOid === null ? { ...scope, number } : { ...scope, number, commitOid }
       const result = await gitGetPullRequest(input)
       if (cancelled) return
@@ -104,7 +112,7 @@ export function PullRequestView({
     return () => {
       cancelled = true
     }
-  }, [commitOid, generation, number, thread])
+  }, [commitOid, generation, number, projectIdFromShell, threadIdFromShell, worktreePathFromShell])
 
   useEffect(() => setCondensed(false), [section])
 
