@@ -176,7 +176,12 @@ export const nodeServerLayer = Layer.unwrap(
       gracefulShutdownTimeout: "20 seconds",
       // Thread and Board snapshots travel on RPC WebSockets. Negotiate compression for the
       // large initial snapshots while leaving small live frames uncompressed.
-      websocket: { perMessageDeflate: { threshold: 1024 } },
+      websocket: {
+        perMessageDeflate: {
+          serverNoContextTakeover: true,
+          threshold: 1024,
+        },
+      },
     })
   }),
 )

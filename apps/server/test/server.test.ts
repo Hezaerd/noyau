@@ -118,16 +118,34 @@ describe("server routes", () => {
               const socket = new NodeSocket.NodeWS.WebSocket(
                 `ws://127.0.0.1:${port}/rpc`,
                 "noyau-bearer.test-launch-token",
-                { perMessageDeflate },
+                { handshakeTimeout: 5_000, perMessageDeflate },
               )
               socket.once("open", () => resume(Effect.succeed(socket)))
               socket.once("error", (error) => resume(Effect.fail(error)))
             }),
             (socket) =>
-              Effect.callback<void>((resume) => {
-                socket.once("close", () => resume(Effect.void))
-                socket.close()
-              }),
+              Effect.timeoutOrElse(
+                Effect.callback<void>((resume, signal) => {
+                  if (socket.readyState === NodeSocket.NodeWS.WebSocket.CLOSED) {
+                    resume(Effect.void)
+                    return
+                  }
+                  const onClose = () => resume(Effect.void)
+                  socket.once("close", onClose)
+                  signal.addEventListener("abort", () => {
+                    socket.off("close", onClose)
+                    socket.terminate()
+                  })
+                  socket.close()
+                  return Effect.sync(() => {
+                    socket.off("close", onClose)
+                    if (socket.readyState !== NodeSocket.NodeWS.WebSocket.CLOSED) {
+                      socket.terminate()
+                    }
+                  })
+                }),
+                { duration: "5 seconds", orElse: () => Effect.sync(() => socket.terminate()) },
+              ),
           )
 
         const compressed = yield* connect(true)
