@@ -4,6 +4,12 @@ import type { ProjectId, ThreadId } from "@noyau/contracts/ids"
 import { previewFile as requestFilePreview } from "@/lib/control-plane"
 
 const cache = new Map<string, FilePreview>()
+type PendingPreview = {
+  readonly token: symbol
+  readonly promise: Promise<FilePreview | undefined>
+}
+
+const pending = new Map<string, PendingPreview>()
 
 const cacheKey = (
   projectId: ProjectId,
@@ -36,6 +42,7 @@ export const rememberFilePreview = (
 
 export const clearFilePreviewCache = (): void => {
   cache.clear()
+  pending.clear()
 }
 
 export const loadFilePreview = (
@@ -47,8 +54,27 @@ export const loadFilePreview = (
   if (cached !== undefined) {
     return Promise.resolve(cached)
   }
+  const key = cacheKey(projectId, threadId, path)
+  const existing = pending.get(key)
+  if (existing !== undefined) {
+    return existing.promise
+  }
   const input = threadId === undefined ? { projectId, path } : { projectId, threadId, path }
-  return requestFilePreview(input).then((result) =>
-    result.ok ? rememberFilePreview(projectId, threadId, path, result.value) : undefined,
-  )
+  const token = Symbol()
+  const promise = requestFilePreview(input)
+    .then((result) => {
+      if (!result.ok) {
+        return undefined
+      }
+      return pending.get(key)?.token === token
+        ? rememberFilePreview(projectId, threadId, path, result.value)
+        : result.value
+    })
+    .finally(() => {
+      if (pending.get(key)?.token === token) {
+        pending.delete(key)
+      }
+    })
+  pending.set(key, { token, promise })
+  return promise
 }
