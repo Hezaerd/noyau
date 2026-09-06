@@ -1,6 +1,8 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import { assert, describe, it as standaloneIt, layer } from "@effect/vitest"
 import {
+  migrations,
+  migrationsThroughThreadForks,
   migrationsThroughContextUsage,
   migrationsThroughTurnDiff,
   runMigrations,
@@ -162,6 +164,130 @@ describe("SQLite persistence", () => {
   )
 
   layer(NodeSqliteClient.layer({ filename: ":memory:" }))((it) => {
+    it.effect("016 indexe les prompts pending lors d'une mise à niveau", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const context = yield* Layer.build(NodeSqliteClient.layer({ filename: ":memory:" }))
+          const sql = Context.get(context, SqlClient)
+          return yield* Effect.gen(function* () {
+            const migrate = Migrator.make({})
+            yield* migrate({ loader: migrationsThroughThreadForks })
+
+            const before = yield* sql<{ name: string }>`
+          SELECT name
+          FROM sqlite_master
+          WHERE type = 'index'
+            AND name LIKE 'projection_transcript_pending_%'
+          ORDER BY name
+        `
+            assert.deepStrictEqual(before, [])
+
+            yield* sql`
+          INSERT INTO projection_projects (
+            project_id, name, workspace_root, available, created_at, updated_at
+          ) VALUES (
+            'proj-indexes', 'Indexes', '/tmp/indexes', 1,
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+            yield* sql`
+          INSERT INTO projection_threads (
+            thread_id, project_id, title, provider, runtime_mode, status, created_at, updated_at
+          ) VALUES (
+            'thread-indexes', 'proj-indexes', 'Indexes', 'codex', 'full-access', 'active',
+            '2026-08-20T00:00:00.000Z', '2026-08-20T00:00:00.000Z'
+          )
+        `
+            yield* sql`
+          INSERT INTO projection_turns (
+            turn_id, thread_id, ordinal, state, requested_at
+          ) VALUES (
+            'turn-indexes', 'thread-indexes', 1, 'running', '2026-08-20T00:00:00.000Z'
+          )
+        `
+            yield* sql`
+          INSERT INTO projection_transcript (
+            transcript_id, thread_id, turn_id, ordinal, kind, item, event_sequence
+          ) VALUES
+            (
+              'permission-pending', 'thread-indexes', 'turn-indexes', 1,
+              'transcript.permission', '{"status":"pending"}', 1
+            ),
+            (
+              'permission-resolved', 'thread-indexes', 'turn-indexes', 2,
+              'transcript.permission', '{"status":"resolved"}', 2
+            ),
+            (
+              'user-input-pending', 'thread-indexes', 'turn-indexes', 3,
+              'transcript.user-input', '{"status":"pending"}', 3
+            ),
+            (
+              'user-input-resolved', 'thread-indexes', 'turn-indexes', 4,
+              'transcript.user-input', '{"status":"resolved"}', 4
+            )
+        `
+
+            yield* migrate({ loader: migrations })
+
+            const after = yield* sql<{ name: string }>`
+          SELECT name
+          FROM sqlite_master
+          WHERE type = 'index'
+            AND name LIKE 'projection_transcript_pending_%'
+          ORDER BY name
+        `
+            assert.deepStrictEqual(after, [
+              { name: "projection_transcript_pending_permission_idx" },
+              { name: "projection_transcript_pending_user_input_idx" },
+            ])
+            const transcript = yield* sql<{ transcript_id: string; item: string }>`
+          SELECT transcript_id, item
+          FROM projection_transcript
+          WHERE thread_id = 'thread-indexes'
+          ORDER BY ordinal
+        `
+            assert.deepStrictEqual(transcript, [
+              { transcript_id: "permission-pending", item: '{"status":"pending"}' },
+              { transcript_id: "permission-resolved", item: '{"status":"resolved"}' },
+              { transcript_id: "user-input-pending", item: '{"status":"pending"}' },
+              { transcript_id: "user-input-resolved", item: '{"status":"resolved"}' },
+            ])
+            const permissionPlan = yield* sql<{ detail: string }>`
+          EXPLAIN QUERY PLAN
+          SELECT EXISTS (
+            SELECT 1
+            FROM projection_transcript AS pending
+            WHERE pending.thread_id = 'thread-indexes'
+              AND pending.kind = 'transcript.permission'
+              AND json_extract(pending.item, '$.status') = 'pending'
+          )
+        `
+            const userInputPlan = yield* sql<{ detail: string }>`
+          EXPLAIN QUERY PLAN
+          SELECT EXISTS (
+            SELECT 1
+            FROM projection_transcript AS pending
+            WHERE pending.thread_id = 'thread-indexes'
+              AND pending.kind = 'transcript.user-input'
+              AND json_extract(pending.item, '$.status') = 'pending'
+          )
+        `
+            assert.isTrue(
+              permissionPlan.some(({ detail }) =>
+                detail.includes("projection_transcript_pending_permission_idx"),
+              ),
+            )
+            assert.isTrue(
+              userInputPlan.some(({ detail }) =>
+                detail.includes("projection_transcript_pending_user_input_idx"),
+              ),
+            )
+            assert.deepStrictEqual(yield* migrate({ loader: migrations }), [])
+          }).pipe(Effect.provideService(SqlClient, sql))
+        }),
+      ),
+    )
+
     it.effect("009 rebuild les threads sans cascade sur les enfants", () =>
       Effect.gen(function* () {
         const sql = yield* SqlClient
