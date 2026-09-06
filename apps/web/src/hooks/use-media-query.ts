@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useSyncExternalStore } from "react"
+import { useMemo, useSyncExternalStore } from "react"
 
 const BREAKPOINTS = {
   "2xl": 1536,
@@ -66,9 +66,7 @@ function parseQuery(query: BreakpointQuery | MediaQueryInput | (string & {})): s
   return parts.length > 0 ? parts.join(" and ") : query
 }
 
-function getServerSnapshot(): boolean {
-  return false
-}
+const SERVER_SNAPSHOT = { matches: false }
 
 function hasWindow(): boolean {
   return "window" in globalThis
@@ -84,22 +82,28 @@ export type MediaQueryInput = {
 export function useMediaQuery(query: BreakpointQuery | MediaQueryInput | (string & {})): boolean {
   const mediaQuery = parseQuery(query)
 
-  const subscribe = useCallback(
-    (callback: () => void) => {
-      if (!hasWindow()) return () => {}
-      const mql = globalThis.window.matchMedia(mediaQuery)
-      mql.addEventListener("change", callback)
-      return () => mql.removeEventListener("change", callback)
-    },
-    [mediaQuery],
-  )
-
-  const getSnapshot = useCallback(() => {
-    if (!hasWindow()) return false
-    return globalThis.window.matchMedia(mediaQuery).matches
+  const mediaQueryStore = useMemo(() => {
+    const mediaQueryList = hasWindow() ? globalThis.window.matchMedia(mediaQuery) : undefined
+    // Cache an identity per query so an equal boolean still commits a new store on query changes.
+    let snapshot = { matches: mediaQueryList?.matches ?? false }
+    const subscribe = (callback: () => void) => {
+      if (!mediaQueryList) return () => {}
+      mediaQueryList.addEventListener("change", callback)
+      return () => mediaQueryList.removeEventListener("change", callback)
+    }
+    const getSnapshot = () => {
+      const matches = mediaQueryList?.matches ?? false
+      if (matches !== snapshot.matches) snapshot = { matches }
+      return snapshot
+    }
+    return { getSnapshot, subscribe }
   }, [mediaQuery])
 
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  return useSyncExternalStore(
+    mediaQueryStore.subscribe,
+    mediaQueryStore.getSnapshot,
+    () => SERVER_SNAPSHOT,
+  ).matches
 }
 
 export function useIsMobile(): boolean {
