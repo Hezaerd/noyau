@@ -237,6 +237,36 @@ export const ticketDependencyIssueLookups = (
   return { dependencies, dependents }
 }
 
+export const openDependencyCountByTicketId = (
+  state: Pick<BoardState, "columns" | "tickets" | "ticketDependencies">,
+): ReadonlyMap<string, number> => {
+  const firstColumnIdByTicketId = new Map<string, string>()
+  for (const ticket of state.tickets) {
+    if (!firstColumnIdByTicketId.has(ticket.id)) {
+      firstColumnIdByTicketId.set(ticket.id, ticket.columnId)
+    }
+  }
+
+  const firstDoneByColumnId = new Map<string, boolean>()
+  for (const column of state.columns) {
+    if (!firstDoneByColumnId.has(column.id)) {
+      firstDoneByColumnId.set(column.id, column.done)
+    }
+  }
+
+  const counts = new Map<string, number>()
+  for (const dependency of state.ticketDependencies) {
+    const prerequisiteColumnId = firstColumnIdByTicketId.get(dependency.dependsOnTicketId)
+    const prerequisiteDone =
+      prerequisiteColumnId === undefined ? undefined : firstDoneByColumnId.get(prerequisiteColumnId)
+    if (prerequisiteDone === true) {
+      continue
+    }
+    counts.set(dependency.ticketId, (counts.get(dependency.ticketId) ?? 0) + 1)
+  }
+  return counts
+}
+
 const dependencyPathReaches = (
   dependencies: ReadonlyArray<BoardTicketDependency>,
   fromTicketId: string,

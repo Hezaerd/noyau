@@ -92,6 +92,7 @@ import {
   isTicketPriority,
   moveTicket,
   moveTicketToAdjacentColumn,
+  openDependencyCountByTicketId,
   openDependencyTitles,
   priorities,
   reorderTicket,
@@ -161,6 +162,7 @@ type TicketUpdateInput = {
 interface TicketCardProps {
   readonly ticket: BoardTicket
   readonly state: BoardState
+  readonly openDependencyCounts: ReadonlyMap<string, number>
   readonly actions: ReadonlyArray<ExecutableBoardAction>
   readonly active: boolean
   readonly overlay?: boolean
@@ -238,6 +240,7 @@ const dueLabel = (
 function TicketCard({
   ticket,
   state,
+  openDependencyCounts,
   actions,
   active,
   overlay = false,
@@ -250,18 +253,7 @@ function TicketCard({
   })
   const column = state.columns.find((candidate) => candidate.id === ticket.columnId)
   const due = dueLabel(ticket, column?.done ?? false)
-  const openDependencyCount = state.ticketDependencies.filter((dependency) => {
-    if (dependency.ticketId !== ticket.id) {
-      return false
-    }
-    const prerequisite = state.tickets.find(
-      (candidate) => candidate.id === dependency.dependsOnTicketId,
-    )
-    const prerequisiteColumn = state.columns.find(
-      (candidate) => candidate.id === prerequisite?.columnId,
-    )
-    return prerequisiteColumn?.done !== true
-  }).length
+  const openDependencyCount = openDependencyCounts.get(ticket.id) ?? 0
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -405,6 +397,7 @@ function QuickCreate({ columnId, active, onCancel, onCreate, onActivate }: Quick
 interface BoardColumnViewProps {
   readonly column: BoardColumn
   readonly state: BoardState
+  readonly openDependencyCounts: ReadonlyMap<string, number>
   readonly actions: ReadonlyArray<ExecutableBoardAction>
   readonly filters: BoardFilters
   readonly activeTicketId: string | undefined
@@ -425,6 +418,7 @@ interface BoardColumnViewProps {
 function BoardColumnView({
   column,
   state,
+  openDependencyCounts,
   actions,
   filters,
   activeTicketId,
@@ -575,6 +569,7 @@ function BoardColumnView({
                 key={ticket.id}
                 ticket={ticket}
                 state={state}
+                openDependencyCounts={openDependencyCounts}
                 actions={actions}
                 active={activeTicketId === ticket.id}
                 onFocus={() => onActiveTicket(ticket.id)}
@@ -772,6 +767,20 @@ export function BoardPage({
 
   const visibleByColumn = new Map(
     state.columns.map((column) => [column.id, visibleTickets(state, column.id, filters)]),
+  )
+  const {
+    columns: boardColumns,
+    tickets: boardTickets,
+    ticketDependencies: boardTicketDependencies,
+  } = state
+  const openDependencyCounts = useMemo(
+    () =>
+      openDependencyCountByTicketId({
+        columns: boardColumns,
+        tickets: boardTickets,
+        ticketDependencies: boardTicketDependencies,
+      }),
+    [boardColumns, boardTickets, boardTicketDependencies],
   )
 
   const selectTicket = (ticketId: string | undefined) => {
@@ -1323,6 +1332,7 @@ export function BoardPage({
                 key={column.id}
                 column={column}
                 state={state}
+                openDependencyCounts={openDependencyCounts}
                 actions={boardActions}
                 filters={filters}
                 activeTicketId={activeTicketId}
@@ -1438,6 +1448,7 @@ export function BoardPage({
             <TicketCard
               ticket={draggedTicket}
               state={state}
+              openDependencyCounts={openDependencyCounts}
               actions={boardActions}
               active={false}
               overlay
