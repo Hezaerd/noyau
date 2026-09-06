@@ -1,6 +1,7 @@
 import type { ThreadId } from "@noyau/contracts/ids"
 import { PlusIcon, XIcon } from "lucide-react"
 import {
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -341,8 +342,54 @@ function WorkspacePanelLauncher({
 
 function WorkspacePanelResizeHandle({ width }: { readonly width: number }): ReactElement {
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
+  const pendingWidthRef = useRef<number | undefined>(undefined)
+  const pendingFrameRef = useRef<number | undefined>(undefined)
+
+  const flushPendingWidth = () => {
+    const frame = pendingFrameRef.current
+    if (frame !== undefined) {
+      cancelAnimationFrame(frame)
+      pendingFrameRef.current = undefined
+    }
+    const pendingWidth = pendingWidthRef.current
+    pendingWidthRef.current = undefined
+    if (pendingWidth !== undefined) {
+      setWorkspacePanelWidth(pendingWidth)
+    }
+  }
+
+  const scheduleWidth = (nextWidth: number) => {
+    pendingWidthRef.current = nextWidth
+    if (pendingFrameRef.current !== undefined) {
+      return
+    }
+    pendingFrameRef.current = requestAnimationFrame(() => {
+      pendingFrameRef.current = undefined
+      const pendingWidth = pendingWidthRef.current
+      pendingWidthRef.current = undefined
+      if (pendingWidth !== undefined) {
+        setWorkspacePanelWidth(pendingWidth)
+      }
+    })
+  }
+
+  useEffect(
+    () => () => {
+      const frame = pendingFrameRef.current
+      if (frame !== undefined) {
+        cancelAnimationFrame(frame)
+      }
+      pendingFrameRef.current = undefined
+      pendingWidthRef.current = undefined
+      dragRef.current = null
+    },
+    [],
+  )
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragRef.current !== null) {
+      return
+    }
     event.currentTarget.setPointerCapture(event.pointerId)
     dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: width }
   }
@@ -356,13 +403,15 @@ function WorkspacePanelResizeHandle({ width }: { readonly width: number }): Reac
       MIN_WORKSPACE_PANEL_WIDTH,
       drag.startWidth + (drag.startX - event.clientX),
     )
-    setWorkspacePanelWidth(nextWidth)
+    scheduleWidth(nextWidth)
   }
 
   const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) {
-      dragRef.current = null
+    if (dragRef.current?.pointerId !== event.pointerId) {
+      return
     }
+    flushPendingWidth()
+    dragRef.current = null
   }
 
   return (
@@ -375,6 +424,7 @@ function WorkspacePanelResizeHandle({ width }: { readonly width: number }): Reac
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onLostPointerCapture={onPointerUp}
     />
   )
 }
