@@ -3,6 +3,7 @@ import { Effect, FileSystem, Path } from "effect"
 
 export const SEARCH_WORKSPACE_PATHS_LIMIT = 50
 export const SEARCH_WORKSPACE_SCAN_LIMIT = 4000
+export const SEARCH_WORKSPACE_STAT_CONCURRENCY = 16
 
 const SKIP_DIRECTORY_NAMES = new Set([
   ".git",
@@ -99,13 +100,20 @@ export const searchWorkspacePathsInRoot = Effect.fn("searchWorkspacePathsInRoot"
       break
     }
     const names = yield* fileSystem.readDirectory(directory).pipe(Effect.orElseSucceed(() => []))
-    for (const name of names) {
-      if (scanned >= SEARCH_WORKSPACE_SCAN_LIMIT) {
-        break
-      }
-      scanned += 1
-      const absolute = path.join(directory, name)
-      const info = yield* fileSystem.stat(absolute).pipe(Effect.orElseSucceed(() => undefined))
+    const namesToScan = names.slice(0, SEARCH_WORKSPACE_SCAN_LIMIT - scanned)
+    scanned += namesToScan.length
+    const entries = yield* Effect.forEach(
+      namesToScan,
+      (name) => {
+        const absolute = path.join(directory, name)
+        return fileSystem.stat(absolute).pipe(
+          Effect.orElseSucceed(() => undefined),
+          Effect.map((info) => ({ name, absolute, info })),
+        )
+      },
+      { concurrency: SEARCH_WORKSPACE_STAT_CONCURRENCY },
+    )
+    for (const { name, absolute, info } of entries) {
       if (info === undefined) {
         continue
       }
