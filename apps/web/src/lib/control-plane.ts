@@ -357,8 +357,11 @@ const searchPaths = Effect.fn("ControlPlaneClient.searchWorkspacePaths")(functio
 export const searchWorkspacePaths = (
   projectId: ProjectId,
   query: string,
+  signal?: AbortSignal,
 ): Promise<ControlPlaneResult<WorkspacePathSearchResult>> =>
-  runOperation(searchPaths(projectId, query), "snapshot")
+  activeTransportSession
+    .runPromiseExit(searchPaths(projectId, query), { signal })
+    .then((exit) => matchOperationExit(exit, "snapshot"))
 
 const requestAgentSkills = Effect.fn("ControlPlaneClient.listAgentSkills")(function* (
   input: ListAgentSkillsInput,
