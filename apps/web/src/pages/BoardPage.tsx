@@ -286,7 +286,11 @@ function TicketCard({
           onClick={onOpen}
           onFocus={onFocus}
           className="w-full touch-none rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/65"
-          aria-label={`Open ${ticket.priority === "none" ? "unprioritized" : `${priorityLabels[ticket.priority].toLowerCase()} priority`} ticket ${ticket.title}`}
+          aria-label={`Open ${ticket.title}, ${
+            ticket.priority === "none"
+              ? priorityLabels[ticket.priority]
+              : `${priorityLabels[ticket.priority]} priority`
+          }`}
           {...attributes}
           {...listeners}
         >

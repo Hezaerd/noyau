@@ -95,12 +95,12 @@ describe("AskQuestionToolbar", () => {
       "composer-toolbar-surface",
     )
     expect(screen.getByText("Question 1 of 3")).toBeTruthy()
-    await user.click(screen.getByRole("button", { name: "First A" }))
+    await user.click(screen.getByRole("radio", { name: "First A" }))
     await user.click(screen.getByRole("button", { name: "Next" }))
     expect(screen.getByText("Question 2 of 3")).toBeTruthy()
     expect(onSubmit).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole("button", { name: "Second B" }))
+    await user.click(screen.getByRole("radio", { name: "Second B" }))
     await user.click(screen.getByRole("button", { name: "Back" }))
     expect(screen.getByText("Question 1 of 3")).toBeTruthy()
     expect(onSubmit).not.toHaveBeenCalled()
@@ -111,7 +111,7 @@ describe("AskQuestionToolbar", () => {
     expect(screen.getByRole("button", { name: "Send answers" }).getAttribute("disabled")).not.toBe(
       null,
     )
-    await user.click(screen.getByRole("button", { name: "Third A" }))
+    await user.click(screen.getByRole("radio", { name: "Third A" }))
     await user.click(screen.getByRole("button", { name: "Send answers" }))
     await user.click(screen.getByRole("button", { name: "Send answers" }))
     expect(onSubmit).toHaveBeenCalledOnce()
@@ -136,7 +136,7 @@ describe("AskQuestionToolbar", () => {
 
     expect(screen.getByText("Waiting for your response · 3 questions.")).toBeTruthy()
     expect(screen.queryByTestId("ask-question-toolbar")).toBeNull()
-    expect(screen.queryByRole("button", { name: "First A" })).toBeNull()
+    expect(screen.queryByRole("radio", { name: "First A" })).toBeNull()
   })
 
   it("explains and submits a detached request as a continuation exactly once", async () => {
@@ -146,11 +146,11 @@ describe("AskQuestionToolbar", () => {
     renderToolbar(onSubmit, detached)
 
     expect(screen.getByRole("status").textContent).toContain("previous provider session ended")
-    await user.click(screen.getByRole("button", { name: "First A" }))
+    await user.click(screen.getByRole("radio", { name: "First A" }))
     await user.click(screen.getByRole("button", { name: "Next" }))
-    await user.click(screen.getByRole("button", { name: "Second A" }))
+    await user.click(screen.getByRole("radio", { name: "Second A" }))
     await user.click(screen.getByRole("button", { name: "Next" }))
-    await user.click(screen.getByRole("button", { name: "Third A" }))
+    await user.click(screen.getByRole("radio", { name: "Third A" }))
     await user.click(screen.getByRole("button", { name: "Continue with answers" }))
     await user.click(screen.getByRole("button", { name: "Continue with answers" }))
 
@@ -183,11 +183,11 @@ describe("AskQuestionToolbar", () => {
     const onSubmit = vi.fn().mockResolvedValue(false)
     renderToolbar(onSubmit, { ...request, status: "detached" })
 
-    await user.click(screen.getByRole("button", { name: "First A" }))
+    await user.click(screen.getByRole("radio", { name: "First A" }))
     await user.click(screen.getByRole("button", { name: "Next" }))
-    await user.click(screen.getByRole("button", { name: "Second A" }))
+    await user.click(screen.getByRole("radio", { name: "Second A" }))
     await user.click(screen.getByRole("button", { name: "Next" }))
-    await user.click(screen.getByRole("button", { name: "Third A" }))
+    await user.click(screen.getByRole("radio", { name: "Third A" }))
     await user.click(screen.getByRole("button", { name: "Continue with answers" }))
 
     await waitFor(() => {
@@ -204,11 +204,11 @@ describe("AskQuestionToolbar", () => {
     const onSubmit = vi.fn().mockResolvedValue(true)
     const { rerenderItem } = renderToolbar(onSubmit)
 
-    await user.click(screen.getByRole("button", { name: "First A" }))
+    await user.click(screen.getByRole("radio", { name: "First A" }))
     await user.click(screen.getByRole("button", { name: "Next" }))
-    await user.click(screen.getByRole("button", { name: "Second A" }))
+    await user.click(screen.getByRole("radio", { name: "Second A" }))
     await user.click(screen.getByRole("button", { name: "Next" }))
-    await user.click(screen.getByRole("button", { name: "Third A" }))
+    await user.click(screen.getByRole("radio", { name: "Third A" }))
     await user.click(screen.getByRole("button", { name: "Send answers" }))
     expect(screen.getByRole("button", { name: "Send answers" }).getAttribute("disabled")).not.toBe(
       null,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import { findDesignViolations, parseAddedLines } from "../../../tools/design-contract"
 
@@ -51,6 +51,25 @@ describe("design contract validator", () => {
 
     expect(stateViolations.map(({ rule }) => rule)).toEqual(["undefined-state"])
     expect(primitiveViolations).toEqual([])
+  })
+
+  it("reports state classes when the class expression starts on an earlier line", () => {
+    const violations = findDesignViolations("apps/web/src/components/feature/Example.tsx", [
+      { line: 1, text: "<div className={cn(" },
+      { line: 2, text: '  active && "state-pending",' },
+    ])
+
+    expect(violations.map(({ rule, line }) => ({ rule, line }))).toEqual([
+      { rule: "undefined-state", line: 2 },
+    ])
+  })
+
+  it("treats native desktop titlebar colors as shared design tokens", () => {
+    const violations = findDesignViolations("apps/desktop/src/window-chrome.ts", [
+      { line: 1, text: 'const WINDOW_LIGHT_BACKGROUND = "#f5f4fb"' },
+    ])
+
+    expect(violations).toEqual([])
   })
 
   it("parses only added lines from a zero-context git diff", () => {

@@ -16,13 +16,16 @@ export const MIN_WORKSPACE_PANEL_WIDTH = 20 * 16
 export const WORKSPACE_PANEL_MAX_VIEWPORT_RATIO = 0.6
 
 export const maxWorkspacePanelWidth = (viewportWidth: number): number =>
-  Math.max(
-    MIN_WORKSPACE_PANEL_WIDTH,
-    Math.floor(viewportWidth * WORKSPACE_PANEL_MAX_VIEWPORT_RATIO),
-  )
+  Math.max(0, Math.floor(viewportWidth * WORKSPACE_PANEL_MAX_VIEWPORT_RATIO))
+
+export const minWorkspacePanelWidth = (viewportWidth: number): number =>
+  Math.min(MIN_WORKSPACE_PANEL_WIDTH, maxWorkspacePanelWidth(viewportWidth))
 
 export const clampWorkspacePanelWidth = (width: number, viewportWidth: number): number =>
-  Math.min(maxWorkspacePanelWidth(viewportWidth), Math.max(MIN_WORKSPACE_PANEL_WIDTH, width))
+  Math.min(
+    maxWorkspacePanelWidth(viewportWidth),
+    Math.max(minWorkspacePanelWidth(viewportWidth), width),
+  )
 
 export type WorkspacePanels = Readonly<Record<string, WorkspacePanelState>>
 

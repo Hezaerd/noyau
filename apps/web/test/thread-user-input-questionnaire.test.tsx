@@ -5,7 +5,7 @@ import { ThreadId, TurnId } from "@noyau/contracts/ids"
 import { fireEvent, render, screen, cleanup } from "@testing-library/react"
 import { Schema } from "effect"
 import { useState } from "react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
   ThreadUserInputQuestionnaire,

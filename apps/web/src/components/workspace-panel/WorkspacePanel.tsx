@@ -36,7 +36,7 @@ import {
 import {
   clampWorkspacePanelWidth,
   maxWorkspacePanelWidth,
-  MIN_WORKSPACE_PANEL_WIDTH,
+  minWorkspacePanelWidth,
 } from "@/lib/workspace-panel-persist"
 import {
   activateWorkspaceTab,
@@ -76,6 +76,7 @@ export function WorkspacePanel({
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
   const activeTab = resolveActiveWorkspaceTab(state)
   const maxWidth = maxWorkspacePanelWidth(viewportWidth)
+  const minWidth = minWorkspacePanelWidth(viewportWidth)
   const panelWidth = clampWorkspacePanelWidth(width, viewportWidth)
   const keepMountedKinds = useMemo(
     () =>
@@ -130,7 +131,7 @@ export function WorkspacePanel({
       data-slot="workspace-panel"
       style={{ width: panelWidth }}
     >
-      <WorkspacePanelResizeHandle width={panelWidth} maxWidth={maxWidth} />
+      <WorkspacePanelResizeHandle width={panelWidth} minWidth={minWidth} maxWidth={maxWidth} />
       <header className="flex h-10 shrink-0 items-center gap-1 border-b border-border/70 px-1.5">
         <div className="min-w-0 flex-1 overflow-x-auto pe-8">
           <div
@@ -426,9 +427,11 @@ function WorkspacePanelLauncher({
 
 function WorkspacePanelResizeHandle({
   width,
+  minWidth,
   maxWidth,
 }: {
   readonly width: number
+  readonly minWidth: number
   readonly maxWidth: number
 }): ReactElement {
   const dragRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
@@ -496,7 +499,7 @@ function WorkspacePanelResizeHandle({
       )
     } else if (event.key === "Home") {
       event.preventDefault()
-      setWorkspacePanelWidth(MIN_WORKSPACE_PANEL_WIDTH)
+      setWorkspacePanelWidth(minWidth)
     } else if (event.key === "End") {
       event.preventDefault()
       setWorkspacePanelWidth(maxWidth)
@@ -528,7 +531,7 @@ function WorkspacePanelResizeHandle({
       role="separator"
       aria-orientation="vertical"
       aria-label="Resize workspace panel"
-      aria-valuemin={MIN_WORKSPACE_PANEL_WIDTH}
+      aria-valuemin={minWidth}
       aria-valuemax={maxWidth}
       aria-valuenow={width}
       className="absolute inset-y-0 -start-1 z-10 w-2 cursor-col-resize outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background pointer-coarse:before:absolute pointer-coarse:before:inset-y-0 pointer-coarse:before:-start-5 pointer-coarse:before:w-11"

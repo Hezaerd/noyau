@@ -36,7 +36,9 @@ const allowedDurations = new Set(["0", "120", "200", "320"])
 const isPrimitiveFile = (file: string): boolean =>
   file.startsWith("apps/web/src/components/ui/") ||
   file === "apps/web/src/index.css" ||
-  file.startsWith("apps/web/src/styles/")
+  file.startsWith("apps/web/src/styles/") ||
+  // Native titlebar colors are the desktop equivalent of web design tokens.
+  file === "apps/desktop/src/window-chrome.ts"
 
 const isExplicitlyExcepted = (text: string): boolean => explicitExceptionPattern.test(text)
 
@@ -48,10 +50,6 @@ const findUndefinedState = (
   text: string,
   definedStateClasses: ReadonlySet<string>,
 ): string | undefined => {
-  if (!/(?:className|class)\s*=/u.test(text) && !/\b(?:cn|cva)\(/u.test(text)) {
-    return undefined
-  }
-
   const candidates = text.match(/[a-z][a-z0-9-]*/gu) ?? []
   return candidates.find(
     (candidate) =>

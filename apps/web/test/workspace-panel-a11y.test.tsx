@@ -3,13 +3,18 @@
 import { ThreadId } from "@noyau/contracts/ids"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 
 import {
   defineWorkspaceTab,
   type WorkspaceTabRenderContext,
 } from "../src/components/workspace-panel/define-workspace-tab"
 import { WorkspacePanel } from "../src/components/workspace-panel/WorkspacePanel"
+import {
+  clampWorkspacePanelWidth,
+  maxWorkspacePanelWidth,
+  minWorkspacePanelWidth,
+} from "../src/lib/workspace-panel-persist"
 import { AppAtomRegistryProvider, resetAppAtomRegistryForTests } from "../src/state/atom-registry"
 import {
   getWorkspacePanel,
@@ -104,5 +109,23 @@ describe("workspace panel accessibility", () => {
     expect(separator.getAttribute("aria-valuenow")).toBe("320")
     fireEvent.keyDown(separator, { key: "End" })
     expect(separator.getAttribute("aria-valuenow")).toBe("614")
+  })
+
+  it("caps the panel at the viewport width below the configured minimum", () => {
+    window.innerWidth = 375
+    expect(maxWorkspacePanelWidth(window.innerWidth)).toBe(225)
+    expect(minWorkspacePanelWidth(window.innerWidth)).toBe(225)
+    expect(clampWorkspacePanelWidth(320, window.innerWidth)).toBe(225)
+
+    openWorkspaceTab(threadId, testTab)
+    renderPanel()
+
+    const separator = screen.getByRole("separator", { name: "Resize workspace panel" })
+    expect(separator.getAttribute("aria-valuemin")).toBe("225")
+    expect(separator.getAttribute("aria-valuemax")).toBe("225")
+    expect(separator.getAttribute("aria-valuenow")).toBe("225")
+
+    fireEvent.keyDown(separator, { key: "Home" })
+    expect(separator.getAttribute("aria-valuenow")).toBe("225")
   })
 })
