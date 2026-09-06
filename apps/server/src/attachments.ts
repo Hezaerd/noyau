@@ -68,16 +68,32 @@ export const parseBase64DataUrl = (
     return null
   }
   const payload = trimmed.slice(commaIndex + 1)
-  let compact = ""
+  let segments: Array<string> | undefined
+  let segmentStart = 0
   for (let index = 0; index < payload.length; index += 1) {
     const code = payload.charCodeAt(index)
     if (isBase64Whitespace(code)) {
+      if (segments === undefined) {
+        segments = []
+      }
+      if (segmentStart < index) {
+        segments.push(payload.slice(segmentStart, index))
+      }
+      segmentStart = index + 1
       continue
     }
     if (!isBase64Char(code)) {
       return null
     }
-    compact += payload[index]
+  }
+  let compact: string
+  if (segments === undefined) {
+    compact = payload
+  } else {
+    if (segmentStart < payload.length) {
+      segments.push(payload.slice(segmentStart))
+    }
+    compact = segments.join("")
   }
   if (compact.length === 0 || compact.length % 4 !== 0) {
     return null
