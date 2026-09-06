@@ -28,6 +28,14 @@ import { TextGeneration, type ThreadTitleGenerationInput } from "./text-generati
 
 const ProjectRootRow = Schema.Struct({ workspace_root: Schema.NonEmptyString })
 const decodeProjectRootRow = Schema.decodeEffect(ProjectRootRow)
+const ThreadTitleContextRow = Schema.Struct({
+  title: Schema.String,
+  has_turn: Schema.Int,
+  has_second_turn: Schema.Int,
+})
+const ThreadTitleRow = Schema.Struct({ title: Schema.String })
+const decodeThreadTitleContextRow = Schema.decodeEffect(ThreadTitleContextRow)
+const decodeThreadTitleRow = Schema.decodeEffect(ThreadTitleRow)
 const decodeInternalCommand = Schema.decodeUnknownEffect(InternalCommand)
 const systemActor = ActorId.make("system:cursor")
 const isThreadEvent = Schema.is(ThreadEvent)
@@ -46,6 +54,50 @@ const projectRoot = Effect.fn("ThreadTitleReactor.projectRoot")(function* (proje
     return yield* Effect.die(`Projection project ${projectId} has no WorkspaceRoot`)
   }
   return (yield* decodeProjectRootRow(row).pipe(Effect.orDie)).workspace_root
+})
+
+const readThreadTitleContext = Effect.fn("ThreadTitleReactor.readThreadTitleContext")(function* (
+  threadId: ThreadId,
+) {
+  const sql = yield* SqlClient
+  const rows = yield* sql<(typeof ThreadTitleContextRow)["Encoded"]>`
+    SELECT
+      thread.title,
+      EXISTS (
+        SELECT 1
+        FROM projection_turns AS first_turn
+        WHERE first_turn.thread_id = thread.thread_id
+        LIMIT 1
+      ) AS has_turn,
+      EXISTS (
+        SELECT 1
+        FROM projection_turns AS second_turn
+        WHERE second_turn.thread_id = thread.thread_id
+        ORDER BY second_turn.ordinal
+        LIMIT 1 OFFSET 1
+      ) AS has_second_turn
+    FROM projection_threads AS thread
+    WHERE thread.thread_id = ${threadId}
+  `
+  const row = rows[0]
+  return row === undefined
+    ? Option.none()
+    : Option.some(yield* decodeThreadTitleContextRow(row).pipe(Effect.orDie))
+})
+
+const readThreadTitle = Effect.fn("ThreadTitleReactor.readThreadTitle")(function* (
+  threadId: ThreadId,
+) {
+  const sql = yield* SqlClient
+  const rows = yield* sql<(typeof ThreadTitleRow)["Encoded"]>`
+    SELECT title
+    FROM projection_threads
+    WHERE thread_id = ${threadId}
+  `
+  const row = rows[0]
+  return row === undefined
+    ? Option.none()
+    : Option.some(yield* decodeThreadTitleRow(row).pipe(Effect.orDie))
 })
 
 const makeTitleSeededCommand = Effect.fn("ThreadTitleReactor.makeTitleSeededCommand")(function* (
@@ -127,16 +179,16 @@ const applyGeneratedTitle = Effect.fn("ThreadTitleReactor.applyGeneratedTitle")(
     return
   }
 
-  const snapshot = yield* readThreadSnapshot(input.threadId).pipe(Effect.orDie)
-  if (Option.isNone(snapshot)) {
+  const thread = yield* readThreadTitle(input.threadId).pipe(Effect.orDie)
+  if (Option.isNone(thread)) {
     return
   }
-  if (input.previousTitle !== undefined && snapshot.value.thread.title !== input.previousTitle) {
+  if (input.previousTitle !== undefined && thread.value.title !== input.previousTitle) {
     return
   }
   if (
     input.previousTitle === undefined &&
-    !canReplaceThreadTitle(snapshot.value.thread.title, input.titleSeed)
+    !canReplaceThreadTitle(thread.value.title, input.titleSeed)
   ) {
     return
   }
@@ -167,11 +219,15 @@ export const makeThreadTitleReactor = (
       switch (threadEvent._tag) {
         case "thread.turn.started":
           return Effect.gen(function* () {
-            const snapshot = yield* readThreadSnapshot(threadEvent.threadId).pipe(
+            const context = yield* readThreadTitleContext(threadEvent.threadId).pipe(
               Effect.provideService(SqlClient, sql),
               Effect.orDie,
             )
-            if (Option.isNone(snapshot) || snapshot.value.turns.length !== 1) {
+            if (
+              Option.isNone(context) ||
+              context.value.has_turn !== 1 ||
+              context.value.has_second_turn !== 0
+            ) {
               return
             }
             const titleSeed =
@@ -182,10 +238,7 @@ export const makeThreadTitleReactor = (
                 ?.map((attachment) => `[image: ${attachment.name}]`)
                 .join(" ") ??
               ""
-            if (
-              message.trim() === "" ||
-              !canReplaceThreadTitle(snapshot.value.thread.title, titleSeed)
-            ) {
+            if (message.trim() === "" || !canReplaceThreadTitle(context.value.title, titleSeed)) {
               return
             }
             const cwd = yield* projectRoot(persisted.projectId).pipe(
