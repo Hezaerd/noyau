@@ -316,6 +316,22 @@
   transition-duration: 0s !important;
 }
 
+/* A finite emphasis cue for genuinely in-progress transcript work. It settles
+   into the same readable state instead of looping like a decorative shimmer. */
+@keyframes state-working {
+  from {
+    opacity: 0.72;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility state-working {
+  font-weight: 500;
+  animation: state-working var(--motion-slow) var(--ease-standard) 1 both;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -438,15 +454,89 @@
 :root {
   --radius: 0.625rem;
   --destructive-foreground: var(--color-red-700);
-  --glass-blur: 12px;
-  --glass-opacity: 80%;
-  --glass-saturation: 1.14;
+  --glass-blur: 18px;
+  --glass-opacity: 82%;
+  --glass-saturation: 1.12;
+  --material-canvas-opacity: 88%;
+  --material-chrome-opacity: 76%;
+  --material-panel-opacity: 72%;
+  --material-overlay-opacity: 88%;
+  --material-panel-blur: 13px;
+  --material-overlay-blur: 21px;
+  --material-border: color-mix(in srgb, var(--foreground) 9%, transparent);
+  --material-highlight: color-mix(in srgb, var(--color-white) 58%, transparent);
+  --elevation-panel: 0 12px 32px -24px rgb(35 28 71 / 28%);
+  --elevation-overlay: 0 20px 56px -24px rgb(23 18 48 / 42%);
+  --motion-fast: 120ms;
+  --motion-standard: 200ms;
+  --motion-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark {
   --destructive-foreground: var(--color-red-400);
-  --glass-blur: 16px;
-  --glass-saturation: 1.08;
+  --glass-blur: 20px;
+  --glass-saturation: 1.06;
+  --material-canvas-opacity: 84%;
+  --material-chrome-opacity: 72%;
+  --material-panel-opacity: 68%;
+  --material-overlay-opacity: 86%;
+  --material-panel-blur: 14px;
+  --material-overlay-blur: 24px;
+  --material-border: color-mix(in srgb, var(--color-white) 9%, transparent);
+  --material-highlight: color-mix(in srgb, var(--color-white) 6%, transparent);
+  --elevation-panel: 0 16px 36px -26px rgb(0 0 0 / 70%);
+  --elevation-overlay: 0 24px 64px -24px rgb(0 0 0 / 82%);
+}
+
+@utility app-backdrop {
+  background:
+    radial-gradient(
+      56rem 42rem at -8% -18%,
+      color-mix(in oklab, var(--primary) 16%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      54rem 40rem at 108% 112%,
+      color-mix(in oklab, var(--info) 11%, transparent),
+      transparent 64%
+    ),
+    var(--background);
+}
+
+@utility surface-canvas {
+  background: color-mix(in srgb, var(--background) var(--material-canvas-opacity), transparent);
+}
+
+@utility surface-chrome {
+  background: color-mix(in srgb, var(--sidebar) var(--material-chrome-opacity), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  box-shadow: inset 0 1px var(--material-highlight);
+}
+
+@utility surface-panel {
+  background: color-mix(in srgb, var(--card) var(--material-panel-opacity), transparent);
+  -webkit-backdrop-filter: blur(var(--material-panel-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--material-panel-blur)) saturate(var(--glass-saturation));
+  box-shadow:
+    inset 0 1px var(--material-highlight),
+    var(--elevation-panel);
+}
+
+@utility surface-overlay {
+  background: color-mix(
+    in srgb,
+    var(--popover) var(--material-overlay-opacity),
+    transparent
+  ) !important;
+  -webkit-backdrop-filter: blur(var(--material-overlay-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--material-overlay-blur)) saturate(var(--glass-saturation));
+  border: 1px solid var(--material-border);
+  box-shadow:
+    inset 0 1px var(--material-highlight),
+    var(--elevation-overlay);
 }
 
 @utility surface-glass {
@@ -456,22 +546,6 @@
 
   @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
     background: var(--background) !important;
-  }
-}
-
-@utility dropdown-glass {
-  /* Wins over primitive `bg-popover` (`background-color`) on Menu/Popover. */
-  background: color-mix(
-    in srgb,
-    var(--popover) 18%,
-    color-mix(in srgb, var(--popover) var(--glass-opacity), transparent)
-  ) !important;
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
-
-  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    background: var(--popover) !important;
   }
 }
 
@@ -539,7 +613,7 @@
 
 .composer-glass:has([data-slot="composer-toolbar-host"][data-bottom-toolbar-open="true"])
   #thread-composer-error {
-  padding-top: var(--spacing(2));
+  padding-top: 0.5rem;
 }
 
 .composer-glass:has([data-slot="composer-toolbar-host"][data-bottom-toolbar-open="true"]) {
@@ -570,6 +644,19 @@
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .surface-canvas,
+  .surface-chrome {
+    background: var(--background) !important;
+  }
+
+  .surface-panel {
+    background: var(--card) !important;
+  }
+
+  .surface-overlay {
+    background: var(--popover) !important;
+  }
+
   .composer-glass-shell::before,
   .composer-toolbar-strip::before {
     background: var(--composer-glass-surface);

@@ -5,6 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Noyau Desktop renderer" />
     <title>Noyau</title>
+    <script>
+      ;(() => {
+        const preference = (() => {
+          try {
+            const stored = window.localStorage.getItem("noyau:appearance")
+            return stored === "light" || stored === "dark" || stored === "system"
+              ? stored
+              : "system"
+          } catch {
+            return "system"
+          }
+        })()
+        const systemUsesDarkColors =
+          typeof window.matchMedia === "function" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches
+        const resolvedAppearance =
+          preference === "dark" || (preference === "system" && systemUsesDarkColors)
+            ? "dark"
+            : "light"
+        document.documentElement.classList.toggle("dark", resolvedAppearance === "dark")
+        document.documentElement.style.colorScheme = resolvedAppearance
+
+        // Ask the native shell to follow the stored choice as soon as its bridge is available.
+        // The renderer applies the same preference again after boot to retain normal sync.
+        try {
+          const sync = window.noyauDesktop?.setTheme(preference)
+          sync?.catch(() => undefined)
+        } catch {
+          // A renderer without the desktop bridge still has the correct local theme.
+        }
+      })()
+    </script>
     <style>
       html,
       body {
@@ -23,6 +55,11 @@
       html.dark,
       html.dark body {
         background: #0f0f13;
+      }
+
+      html:not(.dark),
+      html:not(.dark) body {
+        background: #f5f4fb;
       }
 
       #noyau-boot-splash {

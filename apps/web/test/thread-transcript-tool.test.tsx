@@ -41,13 +41,13 @@ const decodeTool = (input: {
   })
 }
 
-describe("ThreadTranscriptTool shimmer", () => {
-  it("shimmers only the in-progress tool label", () => {
+describe("ThreadTranscriptTool working state", () => {
+  it("marks only the in-progress tool label as working", () => {
     const live = decodeTool({ toolCallId: "tool-1", status: "in_progress" })
 
     render(<ThreadTranscriptTool item={live} />)
 
-    expect(screen.getByText("Read file").classList.contains("shimmer")).toBe(true)
+    expect(screen.getByText("Read file").classList.contains("state-working")).toBe(true)
   })
 
   it("does not shimmer a settled tool", () => {
@@ -59,10 +59,10 @@ describe("ThreadTranscriptTool shimmer", () => {
 
     render(<ThreadTranscriptTool item={settled} />)
 
-    expect(screen.getByText("src/index.ts").classList.contains("shimmer")).toBe(false)
+    expect(screen.getByText("src/index.ts").classList.contains("state-working")).toBe(false)
   })
 
-  it("shimmers the live group label on the text node", () => {
+  it("marks the live group label as working on the text node", () => {
     const live = decodeTool({
       toolCallId: "tool-2",
       status: "in_progress",
@@ -76,8 +76,8 @@ describe("ThreadTranscriptTool shimmer", () => {
 
     render(<ThreadTranscriptToolGroup items={[settled, live]} />)
 
-    expect(screen.getByText("src/lib/thread-transcript.ts").classList.contains("shimmer")).toBe(
-      true,
-    )
+    expect(
+      screen.getByText("src/lib/thread-transcript.ts").classList.contains("state-working"),
+    ).toBe(true)
   })
 })

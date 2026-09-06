@@ -175,19 +175,22 @@ export function RootLayout() {
       <KeybindingRuntime />
       <TurnSettlementCue />
       <AppPaletteProvider>
-        <SidebarProvider className="h-svh overflow-hidden" style={macosDesktopControlsStyle()}>
+        <SidebarProvider
+          className="app-backdrop h-svh overflow-hidden"
+          style={macosDesktopControlsStyle()}
+        >
           {/* Keep the Sidebar shell mounted: remounting it retriggers
               transition-[width,left] on the gap and flashes the chrome. */}
           <Sidebar collapsible="offcanvas" className="border-sidebar-border/70">
             {isSettings ? <SettingsSidebar /> : <AppSidebar />}
           </Sidebar>
-          <SidebarInset className="min-h-0 min-w-0 overflow-hidden overscroll-y-none">
+          <SidebarInset className="surface-canvas min-h-0 min-w-0 overflow-hidden overscroll-y-none">
             <div className="flex min-h-0 flex-1 overflow-hidden">
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 {/* Keep the page titlebar mounted: swapping it with the Settings
                     header unmounts the chrome for one frame. */}
                 <header
-                  className={`drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 bg-background px-3 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none sm:px-5 ${COLLAPSED_PAGE_TITLEBAR_INSET_CLASS} ${NARROW_PAGE_TITLEBAR_INSET_CLASS}`}
+                  className={`surface-chrome drag-region z-30 flex h-(--desktop-titlebar-height) min-h-(--desktop-titlebar-height) shrink-0 items-center gap-3 border-b border-border/70 px-3 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none sm:px-5 ${COLLAPSED_PAGE_TITLEBAR_INSET_CLASS} ${NARROW_PAGE_TITLEBAR_INSET_CLASS}`}
                   data-desktop-page-titlebar=""
                 >
                   <div className="flex min-w-0 items-center text-sm">

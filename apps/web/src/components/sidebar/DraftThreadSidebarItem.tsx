@@ -57,7 +57,7 @@ export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
             isActive={isActive}
             aria-label={title}
             {...(menuOpen ? {} : { tooltip: title })}
-            className="group/thread-item h-auto min-h-16 items-start py-2 font-normal text-sidebar-foreground/58 data-[active=true]:font-normal [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
+            className="group/thread-item h-auto min-h-16 items-start py-2 font-normal text-sidebar-foreground data-[active=true]:font-normal [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-normal"
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span
@@ -66,14 +66,14 @@ export const DraftThreadSidebarItem = memo(function DraftThreadSidebarItem({
               >
                 <span
                   data-slot="thread-sidebar-project"
-                  className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-sidebar-foreground/45"
+                  className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-sidebar-foreground/72"
                 >
                   <FolderIcon aria-hidden className="size-3 shrink-0 opacity-70" />
                   <span className="min-w-0 truncate">{project.name}</span>
                 </span>
                 <span
                   data-slot="thread-sidebar-draft"
-                  className="ml-auto shrink-0 font-medium text-[11px] text-sidebar-foreground/45"
+                  className="ml-auto shrink-0 font-medium text-[11px] text-sidebar-foreground/72"
                 >
                   Draft
                 </span>

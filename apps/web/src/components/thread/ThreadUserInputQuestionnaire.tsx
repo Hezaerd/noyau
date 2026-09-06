@@ -1,6 +1,6 @@
 import type { UserInputAnswer, UserInputQuestion } from "@noyau/contracts/entities/approvals"
 import type { TranscriptUserInput } from "@noyau/contracts/entities/transcript"
-import type { ReactNode } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +29,15 @@ export function QuestionChoices({
 }) {
   const allowMultiple = question.allowMultiple === true
   const freeform = answer.freeform ?? ""
+  const selectedIndex = question.options.findIndex((option) => answer.optionIds.includes(option.id))
+  const [activeOptionIndex, setActiveOptionIndex] = useState(selectedIndex >= 0 ? selectedIndex : 0)
+  const radioRefs = useRef<Array<HTMLButtonElement | null>>([])
+
+  useEffect(() => {
+    if (selectedIndex >= 0) {
+      setActiveOptionIndex(selectedIndex)
+    }
+  }, [selectedIndex])
 
   const toggleOption = (optionId: string) => {
     if (allowMultiple) {
@@ -41,11 +50,38 @@ export function QuestionChoices({
     onChange(withOptionalFreeform([optionId], freeform))
   }
 
+  const moveRadio = (direction: -1 | 1) => {
+    const nextIndex =
+      (activeOptionIndex + direction + question.options.length) % question.options.length
+    setActiveOptionIndex(nextIndex)
+    toggleOption(question.options[nextIndex]!.id)
+    radioRefs.current[nextIndex]?.focus()
+  }
+
+  const handleRadioKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (allowMultiple) {
+      return
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+      event.preventDefault()
+      moveRadio(1)
+      return
+    }
+    if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+      event.preventDefault()
+      moveRadio(-1)
+    }
+  }
+
   return (
     <fieldset className="flex flex-col gap-2" disabled={disabled}>
       <legend className="text-sm font-medium">{question.prompt}</legend>
-      <div className="flex flex-col gap-1.5" role={allowMultiple ? "group" : "radiogroup"}>
-        {question.options.map((option) => {
+      <div
+        className="flex flex-col gap-1.5"
+        role={allowMultiple ? "group" : "radiogroup"}
+        aria-label={question.prompt}
+      >
+        {question.options.map((option, optionIndex) => {
           const selected = answer.optionIds.includes(option.id)
           return (
             <Button
@@ -54,8 +90,26 @@ export function QuestionChoices({
               size="sm"
               variant={selected ? "default" : "outline"}
               className="h-auto justify-start whitespace-normal px-3 py-2 text-left"
-              aria-pressed={selected}
-              onClick={() => toggleOption(option.id)}
+              role={allowMultiple ? undefined : "radio"}
+              aria-checked={allowMultiple ? undefined : selected}
+              aria-pressed={allowMultiple ? selected : undefined}
+              aria-setsize={allowMultiple ? undefined : question.options.length}
+              aria-posinset={allowMultiple ? undefined : optionIndex + 1}
+              tabIndex={allowMultiple ? undefined : optionIndex === activeOptionIndex ? 0 : -1}
+              ref={
+                allowMultiple
+                  ? undefined
+                  : (element) => {
+                      radioRefs.current[optionIndex] = element
+                    }
+              }
+              onClick={() => {
+                if (!allowMultiple) {
+                  setActiveOptionIndex(optionIndex)
+                }
+                toggleOption(option.id)
+              }}
+              onKeyDown={handleRadioKeyDown}
             >
               {option.label}
             </Button>

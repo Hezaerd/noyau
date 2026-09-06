@@ -28,7 +28,7 @@ export function DesktopUpdateSidebarButton(): ReactElement | null {
             size="icon"
             aria-label="Open the Noyau installer"
             loading={state.phase === "opening"}
-            className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={() => {
               void openInstaller().then((result) => {
                 const message = desktopUpdateOpenErrorMessage(result)

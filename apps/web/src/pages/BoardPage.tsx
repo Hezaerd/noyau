@@ -286,7 +286,11 @@ function TicketCard({
           onClick={onOpen}
           onFocus={onFocus}
           className="w-full touch-none rounded-xl px-3.5 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/65"
-          aria-label={`Open ticket ${ticket.title}`}
+          aria-label={`Open ${ticket.title}, ${
+            ticket.priority === "none"
+              ? priorityLabels[ticket.priority]
+              : `${priorityLabels[ticket.priority]} priority`
+          }`}
           {...attributes}
           {...listeners}
         >
@@ -304,6 +308,14 @@ function TicketCard({
               <GripVerticalIcon className="size-3.5" />
             </span>
           </div>
+
+          <span
+            className={cn("mt-2 block text-[11px] font-medium", priorityStyles[ticket.priority])}
+          >
+            {ticket.priority === "none"
+              ? priorityLabels[ticket.priority]
+              : `${priorityLabels[ticket.priority]} priority`}
+          </span>
 
           {openDependencyCount === 0 && due === undefined ? null : (
             <div className="mt-3 flex items-center gap-2 border-t border-border/55 pt-2.5">
@@ -462,7 +474,7 @@ function BoardColumnView({
       ref={setNodeRef}
       aria-labelledby={`column-title-${column.id}`}
       className={cn(
-        "flex h-full w-[304px] shrink-0 flex-col rounded-2xl border border-border/70 bg-card",
+        "surface-panel flex h-full w-[304px] shrink-0 flex-col rounded-2xl border border-border/70",
         selected && "border-primary/55 ring-2 ring-primary/25",
         isOver && "border-primary/45 bg-primary/5",
       )}

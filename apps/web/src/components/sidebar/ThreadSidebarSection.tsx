@@ -29,7 +29,7 @@ export function ThreadSidebarSection({
     <section aria-label="Threads" className="mt-1">
       {hasPinned ? (
         <>
-          <p className="px-2 text-[0.65rem] font-medium uppercase tracking-wide text-sidebar-foreground/45">
+          <p className="px-2 text-[0.65rem] font-medium uppercase tracking-wide text-sidebar-foreground/72">
             Pinned threads
           </p>
           <div className="mt-1 flex flex-col gap-0.5">
@@ -41,7 +41,7 @@ export function ThreadSidebarSection({
       ) : null}
       {hasActive ? (
         <div className={hasPinned ? "mt-3" : undefined}>
-          <p className="px-2 text-[0.65rem] font-medium uppercase tracking-wide text-sidebar-foreground/45">
+          <p className="px-2 text-[0.65rem] font-medium uppercase tracking-wide text-sidebar-foreground/72">
             Threads
           </p>
           <div className="mt-1 flex flex-col gap-0.5">
@@ -62,14 +62,14 @@ export function ThreadSidebarSection({
             data-testid="sidebar-settled-shelf-toggle"
             className="mb-1 flex w-full cursor-pointer items-center gap-2 px-2 text-left"
           >
-            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-sidebar-foreground/45">
+            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-sidebar-foreground/72">
               {settledShelfLabel(settled.length)}
             </span>
             <span aria-hidden className="h-px flex-1 bg-sidebar-border/60" />
             <ChevronDownIcon
               aria-hidden
               className={cn(
-                "size-3 shrink-0 text-sidebar-foreground/45 transition-transform duration-150 motion-reduce:transition-none",
+                "size-3 shrink-0 text-sidebar-foreground/72 transition-transform duration-120 motion-reduce:transition-none",
                 settledShelfExpanded && "rotate-180",
               )}
             />

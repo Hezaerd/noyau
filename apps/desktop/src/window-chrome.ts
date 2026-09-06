@@ -1,7 +1,6 @@
 import type { BrowserWindowConstructorOptions } from "electron"
 
 const TITLEBAR_HEIGHT = 40
-const TITLEBAR_COLOR = "#01000000"
 const TITLEBAR_LIGHT_SYMBOL_COLOR = "#1c1b26"
 const TITLEBAR_DARK_SYMBOL_COLOR = "#f8fafc"
 const WINDOW_LIGHT_BACKGROUND = "#f5f4fb"
@@ -23,7 +22,8 @@ export const getWindowBackgroundColor = (shouldUseDarkColors: boolean): string =
 export const getTitleBarOverlayOptions = (
   shouldUseDarkColors: boolean,
 ): TitleBarOverlayOptions => ({
-  color: TITLEBAR_COLOR,
+  // Native Windows controls sit above the renderer and need an opaque reading surface.
+  color: getWindowBackgroundColor(shouldUseDarkColors),
   height: TITLEBAR_HEIGHT,
   symbolColor: shouldUseDarkColors ? TITLEBAR_DARK_SYMBOL_COLOR : TITLEBAR_LIGHT_SYMBOL_COLOR,
 })

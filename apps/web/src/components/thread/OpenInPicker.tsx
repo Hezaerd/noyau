@@ -7,6 +7,7 @@ import { CursorIcon } from "@/components/provider-icons"
 import { Button } from "@/components/ui/button"
 import { Group, GroupSeparator } from "@/components/ui/group"
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu"
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { listEditors, openInEditor } from "@/lib/control-plane"
 import {
   editorLabel,
@@ -88,18 +89,27 @@ export function OpenInPicker({
     return null
   }
 
+  const preferredLabel = editorLabel(preferred)
   const primaryTrigger: ReactNode = (
-    <Button
-      type="button"
-      size="xs"
-      variant="outline"
-      className="no-drag ps-[8.5px]"
-      disabled={disabled || busy}
-      onClick={() => open(preferred)}
-    >
-      <EditorGlyph editor={preferred} />
-      <span className="hidden @3xl/header-actions:inline">Open</span>
-    </Button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            className="no-drag ps-[8.5px]"
+            aria-label={`Open in ${preferredLabel}`}
+            disabled={disabled || busy}
+            onClick={() => open(preferred)}
+          />
+        }
+      >
+        <EditorGlyph editor={preferred} />
+        <span className="hidden @3xl/header-actions:inline">Open</span>
+      </TooltipTrigger>
+      <TooltipPopup side="bottom">{`Open in ${preferredLabel}`}</TooltipPopup>
+    </Tooltip>
   )
 
   return (

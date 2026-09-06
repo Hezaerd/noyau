@@ -71,10 +71,10 @@ const StartTruncatedText = ({
 }) =>
   pathLike ? (
     <span className={cn("min-w-0 truncate text-left", className)} dir="rtl">
-      <bdi className={live ? "shimmer" : undefined}>{text}</bdi>
+      <bdi className={live ? "state-working" : undefined}>{text}</bdi>
     </span>
   ) : (
-    <span className={cn("min-w-0 truncate", live && "shimmer", className)}>{text}</span>
+    <span className={cn("min-w-0 truncate", live && "state-working", className)}>{text}</span>
   )
 
 const ToolRowIcon = ({
@@ -119,7 +119,12 @@ export function ThreadTranscriptTool({
   const failed = item.status === "error"
   const live = item.status === "in_progress"
   const pathLike = preview !== undefined && looksLikeToolPath(transcriptToolPreview(item) ?? "")
-  const accessibleLabel = failed ? `${display}, tool call failed` : display
+  const statusLabel = failed ? "Tool call failed" : live ? "Tool call in progress" : undefined
+  const accessibleLabel = failed
+    ? `${display}, tool call failed`
+    : live
+      ? `${display}, tool call in progress`
+      : display
 
   const rowToggleProps = canExpand
     ? {
@@ -166,6 +171,9 @@ export function ThreadTranscriptTool({
               )}
             />
           </p>
+          {!canExpand && statusLabel !== undefined ? (
+            <span className="sr-only">{statusLabel}</span>
+          ) : null}
           <span
             className={cn(
               "flex size-4 shrink-0 items-center justify-center",
@@ -225,7 +233,13 @@ export function ThreadTranscriptToolGroup({
         className="flex min-h-6 w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 py-0.5 text-left text-sm leading-relaxed transition-colors duration-150 hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
         aria-expanded={expanded}
         aria-controls={listId}
-        aria-label={failed ? `${label}, tool call failed` : label}
+        aria-label={[
+          label,
+          failed ? "tool call failed" : undefined,
+          liveItem !== undefined ? "tool call in progress" : undefined,
+        ]
+          .filter((part): part is string => part !== undefined)
+          .join(", ")}
         onClick={() => {
           setExpanded((current) => !current)
         }}

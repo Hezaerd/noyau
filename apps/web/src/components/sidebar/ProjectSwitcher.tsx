@@ -44,13 +44,13 @@ export function ProjectSwitcher({
             <button
               type="button"
               aria-label="Switch Project"
-              className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 px-2.5 text-left text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:opacity-50"
+              className="relative flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/45 px-2.5 text-left text-sm text-sidebar-foreground transition-colors pointer-coarse:min-h-11 hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:opacity-50"
             />
           }
         >
-          <FolderIcon className="size-4 shrink-0 text-sidebar-foreground/70" />
+          <FolderIcon className="size-4 shrink-0 text-sidebar-foreground/80" />
           <span className="min-w-0 flex-1 truncate">{selectedProject?.name ?? "No Project"}</span>
-          <ChevronDownIcon className="size-4 shrink-0 text-sidebar-foreground/50" />
+          <ChevronDownIcon className="size-4 shrink-0 text-sidebar-foreground/80" />
         </MenuTrigger>
         <MenuPopup align="start" className="w-(--anchor-width)">
           <MenuRadioGroup
@@ -101,7 +101,7 @@ export function ProjectSwitcher({
               variant="ghost"
               size="icon"
               aria-label="Link a folder"
-              className="size-9 shrink-0 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              className="size-9 shrink-0 text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               onClick={onAdd}
             />
           }
