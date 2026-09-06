@@ -11,7 +11,7 @@ import {
 import { hydrateProviderInstanceConfigs } from "@noyau/contracts/settings"
 import type { McpSessionRegistry } from "@noyau/server/mcp/mcp-session-registry"
 import type { ThreadLive } from "@noyau/server/thread-live"
-import { Context, Effect, Layer, Ref } from "effect"
+import { Context, Effect, Exit, Layer, Ref, Semaphore } from "effect"
 import type { FileSystem, Path, Scope } from "effect"
 import type { ChildProcessSpawner } from "effect/unstable/process"
 
@@ -48,6 +48,8 @@ type LiveSlot = {
   readonly port: ProviderPortService | null
   readonly view: ProviderInstanceView
 }
+
+const PROVIDER_BUILD_CONCURRENCY = 3
 
 const slotSignature = (config: ProviderInstanceConfig, enabled: boolean): string =>
   JSON.stringify({
@@ -226,10 +228,12 @@ export const makeProviderInstanceRegistry = Effect.fn("makeProviderInstanceRegis
 ) {
   const driverByKind = new Map(drivers.map((driver) => [driver.kind, driver] as const))
   const slotsRef = yield* Ref.make(new Map<string, LiveSlot>())
+  const settingsMutex = yield* Semaphore.make(1)
 
   const buildSlot = Effect.fn("ProviderInstanceRegistry.buildSlot")(function* (
     instanceId: ProviderInstanceId,
     config: ProviderInstanceConfig,
+    onPortBuilt: (port: ProviderPortService) => Effect.Effect<void>,
   ) {
     const enabled = resolveProviderInstanceEnabled(config)
     if (!enabled) {
@@ -251,46 +255,88 @@ export const makeProviderInstanceRegistry = Effect.fn("makeProviderInstanceRegis
         view: emptyProviderInstanceView(instanceId, config.driver, true),
       } satisfies LiveSlot
     }
-    const port = yield* factory.make({ instanceId, config })
-    return {
-      instanceId,
-      config,
-      enabled: true,
-      port,
-      view: yield* viewFromPort(instanceId, config.driver, port),
-    } satisfies LiveSlot
+    return yield* Effect.uninterruptibleMask((restore) =>
+      restore(factory.make({ instanceId, config })).pipe(
+        // Once a factory returns a port, cleanup owns it until the new map is published.
+        Effect.tap(onPortBuilt),
+        Effect.flatMap((port) =>
+          restore(viewFromPort(instanceId, config.driver, port)).pipe(
+            Effect.map(
+              (view) => ({ instanceId, config, enabled: true, port, view }) satisfies LiveSlot,
+            ),
+          ),
+        ),
+      ),
+    )
   })
 
-  const applySettings: ProviderInstanceRegistryService["applySettings"] = Effect.fn(
-    "ProviderInstanceRegistry.applySettings",
-  )(function* (instances) {
+  const applySettingsUnlocked = Effect.fn("ProviderInstanceRegistry.applySettings")(function* (
+    instances: Parameters<ProviderInstanceRegistryService["applySettings"]>[0],
+  ) {
     const hydrated = hydrateProviderInstanceConfigs({ providerInstances: instances })
     const previous = yield* Ref.get(slotsRef)
-    const next = new Map<string, LiveSlot>()
-    for (const [rawId, config] of Object.entries(hydrated)) {
-      const instanceId = ProviderInstanceId.make(rawId)
-      const enabled = resolveProviderInstanceEnabled(config)
-      const existing = previous.get(rawId)
-      if (
-        existing !== undefined &&
-        slotSignature(existing.config, existing.enabled) === slotSignature(config, enabled)
-      ) {
-        next.set(rawId, existing)
-        continue
-      }
-      if (existing !== undefined && existing.port !== null) {
-        yield* existing.port.stopAll
-      }
-      next.set(rawId, yield* buildSlot(instanceId, config))
-    }
+    const entries = Object.entries(hydrated)
+    const completedPorts = yield* Ref.make<ReadonlyArray<ProviderPortService>>([])
+    const published = yield* Ref.make(false)
+    const registerPort = (port: ProviderPortService) =>
+      Ref.update(completedPorts, (ports) => [...ports, port])
+
     for (const [rawId, existing] of previous) {
-      if (!next.has(rawId) && existing.port !== null) {
+      const config = hydrated[ProviderInstanceId.make(rawId)]
+      const unchanged =
+        config !== undefined &&
+        slotSignature(existing.config, existing.enabled) ===
+          slotSignature(config, resolveProviderInstanceEnabled(config))
+      if (!unchanged && existing.port !== null) {
         yield* existing.port.stopAll
       }
     }
-    yield* Ref.set(slotsRef, next)
-    return Object.fromEntries([...next.values()].map((slot) => [slot.instanceId, slot.view]))
+
+    return yield* Effect.gen(function* () {
+      const slots = yield* Effect.forEach(
+        entries,
+        ([rawId, config]) => {
+          const enabled = resolveProviderInstanceEnabled(config)
+          const existing = previous.get(rawId)
+          if (
+            existing !== undefined &&
+            slotSignature(existing.config, existing.enabled) === slotSignature(config, enabled)
+          ) {
+            return Effect.succeed(existing)
+          }
+          return buildSlot(ProviderInstanceId.make(rawId), config, registerPort)
+        },
+        { concurrency: PROVIDER_BUILD_CONCURRENCY },
+      )
+      const next = new Map(entries.map(([rawId], index) => [rawId, slots[index]!] as const))
+      yield* Effect.uninterruptible(
+        Ref.set(slotsRef, next).pipe(Effect.andThen(Ref.set(published, true))),
+      )
+      return Object.fromEntries([...next.values()].map((slot) => [slot.instanceId, slot.view]))
+    }).pipe(
+      Effect.onExit((exit) =>
+        Exit.isSuccess(exit)
+          ? Effect.void
+          : Ref.get(published).pipe(
+              Effect.flatMap((isPublished) =>
+                isPublished
+                  ? Effect.void
+                  : Ref.get(completedPorts).pipe(
+                      Effect.flatMap((ports) =>
+                        Effect.forEach(ports, (port) => port.stopAll, {
+                          concurrency: PROVIDER_BUILD_CONCURRENCY,
+                          discard: true,
+                        }),
+                      ),
+                    ),
+              ),
+            ),
+      ),
+    )
   })
+
+  const applySettings: ProviderInstanceRegistryService["applySettings"] = (instances) =>
+    settingsMutex.withPermits(1)(applySettingsUnlocked(instances))
 
   const service: ProviderInstanceRegistryService = {
     get: (id) =>
