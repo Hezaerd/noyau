@@ -13,6 +13,7 @@ import {
   reorderTicket,
   openDependencyTitles,
   ticketDependencyIssue,
+  ticketDependencyIssueLookups,
   ticketsInColumn,
   updateTicket,
   visibleTickets,
@@ -229,5 +230,83 @@ describe("local board preview model", () => {
       "cycle",
     )
     expect(ticketDependencyIssue(initialBoardState, "ticket-sheet", "ticket-http")).toBeUndefined()
+  })
+
+  it("matches the single-candidate dependency rules in both lookup directions", () => {
+    const ticketIds = ["a", "b", "c"]
+    const possibleEdges = ticketIds.flatMap((ticketId) =>
+      ticketIds.map((dependsOnTicketId) => ({ ticketId, dependsOnTicketId })),
+    )
+
+    for (let mask = 0; mask < 1 << possibleEdges.length; mask += 1) {
+      const ticketDependencies = possibleEdges.filter((_, index) => (mask & (1 << index)) !== 0)
+      const state = { ticketDependencies }
+      for (const ticketId of [...ticketIds, "unknown"]) {
+        const candidates = [...ticketIds, "unknown"]
+        const lookups = ticketDependencyIssueLookups(state, ticketId, candidates)
+        for (const candidateTicketId of candidates) {
+          expect(lookups.dependencies.get(candidateTicketId)).toBe(
+            ticketDependencyIssue(state, ticketId, candidateTicketId),
+          )
+          expect(lookups.dependents.get(candidateTicketId)).toBe(
+            ticketDependencyIssue(state, candidateTicketId, ticketId),
+          )
+        }
+      }
+    }
+  })
+
+  it("reads each dependency edge once for one candidate batch", () => {
+    let ticketIdReads = 0
+    let dependsOnTicketIdReads = 0
+    const ticketDependencies = [
+      {
+        get ticketId() {
+          ticketIdReads += 1
+          return "a"
+        },
+        get dependsOnTicketId() {
+          dependsOnTicketIdReads += 1
+          return "b"
+        },
+      },
+      {
+        get ticketId() {
+          ticketIdReads += 1
+          return "b"
+        },
+        get dependsOnTicketId() {
+          dependsOnTicketIdReads += 1
+          return "c"
+        },
+      },
+      {
+        get ticketId() {
+          ticketIdReads += 1
+          return "c"
+        },
+        get dependsOnTicketId() {
+          dependsOnTicketIdReads += 1
+          return "a"
+        },
+      },
+    ]
+
+    ticketDependencyIssueLookups({ ticketDependencies }, "a", ["a", "b", "c", "unknown"])
+
+    expect(ticketIdReads).toBe(ticketDependencies.length)
+    expect(dependsOnTicketIdReads).toBe(ticketDependencies.length)
+  })
+
+  it("recomputes lookup results when the dependency array is replaced", () => {
+    const initial = { ticketDependencies: [{ ticketId: "a", dependsOnTicketId: "b" }] }
+    const initialLookups = ticketDependencyIssueLookups(initial, "a", ["b", "c"])
+    expect(initialLookups.dependencies.get("b")).toBe("duplicate")
+    expect(initialLookups.dependencies.get("c")).toBeUndefined()
+
+    const next = { ticketDependencies: [{ ticketId: "a", dependsOnTicketId: "c" }] }
+    const nextLookups = ticketDependencyIssueLookups(next, "a", ["b", "c"])
+    expect(nextLookups.dependencies.get("b")).toBeUndefined()
+    expect(nextLookups.dependencies.get("c")).toBe("duplicate")
   })
 })
